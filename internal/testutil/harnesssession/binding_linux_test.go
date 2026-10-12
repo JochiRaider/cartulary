@@ -13,6 +13,10 @@ import (
 func testRuntimeBindings(t *testing.T) {
 	t.Run("fresh_recovery_output_rejects_forgery_and_concurrent_replay", func(t *testing.T) {
 		r, repo, run := runtimeFixture(t)
+		if _, err := r.BeginRecoveryAttempt(); err != nil {
+			t.Fatal(err)
+		}
+		defer r.FinishRecoveryAttempt()
 		a, err := r.AllocateRecoveryOutput()
 		if err != nil {
 			t.Fatal(err)

@@ -33,8 +33,13 @@ func TestFixtureProxyLifecycle(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(runtime.Root, "root.pem"), []byte("fixture certificate"), 0600); err != nil {
 				t.Fatal(err)
 			}
+			suiteFile := filepath.Join(runtime.Root, "suite-lease.json")
+			if err := runtime.RecordDependentResource("managed_suite", suiteFile, "acquired", []string{}); err != nil {
+				t.Fatal(err)
+			}
+			defer runtime.RecordResource("managed_suite", suiteFile, "released")
 			suite := &SuiteOwner{Acquire: func(context.Context) (*Suite, error) {
-				return &Suite{LeaseFile: filepath.Join(runtime.Root, "suite-lease.json"), Environment: map[string]string{"CARTULARY_S3TEST_ENDPOINT": "localhost:1", "CARTULARY_S3TEST_PROXY_CERTIFICATE_PATH": "/fixture/cert", "CARTULARY_S3TEST_PROXY_PRIVATE_KEY_PATH": "/fixture/key", "SSL_CERT_FILE": filepath.Join(runtime.Root, "root.pem")}}, nil
+				return &Suite{LeaseFile: suiteFile, ResourceRef: fixtureReference(t, runtime, "managed_suite", suiteFile), Environment: map[string]string{"CARTULARY_S3TEST_ENDPOINT": "localhost:1", "CARTULARY_S3TEST_PROXY_CERTIFICATE_PATH": "/fixture/cert", "CARTULARY_S3TEST_PROXY_PRIVATE_KEY_PATH": "/fixture/key", "SSL_CERT_FILE": filepath.Join(runtime.Root, "root.pem")}}, nil
 			}}
 			ready := ""
 			options := ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: map[string]string{"GO": "fixture-go", "GO_CACHE_DIR": root, "GO_MOD_CACHE_DIR": root, "GO_TMP_DIR": root, "PATH": "/usr/bin:/bin"}}
@@ -196,7 +201,7 @@ func proxyRecoveryHelper(t *testing.T, mode string) {
 	if code := objectstoreproxy.Main(promotion); code != 0 {
 		t.Fatal("promote", code)
 	}
-	if err := r.RecordResource("object_store_proxy", lease, "acquired", trust); err != nil {
+	if err := r.RecordDependentResource("object_store_proxy", lease, "acquired", []string{}, trust); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(trust, []byte("invalid certificate"), 0600); err != nil {

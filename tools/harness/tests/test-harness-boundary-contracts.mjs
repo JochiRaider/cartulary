@@ -68,10 +68,10 @@ test("harness boundaries reject private imports, unrelated exceptions, unknown o
 });
 
 
-import { spawnSync } from "node:child_process";
-import { browserAcquisitionLaunchArguments } from "../scheduler/adapters/browser.mjs";
+import { spawn, spawnSync } from "node:child_process";
+import { browserAcquisitionLaunchArguments } from "../test-support/owner-fixtures.mjs";
 
-test("browser adapter launches the owning acquisition dispatcher and rejects invalid ownership", () => {
+test("browser acquisition launches its owning dispatcher and rejects invalid ownership", () => {
   const command = browserAcquisitionLaunchArguments("missing-acquisition", "invalid-launch", process.execPath, ["--version"]);
   const childEnv = { ...process.env };
   delete childEnv.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
@@ -92,4 +92,32 @@ test("bootstrap artifact cache preserves content identity and failure handling",
     env: { ...process.env, NODE_BIN: process.execPath }, encoding: "utf8",
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
+
+test("retired private process dispatch rejects without signaling a live owned process", async (t) => {
+  const { once } = await import("node:events");
+  const { createRuntime } = await import("../runtime/session-client.mjs");
+  const { ownedProcess, stopOwnedProcess } = await import("../runtime/owned-process.mjs");
+  const repository = path.resolve(import.meta.dirname,"../../..");
+  const scratch = mkdtempSync(path.join(os.tmpdir(),"retired-process-dispatch-"));
+  const runRoot = path.join(scratch,"results","retired-dispatch");mkdirSync(runRoot,{recursive:true,mode:0o700});
+  const runtime = createRuntime({repoRoot:repository,runRoot,runID:"retired-dispatch",scratchRoot:path.join(scratch,"private")});
+  const child = spawn(process.execPath,["-e","process.stdout.write('ready');setInterval(()=>{},1000)"],{detached:true,stdio:["ignore","pipe","ignore"]});
+  const closed=once(child,"close");
+  t.after(async()=>{if(child.exitCode===null){child.kill("SIGKILL");await closed;}});
+  await once(child.stdout,"data");
+  const proof=ownedProcess(child.pid);
+  const resource={kind:"helper_process",target:proof,state:"acquired",run_id:runtime.runID,lease_id:runtime.leaseID,depends_on:[],recovery_files:[]};
+  validateSchemaSync("cartulary.harness_runtime_resource.v1",resource);
+  runtime.record(resource);
+  try {
+    assert.throws(()=>validateSchemaSync("cartulary.harness_runtime_resource.v1",{...resource,kind:"preparation_process"}));
+    const result=spawnSync(process.execPath,[path.join(repository,"tools/harness/runtime/resource-stop-private.mjs")],{
+      cwd:repository,env:{...process.env,...runtime.producerEnvironment(),CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT:runRoot},input:JSON.stringify(resource),timeout:10000,encoding:"utf8"});
+    assert.equal(result.error,undefined);assert.equal(result.status,12);
+    assert.equal(child.exitCode,null);assert.doesNotThrow(()=>process.kill(child.pid,0),"retired dispatch signaled a process");
+  } finally {
+    await stopOwnedProcess(proof);await closed;runtime.record({...resource,state:"released"});runtime.close();rmSync(scratch,{recursive:true,force:true});
+  }
 });

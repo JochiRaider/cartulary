@@ -111,18 +111,8 @@ func recoverSession(ctx context.Context, repository, file string, locator Locato
 			}
 			resultErr = errors.Join(resultErr, err, runtime.PreserveRecovery())
 		}()
-		cleanup := recoverIndependent(ctx, repository, runRoot, runtime, environment)
-		for _, err := range cleanup {
-			cleanupSteps = append(cleanupSteps, cleanupStep{"provider_close", err})
-		}
-		physicalRoot := runRoot
-		if record.Presentation == "ui" {
-			physicalRoot, err = runtime.PrivatePath("lifecycle", runtime.RunID)
-			if err != nil {
-				return result(command), err
-			}
-		}
-		owner := harnessfixtures.ProductionOptions{Root: repository, RunRoot: physicalRoot, Target: "ui-review", Runtime: runtime, Environment: environment}
+		cleanup := []error{}
+		owner := harnessfixtures.ProductionOptions{Root: repository, RunRoot: runRoot, Target: "ui-review", Runtime: runtime, Environment: environment}
 		owner.ReportCleanup = func(outcome harnessfixtures.CleanupOutcome) {
 			operation := "provider_close"
 			if outcome.Kind == "managed_suite" || outcome.Kind == "borrowed_suite" {

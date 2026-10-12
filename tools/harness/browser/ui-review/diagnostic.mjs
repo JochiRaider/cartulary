@@ -55,26 +55,22 @@ async function targetID(context, page) {
   finally { await cdp.detach(); }
 }
 
-export async function diagnosticSnapshot({ owner, runtime, operationID, signal, capacities, parentLease, onResource, spawnProcess = spawn }) {
-  const scope = diagnosticProcessScope();
+export async function diagnosticSnapshot({ owner, runtime, dependencies, operationID, signal, capacities, parentLease, onResource, spawnProcess = spawn }) {
   const directory = runtime.privatePath("artifacts", "diagnostics", String(operationID));
-  const environment = diagnosticEnvironment(directory, scope.token);
+  const scope = diagnosticProcessScope(runtime, dependencies);
+  const environment = { ...diagnosticEnvironment(directory, scope.token), ...runtime.producerEnvironment() };
   const controller = new AbortController();
   const combined = AbortSignal.any([signal, controller.signal]);
   const timer = setTimeout(() => controller.abort(new ReviewFailure("operation_expired")), limits.operation);
   const resourceTimer = setInterval(() => {
     try {
-      const processes = diagnosticProcesses(scope);
-      const memory = processes.reduce((sum, proof) => {
-        try { return sum + Number(readFileSync(`/proc/${proof.pid}/statm`, "utf8").split(" ")[1]) * 4096; }
-        catch (error) { if (["ENOENT", "ESRCH"].includes(error.code)) return sum; throw error; }
-      }, 0);
-      if (processes.length > workClaims.diagnostic.process || memory > workClaims.diagnostic.memory_mb * 1048576) controller.abort(new ReviewFailure("capacity_exceeded"));
+      const inspection = runtime.inspectDiagnosticScope(scope);
+      if (inspection.processes.length > workClaims.diagnostic.process || inspection.rss_bytes > workClaims.diagnostic.memory_mb * 1048576) controller.abort(new ReviewFailure("capacity_exceeded"));
       checkDiagnosticScratch(directory);
-    } catch (error) { controller.abort(error instanceof ReviewFailure ? error : new ReviewFailure("target_unavailable")); }
+    } catch (error) { controller.abort(error instanceof ReviewFailure ? error : new ReviewFailure("target_unavailable", {cause:error})); }
   }, 50);
   let stage = "admission";
-  let temporaryFD, lease, bound = false, registered = false, reaped = false, failure, attached = false, endpoint, focus;
+  let temporaryFD, lease, bound = false, reaped = false, failure, attached = false, endpoint, focus;
   const oldCache = process.env.XDG_CACHE_HOME;
   const session = "cartulary-diagnostic";
   let executable;
@@ -112,7 +108,7 @@ export async function diagnosticSnapshot({ owner, runtime, operationID, signal, 
       try { proof = ownedProcess(child.pid); }
       catch (error) { if (!["ENOENT", "ESRCH"].includes(error.code)) throw error; }
       if (proof) {
-        proofs.set(proof.pid, proof); await onResource({ kind: "helper_process", target: proof });
+        proofs.set(proof.pid, proof); await onResource({ kind: "helper_process", target: proof, depends_on: dependencies });
         await bindDiagnosticProcess(lease, proof);
       }
       const status = await exit;
@@ -123,7 +119,7 @@ export async function diagnosticSnapshot({ owner, runtime, operationID, signal, 
       if (overflow) throw new ReviewFailure("observation_limit");
       if (status !== 0) throw new ReviewFailure("target_unavailable");
       return parseDiagnosticOutput(Buffer.concat(stdout));
-    } finally { clearTimeout(killTimer); cancellation.removeEventListener("abort", abort); if (proof && child.exitCode !== null) await onResource({ kind: "helper_process", target: proof, state: "released" }); }
+    } finally { clearTimeout(killTimer); cancellation.removeEventListener("abort", abort); }
   };
   try {
     combined.throwIfAborted();
@@ -139,7 +135,7 @@ export async function diagnosticSnapshot({ owner, runtime, operationID, signal, 
     atomicLocalFile(config, JSON.stringify({ browser: { browserName: "chromium" }, outputDir: path.join(directory, "output"), outputMaxSize: diagnosticScratchLimit,
       saveSession: false, imageResponses: "omit", allowUnrestrictedFileAccess: false, snapshot: { mode: "full", boxes: false },
       timeouts: { action: limits.action, navigation: limits.action }, console: { level: "error" } }));
-    await onResource({ kind: "diagnostic_scope", target: scope }); registered = true;
+    await onResource({ kind: "diagnostic_scope", target: scope, depends_on: dependencies });
     stage = "state";
     const before = await pageState(owner);
     focus = await owner.page.evaluateHandle(() => document.activeElement);
@@ -161,8 +157,8 @@ export async function diagnosticSnapshot({ owner, runtime, operationID, signal, 
     } finally { await probe.close(); }
     stage = "attach";
     const attachment = await run("attach"); attached = true;
-    if (attachment.session !== session || attachment.endpoint !== endpoint || !diagnosticProcesses(scope).some((proof) => proof.pid === attachment.pid)) throw new ReviewFailure("target_unavailable");
-    for (const proof of diagnosticProcesses(scope)) { proofs.set(proof.pid, proof); await onResource({ kind: "helper_process", target: proof }); await bindDiagnosticProcess(lease, proof); }
+    if (attachment.session !== session || attachment.endpoint !== endpoint || !diagnosticProcesses(runtime, scope).some((proof) => proof.pid === attachment.pid)) throw new ReviewFailure("target_unavailable");
+    for (const proof of diagnosticProcesses(runtime, scope)) { proofs.set(proof.pid, proof); await onResource({ kind: "helper_process", target: proof, depends_on: dependencies }); await bindDiagnosticProcess(lease, proof); }
     stage = "snapshot";
     const result = await run("snapshot");
     if (typeof result.snapshot?.file !== "string" || path.resolve(directory, result.snapshot.file) !== snapshotFile) throw new ReviewFailure("target_unavailable");
@@ -192,12 +188,12 @@ export async function diagnosticSnapshot({ owner, runtime, operationID, signal, 
     clearTimeout(timer); clearInterval(resourceTimer); const errors = [];
     const attempt = async (release) => { try { await release(); } catch (error) { errors.push(error); } };
     if (attached) await attempt(() => boundedCleanup(() => run("detach", AbortSignal.timeout(3000)), 4000));
-    if (registered) await attempt(async () => { await stopDiagnosticProcesses(scope); reaped = true; for (const proof of proofs.values()) await onResource({ kind: "helper_process", target: proof, state: "released" }); await onResource({ kind: "diagnostic_scope", target: scope, state: "released" }); });
+    await attempt(async () => { await stopDiagnosticProcesses(runtime, scope); reaped = true; for (const proof of proofs.values()) await onResource({ kind: "helper_process", target: proof, state: "released" }); await onResource({ kind: "diagnostic_scope", target: scope, state: "released" }); });
     if (bound) await attempt(() => boundedCleanup(() => owner.browser.unbind(), 5000));
     if (oldCache === undefined) delete process.env.XDG_CACHE_HOME; else process.env.XDG_CACHE_HOME = oldCache;
     await attempt(() => focus?.dispose());
     if (temporaryFD !== undefined) await attempt(() => closeSync(temporaryFD));
-    if (!registered || reaped) { await attempt(() => removePrivateTree(directory)); await attempt(() => lease?.release()); }
+    if (reaped) { await attempt(() => removePrivateTree(directory)); await attempt(() => lease?.release()); }
     if (errors.length) {
       if (failure) (failure.cleanupFailures ??= []).push(...errors);
       else throw Object.assign(new ReviewFailure("cleanup_failed"), { cleanupFailures: errors });

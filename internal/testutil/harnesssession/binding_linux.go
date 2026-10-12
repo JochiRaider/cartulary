@@ -3,19 +3,22 @@
 package harnesssession
 
 import (
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"golang.org/x/sys/unix"
+	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 )
 
 // AllocateRecoveryOutput is native-owner-only, distinct for each physical
 // operation. Original resource identity stays in the lease, not this path.
 func (r *Runtime) AllocateRecoveryOutput() (string, error) {
-	if !r.owned {
+	if !r.owned || r.attempt == "" {
 		return "", harnesslocal.ErrUnsafe
 	}
-	output, err := r.PrivatePath("recovery-output", identifier(), r.RunID)
+	output, err := r.RecoveryDetailPath("output", identifier(), r.RunID)
 	if err != nil {
 		return "", err
 	}
@@ -46,8 +49,22 @@ func ClaimRecoveryOutput(repository, output, root, runID, leaseID string) error 
 	if err != nil {
 		return err
 	}
-	if output == original || !within(filepath.Join(root, "detail", "recovery-output"), output) || filepath.Base(output) != runID {
+	relative, err := filepath.Rel(filepath.Join(root, "recovery-detail"), output)
+	parts := strings.Split(relative, string(filepath.Separator))
+	if err != nil || len(parts) != 4 || !uuidPattern.MatchString(parts[0]) || parts[1] != "output" || !uuidPattern.MatchString(parts[2]) || parts[3] != runID || output == original {
 		return harnesslocal.ErrUnsafe
+	}
+	r := &Runtime{Root: root, RunID: runID, LeaseID: leaseID}
+	v, err := r.readDetail(parts[0])
+	if err != nil {
+		return err
+	}
+	actor, err := harnessadmission.Identity(os.Getpid())
+	if err != nil {
+		return err
+	}
+	if err := attemptCaller(v, actor); err != nil {
+		return err
 	}
 	dir, err := harnesslocal.OpenDirectory(output, true)
 	if err != nil {
@@ -102,7 +119,7 @@ func (r *Runtime) AuthorizeOutputRoot(output string) error {
 		return err
 	}
 	defer unlock()
-	if err := r.mutable(); err != nil {
+	if err := r.productionMutable(); err != nil {
 		return err
 	}
 	data, err := harnesslocal.ReadFileAt(r.Directory, "runtime-owner.json", MaximumOwner, false)

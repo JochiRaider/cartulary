@@ -7,7 +7,6 @@ import (
 	"errors"
 	"maps"
 	"path/filepath"
-	"slices"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 )
@@ -60,21 +59,21 @@ func NewProduction(p ProductionOptions, options Options) *Production {
 }
 func (p *Production) Close(ctx context.Context) error {
 	err := p.Broker.Close(ctx)
-	resources, proofErr := p.Options.Runtime.Resources(4096)
-	unresolved := p.Broker.Unresolved() || proofErr != nil
-	p.Suite.mu.Lock()
-	dependency := ""
-	if p.Suite.suite != nil {
-		dependency = p.Suite.suite.LeaseFile
+	// Resource-specific release closures use the same dependency evaluator.
+	// Sweep remaining retained resources, including partial acquisitions, before
+	// the suite handle closes. Unresolved consumers retain their dependencies.
+	cleanupErr := p.Options.closeResources(ctx, "", nil)
+	if p.Broker.Unresolved() {
+		err = errors.Join(err, CleanupFailure(ErrCleanupBlocked))
 	}
-	p.Suite.mu.Unlock()
-	for _, resource := range resources {
-		if slices.Contains([]string{"browser_stack", "object_store_proxy", "helper_process", "browser_process", "browser_renderer"}, resource.Kind) && (resource.Dependencies == nil || slices.Contains(resource.Dependencies, dependency)) {
-			unresolved = true
+	remaining, proofErr := p.Options.Runtime.Resources(4096)
+	if proofErr != nil {
+		return errors.Join(err, cleanupErr, proofErr)
+	}
+	for _, resource := range remaining {
+		if resource.Kind == "managed_suite" || resource.Kind == "borrowed_suite" {
+			return errors.Join(err, cleanupErr, CleanupFailure(ErrCleanupBlocked))
 		}
 	}
-	if unresolved {
-		return errors.Join(err, proofErr, CleanupFailure(ErrCleanupBlocked))
-	}
-	return errors.Join(err, p.Suite.Close(ctx))
+	return errors.Join(err, cleanupErr, p.Suite.Close(ctx))
 }

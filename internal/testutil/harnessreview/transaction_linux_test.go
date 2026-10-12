@@ -13,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 var publicationStages = []string{"before_intent", "after_intent", "after_seal", "after_pre_scan", "after_detail_purge", "after_extras", "after_terminal", "after_locator", "after_scan", "after_runtime_removal", "before_registry_removal"}
@@ -165,7 +166,10 @@ func testPublicationTransactions(t *testing.T) {
 		if !p.record.Publication.DetailPurged {
 			t.Fatal("fixture did not record prior purge")
 		}
-		detail, err := p.runtime.PrivatePath("new-recovery-detail.log")
+		if _, err := p.runtime.BeginRecoveryAttempt(); err != nil {
+			t.Fatal(err)
+		}
+		detail, err := p.runtime.RecoveryDetailPath("new-recovery-detail.log")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -177,6 +181,7 @@ func testPublicationTransactions(t *testing.T) {
 		if err := os.WriteFile(terminal, foreign, 0600); err != nil {
 			t.Fatal(err)
 		}
+		abandonPublicationAttempt(t, p)
 		retirePublicationTestOwner(t, p)
 		value, err := control(context.Background(), p.record.Repository, commandRequest{Command: "ui-review-stop", Locator: p.record.Locator}, nil)
 		if err == nil && value.Status == "ok" {
@@ -194,13 +199,26 @@ func testPublicationTransactions(t *testing.T) {
 		}
 		// Reject inconsistent saved intent before terminal publication, while still
 		// removing detail from this later recovery attempt.
-		detail, err = p.runtime.PrivatePath("early-intent-detail.log")
+		caller, err := harnessadmission.Identity(os.Getpid())
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.runtime.ReleaseHandles()
+		p.runtime, err = harnesssession.OwnRuntime(p.record.Repository, p.runRoot, p.runtime.Root, p.runtime.RunID, p.runtime.LeaseID, caller, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := p.runtime.BeginRecoveryAttempt(); err != nil {
+			t.Fatal(err)
+		}
+		detail, err = p.runtime.RecoveryDetailPath("early-intent-detail.log")
 		if err != nil {
 			t.Fatal(err)
 		}
 		if err = os.WriteFile(detail, []byte("later private detail"), 0600); err != nil {
 			t.Fatal(err)
 		}
+		abandonPublicationAttempt(t, p)
 		p.record.Publication.Locator.Receipt.Bytes++
 		if err = writeRegistry(p.record, true); err != nil {
 			t.Fatal(err)
@@ -312,5 +330,33 @@ func testPublicationCrashRecovery(t *testing.T) {
 				t.Fatal("runtime survived completed recovery", err)
 			}
 		})
+	}
+}
+
+// Simulate interruption after admission without reopening ordinary allocation.
+func abandonPublicationAttempt(t *testing.T, p *diskPublisher) {
+	t.Helper()
+	dir := filepath.Join(p.runtime.Root, "recovery-attempts")
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		data, err := os.ReadFile(filepath.Join(dir, file.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var value map[string]any
+		if json.Unmarshal(data, &value) != nil {
+			t.Fatal("attempt")
+		}
+		if value["state"] == "purged" {
+			continue
+		}
+		value["owner"] = harnessadmission.Proof{Boot: "independent-dead-attempt", PID: 12345, Start: "1"}
+		data, _ = json.Marshal(value)
+		if err := harnesslocal.ReplaceFile(filepath.Join(dir, file.Name()), data); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

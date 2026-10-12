@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:ca96fdd160b4fbe2b6aab4178a48a52334df336b480c5090d35baef87063f82b",
+  "input_digest": "sha256:9ced3131a724eae560ba206424d008f6cb24eb16b71041340c79eeb59c3d001a",
   "inputs": [
     {
       "path": "contracts/performance/ac043.v1.json",
@@ -387,7 +387,7 @@
     {
       "path": "tools/harness/browser/browser-acquisition.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6992719340bfaaa11080c272067f3d3e27cce23dbf1eea40656f45872a54b366"
+      "hash": "sha256:9db9f77c7297949616f8184d8ebb3339cf9277f4f712d34b099c1670e5b3a4a8"
     },
     {
       "path": "tools/harness/browser/browser-batch-manifest.mjs",
@@ -397,7 +397,7 @@
     {
       "path": "tools/harness/browser/browser-catalog-group-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:383c5a481d51a4dc4575acd1e89eb7e52f8cc4a6c0f83f7e51c27ef9c1215131"
+      "hash": "sha256:e85303d0ddd62a3861800051ae279cc4e19db3e2029cad1a55176a882c53d503"
     },
     {
       "path": "tools/harness/browser/browser-group-selection.mjs",
@@ -418,11 +418,6 @@
       "path": "tools/harness/browser/browser-runtime-profile.mjs",
       "role": "renderer_source",
       "hash": "sha256:9553b3d7381da4270136f3b79d7e4ecffe3f9241dfba9a893bc6f2cbcc31562c"
-    },
-    {
-      "path": "tools/harness/browser/browser-scheduler-dependencies.mjs",
-      "role": "renderer_source",
-      "hash": "sha256:ba3f080909aa2090cb3d8a05435cc723a1fccabb32adfdf7413eae4ab7aa7534"
     },
     {
       "path": "tools/harness/browser/browser-session-evidence.mjs",
@@ -462,7 +457,7 @@
     {
       "path": "tools/harness/browser/fixture-process.mjs",
       "role": "renderer_source",
-      "hash": "sha256:92e1772d311898ee679e85db6a82caf61c7c315e64ac8cc4e517d0bcd6a044d6"
+      "hash": "sha256:9b8a64de322f23cbc41e5d301b18664faf0af300d0ec6394a32055f164d622bf"
     },
     {
       "path": "tools/harness/browser/frontend-measurement-evidence.mjs",
@@ -482,7 +477,7 @@
     {
       "path": "tools/harness/browser/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6d740a5f968d520ed5caab46d8a5212e5b66bc43ffb84a36be2a47496a60f394"
+      "hash": "sha256:14aff09c980702fc4fc1acfc4ff635f89222e74fbac4b14884a096932c00d460"
     },
     {
       "path": "tools/harness/browser/playwright-output-cleanup.mjs",
@@ -507,12 +502,12 @@
     {
       "path": "tools/harness/browser/review-recipes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:f49094e181a4f63bb77b849cbedfa3f0a3c3177aedc7e9e1cf99a7fadfed75bc"
+      "hash": "sha256:738c9e5deadc953e3a35666d734b469512f95dcb1e35e697b4951fd590d00cf7"
     },
     {
       "path": "tools/harness/browser/ui-review/adapter.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ee1c9a33465bf81d1d00db2a68838e4802b74eb94547816ed8358afcf5033eff"
+      "hash": "sha256:d3cfddb7260b643de52710170f3ba50047ae7085370ecb8889bcea8f102465bc"
     },
     {
       "path": "tools/harness/browser/ui-review/analysis.mjs",
@@ -577,12 +572,12 @@
     {
       "path": "tools/harness/browser/ui-review/diagnostic-processes.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6c1f36f1e02c39138a37ed2957289f82ffaaaa6d6db2719a5035b3dea95e81a6"
+      "hash": "sha256:fe8d1770226adc7f5ce73cb835b3582f93103f28b18657bcd0930e4f48054701"
     },
     {
       "path": "tools/harness/browser/ui-review/diagnostic.mjs",
       "role": "renderer_source",
-      "hash": "sha256:0c3030618d77ae0ffe075263d14424a1ea67e7f66cbd2d54de42a7fc97a4a626"
+      "hash": "sha256:242f8dd54294c57cd58af947f58bc774f734d445d02e7b5d452af22e41a596da"
     },
     {
       "path": "tools/harness/browser/ui-review/executor.mjs",
@@ -712,7 +707,7 @@
     {
       "path": "tools/harness/contract/generated/lifecycle-policy.mjs",
       "role": "renderer_source",
-      "hash": "sha256:754c9ede7e3f47b445a5fec7fbea8a5961a7b7dc638ca4e1c4b60066c1b93ab8"
+      "hash": "sha256:83a860f6e2814aa09a0e198c6e4f6b63dec408cbe2ab62641ffb571005ba9d01"
     },
     {
       "path": "tools/harness/contract/harness-contract-cli.mjs",
@@ -777,7 +772,7 @@
     {
       "path": "tools/harness/execution/run-make-node-tool-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:57ac1ee1468a5bdbf28191c879aa4e184e94c0c5cdd9b738239b14354b66a5d4"
+      "hash": "sha256:a1a6a4c4a67944ea5ee0397db16470df54aecd83e584e996fb03496f3239de14"
     },
     {
       "path": "tools/harness/execution/runners/go.mjs",
@@ -792,7 +787,7 @@
     {
       "path": "tools/harness/execution/runners/row-runner-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:fd66ff38f07cc281626382fabbb2618d7ec84acf63b3290fbd2bcafc71d378ab"
+      "hash": "sha256:8a226be51643ed1c8af59cf2e725a39060db36bc7710db896eb4ab0294ddc033"
     },
     {
       "path": "tools/harness/execution/runners/shell.mjs",
@@ -1007,7 +1002,7 @@
     {
       "path": "tools/harness/scheduler/adapters/browser.mjs",
       "role": "renderer_source",
-      "hash": "sha256:7a30257b8a16db2415756f49a852b36c7978a1a407b59242297559cf0c4413ab"
+      "hash": "sha256:f11183767f8388072238f0d1008087416bcc7c9d7d45c5eccce8662ac68a4bc8"
     },
     {
       "path": "tools/harness/scheduler/scheduler-manifest.mjs",

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"golang.org/x/sys/unix"
 	"io"
 	"os"
@@ -75,6 +76,7 @@ func receiveCompiler(ctx context.Context, cmd *exec.Cmd) (*Plan, error) {
 	if err := cmd.Start(); err != nil {
 		return nil, errors.New("graph compiler failed to start")
 	}
+	proof, proofErr := harnesssession.CaptureProcess(cmd.Process.Pid)
 	write.Close()
 	type publication struct {
 		data []byte
@@ -101,6 +103,7 @@ func receiveCompiler(ctx context.Context, cmd *exec.Cmd) (*Plan, error) {
 	readDone, rootDone := false, false
 	cancellation := ctx.Done()
 	var drain <-chan time.Time
+receive:
 	for !readDone || !rootDone {
 		select {
 		case received = <-output:
@@ -119,16 +122,36 @@ func receiveCompiler(ctx context.Context, cmd *exec.Cmd) (*Plan, error) {
 		case <-cancellation:
 			_ = cmd.Cancel()
 			cancellation = nil
+			drain = time.After(2 * time.Second)
 			if !readDone {
 				_ = read.Close()
 			}
 		case <-drain:
 			_ = read.Close()
 			drain = nil
+			if !rootDone {
+				break receive
+			}
 		}
+	}
+	settleCtx, settleCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	settleErr := proofErr
+	if settleErr == nil {
+		settleErr = harnesssession.StopProcess(settleCtx, proof, 0)
+	}
+	settleCancel()
+	if !rootDone {
+		// A denied signal or an uninterruptible child must not bypass the
+		// compiler deadline. Keep its anchor until it can be reaped, and never
+		// admit a plan from this unresolved compiler.
+		go func() { <-terminal; settled.Store(true); _ = cmd.Wait() }()
+		return nil, errors.Join(failed("harness", "cleanup_error"), ctx.Err(), settleErr, harnesssession.ErrUnresolved)
 	}
 	settled.Store(true)
 	err = cmd.Wait()
+	if settleErr != nil {
+		return nil, errors.Join(failed("harness", "cleanup_error"), ctx.Err(), err, settleErr)
+	}
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}

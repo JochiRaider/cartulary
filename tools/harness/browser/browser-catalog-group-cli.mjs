@@ -286,7 +286,7 @@ async function main() {
     );
   }
     child = await runPrivateCapturedProcess(invocation.command, invocation.args, {
-      producer: "playwright",
+      producer: "playwright", dependencies: JSON.parse(process.env.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES),
       cwd: root,
       detached: true,
       onSpawn: (process) => { captureProof = ownedProcess(process.pid); if (interruptedSignal) onSignal(interruptedSignal); },

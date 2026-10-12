@@ -9,7 +9,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -41,6 +43,9 @@ func TestRuntimeCompilerProcessHelper(t *testing.T) {
 		if child.Start() != nil {
 			os.Exit(2)
 		}
+		if err := os.WriteFile(os.Getenv("CARTULARY_COMPILER_CHILD_PROOF"), []byte(strconv.Itoa(child.Process.Pid)), 0600); err != nil {
+			os.Exit(2)
+		}
 	}
 	_ = f.Close()
 	switch mode {
@@ -63,7 +68,8 @@ func TestRuntimeCompilerLifetime(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestRuntimeCompilerProcessHelper$")
-			cmd.Env = append(os.Environ(), "CARTULARY_RUNTIME_COMPILER_FIXTURE="+mode)
+			proofFile := filepath.Join(t.TempDir(), "child")
+			cmd.Env = append(os.Environ(), "CARTULARY_RUNTIME_COMPILER_FIXTURE="+mode, "CARTULARY_COMPILER_CHILD_PROOF="+proofFile)
 			start := time.Now()
 			p, err := receiveCompiler(ctx, cmd)
 			if mode == "wait" || mode == "descendant" {
@@ -72,6 +78,26 @@ func TestRuntimeCompilerLifetime(t *testing.T) {
 				}
 			} else if err == nil || p != nil {
 				t.Fatal("failed compiler exposed plan")
+			}
+			if mode == "descendant" {
+				data, e := os.ReadFile(proofFile)
+				if e != nil {
+					t.Fatal(e)
+				}
+				pid, e := strconv.Atoi(string(data))
+				if e != nil {
+					t.Fatal(e)
+				}
+				defer syscall.Kill(pid, syscall.SIGKILL)
+				state, e := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+				if e == nil {
+					fields := strings.Fields(string(state)[strings.LastIndex(string(state), ") ")+2:])
+					if fields[0] != "Z" && fields[0] != "X" {
+						t.Fatal("compiler admitted live descendant")
+					}
+				} else if !os.IsNotExist(e) {
+					t.Fatal(e)
+				}
 			}
 			if cmd.ProcessState == nil || !cmd.ProcessState.Exited() && ctx.Err() == nil && mode != "oversized" {
 				t.Fatalf("compiler not waited: %v", cmd.ProcessState)

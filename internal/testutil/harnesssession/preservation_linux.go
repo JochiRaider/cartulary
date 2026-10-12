@@ -32,17 +32,12 @@ func (r *Runtime) PreserveRecovery() error {
 	if !r.owned {
 		return harnesslocal.ErrUnsafe
 	}
-	// Purge the independently owned disposable tree before decoding authority.
-	// A malformed journal must not preserve unrelated private detail.
-	detail := filepath.Join(r.Root, "detail")
-	dir, purgeErr := harnesslocal.OpenDirectory(detail, true)
-	if purgeErr == nil {
-		purgeErr = RemoveOwnedTree(dir, detail)
-		dir.Close()
+	// Producer authority and fencing do not depend on the resource journal.
+	// Corrupt resources cannot retain safely quiesced disposable detail.
+	if err := r.fenceDetails(); err != nil {
+		return err
 	}
-	if errors.Is(purgeErr, os.ErrNotExist) {
-		purgeErr = nil
-	}
+	purgeErr := errors.Join(r.purgeDetail("ordinary"), r.purgeRecoveryDetails())
 	marker, err := harnesslocal.PrivateDirectory(filepath.Join(r.Root, "recovery"))
 	if err != nil {
 		return err
@@ -51,6 +46,9 @@ func (r *Runtime) PreserveRecovery() error {
 	resources, err := r.resources(4096)
 	if err != nil {
 		return errors.Join(err, purgeErr)
+	}
+	if purgeErr != nil {
+		return purgeErr
 	}
 	if len(resources) == 0 {
 		// Review terminal transactions may retain scanner authority after resources
@@ -89,7 +87,7 @@ func (r *Runtime) PreserveRecovery() error {
 		slices.Sort(names)
 		failures := []error{}
 		for _, name := range names {
-			if path == r.Root && slices.Contains([]string{"runtime-owner.json", "runtime-process.json", "recovery", "registered-secrets", "finalizing"}, name) {
+			if path == r.Root && slices.Contains([]string{"runtime-owner.json", "runtime-process.json", "recovery", "registered-secrets", "finalizing", "detail-authority.json", "recovery-attempts", "recovery-detail", "detail"}, name) {
 				continue
 			}
 			child := filepath.Join(path, name)
@@ -244,6 +242,15 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 				return nil
 			}
 			if err != unix.ENOENT {
+				return err
+			}
+			// A dead owner does not prove that its admitted detail writers or
+			// marked descendants stopped. Use the same fenced native boundary.
+			runtime := &Runtime{Root: path, RunID: owner["run_id"].(string), LeaseID: owner["lease_id"].(string), Directory: d, owned: true}
+			if err := runtime.fenceDetails(); err != nil {
+				return err
+			}
+			if err := errors.Join(runtime.purgeDetail("ordinary"), runtime.purgeRecoveryDetails()); err != nil {
 				return err
 			}
 			if err = RemoveOwnedTree(d, path); err == nil {

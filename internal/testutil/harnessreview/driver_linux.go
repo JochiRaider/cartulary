@@ -227,27 +227,23 @@ func (d *productionDriver) Close(ctx context.Context) []error {
 			return a.close(ctx)
 		}, time.Duration(LimitDrain)*time.Millisecond)
 	}
-	// The adapter relinquishes all process handles before the physical resource
-	// ledger drains dependents. There is no second browser-close authority in Node.
-	dependentErrors := recoverIndependent(ctx, d.root, d.runRoot, d.runtime, d.environment)
-	d.cleanup = append(d.cleanup, cleanupStep{"provider_close", errors.Join(dependentErrors...)})
-	failures = append(failures, dependentErrors...)
-	if d.fixtures != nil {
-		err := d.fixtures.Close(context.WithoutCancel(ctx))
-		d.cleanup = append(d.cleanup, cleanupStep{"services_close", err})
-		if err != nil {
-			failures = append(failures, failure("cleanup_failed"))
-		}
-	}
-	recovery := harnessfixtures.ProductionOptions{Root: d.root, RunRoot: d.runRoot, Target: "ui-review", Runtime: d.runtime, Environment: d.environment}
-	recovery.ReportCleanup = func(outcome harnessfixtures.CleanupOutcome) {
+	// The adapter is quiescent before the fixture owner evaluates every
+	// retained resource. Review records outcomes without a second kind loop.
+	owner := harnessfixtures.ProductionOptions{Root: d.root, RunRoot: d.runRoot, Target: "ui-review", Runtime: d.runtime, Environment: d.environment}
+	owner.ReportCleanup = func(outcome harnessfixtures.CleanupOutcome) {
 		operation := "provider_close"
 		if outcome.Kind == "managed_suite" || outcome.Kind == "borrowed_suite" {
 			operation = "services_close"
 		}
 		d.cleanup = append(d.cleanup, cleanupStep{operation, outcome.Err})
 	}
-	err := recovery.Recover(context.WithoutCancel(ctx))
+	var err error
+	if d.fixtures != nil {
+		d.fixtures.Options.ReportCleanup = owner.ReportCleanup
+		err = d.fixtures.Close(context.WithoutCancel(ctx))
+	} else {
+		err = owner.Recover(context.WithoutCancel(ctx))
+	}
 	if err != nil {
 		failures = append(failures, failure("cleanup_failed"))
 	}
@@ -308,26 +304,4 @@ func waitOrigin(ctx context.Context, origin string) error {
 		case <-timer.C:
 		}
 	}
-}
-func recoverIndependent(ctx context.Context, root, runRoot string, runtime *harnesssession.Runtime, environment map[string]string) []error {
-	resources, err := runtime.Resources(4096)
-	if err != nil {
-		return []error{err}
-	}
-	failures := []error{}
-	for _, kind := range []string{"diagnostic_scope", "preparation_process", "browser_process", "helper_process", "browser_renderer"} {
-		for _, resource := range resources {
-			if resource.Kind != kind {
-				continue
-			}
-			err := runtime.StopResource(ctx, root, runRoot, environment, resource)
-			if err == nil {
-				err = runtime.RecordResource(resource.Kind, resource.Target, "released")
-			}
-			if err != nil {
-				failures = append(failures, failure("cleanup_failed"))
-			}
-		}
-	}
-	return failures
 }

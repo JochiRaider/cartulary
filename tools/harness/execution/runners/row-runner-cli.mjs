@@ -69,7 +69,7 @@ async function execute(invocation, producer) {
   let result;
   try {
     result = await runPrivateCapturedProcess(invocation.command, invocation.args, {
-      launch,
+      launch, dependencies: JSON.parse(process.env.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES),
       cwd: root,
       env: { ...process.env, ...invocation.environment, ...context?.environment },
       repoRoot: root,

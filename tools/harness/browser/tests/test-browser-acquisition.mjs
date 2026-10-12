@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import os from "node:os";
 import path from "node:path";
 import { createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionProcess, reserveAcquisitionPort, settleBrowserAcquisition } from "../browser-acquisition.mjs";
-import { createRuntime } from "../../runtime/session-client.mjs";
+import { createRuntime, openRecoveryAttempt } from "../../runtime/session-client.mjs";
 import { processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
 import { CommandFailure, createCommandFailureContext, publishCommandFailure } from "../../runtime/command-failure.mjs";
@@ -27,9 +27,10 @@ function fixture(t) {
     mode: "owned", ownership_mode: "owned", owner_pid: process.pid, created_at: new Date().toISOString(),
     resources: [], proof_labels: {}, proof_prefixes: {}, cleanup_state: "not_started" }), { mode: 0o600 });
   const sessionRoot = runtime.recoveryPath("browser-stack-leases", "attempt"); mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
-  const file = createBrowserAcquisition({ runtime, sessionRoot, suiteLease, leaseFile: path.join(sessionRoot, "stack.lease") });
-  runtime.record({ kind: "managed_suite", target: suiteLease });
-  runtime.record({ kind: "browser_stack", target: file, state: "pending" });
+  const file = path.join(sessionRoot, "acquisition", "owner.json");
+  const suiteRef = runtime.record({ kind: "managed_suite", target: suiteLease, depends_on: [] });
+  runtime.record({ kind: "browser_stack", target: file, state: "pending", depends_on: [suiteRef] });
+  assert.equal(createBrowserAcquisition({ runtime, sessionRoot, suiteLease, leaseFile: path.join(sessionRoot, "stack.lease") }), file);
   const cleanup = [];
   t.after(async () => {
     for (const release of cleanup) await release();
@@ -42,14 +43,11 @@ function fixture(t) {
 }
 
 function recoveryOutput(f) {
-  const resultsRoot = f.runtime.privatePath("recovery-output", crypto.randomUUID());
-  const marker = path.join(f.runtime.root, "runtime-owner.json");
-  const owner = JSON.parse(readFileSync(marker));
-  // Independent physical-adapter fixture; production declarations belong to Go.
-  mkdirSync(path.join(resultsRoot,f.runtime.runID),{recursive:true,mode:0o700});
-  owner.output_roots.push(path.join(resultsRoot, f.runtime.runID));
-  writeFileSync(marker, JSON.stringify(owner), { mode: 0o600 });
-  return resultsRoot;
+ if (f.attempt) f.attempt.finish();
+ const attempt = openRecoveryAttempt({repoRoot:root,runRoot:path.join(f.scratch,"results",f.runtime.runID),root:f.runtime.root,runID:f.runtime.runID,leaseID:f.runtime.leaseID});
+ f.attempt=attempt;
+ f.cleanup.push(()=>{if(f.attempt===attempt){attempt.finish();f.attempt=null;}});
+ return path.dirname(attempt.allocateOutput());
 }
 
 test("browser acquisition before launch settles without a ready lease", async (t) => {
@@ -84,7 +82,7 @@ for (const recovery of [false, true]) test(`browser fixture retirement binds ${r
   const suite = JSON.parse(readFileSync(f.suiteLease, "utf8"));
   let calls = 0;
   await settleBrowserAcquisition({ ...f, root, recovery, recoveryResultsRoot: recovery ? recoveryOutput(f) : undefined,
-    environment: { CARTULARY_TEST_RESULTS_DIR: "/unrelated-results", CARTULARY_TEST_RUN_ID: "unrelated-run",
+    environment: { ...(f.attempt?.environment() ?? {}), CARTULARY_TEST_RESULTS_DIR: "/unrelated-results", CARTULARY_TEST_RUN_ID: "unrelated-run",
       CARTULARY_TEST_TARGET: "unrelated-target", CARTULARY_TEST_SUITE_ID: "unrelated-suite" },
     run: (command, args, options) => {
       calls++;
@@ -95,7 +93,7 @@ for (const recovery of [false, true]) test(`browser fixture retirement binds ${r
       assert.equal(options.env.CARTULARY_TEST_TARGET, suite.target);
       const output = options.env.CARTULARY_TEST_RESULTS_DIR;
       if (recovery) {
-        assert.equal(path.dirname(output), f.runtime.privatePath("recovery-output"));
+        assert.equal(path.dirname(path.dirname(output)), path.join(f.runtime.root,"recovery-detail",f.attempt.id));
         assert.match(path.basename(output), /^[0-9a-f-]{36}$/u);
       } else assert.equal(output, suite.result_root);
       return { status: 0 };
@@ -110,10 +108,10 @@ test("explicit browser recovery attempts cannot overwrite earlier immutable reti
   mkdirSync(path.dirname(metadata), { mode: 0o700 });
   writeFileSync(metadata, "{}", { mode: 0o600 });
   const outputs = [];
-  const options = { ...f, root, recovery: true, recoveryResultsRoot: recoveryOutput(f), run: (_command, _args, { env }) => {
+  const options = { ...f, root, recovery: true, recoveryResultsRoot: recoveryOutput(f), environment: f.attempt.environment(), run: (_command, _args, { env }) => {
     const output = env.CARTULARY_TEST_RESULTS_DIR;
     assert.equal(typeof output, "string");
-    assert.equal(path.dirname(output), f.runtime.privatePath("recovery-output"));
+    assert.equal(path.dirname(path.dirname(output)), path.join(f.runtime.root,"recovery-detail",f.attempt.id));
     assert.ok(!outputs.includes(output), "each explicit attempt has independent immutable output");
     outputs.push(output);
     return { status: outputs.length === 1 ? 1 : 0 };
@@ -123,6 +121,7 @@ test("explicit browser recovery attempts cannot overwrite earlier immutable reti
   await assert.rejects(settleBrowserAcquisition(options), (error) => error.failure_reason === "artifact_error");
   assert.equal(outputs.length, 1, "a repeated output cannot reach the physical writer");
   options.recoveryResultsRoot = recoveryOutput(f);
+  options.environment = f.attempt.environment();
   assert.equal((await settleBrowserAcquisition(options)).state, "released");
   assert.equal(outputs.length, 2);
 });

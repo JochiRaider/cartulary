@@ -41,6 +41,7 @@ type collectorClient struct {
 	relationship                      func(map[string]any)
 	stopOnce                          sync.Once
 	stopErr                           error
+	settlementErr                     error
 }
 
 func newCollector(binary, runRoot, admissionRoot string, runtime *harnesssession.Runtime, plan *Plan, policy map[string]any, epoch int64, relationship func(map[string]any)) *collectorClient {
@@ -84,6 +85,7 @@ func newCollector(binary, runRoot, admissionRoot string, runtime *harnesssession
 		out.Close()
 		return fail()
 	}
+	proof, proofErr := harnesssession.CaptureProcess(cmd.Process.Pid)
 	c.cmd = cmd
 	c.input = in
 	go c.read(out)
@@ -110,11 +112,15 @@ func newCollector(binary, runRoot, admissionRoot string, runtime *harnesssession
 				break
 			}
 		}
-		c.mu.Lock()
-		if err == nil {
-			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		settleCtx, settleCancel := context.WithTimeout(context.Background(), time.Duration(c.policy["stop_ms"].(float64))*time.Millisecond)
+		settleErr := proofErr
+		if settleErr == nil {
+			settleErr = harnesssession.StopProcess(settleCtx, proof, 0)
 		}
+		settleCancel()
 		_ = cmd.Wait()
+		c.mu.Lock()
+		c.settlementErr = settleErr
 		c.reaped = true
 		in.Close()
 		c.mu.Unlock()
@@ -292,6 +298,11 @@ func (c *collectorClient) terminate() error {
 	select {
 	case <-c.done:
 		<-c.writeDone
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		if c.settlementErr != nil {
+			return failed("harness", "cleanup_error")
+		}
 		return nil
 	case <-timer.C:
 		return failed("harness", "cleanup_error")

@@ -338,6 +338,14 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_detail_authority.v1",
+      "path": "tools/schemas/cartulary.harness_detail_authority.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native private detail and recovery-attempt owner",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.harness_evidence_root_manifest.v1",
       "path": "tools/schemas/cartulary.harness_evidence_root_manifest.v1.schema.json",
       "classification": "public_contract",

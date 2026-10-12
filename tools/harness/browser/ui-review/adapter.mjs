@@ -43,8 +43,14 @@ export class ReviewAdapter {
       const accounts = JSON.parse(readLocalFile(path.join(this.seeded.privateDirectory, "access.json"))).accounts;
       actors = { admin: accounts[0], empty: accounts[1], viewer: accounts[2], editor: accounts[3] };
     }
+    this.browserResourceRefs = new Set();
+    const dependencies = this.input.mode === "seeded" ? JSON.parse(this.seeded.attached.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES) : [];
     this.browser = new ReviewBrowser({ origin, mode: this.input.mode, actors, environment: this.seeded?.attached,
-      onOwnedResource: (resource) => this.runtime.record(resource), onLost: () => this.onLost?.() });
+      onOwnedResource: (resource) => {
+        const reference = this.runtime.record({ ...resource, depends_on: dependencies });
+        if (resource.state === "released") this.browserResourceRefs.delete(reference); else this.browserResourceRefs.add(reference);
+        return reference;
+      }, onLost: () => this.onLost?.() });
     try { await this.browser.start(); }
     catch (error) { throw preparationFailure(error, { phase: "browser_start", subject_id: "browser", condition: "child_failed", recovery_id: "inspect_failure" }); }
   }
@@ -66,7 +72,7 @@ export class ReviewAdapter {
       let observed;
       if (request.action === "diagnostic_snapshot") {
         const { diagnosticSnapshot } = await import("./diagnostic.mjs");
-        observed = await diagnosticSnapshot({ owner: this.browser, runtime: this.runtime, operationID: operation_id, signal: this.abort.signal,
+        observed = await diagnosticSnapshot({ owner: this.browser, runtime: this.runtime, dependencies: [...this.browserResourceRefs], operationID: operation_id, signal: this.abort.signal,
           capacities: this.capacities, parentLease: this.parentLease, onResource: (resource) => this.runtime.record(resource) });
       } else observed = await this.browser.action(request);
       this.abort.signal.throwIfAborted();
@@ -76,7 +82,7 @@ export class ReviewAdapter {
       return { counts, private_refs };
     }
     const { executeWork } = await import("./executor.mjs");
-    return executeWork({ store: this.store, identity: { sessionID: this.identity.session_id, profile: this.profile }, onResource: (resource) => this.runtime.record(resource), signal: this.abort.signal,
+    return executeWork({ store: this.store, identity: { sessionID: this.identity.session_id, profile: this.profile }, onResource: (resource) => this.runtime.record({ ...resource, depends_on: [] }), signal: this.abort.signal,
       capacities: this.capacities, parentLease: this.parentLease, command, request: request ?? bundle_id, operationID: operation_id,
       observe: async (staging) => {
         const { pageSource } = await import("./source.mjs");

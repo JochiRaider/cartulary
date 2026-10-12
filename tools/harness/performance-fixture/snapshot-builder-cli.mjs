@@ -108,7 +108,7 @@ export async function runSnapshotBuilder(argv) {
     "--builder-unit-id", builderUnitID,
     "--artifact-file", artifact,
   ], {
-    producer: "snapshot_builder",
+    producer: "snapshot_builder", dependencies: JSON.parse(process.env.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES),
     cwd: repoRoot,
     env: process.env,
     repoRoot,

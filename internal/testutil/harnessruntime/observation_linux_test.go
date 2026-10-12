@@ -8,6 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -152,6 +155,45 @@ func TestRuntimeObservations(t *testing.T) {
 		}
 		if live.publicationErr != nil {
 			t.Fatal(live.publicationErr)
+		}
+	})
+	t.Run("collector_leader_exit_and_closed_pipes_leave_no_live_descendant", func(t *testing.T) {
+		p, r, run, policy := observationFixture(t)
+		directory := t.TempDir()
+		binary, pidFile := filepath.Join(directory, "collector"), filepath.Join(directory, "child")
+		// Read the initial frame so the real client has completed launch. The
+		// descendant closes every inherited pipe and survives its leader.
+		script := "#!/bin/sh\nread -r frame\nsleep 60 </dev/null >/dev/null 2>&1 &\necho $! > " + strconv.Quote(pidFile) + "\nexit 0\n"
+		if err := os.WriteFile(binary, []byte(script), 0700); err != nil {
+			t.Fatal(err)
+		}
+		c := newCollector(binary, run, filepath.Join(directory, "admission"), r, p, policy, monotonicNS(), nil)
+		select {
+		case <-c.done:
+		case <-time.After(5 * time.Second):
+			_ = c.stop()
+			t.Fatal("collector failed to settle")
+		}
+		data, err := os.ReadFile(pidFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer syscall.Kill(pid, syscall.SIGKILL)
+		if err := c.stop(); err != nil {
+			t.Fatal(err)
+		}
+		stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+		if err == nil {
+			state := strings.Fields(string(stat)[strings.LastIndex(string(stat), ") ")+2:])[0]
+			if state != "Z" && state != "X" {
+				t.Fatal("collector reported cleanup while descendant was live")
+			}
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
 		}
 	})
 	t.Run("collector_forced_death_drains", func(t *testing.T) {

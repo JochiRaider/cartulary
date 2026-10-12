@@ -658,7 +658,6 @@
       "additionalProperties": false,
       "required": [
         "diagnostic_scope",
-        "preparation_process",
         "browser_process",
         "helper_process",
         "browser_renderer",
@@ -669,11 +668,6 @@
       ],
       "properties": {
         "diagnostic_scope": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 300000
-        },
-        "preparation_process": {
           "type": "integer",
           "minimum": 1,
           "maximum": 300000

@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_detail_authority.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "lease_id",
+    "id",
+    "owner",
+    "scope",
+    "state",
+    "producers"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_detail_authority.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96,
+      "pattern": "^[A-Za-z0-9_.-]+$"
+    },
+    "lease_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^(ordinary|[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$"
+    },
+    "owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boot",
+        "pid",
+        "start"
+      ],
+      "properties": {
+        "boot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 2147483647
+        },
+        "start": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[0-9]+$"
+        }
+      }
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "state": {
+      "enum": [
+        "open",
+        "fenced",
+        "purged"
+      ]
+    },
+    "producers": {
+      "type": "array",
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/process"
+      }
+    }
+  },
+  "$defs": {
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boot",
+        "start",
+        "token",
+        "uid"
+      ],
+      "properties": {
+        "boot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "start": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[0-9]+$"
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "uid": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boot",
+        "pid",
+        "start",
+        "group",
+        "pgid",
+        "sid"
+      ],
+      "properties": {
+        "boot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 2147483647
+        },
+        "start": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[0-9]+$"
+        },
+        "group": {
+          "type": "boolean"
+        },
+        "pgid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "sid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      }
+    }
+  }
+}

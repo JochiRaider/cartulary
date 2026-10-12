@@ -55,21 +55,29 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 	file := filepath.Join(p.Runtime.Root, "borrowed-suite.json")
 	leaseFile := filepath.Join(p.Runtime.Root, "borrowed-service-lease.json")
 	environmentFile := filepath.Join(p.Runtime.Root, "borrowed-environment.json")
-	if err := p.Runtime.RecordResource("borrowed_suite", file, "pending"); err != nil {
+	resourceRef, err := p.Runtime.ResourceReference("borrowed_suite", file)
+	if err != nil {
+		return nil, err
+	}
+	p.Dependencies = []string{resourceRef}
+	if err := p.Runtime.RecordDependentResource("borrowed_suite", file, "pending", []string{}); err != nil {
 		return nil, err
 	}
 	var once sync.Once
 	var closeErr error
 	close := func(ctx context.Context) error {
 		once.Do(func() {
-			p.containerProof(nil)
-			_, closeErr = p.attachmentOperation(ctx, "detach")
-			if closeErr == nil {
-				closeErr = p.Runtime.RecordResource("borrowed_suite", file, "released")
+			closeErr = p.closeResource(ctx, "borrowed_suite", file, func(ctx context.Context) error {
+				p.containerProof(nil)
+				_, closeErr = p.attachmentOperation(ctx, "detach")
 				if closeErr == nil {
-					closeErr = errors.Join(removePrivate(leaseFile), removePrivate(environmentFile))
+					closeErr = p.Runtime.RecordResource("borrowed_suite", file, "released")
+					if closeErr == nil {
+						closeErr = errors.Join(removePrivate(leaseFile), removePrivate(environmentFile))
+					}
 				}
-			}
+				return closeErr
+			})
 		})
 		return closeErr
 	}
@@ -128,5 +136,6 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 		return nil, artifactFailure(err)
 	}
 	p.containerProof(proof)
-	return &Suite{Environment: environment, LeaseFile: leaseFile, Close: close}, nil
+	environment["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
+	return &Suite{Environment: environment, LeaseFile: leaseFile, ResourceRef: resourceRef, Close: close}, nil
 }

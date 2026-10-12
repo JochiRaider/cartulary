@@ -46,7 +46,7 @@ export function createBrowserAcquisition({ runtime, sessionRoot, leaseFile, suit
   validateSchemaSync(schemaID, value);
   const dependencies = [suiteLease];
   if (suite.ownership_mode === "attach") dependencies.push(path.join(runtime.root, "borrowed-environment.json"));
-  runtime.record({ kind: "browser_stack", target: file, state: "pending", depends_on: [suiteLease], recovery_files: dependencies });
+  runtime.record({ kind: "browser_stack", target: file, state: "pending", recovery_files: dependencies });
   atomicLocalFile(file, bytes(value));
   return file;
 }
@@ -70,11 +70,11 @@ export function readBrowserAcquisition(file, runtime) {
 
 function resourceFile(file, name) { return path.join(path.dirname(file), name); }
 
-function declareRecoveryFiles(file, files) {
+function declareRecoveryFiles(file, files, environment = process.env) {
   const owner = readBrowserAcquisition(file);
   const suite = suiteProof(readLocalFile(owner.suite_lease, { maximum: 1048576 }), owner.run_id);
   const runtime = borrowRuntime({ repoRoot: path.resolve(import.meta.dirname, "../../.."), runRoot: suite.run_root,
-    environment: { ...process.env, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root,
+    environment: { ...environment, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root,
       CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id } });
   runtime.record({ kind: "browser_stack", target: file, state: "pending", recovery_files: [owner.suite_lease, ...files] });
   runtime.close();
@@ -88,11 +88,11 @@ function receipt(file) {
   } catch (error) { if (error.code === "ENOENT") return null; throw error; }
 }
 
-function writeResource(file, name, resource, { duringStop = false } = {}) {
+function writeResource(file, name, resource, { duringStop = false, environment = process.env } = {}) {
   const owner = readBrowserAcquisition(file);
   if (receipt(file) || (!duringStop && stopping(file))) throw invalid();
   const value = { attempt_id: owner.attempt_id, ...resource };
-  declareRecoveryFiles(file, [resourceFile(file, name)]);
+  declareRecoveryFiles(file, [resourceFile(file, name)], environment);
   try { atomicLocalFile(resourceFile(file, name), bytes(value)); }
   catch (error) {
     if (error.code !== "EEXIST" || bytes(read(resourceFile(file, name))) !== bytes(value)) throw error;
@@ -234,10 +234,10 @@ export function releaseAcquisitionPorts(file) {
   if (failures.length) throw new AggregateError(failures, "browser port cleanup failed");
 }
 
-export function acknowledgeBrowserSettlement(file) {
+export function acknowledgeBrowserSettlement(file, environment = process.env) {
   const owner = readBrowserAcquisition(file);
   if (!receipt(file)) try {
-    declareRecoveryFiles(file, [resourceFile(file, "settlement.json")]);
+    declareRecoveryFiles(file, [resourceFile(file, "settlement.json")], environment);
     atomicLocalFile(resourceFile(file, "settlement.json"), bytes({ attempt_id: owner.attempt_id, state: "released" }));
   } catch (error) { if (error.code !== "EEXIST" || !receipt(file)) throw error; }
 }
@@ -261,12 +261,12 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
   if (recovery && existsSync(metadata)) {
     if (typeof recoveryResultsRoot !== "string") throw invalid();
     const output = path.join(recoveryResultsRoot, owner.run_id);
-    const writer = borrowRuntime({ repoRoot: root, runRoot: output, environment: { ...process.env,
+    const writer = borrowRuntime({ repoRoot: root, runRoot: output, environment: { ...environment,
       CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id,
       CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id } });
     try { writer.claimRecoveryOutput(); } finally { writer.close(); }
   }
-  writeResource(file, "stopping.json", {}, { duringStop: true });
+  writeResource(file, "stopping.json", {}, { duringStop: true, environment });
   await stopAcquisitionProcesses(file, { producerActive, stop });
   releaseAcquisitionPorts(file);
   if (existsSync(metadata)) {
@@ -301,7 +301,7 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
   // An exit trap can release services but cannot prove its own producer has
   // exited. Only the external owner may publish terminal settlement after reaping.
   if (producerActive) return { state: "recovery_required", acquisition_file: file };
-  acknowledgeBrowserSettlement(file);
+  acknowledgeBrowserSettlement(file, environment);
   return { state: "released" };
 }
 

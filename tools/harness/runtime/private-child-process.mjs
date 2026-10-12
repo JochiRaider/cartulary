@@ -29,7 +29,7 @@ function assertPrivate(stat, directory) {
 }
 
 function privateCaptureDirectory(runtime) {
-  const directory = runtime.privatePath("child-captures");
+  const directory = runtime.producerPath("child-captures");
   try { mkdirSync(directory, { mode: 0o700 }); }
   catch (error) { if (error.code !== "EEXIST") throw error; }
   assertPrivate(lstatSync(directory), true);
@@ -54,7 +54,7 @@ export async function runPrivateCapturedProcess(command, args, options) {
   const interrupt = () => { interrupted = true; if (processProof) void stopOwnedProcess(processProof).catch(() => {}); };
   const drain = async () => {
     if (!processProof) return;
-    await stopOwnedProcess(processProof, { exitNotification: processCompletion });
+    await stopOwnedProcess(processProof);
     await processCompletion.catch(() => {});
     runtime.record({ kind: "helper_process", target: processProof, state: "released" });
     processProof = undefined;
@@ -130,7 +130,7 @@ export async function runPrivateCapturedProcess(command, args, options) {
     const stderrPath = path.join(directory, "stderr");
     const stdoutFD = createStream(stdoutPath);
     const stderrFD = createStream(stderrPath);
-    const childEnvironment = { ...options.env, ...launch.environment };
+    const childEnvironment = { ...options.env, ...launch.environment, ...runtime.producerEnvironment() };
     const failureContext = childEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
     if (failureContext && JSON.parse(failureContext).invocation_id !== launch.identity.invocation_id) delete childEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
     const child = spawn(command, args, {
@@ -156,7 +156,7 @@ export async function runPrivateCapturedProcess(command, args, options) {
     if (child.pid) {
       try { processProof = ownedProcess(child.pid); }
       catch (error) { if (!["ENOENT", "ESRCH"].includes(error.code)) throw error; }
-      if (processProof) runtime.record({ kind: "helper_process", target: processProof });
+      if (processProof) runtime.record({ kind: "helper_process", target: processProof, depends_on: options.dependencies });
     }
     process.on("SIGINT", interrupt); process.on("SIGTERM", interrupt);
     if (interrupted) interrupt();

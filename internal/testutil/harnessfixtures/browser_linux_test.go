@@ -52,6 +52,15 @@ func TestFixtureBrowserAdapter(t *testing.T) {
 			t.Fatal(err)
 		}
 		directory.Close()
+		if err := runtime.RecordDependentResource("managed_suite", suite, "acquired", []string{}); err != nil {
+			t.Fatal(err)
+		}
+		defer runtime.RecordResource("managed_suite", suite, "released")
+		browserFile := filepath.Join(sessionRoot, "acquisition", "owner.json")
+		if err := runtime.RecordDependentResource("browser_stack", browserFile, "pending", []string{fixtureReference(t, runtime, "managed_suite", suite)}); err != nil {
+			t.Fatal(err)
+		}
+		defer runtime.RecordResource("browser_stack", browserFile, "released")
 		p := ProductionOptions{Root: root, RunRoot: run, Target: "browser-e2e", Runtime: runtime, Environment: map[string]string{"NODE_BIN": node, "PATH": os.Getenv("PATH"), "CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT": sessionRoot}}
 		native := p.command()
 		p.Run = func(ctx context.Context, command string, _ []string, env map[string]string) (CommandResult, error) {

@@ -30,7 +30,7 @@ func TestReviewIPC(t *testing.T) {
 		}
 		defer r.Close()
 		proof := map[string]any{"boot": "fixture", "start": "1", "uid": os.Getuid(), "token": strings.Repeat("a", 64)}
-		if err := r.RecordResource("diagnostic_scope", proof, "acquired"); err != nil {
+		if err := r.RecordDependentResource("diagnostic_scope", proof, "acquired", []string{}); err != nil {
 			t.Fatal(err)
 		}
 		defer r.RecordResource("diagnostic_scope", proof, "released")
@@ -139,7 +139,7 @@ func TestReviewIPC(t *testing.T) {
 			t.Cleanup(func() {
 				worker.kill()
 				<-worker.done
-				if failures := recoverIndependent(context.Background(), root, run, runtime, environment); len(failures) > 0 {
+				if failures := (harnessfixtures.ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: environment}).Recover(context.Background()); failures != nil {
 					t.Error(failures)
 				}
 			})
@@ -175,7 +175,7 @@ func TestReviewIPC(t *testing.T) {
 			if err = worker.close(ctx); err != nil {
 				t.Fatal("close", err)
 			}
-			if failures := recoverIndependent(ctx, root, run, runtime, environment); len(failures) > 0 {
+			if failures := (harnessfixtures.ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: environment}).Recover(ctx); failures != nil {
 				t.Fatal(failures)
 			}
 			resources, err := runtime.Resources(4096)

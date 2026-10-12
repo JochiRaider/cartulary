@@ -34,7 +34,10 @@ func (runtime *Runtime) stopResource(ctx context.Context, root, runRoot string, 
 	if err := runtime.checkResource(resource); err != nil {
 		return err
 	}
-	if resource.Kind == "helper_process" || resource.Kind == "browser_process" || resource.Kind == "preparation_process" {
+	if resource.Kind == "diagnostic_scope" {
+		return runtime.SettleDiagnosticScope(ctx, resource.Target)
+	}
+	if resource.Kind == "helper_process" || resource.Kind == "browser_process" {
 		var proof ProcessProof
 		if json.Unmarshal(resource.Target, &proof) != nil {
 			return harnesslocal.ErrUnsafe
@@ -94,5 +97,56 @@ func (runtime *Runtime) stopResource(ctx context.Context, root, runRoot string, 
 		}
 		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
-	return cmd.Run()
+	return waitPhysicalCommand(ctx, cmd)
+}
+
+func waitPhysicalCommand(ctx context.Context, cmd *exec.Cmd) error {
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	proof, proofErr := CaptureProcess(cmd.Process.Pid)
+	terminal := make(chan error, 1)
+	go func() {
+		for {
+			var info unix.Siginfo
+			err := unix.Waitid(unix.P_PID, cmd.Process.Pid, &info, unix.WEXITED|unix.WNOWAIT, nil)
+			if err == unix.EINTR {
+				continue
+			}
+			terminal <- err
+			return
+		}
+	}()
+	var terminalErr error
+	select {
+	case terminalErr = <-terminal:
+	case <-ctx.Done():
+		// Cancellation is not permission to wait forever for a child whose
+		// identity cannot be settled. The native owner still has to prove it.
+		settleCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+		settleErr := proofErr
+		if settleErr == nil {
+			settleErr = StopProcess(settleCtx, proof, 0)
+		}
+		select {
+		case terminalErr = <-terminal:
+			cancel()
+			return errors.Join(ctx.Err(), terminalErr, settleErr, cmd.Wait())
+		case <-settleCtx.Done():
+			cancel()
+			// Keep the direct-child anchor until it terminates; do not let an
+			// unresolved child make the owning cleanup deadline unbounded.
+			go func() { <-terminal; _ = cmd.Wait() }()
+			return errors.Join(ctx.Err(), settleErr, ErrUnresolved)
+		}
+	}
+	// Keep the direct leader pinned until the shared physical owner has proven
+	// the complete group settled. CommandContext cancellation is only a wakeup.
+	settleCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+	settleErr := proofErr
+	if settleErr == nil {
+		settleErr = StopProcess(settleCtx, proof, 0)
+	}
+	cancel()
+	return errors.Join(terminalErr, settleErr, cmd.Wait())
 }

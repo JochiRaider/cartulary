@@ -45,6 +45,8 @@ func commandRunner(root string, runtime *harnesssession.Runtime, dependencies []
 		result.Exit = -1
 		cmd := exec.Command(executable, args...)
 		cmd.Dir = root
+		environment = maps.Clone(environment)
+		maps.Copy(environment, runtime.Environment())
 		for _, key := range slices.Sorted(maps.Keys(environment)) {
 			cmd.Env = append(cmd.Env, key+"="+environment[key])
 		}

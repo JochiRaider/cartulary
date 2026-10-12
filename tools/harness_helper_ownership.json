@@ -31,7 +31,10 @@
       "paths": [
         "tools/harness/browser/index.mjs"
       ],
-      "allowed_consumers": []
+      "allowed_consumers": [
+        "tools/harness/test-support/browser-contract-tests.mjs",
+        "tools/harness/test-support/owner-fixtures.mjs"
+      ]
     },
     {
       "key": "browser_playwright_execution",
@@ -39,7 +42,9 @@
       "paths": [
         "tools/harness/output/test-output/playwright-artifacts.mjs"
       ],
-      "allowed_consumers": []
+      "allowed_consumers": [
+        "tools/harness/output/test-output/playwright-artifacts.mjs"
+      ]
     },
     {
       "key": "browser_scheduler_adapter",
@@ -48,10 +53,7 @@
         "tools/harness/scheduler/adapters/browser.mjs"
       ],
       "allowed_consumers": [
-        "tools/harness/output/test-output/playwright-artifacts.mjs",
-        "tools/harness/scheduler/adapters/browser.mjs",
-        "tools/harness/test-support/browser-contract-tests.mjs",
-        "tools/harness/test-support/owner-fixtures.mjs"
+        "tools/harness/scheduler/adapters/browser.mjs"
       ]
     },
     {

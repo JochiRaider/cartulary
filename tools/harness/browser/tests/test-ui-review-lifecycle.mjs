@@ -22,7 +22,7 @@ test("failed runner acquisition publication reaps the child and preserves the pr
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-capture-publication-"));
   const scratchRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-capture-scratch-"));
   const runtime = createRuntime({ repoRoot, runRoot: root, runID: "capture-publication", scratchRoot });
-  const options = { cwd: repoRoot, repoRoot, runRoot: root, detached: true, env: { ...process.env,
+  const options = { dependencies: [], cwd: repoRoot, repoRoot, runRoot: root, detached: true, env: { ...process.env,
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID } };
   let proof;
   try {

@@ -175,7 +175,7 @@ async function runWrapped(target, invocation) {
         process.execPath,
         [invocation.script, ...invocation.args],
         {
-          producer: "wrapped_tool",
+          producer: "wrapped_tool", dependencies: JSON.parse(childEnvironment.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES ?? (suiteRuntime.owned ? "[]" : "null")),
           cwd: process.cwd(),
           env: childEnvironment,
           repoRoot: process.cwd(),

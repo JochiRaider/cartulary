@@ -31,6 +31,7 @@ async function exercise(scenario) {
   fs.writeFileSync(path.join(fixture, "protected"), "protected bytes", { mode: 0o600 });
   const options = { repoRoot, runRoot, cwd: repoRoot, env: {
     ...process.env,
+    CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]",
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
     CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
@@ -111,7 +112,7 @@ async function exercise(scenario) {
   try {
     const { runPrivateCapturedProcess: capture } = await import("../runtime/private-child-process.mjs");
     const run = (source = 'process.stdout.write("output"); process.stderr.write("diagnostic");', extra = {}) =>
-      capture(process.execPath, ["--eval", source], { ...options, ...extra });
+      capture(process.execPath, ["--eval", source], { ...options, dependencies: [], ...extra });
     if (scenario === "allocation") {
       const catalog = JSON.parse(fs.readFileSync(new URL("../../test_families/module.timeline.json", import.meta.url), "utf8"));
       const rows = catalog.rows.filter((row) => row.selector?.file === "apps/web/e2e/measurement/timeline-grid.spec.ts");
@@ -185,7 +186,8 @@ async function exercise(scenario) {
         NODE_OPTIONS: `--import=${preload}`,
         CARTULARY_TEST_RESULTS_DIR: path.dirname(runRoot),
         CARTULARY_TEST_RUN_ID: runtime.runID,
-        CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
+        CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]",
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
         CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
         CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
       });

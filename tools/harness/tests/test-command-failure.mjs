@@ -147,7 +147,7 @@ export function registerCommandFailureTests() {
     const shim = path.join(scratch, "make-probe");
     writeFileSync(shim, `#!/bin/sh\ncase "$*" in\n  *protocol-ts-browser-artifact-reachability*) exec ${process.execPath} ${fixture} diagnostic ;;\n  *) exec env MAKE=make make "$@" ;;\nesac\n`, { mode: 0o700 });
     const rowID = "package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b";
-    const env = {...process.env, ...environment, CARTULARY_TEST_TARGET: "protocol-ts-browser-artifact-reachability", MAKE: shim};
+    const env = {...process.env, ...environment, CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]", CARTULARY_TEST_TARGET: "protocol-ts-browser-artifact-reachability", MAKE: shim};
     for (const key of ["MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS"]) delete env[key];
     const result = spawnSync(process.execPath, ["tools/harness/execution/runners/row-runner-cli.mjs", "--row-id", rowID], {cwd: root, env, encoding: "utf8", timeout: 10000});
     assert.equal(result.error, undefined);

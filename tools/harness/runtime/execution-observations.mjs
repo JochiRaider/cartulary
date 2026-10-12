@@ -20,7 +20,7 @@ function encodeObservation(record, maximumBytes, processProof) {
 function channel(repoRoot, environment) {
   const runRoot = path.resolve(repoRoot, environment.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results", environment.CARTULARY_TEST_RUN_ID);
   const runtime = borrowRuntime({ repoRoot, runRoot, environment });
-  return runtime.privatePath("execution-observations");
+  return runtime.producerPath("execution-observations");
 }
 
 // Each reserved slot has one producer. Fixed slot names bound concurrent writers

@@ -29,7 +29,7 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
   assert.ok(["default", "network_flow_claimed"].includes(profile));
   const privateRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-public-workflow-"));
   const env = { ...cleanEnvironment(), PLAYWRIGHT_MCP_CONFIG: "/no-ambient-cli-config", PWTEST_CLI_GLOBAL_CONFIG: "/no-ambient-global-config", PLAYWRIGHT_CLI_SESSION: "unowned-session", CARTULARY_READINESS_CACHE_DIR: path.join(privateRoot, "readiness-cache"), CARTULARY_BUILD_CACHE_DIR: path.join(privateRoot, "build-cache") }, privateRefs = [], manifests = [], sentinel = `review-private-sentinel-${runID}`;
-  let server, running, locator, requestIndex = 0;
+  let server, running, locator, requestIndex = 0, preserveFailure = false;
   const invoke = async (command, value, extra = []) => {
     let inputs = [];
     if (value) { const file = path.join(privateRoot, `request-${++requestIndex}.json`); writeFileSync(file, JSON.stringify(value), { mode: 0o600 }); inputs = [`UI_REQUEST=${file}`]; }
@@ -40,6 +40,8 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
       try {
         const record = readRegistry(locator);
         const detail = JSON.parse(readLocalFile(path.join(record.runtime.root, "detail", "artifacts", "diagnostic-failure.json"), { maximum: 65536 }));
+        preserveFailure = true;
+        writeFileSync(path.join(privateRoot, "diagnostic-failure.json"), JSON.stringify(detail), {mode:0o600});
         if (detail.operation_id === result.operation_id) diagnostic = JSON.stringify({ stage: detail.stage, cause_name: detail.cause_name, cause_code: detail.cause_code, command: detail.last_command?.command, exit_status: detail.last_command?.status });
       } catch { diagnostic = "private diagnostic unavailable"; }
     }
@@ -157,6 +159,6 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
   } finally {
     if (running) { try { await invoke("ui-review-stop"); } catch { running.child.kill("SIGTERM"); } await running.ended; }
     if (server) await new Promise((resolve) => server.close(resolve));
-    rmSync(privateRoot, { recursive: true, force: true });
+    if (!preserveFailure) rmSync(privateRoot, { recursive: true, force: true });
   }
 }

@@ -494,7 +494,7 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
     const envFile = path.join(stateRoot, "suite-environment.json");
     const leaseFile = suiteRuntime.recoveryPath("test-services", "persistent-suite.json");
     ensurePrivateDirectory(path.dirname(leaseFile), "persistent suite proof directory");
-    suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "pending" });
+    suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "pending", depends_on: [] });
     const resultFile = path.join(stateRoot, "suite-start-result.json");
     const startEnvironment = {
       CARTULARY_TEST_SERVICES_PERSISTENT_SESSION: "1",

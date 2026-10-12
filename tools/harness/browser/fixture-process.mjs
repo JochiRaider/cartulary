@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { randomUUID } from "node:crypto";
 import { StringDecoder } from "node:string_decoder";
 import { redactString, redactValue, validateSchemaSync } from "../contract/index.mjs";
@@ -14,6 +15,11 @@ export function createBrowserFixtureProcess({ command, args, cwd, env = process.
   const child = spawn(command, [...args, "--attempt-id", attempt], {
     cwd, env, detached: true, stdio: ["pipe", "pipe", "pipe"],
   });
+  let proof, proofError;
+  if (child.pid) {
+    try { proof = ownedProcess(child.pid); }
+    catch (error) { proofError = error; }
+  }
   const secrets = new Set();
   const registerSecret = (value) => {
     secrets.add(value);
@@ -107,18 +113,19 @@ export function createBrowserFixtureProcess({ command, args, cwd, env = process.
     await Promise.race([finished, new Promise((resolve) => { timeout = setTimeout(resolve, duration); })]);
     clearTimeout(timeout);
   };
-  const kill = (name) => {
-    if (!child.pid) return;
-    try { process.kill(-child.pid, name); }
-    catch (error) { if (error.code !== "ESRCH") throw error; }
-  };
   const stop = () => stopping ??= (async () => {
     clearTimeout(timer);
     if (!closed) { child.stdin.end(); await wait(cleanupMs); }
     if (!closed) {
-      forced = true; kill("SIGTERM"); await wait(signalMs);
-      if (!closed) { kill("SIGKILL"); await wait(signalMs); }
+      forced = true;
     }
+    let settlementError = proofError;
+    if (proof) {
+      try { await stopOwnedProcess(proof, { graceMS: Math.min(signalMs, 2000), killMS: Math.min(signalMs, 5000) }); }
+      catch (error) { settlementError = error; }
+    } else if (child.pid) settlementError ??= new Error("Browser fixture process identity unavailable");
+    if (!closed) await wait(signalMs);
+    if (settlementError) protocolError ??= "Unresolved browser fixture process settlement";
     if (readySeen && !events.some((event) => event.phase === "terminal")) protocolError ??= "Missing terminal fixture evidence";
     if (forced || !closed || exitCode !== 0 || protocolError) {
       const failed = events.filter((event) => event.outcome === "failed");

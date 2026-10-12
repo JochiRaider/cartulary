@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,9 +14,52 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
+func fixtureReference(t *testing.T, runtime *harnesssession.Runtime, kind string, target any) string {
+	t.Helper()
+	reference, err := runtime.ResourceReference(kind, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return reference
+}
 func TestFixtureRecovery(t *testing.T) {
+	testCleanupDependencies(t)
+	for _, mode := range []string{"ordinary", "recovery"} {
+		t.Run("diagnostic_dependency_blocks_suite_"+mode, func(t *testing.T) {
+			runtime, root, run := runtimeFixture(t)
+			suite := filepath.Join(runtime.Root, "test-services", "suite-lease.json")
+			writeFixtureJSON(t, suite, map[string]string{"proof": "fixture"})
+			writeFixtureJSON(t, filepath.Join(filepath.Dir(suite), "suite-environment.json"), map[string]string{})
+			if err := runtime.RecordDependentResource("managed_suite", suite, "acquired", []string{}); err != nil {
+				t.Fatal(err)
+			}
+			defer runtime.RecordResource("managed_suite", suite, "released")
+			scope := map[string]any{"boot": "unresolved-boot", "start": "1", "token": strings.Repeat("d", 64), "uid": os.Getuid()}
+			if err := runtime.RecordDependentResource("diagnostic_scope", scope, "acquired", []string{fixtureReference(t, runtime, "managed_suite", suite)}); err != nil {
+				t.Fatal(err)
+			}
+			defer runtime.RecordResource("diagnostic_scope", scope, "released")
+			stops := 0
+			p := ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: map[string]string{"TEST_SERVICES_BIN": "services"}, Run: func(context.Context, string, []string, map[string]string) (CommandResult, error) {
+				stops++
+				return CommandResult{}, nil
+			}}
+			var err error
+			if mode == "recovery" {
+				err = p.Recover(context.Background())
+			} else {
+				production := NewProduction(p, Options{})
+				production.Suite.suite = &Suite{LeaseFile: suite, Close: func(context.Context) error { stops++; return nil }}
+				err = production.Close(context.Background())
+			}
+			if err == nil || stops != 0 {
+				t.Fatal("diagnostic consumer did not block its suite", mode, err, stops)
+			}
+		})
+	}
 	t.Run("failed_consumer_blocks_only_its_declared_suite", func(t *testing.T) {
 		runtime, root, run := runtimeFixture(t)
 		a, b := filepath.Join(runtime.Root, "suite-a", "suite-lease.json"), filepath.Join(runtime.Root, "suite-b", "suite-lease.json")
@@ -23,12 +67,12 @@ func TestFixtureRecovery(t *testing.T) {
 		for _, suite := range []string{a, b} {
 			writeFixtureJSON(t, suite, map[string]string{"proof": "synthetic"})
 			writeFixtureJSON(t, filepath.Join(filepath.Dir(suite), "suite-environment.json"), map[string]string{})
-			if err := runtime.RecordResource("managed_suite", suite, "acquired"); err != nil {
+			if err := runtime.RecordDependentResource("managed_suite", suite, "acquired", []string{}); err != nil {
 				t.Fatal(err)
 			}
 			defer runtime.RecordResource("managed_suite", suite, "released")
 		}
-		if err := runtime.RecordDependentResource("browser_stack", browser, "pending", []string{a}); err != nil {
+		if err := runtime.RecordDependentResource("browser_stack", browser, "pending", []string{fixtureReference(t, runtime, "managed_suite", a)}); err != nil {
 			t.Fatal(err)
 		}
 		defer runtime.RecordResource("browser_stack", browser, "released")
@@ -46,6 +90,10 @@ func TestFixtureRecovery(t *testing.T) {
 			inspections++
 			return CommandResult{}, errors.New("inspection failed")
 		}
+		if _, err := runtime.BeginRecoveryAttempt(); err != nil {
+			t.Fatal(err)
+		}
+		defer runtime.FinishRecoveryAttempt()
 		for range 2 {
 			if err := p.Recover(context.Background()); !errors.Is(err, ErrCleanupBlocked) {
 				t.Fatal("missing blocked outcome", err)
@@ -54,17 +102,39 @@ func TestFixtureRecovery(t *testing.T) {
 		if inspections != 1 || stops != 1 {
 			t.Fatal("duplicate or starved release", inspections, stops)
 		}
-		if len(outcomes) < 3 || outcomes[0].Outcome != "failed" || outcomes[1].Outcome != "blocked" || outcomes[2].Outcome != "completed" {
+		counts := map[string]int{}
+		for _, outcome := range outcomes {
+			counts[outcome.Outcome]++
+		}
+		if counts["failed"] != 2 || counts["blocked"] != 2 || counts["completed"] != 1 {
 			t.Fatal("lost cleanup outcome", outcomes)
+		}
+		if err := runtime.FinishRecoveryAttempt(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := runtime.BeginRecoveryAttempt(); err != nil {
+			t.Fatal(err)
+		}
+		if err := p.Recover(context.Background()); !errors.Is(err, ErrCleanupBlocked) || inspections != 2 || stops != 1 {
+			t.Fatal("fresh attempt did not retry unresolved consumer", err, inspections, stops)
 		}
 	})
 	t.Run("stalled_dependency_inspection_is_bounded_once", func(t *testing.T) {
 		runtime, root, run := runtimeFixture(t)
 		browser := filepath.Join(runtime.Root, "browser-stack-leases", "a", "acquisition", "owner.json")
-		if err := runtime.RecordResource("browser_stack", browser, "pending"); err != nil {
+		suite := filepath.Join(runtime.Root, "suite", "suite-lease.json")
+		if err := runtime.RecordDependentResource("managed_suite", suite, "pending", []string{}); err != nil {
+			t.Fatal(err)
+		}
+		defer runtime.RecordResource("managed_suite", suite, "released")
+		if err := runtime.RecordDependentResource("browser_stack", browser, "pending", []string{fixtureReference(t, runtime, "managed_suite", suite)}); err != nil {
 			t.Fatal(err)
 		}
 		defer runtime.RecordResource("browser_stack", browser, "released")
+		if _, err := runtime.BeginRecoveryAttempt(); err != nil {
+			t.Fatal(err)
+		}
+		defer runtime.FinishRecoveryAttempt()
 		synctest.Test(t, func(t *testing.T) {
 			calls := 0
 			p := ProductionOptions{Root: root, RunRoot: run, Target: "review", Runtime: runtime, Environment: map[string]string{"NODE_BIN": "node"}}
@@ -98,19 +168,30 @@ func TestFixtureRecovery(t *testing.T) {
 			writeFixtureJSON(t, filepath.Join(runtime.Root, "borrowed-environment.json"), map[string]string{})
 			writeFixtureJSON(t, browser, map[string]string{"proof": "synthetic"})
 			if variant != "missing_dependency" && !strings.HasPrefix(variant, "borrowed") {
-				if err := runtime.RecordResource("managed_suite", suite, "acquired"); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if variant != "borrowed" {
-				if err := runtime.RecordResource("browser_stack", browser, "pending"); err != nil {
+				if err := runtime.RecordDependentResource("managed_suite", suite, "acquired", []string{}); err != nil {
 					t.Fatal(err)
 				}
 			}
 			if strings.HasPrefix(variant, "borrowed") {
 				file := filepath.Join(runtime.Root, "borrowed-suite.json")
 				writeFixtureJSON(t, file, map[string]string{"proof": "synthetic"})
-				if err := runtime.RecordResource("borrowed_suite", file, "acquired"); err != nil {
+				if err := runtime.RecordDependentResource("borrowed_suite", file, "acquired", []string{}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if variant != "borrowed" {
+				kind, dependency := "managed_suite", suite
+				if strings.HasPrefix(variant, "borrowed") {
+					kind, dependency = "borrowed_suite", filepath.Join(runtime.Root, "borrowed-suite.json")
+				}
+				err := runtime.RecordDependentResource("browser_stack", browser, "pending", []string{fixtureReference(t, runtime, kind, dependency)})
+				if variant == "missing_dependency" {
+					if err == nil {
+						t.Fatal("unresolved dependency admitted")
+					}
+					return
+				}
+				if err != nil {
 					t.Fatal(err)
 				}
 			}

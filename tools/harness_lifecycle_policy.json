@@ -204,7 +204,6 @@
   },
   "cleanup_deadlines_ms": {
     "diagnostic_scope": 30000,
-    "preparation_process": 30000,
     "browser_process": 30000,
     "helper_process": 30000,
     "browser_renderer": 30000,

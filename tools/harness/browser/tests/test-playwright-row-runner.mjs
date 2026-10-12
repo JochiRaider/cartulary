@@ -311,9 +311,9 @@ test("browser fixture startup failure and absent terminal evidence fail with red
   await assert.rejects(incomplete.stop(), /Missing terminal fixture evidence/);
 });
 
-test("browser fixture retirement waits for inherited streams and kills the owned process group", async () => {
+test("browser fixture retirement rejects an unanchored surviving group", async () => {
   const { createBrowserFixtureProcess } = await import("../index.mjs");
-  const descendant = "process.on('SIGTERM', () => {}); process.stdout.write(JSON.stringify({}) + String.fromCharCode(10)); setInterval(() => {}, 1000);";
+  const descendant = "process.on('SIGTERM', () => {}); process.stdout.write(JSON.stringify({pid:process.pid}) + String.fromCharCode(10)); setInterval(() => {}, 1000);";
   const fixture = createBrowserFixtureProcess({ command: process.execPath,
     args: ["-e", `
       const { spawn } = require('node:child_process');
@@ -321,11 +321,16 @@ test("browser fixture retirement waits for inherited streams and kills the owned
       process.stdin.resume(); process.stdin.on('end', () => process.exit(0));
     `, "--"], startupMs: 5000, cleanupMs: 30, signalMs: 100,
   });
+  let descendantPID;
   try {
-    await fixture.ready;
-    await assert.rejects(fixture.stop(), /forced=true/);
-    assert.equal(fixture.report().process.closed, true);
+    descendantPID = (await fixture.ready).pid;
+    await assert.rejects(fixture.stop(), /Unresolved browser fixture process settlement/);
+    assert.equal(fixture.report().process.closed, false);
+    assert.ok(process.kill(descendantPID, 0), "unanchored identity must not be signaled");
   } finally {
+    // This fixture published its exact live child; dispose it independently of
+    // the deliberately unavailable production group anchor.
+    if (descendantPID) process.kill(descendantPID, "SIGKILL");
     await fixture.stop().catch(() => {});
   }
 });

@@ -67,7 +67,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	if err != nil {
 		return nil, err
 	}
-	p.Dependencies = []string{suite.LeaseFile}
+	p.Dependencies = []string{suite.ResourceRef}
 	affinity := safeName.ReplaceAllString(request.Affinity, "-")
 	if affinity == "" {
 		affinity = "browser"
@@ -111,29 +111,32 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 		}
 	}
 	file := filepath.Join(root, "acquisition", "owner.json")
-	p.Dependencies = []string{suite.LeaseFile, file}
+	resourceRef, err := p.Runtime.ResourceReference("browser_stack", file)
+	if err != nil {
+		return nil, err
+	}
+	p.Dependencies = []string{suite.ResourceRef, resourceRef}
 	lease := filepath.Join(root, "stack.lease")
 	envFile := filepath.Join(root, "stack.env")
-	if err := p.Runtime.RecordDependentResource("browser_stack", file, "pending", []string{suite.LeaseFile}); err != nil {
+	if err := p.Runtime.RecordDependentResource("browser_stack", file, "pending", []string{suite.ResourceRef}); err != nil {
 		return nil, artifactFailure(err)
 	}
 	var once sync.Once
 	var closeErr error
 	close := func(ctx context.Context) error {
 		once.Do(func() {
-			if err := p.Runtime.AttemptCleanup(ctx, "browser_stack", file, func(step context.Context) error {
-				_, err := p.browserOperation(step, "settle", []string{file}, environment)
-				return err
-			}); err != nil {
-				closeErr = CleanupFailure(err)
-				return
-			}
-			if err := p.Runtime.RecordResource("browser_stack", file, "released"); err != nil {
-				closeErr = artifactFailure(err)
-				return
-			}
-			closeErr = harnesssession.RemoveOwnedTree(directory, root)
-			closeErr = errors.Join(closeErr, directory.Close())
+			closeErr = p.closeResource(ctx, "browser_stack", file, func(ctx context.Context) error {
+				if err := p.Runtime.AttemptCleanup(ctx, "browser_stack", file, func(step context.Context) error {
+					_, err := p.browserOperation(step, "settle", []string{file}, environment)
+					return err
+				}); err != nil {
+					return CleanupFailure(err)
+				}
+				if err := p.Runtime.RecordResource("browser_stack", file, "released"); err != nil {
+					return artifactFailure(err)
+				}
+				return errors.Join(harnesssession.RemoveOwnedTree(directory, root), directory.Close())
+			})
 		})
 		return closeErr
 	}
@@ -177,6 +180,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	attached["CARTULARY_BROWSER_STAGE"] = request.BrowserStage
 	attached["CARTULARY_BROWSER_SESSION_GROUP"] = session
 	attached["CARTULARY_WEB_E2E_SESSION_LEASE_FILE"] = lease
+	attached["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
 	if err := p.Runtime.RegisterEnvironment(attached); err != nil {
 		return nil, artifactFailure(err)
 	}

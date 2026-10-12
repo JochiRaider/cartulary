@@ -3,7 +3,6 @@
 package harnesssession
 
 import (
-	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
@@ -34,9 +33,12 @@ type Runtime struct {
 	closed               bool
 	cleanupMu            sync.Mutex
 	cleanupAttempts      map[string]*cleanupAttempt
+	actor                harnessadmission.Proof
+	attempt              string
 }
 
 var component = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+var uuidPattern = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$`)
 var secretName = regexp.MustCompile(`(?i)(?:PASSWORD|SECRET|TOKEN(?:[^S]|$)|COOKIE|DSN|ACCESS_KEY|KEY_RING|PRIVATE_KEY)`)
 
 func identifier() string {
@@ -127,7 +129,7 @@ func newRuntime(repository, runRoot, runID, scratch string, ownerProcess harness
 		parent.Close()
 		return nil, err
 	}
-	result = &Runtime{Root: root, RunID: runID, LeaseID: identifier(), Repository: repository, RunRoot: runRoot, Directory: directory, parent: parent, owned: true}
+	result = &Runtime{Root: root, RunID: runID, LeaseID: identifier(), Repository: repository, RunRoot: runRoot, Directory: directory, parent: parent, owned: true, actor: ownerProcess}
 	// Incomplete initialization remains under the private root, never a retained
 	// path. Only this exact created directory is eligible for rollback.
 	defer func() {
@@ -167,6 +169,9 @@ func newRuntime(repository, runRoot, runID, scratch string, ownerProcess harness
 	if err = harnesslocal.PublishNew(filepath.Join(root, "runtime-process.json"), append(data, '\n')); err != nil {
 		return nil, err
 	}
+	if _, err = result.createDetail("ordinary", ownerProcess); err != nil {
+		return nil, err
+	}
 	if err = harnesslocal.CheckDirectory(parent, base); err != nil {
 		return nil, err
 	}
@@ -199,22 +204,19 @@ func BorrowRuntime(repository, runRoot, root, runID, leaseID string) (*Runtime, 
 	return &Runtime{Root: root, RunID: runID, LeaseID: leaseID, Directory: directory, Repository: owner.Repository, RunRoot: owner.RunRoot}, nil
 }
 func (r *Runtime) Environment() map[string]string {
-	return map[string]string{"CARTULARY_HARNESS_SUITE_RUNTIME_ROOT": r.Root, "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID": r.LeaseID, "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID": r.RunID}
+	v := map[string]string{"CARTULARY_HARNESS_SUITE_RUNTIME_ROOT": r.Root, "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID": r.LeaseID, "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID": r.RunID}
+	id := "ordinary"
+	if r.attempt != "" {
+		id = r.attempt
+		v["CARTULARY_HARNESS_RECOVERY_ATTEMPT"] = id
+	}
+	if authority, err := r.readDetail(id); err == nil {
+		v[detailMarker] = authority.Scope.Token
+	}
+	return v
 }
 func (r *Runtime) PrivatePath(parts ...string) (string, error) {
-	path, err := r.RecoveryPath(parts...)
-	if err != nil {
-		return "", err
-	}
-	// Producers share a declared disposable namespace. Its deletion authority is
-	// the bound runtime directory, never a persisted resource declaration.
-	directory, err := harnesslocal.PrivateDirectory(filepath.Join(r.Root, "detail"))
-	if err != nil {
-		return "", err
-	}
-	directory.Close()
-	relative, _ := filepath.Rel(r.Root, path)
-	return filepath.Join(r.Root, "detail", relative), nil
+	return r.detailPath("ordinary", parts...)
 }
 
 func (r *Runtime) RecoveryPath(parts ...string) (string, error) {
@@ -226,7 +228,7 @@ func (r *Runtime) RecoveryPath(parts ...string) (string, error) {
 			return "", harnesslocal.ErrUnsafe
 		}
 	}
-	if slices.Contains([]string{"detail", "recovery", "registered-secrets", "runtime-owner.json", "runtime-process.json", "finalizing"}, parts[0]) {
+	if slices.Contains([]string{"detail", "recovery", "registered-secrets", "runtime-owner.json", "runtime-process.json", "finalizing", "detail-authority.json", "recovery-attempts", "recovery-detail"}, parts[0]) {
 		return "", harnesslocal.ErrUnsafe
 	}
 	return filepath.Join(append([]string{r.Root}, parts...)...), nil
@@ -246,7 +248,7 @@ func (r *Runtime) RegisterSecret(value string) error {
 		return err
 	}
 	defer unlock()
-	if err := r.mutable(); err != nil {
+	if err := r.productionMutable(); err != nil {
 		return err
 	}
 	dir, err := harnesslocal.PrivateDirectory(filepath.Join(r.Root, "registered-secrets"))
@@ -337,11 +339,47 @@ func (r Resource) Path() (string, error) {
 	return path, err
 }
 func resourceName(kind string, target json.RawMessage) (string, error) {
-	var compact bytes.Buffer
-	if err := json.Compact(&compact, target); err != nil {
+	var value any
+	if err := json.Unmarshal(target, &value); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s-%x.json", kind, sha256.Sum256(compact.Bytes())), nil
+	canonical, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s-%x.json", kind, sha256.Sum256(canonical)), nil
+}
+
+func (v Resource) Reference() string {
+	name, err := resourceName(v.Kind, v.Target)
+	if err != nil {
+		return ""
+	}
+	return "resource:" + v.RunID + ":" + v.LeaseID + ":" + strings.TrimSuffix(name, ".json")
+}
+
+func (r *Runtime) ResourceReference(kind string, target any) (string, error) {
+	raw, err := json.Marshal(target)
+	if err != nil {
+		return "", err
+	}
+	v := Resource{Kind: kind, Target: raw, State: "pending", RunID: r.RunID, LeaseID: r.LeaseID}
+	if err := r.checkResource(v); err != nil {
+		return "", err
+	}
+	return v.Reference(), nil
+}
+
+func (r *Runtime) referenceName(reference string) (string, error) {
+	prefix := "resource:" + r.RunID + ":" + r.LeaseID + ":"
+	if !strings.HasPrefix(reference, prefix) {
+		return "", harnesslocal.ErrUnsafe
+	}
+	name := strings.TrimPrefix(reference, prefix)
+	if !regexp.MustCompile(`^[a-z_]+-[a-f0-9]{64}$`).MatchString(name) {
+		return "", harnesslocal.ErrUnsafe
+	}
+	return name + ".json", nil
 }
 func (r *Runtime) checkResource(v Resource) error {
 	if _, err := validateJSON("cartulary.harness_runtime_resource.v1", v); err != nil {
@@ -351,19 +389,19 @@ func (r *Runtime) checkResource(v Resource) error {
 		return harnesslocal.ErrUnsafe
 	}
 	for _, file := range v.RecoveryFiles {
-		if !filepath.IsAbs(file) || filepath.Clean(file) != file || file == r.Root || !within(r.Root, file) || within(filepath.Join(r.Root, "recovery"), file) || within(filepath.Join(r.Root, "detail"), file) {
+		if !filepath.IsAbs(file) || filepath.Clean(file) != file || file == r.Root || !within(r.Root, file) || within(filepath.Join(r.Root, "recovery"), file) || (within(filepath.Join(r.Root, "detail"), file) || within(filepath.Join(r.Root, "recovery-detail"), file) || within(filepath.Join(r.Root, "recovery-attempts"), file) || file == filepath.Join(r.Root, "detail-authority.json")) {
 			return harnesslocal.ErrUnsafe
 		}
 	}
 	for _, dependency := range v.Dependencies {
-		if !filepath.IsAbs(dependency) || filepath.Clean(dependency) != dependency || dependency == r.Root || !within(r.Root, dependency) || within(filepath.Join(r.Root, "recovery"), dependency) || within(filepath.Join(r.Root, "detail"), dependency) {
+		if _, err := r.referenceName(dependency); err != nil || dependency == v.Reference() {
 			return harnesslocal.ErrUnsafe
 		}
 	}
 	switch v.Kind {
 	case "managed_suite", "borrowed_suite", "browser_stack", "object_store_proxy":
 		target, err := v.Path()
-		if err != nil || !filepath.IsAbs(target) || filepath.Clean(target) != target || target == r.Root || !within(r.Root, target) || within(filepath.Join(r.Root, "detail"), target) {
+		if err != nil || !filepath.IsAbs(target) || filepath.Clean(target) != target || target == r.Root || !within(r.Root, target) || (within(filepath.Join(r.Root, "detail"), target) || within(filepath.Join(r.Root, "recovery-detail"), target) || within(filepath.Join(r.Root, "recovery-attempts"), target) || target == filepath.Join(r.Root, "detail-authority.json")) {
 			return harnesslocal.ErrUnsafe
 		}
 		relative, _ := filepath.Rel(r.Root, target)
@@ -372,7 +410,7 @@ func (r *Runtime) checkResource(v Resource) error {
 				return harnesslocal.ErrUnsafe
 			}
 		}
-	case "preparation_process", "browser_process", "helper_process":
+	case "browser_process", "helper_process":
 		// The projected schema validates exact process proof fields.
 	case "diagnostic_scope":
 		var proof struct {
@@ -407,8 +445,10 @@ func (r *Runtime) RecordDependentResource(kind string, target any, state string,
 		return err
 	}
 	defer unlock()
-	if err := r.mutable(); err != nil {
-		return err
+	if state != "released" {
+		if err := r.productionMutable(); err != nil {
+			return err
+		}
 	}
 	raw, err := json.Marshal(target)
 	if err != nil {
@@ -444,13 +484,33 @@ func (r *Runtime) RecordDependentResource(kind string, target any, state string,
 		if dependencies == nil {
 			v.Dependencies = previous.Dependencies
 		} else {
-			v.Dependencies = append(slices.Clone(dependencies), previous.Dependencies...)
+			v.Dependencies = slices.Clone(dependencies)
+			slices.Sort(v.Dependencies)
+			old := slices.Clone(previous.Dependencies)
+			slices.Sort(old)
+			if previous.Dependencies != nil && !slices.Equal(old, v.Dependencies) {
+				return harnesslocal.ErrUnsafe
+			}
 		}
 		if previous.State == "acquired" {
 			v.State = "acquired"
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
+	}
+	if v.Dependencies == nil {
+		return harnesslocal.ErrUnsafe
+	}
+	for _, reference := range v.Dependencies {
+		dependencyName, err := r.referenceName(reference)
+		if err != nil {
+			return err
+		}
+		data, err := harnesslocal.ReadFileAt(directory, dependencyName, 1048576, false)
+		var dependency Resource
+		if err != nil || json.Unmarshal(data, &dependency) != nil || r.checkResource(dependency) != nil || dependency.Reference() != reference || dependency.State == "released" {
+			return harnesslocal.ErrUnsafe
+		}
 	}
 	v.RecoveryFiles = slices.Clone(files)
 	slices.Sort(v.RecoveryFiles)
@@ -538,6 +598,21 @@ func (r *Runtime) Close() error {
 		return err
 	}
 	defer unix.Flock(int(r.Directory.Fd()), unix.LOCK_UN)
+	if harnesslocal.CheckDirectory(r.Directory, r.Root) != nil {
+		return harnesslocal.ErrUnsafe
+	}
+	if _, err := ReadBinding(r.Repository, r.RunRoot, r.Root, r.RunID, r.LeaseID); err != nil {
+		return err
+	}
+	if err := r.fenceDetails(); err != nil {
+		return err
+	}
+	if err := r.purgeDetail("ordinary"); err != nil {
+		return err
+	}
+	if err := r.purgeRecoveryDetails(); err != nil {
+		return err
+	}
 	resources, err := r.resources(4096)
 	if err != nil {
 		return err
@@ -571,8 +646,8 @@ func (r *Runtime) ReleaseHandles() error {
 	return errors.Join(r.Directory.Close(), parentErr)
 }
 
-// BeginFinalization seals registration only after every recorded resource has
-// settled. The marker fences later short-lived clients using a different handle.
+// BeginFinalization first stops ordinary production, independently of external
+// cleanup. Successful completion additionally requires settled resources.
 func (r *Runtime) BeginFinalization() ([]string, error) {
 	unlock, err := r.lock()
 	if err != nil {
@@ -581,6 +656,12 @@ func (r *Runtime) BeginFinalization() ([]string, error) {
 	defer unlock()
 	if !r.owned {
 		return nil, harnesslocal.ErrUnsafe
+	}
+	if err := r.fenceDetails(); err != nil {
+		return nil, err
+	}
+	if err := r.purgeDetail("ordinary"); err != nil {
+		return nil, err
 	}
 	resources, err := r.resources(4096)
 	if err != nil {
@@ -591,9 +672,6 @@ func (r *Runtime) BeginFinalization() ([]string, error) {
 	}
 	values, err := r.forbiddenValues()
 	if err != nil {
-		return nil, err
-	}
-	if err := harnesslocal.ReplaceFileAt(r.Directory, "finalizing", []byte("sealed\n")); err != nil {
 		return nil, err
 	}
 	return values, nil

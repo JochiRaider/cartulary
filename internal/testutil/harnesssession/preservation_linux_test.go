@@ -31,7 +31,7 @@ func testSiblingDetailRemoval(t *testing.T) {
 		if err := os.WriteFile(proof, []byte("private proof"), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if err := r.RecordResource("managed_suite", proof, "acquired"); err != nil {
+		if err := r.RecordDependentResource("managed_suite", proof, "acquired", []string{}); err != nil {
 			t.Fatal(err)
 		}
 		defer r.RecordResource("managed_suite", proof, "released")
@@ -63,7 +63,7 @@ func testFixturePreservationBaseline(t *testing.T) {
 		if err = os.WriteFile(protected, []byte("private proof"), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if err = r.RecordResource("managed_suite", protected, "acquired"); err != nil {
+		if err = r.RecordDependentResource("managed_suite", protected, "acquired", []string{}); err != nil {
 			t.Fatal(err)
 		}
 		detail := filepath.Join(r.Root, "unrelated")
@@ -102,7 +102,7 @@ func testFixturePreservationBaseline(t *testing.T) {
 			t.Fatal(err)
 		}
 		file := filepath.Join(r.Root, "suite", "lease.json")
-		if err := r.RecordResource("managed_suite", file, "pending"); err != nil {
+		if err := r.RecordDependentResource("managed_suite", file, "pending", []string{}); err != nil {
 			t.Fatal(err)
 		}
 		if removed, err := CleanupStaleRoots(base, time.Now().Add(48*time.Hour)); err != nil || removed != 0 {
@@ -148,7 +148,7 @@ func testRecoveryDependencyValidation(t *testing.T) {
 			if variant == "foreign" {
 				cert = filepath.Join(t.TempDir(), "foreign")
 			}
-			if err := r.RecordResource("object_store_proxy", proof, "acquired", cert); variant == "foreign" {
+			if err := r.RecordDependentResource("object_store_proxy", proof, "acquired", []string{}, cert); variant == "foreign" {
 				if err == nil {
 					t.Fatal("foreign dependency admitted")
 				}

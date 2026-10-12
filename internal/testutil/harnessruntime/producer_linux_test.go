@@ -168,7 +168,7 @@ import {runPrivateCapturedProcess} from './tools/harness/runtime/private-child-p
 process.on('SIGTERM', () => {});
 await runPrivateCapturedProcess(process.execPath, ['--input-type=module', '--eval',
   "import {writeFileSync} from 'node:fs'; process.stdout.write('private cancellation output'); writeFileSync(process.env.CAPTURE_READY, String(process.pid)); setInterval(() => {}, 1000);"],
-  {repoRoot: process.cwd(), runRoot: process.env.CAPTURE_RUN, cwd: process.cwd(), env: process.env});
+  {repoRoot: process.cwd(), runRoot: process.env.CAPTURE_RUN, cwd: process.cwd(), env: process.env, dependencies: []});
 `}, Environment: map[string]string{}}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

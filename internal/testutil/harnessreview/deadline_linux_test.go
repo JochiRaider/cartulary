@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
@@ -148,7 +149,7 @@ func testPreparationDeadlines(t *testing.T) {
 			t.Cleanup(func() {
 				a.kill()
 				<-a.done
-				if errs := recoverIndependent(context.Background(), root, run, runtime, environment); len(errs) > 0 {
+				if errs := (harnessfixtures.ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: environment}).Recover(context.Background()); errs != nil {
 					t.Error(errs)
 				}
 				if err := runtime.Close(); err != nil {

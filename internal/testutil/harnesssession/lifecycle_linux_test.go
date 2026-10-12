@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -33,7 +35,7 @@ func testCorruptJournalDetail(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if err = r.RecordResource("managed_suite", proof, "acquired"); err != nil {
+		if err = r.RecordDependentResource("managed_suite", proof, "acquired", []string{}); err != nil {
 			t.Fatal(err)
 		}
 		raw, _ := json.Marshal(proof)
@@ -81,6 +83,113 @@ func testCorruptJournalDetail(t *testing.T) {
 }
 
 func testLifecycleGaps(t *testing.T) {
+	t.Run("diagnostic_scope_recovers_orphan_before_pid_publication", func(t *testing.T) {
+		root, err := filepath.Abs("../../..")
+		if err != nil {
+			t.Fatal(err)
+		}
+		run := t.TempDir()
+		r, err := NewRuntime(root, run, "orphan-scope", t.TempDir())
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Close()
+		identity, err := CaptureProcess(os.Getpid())
+		if err != nil {
+			t.Fatal(err)
+		}
+		token := strings.ReplaceAll(identifier()+identifier(), "-", "")
+		scope := map[string]any{"boot": identity.Boot, "start": identity.Start, "uid": os.Getuid(), "token": token}
+		if err := r.RecordDependentResource("diagnostic_scope", scope, "acquired", []string{}); err != nil {
+			t.Fatal(err)
+		}
+		defer r.RecordResource("diagnostic_scope", scope, "released")
+		// The producer exits without publishing its detached child's identity.
+		producer := exec.Command("/bin/sh", "-c", "setsid sleep 60 </dev/null >/dev/null 2>&1 &")
+		producer.Env = append(os.Environ(), "CARTULARY_DIAGNOSTIC_TOKEN="+token)
+		if err := producer.Run(); err != nil {
+			t.Fatal(err)
+		}
+		// Independent fixture census establishes the real orphan, not the
+		// implementation's authorization or discovery result.
+		var orphan ProcessProof
+		deadline := time.Now().Add(5 * time.Second)
+		for orphan.PID == 0 && time.Now().Before(deadline) {
+			entries, err := os.ReadDir("/proc")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, entry := range entries {
+				pid, err := strconv.Atoi(entry.Name())
+				if err != nil {
+					continue
+				}
+				data, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "environ"))
+				if err == nil && strings.Contains("\x00"+string(data), "\x00CARTULARY_DIAGNOSTIC_TOKEN="+token+"\x00") {
+					orphan, _ = CaptureProcess(pid)
+					break
+				}
+			}
+			if orphan.PID == 0 {
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+		if orphan.PID == 0 {
+			t.Fatal("producer did not create marked orphan")
+		}
+		defer syscall.Kill(orphan.PID, syscall.SIGKILL)
+		resources, err := r.Resources(8)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := r.StopResource(ctx, root, run, map[string]string{"NODE_BIN": os.Getenv("NODE_BIN")}, resources[0]); err != nil {
+			t.Fatal("journal-authorized orphan recovery failed", err)
+		}
+		state, err := readProcess(orphan.PID)
+		if err == nil && state.state != "Z" && state.state != "X" {
+			t.Fatal("orphan survived scope cleanup")
+		}
+		if err != nil && !processGone(err) {
+			t.Fatal(err)
+		}
+	})
+	t.Run("physical_worker_closed_pipes_do_not_prove_descendant_settlement", func(t *testing.T) {
+		file := filepath.Join(t.TempDir(), "child")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "/bin/sh", "-c", `sleep 60 </dev/null >/dev/null 2>&1 & echo $! > "$1"; exit 0`, "fixture", file)
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		if err := waitPhysicalCommand(ctx, cmd); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer syscall.Kill(pid, syscall.SIGKILL)
+		state, err := readProcess(pid)
+		if err == nil && state.state != "Z" && state.state != "X" {
+			t.Fatal("cleanup acknowledged live descendant")
+		}
+		if err != nil && !processGone(err) {
+			t.Fatal(err)
+		}
+	})
+	t.Run("settlement_deadline_keeps_live_identity_unresolved", func(t *testing.T) {
+		p := processState{ProcessProof: ProcessProof{PID: 101, Start: "11", PGID: 101, SID: 50, Group: true}, state: "S"}
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+		defer cancel()
+		err := settleProcess(ctx, p.ProcessProof, 0, func(ProcessProof) ([]processState, error) { return []processState{p}, nil }, func(processState, unix.Signal) error { return nil })
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatal("signal delivery substituted for absence", err)
+		}
+	})
 	t.Run("settlement_requires_observed_absence", func(t *testing.T) {
 		leader := processState{ProcessProof: ProcessProof{PID: 100, Start: "10", PGID: 100, SID: 50, Group: true}, state: "Z"}
 		child := processState{ProcessProof: ProcessProof{PID: 101, Start: "11", PGID: 100, SID: 50}, state: "S"}
@@ -144,7 +253,7 @@ func testLifecycleGaps(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = r.RecordResource("helper_process", target, "acquired"); err != nil {
+		if err = r.RecordDependentResource("helper_process", target, "acquired", []string{}); err != nil {
 			t.Fatal(err)
 		}
 		defer r.RecordResource("helper_process", target, "released")

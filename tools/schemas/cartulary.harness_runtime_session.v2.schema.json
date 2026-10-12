@@ -97,6 +97,10 @@
         "lease_id": {
           "type": "string",
           "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_attempt": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
         }
       }
     },
@@ -230,6 +234,10 @@
             "type": "string",
             "maxLength": 1048576
           }
+        },
+        "recovery_attempt": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
         }
       }
     },
@@ -290,6 +298,10 @@
         "admission_token": {
           "type": "string",
           "pattern": "^[a-f0-9]{32}$"
+        },
+        "recovery_attempt": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
         }
       }
     },
@@ -584,7 +596,7 @@
           "const": true
         },
         "result": {
-          "type": "null"
+          "$ref": "cartulary.harness_runtime_resource.v1#/$defs/resourceReference"
         }
       }
     },
@@ -708,6 +720,10 @@
             "minLength": 1,
             "maxLength": 256
           }
+        },
+        "recovery_attempt": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
         }
       }
     },
@@ -753,7 +769,8 @@
         "run_root",
         "run_id",
         "root",
-        "lease_id"
+        "lease_id",
+        "recovery_attempt"
       ],
       "properties": {
         "schema_id": {
@@ -766,6 +783,374 @@
         },
         "operation": {
           "const": "claim_recovery_output"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96,
+          "minLength": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_attempt": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "ok",
+        "result"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "claim_recovery_output"
+        },
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "repository",
+        "run_root",
+        "run_id",
+        "root",
+        "lease_id",
+        "scope"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "inspect_diagnostic_scope"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96,
+          "minLength": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "scope": {
+          "$ref": "cartulary.harness_runtime_resource.v1#/$defs/diagnosticScope"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "ok",
+        "result"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "inspect_diagnostic_scope"
+        },
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "processes",
+            "rss_bytes"
+          ],
+          "properties": {
+            "processes": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "$ref": "cartulary.harness_runtime_resource.v1#/$defs/processProof"
+              }
+            },
+            "rss_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4503599627370496
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "repository",
+        "run_root",
+        "run_id",
+        "root",
+        "lease_id",
+        "scope"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "settle_diagnostic_scope"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96,
+          "minLength": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "scope": {
+          "$ref": "cartulary.harness_runtime_resource.v1#/$defs/diagnosticScope"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "ok",
+        "result"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "settle_diagnostic_scope"
+        },
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "repository",
+        "run_root",
+        "run_id",
+        "root",
+        "lease_id",
+        "depends_on"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "create_diagnostic_scope"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96,
+          "minLength": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 64,
+          "items": {
+            "$ref": "cartulary.harness_runtime_resource.v1#/$defs/resourceReference"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "ok",
+        "result"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "create_diagnostic_scope"
+        },
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "$ref": "cartulary.harness_runtime_resource.v1#/$defs/diagnosticScope"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "repository",
+        "run_root",
+        "run_id",
+        "root",
+        "lease_id"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "begin_recovery_attempt"
         },
         "repository": {
           "type": "string",
@@ -814,13 +1199,407 @@
           "maximum": 65536
         },
         "operation": {
-          "const": "claim_recovery_output"
+          "const": "begin_recovery_attempt"
+        },
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "type": "string",
+          "maxLength": 32768
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "repository",
+        "run_root",
+        "run_id",
+        "root",
+        "lease_id",
+        "recovery_attempt"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "finish_recovery_attempt"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96,
+          "minLength": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_attempt": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "ok",
+        "result"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "finish_recovery_attempt"
         },
         "ok": {
           "const": true
         },
         "result": {
           "type": "null"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "repository",
+        "run_root",
+        "run_id",
+        "root",
+        "lease_id",
+        "recovery_attempt"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "allocate_recovery_output"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96,
+          "minLength": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_attempt": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "ok",
+        "result"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "allocate_recovery_output"
+        },
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "type": "string",
+          "maxLength": 32768
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "repository",
+        "run_root",
+        "run_id",
+        "root",
+        "lease_id",
+        "parts",
+        "recovery_attempt"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "recovery_detail_path"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96,
+          "minLength": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "recovery_attempt": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "ok",
+        "result"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "recovery_detail_path"
+        },
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "type": "string",
+          "maxLength": 32768
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "repository",
+        "run_root",
+        "run_id",
+        "root",
+        "lease_id"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "producer_environment"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$",
+          "maxLength": 96,
+          "minLength": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "lease_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "recovery_attempt": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "ok",
+        "result"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v2"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "const": "producer_environment"
+        },
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "CARTULARY_HARNESS_SUITE_RUNTIME_ROOT",
+            "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID",
+            "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID",
+            "CARTULARY_HARNESS_DETAIL_TOKEN"
+          ],
+          "properties": {
+            "CARTULARY_HARNESS_SUITE_RUNTIME_ROOT": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "CARTULARY_HARNESS_DETAIL_TOKEN": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "CARTULARY_HARNESS_RECOVERY_ATTEMPT": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+            }
+          }
         }
       }
     }

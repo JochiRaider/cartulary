@@ -28,7 +28,7 @@ function channel(repoRoot, environment, expected) {
   const runtime = borrowRuntime({ repoRoot, runRoot, environment });
   validateSchemaSync(schemaID, { ...expected, ...accountingFailure });
   if (runtime.runID !== expected.run_id) throw new Error("command failure run mismatch");
-  const directory = runtime.privatePath(`command-failure-${expected.invocation_id}`);
+  const directory = runtime.producerPath(`command-failure-${expected.invocation_id}`);
   return { directory, file: path.join(directory, "failure.json") };
 }
 

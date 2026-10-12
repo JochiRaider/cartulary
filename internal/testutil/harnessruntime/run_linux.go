@@ -45,6 +45,10 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	}
 	plan, err := Prepare(ctx, root, args, input)
 	if err != nil {
+		var lifecycle *failure
+		if errors.As(err, &lifecycle) && lifecycle.Reason == "cleanup_error" {
+			return nil, 12, err
+		}
 		if errors.Is(err, context.Canceled) {
 			return nil, 130, err
 		}
@@ -104,6 +108,9 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	delete(child, "CARTULARY_TEST_SERVICES_MODE")
 	delete(child, "CARTULARY_TEST_SERVICES_SESSION_FILE")
 	maps.Copy(child, runtime.Environment())
+	// The graph starts with no fixture consumers. A fixture lease supplies its
+	// exact retained resource references when it extends this environment.
+	child["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = "[]"
 	child["CARTULARY_TEST_RESULTS_DIR"] = results
 	child["CARTULARY_TEST_RUN_ID"] = runID
 	for _, k := range []string{"CARTULARY_HARNESS_GRAPH_CHILD", "CARTULARY_HARNESS_IDENTITY_PREPARED", "CARTULARY_HARNESS_SKIP_PREREQUISITES", "CARTULARY_SUPPRESS_CHILD_SUCCESS"} {

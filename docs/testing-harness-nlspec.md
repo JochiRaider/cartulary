@@ -5973,12 +5973,48 @@ signaling unrelated processes. Release acknowledgement requires verified absence
 of live owned members. The owner retains a direct child's identity anchor until
 group settlement has completed where the launch/wait relationship permits it.
 
+This settlement boundary applies to the source compiler, collector, physical
+cleanup workers and browser-fixture supervisors as well as workload children.
+Pipe closure and successful worker exit do not establish group settlement.
+Compiler admission, resource release and finalization advancement MUST wait for
+settlement or report an explicit unresolved cleanup failure. An optional
+observation failure does not demote a required physical cleanup failure or
+replace an earlier workload failure.
+
+A diagnostic scope is private authority recorded before its producer can spawn.
+The native owner resolves scope inspection and settlement against that exact
+runtime/run/lease journal, validates UID, boot identity, start boundary and inherited
+nonce, and rechecks process identity before signaling. Recovery after producer
+death MUST work before daemon PID publication without surviving-parent authority.
+A caller-supplied nonce or PID alone grants no authority. Inaccessible relevant
+proof, incomplete discovery or conflicting identity MUST remain unresolved;
+unrelated processes MUST NOT be signaled. Node adapters may consume bounded
+inspection facts but MUST NOT implement a second discovery or signaling policy.
+
 Cleanup dependencies are explicit lifecycle edges, separate from files retained
 as recovery authority. A failed resource blocks its dependencies, while proven
 independent releases continue. Unknown edges remain unresolved. Each physical
 service receives its own existing bounded cleanup attempt; independent services
 may drain concurrently. Cleanup evidence distinguishes completed, failed and
 blocked resources without replacing the primary failure.
+
+The same dependency evaluator governs ordinary close and explicit recovery for
+all retained resource kinds, including diagnostic scopes, process proofs and
+renderers. An edge names an exact resource identity in the same runtime/run/lease;
+filesystem paths and recovery-file dependencies are not lifecycle identities.
+Producers MUST declare edges or an explicit empty independence set before
+acquiring a dependent resource. Missing or null edges mean unknown. Contradictory,
+cyclic, foreign and unresolved references prevent successful cleanup; they MUST
+NOT be interpreted as independence. Failed or blocked consumers protect their
+transitive dependencies. Resources proven independent of those consumers still
+receive their own existing bounded attempts. A repeated attempt joins the same
+outcome; later explicit recovery starts a new attempt.
+
+For example, a diagnostic scope consuming a browser declares that browser
+resource as a dependency, and the browser declares its stack or suite dependency.
+An unresolved diagnostic scope therefore retains that chain. A separate scope
+with an explicit empty dependency set does not block an unrelated suite. A scope
+whose declaration is missing cannot supply the same independence evidence.
 Verified by: TH-HARNESS-AC-148
 
 **TH-HARNESS-REQ-854 — Private preparation and lifecycle interfaces.**
@@ -7634,6 +7670,24 @@ an earlier primary failure. Once any terminal bytes exist, recovery may only
 reuse the exact intended bytes; it MUST NOT regenerate timestamps or outcomes.
 This includes terminal design-presentation and cleanup artifacts in the same
 transaction. Their outcomes remain historical even when later cleanup succeeds.
+
+Ordinary private-detail allocation MUST serialize with finalization and deletion
+under the same cross-process lifecycle fence. Finalized, closed, stale or foreign
+producer capabilities MUST reject allocation without recreating disposable detail.
+Stopping ordinary allocation is independent of successful external-resource
+release. Existing admitted producers, including holders of paths and descriptors,
+MUST quiesce before their detail is purged; allocation locking alone is not proof
+of quiescence.
+
+Recovery detail requires an explicit native-owner attempt capability admitted
+under exact recovery serialization. Each attempt has fresh identity and private
+detail/output bindings; ordinary borrowing cannot acquire that authority. The
+attempt can retain cleanup proof and perform required physical work after ordinary
+production is fenced, but MUST finalize its own detail after its consumers stop.
+A previous attempt's purge or output claim MUST NOT authorize the new attempt.
+Minimum ownership, producer-settlement and scanner authority remain separate from
+disposable detail. Journal corruption cannot prevent independently safe detail
+purge after producer quiescence, and does not establish successful recovery.
 A terminal locator with pending private transaction state is not successful
 closure. Status remains observational; an explicit stop may resume that
 transaction, including a locator whose historical terminal state is closed.
@@ -8633,8 +8687,8 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-144 | REQ-847 | Wrapper startup, multiple/nested graphs, cancellation, scan failure, forged receipt, unsafe path and interrupted publication | Secure envelope/scan-bound structural receipt and preserved admission/signals/exits | Arbitrary post-scan data, rewritten evidence, false completion or multiplied outer duration fails. |
 | TH-HARNESS-AC-145 | REQ-848 | Independent process/thread CPU and memory arithmetic, all workload/reader treatments, instability, corrupt/mismatched evidence and lost measurements | Complete declared observer scope and every fixed budget pass at frozen clean source | Partial self-counters, peak substitution, missing coverage, altered thresholds or failed required cell cannot qualify. |
 | TH-HARNESS-AC-146 | REQ-835/849 | Strict JSON, malformed envelopes/receipts, secure paths, one/two samples, zero/unavailable, resets/gaps, shared/borrowed scopes, truncation and all public consumers | One immutable model and resource traversal; bounded human/JSON facts agree, with scope-correct metrics, units, intervals and omissions | Hidden members, partial aggregates, invented utilization/totals, RSS substituted for container memory, repeated reads, implicit export or divergent rejection fail. |
-| TH-HARNESS-AC-147 | REQ-852/854/855 | Independent scheduling/cache/plan and private-runtime/scan fixtures, compiler lifetime, cancellation, publication, standalone producers and public dispatch | One native graph and shared private-runtime owner; compiler reaped before units; required selection/accounting preserved; status never provisions | Alternate engine, arbitrary plan execution, resident compiler, duplicate scan policy, lost descendants or changed failure order fails. |
-| TH-HARNESS-AC-148 | REQ-853/854/855, REQ-416/502/616 | Graph/review ownership, partial acquisition, concurrency, reset/recovery, owner loss, hostile frames, repeated close and immutable terminal outcomes | Direct native fixture coordination; Go review admission/registry/terminal ownership; exact proof, ordered cleanup and unchanged physical owners | Duplicate policy, forged requests, borrowed-resource termination, leaked resources, legacy fixture transport or hidden cleanup failure fails. |
+| TH-HARNESS-AC-147 | REQ-852/854/855 | Independent scheduling/cache/plan and private-runtime/scan fixtures, compiler/collector/cleanup-worker/browser-fixture group settlement, cancellation, publication, standalone producers and public dispatch | One native graph and shared private-runtime owner; compiler reaped before units; required selection/accounting preserved; status never provisions | Alternate engine, arbitrary plan execution, resident compiler, duplicate scan policy, lost descendants or changed failure order fails. |
+| TH-HARNESS-AC-148 | REQ-853/854/855, REQ-416/502/616 | Graph/review ownership, partial acquisition, concurrency, reset/recovery, owner loss before diagnostic PID publication, foreign-scope recovery, explicit/unknown/contradictory/cyclic resource dependencies, allocation/finalization races, stale clients, fresh recovery attempts, hostile frames, repeated close and immutable terminal outcomes | Direct native fixture coordination; Go review admission/registry/terminal ownership; exact proof, ordered cleanup and unchanged physical owners | Duplicate policy, forged requests, borrowed-resource termination, leaked resources, legacy fixture transport or hidden cleanup failure fails. |
 | TH-HARNESS-AC-149 | REQ-851 | Command/import closure, retired attachments and completion reporting | Experimental collection retired; independent validation retained; no qualification claim | Active probes/collection commands, weakened budgets or historical relabelling fails. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,

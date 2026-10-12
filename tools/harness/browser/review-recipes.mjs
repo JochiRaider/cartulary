@@ -19,7 +19,7 @@ const preparationBuilds = Object.freeze([
 export function recipeEnvironment(root, runRoot, runtime, input, environment = process.env) {
   const base = { ...environment };
   for (const name of Object.keys(base)) if (/^(?:MAKEFLAGS|MAKEOVERRIDES|MFLAGS|REVIEW_PROFILE|UI_|OTEL_|CARTULARY_(?:MAKE_|TEST_|WEB_E2E_|BROWSER_|HARNESS_|PGTEST_|S3_)|CARTULARY__)/u.test(name)) delete base[name];
-  Object.assign(base, { CARTULARY_PREPARATION_POLICY: input.preparation_policy, CARTULARY_TEST_RESULTS_DIR: path.dirname(runRoot), CARTULARY_TEST_RUN_ID: runtime.runID,
+  Object.assign(base, { CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]", CARTULARY_PREPARATION_POLICY: input.preparation_policy, CARTULARY_TEST_RESULTS_DIR: path.dirname(runRoot), CARTULARY_TEST_RUN_ID: runtime.runID,
     CARTULARY_TEST_TARGET: input.presentation === "design" ? "browser-design-review" : "ui-review", CARTULARY_HARNESS_IDENTITY_PREPARED: "1", CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
     CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
     CARTULARY_SERVER_HARNESS_BIN: path.join(root, workspaceLayout.binaries, "server-harness"), CARTULARY_MIGRATE_BIN: path.join(root, workspaceLayout.binaries, "migrate"),
@@ -36,8 +36,8 @@ export function recipeEnvironment(root, runRoot, runtime, input, environment = p
   }
   return base;
 }
-function processRegistration(runtime, pid) {
-  const proof = ownedProcess(pid); runtime.record({ kind: "helper_process", target: proof });
+function processRegistration(runtime, pid, dependencies) {
+  const proof = ownedProcess(pid); runtime.record({ kind: "helper_process", target: proof, depends_on: dependencies });
   return async () => { await stopOwnedProcess(proof); runtime.record({ kind: "helper_process", target: proof, state: "released" }); };
 }
 export async function buildReviewProducer({ target, root, environment, input, runtime, signal }) {
@@ -51,7 +51,7 @@ export async function buildReviewProducer({ target, root, environment, input, ru
     const context = { phase: "build", subject_id, condition: "child_failed", recovery_id };
     await reviewChild({ root, command: "make", args: ["--no-print-directory", target], environment: { ...environment, CARTULARY_TEST_TARGET: target,
       CARTULARY_HARNESS_GRAPH_CHILD: "1", CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD: "1", CARTULARY_HARNESS_SKIP_PREREQUISITES: "1" }, signal, output: "ignore",
-      commandID: surface.targets.find((entry) => entry.name === target)?.command_id, context, onChildProcess: (pid) => processRegistration(runtime, pid) });
+      commandID: surface.targets.find((entry) => entry.name === target)?.command_id, context, onChildProcess: (pid) => processRegistration(runtime, pid, JSON.parse(environment.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES)) });
   if (input.preparation_policy === "installed_only" && target === "testservices-build") serviceImageReadiness(environment, root);
   return environment;
 }
@@ -61,11 +61,11 @@ export async function seedReview({ root, runRoot, runtime, environment, input, s
   const privateDirectory = runtime.privatePath("review-access"); mkdirSync(privateDirectory, { recursive: true, mode: 0o700 });
   let review;
   try { review = await seedDesignReview({ root, environment: attached, privateDirectory, runRoot, profile: input.profile, signal, verifySamples: input.verify_samples,
-    registerSecret: (value) => runtime.registerSecret(value), onOwnedResource: (resource) => runtime.record(resource) }); }
+    registerSecret: (value) => runtime.registerSecret(value), onOwnedResource: (resource) => runtime.record({ ...resource, depends_on: JSON.parse(attached.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES) }) }); }
   catch (error) { if (!error.failure_reason && error !== signal.reason) Object.assign(error, { failure_class: "harness", failure_reason: "fixture_error" }); throw error; }
   if (buildSourceSnapshot(root).digest !== sourceDigest) throw new CommandFailure("source changed during preparation", { failure_class: "artifact", failure_reason: "artifact_error", phase: "build", subject_id: "source_snapshot", condition: "invalid_artifact", recovery_id: "inspect_source" });
   return { attached, privateDirectory, runRoot, review, check: () => checkReview({ root, environment: attached, runtime, signal }) };
 }
 export async function checkReview({ root, environment, runtime, signal }) {
-  await reviewChild({ root, command: process.execPath, args: ["tools/harness/browser/browser-session-evidence.mjs", "attach-json", environment.CARTULARY_WEB_E2E_STACK_JSON_FILE], environment, signal, output: "ignore", onChildProcess: (pid) => processRegistration(runtime, pid), context: { phase: "service_readiness", subject_id: "browser_stack", condition: "child_failed", recovery_id: "inspect_failure" } });
+  await reviewChild({ root, command: process.execPath, args: ["tools/harness/browser/browser-session-evidence.mjs", "attach-json", environment.CARTULARY_WEB_E2E_STACK_JSON_FILE], environment, signal, output: "ignore", onChildProcess: (pid) => processRegistration(runtime, pid, JSON.parse(environment.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES)), context: { phase: "service_readiness", subject_id: "browser_stack", condition: "child_failed", recovery_id: "inspect_failure" } });
 }

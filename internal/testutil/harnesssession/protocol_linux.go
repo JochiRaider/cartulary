@@ -20,20 +20,23 @@ import (
 const RequestSchema = "cartulary.harness_runtime_session.v2"
 
 type request struct {
-	Schema         string            `json:"schema_id"`
-	ID             int               `json:"request_id"`
-	Operation      string            `json:"operation"`
-	Repository     string            `json:"repository"`
-	RunRoot        string            `json:"run_root"`
-	RunID          string            `json:"run_id"`
-	Root           string            `json:"root"`
-	LeaseID        string            `json:"lease_id"`
-	Scratch        string            `json:"scratch"`
-	Parts          []string          `json:"parts"`
-	Values         []string          `json:"values"`
-	Environment    map[string]string `json:"environment"`
-	Resource       *Resource         `json:"resource"`
-	AdmissionToken string            `json:"admission_token"`
+	Schema          string            `json:"schema_id"`
+	ID              int               `json:"request_id"`
+	Operation       string            `json:"operation"`
+	Repository      string            `json:"repository"`
+	RunRoot         string            `json:"run_root"`
+	RunID           string            `json:"run_id"`
+	Root            string            `json:"root"`
+	LeaseID         string            `json:"lease_id"`
+	Scratch         string            `json:"scratch"`
+	Parts           []string          `json:"parts"`
+	Values          []string          `json:"values"`
+	Environment     map[string]string `json:"environment"`
+	Resource        *Resource         `json:"resource"`
+	AdmissionToken  string            `json:"admission_token"`
+	Scope           json.RawMessage   `json:"scope"`
+	Dependencies    []string          `json:"depends_on"`
+	RecoveryAttempt string            `json:"recovery_attempt"`
 }
 
 type response struct {
@@ -81,6 +84,7 @@ func OwnRuntime(repository, runRoot, root, runID, leaseID string, caller harness
 		return nil, err
 	}
 	r.owned = true
+	r.actor = caller
 	return r, nil
 }
 
@@ -106,8 +110,8 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 	var r *Runtime
 	if q.Operation == "create" {
 		r, err = newRuntime(repository, q.RunRoot, q.RunID, q.Scratch, caller)
-	} else if q.Operation == "close" || q.Operation == "recover_close" {
-		r, err = OwnRuntime(repository, q.RunRoot, q.Root, q.RunID, q.LeaseID, caller, q.Operation == "recover_close")
+	} else if q.Operation == "close" || q.Operation == "recover_close" || q.Operation == "begin_recovery_attempt" || q.Operation == "finish_recovery_attempt" || q.Operation == "allocate_recovery_output" {
+		r, err = OwnRuntime(repository, q.RunRoot, q.Root, q.RunID, q.LeaseID, caller, q.Operation != "close")
 	} else {
 		r, err = BorrowRuntime(repository, q.RunRoot, q.Root, q.RunID, q.LeaseID)
 	}
@@ -115,15 +119,46 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 		return out, err
 	}
 	defer func() { result = errors.Join(result, r.ReleaseHandles()) }()
+	r.actor = caller
+	if q.RecoveryAttempt != "" {
+		if err := r.bindRecoveryAttempt(q.RecoveryAttempt); err != nil {
+			return out, err
+		}
+	}
 	switch q.Operation {
 	case "create", "borrow":
 		out.Result = runtimeIdentity(r)
 	case "private_path":
 		out.Result, result = r.PrivatePath(q.Parts...)
+	case "producer_environment":
+		id := "ordinary"
+		if r.attempt != "" {
+			id = r.attempt
+		}
+		_, result = r.detailPath(id, "producer-admission")
+		if result == nil {
+			out.Result = r.Environment()
+		}
+	case "begin_recovery_attempt":
+		out.Result, result = r.BeginRecoveryAttempt()
+	case "finish_recovery_attempt":
+		result = r.FinishRecoveryAttempt()
+	case "recovery_detail_path":
+		out.Result, result = r.RecoveryDetailPath(q.Parts...)
+	case "allocate_recovery_output":
+		out.Result, result = r.AllocateRecoveryOutput()
 	case "recovery_path":
 		out.Result, result = r.RecoveryPath(q.Parts...)
 	case "claim_recovery_output":
 		result = ClaimRecoveryOutput(repository, q.RunRoot, r.Root, r.RunID, r.LeaseID)
+	case "create_diagnostic_scope":
+		out.Result, result = r.CreateDiagnosticScope(q.Dependencies)
+	case "inspect_diagnostic_scope":
+		out.Result, result = r.InspectDiagnosticScope(q.Scope)
+	case "settle_diagnostic_scope":
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cleanupDeadlinesMS["diagnostic_scope"])*time.Millisecond)
+		defer cancel()
+		result = r.SettleDiagnosticScope(ctx, q.Scope)
 	case "register":
 		for _, v := range q.Values {
 			if err := r.RegisterSecret(v); err != nil {
@@ -136,6 +171,9 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 			return out, harnesslocal.ErrUnsafe
 		}
 		result = r.RecordDependentResource(q.Resource.Kind, q.Resource.Target, q.Resource.State, q.Resource.Dependencies, q.Resource.RecoveryFiles...)
+		if result == nil {
+			out.Result = q.Resource.Reference()
+		}
 		if result == nil && q.AdmissionToken != "" && q.Resource.State != "released" && strings.HasSuffix(q.Resource.Kind, "_process") {
 			data, _ := json.Marshal(q.Resource.Target)
 			var proof harnessadmission.Proof

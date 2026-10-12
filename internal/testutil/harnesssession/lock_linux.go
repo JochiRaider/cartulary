@@ -41,5 +41,9 @@ func (r *Runtime) lock() (func(), error) {
 		unlock()
 		return nil, err
 	}
+	if _, err := ReadBinding(r.Repository, r.RunRoot, r.Root, r.RunID, r.LeaseID); err != nil {
+		unlock()
+		return nil, err
+	}
 	return unlock, nil
 }

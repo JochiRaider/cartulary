@@ -5,12 +5,15 @@ package harnesssession
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"golang.org/x/sys/unix"
 )
 
 func runtimeFixture(t *testing.T) (*Runtime, string, string) {
@@ -31,14 +34,85 @@ func runtimeFixture(t *testing.T) (*Runtime, string, string) {
 	return runtime, root, run
 }
 func TestSessionRuntimeProof(t *testing.T) {
+	if detailProcessFixture() {
+		return
+	}
+	if os.Getenv("CARTULARY_SCOPE_TEST_PROTECTED") == "1" {
+		if err := unix.Prctl(unix.PR_SET_DUMPABLE, 0, 0, 0, 0); err != nil {
+			os.Exit(2)
+		}
+		fmt.Fprintln(os.Stdout, "ready")
+		time.Sleep(time.Minute)
+		os.Exit(0)
+	}
+	t.Run("retired_preparation_kind_rejects_before_acquisition", func(t *testing.T) {
+		r, _, _ := runtimeFixture(t)
+		proof, err := CaptureProcess(os.Getpid())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := r.RecordDependentResource("preparation_process", proof, "pending", []string{}); err == nil {
+			t.Fatal("retired kind admitted")
+		}
+		resources, err := r.Resources(64)
+		if err != nil || len(resources) != 0 {
+			t.Fatal("rejected kind changed journal", resources, err)
+		}
+	})
+	testDiagnosticAuthority(t)
+	testDetailLifecycle(t)
+	testDetailAdversaries(t)
 	testLifecycleGaps(t)
 	testCorruptJournalDetail(t)
 	testCleanupAttempts(t)
 	testRuntimeBindings(t)
+	t.Run("dependency_authority_is_explicit_immutable_and_runtime_bound", func(t *testing.T) {
+		r, _, _ := runtimeFixture(t)
+		suite, _ := r.RecoveryPath("suite.json")
+		consumer, _ := r.RecoveryPath("browser.json")
+		if err := r.RecordResource("managed_suite", suite, "pending"); err == nil {
+			t.Fatal("omitted declaration admitted")
+		}
+		ref, err := r.ResourceReference("managed_suite", suite)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := r.RecordDependentResource("browser_stack", consumer, "pending", []string{ref}); err == nil {
+			t.Fatal("unresolved reference admitted")
+		}
+		if err := r.RecordDependentResource("managed_suite", suite, "pending", []string{}); err != nil {
+			t.Fatal(err)
+		}
+		defer r.RecordResource("managed_suite", suite, "released")
+		foreign := strings.Replace(ref, "resource:fixture:", "resource:foreign:", 1)
+		if err := r.RecordDependentResource("browser_stack", consumer, "pending", []string{foreign}); err == nil {
+			t.Fatal("foreign reference admitted")
+		}
+		if err := r.RecordDependentResource("browser_stack", consumer, "pending", []string{ref}); err != nil {
+			t.Fatal(err)
+		}
+		defer r.RecordResource("browser_stack", consumer, "released")
+		if err := r.RecordDependentResource("browser_stack", consumer, "acquired", []string{}); err == nil {
+			t.Fatal("contradictory declaration admitted")
+		}
+		if err := r.RecordResource("browser_stack", consumer, "acquired"); err != nil {
+			t.Fatal("existing declaration lost", err)
+		}
+		proofA := json.RawMessage(`{"boot":"fixture","pid":12,"pgid":12,"sid":12,"start":"1","group":true}`)
+		proofB := json.RawMessage(`{"group":true,"start":"1","sid":12,"pgid":12,"pid":12,"boot":"fixture"}`)
+		a, err := r.ResourceReference("helper_process", proofA)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, err := r.ResourceReference("helper_process", proofB)
+		if err != nil || a != b {
+			t.Fatal("structured identity depends on field order", a, b, err)
+		}
+	})
 	t.Run("failed_registration_and_duplicate_journal_preserve_ownership", func(t *testing.T) {
 		r, _, _ := runtimeFixture(t)
 		target, _ := r.RecoveryPath("browser-stack-leases", "fixture", "owner.json")
-		if err := r.RecordResource("browser_stack", target, "pending"); err != nil {
+		if err := r.RecordDependentResource("browser_stack", target, "pending", []string{}); err != nil {
 			t.Fatal(err)
 		}
 		entries, err := os.ReadDir(filepath.Join(r.Root, "recovery"))
@@ -53,7 +127,7 @@ func TestSessionRuntimeProof(t *testing.T) {
 		if err = os.Chmod(file, 0644); err != nil {
 			t.Fatal(err)
 		}
-		if err = r.RecordResource("browser_stack", target, "acquired"); err == nil {
+		if err = r.RecordDependentResource("browser_stack", target, "acquired", []string{}); err == nil {
 			t.Fatal("unsafe journal replacement accepted")
 		}
 		if err = os.Chmod(file, 0600); err != nil {
@@ -100,7 +174,7 @@ func TestSessionRuntimeProof(t *testing.T) {
 			t.Fatal("escaping path accepted")
 		}
 		proof, _ := r.RecoveryPath("service", "suite-lease.json")
-		if err := r.RecordResource("managed_suite", proof, "pending"); err != nil {
+		if err := r.RecordDependentResource("managed_suite", proof, "pending", []string{}); err != nil {
 			t.Fatal(err)
 		}
 		if err := r.Close(); err == nil {
@@ -185,14 +259,14 @@ func TestSessionRuntimeProof(t *testing.T) {
 			"browser_process":  map[string]any{"boot": "boot", "start": "1", "pid": 12, "group": true, "pgid": 12, "sid": 12},
 		} {
 			proof := target.(map[string]any)
-			if err := r.RecordResource(kind, proof, "pending"); err != nil {
+			if err := r.RecordDependentResource(kind, proof, "pending", []string{}); err != nil {
 				t.Fatal(kind, err)
 			}
 			if err := r.RecordResource(kind, proof, "released"); err != nil {
 				t.Fatal(err)
 			}
 			proof["extra"] = true
-			if err := r.RecordResource(kind, proof, "pending"); err == nil {
+			if err := r.RecordDependentResource(kind, proof, "pending", []string{}); err == nil {
 				t.Fatal("open proof accepted", kind)
 			}
 			delete(proof, "extra")
@@ -203,7 +277,7 @@ func TestSessionRuntimeProof(t *testing.T) {
 			} else {
 				proof["pid"] = 1
 			}
-			if err := r.RecordResource(kind, proof, "pending"); err == nil {
+			if err := r.RecordDependentResource(kind, proof, "pending", []string{}); err == nil {
 				t.Fatal("forged proof accepted", kind)
 			}
 		}
@@ -217,7 +291,7 @@ func TestSessionRuntimeProof(t *testing.T) {
 		a, _ := r.RecoveryPath("one")
 		b, _ := r.RecoveryPath("two")
 		for _, path := range []string{a, b} {
-			if err := r.RecordResource("managed_suite", path, "pending"); err != nil {
+			if err := r.RecordDependentResource("managed_suite", path, "pending", []string{}); err != nil {
 				t.Fatal(err)
 			}
 		}

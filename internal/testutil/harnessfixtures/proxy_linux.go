@@ -115,7 +115,7 @@ func (p *proxyProvider) Acquire(ctx context.Context, _ Request) (allocation *All
 	if err != nil {
 		return nil, err
 	}
-	options.Dependencies = []string{suite.LeaseFile}
+	options.Dependencies = []string{suite.ResourceRef}
 	environment := options.environment()
 	maps.Copy(environment, suite.Environment)
 	root, err := options.Runtime.RecoveryPath("object-store-proxy")
@@ -207,40 +207,44 @@ func (p *proxyProvider) Acquire(ctx context.Context, _ Request) (allocation *All
 		return nil, err
 	}
 	ready := false
+	resourceTarget := attempt
 	var once sync.Once
 	var closeErr error
 	close := func(ctx context.Context) error {
 		once.Do(func() {
-			closeErr = options.Runtime.AttemptCleanup(ctx, "object_store_proxy", lease, func(ctx context.Context) error {
-				if ready {
-					proof := lease
-					data, err := harnesslocal.ReadFile(proof, 1048576, false)
-					if err != nil {
-						closeErr = errors.Join(err, stop(ctx))
+			closeErr = options.closeResource(ctx, "object_store_proxy", resourceTarget, func(ctx context.Context) error {
+				closeErr = options.Runtime.AttemptCleanup(ctx, "object_store_proxy", lease, func(ctx context.Context) error {
+					if ready {
+						proof := lease
+						data, err := harnesslocal.ReadFile(proof, 1048576, false)
+						if err != nil {
+							closeErr = errors.Join(err, stop(ctx))
+							return closeErr
+						}
+						snapshot := proof + ".cleanup-" + identifier()
+						if err := harnesslocal.PublishNew(snapshot, data); err != nil {
+							closeErr = errors.Join(err, stop(ctx))
+							return closeErr
+						}
+						closeErr = objectstoreproxy.Stop(snapshot)
+						closeErr = errors.Join(closeErr, removePrivate(snapshot))
+					}
+					closeErr = errors.Join(closeErr, stop(ctx))
+					if closeErr != nil {
 						return closeErr
 					}
-					snapshot := proof + ".cleanup-" + identifier()
-					if err := harnesslocal.PublishNew(snapshot, data); err != nil {
-						closeErr = errors.Join(err, stop(ctx))
-						return closeErr
+					for _, proof := range []string{lease, attempt} {
+						if err := options.Runtime.RecordResource("object_store_proxy", proof, "released"); err != nil {
+							closeErr = err
+							return closeErr
+						}
+						if err := removePrivate(proof); err != nil {
+							closeErr = err
+							return closeErr
+						}
 					}
-					closeErr = objectstoreproxy.Stop(snapshot)
-					closeErr = errors.Join(closeErr, removePrivate(snapshot))
-				}
-				closeErr = errors.Join(closeErr, stop(ctx))
-				if closeErr != nil {
 					return closeErr
-				}
-				for _, proof := range []string{lease, attempt} {
-					if err := options.Runtime.RecordResource("object_store_proxy", proof, "released"); err != nil {
-						closeErr = err
-						return closeErr
-					}
-					if err := removePrivate(proof); err != nil {
-						closeErr = err
-						return closeErr
-					}
-				}
+				})
 				return closeErr
 			})
 		})
@@ -287,7 +291,13 @@ func (p *proxyProvider) Acquire(ctx context.Context, _ Request) (allocation *All
 	if err := options.Runtime.RecordResource("object_store_proxy", attempt, "released"); err != nil {
 		return nil, artifactFailure(err)
 	}
+	resourceTarget = lease
+	resourceRef, err := options.Runtime.ResourceReference("object_store_proxy", lease)
+	if err != nil {
+		return nil, err
+	}
 	attached := maps.Clone(suite.Environment)
+	attached["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
 	maps.Copy(attached, map[string]string{"OBJECT_STORE_ENDPOINT": listen, "SEAWEEDFS_S3_ACCESS_KEY_ID": suite.Environment["CARTULARY_S3TEST_ACCESS_KEY_ID"], "SEAWEEDFS_S3_SECRET_ACCESS_KEY": suite.Environment["CARTULARY_S3TEST_SECRET_ACCESS_KEY"], "OBJECT_STORE_SECURE": "true", "OBJECT_STORE_CORS_ORIGIN": "https://localhost:5173"})
 	if err := options.Runtime.RegisterEnvironment(attached); err != nil {
 		return nil, artifactFailure(err)

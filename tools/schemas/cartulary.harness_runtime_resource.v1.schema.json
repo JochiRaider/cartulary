@@ -65,9 +65,7 @@
               "maxItems": 64,
               "uniqueItems": true,
               "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 4096
+                "$ref": "#/$defs/resourceReference"
               }
             }
           ]
@@ -87,53 +85,12 @@
       "properties": {
         "kind": {
           "enum": [
-            "preparation_process",
             "browser_process",
             "helper_process"
           ]
         },
         "target": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "boot",
-            "pid",
-            "start",
-            "group",
-            "pgid",
-            "sid"
-          ],
-          "properties": {
-            "boot": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            },
-            "pid": {
-              "type": "integer",
-              "minimum": 2,
-              "maximum": 2147483647
-            },
-            "start": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 32,
-              "pattern": "^[0-9]+$"
-            },
-            "group": {
-              "type": "boolean"
-            },
-            "pgid": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 2147483647
-            },
-            "sid": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 2147483647
-            }
-          }
+          "$ref": "#/$defs/processProof"
         },
         "state": {
           "enum": [
@@ -174,9 +131,7 @@
               "maxItems": 64,
               "uniqueItems": true,
               "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 4096
+                "$ref": "#/$defs/resourceReference"
               }
             }
           ]
@@ -200,37 +155,7 @@
           ]
         },
         "target": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "boot",
-            "start",
-            "token",
-            "uid"
-          ],
-          "properties": {
-            "boot": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            },
-            "start": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 32,
-              "pattern": "^[0-9]+$"
-            },
-            "token": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 64,
-              "pattern": "^[a-f0-9]{64}$"
-            },
-            "uid": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
+          "$ref": "#/$defs/diagnosticScope"
         },
         "state": {
           "enum": [
@@ -271,9 +196,7 @@
               "maxItems": 64,
               "uniqueItems": true,
               "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 4096
+                "$ref": "#/$defs/resourceReference"
               }
             }
           ]
@@ -371,14 +294,95 @@
               "maxItems": 64,
               "uniqueItems": true,
               "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 4096
+                "$ref": "#/$defs/resourceReference"
               }
             }
           ]
         }
       }
     }
-  ]
+  ],
+  "$defs": {
+    "processProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boot",
+        "pid",
+        "start",
+        "group",
+        "pgid",
+        "sid"
+      ],
+      "properties": {
+        "boot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 2147483647
+        },
+        "start": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[0-9]+$"
+        },
+        "group": {
+          "type": "boolean"
+        },
+        "pgid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "sid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      }
+    },
+    "diagnosticScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boot",
+        "start",
+        "token",
+        "uid"
+      ],
+      "properties": {
+        "boot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "start": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[0-9]+$"
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "uid": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "resourceReference": {
+      "type": "string",
+      "pattern": "^resource:[A-Za-z0-9_.-]+:[0-9a-f-]{36}:[a-z_]+-[a-f0-9]{64}$",
+      "maxLength": 256
+    }
+  }
 }

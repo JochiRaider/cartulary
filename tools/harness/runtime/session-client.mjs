@@ -21,17 +21,22 @@ function transaction(repository, runRoot, runID, operation, fields, environment)
   if (reply.request_id !== 1 || reply.operation !== operation || reply.ok !== true) throw rejected();
   return reply.result;
 }
-function handle(repository, runRoot, identity, environment, owned, admissionToken = () => null) {
+function handle(repository, runRoot, identity, environment, owned, admissionToken = () => null, attempt = null) {
   const { root, lease_id: leaseID, run_id: runID } = identity;
   let closed = false;
   const call = (operation, fields = {}) => {
     if (closed) throw rejected();
-    return transaction(repository, runRoot, runID, operation, { root, lease_id: leaseID, ...fields }, environment);
+    return transaction(repository, runRoot, runID, operation, { root, lease_id: leaseID, ...(attempt && operation !== "private_path" ? { recovery_attempt: attempt } : {}), ...fields }, environment);
   };
   return Object.freeze({ root, leaseID, runID, owned,
     privatePath: (...parts) => call("private_path", { parts }),
+    producerPath: (...parts) => call(attempt ? "recovery_detail_path" : "private_path", { parts }),
+    producerEnvironment: () => call("producer_environment"),
     recoveryPath: (...parts) => call("recovery_path", { parts }),
     claimRecoveryOutput: () => call("claim_recovery_output"),
+    createDiagnosticScope: (depends_on) => call("create_diagnostic_scope", { depends_on }),
+    inspectDiagnosticScope: (scope) => call("inspect_diagnostic_scope", { scope }),
+    settleDiagnosticScope: (scope) => call("settle_diagnostic_scope", { scope }),
     registerSecret: (value) => call("register", { values: [String(value ?? "")], environment: {} }),
     registerEnvironment: (values) => call("register", { values: [], environment: values }),
     record: ({ kind, target, state = "acquired", recovery_files, depends_on }) => call("record", { ...(admissionToken() ? { admission_token: admissionToken() } : {}), resource: { kind, target, state, ...(depends_on ? { depends_on } : {}), ...(recovery_files ? { recovery_files } : {}), run_id: runID, lease_id: leaseID } }),
@@ -46,8 +51,18 @@ export function createRuntime({ repoRoot, runRoot, runID, scratchRoot = "", envi
 }
 export function borrowRuntime({ repoRoot, runRoot, environment = process.env, admissionToken }) {
   const runID = environment.CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID;
-  const identity = transaction(repoRoot, runRoot, runID, "borrow", { root: environment.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT, lease_id: environment.CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID }, environment);
-  return handle(repoRoot, runRoot, identity, environment, false, admissionToken ?? (() => environment.CARTULARY_HOST_ADMISSION_LEASE || null));
+  const attempt=environment.CARTULARY_HARNESS_RECOVERY_ATTEMPT || null;
+  const identity = transaction(repoRoot, runRoot, runID, "borrow", { root: environment.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT, lease_id: environment.CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID, ...(attempt ? {recovery_attempt:attempt} : {}) }, environment);
+  return handle(repoRoot, runRoot, identity, environment, false, admissionToken ?? (() => environment.CARTULARY_HOST_ADMISSION_LEASE || null), attempt);
+}
+
+// Explicit recovery admission. Ordinary borrowed handles cannot mint attempts,
+// select output roots, or reopen ordinary detail allocation.
+export function openRecoveryAttempt({repoRoot,runRoot,root,runID,leaseID,environment=process.env}) {
+  const identity={root,lease_id:leaseID};
+  const id=transaction(repoRoot,runRoot,runID,"begin_recovery_attempt",identity,environment);
+  const call=(operation,fields={})=>transaction(repoRoot,runRoot,runID,operation,{...identity,recovery_attempt:id,...fields},environment);
+  return Object.freeze({id,detailPath:(...parts)=>call("recovery_detail_path",{parts}),allocateOutput:()=>call("allocate_recovery_output"),environment:()=>call("producer_environment"),finish:()=>call("finish_recovery_attempt")});
 }
 
 // Exact recovery is admitted by the native owner only after the original owner

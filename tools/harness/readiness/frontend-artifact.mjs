@@ -201,7 +201,7 @@ async function build(target, command, args) {
     staging = mkdtempSync(runtime.privatePath(`frontend-staging-${profile.id}-`));
     validateBuildInputs();
     const produced = await runPrivateCapturedProcess(command, [...args, "--outDir", staging, "--emptyOutDir"], {
-      producer: "private_capture", cwd: root, repoRoot: root, runRoot,
+      producer: "private_capture", dependencies: [], cwd: root, repoRoot: root, runRoot,
       env: { ...process.env, CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
         CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID },
     });

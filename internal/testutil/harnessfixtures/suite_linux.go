@@ -23,6 +23,7 @@ import (
 type Suite struct {
 	Environment map[string]string
 	LeaseFile   string
+	ResourceRef string
 	ScopeRef    string
 	Close       func(context.Context) error
 }
@@ -74,11 +75,23 @@ type ProductionOptions struct {
 	RecoveryOutput        bool
 }
 
+func resourceDependencies(references []string) string {
+	if references == nil {
+		references = []string{}
+	}
+	data, _ := json.Marshal(references)
+	return string(data)
+}
+
 func (p ProductionOptions) command() Command {
 	if p.Run != nil {
 		return p.Run
 	}
-	return commandRunner(p.Root, p.Runtime, p.Dependencies)
+	dependencies := p.Dependencies
+	if dependencies == nil {
+		dependencies = []string{}
+	}
+	return commandRunner(p.Root, p.Runtime, dependencies)
 }
 func (p ProductionOptions) environment() map[string]string {
 	v := maps.Clone(p.Environment)
@@ -89,6 +102,7 @@ func (p ProductionOptions) environment() map[string]string {
 	v["CARTULARY_TEST_RESULTS_DIR"] = filepath.Dir(p.RunRoot)
 	v["CARTULARY_TEST_RUN_ID"] = p.Runtime.RunID
 	v["CARTULARY_TEST_TARGET"] = p.Target
+	v["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies(p.Dependencies)
 	return v
 }
 func (p ProductionOptions) serviceBinary() string {
@@ -138,10 +152,17 @@ func removePrivate(name string) error {
 	return unix.Unlinkat(int(parent.Fd()), filepath.Base(name), 0)
 }
 func (p ProductionOptions) stopSuite(ctx context.Context, lease string, environment map[string]string) error {
+	return p.closeResource(ctx, "managed_suite", lease, func(step context.Context) error { return p.stopSuitePhysical(step, lease, environment) })
+}
+func (p ProductionOptions) stopSuitePhysical(ctx context.Context, lease string, environment map[string]string) error {
 	return p.Runtime.AttemptCleanup(ctx, "managed_suite", lease, func(step context.Context) error { return p.stopSuiteAttempt(step, lease, environment) })
 }
 func (p ProductionOptions) stopSuiteAttempt(ctx context.Context, lease string, environment map[string]string) error {
-	p.Dependencies = []string{lease}
+	reference, err := p.Runtime.ResourceReference("managed_suite", lease)
+	if err != nil {
+		return err
+	}
+	p.Dependencies = []string{reference}
 	bytes, err := harnesslocal.ReadFile(lease, 1048576, false)
 	if err != nil {
 		return err
@@ -183,11 +204,15 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	if err != nil {
 		return nil, err
 	}
-	p.Dependencies = []string{leaseFile}
+	resourceRef, err := p.Runtime.ResourceReference("managed_suite", leaseFile)
+	if err != nil {
+		return nil, err
+	}
+	p.Dependencies = []string{resourceRef}
 	environment := p.environment()
 	environment["CARTULARY_TEST_SUITE_ID"] = regexp.MustCompile(`[^A-Za-z0-9_.-]+`).ReplaceAllString("work-graph-"+p.Target, "-")
 	delete(environment, "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT")
-	if err := p.Runtime.RecordResource("managed_suite", leaseFile, "pending", environmentFile); err != nil {
+	if err := p.Runtime.RecordDependentResource("managed_suite", leaseFile, "pending", []string{}, environmentFile); err != nil {
 		return nil, artifactFailure(err)
 	}
 	startup, commandErr := p.command()(ctx, p.serviceBinary(), []string{"start-suite", "--env-file", environmentFile, "--lease-file", leaseFile, "--result-file", resultFile}, environment)
@@ -288,7 +313,8 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	}
 	var once sync.Once
 	var closeErr error
-	suite = &Suite{Environment: admitted, LeaseFile: leaseFile, ScopeRef: ref, Close: func(ctx context.Context) error {
+	admitted["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
+	suite = &Suite{Environment: admitted, LeaseFile: leaseFile, ResourceRef: resourceRef, ScopeRef: ref, Close: func(ctx context.Context) error {
 		once.Do(func() { p.containerProof(nil); closeErr = p.stopSuite(ctx, leaseFile, environment) })
 		return closeErr
 	}}

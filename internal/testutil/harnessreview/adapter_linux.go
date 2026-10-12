@@ -114,7 +114,7 @@ func startAdapter(root, session string, runtime *harnesssession.Runtime, environ
 	a := &adapter{runtime: runtime, session: session, cmd: cmd, channel: parent, done: make(chan struct{}), readDone: make(chan struct{}), pending: map[int]pendingRequest{}, onLost: onLost}
 	target, proofErr := harnesssession.CaptureProcess(cmd.Process.Pid)
 	if proofErr == nil {
-		proofErr = runtime.RecordResource("helper_process", target, "acquired")
+		proofErr = runtime.RecordDependentResource("helper_process", target, "acquired", []string{})
 	}
 	if proofErr != nil {
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
