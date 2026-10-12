@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 SCRIPT="$ROOT_DIR/tools/harness/readiness/list-build-inputs.sh"
-NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 
 cleanup() {
@@ -73,8 +72,7 @@ if env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
 fi
 make_failure="$(cat "$tmp_dir/make.stdout" "$tmp_dir/make.stderr")"
 for diagnostic in "fake rg failed" "build input discovery failed"; do
-  "$NODE_BIN" "$ROOT_DIR/tools/harness/test-support/harness-artifact-assert.mjs" \
-    --repo-root "$ROOT_DIR" --results-root "$tmp_dir/results" --run-id broken-rg \
-    --target build-server --needle "$diagnostic" --label "broken rg diagnostic"
+  # Runtime bootstrap must reject incomplete inputs before any graph can run.
+  assert_contains "$make_failure" "$diagnostic" "broken rg diagnostic"
 done
 assert_not_contains "$make_failure" "up to date" "stale binary reuse"

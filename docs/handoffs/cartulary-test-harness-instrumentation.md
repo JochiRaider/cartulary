@@ -22,11 +22,12 @@ not establish current-source success. Its tracked/non-ignored content is
 fingerprinted in `/tmp/cartulary-remediation-salvage-baseline.json` (6,937 entries).
 No wholesale import, reset, source archive or evidence deletion is authorized.
 
-At entry, Node still owns public graph execution and fixture coordination.
+At entry, Node owned public graph execution and fixture coordination.
+S-031/E switches both public callers together; its closure checks pass.
 The selected destination is short-lived Node compilation, one Go graph runtime
 and one shared Go fixture policy; Node rows and offline readers remain.
 REQ-852–855 now state the adopted destination; adoption is not implementation
-completion. S-035, S-034 and S-031/A–D are complete; S-031/E is ready.
+completion. S-035, S-034 and S-031/A–E are complete; S-031/F is ready.
 
 Diagnostics remain default-off and local-only. Qualification is DEFERRED;
 F-022/RB-006 and S-020–S-022 remain unresolved/deferred. CPU remains the signed,
@@ -583,14 +584,14 @@ Do not treat generated symbol renumbering as a new behavioral feature.
 | `tools/harness/test-catalog/`, `tests/contract-test-context.mjs`, `test-catalog-metadata-fixtures.mjs`, `execution/runners/row-runner-cli.mjs` | Retain metadata-only case fixtures, fresh selected-row validation, full public preflight and bounded hashing | Command/evidence tests; no source ASTs or broad catalog needed by metadata-only fixtures |
 | `scheduler/work-graph/cache*.mjs`, `compiler.mjs`, `browser.mjs`; `readiness/cache-artifact.sh` | Retain shared catalog access, disabled-cache bypass and bounded hash batches | Cache invalidation, independent digest oracle and unsafe/current-input tests |
 | `contract/`, `generated-artifacts/*schema*`, generated Node/native validators | Retain one generated acceptance source, strict JSON and secure immutable retained loading | Parity corpus, duplicate keys, hostile files, one resource traversal; no second schema registry |
-| `internal/testutil/harnessadmission`, `harnesscollect`, `harnessdiag`, `harnesslocal`; corresponding `tools/harness*` roots | Retain completed native helpers; composition roots remain separate for now | Native rows; future consolidation deletes roots only after caller migration |
+| `internal/testutil/harnessruntime`, `harnessfixtures`, `harnessschema`, `harnessadmission`, `harnesscollect`, `harnessdiag`, `harnesslocal`; `tools/harnessruntime` | One installed graph binary with cohesive libraries; graph and UI-review share fixture policy | Native race/schema/physical gates; separate helper composition roots deleted |
 | `observability/`, `runtime/`, workspace admission and suite-service lease proof | Retain clocks, resources, relationships, envelope/receipt, reader/security/lifecycle behavior | Current retained schemas and publication ordering preserved |
 | `observability/qualification/{analysis,measurement,policy,trace,validator}.mjs` and validation fixtures | Retain independent evidence checking and authored qualification policy | No collection-only exports or launch machinery; CPU equality at 2.5% fails |
 | `tools/harnessmeasure`, `internal/testutil/harnessmeasure`; qualification `runner`, `runner-cli`, `readers`, `gate-client`, `gate-helper-cli`, `diagnostic`, `diagnostic-cli`, `diagnostic-policy`, `detail`, `lifetime` | Removed from active main; recover only from existing Git if an explicitly adopted future need arises | No active import, Make target or build reference; no source archive created |
 | `runtime/memory-lifetime*.mjs`, lifetime test hooks/tests; diagnostic-plan/manifest v2, measurement-detail/memory-lifetime v1 and generated validators | Removed; case-scoped fixture repair retained | Existing historical evidence keeps its matching source/readers; no translator |
 | `internal/testutil/s3test` | Retain independent single-master fixture fix | Real service/browser runs plus focused fixture test; no instrumentation performance claim |
-| Node graph scheduler, cache runtime, live publisher and JS fixture broker | Retain as the sole active owners on main | Replace as one validated S-031 cutover; do not delete early or keep a permanent fallback |
-| Go graph/fixture code in S-027–S-030; dirty S-031 test changes | Not integrated on main | Reviewable source candidates only; integration gate and non-production test disposition required |
+| Node graph scheduler, cache runtime, live publisher and JS fixture broker | Removed in S-031/E with migrated callers | Keep Node compiler/cache-plan facts, row runners and offline readers; no fallback |
+| Go graph/fixture candidate and dirty S-031 test changes | Reviewed integration through A–E; duplicated candidate simulations rejected | Section 7 test dispositions and current-source gates supersede historical passes |
 | `.markdownlint-cli2.jsonc`, deployment marker | Retain tracker lint coverage and authored deployment layout | Markdown lint and release-evidence contract respectively |
 
 
@@ -934,8 +935,8 @@ workstream with its own result and checkpoint.
 | WF-31B Native core | S-031/B after saved S-031/A | DONE | V-028/V-029: plan, compiler lifetime, engine/cache/lifecycle race gates |
 | WF-31C Fixtures | S-031/C after saved S-031/B | DONE | V-030: one fixture policy, real lifecycle/recovery and race gates |
 | WF-31D Observation | S-031/D after saved S-031/C | DONE | V-031: collection/drain/scan/receipt and independent reader gates |
-| WF-31E Cutover | S-031/E after saved S-031/D | TODO | One public runtime/fixture owner, caller/generated/deletion closure |
-| WF-31F Public proof | S-031/F after saved S-031/E | BLOCKED | V-032: current-source public success/failure/cancel/cleanup; S-031 closes |
+| WF-31E Cutover | S-031/E after saved S-031/D | DONE | One public runtime/fixture owner, caller/generated/deletion closure |
+| WF-31F Public proof | S-031/F after saved S-031/E | TODO | V-032: current-source public success/failure/cancel/cleanup; S-031 closes |
 | WF-32 Handoff | S-032 after saved S-031/F | BLOCKED | V-033: finalization, frozen-source broad checks, warm check and handoff |
 | WF-20–22 Qualification | S-020–S-022 | DEFERRED | Separate adoption and complete eligible stable evidence |
 
@@ -1082,6 +1083,22 @@ Candidate revisions inspected independently: `3528f4379` (preparation),
 Dirty S-031 is a separate candidate: its simulation and wrapper copy are rejected,
 not automatically imported. No product assertion is removed because of language
 or internal API changes. B–D retain current public dispatch until E's transaction.
+
+
+E's disposition closure: native `TestRuntimeBrowserFailureContinuation` covers
+product/reset failure, one attempt, fresh later allocation and typed reset failure;
+`TestRuntimeProducerInterop` covers selected Node binding, private diagnostics
+through Make, cancellation/reaping and private capture nonpublication/cleanup.
+`test-command-failure.mjs` retains all eleven scanner causes as direct producer
+fixtures plus actual canonical shell-row artifact failure and private cleanup.
+Native engine tests independently cover aggregate continuation, journal cause and
+exit precedence. Node compiler/group/report/schema tests remain independent.
+Wrapper tests author closed protocol data and invoke the real native publisher;
+there is no copied wrapper coordinator. Scheduler and broker smoke/matrix checks
+select named Go tests instead of launching whole suites. Bootstrap failure tests
+assert the real pre-runtime diagnostic; no synthetic canonical run is required
+before the runtime can be built. JSON assertions parse semantics, not indentation.
+No required lifecycle, security, accounting or product assertion is dropped.
 
 **S-031/B — Integrate the native core in small source-coherent transactions.** Reuse
 reviewed code under `internal/testutil/harnessruntime` and the thin
@@ -1819,7 +1836,7 @@ Their commands/results are not current-source evidence for S-014–S-022.
 | T-039 / S-033 | Prior cleanup | DONE; E-031 |
 | T-041 / S-035 | Specification and tracker reconciliation | DONE; C-021/F-033/V-036/E-032 |
 | T-040 / S-034 | Scope-aware resource report | DONE; C-019/F-032/V-035/E-033 |
-| T-037 / S-031 | Native cutover, separately checkpointed A–F | IN_PROGRESS; A–D DONE, E ready; later gates in Section 6 |
+| T-037 / S-031 | Native cutover, separately checkpointed A–F | IN_PROGRESS; A–E DONE, F ready; later gates in Section 6 |
 | T-038 / S-032 | Functional validation and handoff | BLOCKED on saved V-032 |
 | T-033–T-036 / S-027–S-030 | Historical native candidate stages | DONE on salvage source only; fresh validation required |
 | T-007 | Original functional coverage | IN_PROGRESS until S-032 |
@@ -1884,6 +1901,69 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-038 — S-031/E atomic cutover and deletion checkpoint
+
+Starting main `8fe6c3d3c682d7e66b199c309abc3e70f4da9a6d`, Linux/WSL and the
+pinned E-035 toolchain. Selectively reviewed dirty salvage contributions; never
+imported its scheduler simulation or copied wrapper coordinator. Public graph and
+UI-review callers now use one installed `cartulary-harness` and shared Go fixture
+policy. Authored task surface, renderer, build inputs, helper ownership, family
+routing and reachability inputs were changed; projections regenerated. Removed
+JS scheduler/executor/cache transactions/live publication, broker policy, collector
+bridge, wrapper coordination, staged native review module and three standalone
+composition roots. Retained compiler/cache-plan facts, Node row runners, physical
+adapters, native collector isolation and independent readers.
+
+Additional boundary repairs: closed argv binding for Go smoke commands and Go
+readiness prerequisites; bounded named native smoke tests; semantic generated
+routing/bootstrap tests; no JSON-whitespace coupling. Added actual browser
+failure/reset continuation and private-capture cancellation/cleanup tests. Retained
+scanner and shell-row diagnostics directly at producer boundaries. Section 7
+records the assertion dispositions. Source/import/build searches show no retired
+owner, candidate simulation/copy or experimental acquisition route.
+
+All commands used distinct `env CARTULARY_TEST_RUN_ID=remediate-s031e-<suffix>
+make <target>` roots under `.cartulary/test-results/`. Successful owning exits are
+0; failed Make attempts exit 2 and retain their failure summaries.
+
+| Suffix | Exact target | Result / applicability |
+| --- | --- | --- |
+| format-01/02/03/04 | format-go | PASS; native test/source formatting |
+| generate-01/02 | generate | FAIL: unsafe authored regexp smoke token; second correction targeted wrong token index |
+| generate-03/04/05/06 | generate | PASS; final 9,830 ms |
+| runtime-01 | harness-runtime-contract | FAIL: test expected normalized instead of raw child exit and omitted private run directory |
+| runtime-02/03 | harness-runtime-contract | PASS race; final 19,040 ms including new private-capture cancellation |
+| contracts-01 | harness-contract-tests | FAIL, 90,380 ms: unsorted helper facade registry |
+| contracts-02/03/04 | harness-contract-tests | PASS; final 93,490 ms, scanner and shell-row cases retained |
+| shapes-01 | json-shape-check | FAIL: same registry ordering defect |
+| shapes-02/03, closure-01 | json-shape-check | PASS; final 3,644 ms |
+| projection-01/02 | generated-artifact-policy-check | PASS; final 928 ms |
+| drift-01/02/03 | generate-drift | PASS; final 19,444 ms |
+| smoke-01 | harness-smoke-work-graph-scheduler-smoke | Rejected: internal check ID has no Make target; no run evidence |
+| smoke-02 | run-harness-smoke-fast | FAIL: Go argv bindings were passed literally |
+| smoke-03 | run-harness-smoke-fast | PASS, 6,342 ms; named owner tests and public wrapper |
+| extended-01 | run-harness-smoke-extended | FAIL: stale dispatcher test name and removed compiler fixture |
+| extended-02 | run-harness-smoke-extended | FAIL: stale separate-helper bootstrap expectation |
+| extended-03 | run-harness-smoke-extended | FAIL: JSON indentation assertion and canonical-summary assumption before runtime bootstrap |
+| extended-04 | run-harness-smoke-extended | PASS, 51,785 ms; all 43 checks including real native boundary |
+
+Initial `git diff --check` rejected an added EOF blank line before format-01; it
+was removed. Failed roots were inspected through exact `make explain-run
+RESULTS_DIR=<root> TARGET=<target>` and referenced logs, never overwritten.
+Extended-04 native HTTPS manifest records dirty source digest
+`sha256:bb003bf031c6ec247489917f7093b8cecce59720c3b4229a7684e829fed6cfa0`.
+Subsequent scanner/row test restoration is validated by contracts-04; final
+shapes-03/drift-03/projection-02 record dirty source at starting commit, digest
+`sha256:d11fef10e28232f528c48534e3085a3b7ad5c6b41f91d2c6367ad4d8af6d1f86`.
+`git diff --check HEAD` passes. No executable change follows these final checks.
+
+S-031/E is DONE. Compatibility: public commands and retained acceptance versions
+stay stable; private JS APIs and separate installed helpers are retired without
+aliases. Pre-runtime bootstrap errors remain owning-process diagnostics. F may
+begin only after this saved checkpoint. F still must prove all public physical
+boundaries and exact-run views; S-032 still owns final frozen-source validation.
+Default-off/local-only and all qualification deferrals/budgets remain unchanged.
 
 ### E-037 — S-031/D observation and finalization checkpoint
 
@@ -2615,7 +2695,7 @@ Pre-existing staged tracker content is preserved.
 | Outcome | Required / current state |
 | --- | --- |
 | Planning | Complete; user explicitly requested execution |
-| Implementation | S-035/S-034/S-031A–D DONE; S-031/E ready; later work gated in Section 6 |
+| Implementation | S-035/S-034/S-031A–E DONE; S-031/F ready; later work gated in Section 6 |
 | Functional completion | Requires S-035, S-034, S-031/A–F and S-032/V-033, each checkpointed |
 | Evidence | Current-source commands/outer exits/roots; preserve failed attempts and candidate content |
 | Qualification | DEFERRED; F-022/RB-006 unresolved, unchanged budgets and 44.952/90 minutes |

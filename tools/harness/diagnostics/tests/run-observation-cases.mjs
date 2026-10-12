@@ -10,9 +10,7 @@ import { observeRun, renderObservation, nativeBinary } from "./native-observatio
 import { liveSnapshotBytes, validateLiveSnapshot } from "../../contract/live-observation.mjs";
 import { validateSchemaSync, validateResultRoot } from "../../contract/index.mjs";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
-import { createLiveStatusPublisher } from "../../scheduler/work-graph/live-status.mjs";
 import { buildWorkGraph } from "../../scheduler/work-graph/model.mjs";
-import { runWorkGraph } from "../../scheduler/work-graph/scheduler.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const digest = `sha256:${"a".repeat(64)}`;
@@ -46,13 +44,17 @@ function fixture(t, count = 2) {
   };
   validateSchemaSync(manifest.schema_id, manifest);
   atomicLocalFile(path.join(runRoot, "run-manifest.json"), `${JSON.stringify(manifest)}\n`);
-  const publishers = [];
-  t.after(() => { for (const publisher of publishers) publisher.stop(); rmSync(parent, { recursive: true, force: true }); });
-  const publisher = (options = {}) => {
-    const value = createLiveStatusPublisher({ runRoot, manifest, graph, projections: { "test-slice": graph.units.map((unit) => unit.unit_id), subset: [graph.units[0].unit_id] }, ...options });
-    publishers.push(value);
-    assert.equal(value.publicationError, null);
-    return value;
+  t.after(() => rmSync(parent, { recursive: true, force: true }));
+  // Authored reader input, independent of either runtime publisher.
+  const publisher = () => {
+    replace({ schema_id: "cartulary.harness_live_snapshot.v2", run_id: manifest.run_id,
+      public_target: manifest.target, command_id: manifest.command_id, source_digest: digest,
+      graph_digest: graph.graph_digest, revision: 1, sampled_at: "2026-10-09T00:00:00.000Z",
+      sampled_elapsed_ms: 0, last_transition_seq: 0, publication_mode: "active",
+      phase: "executing", availability: "available", unavailable_reason: null,
+      targets: [{target:"subset",unit_ids:[graph.units[0].unit_id]}, {target:"test-slice",unit_ids:graph.units.map(u=>u.unit_id)}],
+      units:graph.units.map(u=>({unit_id:u.unit_id,status:"pending",activity:"pending",started_elapsed_ms:null,
+        wait_reason:null,blocking_resources:[],blocking_unit_ids:[],cache_disposition:"not_observed",failure_class:null,failure_reason:null})) });
   };
   const snapshotFile = path.join(runRoot, "diagnostics/live-status.json");
   const snapshot = () => JSON.parse(readFileSync(snapshotFile, "utf8"));
@@ -83,21 +85,13 @@ export function registerRunObservationTests() {
     assert.equal(readdirSync(f.parent).includes("newer-missing"), false);
     assert.equal((await observeRun({ resultsDir: f.runRoot, target: "wrong" })).failure_reason, "usage_error");
   });
-  test("heartbeat differs from progress and a paused matching cursor never polls", async (t) => {
-    const f = fixture(t); let clock = 0; let timer;
-    const timers = { setTimeout: (fn, ms) => { timer = { fn, due: clock + ms }; return timer; }, clearTimeout: () => { timer = null; } };
-    const publisher = f.publisher({ now: () => clock, timers });
-    const first = f.snapshot(); clock = 5000; timer.fn();
-    assert.equal(f.snapshot().revision, first.revision + 1);
-    assert.equal(f.snapshot().last_transition_seq, first.last_transition_seq);
-    publisher.update({ units: first.units, phase: "executing", sampled_elapsed_ms: 0, last_transition_seq: 1 });
-    publisher.pause(); const paused = f.snapshot(); assert.equal(timer, null);
-    assert.equal(paused.sampled_elapsed_ms, 5000, "late scheduler admission preserves publisher elapsed time");
-    const result = await observeRun({ resultsDir: f.runRoot, afterRevision: paused.revision, waitSeconds: 30 });
-    assert.equal(result.wait_result, "unavailable"); assert.ok(result.waited_ms < 1000); assert.ok(result.limitations.includes("measurement_pause"));
-    publisher.resume(); assert.equal(f.snapshot().publication_mode, "active");
-    publisher.stop(); const final = readFileSync(f.snapshotFile); assert.equal(timer, null);
-    publisher.update({}); publisher.resume(); publisher.stop(); assert.deepEqual(readFileSync(f.snapshotFile), final);
+  test("paused cursor is unavailable without polling or confusing heartbeat with progress", async (t) => {
+    const f=fixture(t);f.publisher();const first=f.snapshot();
+    f.replace({...first,revision:2,sampled_elapsed_ms:5000});
+    assert.equal(f.snapshot().last_transition_seq,first.last_transition_seq);
+    f.replace({...f.snapshot(),revision:3,publication_mode:"paused_measurement",last_transition_seq:1});
+    const result=await observeRun({resultsDir:f.runRoot,afterRevision:3,waitSeconds:30});
+    assert.equal(result.wait_result,"unavailable");assert.ok(result.waited_ms<1000);assert.ok(result.limitations.includes("measurement_pause"));
   });
   test("observation expiry and cancellation preserve invocation bytes", async (t) => {
     const f = fixture(t); f.publisher();
@@ -150,10 +144,9 @@ export function registerRunObservationTests() {
     assert.equal((await observeRun({ resultsDir: f.runRoot })).failure_reason, "artifact_error"); rmSync(f.snapshotFile);
   });
   test("large repeated atomic replacement and unavailable publication keep truthful bounds", async (t) => {
-    const f = fixture(t, 3000); const publisher = f.publisher(); const large = f.snapshot();
+    const f = fixture(t, 3000); f.publisher(); const large = f.snapshot();
     const units = large.units.map((unit) => ({ ...unit, status: "running", activity: "waiting", wait_reason: "resources", blocking_resources: Array.from({ length: 12 }, (_, i) => `resource-${String(i).padStart(2, "0")}`), blocking_unit_ids: large.units.slice(0, 12).map((other) => other.unit_id) }));
-    publisher.update({ units, phase: "executing", last_transition_seq: 5, sampled_elapsed_ms: 0 }); publisher.pause(); publisher.resume();
-    assert.equal(publisher.publicationError, null); assert.ok(statSync(f.snapshotFile).size > 1024 ** 2);
+    f.replace({...large,units,last_transition_seq:5}); assert.ok(statSync(f.snapshotFile).size > 1024 ** 2);
     assert.throws(() => atomicLocalFile(f.snapshotFile, "{}", { replace: true }), /unsafe local file/u);
     const result = await observeRun({ resultsDir: f.runRoot });
     assert.equal(result.live.unit_counts.total, 3000); assert.equal(result.live.waiting.length, 16); assert.equal(result.live.waiting_omitted, 2984);
@@ -163,13 +156,13 @@ export function registerRunObservationTests() {
     const blockers = Array.from({ length: 24 }, (_, i) => `resource-${String(i).padStart(2, "0")}-${"x".repeat(240)}`);
     const oversized = units.map((unit) => ({ ...unit, blocking_resources: blockers }));
     assert.ok(Buffer.byteLength(JSON.stringify({ ...large, units: oversized })) > liveSnapshotBytes);
-    publisher.update({ units: oversized, phase: "executing", last_transition_seq: 6, sampled_elapsed_ms: 0 }); publisher.pause();
+    const unavailable={...large,last_transition_seq:6,availability:"unavailable",unavailable_reason:"snapshot_too_large"};delete unavailable.units;delete unavailable.targets;f.replace(unavailable);
     assert.equal(f.snapshot().availability, "unavailable"); assert.equal(f.snapshot().units, undefined);
     assert.equal(f.snapshot().last_transition_seq, 6);
-    assert.equal((await observeRun({ resultsDir: f.runRoot })).unavailable_reason, "snapshot_too_large"); publisher.stop();
+    assert.equal((await observeRun({ resultsDir: f.runRoot })).unavailable_reason, "snapshot_too_large");
   });
   test("concurrent readers admit only complete atomic replacements", async (t) => {
-    const f = fixture(t, 3000); const publisher = f.publisher(); publisher.stop();
+    const f = fixture(t, 3000); f.publisher();
     const worker = (role) => new Promise((resolve, reject) => {
       const child = new Worker(`
         const { workerData, parentPort } = require('node:worker_threads');
@@ -198,10 +191,10 @@ export function registerRunObservationTests() {
     await Promise.all([worker("writer"), worker("reader"), worker("reader"), worker("reader"), worker("reader")]);
   });
   test("reader process interruption leaves observed invocation and leases untouched", async (t) => {
-    const f = fixture(t); const publisher = f.publisher(); publisher.stop();
+    const f = fixture(t); f.publisher();
     const before = readFileSync(f.snapshotFile);
     const lease = path.join(f.runRoot, "owned-lease"); writeFileSync(lease, "not owned by observer", { mode: 0o600 });
-    const child = spawn(nativeBinary, ["--results-dir", f.runRoot, "--after-revision", String(f.snapshot().revision), "--wait-seconds", "30", "--json"], { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(nativeBinary, ["diagnostics", "--results-dir", f.runRoot, "--after-revision", String(f.snapshot().revision), "--wait-seconds", "30", "--json"], { stdio: ["ignore", "pipe", "pipe"] });
     t.after(() => { if (child.exitCode === null) child.kill(); });
     let output = ""; child.stdout.on("data", (bytes) => { output += bytes; });
     const timer = setTimeout(() => child.kill("SIGTERM"), 1500);
@@ -209,27 +202,6 @@ export function registerRunObservationTests() {
     const code = await new Promise((resolve, reject) => { child.once("error", reject); child.once("exit", resolve); });
     assert.equal(code, 143); assert.equal(JSON.parse(output).operation_exit_code, 143);
     assert.deepEqual(readFileSync(f.snapshotFile), before); assert.equal(readFileSync(lease, "utf8"), "not owned by observer");
-  });
-  test("scheduler observation separates host, fixture, execution and cleanup boundaries", async () => {
-    const graph = buildWorkGraph([graphUnit("a", [], { fixture_lease: "managed_process", shared_locks: [], exclusive_locks: ["host_activity"] })]);
-    const views = []; const boundaries = [];
-    const result = await runWorkGraph({ graph, capacities: new Map([["cpu", 1], ["process", 1]]), cwd: root, environment: {},
-      observation: { update: (view) => views.push(view), pause: () => boundaries.push("pause"), resume: () => boundaries.push("resume") },
-      hostAdmission: async () => { boundaries.push("host"); assert.equal(views.at(-1).units[0].wait_reason, "host_admission"); return { token: "unused", release: async () => boundaries.push("release") }; },
-      fixtureBroker: { acquire: async () => { assert.equal(views.at(-1).units[0].activity, "preparing"); return { record: { lease_id: "fixture-a" }, release: async () => { assert.equal(views.at(-1).units[0].activity, "finalizing"); return { retained: false }; } }; }, close: async () => {} },
-      executeUnit: async () => { assert.equal(views.at(-1).units[0].activity, "executing"); return { status: "passed", exit_code: 0 }; },
-    });
-    assert.equal(result.states.a, "passed"); assert.deepEqual(boundaries, ["pause", "host", "release", "resume"]);
-    assert.equal(views.at(-1).phase, "finalizing"); assert.ok(views.every((view, i) => !i || view.last_transition_seq > views[i - 1].last_transition_seq));
-  });
-  test("scheduler failures retain independent completion and dependency skips despite sink failure", async () => {
-    const graph = buildWorkGraph([graphUnit("a"), graphUnit("b"), graphUnit("c", ["a"])]); const views = [];
-    const result = await runWorkGraph({ graph, capacities: new Map([["cpu", 2], ["process", 2]]), cwd: root, environment: {},
-      observation: { update: (view) => { views.push(view); throw new Error("unavailable diagnostic sink"); } },
-      executeUnit: async (unit) => unit.unit_id === "a" ? { status: "failed", failure_class: "product", failure_reason: "test_assertion_failure", exit_code: 1 } : { status: "passed", exit_code: 0 },
-    });
-    assert.deepEqual(result.states, { a: "failed", b: "passed", c: "skipped" }); assert.ok(views.some((view) => view.phase === "draining"));
-    assert.equal(views.at(-1).units.find((unit) => unit.unit_id === "c").failure_class, null);
   });
   test("snapshot validation rejects duplicate or foreign rosters", (t) => {
     const f = fixture(t); f.publisher(); const snapshot = f.snapshot(); snapshot.targets[0].unit_ids.push("foreign");
@@ -283,7 +255,7 @@ export function registerRunStatusCommandTests() {
     assert.equal(result.status, 0, result.stderr); assert.equal(JSON.parse(result.stdout).run.run_id, "selected");
     assert.equal(result.stdout.trim().split("\n").length, 1);
     for (const args of [["OWNER=invalid-owner"], ["UNDECLARED=1"], ["JSON=2"], ["WAIT_SECONDS=31"], ["WAIT_SECONDS=1"], ["JSON=1", "CARTULARY_OUTPUT_MODE=machine"], ["GO_CACHE_DIR=relative"], [`GO_CACHE_DIR=${root}/cache`], ["GO_CACHE_DIR=/tmp/same", "GO_MOD_CACHE_DIR=/tmp/same"]]) assert.notEqual(run(args).status, 0);
-    const missing = run(["HARNESS_DIAG_BIN=/does-not-exist", "JSON=1"]);
+    const missing = run(["HARNESS_RUNTIME_BIN=/does-not-exist", "JSON=1"]);
     assert.notEqual(missing.status, 0); assert.match(missing.stderr, /installed diagnostic tool/u); assert.equal(missing.stdout, "");
     const marker = path.join(f.runRoot, "unexpected-command");
     for (const suffix of [`$(shell touch ${marker})`, `';touch ${marker};'`, `\`touch ${marker}\``]) {

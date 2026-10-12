@@ -47,11 +47,9 @@ import {
 } from "../../performance-fixture/index.mjs";
 import { publicExitCodeForFailure } from "../../contract/index.mjs";
 import {
-  executeUnitProcess,
   WorkGraphCompiler,
 } from "../../scheduler/work-graph/index.mjs";
 import { planBrowserFunctionalLanes } from "../../scheduler/work-graph/browser-functional-lanes.mjs";
-import { simulateWorkGraph } from "../../scheduler/work-graph/scheduler.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const compiler = new WorkGraphCompiler(root);
@@ -59,71 +57,6 @@ const resourceProfiles = new Map(JSON.parse(readFileSync(
   path.join(root, "tools/execution_topology_manifest.json"), "utf8",
 )).resource_profiles.map((profile) => [profile.id, profile.resource_claims]));
 
-const lifecycleFailureRoot = mkdtempSync(
-  path.join(os.tmpdir(), "cartulary-browser-reset-failure."),
-);
-try {
-  const runRoot = path.join(lifecycleFailureRoot, "run");
-  mkdirSync(runRoot);
-  writeFileSync(
-    path.join(runRoot, "reset.attempt.json"),
-    `${JSON.stringify({
-      schema_id: "cartulary.browser_reset_attempt.v2",
-      reset_id: "predecessor--before-successor",
-      status: "fail",
-      attempt: 1,
-      duration_ms: 5,
-      clock: "linux_boottime_10ms", clock_identity: "clock:test", resolution_ms: 10, availability: "available",
-      runtime_profile_id: "default",
-      stages: [
-        { stage: "allocation_validated", status: "pass" },
-        { stage: "backend_stopped", status: "fail" },
-        { stage: "database_reset", status: "skipped" },
-        { stage: "object_store_reset", status: "skipped" },
-        { stage: "browser_state_cleared", status: "skipped" },
-        { stage: "replacement_backend_ready", status: "skipped" },
-        { stage: "generation_published", status: "skipped" },
-      ],
-      backend_generation_before: 1,
-      backend_generation_after: 1,
-      failure_stage: "backend_stop_or_preflight",
-      database_diagnostic_ref: null,
-      database_stage: null,
-      database_sqlstate: null,
-      persistent_state_reset: false,
-      browser_state_cleared: false,
-      backend_ready: false,
-      backend_generation_ref: null,
-      tainted: true,
-      failure_class: "harness",
-      failure_reason: "fixture_error",
-    }, null, 2)}\n`,
-  );
-  const failure = await executeUnitProcess(
-    {
-      kind: "lifecycle",
-      command: {
-        executable: process.execPath,
-        args: ["--eval", "process.exit(1)"],
-        environment: {},
-      },
-      current_run_evidence_outputs: ["reset.attempt.json"],
-      timeout_ms: 1000,
-    },
-    {
-      cwd: lifecycleFailureRoot,
-      environment: {
-        CARTULARY_TEST_RESULTS_DIR: ".",
-        CARTULARY_TEST_RUN_ID: "run",
-      },
-    },
-  );
-  assert.equal(failure.failure_class, "harness");
-  assert.equal(failure.failure_reason, "fixture_error");
-  assert.equal(publicExitCodeForFailure(failure), 3);
-} finally {
-  rmSync(lifecycleFailureRoot, { recursive: true, force: true });
-}
 const fixtureProfile = activePerformanceFixtureProfile(
   loadPerformanceFixtureSnapshotRegistry(root),
   "ac043_large_grid_snapshot_v1",
@@ -1106,49 +1039,10 @@ for (const affinity of new Set(functionalGroups.map((unit) => unit.affinity_key)
   );
 }
 
-const simulationCapacities = new Map();
-for (const unit of webserverBacked.units) {
-  for (const [resource, claim] of Object.entries(unit.resource_claims)) {
-    // These simulations isolate failure propagation, so every declared claim
-    // must fit without introducing a separate capacity-admission failure.
-    simulationCapacities.set(resource, (simulationCapacities.get(resource) ?? 0) + claim);
-  }
-}
-const oneMsDurations = new Map(
-  webserverBacked.units.map((unit) => [unit.unit_id, 1]),
-);
-const resetAfterProductFailure = functionalResets[0];
-const failedProductUnitID = resetAfterProductFailure.needs[0];
-const groupAfterProductFailure = functionalGroups.find((unit) =>
-  unit.needs.includes(resetAfterProductFailure.unit_id),
-);
-const productFailureSimulation = simulateWorkGraph({
-  graph: webserverBacked,
-  capacities: simulationCapacities,
-  durations: oneMsDurations,
-  outcomes: new Map([[failedProductUnitID, "product"]]),
-});
-assert.equal(productFailureSimulation.status, "failed");
-assert.equal(productFailureSimulation.states[resetAfterProductFailure.unit_id], "passed");
-assert.equal(productFailureSimulation.states[groupAfterProductFailure.unit_id], "passed");
-assert.equal(
-  productFailureSimulation.admissions.filter((unitID) => unitID === failedProductUnitID).length,
-  1,
-  "product failures must not be retried",
-);
-const resetFailureSimulation = simulateWorkGraph({
-  graph: webserverBacked,
-  capacities: simulationCapacities,
-  durations: oneMsDurations,
-  outcomes: new Map([[resetAfterProductFailure.unit_id, "infra"]]),
-});
-assert.equal(resetFailureSimulation.status, "failed");
-assert.equal(resetFailureSimulation.states[resetAfterProductFailure.unit_id], "failed");
-assert.equal(
-  resetFailureSimulation.states[groupAfterProductFailure.unit_id],
-  "passed",
-  "reset failure must allow later work to obtain a fresh allocation",
-);
+// The compiler must preserve failure continuation; actual execution, no retry,
+// taint and fresh allocation are tested through the native runtime owner.
+for (const group of functionalGroups) assert.equal(group.failure_policy.block_descendants, false);
+for (const reset of functionalResets) assert.equal(reset.failure_policy.block_descendants, false);
 
 const measurement = compiler.compile({
   kind: "target",

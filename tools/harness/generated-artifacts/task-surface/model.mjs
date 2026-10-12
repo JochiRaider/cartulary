@@ -12,7 +12,7 @@ export const defaultGeneratedMakeRuntimePath = path.join(
   "task_surface.runtime.generated.mk",
 );
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
-export const workGraphRunnerScript = "tools/harness/scheduler/work-graph/runner-cli.mjs";
+export const workGraphRuntimeSource = "tools/harnessruntime/main.go";
 
 export const restrictedInternalMakeVariables = Object.freeze([
   "CARTULARY_OPERATOR_BIN",
@@ -158,7 +158,7 @@ export function makeRecipeEntries(manifest) {
 
 export function requiredRecipeBackingScripts(recipe) {
   if (recipe?.type === "work_graph" || recipe?.graph_entry === true) {
-    return [workGraphRunnerScript];
+    return [workGraphRuntimeSource];
   }
   return [];
 }

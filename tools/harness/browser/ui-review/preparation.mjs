@@ -6,7 +6,7 @@ import { recoverReviewPreparation, runPreparedReview } from "../review-preparati
 import { ReviewFailure, preparationFailure, failureRecord, failureFromRecord } from "./failure.mjs";
 import { boundedCleanup, ownedProcess, recordResource, recoveryResources, stopOwnedProcess } from "./ownership.mjs";
 import { repoRoot } from "./policy.mjs";
-import { cleanupErrors, cleanupFailure } from "../../scheduler/fixture-broker/cleanup-lifecycle.mjs";
+import { cleanupErrors, cleanupFailure } from "../../runtime/cleanup-results.mjs";
 
 export function cleanupRecords(errors, phase) {
   const records = [...new Set(errors.flatMap((error) => cleanupErrors(error)))].map((error) => failureRecord(preparationFailure(cleanupFailure(error), {

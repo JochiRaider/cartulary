@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fork } from "node:child_process";
+import { fork, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
 import { claimFrontendProducer, publishFrontendOutput, resolveFrontendArtifact, sealFrontendArtifact } from "../readiness/frontend-artifact.mjs";
-import { executeUnitProcess } from "../scheduler/work-graph/executor.mjs";
+import { createCommandFailureContext } from "../runtime/command-failure.mjs";
+import { createLaunchContext } from "../runtime/launch-context.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 export function registerFrontendProducerLifecycleTests() {
@@ -133,9 +134,13 @@ export function registerFrontendProducerLifecycleTests() {
       }
 
       const failed = fixture("compiler-failure");
-      const result = await executeUnitProcess({ unit_id: "target:build-web", kind: "artifact", command: { executable: process.execPath, args: ["tools/harness/readiness/frontend-artifact.mjs", "build", "build-web", process.execPath, "tools/harness/tests/frontend-producer-fixture.mjs", "compiler-failure"], environment: { CARTULARY_TEST_TARGET: "build-web" } }, timeout_ms: 15000 }, { cwd: root, environment: failed.environment });
-      assert.equal(result.failure_reason, "tool_diagnostic_failure", JSON.stringify(result));
-      assert.equal(result.exit_code, 1);
+      const options={repoRoot:root,environment:failed.environment,unitID:"target:build-web",commandID:"cartulary.harness.command.build_web.v2"};
+      const diagnostic=createCommandFailureContext({...options,launch:createLaunchContext(options)});
+      try {
+        const result=spawnSync(process.execPath,["tools/harness/readiness/frontend-artifact.mjs","build","build-web",process.execPath,"tools/harness/tests/frontend-producer-fixture.mjs","compiler-failure"],{cwd:root,env:{...process.env,...failed.environment,...diagnostic.environment},encoding:"utf8",timeout:15000});
+        assert.equal(result.status,1,result.stderr);
+        assert.equal(diagnostic.read().failure_reason,"tool_diagnostic_failure");
+      } finally {diagnostic.close();}
       assert.throws(() => resolveFrontendArtifact(root, "build-web", failed.environment));
       assert.throws(() => claimFrontendProducer(failed.runtime, profile), /already admitted/u);
     }

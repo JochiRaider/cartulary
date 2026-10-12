@@ -5,7 +5,6 @@ import path from "node:path";
 
 import {
   WorkGraphCompiler,
-  executeUnitProcess,
 } from "../../scheduler/work-graph/index.mjs";
 import { adaptGoInvocation } from "../../execution/runners/go.mjs";
 
@@ -140,22 +139,6 @@ const malformed = adaptGoInvocation(invocation, {
 assert.equal(malformed[0].failure_class, "harness");
 assert.equal(malformed[0].failure_reason, "scheduler_accounting_error");
 assert.equal(malformed[0].exit_code, 11);
-
-const unitFailure = await executeUnitProcess({
-  command: {
-    executable: process.execPath,
-    args: [
-      "--input-type=module",
-      "--eval",
-      "process.stderr.write('[FAIL] row=row-a failure_class=infra failure_reason=service_readiness_timeout\\n'); process.exit(3);",
-    ],
-    environment: {},
-  },
-  timeout_ms: 1000,
-});
-assert.equal(unitFailure.exit_code, 3);
-assert.equal(unitFailure.failure_class, "infra");
-assert.equal(unitFailure.failure_reason, "service_readiness_timeout");
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const graph = new WorkGraphCompiler(root).compile({ kind: "target", target: "backend-unit" });

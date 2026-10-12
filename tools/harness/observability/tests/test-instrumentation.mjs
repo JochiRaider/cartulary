@@ -9,8 +9,6 @@ import { Worker } from "node:worker_threads";
 import { actualCriticalPath, intervalUnion } from "../../evidence-accounting/index.mjs";
 import { reduceCanonicalUnitIntervals } from "../../evidence-accounting/index.mjs";
 import { buildWorkGraph } from "../../scheduler/work-graph/model.mjs";
-import { runWorkGraph } from "../../scheduler/work-graph/scheduler.mjs";
-import { parseProcessStat, linuxUnits, parsePSI, createLinuxResourceAdapter } from "../resource-linux.mjs";
 import { resourceProjection } from "../resource-projection.mjs";
 import { readResourceObservations } from "../resource-reader.mjs";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
@@ -21,7 +19,6 @@ import { formatPerformanceExplanation } from "../performance-presentation.mjs";
 import { formatResourceScopes } from "../resource-presentation.mjs";
 import { exportRetainedObservability } from "../otel-export-cli.mjs";
 import { hostClaims, processIdentity, transactAdmission } from "../../runtime/host-admission.mjs";
-import { createResourceCollector, instrumentationPolicy } from "../resource-collector.mjs";
 import { executionRecordsDigest } from "../../runtime/execution-observations.mjs";
 import { parseStrictJSON } from "../../contract/index.mjs";
 import { createResourceAccumulator } from "../resource-accumulator.mjs";
@@ -80,50 +77,6 @@ test("queue time changes the dependency path; overlapping wall time is a union",
   assert.equal(intervals.get("b").queue_ms, 20);
   assert.equal(intervalUnion([...intervals.values()]), 61);
   assert.deepEqual(actualCriticalPath(graph, new Map()), ["a"]);
-});
-
-test("scheduler phases preserve unit outcomes and reconstruct from the canonical reader", async (t) => {
-  const graph = buildWorkGraph([unit("a"), unit("b", ["a"])]);
-  const result = await runWorkGraph({ graph, capacities: new Map([["cpu", 2], ["process", 2]]),
-    hostAdmission: async () => ({ release: async () => {} }),
-    executeUnit: async () => ({ status: "passed", exit_code: 0 }) });
-  const dir = temporary(t), file = path.join(dir, "unit-events.ndjson");
-  writeFileSync(file, result.events.map((entry) => JSON.stringify(entry)).join("\n") + "\n");
-  const reduced = await reduceCanonicalUnitIntervals(file);
-  assert.equal(reduced.registrations.size, 2);
-  assert.equal(reduced.starts.size, 2);
-  for (const phase of reduced.phases.values()) assert.ok(phase.end_ms >= phase.start_ms);
-  assert.ok([...reduced.phases.values()].some((phase) => phase.phase === "host_admission"));
-  const duplicate = result.events.find((entry) => entry.event === "phase_started");
-  const malformed = [...result.events.slice(0, duplicate.seq), { ...duplicate, seq: duplicate.seq + 1 }];
-  writeFileSync(file, malformed.map((entry) => JSON.stringify(entry)).join("\n") + "\n");
-  await assert.rejects(reduceCanonicalUnitIntervals(file), /phase start/u);
-});
-
-test("Linux counter adapter handles command parentheses, units, PID reuse and unavailable I/O", () => {
-  const fields = Array(22).fill("0");
-  Object.assign(fields, { 0: "S", 1: "1", 11: "100", 12: "25", 17: "4", 19: "900", 21: "10" });
-  const stat = () => `123 (private ) command) ${fields.join(" ")}`;
-  assert.equal(parseProcessStat(stat()).start, "900");
-  assert.equal(parseProcessStat(stat()).user_ticks, 100);
-  const auxv = Buffer.alloc(48);
-  auxv.writeBigUInt64LE(6n, 0); auxv.writeBigUInt64LE(4096n, 8);
-  auxv.writeBigUInt64LE(17n, 16); auxv.writeBigUInt64LE(100n, 24);
-  assert.deepEqual(linuxUnits(auxv), { pageBytes: 4096, ticksPerSecond: 100 });
-  assert.deepEqual(parsePSI("some avg10=0.00 avg60=0.00 avg300=0.00 total=123\n"), { some_us: 123 });
-  const adapter = createLinuxResourceAdapter({ link: () => "pid:[1]", read: (file) => {
-    if (file.endsWith("boot_id")) return "private-boot";
-    if (file.endsWith("auxv")) return auxv;
-    if (file.endsWith("/stat")) return stat();
-    if (file.endsWith("/status")) return "VmHWM:\t64 kB\n";
-    throw Object.assign(new Error("denied"), { code: "EACCES" });
-  } });
-  const proof = adapter.proof(123), sample = adapter.processSample(proof);
-  assert.equal(sample.metrics.cpu_user_us.value, 1_000_000);
-  assert.equal(sample.metrics.rss_bytes.value, 40960);
-  assert.deepEqual(sample.metrics.io_read_bytes, { value: null, availability: "permission_denied" });
-  fields[19] = "901";
-  assert.equal(adapter.processSample(proof).availability, "process_gone");
 });
 
 function retainedSamples(t, records) {
@@ -248,68 +201,6 @@ test("terminating an observer thread cannot strand its measurement fence", async
   assert.equal(transactAdmission(request), false);
   await worker.terminate();
   assert.equal(transactAdmission(request), true);
-});
-
-test("four sibling collectors remain quiet during exclusive measurement and resume with new segments", { timeout: 20000 }, async (t) => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-observer-quietness-")), admissionRoot = path.join(root, "admission"), collectors = [];
-  const capacities = hostClaims({ cpu: 4, process: 4, memory_mb: 4096 });
-  const request = { root: admissionRoot, operation: "admit", token: "c".repeat(32), owner: processIdentity(),
-    mode: "exclusive", claims: hostClaims(), capacities, parent: null };
-  t.after(async () => {
-    try { transactAdmission({ root: admissionRoot, operation: "release", token: request.token }); }
-    finally {
-      await Promise.all(collectors.map((collector) => collector.stop()));
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-  assert.equal(transactAdmission(request), true);
-  const { digest: policyDigest } = instrumentationPolicy();
-  const epoch = process.hrtime.bigint();
-  for (let index = 0; index < 4; index++) collectors.push(createResourceCollector({
-    runRoot: path.join(root, `run-${index}`), capacities: { ...capacities, postgres: 1, object_store: 1, service_stack: 1, port_lane: 1, volume: 1 }, epoch, admissionRoot,
-    manifest: { run_id: `synthetic-${index}`, source_digest: digest, graph_digest: digest,
-      instrumentation: { mode: "basic", policy_digest: policyDigest } },
-  }));
-  const waitUntil = async (predicate) => {
-    const deadline = performance.now() + 7000;
-    while (!predicate()) {
-      assert.ok(performance.now() < deadline, "collector transition exceeded bounded test deadline");
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-  };
-  await waitUntil(() => collectors.every((collector) => collector.snapshot().availability === "paused_measurement"));
-  for (const collector of collectors) assert.equal(collector.snapshot().sampled_elapsed_ms, null);
-  transactAdmission({ root: admissionRoot, operation: "release", token: request.token });
-  await waitUntil(() => collectors.every((collector) => collector.snapshot().availability === "available"));
-  await Promise.all(collectors.map((collector) => collector.pause()));
-  const paused = collectors.map((collector) => collector.snapshot());
-  assert.ok(paused.every((snapshot) => snapshot.availability === "paused_measurement" && snapshot.rss_bytes === null));
-  // Acknowledged explicit pause also drains the fence, so measurement admission
-  // succeeds while all four observers remain alive.
-  assert.equal(transactAdmission(request), true);
-  await new Promise((resolve) => setTimeout(resolve, 2100));
-  assert.deepEqual(collectors.map((collector) => collector.snapshot().sampled_elapsed_ms), paused.map((snapshot) => snapshot.sampled_elapsed_ms));
-  transactAdmission({ root: admissionRoot, operation: "release", token: request.token });
-  collectors.forEach((collector) => collector.resume());
-  await waitUntil(() => collectors.every((collector, index) => collector.snapshot().sampled_elapsed_ms > paused[index].sampled_elapsed_ms));
-  await Promise.all(collectors.map((collector) => collector.stop()));
-  for (let index = 0; index < collectors.length; index++) {
-    const samples = [];
-    const result = readResourceObservations(path.join(root, `run-${index}`), { manifest: {
-      run_id: `synthetic-${index}`, source_digest: digest, graph_digest: digest,
-      instrumentation: { mode: "basic", policy_digest: policyDigest },
-    }, registrations: new Map() }, (record) => { if (record.scope === "process") samples.push(record); });
-    assert.ok(result.index?.samples > 0);
-    const before = samples.filter((record) => record.elapsed_ms <= paused[index].sampled_elapsed_ms);
-    const after = samples.filter((record) => record.elapsed_ms > paused[index].sampled_elapsed_ms);
-    assert.ok(before.length > 0 && after.length > 0, "both sides of the acknowledged pause are observed");
-    // Siblings resume independently. Some may produce multiple valid samples
-    // before the last sibling responds; their within-segment CPU remains valid.
-    assert.ok(Math.min(...after.map((record) => record.segment)) > Math.max(...before.map((record) => record.segment)),
-      "every post-pause sample belongs to a new segment");
-    const resumedIdentities = new Set(after.map((record) => record.identity_digest));
-    assert.ok(before.some((record) => resumedIdentities.has(record.identity_digest)), "a continuing process spans the segment boundary");
-  }
 });
 
 test("retained validation reconstructs path and target fields and rejects tampered summaries", async (t) => {
@@ -509,23 +400,6 @@ test("equal CPU counter durations over different windows do not imply a joint ut
     { elapsed_ms: 2000, metrics: { cpu_system_us: metric(1_000_000) } },
   ]);
   assert.equal(resourceProjection(f.dir, f.run).scopes[0].cpu_percent_one_core, null);
-});
-
-test("lease correlation preserves shared allocation identity and cannot change fixture cleanup", async () => {
-  const { FixtureBroker } = await import("../../scheduler/fixture-broker/index.mjs");
-  const correlations = [];
-  let released = 0;
-  const broker = new FixtureBroker({
-    providers: { browser_stack: { acquire: async () => ({ ownership: "owned", resource_ids: [], release: async () => { released += 1; } }) } },
-    observeLease: (record) => { correlations.push(record); throw new Error("collector unavailable"); },
-  });
-  const a = await broker.acquire("browser_stack", { affinityKey: "shared", unitID: "a" });
-  const b = await broker.acquire("browser_stack", { affinityKey: "shared", unitID: "b" });
-  assert.equal(correlations[0].allocation_ref, correlations[1].allocation_ref);
-  assert.notEqual(correlations[0].lease_ref, correlations[1].lease_ref);
-  await a.release(); assert.equal(released, 0);
-  await b.release(); assert.equal(released, 1);
-  await broker.close(); assert.equal(released, 1);
 });
 
 test("instrumentation schemas validate without loading the runtime AJV compiler", async (t) => {

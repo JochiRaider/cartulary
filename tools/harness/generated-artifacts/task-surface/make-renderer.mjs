@@ -1,7 +1,7 @@
 import { nativeTool } from "../../command-surface/native-tools.mjs";
 import { makeNodeToolResultDirMakeEnvVars, makeNodeToolRuntimeEnvVars } from "../../command-surface/make-node-tools.mjs";
 import {
-  canonicalInternalMakeValues, compactHelpEntries, globalInputEntries, harnessCheckEntryMap, harnessCheckEntries, harnessTierChecks, helpTiers, makeIdentifier, makeRecipeEntries, nonCanonicalPublicMakeVariables, restrictedInternalMakeVariables, retiredPublicMakeVariables, sequenceDefinition, targetEntries, targetEntryMap, workGraphRunnerScript,
+  canonicalInternalMakeValues, compactHelpEntries, globalInputEntries, harnessCheckEntryMap, harnessCheckEntries, harnessTierChecks, helpTiers, makeIdentifier, makeRecipeEntries, nonCanonicalPublicMakeVariables, restrictedInternalMakeVariables, retiredPublicMakeVariables, sequenceDefinition, targetEntries, targetEntryMap,
 } from "./model.mjs";
 
 const helpTargetColumnWidth = 30;
@@ -195,7 +195,7 @@ function renderMakeRecipe(recipe, manifest) {
     delete childRecipe.graph_entry;
     const graphRecipe = {
       target: recipe.target,
-      prerequisites: ["$(NODE_BIN)"],
+      prerequisites: ["$(NODE_BIN)", "$(HARNESS_RUNTIME_BIN)"],
       type: "work_graph",
       selection: "target",
       test_target: recipe.test_target,
@@ -284,7 +284,7 @@ function renderMakeRecipe(recipe, manifest) {
       ...header,
       ...publicPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_MACHINE_STATE_ENV) ${forwarded.join(" ")} MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./${workGraphRunnerScript} ${selectionArgs}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_MACHINE_STATE_ENV) ${forwarded.join(" ")} MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" "$(HARNESS_RUNTIME_BIN)" graph ${selectionArgs}`,
     ];
   }
   if (recipe.type === "step_command") {

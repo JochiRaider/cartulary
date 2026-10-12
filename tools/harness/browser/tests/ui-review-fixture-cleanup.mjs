@@ -4,12 +4,12 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { get } from "node:https";
 import { admittedBrowserTrust } from "../browser-trust.mjs";
-import { runPreparedReview, recoverReviewPreparation } from "../review-preparation-native.mjs";
+import { runPreparedReview, recoverReviewPreparation } from "../review-preparation.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
-import { buildWorkGraph, runWorkGraph } from "../../scheduler/work-graph/index.mjs";
-import { cleanupErrors } from "../../scheduler/fixture-broker/cleanup-lifecycle.mjs";
+import { cleanupErrors } from "../../runtime/cleanup-results.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
+
 import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 import { createFixtureSession } from "../../runtime/fixture-session.mjs";
 import { createLocalSession, localSessionStatus, stopLocalSession } from "../../services/local-session.mjs";
@@ -62,7 +62,7 @@ export async function realStackCleanupCases() {
     const runRoot = path.join(repoRoot, ".cartulary/test-results", runID);
     mkdirSync(runRoot, { mode: 0o700 });
     const runtime = createSuiteRuntime({ repoRoot, runRoot, runID });
-    let result, origin, primary, probe, blockedProof;
+    let origin, primary, probe, blockedProof;
     try {
       const operation = runPreparedReview({ environment: { ...process.env, REVIEW_PROFILE: "default" },
         runID, runRoot, runtime, retainDetail: false, writeOutput: () => {}, hold: async () => {},
@@ -82,23 +82,14 @@ export async function realStackCleanupCases() {
             // must refuse it and preserve the live dependency for exact recovery.
             chmodSync(blockedProof,0o644);
           }
-          const unit = { unit_id: "fixture:failed-work", owner_id: "harness.browser", kind: "runner",
-            command: { executable: "true", args: [], environment: { CARTULARY_BROWSER_RELEASE_AFFINITY: "1" } },
-            needs: [], resource_claims: { cpu: 1 }, fixture_lease: "browser_stack", service_dependencies: [],
-            cache_policy: "none", timeout_ms: 1000, current_run_evidence_outputs: [], estimated_work_ms: 1,
-            failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" } };
-          result = await runWorkGraph({ graph: buildWorkGraph([unit]), capacities: new Map([["cpu", 1]]),
-            cwd: repoRoot, environment: {}, fixtureBroker: {
-              acquire: async () => fixtureLease, close: () => fixtureBroker.close(),
-              hasUnresolvedCleanup: () => fixtureBroker.hasUnresolvedCleanup(), cleanupResults: fixtureBroker.cleanupResults,
-            }, executeUnit: async () => ({ status: "failed", failure_class: "product", failure_reason: "test_assertion_failure", exit_code: 10 }),
-          });
+          // Fail the user work after readiness. The actual UI owner releases
+          // the lease and preserves this primary failure when cleanup also fails.
+          throw Object.assign(new Error("deliberate work failure"),{failure_class:"product",failure_reason:"test_assertion_failure"});
+
         },
       });
-      if (cleanupFailed) await assert.rejects(operation, (error) => error.failure_reason === "artifact_error" && cleanupErrors(error).some((failure)=>failure.failure_reason==="artifact_error"));
-      else await operation;
-      assert.equal(result.unit_results["fixture:failed-work"].failure_reason, "test_assertion_failure");
-      assert.equal(result.events.at(-1).failure_class, "product");
+      await assert.rejects(operation,(error)=>error.failure_reason==="test_assertion_failure" &&
+        (!cleanupFailed || cleanupErrors(error).some(f=>f.failure_reason==="artifact_error")));
       const receipt = JSON.parse(readFileSync(path.join(runRoot, "cleanup-results.json"), "utf8"));
       const releases = receipt.results.filter((step) => step.operation === "fixture_release");
       assert.equal(releases.length, 1);

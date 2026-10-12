@@ -5,11 +5,11 @@ import os from "node:os";
 import path from "node:path";
 import { readExecutionIndex } from "../execution-reader.mjs";
 import { analyzeExecution } from "../execution-analysis.mjs";
-import { executionRecordsDigest, createExecutionSession, executionObservation, resumeExecutionObservation } from "../../runtime/execution-observations.mjs";
+import { executionRecordsDigest, executionObservation, resumeExecutionObservation } from "../../runtime/execution-observations.mjs";
 import { atomicLocalFile, readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { createLaunchContext } from "../../runtime/launch-context.mjs";
-import { instrumentationPolicy } from "../resource-collector.mjs";
+import { openExecutionChannel } from "../../test-support/execution-channel-fixture.mjs";
 
 const digest = `sha256:${"a".repeat(64)}`;
 const id = "00000000-0000-4000-8000-000000000001";
@@ -81,29 +81,12 @@ test("bounded presentation retains outcomes, unavailable durations and exact lis
   assert.equal(view.activities.records[0].duration_ms, null);
 });
 
-test("slot cap exhaustion publish truthful truncation without changing execution", (t) => {
-  const f = fixture(t), repoRoot = path.resolve(import.meta.dirname, "../../../..");
-  rmSync(f.file);
-  const runtime = createSuiteRuntime({ repoRoot, runRoot: f.root, runID: "execution" });
-  t.after(() => runtime.close());
-  const { policy } = instrumentationPolicy();
-  const session = createExecutionSession({ runtime, runRoot: f.root, manifest: f.run.manifest, policy: { ...policy, maximum_execution_records: 1 } });
-  const environment = { CARTULARY_TEST_RUN_ID: "execution", CARTULARY_TEST_RESULTS_DIR: path.dirname(f.root),
-    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
-    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "execution", ...session.environment };
-  const first = createLaunchContext({ repoRoot, environment, unitID: "u" }); first.spawned(); first.settle("passed");
-  const child = createLaunchContext({ repoRoot, environment: { ...environment, ...first.environment }, unitID: "u" }); child.settle("spawn_failed");
-  session.capture(); session.publish();
-  const index = readExecutionIndex(f.root, f.run);
-  assert.equal(index.status, "truncated"); assert.equal(index.records.length, 1);
-});
-
 test("private beginnings obey the byte bound and survive invalid replacement", (t) => {
   const f = fixture(t), repoRoot = path.resolve(import.meta.dirname, "../../../..");
   rmSync(f.file);
   const runtime = createSuiteRuntime({ repoRoot, runRoot: f.root, runID: "execution" });
   t.after(() => runtime.close());
-  const session = createExecutionSession({ runtime, runRoot: f.root, manifest: f.run.manifest, policy: instrumentationPolicy().policy });
+  const session = openExecutionChannel(runtime);
   const environment = { CARTULARY_TEST_RUN_ID: "execution", CARTULARY_TEST_RESULTS_DIR: path.dirname(f.root),
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "execution", ...session.environment };
@@ -124,53 +107,25 @@ test("private beginnings obey the byte bound and survive invalid replacement", (
   assert.deepEqual(JSON.parse(readLocalFile(file)), initial);
   observation.update(launch, {});
   assert.deepEqual(JSON.parse(readLocalFile(file)), initial);
-  session.capture(); session.publish();
-  const index = readExecutionIndex(f.root, f.run);
-  assert.equal(index.status, "partial"); assert.deepEqual(index.records, [initial]);
+  session.close(); observation.update(launch); assert.deepEqual(session.records(), [initial]);
 });
-
-test("corrupt private beginnings become explicit omissions and shutdown rejects late writes", (t) => {
-  const f = fixture(t), repoRoot = path.resolve(import.meta.dirname, "../../../..");
-  rmSync(f.file);
-  const runtime = createSuiteRuntime({ repoRoot, runRoot: f.root, runID: "execution" });
-  t.after(() => runtime.close());
-  const { policy } = instrumentationPolicy();
-  const session = createExecutionSession({ runtime, runRoot: f.root, manifest: f.run.manifest, policy });
-  const environment = { CARTULARY_TEST_RUN_ID: "execution", CARTULARY_TEST_RESULTS_DIR: path.dirname(f.root),
-    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
-    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "execution", ...session.environment };
-  const options = { repoRoot, environment };
-  const observation = executionObservation(options, launch);
-  atomicLocalFile(runtime.privatePath("execution-observations", observation.token.slot), "broken", { replace: true });
-  const childID = "00000000-0000-4000-8000-000000000002";
-  executionObservation(options, { ...launch, ref: `launch:${childID}`, invocation_id: childID, parent_invocation_id: id });
-  session.capture(); observation.update(launch); session.publish();
-  const index = readExecutionIndex(f.root, f.run);
-  assert.equal(index.status, "partial"); assert.deepEqual(index.omitted_refs, [`launch:${id}`]);
-  assert.equal(index.records.length, 1);
-});
-
 
 test("spawn proof survives a short launch privately without retroactive retained process details", (t) => {
   const f = fixture(t), repoRoot = path.resolve(import.meta.dirname, "../../../..");
   rmSync(f.file);
   const runtime = createSuiteRuntime({ repoRoot, runRoot: f.root, runID: "execution" });
   t.after(() => runtime.close());
-  const proofs = [];
-  const session = createExecutionSession({ runtime, runRoot: f.root, manifest: f.run.manifest,
-    policy: instrumentationPolicy().policy, onProcessProof: (proof, record) => proofs.push({ proof, record }) });
+  const session = openExecutionChannel(runtime);
   const environment = { CARTULARY_TEST_RUN_ID: "execution", CARTULARY_TEST_RESULTS_DIR: path.dirname(f.root),
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "execution", ...session.environment };
   const child = createLaunchContext({ repoRoot, environment, unitID: "u", producer: "go" });
   child.spawned(process.pid); child.settle("passed");
-  session.capture(); session.publish();
-  const index = readExecutionIndex(f.root, f.run);
-  assert.equal(proofs.length, 1);
-  assert.equal(proofs[0].proof.pid, process.pid);
-  assert.equal(proofs[0].proof.start, proofs[0].proof.stat.start);
-  assert.equal(proofs[0].record.invocation_id, child.identity.invocation_id);
-  assert.equal(index.records[0].outcome, "passed");
-  assert.equal(JSON.stringify(index).includes('"process_proof"'), false);
-  assert.equal(JSON.stringify(index).includes('"pid"'), false);
+  session.close();
+  const [value]=session.records();
+  assert.equal(value.process_proof.pid,process.pid);
+  assert.equal(value.process_proof.start,value.process_proof.stat.start);
+  assert.equal(value.record.invocation_id,child.identity.invocation_id);
+  assert.equal(value.record.outcome,"passed");
+  assert.equal(JSON.stringify(value.record).includes('"process_proof"'),false);
 });

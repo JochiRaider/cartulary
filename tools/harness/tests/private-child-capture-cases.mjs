@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import { createServer } from "node:net";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -9,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import { createSuiteRuntime } from "../runtime/suite-runtime.mjs";
 
-const scenarios = ["allocation", "status", "second-open", "spawn", "spawn-sync", "tail-read", "read-and-cleanup", "cleanup-retry", "close", "parent-mode", "parent-symlink", "parent-owner", "file-mode", "file-symlink", "tail-limits", "component-length", "component-character", "cancellation", "snapshot-caller", "make-wrapper"];
+const scenarios = ["allocation", "status", "second-open", "spawn", "spawn-sync", "tail-read", "read-and-cleanup", "cleanup-retry", "close", "parent-mode", "parent-symlink", "parent-owner", "file-mode", "file-symlink", "tail-limits", "component-length", "component-character", "snapshot-caller", "make-wrapper"];
 
 // Fault injection lives in isolated subprocesses; importing this case module is inert.
 export function assertPrivateChildCaptureBoundary() {
@@ -153,7 +152,6 @@ async function exercise(scenario) {
       result.cleanup();
       result.cleanup();
     } else if (["snapshot-caller", "make-wrapper"].includes(scenario)) {
-      const { executeUnitProcess } = await import("../scheduler/work-graph/executor.mjs");
       const root = path.resolve(import.meta.dirname, "../../..");
       const preload = path.join(fixture, "capture-fault.mjs");
       fs.writeFileSync(preload, `
@@ -190,9 +188,10 @@ async function exercise(scenario) {
         CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
         CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
       });
-      const execute = (args, extra = {}) => executeUnitProcess({ unit_id: "capture-caller", kind: "fixture_builder", timeout_ms: 10_000,
-        command: { executable: process.execPath, args, environment: {} } },
-      { cwd: root, environment: { ...environment, ...extra }, inheritProcessEnvironment: false });
+      const execute = (args,extra={}) => {
+        const result=spawnSync(process.execPath,args,{cwd:root,env:{...environment,...extra},encoding:"utf8",timeout:10000,maxBuffer:1048576});
+        assert.equal(result.error,undefined);return {...result,exit_code:result.status};
+      };
       if (scenario === "snapshot-caller") {
         const { loadPerformanceFixtureSnapshotRegistry, postgresMigrationDigest, snapshotKey } = await import("../performance-fixture/index.mjs");
         const profile = loadPerformanceFixtureSnapshotRegistry(root).profiles.get("ac043_large_grid_snapshot_v1");
@@ -206,9 +205,8 @@ async function exercise(scenario) {
           });
           assert.equal(outcome.exit_code, status === 0 ? 12 : 1, JSON.stringify(outcome));
           assert.ok(outcome.stderr.includes("cleanup_error"), "secondary cleanup failure stays visible");
-          if (status === 0) assert.equal(outcome.failure_reason, "cleanup_error", "scheduler preserves cleanup taxonomy without a command channel");
+          if (status === 0) assert.match(outcome.stderr,/failure_reason=cleanup_error/u);
           else {
-            assert.notEqual(outcome.failure_reason, "cleanup_error");
             assert.ok(outcome.stderr.includes("fixture primary failure"));
           }
           assert.ok(!outcome.stderr.includes(runtime.root));
@@ -233,37 +231,6 @@ async function exercise(scenario) {
         const allocation = JSON.parse(fs.readFileSync(path.join(fixture, "capture-allocation.json"), "utf8"));
         assert.ok(!fs.existsSync(allocation), "suite cleanup removes the actual failed invocation allocation");
       }
-    } else if (scenario === "cancellation") {
-      const { executeUnitProcess } = await import("../scheduler/work-graph/executor.mjs");
-      const controller = new AbortController();
-      let childPID;
-      const server = createServer((socket) => {
-        socket.once("data", (data) => { childPID = Number(data.toString()); controller.abort(); });
-      });
-      await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-      const source = path.join(fixture, "capture-consumer.mjs");
-      // The consumer handles TERM only to await/reap its child; suite cleanup
-      // remains responsible for private material after the interrupted consumer.
-      fs.writeFileSync(source, `
-        import { runPrivateCapturedProcess } from ${JSON.stringify(new URL("../runtime/private-child-process.mjs", import.meta.url).href)};
-        process.on("SIGTERM", () => {});
-        await runPrivateCapturedProcess(process.execPath, ["--input-type=module", "--eval", ${JSON.stringify(`
-          import { connect } from "node:net";
-          const socket = connect(${server.address().port}, "127.0.0.1", () => socket.write(String(process.pid)));
-          process.stdout.write("private cancellation output");
-        `)}], ${JSON.stringify(options)});
-      `, { mode: 0o600 });
-      try {
-        const outcome = await executeUnitProcess({ unit_id: "capture-cancellation", kind: "runner", timeout_ms: 10_000,
-          command: { executable: process.execPath, args: [source], environment: {} } },
-        { cwd: repoRoot, environment: options.env, signal: controller.signal });
-        assert.equal(outcome.failure_reason, "cancelled_or_interrupted");
-        assert.ok(Number.isInteger(childPID) && childPID > 0, "cancel only after captured child readiness");
-        assert.throws(() => process.kill(childPID, 0), { code: "ESRCH" }, "child reaped before suite cleanup");
-        assert.equal(outcome.stdout, "");
-        assert.equal(outcome.stderr, "");
-        assert.equal(fs.readdirSync(parent).length, 1, "suite owns interrupted consumer residue");
-      } finally { await new Promise((resolve) => server.close(resolve)); }
     } else if (scenario === "tail-limits") {
       for (const tailBytes of [0, 1023, 1024 * 1024 + 1, Infinity]) await assert.rejects(run(undefined, { tailBytes }), { failure_reason: "artifact_error" });
       const result = await run(undefined, { tailBytes: 1024 * 1024 });
@@ -281,7 +248,7 @@ async function exercise(scenario) {
       if (["second-open", "tail-read", "read-and-cleanup", "close", "file-mode", "file-symlink"].includes(scenario)) assert.ok(injected);
     }
     assert.equal(descriptors.size, 0, "all acquired descriptors closed");
-    if (fs.existsSync(parent) && !["parent-symlink", "read-and-cleanup", "cancellation", "snapshot-caller"].includes(scenario)) assert.deepEqual(fs.readdirSync(parent), []);
+    if (fs.existsSync(parent) && !["parent-symlink", "read-and-cleanup", "snapshot-caller"].includes(scenario)) assert.deepEqual(fs.readdirSync(parent), []);
     if (scenario === "read-and-cleanup") {
       const [directory] = fs.readdirSync(parent);
       assert.deepEqual(fs.readdirSync(path.join(parent, directory)), ["stdout"], "only the failed release remains for suite cleanup");

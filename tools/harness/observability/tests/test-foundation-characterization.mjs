@@ -11,12 +11,11 @@ import { renderInstrumentationDefinitions } from "../../generated-artifacts/inst
 import { readFileSync } from "node:fs";
 import { createResourceAccumulator } from "../resource-accumulator.mjs";
 import Ajv2020 from "ajv/dist/2020.js";
-import { FixtureBroker } from "../../scheduler/fixture-broker/index.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { createLaunchContext, readLaunchContext } from "../../runtime/launch-context.mjs";
-import { createExecutionSession } from "../../runtime/execution-observations.mjs";
+import { openExecutionChannel } from "../../test-support/execution-channel-fixture.mjs";
 import { readExecutionIndex } from "../execution-reader.mjs";
-import { instrumentationPolicy } from "../resource-collector.mjs";
+import { instrumentationPolicy } from "../instrumentation-policy.mjs";
 import { activityTiming, beginActivity } from "../../runtime/local-activity.mjs";
 
 test("qualification roster resolves exact public owner rows without changing the frozen treatments", () => {
@@ -70,7 +69,7 @@ test("neutral launch records retain packed parentage, unlaunched failure and one
   const digest = `sha256:${"a".repeat(64)}`;
   const { policy, digest: policyDigest } = instrumentationPolicy();
   const manifest = { run_id: runID, source_digest: digest, graph_digest: digest, instrumentation: { mode: "basic", policy_digest: policyDigest } };
-  const session = createExecutionSession({ runtime, manifest, policy, runRoot });
+  const session = openExecutionChannel(runtime);
   const environment = { CARTULARY_TEST_RESULTS_DIR: path.dirname(runRoot), CARTULARY_TEST_RUN_ID: runID,
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runID, ...session.environment };
@@ -81,12 +80,10 @@ test("neutral launch records retain packed parentage, unlaunched failure and one
   activity.finish("failed");
   beginActivity({ repoRoot, environment, launch: parent.identity, activity: "fixture_reset" });
   child.settle("spawn_failed"); child.settle("passed"); parent.settle("passed");
-  session.capture();
+  session.close();
   createLaunchContext({ repoRoot, environment, unitID: "u" }).settle("passed");
-  session.publish();
-  const index = readExecutionIndex(runRoot, { manifest, registrations: new Map([["u", { row_ids: ["a", "b"] }]]) });
+  const index = {records:session.records().map(v=>v.record??v)};
   assert.equal(index.records.length, 4, "closed producers cannot publish late records");
-  assert.equal(index.status, "partial");
   assert.equal(index.records.find((record) => record.activity === "migration").outcome, "failed");
   assert.equal(index.records.find((record) => record.activity === "fixture_reset").outcome, "incomplete");
   const recorded = index.records.find((record) => record.kind === "launch" && record.invocation_id === child.identity.invocation_id);
@@ -102,40 +99,6 @@ test("neutral launch records retain packed parentage, unlaunched failure and one
   assert.notEqual(fresh.identity.invocation_id, parent.identity.invocation_id);
 });
 
-test("failed acquisition publishes no successful lease and preserves provider failure", async () => {
-  const published = [], observed = [], allocations = [];
-  const failure = new Error("injected acquisition failure");
-  const broker = new FixtureBroker({ providers: { browser_stack: { acquire: async () => { throw failure; } } },
-    recordSink: (value) => published.push(value), observeLease: (value) => observed.push(value), observeAllocation: (value) => allocations.push(value) });
-  await assert.rejects(broker.acquire("browser_stack", { unitID: "a" }), (error) => error === failure);
-  assert.deepEqual(published, []);
-  assert.deepEqual(observed, []);
-  assert.deepEqual(allocations.map((value) => value.outcome), ["incomplete", "failed"]);
-  assert.equal(allocations[0].allocation_ref, allocations[1].allocation_ref);
-  assert.equal(allocations[1].ownership, null);
-  await broker.close();
-});
-
-test("shared fixture observation preserves one acquisition, distinct leases and one cleanup", async () => {
-  let acquired = 0, released = 0;
-  const observed = [];
-  const broker = new FixtureBroker({ providers: { browser_stack: { acquire: async () => {
-    acquired += 1;
-    return { ownership: "owned", resource_ids: [], resource: {}, release: async () => { released += 1; } };
-  } } }, observeLease: (value) => observed.push(value) });
-  const first = await broker.acquire("browser_stack", { affinityKey: "shared", unitID: "a" });
-  const second = await broker.acquire("browser_stack", { affinityKey: "shared", unitID: "b" });
-  assert.equal(acquired, 1);
-  assert.equal(observed[0].allocation_ref, observed[1].allocation_ref);
-  assert.notEqual(observed[0].lease_ref, observed[1].lease_ref);
-  assert.notEqual(observed[0].allocation_ref, `allocation:${observed[0].lease_ref}`);
-  await first.release();
-  assert.equal(released, 0);
-  await second.release();
-  await broker.close();
-  assert.equal(released, 1);
-});
-
 test("late attribution counts only complete jointly observed CPU intervals after registration", () => {
   const accumulator = createResourceAccumulator();
   const roster = new Map([["process:1", { unit_id: "a", allocation_ref: null, attribution_start_ms: 500 }]]);
@@ -144,32 +107,6 @@ test("late attribution counts only complete jointly observed CPU intervals after
       metrics: { cpu_user_us: { value: user, availability: "available" }, cpu_system_us: { value: system, availability: "available" } } }, roster);
   }
   assert.deepEqual([...accumulator.finish().unitCPU], [["a", 210]]);
-});
-
-test("lease publication failure keeps allocation evidence and releases ownership without a lease relationship", async () => {
-  const allocations = [], leases = [];
-  let cleaned = 0;
-  const broker = new FixtureBroker({ providers: { managed_process: { acquire: async () => ({ ownership: "owned", resource_ids: [], release: async () => { cleaned++; } }) } },
-    recordSink: () => { throw new Error("disk full"); }, observeAllocation: (value) => allocations.push(value), observeLease: (value) => leases.push(value) });
-  await assert.rejects(broker.acquire("managed_process"), /publication failed/u);
-  await broker.close().catch(() => {});
-  assert.equal(cleaned, 1);
-  assert.deepEqual(leases, []);
-  assert.deepEqual(allocations.map((value) => value.outcome), ["incomplete", "passed"]);
-});
-
-test("borrowed replacements receive independent identities and detach exactly once", async () => {
-  const observed = [];
-  let detached = 0;
-  const broker = new FixtureBroker({ providers: { browser_stack: { acquire: async () => ({ ownership: "borrowed", resource_ids: [], detach: async () => { detached++; } }) } },
-    observeLease: (value) => observed.push(value) });
-  const first = await broker.acquire("browser_stack", { unitID: "a" });
-  await first.release({ healthy: false });
-  const second = await broker.acquire("browser_stack", { unitID: "a" });
-  await second.release(); await broker.close();
-  assert.notEqual(observed[0].allocation_ref, observed[1].allocation_ref);
-  assert.equal(observed[0].ownership, "borrowed");
-  assert.equal(detached, 2);
 });
 
 const temporary = (t) => {

@@ -181,7 +181,7 @@ release_check_explain="$(env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY
 for public_target in test-fast release-check release-readiness-evidence license-report sbom; do
   assert_contains "$makefile_content" "$public_target:" "release task surface target $public_target"
 done
-assert_contains "$release_check_logical_block" 'work-graph/runner-cli.mjs --selection aggregate --target release-check' "release-check graph runner"
+assert_contains "$release_check_logical_block" '"$(HARNESS_RUNTIME_BIN)" graph --selection aggregate --target release-check' "release-check graph runner"
 assert_contains "$release_readiness_block" './tools/release-evidence/release-readiness-evidence.mjs' "release readiness evidence command"
 assert_contains "$makefile_content" '$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) &:' "SBOM/license artifact generation rule"
 assert_contains "$makefile_content" './tools/release-evidence/generate-sbom-license-evidence.mjs' "SBOM/license generator command"
@@ -191,7 +191,7 @@ assert_contains "$license_report_block" './tools/release-evidence/check-release-
 assert_contains "$sbom_block" 'sbom: release-inventory-artifacts' "sbom producer prerequisite"
 assert_contains "$sbom_block" 'ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)' "sbom graph-child prerequisite cutover"
 assert_contains "$sbom_block" './tools/release-evidence/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"' "sbom validation command"
-assert_contains "$release_inventory_block" 'work-graph/runner-cli.mjs --selection target --target release-inventory-artifacts' "release inventory graph producer"
+assert_contains "$release_inventory_block" '"$(HARNESS_RUNTIME_BIN)" graph --selection target --target release-inventory-artifacts' "release inventory graph producer"
 assert_not_contains "$help_output" "make release-check" "compact help omits release-check documentation"
 assert_contains "$help_all_output" "target -> owner partition -> semantic row -> artifact" "help-all concept hierarchy"
 assert_contains "$help_all_output" "make release-check" "help-all release-check documentation"

@@ -3,11 +3,11 @@ import { readFileSync } from "node:fs";
 import { resolveServiceSessionMode } from "../../services/local-session.mjs";
 import { WorkGraphCompiler } from "./compiler.mjs";
 import { captureCapabilitySnapshot, resourceCapacities } from "./capability.mjs";
-import { WorkGraphCache, workGraphCacheRootRelative } from "./cache.mjs";
+import { CachePlan } from "./cache-plan.mjs";
 import { resolveVulnerabilityDatabaseRevision } from "./vulnerability.mjs";
 import { parseArgs, selectionFor, commandEntry, resolvedRunRoot, declaredInputs, selectionInputs, resolvedRuntimeEnvironment, sha256 } from "./preparation.mjs";
 import { buildSourceSnapshot, executableProvenance } from "../../test-catalog/index.mjs";
-import { instrumentationPolicy } from "../../observability/resource-collector.mjs";
+import { instrumentationPolicy } from "../../observability/instrumentation-policy.mjs";
 import { readLocalClock, captureClockAnchor } from "../../runtime/boot-clock.mjs";
 import { validateSchemaSync } from "../../contract/index.mjs";
 
@@ -48,7 +48,7 @@ export function prepareRuntimePlan(argv) {
   mark("provenance");
   const vulnerability = resolveVulnerabilityDatabaseRevision({ root, database: process.env.GOVULNCHECK_DB || "",
     declaredRevision: process.env.CARTULARY_VULNERABILITY_DATABASE_REVISION || "" });
-  const cache = new WorkGraphCache({ root, runRoot, cacheRoot: path.join(root, workGraphCacheRootRelative), mode: cacheMode,
+  const cache = new CachePlan({ root, mode: cacheMode,
     toolchainDigest: toolchain_digest, helperDigest: helper_digest, sourceEntries: source.entries,
     getCatalog: () => compiler.catalog, vulnerabilityDatabaseRevision: vulnerability.revision });
   cache.validateGraph(graph);

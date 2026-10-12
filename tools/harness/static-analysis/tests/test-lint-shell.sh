@@ -316,7 +316,11 @@ make_strict_manifest="$make_strict_results/$make_strict_run_id/run-manifest.json
 if [[ ! -f "$make_strict_manifest" ]]; then
   fail "public Make lint-shell: missing nested run manifest"
 fi
-assert_contains "$(cat "$make_strict_manifest")" '"cache_mode": "off"' "public Make lint-shell nested cache mode"
+"$NODE_BIN" - "$make_strict_manifest" <<'EOF'
+const assert = require("node:assert/strict");
+const { readFileSync } = require("node:fs");
+assert.equal(JSON.parse(readFileSync(process.argv[2], "utf8")).cache_mode, "off");
+EOF
 
 real_shellcheck=""
 if [[ -n "${SHELLCHECK_BIN:-}" && -x "${SHELLCHECK_BIN}" ]]; then

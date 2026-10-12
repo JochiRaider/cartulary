@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { workspaceLayout } from "../../workspace_layout.generated.mjs";
-const nativeAdmission = path.resolve(import.meta.dirname, "../../..", workspaceLayout.toolbin, "cartulary-harness-admission");
+const nativeAdmission = path.resolve(import.meta.dirname, "../../..", workspaceLayout.toolbin, "cartulary-harness");
 
 const bootID = readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
 export function processIdentity(pid = process.pid) {
@@ -29,7 +29,7 @@ const delay = (milliseconds, signal) => new Promise((resolve, reject) => {
   signal?.addEventListener("abort", abort, { once: true });
 });
 async function transaction(root, request, timeoutMs = 5000) {
-  const child = spawn(nativeAdmission, [], { stdio: ["ignore", "pipe", "ignore"], env: {
+  const child = spawn(nativeAdmission, ["admission"], { stdio: ["ignore", "pipe", "ignore"], env: {
     CARTULARY_HOST_ADMISSION_REQUEST: JSON.stringify({ root, ...request }),
     CARTULARY_HOST_ADMISSION_TIMEOUT_MS: String(Math.max(1, Math.floor(timeoutMs))),
   } });
@@ -61,7 +61,7 @@ export function inheritedHostLease(environment = process.env) {
 // runtime callers use the asynchronous adapter below. Both execute one owner.
 export function transactAdmission(request) {
   try {
-    const result = JSON.parse(execFileSync(nativeAdmission, [], { encoding: "utf8", timeout: 5000, maxBuffer: 1024,
+    const result = JSON.parse(execFileSync(nativeAdmission, ["admission"], { encoding: "utf8", timeout: 5000, maxBuffer: 1024,
       env: { CARTULARY_HOST_ADMISSION_REQUEST: JSON.stringify(request) } }));
     if (result.ok !== true) throw conflict();
     return result.value;

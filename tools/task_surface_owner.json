@@ -1417,9 +1417,6 @@
         "$(SYFT_BIN)",
         "$(SHELLCHECK_BIN)",
         "playwright-install",
-        "$(HARNESS_DIAG_BIN)",
-        "$(HARNESS_COLLECT_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ]
     },
@@ -1830,7 +1827,6 @@
     "migration-drift": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -1881,7 +1877,6 @@
     "migration-scratch-apply": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2004,7 +1999,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2015,7 +2009,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2027,7 +2020,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2038,7 +2030,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2049,7 +2040,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2060,7 +2050,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2071,7 +2060,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2194,6 +2182,7 @@
     "run-harness-smoke-fast": {
       "type": "step_command",
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)"
       ],
       "mode": "node",
@@ -2214,9 +2203,9 @@
     "run-harness-smoke-extended": {
       "type": "step_command",
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "node",
@@ -2277,9 +2266,9 @@
     "run-harness-smoke-full": {
       "type": "step_command",
       "prerequisites": [
+        "go-toolchain-readiness",
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "node",
@@ -2333,7 +2322,6 @@
     "frontend-unit": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2490,9 +2478,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_DIAG_BIN)",
-        "$(HARNESS_COLLECT_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -2511,9 +2496,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_DIAG_BIN)",
-        "$(HARNESS_COLLECT_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -2533,7 +2515,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -2579,7 +2560,6 @@
     "format": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2616,7 +2596,6 @@
     "browser-e2e": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2626,7 +2605,6 @@
     "browser-e2e-webserver-backed": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2636,7 +2614,6 @@
     "browser-e2e-support": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2646,7 +2623,6 @@
     "browser-e2e-stateful": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2656,7 +2632,6 @@
     "browser-e2e-resettable": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2666,7 +2641,6 @@
     "browser-e2e-measurement": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2676,7 +2650,6 @@
     "browser-e2e-visual": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2686,7 +2659,6 @@
     "browser-e2e-visual-update": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2697,7 +2669,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2708,7 +2679,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2718,7 +2688,6 @@
     "lint": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2869,7 +2838,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2897,7 +2865,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -2911,7 +2878,6 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -3080,7 +3046,6 @@
     "build": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -3151,7 +3116,6 @@
     "browser-e2e-a11y": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -3199,7 +3163,6 @@
     "frontend-artifact-consumer-check": {
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "type": "work_graph",
@@ -3291,7 +3254,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -3308,7 +3270,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -3326,7 +3287,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -3343,7 +3303,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -3360,7 +3319,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -3377,7 +3335,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -3394,7 +3351,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -3413,7 +3369,6 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "$(HARNESS_ADMISSION_BIN)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
       "mode": "run_step",
@@ -5433,7 +5388,7 @@
         "tools/generate_drift_scratch_inputs.json",
         "tools/harness/generated-artifacts/check-generate-drift.sh",
         "tools/harness/generated-artifacts/generated-transaction.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -5551,7 +5506,7 @@
       "backing_scripts": [
         "tools/generated_artifact_policy.json",
         "tools/harness/generated-artifacts/check-generated-artifact-policy.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -5676,7 +5631,7 @@
         "tools/harness/browser/frontend-visual-golden-manifest.mjs",
         "tools/harness/generated-artifacts/check-json-shapes.mjs",
         "tools/harness/generated-artifacts/json-shape.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness_helper_ownership.json",
         "tools/harness_schema_attachments.json",
         "tools/scheduler_resource_registry.json",
@@ -5799,7 +5754,7 @@
       "backing_scripts": [
         "contracts/openapi-releases/index.json",
         "internal/platform/openapicompat/compatibility.go",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/openapi-compatibility/main.go"
       ],
       "output_policy": {
@@ -5917,7 +5872,7 @@
       "name": "toolchain-drift",
       "backing_scripts": [
         "tools/harness/readiness/toolchain-pin-check-cli.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6088,7 +6043,7 @@
         "postgres"
       ],
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6175,7 +6130,7 @@
         "postgres"
       ],
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6336,7 +6291,7 @@
         "tools/harness/readiness/cryptographic-build-cli.mjs",
         "tools/harness/readiness/cryptographic-module.mjs",
         "tools/harness/readiness/reference-platform.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/packagepki/main.go",
         "tools/release-evidence/check-standup-package-smoke.sh",
         "tools/release-evidence/consume-package.sh",
@@ -6518,7 +6473,7 @@
         "tools/harness/readiness/cryptographic-build-cli.mjs",
         "tools/harness/readiness/cryptographic-module.mjs",
         "tools/harness/readiness/reference-platform.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/packagepki/main.go",
         "tools/release-evidence/check-standup-package-smoke.sh",
         "tools/release-evidence/check-standup-reference-pack-smoke.sh",
@@ -6694,7 +6649,7 @@
         "deploy/mvp/systemd/cartulary-restore-verify.service",
         "deploy/mvp/systemd/cartulary-restore-verify.timer",
         "internal/testutil/packagepki/pki.go",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/packagepki/main.go",
         "tools/packagerecovery/main.go",
         "tools/release-evidence/check-standup-operational-recovery-smoke.sh",
@@ -6863,7 +6818,7 @@
       "name": "agent-finalize",
       "backing_scripts": [
         "tools/harness/finalization/agent-finalize-cli.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7023,7 +6978,7 @@
       "backing_scripts": [
         "tools/harness/observability/canonical-evidence-audit-cli.mjs",
         "tools/harness/observability/canonical-evidence.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7175,7 +7130,7 @@
       "backing_scripts": [
         "contracts/claim-publication/benchmark-profile-registry.v1.json",
         "tools/harness/contract/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/release-evidence/check-benchmark-claim.mjs",
         "tools/schemas/cartulary.benchmark_profile_registry.v1.schema.json"
       ],
@@ -7572,11 +7527,9 @@
       "name": "test-slice",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -7807,11 +7760,9 @@
       "name": "service-backed-test-slice",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -8080,11 +8031,9 @@
       "name": "backend-unit",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -8205,11 +8154,9 @@
       "name": "backend-store",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -8352,11 +8299,9 @@
       "name": "backend-integration",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -8499,11 +8444,9 @@
       "name": "backend-integration-support",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -8518,11 +8461,9 @@
       "name": "backend-process",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -8664,7 +8605,7 @@
     {
       "name": "otel-conformance",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/otel/check-otel-conformance.mjs"
       ],
       "output_policy": {
@@ -9896,7 +9837,7 @@
       "name": "go-test-duration-baseline-coverage",
       "backing_scripts": [
         "tools/harness/observability/canonical-performance-cli.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -10880,18 +10821,16 @@
         ]
       },
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ]
     },
     {
       "name": "frontend-unit",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -11030,7 +10969,7 @@
     {
       "name": "frontend-import-boundary-check",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs"
       ],
       "output_policy": {
@@ -11151,7 +11090,7 @@
         "tools/frontend_import_boundaries.json",
         "tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs",
         "tools/harness/readiness/frontend-artifact.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "command_id": "cartulary.harness.command.protocol_ts_browser_artifact_reachability.v1",
       "target_class": "check_internal",
@@ -11174,7 +11113,7 @@
       "name": "backend-module-boundary-check",
       "backing_scripts": [
         "tools/backend_module_boundaries.json",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs",
         "tools/harness/static-analysis/exact-file-sets.mjs",
         "tools/harness/static-analysis/sql-relations.mjs"
@@ -11300,7 +11239,7 @@
         ".fallowrc.json",
         "tools/fallow/cartulary-boundaries.rulepack.json",
         "tools/fallow/reachability_owner.json",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/static-analysis/fallow-reachability.mjs",
         "tools/harness/static-analysis/fallow-static-cli.mjs",
         "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
@@ -11421,7 +11360,7 @@
     {
       "name": "lint-biome",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/static-analysis/frontend-biome.sh"
       ],
       "output_policy": {
@@ -11538,7 +11477,7 @@
     {
       "name": "lint-scripts",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/static-analysis/scripts-biome.sh"
       ],
       "output_policy": {
@@ -11819,7 +11758,7 @@
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/command-failure.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/services/local-session-cli.mjs",
         "tools/harness/services/local-session.mjs",
         "tools/harness/services/tests/test-local-session.mjs",
@@ -11957,7 +11896,7 @@
     {
       "name": "lint-shell",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/static-analysis/shellcheck.sh"
       ],
       "output_policy": {
@@ -12075,11 +12014,9 @@
       "name": "format",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -12225,11 +12162,9 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/runtime/cleanup-results.mjs",
+        "tools/harnessruntime/main.go",
+        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -12380,11 +12315,9 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/runtime/cleanup-results.mjs",
+        "tools/harnessruntime/main.go",
+        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -12572,11 +12505,9 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/runtime/cleanup-results.mjs",
+        "tools/harnessruntime/main.go",
+        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "command_id": "cartulary.harness.command.browser_e2e_support.v2",
       "target_class": "internal_helper",
@@ -12594,11 +12525,9 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/runtime/cleanup-results.mjs",
+        "tools/harnessruntime/main.go",
+        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -12787,11 +12716,9 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/runtime/cleanup-results.mjs",
+        "tools/harnessruntime/main.go",
+        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -12806,11 +12733,9 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/runtime/cleanup-results.mjs",
+        "tools/harnessruntime/main.go",
+        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -12960,11 +12885,9 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/runtime/cleanup-results.mjs",
+        "tools/harnessruntime/main.go",
+        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13115,11 +13038,9 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/runtime/cleanup-results.mjs",
+        "tools/harnessruntime/main.go",
+        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13270,11 +13191,9 @@
         "tools/harness/execution/runners/row-runner-cli.mjs",
         "tools/harness/performance-fixture/snapshot-builder-cli.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
-        "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harness/runtime/cleanup-results.mjs",
+        "tools/harnessruntime/main.go",
+        "tools/harness/scheduler/work-graph/index.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -13422,11 +13341,9 @@
       "name": "test-fast",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -13570,11 +13487,9 @@
       "name": "test",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -13718,11 +13633,9 @@
       "name": "lint",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -13882,7 +13795,7 @@
       "backing_scripts": [
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/command-failure.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/static-analysis/go-govulncheck.sh",
         "tools/harness/static-analysis/govulncheck-findings.mjs"
       ],
@@ -14021,7 +13934,7 @@
     {
       "name": "go-gosec-targeted",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/static-analysis/go-gosec-targeted.sh",
         "tools/harness/static-analysis/support-inventory-profiles.mjs"
       ],
@@ -14143,7 +14056,7 @@
     {
       "name": "go-gosec-audit",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/static-analysis/go-gosec-audit.sh",
         "tools/harness/static-analysis/support-inventory-profiles.mjs"
       ],
@@ -14267,11 +14180,9 @@
       "name": "check",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -14429,11 +14340,9 @@
       "name": "ci",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -14575,11 +14484,9 @@
       "name": "release-check",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -14720,7 +14627,7 @@
     {
       "name": "release-readiness-evidence",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/release-evidence/release-readiness-evidence.mjs"
       ],
       "output_policy": {
@@ -14881,7 +14788,7 @@
     {
       "name": "seaweedfs-compatibility",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/objectstoreprobe/main.go"
       ],
       "output_policy": {
@@ -15017,7 +14924,7 @@
     {
       "name": "seaweedfs-release-evidence",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/release-evidence/seaweedfs-release-evidence.mjs",
         "tools/seaweedfs_occurrence_classifications.json"
       ],
@@ -15137,7 +15044,7 @@
     {
       "name": "seaweedfs-release-gate",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/release-evidence/seaweedfs-release-evidence.mjs",
         "tools/seaweedfs_occurrence_classifications.json"
       ],
@@ -15260,11 +15167,9 @@
       "name": "build",
       "backing_scripts": [
         "tools/harness/execution/runners/row-runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/index.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/scheduler/work-graph/index.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
-        "tools/harness/scheduler/fixture-broker/cleanup-lifecycle.mjs",
-        "tools/harness/scheduler/fixture-broker/providers.mjs",
+        "tools/harness/runtime/cleanup-results.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
@@ -15391,7 +15296,7 @@
         "tools/harness/backend/build-go-artifact.sh",
         "tools/harness/readiness/embed-web-assets.sh",
         "tools/embedwebassets/main.go",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -15477,7 +15382,7 @@
         "tools/harness/backend/build-go-artifact.sh",
         "tools/harness/readiness/embed-web-assets.sh",
         "tools/embedwebassets/main.go",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -15579,7 +15484,7 @@
         "tools/harness/readiness/cache-artifact.sh",
         "tools/harness/readiness/embed-web-assets.sh",
         "tools/embedwebassets/main.go",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [
@@ -15655,7 +15560,7 @@
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
         "tools/harness/backend/build-go-artifact.sh",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -15756,7 +15661,7 @@
       "backing_scripts": [
         "tools/harness/readiness/build-web-artifact.sh",
         "tools/harness/readiness/frontend-artifact.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -15840,7 +15745,7 @@
       "backing_scripts": [
         "tools/harness/readiness/build-web-artifact.sh",
         "tools/harness/readiness/frontend-artifact.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -16113,7 +16018,7 @@
         "tools/release-evidence/validate-cyclonedx.mjs",
         "tools/release-evidence/validate-license-report.mjs",
         "tools/release-evidence/validate-release-sbom.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "command_id": "cartulary.harness.command.release_inventory_artifacts.v1",
       "target_class": "internal_helper",
@@ -16189,7 +16094,7 @@
     {
       "name": "frontend-artifact-consumer-check",
       "backing_scripts": [
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "command_id": "cartulary.harness.command.frontend_artifact_consumer_check.v1",
       "target_class": "check_internal",
@@ -16320,7 +16225,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16472,7 +16377,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16580,7 +16485,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16704,7 +16609,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16828,7 +16733,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -16952,7 +16857,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17076,7 +16981,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17189,7 +17094,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17248,7 +17153,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/browser/tests/test-browser-acquisition.mjs",
@@ -17307,7 +17212,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17365,7 +17270,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17423,7 +17328,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17481,7 +17386,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/browser-acquisition.mjs",
         "tools/harness/runtime/owned-renderer.mjs",
@@ -17539,7 +17444,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/tests/ui-review-fixture-cleanup.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
@@ -17599,7 +17504,7 @@
         "tools/harness/readiness/installed-readiness.mjs",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/host-admission.mjs",
-        "tools/harnessadmission/main.go",
+        "tools/harnessruntime/main.go",
         "tools/harness/runtime/secure-local-files.mjs",
         "tools/harness/browser/tests/ui-review-fixture-cleanup.mjs",
         "tools/harness/runtime/resource-recovery.mjs",
@@ -17621,7 +17526,7 @@
         "tools/harness/readiness/cryptographic-build-cli.mjs",
         "tools/harness/readiness/cryptographic-module.mjs",
         "tools/harness/readiness/cryptographic-policy-assessment.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/toolchain_pins.json"
       ],
       "output_policy": {
@@ -17766,7 +17671,7 @@
         "tools/harness/readiness/cryptographic-build-cli.mjs",
         "tools/harness/readiness/cryptographic-module.mjs",
         "tools/harness/readiness/reference-platform.mjs",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs",
+        "tools/harnessruntime/main.go",
         "tools/packagepki/main.go",
         "tools/release-evidence/check-standup-package-smoke.sh",
         "tools/release-evidence/consume-package.sh",
@@ -17924,7 +17829,7 @@
         "deploy/mvp/scripts/release-verify.sh",
         "deploy/mvp/Containerfile",
         "deploy/mvp/docker-compose.yml",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -18072,7 +17977,7 @@
         "deploy/mvp/scripts/release-verify.sh",
         "deploy/mvp/Containerfile",
         "deploy/mvp/docker-compose.yml",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -18216,7 +18121,7 @@
       "name": "syft-toolchain",
       "backing_scripts": [
         "tools/harness/readiness/bootstrap-go-tool.sh",
-        "tools/harness/scheduler/work-graph/runner-cli.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -18225,7 +18130,7 @@
     {
       "name": "test-run-status",
       "backing_scripts": [
-        "tools/harnessdiag/main.go",
+        "tools/harnessruntime/main.go",
         "internal/testutil/harnessdiag/command.go",
         "internal/testutil/harnessdiag/observation.go"
       ],
@@ -18685,30 +18590,28 @@
       "name": "harness-smoke-work-graph-fast",
       "backing_scripts": [
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "tools/harness/tests/fixture-cleanup-cases.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/tests/fixture-stack-driver.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "fast",
-        "tools/harness/tests/fixture-cleanup-cases.mjs"
+        "fast"
       ]
     },
     {
       "name": "harness-smoke-work-graph-matrix",
       "backing_scripts": [
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "tools/harness/tests/fixture-cleanup-cases.mjs",
+        "tools/harnessruntime/main.go",
         "tools/harness/tests/fixture-stack-driver.mjs",
         "tools/harness/browser/browser-acquisition.mjs"
       ],
       "command": [
         "$(NODE_BIN)",
         "tools/harness/tests/test-work-graph-cutover.mjs",
-        "matrix",
-        "tools/harness/tests/fixture-cleanup-cases.mjs"
+        "matrix"
       ]
     },
     {
@@ -18889,77 +18792,85 @@
       "name": "harness-smoke-fixture-broker-smoke",
       "gate_smoke_role": "fixture_broker_semantic",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "internal/testutil/harnessfixtures/broker_test.go"
       ],
       "command": [
-        "$(NODE_BIN)",
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "fixture-smoke",
-        "tools/harness/tests/fixture-cleanup-cases.mjs"
+        "env",
+        "GOCACHE=$(GO_CACHE_DIR)",
+        "GOMODCACHE=$(GO_MOD_CACHE_DIR)",
+        "GOTMPDIR=$(GO_TMP_DIR)",
+        "$(GO)",
+        "test",
+        "-count=1",
+        "-run",
+        "TestFixtureBrokerOwnership",
+        "./internal/testutil/harnessfixtures"
       ]
     },
     {
       "name": "harness-smoke-fixture-broker-matrix",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "internal/testutil/harnessfixtures/broker_test.go"
       ],
       "command": [
-        "$(NODE_BIN)",
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "fixture-matrix",
-        "tools/harness/tests/fixture-cleanup-cases.mjs"
+        "env",
+        "GOCACHE=$(GO_CACHE_DIR)",
+        "GOMODCACHE=$(GO_MOD_CACHE_DIR)",
+        "GOTMPDIR=$(GO_TMP_DIR)",
+        "$(GO)",
+        "test",
+        "-count=1",
+        "-run",
+        "TestFixtureBroker",
+        "./internal/testutil/harnessfixtures"
       ]
     },
     {
       "name": "harness-smoke-work-graph-service-backed-target",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "tools/harnessruntime/main.go"
       ],
       "command": [
-        "$(NODE_BIN)",
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "service-backed",
-        "tools/harness/tests/fixture-cleanup-cases.mjs"
+        "$(MAKE)",
+        "--no-print-directory",
+        "harness-runtime-boundary-contract"
       ]
     },
     {
       "name": "harness-smoke-work-graph-scheduler-smoke",
       "gate_smoke_role": "work_graph_scheduler_semantic",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "internal/testutil/harnessruntime/engine_test.go"
       ],
       "command": [
-        "$(NODE_BIN)",
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "scheduler-smoke",
-        "tools/harness/tests/fixture-cleanup-cases.mjs"
+        "env",
+        "GOCACHE=$(GO_CACHE_DIR)",
+        "GOMODCACHE=$(GO_MOD_CACHE_DIR)",
+        "GOTMPDIR=$(GO_TMP_DIR)",
+        "$(GO)",
+        "test",
+        "-count=1",
+        "-run",
+        "TestRuntimeScheduling",
+        "./internal/testutil/harnessruntime"
       ]
     },
     {
       "name": "harness-smoke-work-graph-scheduler-matrix",
       "backing_scripts": [
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "tools/harness/tests/fixture-cleanup-cases.mjs",
-        "tools/harness/tests/fixture-stack-driver.mjs",
-        "tools/harness/browser/browser-acquisition.mjs"
+        "internal/testutil/harnessruntime/engine_test.go"
       ],
       "command": [
-        "$(NODE_BIN)",
-        "tools/harness/tests/test-work-graph-cutover.mjs",
-        "scheduler-matrix",
-        "tools/harness/tests/fixture-cleanup-cases.mjs"
+        "env",
+        "GOCACHE=$(GO_CACHE_DIR)",
+        "GOMODCACHE=$(GO_MOD_CACHE_DIR)",
+        "GOTMPDIR=$(GO_TMP_DIR)",
+        "$(GO)",
+        "test",
+        "-count=1",
+        "-run",
+        "TestRuntimeFailurePrecedence",
+        "./internal/testutil/harnessruntime"
       ]
     },
     {

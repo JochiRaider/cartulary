@@ -10,7 +10,6 @@ import {
   adaptPlaywrightReport,
   playwrightGroupExitCode,
 } from "../../execution/runners/playwright.mjs";
-import { executeUnitProcess } from "../../scheduler/work-graph/executor.mjs";
 
 const file = "apps/web/e2e/keyboard.spec.ts";
 
@@ -207,25 +206,6 @@ test("Playwright group exit uses canonical product-first failure precedence", ()
     playwrightGroupExitCode([accounting, product], { signal: null, status: 1 }),
     10,
   );
-});
-
-test("scheduler watchdog timeout remains a timing failure with exit 13", async () => {
-  const result = await executeUnitProcess(
-    {
-      command: {
-        args: ["-e", "setInterval(() => {}, 1000)"],
-        environment: {},
-        executable: process.execPath,
-      },
-      kind: "test",
-      timeout_ms: 25,
-    },
-    { cwd: process.cwd(), inheritProcessEnvironment: false },
-  );
-  assert.equal(result.status, "failed");
-  assert.equal(result.failure_class, "timing");
-  assert.equal(result.failure_reason, "timeout_failure");
-  assert.equal(publicExitCodeForFailure(result, { signal: result.signal }), 13);
 });
 
 test("browser fixture process retains redacted late diagnostics and preserves cleanup classification", async () => {

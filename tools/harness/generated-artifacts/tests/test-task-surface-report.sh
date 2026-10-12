@@ -118,7 +118,7 @@ const {
   renderTaskSurfaceMake,
   renderTaskSurfaceMakeRuntime,
   requiredRecipeBackingScripts,
-  workGraphRunnerScript,
+  workGraphRuntimeSource,
 } = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface/index.mjs")));
 assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v15", "task surface schema must be v15");
 assert.deepEqual(
@@ -183,11 +183,11 @@ const releaseInventoryTarget = missingGraphRunnerManifest.targets.find(
   (target) => target.name === "release-inventory-artifacts",
 );
 releaseInventoryTarget.backing_scripts = releaseInventoryTarget.backing_scripts.filter(
-  (script) => script !== workGraphRunnerScript,
+  (script) => script !== workGraphRuntimeSource,
 );
 assert.ok(
   collectTaskSurfaceManifestErrors(missingGraphRunnerManifest).includes(
-    `release-inventory-artifacts.backing_scripts must declare recipe-required script ${workGraphRunnerScript}`,
+    `release-inventory-artifacts.backing_scripts must declare recipe-required script ${workGraphRuntimeSource}`,
   ),
   "graph-entry recipes must fail semantic validation when their dispatcher is undeclared",
 );
@@ -215,7 +215,7 @@ assert.deepEqual(
   ["frontend-install", "go-analysis-dependencies"],
   "bootstrap tool installation must depend structurally on frontend and Go analysis readiness",
 );
-for (const helper of ["$(HARNESS_DIAG_BIN)", "$(HARNESS_COLLECT_BIN)", "$(HARNESS_ADMISSION_BIN)"]) {
+for (const helper of ["$(HARNESS_RUNTIME_BIN)"]) {
   assert.ok(manifest.make_recipes["bootstrap-tool-installations"].command.includes(helper),
     `${helper} must install through the admitted bootstrap stage`);
 }
@@ -249,7 +249,7 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /test-slice:[\s\S]*?env \$\(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV\) \$\(TASK_SURFACE_MACHINE_STATE_ENV\)[\s\S]*?work-graph\/runner-cli\.mjs --selection owner --target test-slice/,
+  /test-slice:[\s\S]*?env \$\(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV\) \$\(TASK_SURFACE_MACHINE_STATE_ENV\)[\s\S]*?"\$\(HARNESS_RUNTIME_BIN\)" graph --selection owner --target test-slice/,
   "work-graph recipes must restore resolved machine-state paths after stripping public inputs",
 );
 for (const target of manifest.targets.filter((entry) =>
@@ -307,8 +307,8 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /^bootstrap-tool-installations: frontend-install go-analysis-dependencies\n\t\$\(Q\)env[^\n]*\$\(MAKE\) --no-print-directory \$\(SQLC_BIN\)[^\n]*playwright-install \$\(HARNESS_DIAG_BIN\) \$\(HARNESS_COLLECT_BIN\) \$\(HARNESS_ADMISSION_BIN\)$/m,
-  "bootstrap tool installation must retain prerequisite readiness and install the native helpers",
+  /^bootstrap-tool-installations: frontend-install go-analysis-dependencies\n\t\$\(Q\)env[^\n]*\$\(MAKE\) --no-print-directory \$\(SQLC_BIN\)[^\n]*playwright-install \$\(HARNESS_RUNTIME_BIN\)$/m,
+  "bootstrap tool installation must retain prerequisite readiness and install the single native runtime",
 );
 assert.match(
   renderedMake,
@@ -516,13 +516,12 @@ const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const target = manifest.targets.find((entry) => entry.name === "release-inventory-artifacts");
 target.backing_scripts = target.backing_scripts.filter(
-  (script) => script !== "tools/harness/scheduler/work-graph/runner-cli.mjs",
+  (script) => script !== "tools/harnessruntime/main.go",
 );
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 missing_graph_runner_output="$(assert_fails "missing graph-entry dispatcher" run_report_copy)"
-assert_contains "$missing_graph_runner_output" "release-inventory-artifacts.backing_scripts must declare recipe-required script tools/harness/scheduler/work-graph/runner-cli.mjs" "missing graph-entry dispatcher semantic output"
-assert_contains "$missing_graph_runner_output" "release-inventory-artifacts references tools/harness/scheduler/work-graph/runner-cli.mjs" "missing graph-entry dispatcher rendered output"
+assert_contains "$missing_graph_runner_output" "release-inventory-artifacts.backing_scripts must declare recipe-required script tools/harnessruntime/main.go" "missing graph-entry dispatcher semantic output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"

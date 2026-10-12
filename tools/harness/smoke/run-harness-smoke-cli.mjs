@@ -174,6 +174,20 @@ function resolveCheckCommand(check) {
     if (token === "$(MAKE)") {
       return process.env.MAKE || "make";
     }
+    // These authored argv bindings are closed; never evaluate shell syntax.
+    const bindings = {
+      "$(GO)": ["", "GO"],
+      "GOCACHE=$(GO_CACHE_DIR)": ["GOCACHE=", "GO_CACHE_DIR"],
+      "GOMODCACHE=$(GO_MOD_CACHE_DIR)": ["GOMODCACHE=", "GO_MOD_CACHE_DIR"],
+      "GOTMPDIR=$(GO_TMP_DIR)": ["GOTMPDIR=", "GO_TMP_DIR"],
+    };
+    if (Object.hasOwn(bindings, token)) {
+      const [prefix, name] = bindings[token];
+      if (!process.env[name]) {
+        throw new Error(`missing smoke command binding ${name}`);
+      }
+      return `${prefix}${process.env[name]}`;
+    }
     return token;
   });
 }

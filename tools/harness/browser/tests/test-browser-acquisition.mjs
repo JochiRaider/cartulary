@@ -8,14 +8,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import os from "node:os";
 import path from "node:path";
 import { createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionPort, recordAcquisitionProcess, reserveAcquisitionPort, settleBrowserAcquisition } from "../browser-acquisition.mjs";
-import { preparationOwnership, recoverReviewPreparation, withReviewResources } from "../review-preparation-native.mjs";
+import { preparationOwnership, recoverReviewPreparation, withReviewResources } from "../review-preparation.mjs";
 import { createFixtureSession } from "../../runtime/fixture-session.mjs";
 import { createSuiteRuntime } from "../../runtime/suite-runtime.mjs";
 import { recordRuntimeResource, runtimeRecoveryResources } from "../../runtime/resource-recovery.mjs";
 import { processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
 import { CommandFailure, createCommandFailureContext, publishCommandFailure } from "../../runtime/command-failure.mjs";
-import { productionFixtureProviders } from "../../scheduler/fixture-broker/providers.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 function fixture(t) {
@@ -290,92 +289,6 @@ test("concurrent settlement is shared and late acquisition cannot publish after 
   assert.throws(() => recordAcquisitionProcess(f.file, createAcquisitionLaunch(f.file, "frontend")), (error) => error.failure_reason === "artifact_error");
   assert.equal(existsSync(path.join(f.sessionRoot, "stack.lease")), false);
 });
-
-for (const boundary of ["registration", "before-ready", "cancelled"]) test(`production provider settles ${boundary} acquisition failure without replacing its cause`, async (t) => {
-  const f = fixture(t);
-  // Retire the setup-only attempt; this case acquires through the real provider.
-  f.ownership.record({ kind: "browser_stack", target: f.file, state: "released" });
-  const lifecycle = path.join(f.scratch, "tools/harness/browser/start-web-e2e.sh");
-  mkdirSync(path.dirname(lifecycle), { recursive: true, mode: 0o700 });
-  const driver = path.join(root, "tools/harness/tests/fixture-stack-driver.mjs");
-  writeFileSync(lifecycle, `#!/bin/sh\nexec "$NODE_BIN" -- '${driver}' "$@"\n`, { mode: 0o700 });
-  const primary = new CommandFailure("registration sentinel", { failure_class: "artifact", failure_reason: "artifact_error" });
-  let allocation, port, published = false;
-  const controller = new AbortController();
-  const provider = productionFixtureProviders({ root: f.scratch, suiteRuntime: f.runtime,
-    signal: controller.signal,
-    suiteController: { ensure: () => ({ environment: {}, leaseFile: f.suiteLease }) },
-    runtimeEnvironment: { CARTULARY_TEST_RUN_ID:f.runtime.runID,CARTULARY_TEST_RESULTS_DIR:path.join(f.scratch,"results"),NODE_BIN: process.execPath, CARTULARY_FIXTURE_TEST_ACQUISITION_FAILURE: boundary === "cancelled" ? "late-ready" : "before-ready" },
-    onOwnedResource: (record) => {
-      f.ownership.record(record);
-      if (record.state === "acquired") published = true;
-      if (record.state === "released") {
-        const portFile = path.join(path.dirname(path.dirname(record.target)), "port");
-        if (existsSync(portFile)) port = Number(readFileSync(portFile, "utf8"));
-      }
-      if (record.kind === "browser_stack" && record.state === "pending") {
-        allocation = record.target;
-        f.cleanup.push(async () => { if (existsSync(allocation)) await settleBrowserAcquisition({ file: allocation, runtime: f.runtime, root: f.scratch }); });
-        if (boundary === "registration") throw primary;
-      }
-    },
-  }).browser_stack;
-  const acquisition = provider.acquire({ affinityKey: "prelease", browserStage: "webserver-backed" });
-  acquisition.catch(() => {});
-  f.cleanup.unshift(async () => { controller.abort(primary); await acquisition.catch(() => {}); });
-  if (boundary === "cancelled") {
-    const deadline = Date.now() + 10000;
-    while (!existsSync(path.join(path.dirname(path.dirname(allocation)), "cancellable"))) {
-      assert.ok(Date.now() < deadline, "fixture installs its interruption handler");
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-    controller.abort(primary);
-  }
-  await assert.rejects(acquisition, (error) => {
-    if (boundary !== "before-ready") assert.equal(error, primary);
-    else assert.match(error.message, /unclassified browser acquisition failure/u);
-    assert.equal(error.cleanupFailures, undefined);
-    return true;
-  });
-  assert.equal(existsSync(allocation), false, "the failed pending registration was settled");
-  assert.deepEqual(f.ownership.outstanding().map((resource) => resource.kind), ["managed_suite"]);
-  assert.equal(existsSync(f.suiteLease), true);
-  assert.equal(published, false, "late completion cannot publish acquired readiness");
-  if (boundary !== "registration") assert.ok(Number.isInteger(port) && port > 0, "partial acquisition created a real listener");
-  if (port) assert.equal(await new Promise((resolve) => {
-    const socket = createConnection({ host: "127.0.0.1", port });
-    socket.on("connect", () => { socket.destroy(); resolve(true); });
-    socket.on("error", () => resolve(false));
-  }), false, "partial acquisition left no listener");
-});
-
-
-test("recovery reaps a producer paused before its module can publish ownership", async (t) => {
-  const f = fixture(t);
-  f.ownership.record({ kind: "browser_stack", target: f.file, state: "released" });
-  const ready = path.join(f.scratch, "preloader-ready");
-  const preload = path.join(f.scratch, "pause.mjs");
-  writeFileSync(preload, `import { writeFileSync } from "node:fs"; writeFileSync(${JSON.stringify(ready)}, "ready"); await new Promise(() => setInterval(() => {}, 1000));`, { mode: 0o600 });
-  const controller = new AbortController();
-  let allocation, proof;
-  const provider = productionFixtureProviders({ root: f.scratch, suiteRuntime: f.runtime,
-    signal: controller.signal,
-    suiteController: { ensure: () => ({ environment: {}, leaseFile: f.suiteLease }) },
-    runtimeEnvironment: { CARTULARY_TEST_RUN_ID:f.runtime.runID,CARTULARY_TEST_RESULTS_DIR:path.join(f.scratch,"results"),NODE_OPTIONS: `--import=${preload}` },
-    onOwnedResource: (record) => { f.ownership.record(record); if (record.state === "pending") allocation = record.target; },
-    onChildProcess: (pid) => { proof = ownedProcess(pid); return () => stopOwnedProcess(proof); },
-  }).browser_stack;
-  const acquisition = provider.acquire({ affinityKey: "paused-producer", browserStage: "webserver-backed" }).catch((error) => error);
-  f.cleanup.push(async () => { controller.abort(new Error("fixture teardown")); if (proof) await stopOwnedProcess(proof); await acquisition; });
-  const deadline = Date.now() + 10000;
-  while (!existsSync(ready)) {
-    assert.ok(Date.now() < deadline, "producer reaches pre-module pause");
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  await settleBrowserAcquisition({ file: allocation, runtime: f.runtime, root: f.scratch });
-  assert.equal(processIdentityAlive(proof), false, "terminal settlement must reap the pre-module producer");
-});
-
 
 test("unbound launch intent cannot settle until its creator proves no child remains", async (t) => {
   const f = fixture(t);

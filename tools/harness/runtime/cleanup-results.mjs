@@ -1,5 +1,5 @@
-import { primaryPublicFailure, secureWriteFile, validateSchemaSync } from "../../contract/index.mjs";
-import { CommandFailure } from "../../runtime/command-failure.mjs";
+import { primaryPublicFailure, secureWriteFile, validateSchemaSync } from "../contract/index.mjs";
+import { CommandFailure } from "./command-failure.mjs";
 import path from "node:path";
 
 export function cleanupErrors(error, seen = new Set()) {
@@ -26,25 +26,6 @@ export function aggregateCleanup(errors) {
   const failure = { failure_class: selected.failure_class, failure_reason: selected.failure_reason,
     lifecycle_step: selected.lifecycle_step, scheduler_event_sequence: selected.scheduler_event_sequence };
   return Object.assign(new AggregateError(unique, "fixture finalization failed"), failure);
-}
-
-/** Composition roots own the suite; providers borrow its environment only. */
-export function createSuiteController(acquire) {
-  let suite, closed = false, outcome;
-  return {
-    ensure() {
-      if (closed) throw new Error("managed suite is closed");
-      suite ??= acquire();
-      return suite;
-    },
-    close() {
-      if (!outcome) {
-        closed = true;
-        outcome = Promise.resolve().then(() => suite?.close());
-      }
-      return outcome;
-    },
-  };
 }
 
 export class CleanupResults {

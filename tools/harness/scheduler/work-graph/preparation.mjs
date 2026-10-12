@@ -2,10 +2,10 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
-import { resolveGraphNodeBinary, assertGraphNodeLaunch } from "./executor.mjs";
+import { resolveGraphNodeBinary, assertGraphNodeLaunch } from "./launch-binding.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 function usage() {
-  return "usage: runner-cli.mjs --selection target|aggregate|owner|rows --target <target> [--owner <owner-id>] [--rows <row-id,...>] [--service-backed-only]";
+  return "usage: cartulary-harness graph --selection target|aggregate|owner|rows --target <target> [--owner <owner-id>] [--rows <row-id,...>] [--service-backed-only]";
 }
 
 export function parseArgs(argv) {
@@ -81,50 +81,6 @@ export function selectionInputs(options) {
     ...(options.rows ? { ROWS: options.rows.join(",") } : {}),
     ...(options.serviceBackedOnly ? { SERVICE_BACKED_ONLY: "1" } : {}),
   };
-}
-
-export function fixtureSelectionEnvironment(options) {
-  const values = selectionInputs(options);
-  const publicSelectionNames = ["OWNER", "ROWS"].filter(
-    (name) => values[name] !== undefined,
-  );
-  const retainedSources = String(
-    process.env.CARTULARY_MAKE_INPUT_SOURCES ?? "",
-  )
-    .split(/\s+/u)
-    .filter(Boolean)
-    .filter(
-      (token) =>
-        !publicSelectionNames.some((name) => token.startsWith(`${name}=`)),
-    );
-  return {
-    ...values,
-    CARTULARY_MAKE_INPUT_SOURCES: [
-      ...retainedSources,
-      ...publicSelectionNames.map((name) => `${name}=cli`),
-    ].join(" "),
-  };
-}
-
-export function graphChildEnvironment(options) {
-  const environment = { ...process.env };
-  for (const name of [
-    "CARTULARY_TEST_SERVICES_MODE",
-    "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER",
-    "CARTULARY_TEST_SERVICES_SESSION_FILE",
-    "HARNESS_DIAGNOSTICS",
-    "MAKEFLAGS",
-    "MAKEOVERRIDES",
-    "MFLAGS",
-  ]) {
-    delete environment[name];
-  }
-  if (new Set(["test-slice", "service-backed-test-slice"]).has(options.target)) {
-    for (const name of ["JSON", "OWNER", "ROWS", "SERVICE_BACKED_ONLY"]) {
-      delete environment[name];
-    }
-  }
-  return environment;
 }
 
 export function resolvedRuntimeEnvironment(compiler) {

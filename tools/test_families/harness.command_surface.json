@@ -63,6 +63,7 @@
       "selector": {
         "package": "./internal/testutil/harnessruntime",
         "tests": [
+          "TestRuntimeBrowserFailureContinuation",
           "TestRuntimeCacheTransactions",
           "TestRuntimeCanonicalAccounting",
           "TestRuntimeCanonicalNodeParity",
@@ -76,6 +77,7 @@
           "TestRuntimePreparationParity",
           "TestRuntimePrivateFailureScope",
           "TestRuntimeProcessLifecycle",
+          "TestRuntimeProducerInterop",
           "TestRuntimePublicationRollback",
           "TestRuntimeRequiredPublication",
           "TestRuntimeScheduling",

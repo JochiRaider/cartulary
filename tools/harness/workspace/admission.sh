@@ -73,8 +73,8 @@ admission_supervise() {
   admission_end="$(admission_boot_ms)" || admission_end=''
   if [[ -n "$admission_end" ]]; then
     if (umask 077; printf '{"end_ms":%s,"exit_code":%s,"signal":%s,"boot_id":"%s","namespace":"%s"}\n' \
-      "$admission_end" "$admission_status" "$admission_signal" "$admission_boot" "$admission_namespace" >"$admission_private/completion.json") && [[ -x "$admission_root/.cache/cartulary/toolbin/cartulary-harness-diag" ]]; then
-      "$admission_root/.cache/cartulary/toolbin/cartulary-harness-diag" --terminal-receipt "$admission_private" || true
+      "$admission_end" "$admission_status" "$admission_signal" "$admission_boot" "$admission_namespace" >"$admission_private/completion.json") && [[ -x "$admission_root/.cache/cartulary/toolbin/cartulary-harness" ]]; then
+      "$admission_root/.cache/cartulary/toolbin/cartulary-harness" diagnostics --terminal-receipt "$admission_private" || true
     fi
   fi
   rm -rf -- "$admission_private" || true

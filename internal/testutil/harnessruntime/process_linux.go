@@ -162,7 +162,9 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 		}()
 	}
 	executable := u.Command.Executable
-	if node := environment["NODE_BIN"]; node != "" || executable == "node" {
+	// The preparation owner selects Node. Fixture and unit environments may
+	// supply PATH but cannot replace that validated runtime binding.
+	if node := p.Environment["NODE_BIN"]; node != "" || executable == "node" {
 		if node == "" {
 			fail(failed("config", "configuration_error"))
 			return

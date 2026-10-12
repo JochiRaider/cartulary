@@ -3,16 +3,15 @@ import { execFileSync } from "../workspace/child-process.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { FixtureBroker, productionFixtureProviders, startManagedSuite, createSuiteController, CleanupResults, aggregateCleanup } from "../scheduler/fixture-broker/index.mjs";
+import { CleanupResults, aggregateCleanup } from "../runtime/cleanup-results.mjs";
 import { createSuiteRuntime, scanRetainedRoot } from "../runtime/suite-runtime.mjs";
-import { recordRuntimeResource } from "../runtime/resource-recovery.mjs";
+import { createFixtureSession } from "../runtime/fixture-session.mjs";
+import { recordRuntimeResource, runtimeRecoveryResources } from "../runtime/resource-recovery.mjs";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
 import { coreReadiness, frontendBuildReadiness, browserReadiness, goReadiness, serviceImageReadiness } from "../readiness/installed-readiness.mjs";
 import { reviewChild } from "./review-child.mjs";
 import { seedDesignReview } from "./design-review-seed.mjs";
-import { readBrowserAcquisition, settleBrowserAcquisition } from "./browser-acquisition.mjs";
-import { recoverVisualRenderer } from "./visual-renderer-lease.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 
@@ -129,6 +128,7 @@ export async function runPreparedReview({ environment = process.env, signal, onR
     CARTULARY_SERVER_HARNESS_BIN: path.join(root, workspaceLayout.binaries, "server-harness"),
     CARTULARY_MIGRATE_BIN: path.join(root, workspaceLayout.binaries, "migrate"),
     CARTULARY_TEST_SERVICES_BIN: path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`),
+    CARTULARY_HARNESS_RUNTIME_BIN: path.join(root, `${workspaceLayout.toolbin}/cartulary-harness`),
     NODE_RUNTIME_DIR: path.join(root, workspaceLayout.node_runtime),
     NODE_BIN: process.execPath,
     PNPM: path.join(root, `${workspaceLayout.node_runtime}/bin/pnpm`),
@@ -149,7 +149,7 @@ export async function runPreparedReview({ environment = process.env, signal, onR
   const cleanupResults = new CleanupResults();
   let resourcesUnresolved = false;
   let state = "preparing";
-  const suiteController = createSuiteController(() => startManagedSuite({ root, target, suiteRuntime: runtime, environment: base, onOwnedResource: ownedResource }));
+  const suiteController = {close:()=>broker?.closeSession()};
   let sessionDetails = {};
   const terminal = (extra = {}) => {
     sessionDetails = { ...sessionDetails, ...extra };
@@ -176,11 +176,7 @@ export async function runPreparedReview({ environment = process.env, signal, onR
       else serviceImageReadiness(base, root);
       signal?.throwIfAborted();
       stage({ phase: "service_acquisition", subject_id: "browser_stack", condition: "child_failed", recovery_id: "inspect_failure" });
-      broker = new FixtureBroker({
-        cleanupResults,
-        providers: productionFixtureProviders({ root, runtimeEnvironment: base, suiteRuntime: runtime, suiteController, signal, onOwnedResource: ownedResource, onChildProcess }),
-        recordSink: (record) => json(path.join(runRoot, "_shared/fixture-leases", `${record.lease_id}.json`), record),
-      });
+      broker = createFixtureSession({cleanupResults,root,runRoot,target,runtime,environment:base,signal,onChildProcess});
       const lease = await broker.acquire("browser_stack", { affinityKey: `design-review-${profile}`, unitID: target, browserStage: "webserver-backed", runtimeProfileID: profile });
       leaseForReview = lease;
       signal?.throwIfAborted();
@@ -271,45 +267,26 @@ export async function runPreparedReview({ environment = process.env, signal, onR
 }
 
 
-// Recovery knows the exact single allocation owned by this preparation, never a
-// newest lease or a borrowed development service. The original owners terminate it.
+// Native coordination reads the exact runtime journal. This client only reports
+// acknowledged releases to the surrounding review presentation owner.
 export async function recoverReviewPreparation({ runtime, resources, onReleased = () => {}, environment = process.env }) {
-  const { existsSync } = await import("node:fs");
-  const { terminateManagedSuiteLease } = await import("../scheduler/fixture-broker/providers.mjs");
-  const failures = [];
-  const privateResults = runtime.privatePath("lifecycle");
-  mkdirSync(path.join(privateResults, runtime.runID), { recursive: true, mode: 0o700 });
-  const base = { ...environment, CARTULARY_TEST_RESULTS_DIR: privateResults, CARTULARY_TEST_RUN_ID: runtime.runID, CARTULARY_TEST_TARGET: "ui-review", CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID, NODE_BIN: process.execPath };
-  // Retiring the browser fixture requires the suite it was allocated from.
-  // Recover that identity from the exact retained owner proof, never ambient
-  // caller credentials or another live review's environment.
-  for (const resource of resources.filter((entry) => entry.kind === "browser_renderer")) {
-    try { recoverVisualRenderer(resource.target); onReleased(resource); }
-    catch (error) { failures.push(error); }
-  }
-  const suites = resources.filter((resource) => resource.kind === "managed_suite");
-  const blocked = new Set();
-  for (const resource of resources.filter((entry) => entry.kind === "browser_stack")) {
-    let dependency;
+  const privateResults=runtime.privatePath("lifecycle");
+  mkdirSync(path.join(privateResults,runtime.runID),{recursive:true,mode:0o700});
+  const base={...environment,CARTULARY_TEST_RESULTS_DIR:privateResults,CARTULARY_TEST_RUN_ID:runtime.runID,CARTULARY_TEST_TARGET:"ui-review",
+    CARTULARY_TEST_SERVICES_BIN:path.join(root,workspaceLayout.toolbin,"cartulary-test-services"),NODE_BIN:process.execPath};
+  const session=createFixtureSession({root,runRoot:path.join(privateResults,runtime.runID),target:"ui-review",runtime,environment:base});
+  let primary;
+  try { await session.recover(); }
+  catch(error){primary=error;}
+  finally {
+    try{await session.closeSession();}catch(error){if(primary)(primary.cleanupFailures??=[]).push(error);else primary=error;}
     try {
-      const acquisition = readBrowserAcquisition(resource.target, runtime);
-      dependency = acquisition.suite_lease;
-      if (suites.filter((suite) => suite.target === dependency).length !== 1) throw new Error("browser recovery requires its exact retained managed suite proof");
-      await settleBrowserAcquisition({ file: resource.target, runtime, root, environment: base, recovery: true });
-      onReleased(resource);
-    } catch (error) {
-      failures.push(error);
-      // Unknown or altered dependency proof cannot authorize any suite closure.
-      for (const suite of suites) if (!dependency || suite.target === dependency) blocked.add(suite.target);
+      const remaining=new Set(runtimeRecoveryResources(runtime).map((resource)=>JSON.stringify([resource.kind,resource.target])));
+      for(const resource of resources)if(!remaining.has(JSON.stringify([resource.kind,resource.target])))onReleased(resource);
+    } catch(cause) {
+      const error=new CommandFailure("recovery acknowledgement rejected",{failure_class:"artifact",failure_reason:"artifact_error"},{cause});
+      if(primary)(primary.cleanupFailures??=[]).push(error);else primary=error;
     }
   }
-  for (const resource of suites) {
-    if (blocked.has(resource.target)) continue;
-    try {
-      if (!existsSync(resource.target)) throw new Error("missing resource-owner recovery proof");
-      terminateManagedSuiteLease({ root, leaseFile: resource.target, executable: path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), environment: base });
-      onReleased(resource);
-    } catch (error) { failures.push(error); }
-  }
-  if (failures.length) throw aggregateCleanup(failures);
+  if(primary)throw primary;
 }

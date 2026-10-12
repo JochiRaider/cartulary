@@ -2,21 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import path from "node:path";
 import os from "node:os";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { mkdtempSync, rmSync, readFileSync, readlinkSync, readdirSync, symlinkSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
 import { readBootClock } from "../../runtime/boot-clock.mjs";
-import { registerWrapperGraph, invocationRootKey, readWrapperGraphs, readWrapperOwner } from "../../runtime/wrapper-observation.mjs";
 import { loadRetainedObservability } from "../observability.mjs";
 import { writeCanonicalFixture } from "./retained-fixture.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
-const nativeBinary = path.join(root, ".cache/cartulary/toolbin/cartulary-harness-diag");
+const nativeBinary = path.join(root, ".cache/cartulary/toolbin/cartulary-harness");
 function publishTerminalReceipts(directory) {
-  const result = spawnSync(nativeBinary, ["--terminal-receipt", directory], { cwd: root, encoding: "utf8" });
+  const result = spawnSync(nativeBinary, ["diagnostics", "--terminal-receipt", directory], { cwd: root, encoding: "utf8" });
   if (result.status !== 0) throw Error("native receipt rejected");
-  return readWrapperGraphs(directory, readWrapperOwner(directory)).length;
+  return readdirSync(directory).filter((name) => /^graph-[a-f0-9]{64}\.json$/u.test(name)).length;
 }
 const wrapper = path.join(root, "tools/harness/workspace/admission.sh");
 function fixture(t) {
@@ -26,21 +25,27 @@ function fixture(t) {
     start_ticks: readFileSync(`/proc/${process.pid}/stat`, "utf8").split(") ").at(-1).trim().split(/\s+/u)[19],
     start_ms: readBootClock().monotonic_ms, boot_id: readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim(), namespace: readlinkSync(`/proc/${process.pid}/ns/time`) };
   atomicLocalFile(path.join(dir, "private/owner.json"), JSON.stringify(owner));
-  const environment = { [invocationRootKey]: path.join(dir, "private") };
+  const privateRoot = path.join(dir, "private");
   const write = (file, value) => atomicLocalFile(file, JSON.stringify(value), { replace: true });
   const graph = (id = "graph1", scan = true) => {
     const runRoot = path.join(dir, id), { manifest } = writeCanonicalFixture(runRoot);
-    const registration = registerWrapperGraph({ runRoot, manifest, environment });
-    assert.ok(registration.digest);
+    // Closed protocol data, not a replica of the registration lifecycle owner.
+    const invocationDigest = `sha256:${createHash("sha256").update(owner.invocation_id).digest("hex")}`;
+    const scanAt = readBootClock().monotonic_ms;
+    const membership = { version: 1, invocation_digest: invocationDigest,
+      run_root: runRoot, run_id: manifest.run_id, source_digest: manifest.source_digest,
+      graph_digest: manifest.graph_digest, phase: "complete",
+      scan_start_ms: scan === null ? null : scanAt, scan_end_ms: scan === null ? null : scanAt,
+      scan_outcome: scan === null ? null : scan ? "passed" : "failed" };
+    write(path.join(privateRoot, `graph-${createHash("sha256").update(runRoot).digest("hex")}.json`), membership);
     const envelope = { schema_id: "cartulary.harness_invocation_envelope.v2", run_id: id, source_digest: manifest.source_digest, graph_digest: manifest.graph_digest,
-      invocation_digest: registration.digest, boundary: "graph_main_entry_to_pre_scan", clock: "graph_process_monotonic", canonical_ref: "unit-events.ndjson",
+      invocation_digest: invocationDigest, boundary: "graph_main_entry_to_pre_scan", clock: "graph_process_monotonic", canonical_ref: "unit-events.ndjson",
       intervals: [], exclusions: ["make_and_preflight", "module_imports", "retained_secret_scan", "command_return", "receipt_publication"] };
     write(path.join(runRoot, "diagnostics/invocation-envelope.json"), envelope);
-    if (scan !== null) { registration.scanStarted(); if (scan) write(path.join(runRoot, "retained-secret-scan.json"), { schema_id: "cartulary.harness_retained_secret_scan.v1", status: "pass", scanned_files: 5, policy_digest: manifest.instrumentation.policy_digest }); registration.scanFinished(scan); }
-    registration.complete();
-    return { runRoot, envelope, registration };
+    if (scan) write(path.join(runRoot, "retained-secret-scan.json"), { schema_id: "cartulary.harness_retained_secret_scan.v1", status: "pass", scanned_files: 5, policy_digest: manifest.instrumentation.policy_digest });
+    return { runRoot, envelope };
   };
-  return { dir, owner, privateRoot: environment[invocationRootKey], graph, write, complete(code = 0, signal = 0) { write(path.join(dir, "private/completion.json"), { end_ms: readBootClock().monotonic_ms, exit_code: code, signal, boot_id: owner.boot_id, namespace: owner.namespace }); } };
+  return { dir, owner, privateRoot, graph, write, complete(code = 0, signal = 0) { write(path.join(dir, "private/completion.json"), { end_ms: readBootClock().monotonic_ms, exit_code: code, signal, boot_id: owner.boot_id, namespace: owner.namespace }); } };
 }
 test("terminal receipt binds one outer duration to multiple graphs and detects later writes", async (t) => {
   const f = fixture(t), a = f.graph(), b = f.graph("graph2"); f.complete();
@@ -76,7 +81,7 @@ test("wrapper publication rejects forged identities, unsafe files, overflow, and
   symlinkSync("/dev/null", receiptFile); assert.throws(() => publishTerminalReceipts(f.privateRoot)); rmSync(receiptFile);
   atomicLocalFile(receiptFile, '{"schema_id":'); await assert.rejects(loadRetainedObservability(a.runRoot)); rmSync(receiptFile);
   for (let index = 0; index < 65; index++) f.write(path.join(f.privateRoot, `graph-${String(index).padStart(64, "0")}.json`), saved);
-  assert.throws(() => readWrapperGraphs(f.privateRoot, readWrapperOwner(f.privateRoot)), /roster/u);
+  assert.throws(() => publishTerminalReceipts(f.privateRoot), /rejected/u);
 });
 test("supervised admission preserves descriptor inheritance, nesting, early failure, and primary exit", () => {
   for (const mode of ["off", "basic"]) {
