@@ -23,7 +23,6 @@ func TestFixtureBrowserAdapter(t *testing.T) {
 	root := filepath.Clean(filepath.Join(cwd, "../../.."))
 	t.Run("closed_cli_rejects_unknown_operation", func(t *testing.T) {
 		cmd := exec.Command(node, filepath.Join(root, "tools/harness/browser/fixture-lifecycle.mjs"), "unknown")
-		stdout := []byte{}
 		cmd.Stderr = os.Stderr
 		stdout, err := cmd.Output()
 		if err == nil {
@@ -54,11 +53,11 @@ func TestFixtureBrowserAdapter(t *testing.T) {
 		directory.Close()
 		p := ProductionOptions{Root: root, RunRoot: run, Target: "browser-e2e", Runtime: runtime, Environment: map[string]string{"NODE_BIN": node, "PATH": os.Getenv("PATH"), "CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT": sessionRoot}}
 		native := p.command()
-		p.Run = func(ctx context.Context, command string, args []string, env map[string]string) (CommandResult, error) {
+		p.Run = func(ctx context.Context, command string, _ []string, env map[string]string) (CommandResult, error) {
 			// Call the physical module directly so a failed synthetic proof exposes
 			// its stack in test diagnostics instead of the private CLI's closed error.
 			module, _ := json.Marshal("file://" + filepath.Join(root, "tools/harness/browser/fixture-lifecycle.mjs"))
-			args = []string{"--input-type=module", "--eval", "import {fixtureLifecycle} from " + string(module) + "; console.log(JSON.stringify(await fixtureLifecycle('prepare',process.argv.slice(1))));", suite}
+			args := []string{"--input-type=module", "--eval", "import {fixtureLifecycle} from " + string(module) + "; console.log(JSON.stringify(await fixtureLifecycle('prepare',process.argv.slice(1))));", suite}
 			result, err := native(ctx, command, args, env)
 			if err != nil {
 				t.Logf("operation %s failed: %v; stderr=%s", args[1], err, result.Stderr)

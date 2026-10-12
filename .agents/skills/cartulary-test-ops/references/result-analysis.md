@@ -72,5 +72,6 @@ It excludes Make/preflight/imports, the retained-secret scan and command return.
 It is not a qualifying performance-gate timing source. Resource completeness,
 canonical validation, test status and the owning command's exit are distinct.
 Optional collector failure/truncation does not change assertions or primary failure.
-The initial implementation remains opt-in; overhead qualification and later
-service/container/wrapper coverage must be established separately.
+Diagnostics remain default-off. Functional service, container and wrapper
+coverage is source-scoped evidence; it does not establish overhead qualification.
+Qualification remains a separate acceptance decision under its adopted gates.

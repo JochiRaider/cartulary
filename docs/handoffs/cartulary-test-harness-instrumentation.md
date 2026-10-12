@@ -1901,7 +1901,7 @@ completed implementation slices do not establish successful qualification.
 
 ### E-040 — S-032 finalization and source freeze — IN_PROGRESS
 
-Starting/frozen executable commit `38b8758c8` (clean), digest
+Initial frozen executable commit `38b8758c8` (clean), digest
 `sha256:d11fef10e28232f528c48534e3085a3b7ad5c6b41f91d2c6367ad4d8af6d1f86`.
 `env CARTULARY_TEST_RUN_ID=remediate-s032-finalize-01 make agent-finalize`
 passed, outer exit 0, 1/1, 22,906 ms. No source/projection refresh was produced.
@@ -1916,7 +1916,7 @@ lint-markdown` (17,360 ms), `drift-01 make generate-drift` (23,364 ms),
 `policy-01 make generated-artifact-policy-check` (1,063 ms), and `shapes-01 make
 json-shape-check` (3,910 ms). All owning exits 0 and summaries PASS.
 `check-01 make check` FAILED: owning Make exit 2, native primary exit 10;
-979/981 units passed, two failed, none skipped/cancelled, 743,207 ms inclusive target wall.
+978/981 units passed, three failed, none skipped/cancelled, 743,207 ms inclusive target wall.
 All 1,240 cleanup steps passed. Exact root and failures are retained unchanged.
 The selected native graph test consumed its shared 90-second deadline waiting for
 whole-host Go admission (basic probe 45,014 ms admission versus 311 ms runner).
@@ -1924,7 +1924,7 @@ Use an existing one-token shell row for graph/receipt proof; keep the deadline,
 independent readers and separate Go interop coverage. Stop dependent receipt
 assertions after a failed graph so the primary error stays clear.
 
-The other unit failure was `target:otel-conformance`: its source-text assertion
+Another unit failure was `target:otel-conformance`: its source-text assertion
 required a retired `harnessScope` export in the old facade. F-035 checks actual
 pure projection output instead; no obsolete API is restored. Final status then
 returned invalid/artifact_error (reader exit 11), revealing F-036: child smoke
@@ -1932,7 +1932,7 @@ had written legacy `cartulary.test_run_summary.v6` to the native root. Native
 exclusive publication correctly refused the collision; canonical target evidence
 remains, but root publication and scanning did not complete. Do not treat this as
 a successful full run. Restrict graph-child smoke to target summaries and cover
-it through actual native integration plus the repeated full check.
+that ownership through the supported public full check.
 
 Post-failure repair checks: `format-01/02 make format-go` and `generate-01
 make generate` passed (generation 9,560 ms); `otel-01 make otel-conformance`
@@ -1946,8 +1946,9 @@ ROWS=harness.command_surface.unit.native_runtime CARTULARY_HARNESS_CACHE_MODE=of
 also passed through the inherited-admission public graph (36,716 ms, outer 0).
 The final full check covers smoke root ownership through its supported entrypoint.
 
-Final acceptance and V-033 remain open. Repairs change executable source and
-require a new freeze, agent-finalize, affected checks and a fresh full warm run.
+Repairs changed executable source and required a new freeze, agent-finalize,
+affected checks and a fresh full warm run. The initial evidence remains scoped
+to its original source; it is not substituted for the repeated final gates.
 
 Read-only preservation comparison found all 6,937 salvage entries unchanged,
 no additional tracked/nonignored path, and HEAD still `79aecc1ca`. No archive,
@@ -1956,9 +1957,53 @@ Only tracker prose changed during check-01; the repair then changed the three
 named executable files. `finalize-02 make agent-finalize` passed, outer 0,
 21,062 ms, with no generated/source refresh. Retained-run maintenance remains
 skipped because RESULTS_DIR is unset; check-01 is failed and ineligible. The new
-executable freeze has digest
+second executable freeze has digest
 `sha256:4da43d53e5da1260631541433f32f87d2f08245abf3d4b662e24c4d1d2ff3a65`;
-final broad checks and the fresh full warm run must use this revision.
+the second broad validation pass uses clean frozen commit
+`e7fe065cbdf58c5cacdcc0e263db06a1e559dabb`.
+
+Repeated `scripts-02 make lint-scripts` (733 ms), `shell-02 make lint-shell`
+(1,803 ms), `markdown-02 make lint-markdown` (8,600 ms), `drift-02 make
+generate-drift` (19,520 ms), `policy-02 make generated-artifact-policy-check`
+(1,152 ms), and `shapes-02 make json-shape-check` (3,970 ms) passed with owning
+exits 0. `contract-02 make harness-contract` published a canonical PASS summary
+(93,038 ms) and retained scan; the session had closed across context recovery
+without its owning exit retained in the working context. Repeat that gate with
+a fresh identity to record both outcomes explicitly. `check-02 make check` ran
+under native session 4424 on that executable digest.
+
+`check-02 make check` finished with owning Make exit 2: 980/981 units passed,
+one failed, none skipped/cancelled, 697,070 ms canonical wall. All 1,239 cleanup
+steps passed. `explain-run TARGET=check DETAIL=summary` and independent
+`harness-observability-check` passed (one invocation/four sources; default-off
+diagnostics/execution not observed). Canonical root publication and scan now
+complete, closing the specific F-036 collision even though the full gate failed.
+The sole failing unit was `target:lint-go` / `harness/child_target_failure`:
+Staticcheck found unused broker acquisition state, redundant stdout initialization,
+an overwritten test parameter and a repeated-call expression in the collector's
+close-idempotence test. Remove dead state/assignments and name both close results
+so both calls always execute. No deadline, interface or failure policy changes.
+Reviewing the retained first run confirmed the same lint failure there; its
+earlier checkpoint used a pre-terminal count and omitted this third failure.
+The corrected final count and all three causes are preserved here.
+
+The test-ops result-analysis reference now separates completed functional
+service/container/wrapper coverage from deferred qualification. This is a
+documentation-only correction, not an executable input or additional claim.
+
+Post-lint repair: `format-03 make format-go`, `go-lint-01 make lint-go`
+(format 8,620 ms, vet 1,160 ms, Staticcheck 1,570 ms), `fixture-01 make
+harness-fixture-contract` (race enabled, 3,980 ms) and `collection-01 make
+test-slice OWNER=harness.evidence_accounting
+ROWS=harness.evidence_accounting.behavior.native_collection
+CARTULARY_HARNESS_CACHE_MODE=off` (631 ms canonical wall) all passed, owning
+exits 0. `finalize-03 make agent-finalize` passed, outer 0, 21,640 ms, without
+generated/source changes. Retained-run maintenance was skipped because
+RESULTS_DIR was unset; both prior full checks are failed and ineligible.
+The repaired executable digest is
+`sha256:1bdb3547e772d5011e1bd7ab66b85264eb5a25fe4198ad860fe06a17c9103307`.
+V-033 remains open until fresh final-source broad checks, full warm acceptance
+and handoff are saved.
 
 ### E-039 — S-031/F public boundary checkpoint; S-031 complete
 

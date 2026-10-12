@@ -196,21 +196,20 @@ func (l *Lease) Release(ctx context.Context, healthy, retain bool) (bool, error)
 }
 
 type Broker struct {
-	mu                sync.Mutex
-	options           Options
-	shared            map[string]*entry
-	pending           map[string]chan struct{}
-	allocations       []*entry
-	active            map[*Lease]bool
-	acquiring         sync.WaitGroup
-	life              context.Context
-	cancel            context.CancelFunc
-	closed            bool
-	closeOnce         sync.Once
-	closeErr          error
-	providerFailed    bool
-	acquisitionErrors []error
-	sequence          uint64
+	mu             sync.Mutex
+	options        Options
+	shared         map[string]*entry
+	pending        map[string]chan struct{}
+	allocations    []*entry
+	active         map[*Lease]bool
+	acquiring      sync.WaitGroup
+	life           context.Context
+	cancel         context.CancelFunc
+	closed         bool
+	closeOnce      sync.Once
+	closeErr       error
+	providerFailed bool
+	sequence       uint64
 }
 
 func New(options Options) *Broker {

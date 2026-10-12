@@ -340,7 +340,8 @@ func TestContainerCancellationDrain(t *testing.T) {
 	}
 	closed := 0
 	c.closeClient = func() error { closed++; return nil }
-	if c.close() != nil || c.close() != nil || closed != 1 {
+	firstErr, secondErr := c.close(), c.close()
+	if firstErr != nil || secondErr != nil || closed != 1 {
 		t.Fatal("client closure is not idempotent")
 	}
 }
