@@ -12,10 +12,10 @@ export function ownedProcess(pid) {
 
 // The native physical owner alone verifies identities, signals and confirms
 // settlement. An exit notification is not proof that descendants have drained.
-export async function stopOwnedProcess(proof, { graceMS = 1000, killMS = 5000 } = {}) {
+export async function stopOwnedProcess(proof, { graceMS = 1000, killMS = 5000, environment = process.env } = {}) {
   const root = path.resolve(import.meta.dirname, "../../..");
-  const binary = process.env.CARTULARY_HARNESS_RUNTIME_BIN || path.join(root, workspaceLayout.toolbin, "cartulary-harness");
-  const child = spawn(binary, ["process"], { cwd: root, stdio: ["pipe", "ignore", "ignore"], env: process.env });
+  const binary = environment.CARTULARY_HARNESS_RUNTIME_BIN || path.join(root, workspaceLayout.toolbin, "cartulary-harness");
+  const child = spawn(binary, ["process"], { cwd: root, stdio: ["pipe", "ignore", "ignore"], env: environment });
   const completion = new Promise((resolve, reject) => {
     child.once("error", reject);
     child.once("close", (code) => code === 0 ? resolve() : reject(new Error("owned process cleanup failed")));

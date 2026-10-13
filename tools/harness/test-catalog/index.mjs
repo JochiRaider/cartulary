@@ -20,3 +20,4 @@ export {
 export { buildSourceSnapshot, executableProvenance } from "./source-snapshot.mjs";
 export { requiredServicesForFixture, assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 export { restrictedExecutableInputRoots, validateExecutableInputPolicy } from "./restricted-input-boundary.mjs";
+export { resolveVitestTitles } from "./selector-resolution.mjs";

@@ -10,6 +10,27 @@ import (
 )
 
 func TestLifecyclePreservesEveryCleanupFailure(t *testing.T) {
+	t.Run("drop_wait_diagnostics_exclude_private_values", func(t *testing.T) {
+		if got := dropWaitDescription("IPC", "ProcSignalBarrier", 0); got != "type=IPC event=ProcSignalBarrier blockers=0" {
+			t.Fatal(got)
+		}
+		for _, input := range [][2]string{{"private_type", "ProcSignalBarrier"}, {"Extension", "PrivateCredentialAlpha123"}, {"Lock", "postgres://private:secret@host"}} {
+			got := dropWaitDescription(input[0], input[1], 1)
+			if strings.Contains(got, "private") || strings.Contains(got, "PrivateCredential") || strings.Contains(got, "secret") {
+				t.Fatalf("private wait leaked: %s", got)
+			}
+		}
+		if got := dropWaitDescription("IO", "DataFileSync", 0); got != "type=IO event=DataFileSync blockers=0" {
+			t.Fatal(got)
+		}
+		if got := checkpointProgressDescription(-1, 0, 0); got != "progress_unavailable" {
+			t.Fatal(got)
+		}
+		if got := checkpointProgressDescription(7, 6, 200); got != "requested=7 done=6 buffers=200" {
+			t.Fatal(got)
+		}
+	})
+
 	var output bytes.Buffer
 	lifecycle := NewLifecycle("attempt", &output)
 	original := errors.New("original body failure")

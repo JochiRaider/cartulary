@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.incidents",
   "rows": [
     {
@@ -1035,7 +1035,8 @@
           "Incident landing incident creation lifecycle reveals an optional field rejection with an associated message",
           "Incident landing incident creation lifecycle submits a single-line field with native Enter",
           "Incident landing incident creation lifecycle suppresses same-tick duplicate dispatch"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1075,7 +1076,8 @@
           "incident creation operation retains collapse recovery without restoring automatic navigation on reopen",
           "incident creation operation retains confirmation when membership refresh fails and retries only handoff",
           "incident creation operation times out observation and ignores a later original success"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1112,7 +1114,8 @@
           "Incident lifecycle characterization requires renewed review after an incident version conflict",
           "Incident lifecycle characterization retains raw reason across ordinary drawer closure",
           "Incident lifecycle characterization retains reason across section changes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1139,7 +1142,8 @@
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "titles": [
           "IncidentAdminPanel composes reviewed lifecycle actions with summary and preserves preferences during reconciliation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1171,7 +1175,8 @@
           "Incident membership audit characterization does not publish delayed audit failure into another section",
           "Incident membership audit characterization keeps visible JSON strings distinct from null and structured values",
           "Incident membership audit characterization rejects a delayed success after a newer accepted query"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1201,7 +1206,8 @@
           "Incident membership audit presentation keeps membership audit placement inside incident admin controls",
           "Incident membership audit presentation preserves expanded identity and focused controls until replacement removes the event",
           "Incident membership audit presentation uses a native form with local exact target and timestamp errors"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1234,7 +1240,8 @@
           "Incident membership management characterization preserves a newer add draft when the captured create completes",
           "Incident membership management characterization preserves a role draft through a section reload",
           "Incident membership management characterization separates uncertain writes from rejected version conflicts"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1269,7 +1276,8 @@
           "Incident metadata characterization retains exact input across drawer closure",
           "Incident metadata characterization retains exact input across section changes and their reads",
           "Incident metadata characterization sends only the changed field and draft base version"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1295,7 +1303,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "ordinary landing shell creates an incident, refreshes membership, opens the workbook, and delegates stale selection to workbook access recovery"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

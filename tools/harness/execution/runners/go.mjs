@@ -87,7 +87,7 @@ function parseEvents(stdout) {
   return { terminal, markers };
 }
 
-async function parseEventsFile(file) {
+async function parseEventsFile(file, diagnostic) {
   const terminal = new Map();
   const markers = [];
   const input = createReadStream(file, { encoding: "utf8" });
@@ -99,7 +99,9 @@ async function parseEventsFile(file) {
         throw new Error("Go JSON event exceeds the 1 MiB line contract");
       }
       try {
-        observeEvent(JSON.parse(line), terminal, markers);
+        const event = JSON.parse(line);
+        observeEvent(event, terminal, markers);
+        diagnostic?.observe(event);
       } catch {
         // `go test -json` may relay non-JSON process diagnostics. Selector
         // closure below classifies missing terminal events without retaining
@@ -196,6 +198,42 @@ export function adaptGoInvocation(invocation, result) {
   return adaptParsedGoInvocation(invocation, result, parseEvents(result.stdout));
 }
 
-export async function adaptGoInvocationFile(invocation, result) {
-  return adaptParsedGoInvocation(invocation, result, await parseEventsFile(result.stdoutPath));
+// Diagnostics are collected during the same parse that establishes row outcomes.
+// Keep at most 128 active 4 KiB tails and eight completed failure tails; later
+// passing output cannot evict already observed failures. These excerpts are not
+// accounting evidence and the caller must redact before retained publication.
+function failureDetails(invocation) {
+  const selectors = invocation.rows.flatMap((row) => row.selectors);
+  const relevant = (name) => typeof name === "string" && selectors.some((selector) => name === selector || name.startsWith(`${selector}/`));
+  const active = new Map(), failed = new Map();
+  return {
+    observe(event) {
+      if (!relevant(event.Test)) return;
+      const name = event.Test;
+      if (typeof event.Output === "string" && Buffer.byteLength(name) <= 512) {
+        const before = active.get(name) ?? Buffer.alloc(0);
+        active.delete(name);
+        if (active.size === 128) active.delete(active.keys().next().value);
+        active.set(name, Buffer.from(Buffer.concat([before, Buffer.from(event.Output)]).subarray(-4096)));
+      }
+      if (["pass", "fail", "skip"].includes(event.Action)) {
+        if (event.Action === "fail" && failed.size < 8) failed.set(name, active.get(name));
+        active.delete(name);
+      }
+    },
+    render(terminal) {
+      const names = [...terminal].filter(([name, event]) => event.action === "fail" && relevant(name)).map(([name]) => name);
+      if (!names.length) return "";
+      const selected = names.slice(0, 8);
+      return selected.map((name) => `[GO FAILURE] ${Buffer.from(name).subarray(0, 512).toString()}\n${failed.get(name)?.toString() ?? "detail unavailable within active-test bound"}\n`).join("") +
+        `[GO FAILURE DETAIL] selected=${selected.length} omitted=${names.length - selected.length}; at most 4 KiB per test\n`;
+    },
+  };
+}
+
+export async function adaptGoInvocationFile(invocation, result, onFailureOutput = () => {}) {
+  const diagnostic = failureDetails(invocation);
+  const parsed = await parseEventsFile(result.stdoutPath, diagnostic);
+  onFailureOutput(diagnostic.render(parsed.terminal));
+  return adaptParsedGoInvocation(invocation, result, parsed);
 }

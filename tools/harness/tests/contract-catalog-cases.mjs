@@ -178,10 +178,10 @@ export function assertSelectorResolutionScope(context) {
     writeFileSync(suite, 'export function registerFixtureSuite() { it("before", () => {}); }\n');
     const webSelection = (title) => ({ row: { row_id: "fixture.web", runner: "vitest", selector: { file: path.relative(context.root, main), titles: [title] } }, runner: { approved_roots: ["apps/web"] }, taskSurfaceCommandIDs: new Set() });
     const resolveWeb = createRowSelectorResolver(context.root);
-    assert.deepEqual(resolveWeb(webSelection("before")), [`vitest:${path.relative(context.root, main)}:before`]);
+    assert.deepEqual(resolveWeb(webSelection("before")), [`vitest::${path.relative(context.root, main)}:before`]);
     // Only the imported suite changes. Main-source-keyed global caches are stale.
     writeFileSync(suite, 'export function registerFixtureSuite() { it("after", () => {}); }\n');
-    assert.deepEqual(createRowSelectorResolver(context.root)(webSelection("after")), [`vitest:${path.relative(context.root, main)}:after`]);
+    assert.deepEqual(createRowSelectorResolver(context.root)(webSelection("after")), [`vitest::${path.relative(context.root, main)}:after`]);
     assert.throws(() => createRowSelectorResolver(context.root)(webSelection("before")), /must resolve exactly once/u);
     rmSync(main); symlinkSync(suite, main);
     assert.throws(() => resolveWeb(webSelection("before")), /symbolic link/u);

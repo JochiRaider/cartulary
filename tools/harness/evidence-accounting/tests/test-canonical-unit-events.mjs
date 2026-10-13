@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, lstatSync, mkdtempSync, renameSync, rmSync, truncateSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -11,7 +11,7 @@ import {
 
 function event(seq, monotonicMs, kind, unitID, status, extra = {}) {
   return {
-    schema_id: "cartulary.harness_unit_event.v3",
+    schema_id: "cartulary.harness_unit_event.v4",
     seq,
     monotonic_ms: monotonicMs,
     event: kind,
@@ -26,7 +26,7 @@ function event(seq, monotonicMs, kind, unitID, status, extra = {}) {
 }
 
 const wait = {
-  wait_reason: "capacity",
+  wait_reason: "rank",
   blocking_resources: [],
   blocking_unit_ids: [],
 };
@@ -107,6 +107,43 @@ test("canonical event iterator releases early and honors cancellation", async ()
   }
 });
 
+test("native event prefixes bind a complete inode range without following appends", async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-canonical-prefix-"));
+  try {
+    const events = [event(1, 0, "run_started", "run", "running"), event(2, 1, "queued", "unit:a", "pending")];
+    const file = writeEvents(directory, "events", events);
+    chmodSync(file, 0o600);
+    const stat = lstatSync(file, { bigint: true });
+    const prefix = { schema_id: "cartulary.harness_unit_event_prefix.v1", run_id: "fixture", file,
+      device: stat.dev.toString(), inode: stat.ino.toString(), byte_length: Number(stat.size), last_seq: 2 };
+    const collect = async (authority = prefix) => {
+      const records = [];
+      for await (const record of readCanonicalUnitEvents(file, { prefix: authority })) records.push(record);
+      return records;
+    };
+    const records = [];
+    for await (const record of readCanonicalUnitEvents(file, { prefix })) {
+      records.push(record);
+      if (records.length === 1) appendFileSync(file, '{"unfinished":');
+    }
+    assert.deepEqual(records, events);
+    assert.deepEqual(await collect(), events);
+    await assert.rejects(collect({ ...prefix, last_seq: 3 }), /final sequence/u);
+    await assert.rejects(collect({ ...prefix, byte_length: prefix.byte_length - 1 }), /record boundary/u);
+    await assert.rejects(collect({ ...prefix, inode: "0" }), /inode authority/u);
+    await assert.rejects(collect({ ...prefix, file: path.join(directory, "foreign") }), /inode authority/u);
+    await assert.rejects(collect({ ...prefix, unknown: true }));
+    await assert.rejects(async () => { for await (const _event of readCanonicalUnitEvents(file)) continue; }, /invalid JSON/u);
+    truncateSync(file, prefix.byte_length - 1);
+    await assert.rejects(collect(), /inode authority/u);
+    renameSync(file, `${file}-original`);
+    writeFileSync(file, `${events.map((e) => JSON.stringify(e)).join("\n")}\n`, { mode: 0o600 });
+    await assert.rejects(collect(), /inode authority/u);
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("unit reducer retains bounded selected state while validating the full stream", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-canonical-events-"));
   try {
@@ -169,7 +206,7 @@ test("unit reducer rejects unmatched and mismatched wait boundaries", async () =
   }
 });
 
-test("one eligible interval cannot publish a second closed wait", async () => {
+test("wait segments reject a gap after a closed boundary", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-canonical-waits-"));
   try {
     const file = writeEvents(directory, "duplicate.ndjson", [
@@ -201,4 +238,35 @@ test("normalized facts retain cache outcomes, zero-duration hits, cancellation a
   assert.equal(facts.terminals.get("failure").failure_reason, "assertion_failure");
   assert.equal(facts.terminals.get("failure").failure_class, "test");
   assert.equal(facts.terminals.get("cancel").event, "cancelled");
+});
+
+// Many holder transitions must not retain an array of every historical segment.
+test("wait segments compact changing holders and preserve exact reason totals", async (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "cartulary-wait-segments-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const events = [];
+  const add = (time, kind, extra = {}) => events.push(event(events.length + 1, time, kind, "a", "pending", extra));
+  for (const id of ["a", "b", "c"]) events.push(event(events.length + 1, 0, "queued", id, "pending"));
+  add(0, "eligible"); add(0, "wait_started", wait); add(3, "wait_ended", wait);
+  for (let i = 0; i < 2000; i++) {
+    const detail = { wait_reason: "resources", blocking_resources: ["cpu"], blocking_unit_ids: [i % 2 ? "b" : "c"] };
+    add(3 + i, "wait_started", detail); add(4 + i, "wait_ended", detail);
+  }
+  add(2003, "wait_started", wait); add(2005, "wait_ended", wait);
+  add(2005, "admitted"); add(2005, "started");
+  events.push(event(events.length + 1, 2010, "completed", "a", "passed"));
+  const facts = await reduceCanonicalUnitIntervals(writeEvents(dir, "segments.ndjson", events));
+  const value = facts.waits.get("a");
+  assert.equal(value.count, 2002);
+  assert.deepEqual(value.resource_intervals, [{ start: 3, end: 2003 }]);
+  assert.deepEqual(value.by_reason, { resources: 2000, exclusive_barrier: 0, rank: 5, scheduler_stop: 0 });
+  assert.equal(facts.intervals.get("a").queue_ms, 2005);
+  for (const mutation of ["overlap", "after_admission", "old_schema", "unchanged"]) {
+    const altered = structuredClone(events);
+    if (mutation === "overlap") altered[5].event = "wait_started";
+    if (mutation === "old_schema") altered[0].schema_id = "cartulary.harness_unit_event.v3";
+    if (mutation === "after_admission") Object.assign(altered.at(-1), { event: "wait_started", ...wait });
+    if (mutation === "unchanged") Object.assign(altered[8], { blocking_unit_ids: ["c"] });
+    await assert.rejects(reduceCanonicalUnitIntervals(writeEvents(dir, `${mutation}.ndjson`, altered)));
+  }
 });

@@ -1566,6 +1566,10 @@ stop_backend_for_reset() {
   kill -TERM -- "-${SERVER_PGID}" >/dev/null 2>&1 || true
   for _ in $(seq 1 "${poll_count}"); do
     if ! process_group_running "${SERVER_PGID}" && ! port_in_use "${BACKEND_PORT}"; then
+      if [[ -n "${CARTULARY_BROWSER_ACQUISITION_FILE:-}" ]]; then
+        "${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}" -- "${ROOT_DIR}/tools/harness/browser/browser-acquisition.mjs" \
+          settle-service "${CARTULARY_BROWSER_ACQUISITION_FILE}" "${SERVER_PGID}" || return $?
+      fi
       return 0
     fi
     sleep 0.2

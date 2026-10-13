@@ -34,6 +34,7 @@ func runtimeFixture(t *testing.T) (*Runtime, string, string) {
 	return runtime, root, run
 }
 func TestSessionRuntimeProof(t *testing.T) {
+	diagnosticOrphanFixture()
 	if detailProcessFixture() {
 		return
 	}

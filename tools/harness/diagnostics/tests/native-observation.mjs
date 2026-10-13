@@ -11,7 +11,7 @@ export async function observeRun(inputs) {
   const result = spawnSync(nativeBinary,args,{cwd:root,encoding:"utf8",timeout:35000});
   assert.ok(result.stdout,result.stderr);
   const observation=JSON.parse(result.stdout);
-  validateSchemaSync("cartulary.harness_run_observation.v2",observation);
+  validateSchemaSync("cartulary.harness_run_observation.v3",observation);
   assert.equal(result.status,observation.operation_exit_code);
   return observation;
 }

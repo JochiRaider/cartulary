@@ -202,7 +202,13 @@ else
   go-analysis-dependencies \
   harness-runtime-contract \
   harness-fixture-contract \
-  harness-runtime-boundary-contract
+  harness-runtime-boundary-contract \
+  harness-graph-contract \
+  harness-boundary-contract \
+  harness-scheduler-contract \
+  harness-local-session-contract \
+  harness-playwright-adapter-contract \
+  harness-observation-contract
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
@@ -1250,33 +1256,19 @@ lint-markdown:
 
 harness-contract-tests: export CARTULARY_TEST_TARGET ?= harness-contract-tests
 harness-contract-tests: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-contract-tests: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-contract-tests" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/browser/tests/test-playwright-row-runner.mjs ./tools/harness/services/tests/test-local-session.mjs ./tools/harness/tests/test-harness-boundary-contracts.mjs ./tools/harness/tests/test-harness-command-surface-contracts.mjs ./tools/harness/tests/test-harness-evidence-contracts.mjs \
-	  ./tools/harness/tests/test-harness-graph-contracts.mjs ./tools/harness/tests/test-harness-scheduler-contracts.mjs ./tools/harness/execution/tests/test-vitest-diagnostics.mjs ./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs ./tools/harness/observability/tests/test-canonical-performance.mjs ./tools/harness/tests/test-agent-finalize.mjs
+harness-contract-tests: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" "$(HARNESS_RUNTIME_BIN)" graph --selection target --target harness-contract-tests
 
 harness-command-surface-contract: export CARTULARY_TEST_TARGET ?= harness-command-surface-contract
 harness-command-surface-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-command-surface-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-command-surface-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/tests/test-harness-command-surface-contracts.mjs ./tools/harness/execution/tests/test-vitest-diagnostics.mjs
+	$(Q)$(RUN_STEP_SCRIPT) "harness-command-surface-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/tests/test-harness-command-surface-contracts.mjs ./tools/harness/execution/tests/test-vitest-diagnostics.mjs ./tools/harness/backend/tests/test-go-row-runner.mjs
 
 harness-evidence-contract: export CARTULARY_TEST_TARGET ?= harness-evidence-contract
 harness-evidence-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-evidence-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
 	$(Q)$(RUN_STEP_SCRIPT) "harness-evidence-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/tests/test-harness-evidence-contracts.mjs ./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs ./tools/harness/observability/tests/test-canonical-performance.mjs ./tools/harness/tests/test-agent-finalize.mjs
 
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-harness-contract: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-harness-contract: export CARTULARY_TEST_TARGET ?= harness-contract
-harness-contract:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-contract)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "harness-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/services/tests/test-local-session.mjs ./tools/harness/tests/test-harness-boundary-contracts.mjs \
-	  ./tools/harness/tests/test-harness-command-surface-contracts.mjs ./tools/harness/tests/test-harness-evidence-contracts.mjs ./tools/harness/tests/test-harness-graph-contracts.mjs ./tools/harness/tests/test-harness-scheduler-contracts.mjs ./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs ./tools/harness/observability/tests/test-observability.mjs ./tools/harness/execution/tests/test-vitest-diagnostics.mjs ./tools/harness/observability/tests/test-canonical-performance.mjs \
-	  ./tools/harness/tests/test-agent-finalize.mjs
-	$(call RUN_TARGET_SUMMARY,harness-contract,pass)
-else
 harness-contract: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 harness-contract: export CARTULARY_TEST_TARGET ?= harness-contract
 harness-contract:
@@ -1285,7 +1277,6 @@ harness-contract:
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" \
 	  "$(HARNESS_RUNTIME_BIN)" graph --selection target --target harness-contract
-endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 lint-shell: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -1856,7 +1847,7 @@ ui-review-stop:
 harness-ui-review-contract: export CARTULARY_TEST_TARGET ?= harness-ui-review-contract
 harness-ui-review-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-ui-review-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-contract.mjs
+	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/browser/tests/test-ui-review-contract.mjs
 
 harness-ui-review-lifecycle: export CARTULARY_TEST_TARGET ?= harness-ui-review-lifecycle
 harness-ui-review-lifecycle: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
@@ -2031,5 +2022,35 @@ harness-runtime-boundary-contract: export CARTULARY_TEST_TARGET ?= harness-runti
 harness-runtime-boundary-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
 harness-runtime-boundary-contract: go-toolchain-readiness $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN) $(TEST_SERVICES_BIN)
 	$(Q)$(RUN_STEP_SCRIPT) "harness-runtime-boundary-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" CARTULARY_HARNESS_RUNTIME_BIN="$(HARNESS_RUNTIME_BIN)" $(GO) test -count=1 ./internal/testutil/harnessruntime/boundary
+
+harness-graph-contract: export CARTULARY_TEST_TARGET ?= harness-graph-contract
+harness-graph-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-graph-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-graph-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/tests/test-harness-graph-contracts.mjs ./tools/harness/browser/tests/test-browser-work-graph.mjs
+
+harness-boundary-contract: export CARTULARY_TEST_TARGET ?= harness-boundary-contract
+harness-boundary-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-boundary-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-boundary-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/tests/test-harness-boundary-contracts.mjs
+
+harness-scheduler-contract: export CARTULARY_TEST_TARGET ?= harness-scheduler-contract
+harness-scheduler-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-scheduler-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-scheduler-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/tests/test-harness-scheduler-contracts.mjs
+
+harness-local-session-contract: export CARTULARY_TEST_TARGET ?= harness-local-session-contract
+harness-local-session-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-local-session-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-local-session-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/services/tests/test-local-session.mjs
+
+harness-playwright-adapter-contract: export CARTULARY_TEST_TARGET ?= harness-playwright-adapter-contract
+harness-playwright-adapter-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-playwright-adapter-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-playwright-adapter-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/browser/tests/test-playwright-row-runner.mjs
+
+harness-observation-contract: export CARTULARY_TEST_TARGET ?= harness-observation-contract
+harness-observation-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
+harness-observation-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
+	$(Q)$(RUN_STEP_SCRIPT) "harness-observation-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/observability/tests/test-observability.mjs
 
 endif

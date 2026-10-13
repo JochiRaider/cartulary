@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "web.collaboration",
   "rows": [
     {
@@ -18,7 +18,8 @@
         "titles": [
           "incident collaboration session plan classifies handshake, heartbeat, and terminal messages exactly",
           "incident collaboration session plan deduplicates, detects gaps, and suppresses replay while resetting"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -41,14 +42,11 @@
       "selector": {
         "file": "apps/web/src/collaboration/IncidentCollaborationSession.test.tsx",
         "titles": [
-          "IncidentCollaborationSession builds hello and resume session messages from socket resume state",
-          "IncidentCollaborationSession ignores duplicate stream sequences and refreshes on sequence gaps",
-          "IncidentCollaborationSession keeps replayable events unsynchronized until the owner completes reset",
-          "IncidentCollaborationSession suppresses reconnect and clears connection state after revocation",
           "Scoped connection termination fences foreign incidents replaced sockets account lifetimes and disposal before stream mutation",
           "Scoped connection termination preserves each canonical scope once across duplicate terminal messages and close",
           "Scoped connection termination recovers uncertain terminals without promoting invalid reasons or close-only hints to session loss"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -74,7 +72,8 @@
         "file": "apps/web/src/workbook/utils/workbookPresence.test.tsx",
         "titles": [
           "Workbook presence keeps presence outside live announcements"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -108,7 +107,8 @@
           "Workbook presence rejects malformed times modes and anchors without accepting focused wire mode",
           "Workbook presence selects users independently after row and cell matching",
           "Workbook presence uses UTC precision NFC and code points with input independent ties"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -136,7 +136,8 @@
         "titles": [
           "useTimelineCollaborationBindings fails closed to refresh for malformed or target-inconsistent sparse patches",
           "useTimelineCollaborationBindings owns Timeline live admission, gap refresh, access invalidation, surface switches, and teardown"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -167,7 +168,8 @@
           "Workbook collaboration transition models rejects stale recovery settlement and caps coalesced presence publication",
           "Workbook collaboration transition models routes the closed event family without interpreting ignored message owners",
           "Workbook collaboration transition models settles only the current reset subject"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -218,7 +220,8 @@
           "WorkbookCollaborationCoordinator routes record changes through the active cartulary.view.timeline.v2 renderer port",
           "WorkbookCollaborationCoordinator routes typed invalidation and pauses replay on authorization loss and closure",
           "WorkbookCollaborationCoordinator waits for an active accepted surface before resuming retained edits"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

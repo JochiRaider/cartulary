@@ -148,7 +148,7 @@ func (c *collector) fenced(ctx context.Context, operation func(context.Context) 
 	admissionCtx, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
 	defer cancel()
 	claims := harnessadmission.Quantities{"browser_stack": 0, "cpu": 0, "io": 0, "memory_mb": 0, "process": 0}
-	granted, err := harnessadmission.Transact(admissionCtx, harnessadmission.Request{Root: c.admissionRoot, Operation: "admit", Token: token, Owner: c.owner, Mode: "shared", Claims: claims, Capacities: c.capacities})
+	granted, err := harnessadmission.Transact(admissionCtx, harnessadmission.Request{Root: c.admissionRoot, Operation: "admit", Token: token, Owner: c.owner, Mode: "observation", Claims: claims, Capacities: c.capacities})
 	// Release even a queued request and even when admission completed concurrently
 	// with cancellation. No parent event loop participates in this transaction.
 	defer func() {

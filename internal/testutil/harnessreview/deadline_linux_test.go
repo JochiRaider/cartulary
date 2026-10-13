@@ -18,6 +18,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
@@ -116,14 +117,23 @@ func testPreparationDeadlines(t *testing.T) {
 			d.environment = environment
 			if failures := d.Close(context.Background()); len(failures) > 0 {
 				t.Error("intentional termination became cleanup failure", failures)
+				for _, step := range d.cleanup {
+					if step.err != nil {
+						t.Logf("cleanup operation=%s type=%T unsafe=%t unresolved=%t deadline=%t", step.operation, step.err, errors.Is(step.err, harnesslocal.ErrUnsafe), errors.Is(step.err, harnesssession.ErrUnresolved), errors.Is(step.err, context.DeadlineExceeded))
+					}
+				}
 			}
 			if err := runtime.Close(); err != nil {
 				t.Error(err)
 			}
 		})
 	}
-	for _, operation := range []string{"initialize", "build-web", "seed", "prepare_browser"} {
+	for _, operation := range []string{"initialize", "build-web", "seed", "prepare_browser", "initialize_write_deadline"} {
 		t.Run("unresponsive_"+operation, func(t *testing.T) {
+			wireOperation := operation
+			if operation == "initialize_write_deadline" {
+				wireOperation = "initialize"
+			}
 			run, scratch := t.TempDir(), t.TempDir()
 			runtime, err := harnesssession.NewRuntime(root, run, "fixture", scratch)
 			if err != nil {
@@ -156,6 +166,11 @@ func testPreparationDeadlines(t *testing.T) {
 					t.Error(err)
 				}
 			})
+			if operation == "initialize_write_deadline" {
+				if err := a.channel.SetWriteDeadline(time.Time{}); err != nil {
+					t.Fatal("private adapter transport cannot enforce write deadlines", err)
+				}
+			}
 			deadline := time.Now().Add(10 * time.Second)
 			var descendant harnessadmission.Proof
 			for {
@@ -171,18 +186,44 @@ func testPreparationDeadlines(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 			defer cancel()
 			payload := any(map[string]any{"admission_token": strings.Repeat("a", 32)})
-			if operation == "initialize" {
+			if wireOperation == "initialize" {
 				payload = map[string]any{"input": reviewInput{Mode: "artifacts", Policy: "installed_only", Presentation: "ui"}, "profile": map[string]any{}, "repository": root, "run_root": run, "runtime_root": runtime.Root}
 			}
-			if operation == "seed" {
+			if wireOperation == "seed" {
 				payload = map[string]any{"environment": map[string]string{}}
 			}
 			// initialize's profile must satisfy the wire schema even though it is never read.
-			if operation == "initialize" {
+			if wireOperation == "initialize" {
 				payload.(map[string]any)["profile"] = map[string]any{"pins_sha256": strings.Repeat("a", 64), "lock_sha256": strings.Repeat("b", 64), "node_version": "fixture", "playwright_version": "fixture", "sharp_version": "fixture", "axe_version": "fixture"}
 			}
 			started := time.Now()
-			_, err = a.call(ctx, operation, payload)
+			if operation == "initialize_write_deadline" {
+				a.writeMu.Lock()
+				called := make(chan error, 1)
+				go func() { _, callErr := a.call(ctx, wireOperation, payload); called <- callErr }()
+				// Wait for admission to the write path before releasing its lock
+				// after the real context deadline. No process timing is the oracle.
+				for {
+					a.mu.Lock()
+					admitted := len(a.pending) != 0
+					a.mu.Unlock()
+					if admitted {
+						break
+					}
+					select {
+					case err := <-called:
+						a.writeMu.Unlock()
+						t.Fatalf("call never entered write path: %v", err)
+					default:
+					}
+					time.Sleep(time.Millisecond)
+				}
+				<-ctx.Done()
+				a.writeMu.Unlock()
+				err = <-called
+			} else {
+				_, err = a.call(ctx, wireOperation, payload)
+			}
 			var classified *ReviewError
 			if !errors.As(err, &classified) || classified.Record.Code != "operation_expired" {
 				t.Fatal("unresponsive adapter misclassified", err)
@@ -207,6 +248,9 @@ func testPreparationDeadlines(t *testing.T) {
 			case <-a.done:
 			default:
 				t.Fatal("adapter not reaped")
+			}
+			if err := a.close(context.Background()); err != nil {
+				t.Fatal("settled intentional termination became cleanup failure", err)
 			}
 		})
 	}

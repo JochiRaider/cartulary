@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -117,13 +118,24 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		child[k] = "1"
 	}
 	child["CARTULARY_UNIT_CPU_TOKENS"] = fmt.Sprint(plan.facts.Capacities["cpu"])
-	child["CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE"] = publication.events.StagingPath()
+	// A nested graph cannot inherit its parent's event authority. Each launch
+	// receives this publisher's complete-record prefix below.
+	delete(child, "CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE")
+	delete(child, "CARTULARY_HARNESS_UNIT_EVENT_PREFIX")
 	if mode == "basic" {
 		child["CARTULARY_HARNESS_EXECUTION_ENABLED"] = "1"
 	} else {
 		delete(child, "CARTULARY_HARNESS_EXECUTION_ENABLED")
 	}
 	fixtureEnv := maps.Clone(child)
+	services := map[string]bool{}
+	for _, unit := range plan.facts.Graph.Units {
+		for _, service := range unit.Services {
+			services[service] = true
+		}
+	}
+	// The shared physical owner acquires the union, never a fixed service pair.
+	fixtureEnv["CARTULARY_HARNESS_SERVICE_DEPENDENCIES"] = strings.Join(slices.Sorted(maps.Keys(services)), ",")
 	maps.Copy(fixtureEnv, plan.facts.Bindings)
 	declared := plan.facts.Manifest["declared_inputs"].(map[string]any)
 	sources := strings.Fields(env["CARTULARY_MAKE_INPUT_SOURCES"])
@@ -218,6 +230,11 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		}
 		r.Environment["CARTULARY_WORK_UNIT_ID"] = r.Unit.ID
 		r.Environment["CARTULARY_STEP_ARTIFACT_DIR"] = artifact
+		prefix, err := publication.Prefix()
+		if err != nil {
+			return unitResult{Status: "failed", ExitCode: 11, Failure: failed("artifact", "artifact_error")}
+		}
+		r.Environment["CARTULARY_HARNESS_UNIT_EVENT_PREFIX"] = prefix
 		return processes.Execute(ctx, r)
 	}, Fixtures: fixtures, Cache: cache, Admit: nativeAdmission(plan.facts.Capacities, parent, admission), Terminal: publication.Terminal,
 		Cleanup: recordCleanup, CleanupServices: production.Close, Finalize: func(_ context.Context, unresolved bool, _ []cleanupRecord) error {

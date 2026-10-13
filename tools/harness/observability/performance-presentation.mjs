@@ -14,7 +14,7 @@ export function formatPerformanceExplanation(value, { json = false, resourcesOnl
     } else lines.push("[INVOCATION] terminal_receipt=unavailable");
     if (!resourcesOnly) {
       lines.push(`phase_union_ms=${JSON.stringify(value.phase_union_ms)} uncovered_ms=${value.canonical_time_outside_selected_phases_ms} overlap_ms=${value.phase_overlap_ms}`);
-      for (const unit of value.units) lines.push(`[UNIT] ${unit.unit_id} queue_ms=${unit.queue_ms} execution_ms=${unit.execution_ms} invocation_path=${unit.on_invocation_dependency_path}`);
+      for (const unit of value.units) lines.push(`[UNIT] ${unit.unit_id} queue_ms=${unit.queue_ms} execution_ms=${unit.execution_ms} queue_by_reason_ms=${JSON.stringify(unit.queue_by_reason_ms)} wait_segments=${unit.wait_segments} invocation_path=${unit.on_invocation_dependency_path}`);
     }
     if (value.comparison) lines.push(`[COMPARISON] ${JSON.stringify(value.comparison)}`);
     const resources = value.resources;

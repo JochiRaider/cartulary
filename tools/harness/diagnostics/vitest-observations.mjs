@@ -84,11 +84,10 @@ export function normalizeVitestObservations(capture, { invocationID, runID, runn
   };
 }
 
-export function selectedVitestObservations(details, file, titles) {
+export function selectedVitestObservations(details, file, titles, project = null) {
   return titles.map((title) => {
-    const candidates = details.observations.filter((item) => item.scope === "test" && item.owner_path === file);
-    const exact = candidates.filter((item) => item.title === title);
-    const matches = exact.length ? exact : candidates.filter((item) => item.test_name === title);
+    const candidates = details.observations.filter((item) => item.scope === "test" && item.owner_path === file && (project === null || item.project === project));
+    const matches = candidates.filter((item) => item.title === title);
     if (matches.length !== 1) throw diagnosticFailure("Vitest selected title has missing or ambiguous observations", "scheduler_accounting_error");
     return matches[0];
   });

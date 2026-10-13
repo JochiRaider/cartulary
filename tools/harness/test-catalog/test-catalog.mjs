@@ -20,9 +20,9 @@ import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v6";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v7";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
-const runnerRegistrySchemaID = "cartulary.test_runner_registry.v1";
+const runnerRegistrySchemaID = "cartulary.test_runner_registry.v2";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
 const expectedRunners = Object.freeze({
   go: "go_exact_tests",
@@ -56,6 +56,7 @@ const expectedRunnerDefinitions = Object.freeze({
     selector_kind: "vitest_exact_titles",
     adapter_path: "tools/harness/execution/runners/vitest.mjs",
     approved_roots: ["apps/web", "packages"],
+    project_ids: ["browser-unit", "harness-node"],
   },
 });
 const expectedProfiles = Object.freeze({
@@ -126,7 +127,7 @@ function assertExactIDs(entries, expected, label) {
 function loadTopologyProfiles(root) {
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
   const topology = readStrictJSON(topologyPath);
-  validateSchemaSync(topology.schema_id, topology);
+  validateSchemaSync("cartulary.execution_topology.v10", topology);
   for (const [key, ids] of Object.entries(expectedProfiles)) {
     if (!Array.isArray(topology[key])) {
       throw new Error(`${topologyPath}.${key} must be an array`);
@@ -172,10 +173,13 @@ function loadTopologyProfiles(root) {
       }
     }
   }
+  assertSortedUnique(topology.go_targets.catalog_packages, `${topologyPath}.go_targets.catalog_packages`);
   return {
+    catalogPackages: topology.go_targets.catalog_packages,
     runtimeIDs: new Set(topology.runtime_profiles.map((entry) => entry.id)),
     resourceIDs: new Set(topology.resource_profiles.map((entry) => entry.id)),
     semantic: {
+      catalog_packages: topology.go_targets.catalog_packages,
       runtime_profiles: topology.runtime_profiles,
       resource_profiles: topology.resource_profiles,
       service_resource_minimums: topology.service_resource_minimums,
@@ -360,8 +364,8 @@ function validateRowSemantics({
   if (row.fixture_capability === "managed_process" && row.runtime_profile_id === "none") {
     throw new Error(`${label}.fixture_capability managed_process requires a runtime profile`);
   }
-  if (row.process_isolation !== undefined && row.runner !== "go") {
-    throw new Error(`${label}.process_isolation is supported only for exact-symbol Go rows`);
+  if (row.process_isolation !== undefined && !["go", "vitest"].includes(row.runner)) {
+    throw new Error(`${label}.process_isolation is supported only for Go and Vitest rows`);
   }
   if (row.process_isolation !== undefined && row.fixture_capability === "managed_process") {
     throw new Error(`${label}.process_isolation redundantly restates managed_process isolation`);
@@ -529,18 +533,21 @@ function readCatalogDefinition(root) {
     rowMigrations,
     test_catalog_digest: catalogSemanticDigest,
   };
-  return { catalog, runners: runners.byID, taskSurfaceCommandIDs };
+  return { catalog, runners: runners.byID, taskSurfaceCommandIDs, catalogPackages: profiles.catalogPackages };
 }
 
-function resolveSelectors(root, rows, { runners, taskSurfaceCommandIDs }) {
+function resolveSelectors(root, rows, { runners, taskSurfaceCommandIDs, catalogPackages }, complete = false) {
   const resolveSelector = createRowSelectorResolver(root);
   const selectors = new Set();
+  const overlaps = [];
   for (const row of rows) {
     for (const selector of resolveSelector({ row, runner: runners.get(row.runner), taskSurfaceCommandIDs })) {
-      if (selectors.has(selector)) throw new Error(`${row.row_id}.selector overlaps ${selector}`);
+      if (selectors.has(selector)) overlaps.push(`${row.row_id}.selector overlaps ${selector}`);
       selectors.add(selector);
     }
   }
+  if (overlaps.length) throw new Error(`${overlaps.length} overlapping catalog selections: ${overlaps.slice(0, 20).join("; ")}`);
+  if (complete) resolveSelector.assertGoPackageCoverage(catalogPackages, runners.get("go"), selectors);
   return selectors.size;
 }
 
@@ -553,7 +560,7 @@ export function loadCatalogMetadata(root) {
 export function loadTestCatalog(root) {
   const definition = readCatalogDefinition(root);
   const { catalog } = definition;
-  const selectorCount = resolveSelectors(root, catalog.rows, definition);
+  const selectorCount = resolveSelectors(root, catalog.rows, definition, true);
   const summary = {
     schema_id: "cartulary.test_catalog_check_summary.v2",
     evidence_epoch: evidenceEpoch,

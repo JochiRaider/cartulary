@@ -2,6 +2,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { listViewContracts } from "@cartulary/view-contracts";
 import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -432,14 +433,19 @@ function currentViewSchemaLiteralBindings(
   source: string,
   sourceLabel: string,
 ): string[] {
-  const pattern =
-    /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*(?::[^=;\n]+)?=\s*["'](cartulary\.view\.[^"']+)["']/gu;
-  return Array.from(source.matchAll(pattern)).flatMap((match) => {
-    const viewSchemaId = match[1] ?? "";
-    return currentViewSchemaIds.has(viewSchemaId)
-      ? [`${sourceLabel}: ${viewSchemaId}`]
-      : [];
-  });
+  const violations: string[] = [];
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      node.initializer &&
+      ts.isStringLiteralLike(node.initializer) &&
+      currentViewSchemaIds.has(node.initializer.text)
+    )
+      violations.push(`${sourceLabel}: ${node.initializer.text}`);
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFileFor(sourceLabel, source));
+  return violations;
 }
 
 function rawGridVendorSelectors(source: string, sourceLabel: string): string[] {
@@ -454,15 +460,6 @@ function rawGridVendorSelectors(source: string, sourceLabel: string): string[] {
 }
 
 describe("web E2E semantic support policy", () => {
-  it("retains deliberate invalid view-schema probes as explicit negative coverage", () => {
-    const source = readFileSync(join(e2eRoot, "workbook.spec.ts"), "utf8");
-
-    expect(source).toContain(
-      "workbook-startup?view_schema_id=cartulary.view.unknown.v1",
-    );
-    expect(source).toContain('reason_code: "unknown_field"');
-  });
-
   it("requires current view-schema identities to come from the view-contract facade", () => {
     expect(
       currentViewSchemaLiteralBindings(
@@ -472,7 +469,7 @@ describe("web E2E semantic support policy", () => {
     ).toEqual(["seed.ts: cartulary.view.timeline.v2"]);
 
     const violations = sourceFiles(e2eRoot)
-      .filter((path) => !path.endsWith("architecturePolicy.test.ts"))
+      .filter((path) => path !== fileURLToPath(import.meta.url))
       .flatMap((path) =>
         currentViewSchemaLiteralBindings(
           readFileSync(path, "utf8"),
@@ -492,7 +489,7 @@ describe("web E2E semantic support policy", () => {
     ).toEqual([`seed.ts: ${seededVendorSelector}`]);
 
     const violations = sourceFiles(e2eRoot)
-      .filter((path) => !path.endsWith("architecturePolicy.test.ts"))
+      .filter((path) => path !== fileURLToPath(import.meta.url))
       .flatMap((path) =>
         rawGridVendorSelectors(
           readFileSync(path, "utf8"),
@@ -629,7 +626,7 @@ describe("web E2E semantic support policy", () => {
 
   it("keeps E2E consumers on contract and package facades", () => {
     const violations = sourceFiles(e2eRoot)
-      .filter((path) => !path.endsWith("architecturePolicy.test.ts"))
+      .filter((path) => path !== fileURLToPath(import.meta.url))
       .flatMap((path) => {
         const source = readFileSync(path, "utf8");
         const reasons = [

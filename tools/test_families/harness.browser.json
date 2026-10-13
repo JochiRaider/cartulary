@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "harness.browser",
   "rows": [
     {
@@ -22,9 +22,9 @@
           "web E2E semantic support policy rejects ambiguous local namespace and dynamic imports",
           "web E2E semantic support policy rejects raw grid-vendor selectors outside the grid adapter",
           "web E2E semantic support policy requires current view-schema identities to come from the view-contract facade",
-          "web E2E semantic support policy requires every support and page export to have an external importer",
-          "web E2E semantic support policy retains deliberate invalid view-schema probes as explicit negative coverage"
-        ]
+          "web E2E semantic support policy requires every support and page export to have an external importer"
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -50,7 +50,8 @@
           "atomic private harness state preserves the prior value and removes temporary files after publication failure",
           "atomic private harness state publishes complete old-or-new contents with owner-only permissions",
           "atomic private harness state validates worker manifests without exposing secret values"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -77,7 +78,8 @@
         "titles": [
           "autosave diagnostics clean up when attachment fails and report cleanup-only failures",
           "autosave diagnostics retain each failing phase before cleanup and preserve the original error"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -108,7 +110,8 @@
           "OwnedSessionTracker fails cleanup when revocation verification fails",
           "OwnedSessionTracker revokes each owned user once and verifies every tracked snapshot",
           "buildWorkerAdminBlueprints creates one distinct admin blueprint per parallel index"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -136,7 +139,8 @@
           "evidence upload adapter does not synthesize headers when the returned header map is empty",
           "evidence upload adapter rejects malformed targets and envelopes before upload dispatch",
           "evidence upload adapter sends validated same-origin PUT targets with exactly the returned headers"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -161,7 +165,8 @@
         "titles": [
           "fixture identity derives email and incident identities from the injected clock",
           "fixture identity supports deterministic transaction identifiers"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -194,7 +199,8 @@
           "workerAdminIndexForParallelIndex requires scheduled browser groups to declare a worker count",
           "workerAdminIndexForParallelIndex requires scheduled browser groups to declare an offset",
           "workerAdminIndexForParallelIndex uses an explicit direct offset without requiring a worker count"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -251,7 +257,8 @@
         "titles": [
           "harnessState falls back to tmpdir paths when shared state is not configured",
           "harnessState uses the configured shared-state directory in external-server mode"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -308,7 +315,8 @@
         "titles": [
           "incident socket transport decodes typed protocol envelopes without accepting malformed frames",
           "incident socket transport retains unrelated ordered events while satisfying a semantic wait"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -344,6 +352,27 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.boundary_support.local_session",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_local_session_contract.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.boundary_support.mentions_suite_e2e13939bd",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -358,7 +387,8 @@
           "mention collection envelopes preserves the collection-actions item envelope",
           "mention collection envelopes reports the exact raw-text lookup that failed",
           "mention collection envelopes treats omitted, scalar, array, and malformed item payloads as empty"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -388,7 +418,8 @@
           "workbook row mutation support uses the request context as the explicit fallback and preserves omitted CSRF headers",
           "workbook row mutation support validates mutation responses with operation-aware diagnostics",
           "workbook row mutation support validates record-history pagination and rejects malformed success payloads"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -422,11 +453,33 @@
           "verifyOwnedHarnessRuntime fails before admin login when the identity endpoint is not the harness-owned runtime",
           "verifyOwnedHarnessRuntime skips the identity probe when the owned-stack token file is not configured",
           "verifyOwnedHarnessRuntime verifies the token-protected harness identity before suite admin login"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.playwright_adapter",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_playwright_adapter_contract.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
@@ -446,7 +499,8 @@
         "file": "apps/web/e2e/support/transport/publicJsonClient.test.ts",
         "titles": [
           "public HTTP failure diagnostics retains status and registered codes without capabilities bodies or private URLs"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -474,7 +528,8 @@
           "public JSON transport binds relative paths to an explicitly approved request origin",
           "public JSON transport preserves body omission and rejects absolute or protocol-relative paths",
           "public JSON transport preserves non-2xx JSON envelopes, status, and headers"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -500,7 +555,8 @@
           "record-stable collaboration summary polling follows the requested row from editor to display and reports mounted identities",
           "record-stable collaboration summary polling reacquires the requested row after reorder and replacement",
           "record-stable collaboration summary polling selects the requested editor when neighboring rows also have editors"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -510,6 +566,38 @@
       "fixture_capability": "none",
       "minimum_tier": "full",
       "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.reference_candidate_readiness",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/reference-candidate-support.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "reference_candidate_readiness"
+        ],
+        "titles": [
+          "candidate activation waits for the requested control before choosing its interaction"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
     },
     {
       "row_id": "harness.browser.boundary_support.savedviews_suite_79e8036a1a",
@@ -526,7 +614,8 @@
           "saved-view workbook support fails before waiting when request interception is unavailable",
           "saved-view workbook support matches the exact preference route and preserves request/response envelopes",
           "saved-view workbook support selects by stable ID and reads identity from data attributes"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -556,7 +645,8 @@
           "reconcileWorkerAdminManifest trusts existing shared-harness manifest passwords without creating probe sessions",
           "withOnlyActiveDeploymentAdmin restores demoted admins after a guarded block fails",
           "withOnlyActiveDeploymentAdmin temporarily demotes active deployment admins except the retained admin"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -582,7 +672,8 @@
           "test-control transport rejects public, cross-origin, and traversal-shaped paths before mutation",
           "test-control transport requires a token and approved exact origin before issuing a request",
           "test-control transport sends privileged authorization only through the control facade"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -643,7 +734,8 @@
           "representative Timeline recipe covers all 24 fields and shares the authored core across both continuation sizes",
           "representative Timeline recipe does not retry or substitute success after an owner operation fails",
           "representative Timeline recipe rejects unsupported data before acquiring an incident"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -669,7 +761,8 @@
           "committed row measurement predicates matches only visible committed rows with stable record and row version",
           "committed row measurement predicates qualifies identity, committed version and visible field on one mounted row",
           "committed row measurement predicates rejects draft rows, missing versions, and mismatched summaries"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -897,7 +990,8 @@
           "visual preference isolation blocks undeclared writes without forwarding requests to persistence",
           "visual preference isolation has one presentation write owner and immutable read snapshots",
           "visual preference isolation starts each page from no override despite previous variants and failures"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -955,7 +1049,8 @@
           "visual presentation declarations accepts every declared workbook density and classifies invalid evidence",
           "visual presentation declarations permits inapplicable density only on an application shell",
           "visual presentation declarations rejects missing empty unknown and mismatched applicable observations"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -965,6 +1060,32 @@
       "fixture_capability": "none",
       "minimum_tier": "full",
       "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.integration.native_fixture_lifecycle",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.installed_lifecycle"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/harnessruntime/boundary",
+        "tests": [
+          "TestNativeFixturePhysicalLifecycle",
+          "TestStandaloneNativeSession"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": [],
+      "process_isolation": "exclusive"
     },
     {
       "row_id": "harness.browser.integration.native_graph_observations",
@@ -989,6 +1110,31 @@
       "fixture_capability": "none",
       "minimum_tier": "full",
       "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.integration.native_selected_service_lifecycle",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.installed_lifecycle"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/harnessruntime/boundary",
+        "tests": [
+          "TestNativeSelectedServiceLifecycle"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": [],
+      "process_isolation": "exclusive"
     },
     {
       "row_id": "harness.browser.integration.object_store_fixture_roundtrip",
@@ -1090,6 +1236,90 @@
       ]
     },
     {
+      "row_id": "harness.browser.integration.postgres_template_preparation",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "module.database_migrations",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/pgtest",
+        "tests": [
+          "TestTemplatePreparationCompletesCopyBeforePublication"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "postgres_catalog_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.integration.postgres_transaction_isolation",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/pgtest",
+        "tests": [
+          "TestBeginRollbackDBTIsolatesRowsPerTransaction"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.integration.recovery_drop_observation",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "module.recovery",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/recoverybrowsertest",
+        "tests": [
+          "TestDatabaseDropObservation_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "harness.browser.integration.runtime_reset_recovery_purpose_contract",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",
@@ -1176,6 +1406,33 @@
       ]
     },
     {
+      "row_id": "harness.browser.integration.wstest_helper_contract",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/wstest",
+        "tests": [
+          "TestHarnessOpensAndClosesSocketAgainstBootstrapBoundary"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "harness.browser.unit.fixture_tls",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
@@ -1200,6 +1457,31 @@
       "service_dependencies": [
         "object_store"
       ]
+    },
+    {
+      "row_id": "harness.browser.unit.httptestx_helper_contract",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/httptestx",
+        "tests": [
+          "TestApplyTestRouteModeRejectsMissingAndUnknownModes",
+          "TestRequireAuthCookies"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
     },
     {
       "row_id": "harness.browser.unit.native_fixtures",
@@ -1410,6 +1692,39 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.unit.pgtest_helper_contract",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/pgtest",
+        "tests": [
+          "TestCreateDatabaseRejectsOmittedServiceBeforeAcquisition",
+          "TestDatabaseNamesAreUniqueAcrossSimulatedProcesses",
+          "TestPostgresContainerWaitStrategyOnlyWaitsForPortMapping",
+          "TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage",
+          "TestPostgresSetupEnvelopeNormalizesReadinessAndCancellation",
+          "TestPostgresWaitReadyRespectsContextCancellation",
+          "TestPrepareIsolatedDatabaseTUsesFreshTemplateClones",
+          "TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent",
+          "TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness",
+          "TestValidateSelectedPostgresFixturePolicy"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.unit.recovery_fixture_server_lifecycle",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
@@ -1426,6 +1741,33 @@
           "TestLifecyclePreservesEveryCleanupFailure",
           "TestRuntimeServerCloseCancelsHTTPAndWebSocketRequests",
           "TestRuntimeServerCloseRetiresTLSConnectionsWithoutRequests"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.unit.s3test_helper_contract",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/s3test",
+        "tests": [
+          "TestBucketNamesAreUniqueAcrossSimulatedProcesses",
+          "TestObjectStoreContainerWaitStrategyOnlyWaitsForPortMapping",
+          "TestOwnedObjectStoreCleanupFailureRemainsSecondaryTypedEvidence",
+          "TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent"
         ]
       },
       "evidence_class": "unit",
@@ -1459,6 +1801,39 @@
           "TestClosedAssemblerConsumesGeneratedDescriptor",
           "TestClosedAssemblerProducesExactDeterministicRedactedSemantics",
           "TestClosedAssemblerPropagatesOwnerFailure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.unit.testcontainersx_helper_contract",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/testcontainersx",
+        "tests": [
+          "TestStartWithRetryBoundsRetryableStartupAttempt",
+          "TestStartWithRetryDoesNotRetryLogicalReadinessFailure",
+          "TestStartWithRetryDoesNotRetryWithoutDeclaredAttempts",
+          "TestStartWithRetryEmitsObserverEvents",
+          "TestStartWithRetryFailsFastOnPreflightError",
+          "TestStartWithRetryFormatsFinalFailureWithContext",
+          "TestStartWithRetryReportsCustomRetryMetadataAfterExhaustion",
+          "TestStartWithRetryRetriesCustomClassifiedStartupError",
+          "TestStartWithRetryRetriesTransientDockerStartupError",
+          "TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff"
         ]
       },
       "evidence_class": "unit",
@@ -1518,6 +1893,7 @@
           "TestRunStartsObjectStoreWhilePostgresTemplateIsPreparing",
           "TestServiceStartupAttemptTimingSummarizesRetries",
           "TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures",
+          "TestStartSuiteHonorsSelectedServices",
           "TestStartSuiteIdentityRequiresExplicitPersistentProof",
           "TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts",
           "TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent",

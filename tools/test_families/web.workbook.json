@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "web.workbook",
   "rows": [
     {
@@ -17,7 +17,8 @@
         "file": "apps/web/src/workbook/policies/workbookSurfaceOwnershipPolicy.test.ts",
         "titles": [
           "workbook surface ownership policy keeps assessment semantics out of Timeline and vendor grid imports behind the adapter"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -42,7 +43,8 @@
         "titles": [
           "Timeline workbook runtime keeps identical operation and query messages independent",
           "Timeline workbook runtime reduces load and refresh transitions without owning shell save state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -68,7 +70,8 @@
           "workbook surface ownership policy assigns every registration to one declared bounded-context owner",
           "workbook surface ownership policy keeps domain workflow branches out of the common contract surface",
           "workbook surface ownership policy keeps owner policy definitions pure and transport-free"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -93,7 +96,8 @@
         "titles": [
           "WorkbookSurfaceRegistration fails registry construction for duplicate and missing owners",
           "WorkbookSurfaceRegistration registers every exposed schema exactly once and excludes extension workspaces"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -117,7 +121,8 @@
         "file": "apps/web/src/workbook/layout/useWorkbookMenuPlacement.test.tsx",
         "titles": [
           "placement retirement preserves the owner's current visibility across reopening"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -142,7 +147,8 @@
         "titles": [
           "workbook responsive viewport uses real window dimensions when visualViewport is unavailable",
           "workbook responsive viewport uses the effective root inline size for zoomed workbook chrome"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -178,7 +184,8 @@
           "ActiveSurfaceSavedViewSelector retains late confirmation without reopening the panel or navigating after a surface switch",
           "ActiveSurfaceSavedViewSelector shows submitted and observed conflict configuration and waits for explicit review",
           "ActiveSurfaceSavedViewSelector uses a labelled dialog and restores keyboard focus on Escape"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -204,7 +211,8 @@
         "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
         "titles": [
           "assessmentWorkbookModel requires deliberate subjects and validates timestamp and support boundaries without editing input"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -241,7 +249,8 @@
           "Assessment retained append owner reserves same-frame activation before authority reads and sends once",
           "Assessment retained append owner retains acceptance before failed refresh and recovers with reads only",
           "Assessment retained append owner retains late detached acceptance while hiding suspended protected state and retires on account change"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -276,7 +285,8 @@
           "Assessment discovery stages support selection and cancels with Escape without changing the draft",
           "Assessment discovery stages typed boolean support filters without changing selected identities",
           "Assessment discovery updates only the exact equal-label subject draft and clears to query focus on an empty page"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -304,7 +314,8 @@
           "Assessment committed query reconciliation accepts an authorized startup query independently of mutation authority initialization",
           "Assessment committed query reconciliation rejects older full rows after socket or HTTP observations without manufacturing filtered membership",
           "Assessment committed query reconciliation removes deleted rows monotonically and ignores an in-flight query after authority suspension"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -330,7 +341,8 @@
         "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
         "titles": [
           "WorkbookCollaborationCoordinator accounts for Assessment versions before echo suppression in either HTTP order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -354,7 +366,8 @@
         "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
         "titles": [
           "assessmentWorkbookModel keeps assessment column widths and support labels stable"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -378,7 +391,8 @@
         "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
         "titles": [
           "assessmentWorkbookModel uses contract enum defaults for new assessment drafts"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -410,7 +424,8 @@
           "authoring candidate discovery rejects oversized duplicate and repeated-cursor pages without replacing the accepted page",
           "authoring candidate discovery retains one page and ten earlier requests through long traversal and re-fetches previous checkpoints",
           "authoring candidate discovery retains the page after cursor rejection and restarts explicitly without a cursor"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -462,7 +477,8 @@
           "authoring candidate presentation uses an accessible field fallback when the sole candidate selector is disabled",
           "authoring candidate presentation uses prior identity order for first middle last and sole removals",
           "authoring candidate presentation waits for a controlled parent and retires obsolete or external focus intentions"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -497,7 +513,8 @@
           "Batch History review reads only the explicitly chosen off-window record and marks multiple later-page entries without writing",
           "Batch History review reviews partial success while preserving the existing unresolved-conflict action gate",
           "Batch History review uses current deletion metadata and keeps record absence separate from incident authority"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -533,7 +550,8 @@
           "Workbook batch operation ownership retains conflicts-only acceptance and blocks only overlapping batches until resolution",
           "Workbook batch operation ownership retains overlapping actions and explicitly replays the identical uncertain attempt",
           "Workbook batch operation ownership suspends queued work through role loss and closure without changing its targets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -562,7 +580,8 @@
           "Batch outcome facts keeps Entity reuse out of Timeline review and preserves grouping and concealment",
           "Batch outcome facts labels requested targets including creation slots without inventing changed cells or complete scope",
           "Batch outcome facts separates all outcomes from refresh and current conflicts for every Timeline operation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -590,7 +609,8 @@
         "titles": [
           "Batch record choices omit absent changes and non-Timeline consumers",
           "Batch record choices page and search locally with at most twenty explicit review controls"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -622,7 +642,8 @@
           "Batch recovery leaves Retry usable after repeated uncertainty and refresh failure",
           "Batch recovery lets owner pruning remove an obsolete item and use the shell focus fallback",
           "Batch recovery withdraws protected controls on authority loss without reopening after a late result"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -650,7 +671,8 @@
         "titles": [
           "Workbook surface refresh debt requires a later read when another acceptance arrives during refresh",
           "Workbook surface refresh debt retains debt through failed reads and obsolete surface registrations"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -674,7 +696,8 @@
         "file": "apps/web/src/workbook/timeline/adapters/createTimelineMentionSourceReader.test.ts",
         "titles": [
           "aborted Review source reading does not request another Timeline page"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -698,7 +721,8 @@
         "file": "apps/web/src/workbook/hooks/useWorkbookQueryController.test.tsx",
         "titles": [
           "useWorkbookQueryController keeps captured surface setters stable and applies consecutive updates to their original schema after navigation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -722,7 +746,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.support.test.tsx",
         "titles": [
           "opens the Relationships inspector from compact relationship overflow"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -753,7 +778,8 @@
           "Workbook column sizing rejects obsolete results after newer commands configuration changes and departure",
           "Workbook column sizing returns applied and restored widths with one owner notice",
           "Workbook column sizing validates numeric input without truncating saved fractional widths"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -778,7 +804,8 @@
         "titles": [
           "command metadata search breaks equal labels by stable identity and never invokes actions during matching",
           "command metadata search normalizes NFC and Unicode whitespace with deterministic match tiers and family ties"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -814,7 +841,8 @@
           "Committed grid autosave requests current authorization after denial without retiring readable raw work",
           "Committed grid autosave retains contiguous collaboration rows and refuses sparse gaps without altering captured replay",
           "Committed grid autosave settles coalesced contributors without claiming superseded text was saved"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -842,7 +870,8 @@
           "Workbook committed presentation keeps replacement callbacks when obsolete attachment cleanup runs",
           "Workbook committed presentation rejects a mounted reconciliation result after its attachment is replaced",
           "Workbook committed presentation retains an admitted dispatch and its acknowledgement after presentation detaches"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -875,7 +904,8 @@
           "keeps the selected conflict draft and focus when an earlier resolution is replacement",
           "keeps the selected conflict draft and focus when an earlier resolution is resolved",
           "keeps the selected conflict draft and focus when an earlier resolution is returned"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -899,7 +929,8 @@
         "file": "apps/web/src/workbook/components/WorkbookActiveSurfaceFrame.test.tsx",
         "titles": [
           "keeps the original editor accessible while conflict recovery opens and closes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -938,7 +969,8 @@
           "contextual Task and Decision authoring retains readable original source after removing every decision target link and resuming through Recovery",
           "contextual Task and Decision authoring retains readable original source after removing every task_request target link and resuming through Recovery",
           "contextual Task and Decision authoring stages reference changes, preserves off-page selections, pages and cancels without editing the draft"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -966,7 +998,8 @@
           "contextual target reference discovery paginates membership inventory and rejects mismatched incident and cursor responses",
           "contextual target reference discovery reads pages of 100 for every implemented record surface, including Parties, Decisions and optional collections",
           "contextual target reference discovery verifies every declared route and seed structurally against public discovery and rejects changed capabilities"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1006,7 +1039,8 @@
           "contextual create recovery retains acceptance through detachment and failed refresh, then recovers with reads only",
           "contextual create recovery retains late receipt during suspension and ignores completion after incident retirement",
           "contextual create recovery withdraws contextual readiness for unavailable or changed source reads while retaining values"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1042,7 +1076,8 @@
           "Coordination authoring reviews source changes and off-page references without treating page absence as deletion",
           "Coordination authoring shows field-local errors and restores focus while retaining a closed draft",
           "Coordination authoring stages paged target references with retained selection and keyboard cancel"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1080,7 +1115,8 @@
           "Coordination atomic recovery retains deletion observations against stale reads until explicit source clear or recovered review",
           "Coordination atomic recovery retains late acceptance after detachment and ignores an obsolete replay rejection",
           "Coordination atomic recovery separates accepted receipts from refresh debt and preserves a newer draft during read-only recovery"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1110,7 +1146,8 @@
           "inspector capability resolver classifies exactly 37 create, 4 Note, 4 Indicator, 51 history, 1 Decision action, 2 Timeline actions, and 148 non-contextual features",
           "inspector capability resolver isolates additive, altered, and duplicate addressed tuples without losing siblings",
           "inspector capability resolver omits a canonically declared future confirmed capability"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1137,7 +1174,8 @@
         "titles": [
           "Decision supersession resolves exactly once in its declared History panel",
           "Decision supersession uses declared role and disabled-condition admission"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1168,7 +1206,8 @@
           "Decision replay rejection preserves uncertainty and current authorization controls dispatch",
           "Decision review cancellation closure and session changes fence preparation",
           "Decision timeout retains late acknowledgement while access loss conceals and retirement forgets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1194,7 +1233,8 @@
         "file": "apps/web/src/workbook/features/coordination/decisionSupersession.characterization.test.tsx",
         "titles": [
           "Decision supersession retains the normalized reason in its complete acknowledgement"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1222,7 +1262,8 @@
         "titles": [
           "Decision query and live patches cannot regress accepted high-water versions",
           "Decision reconciliation reads both pages and histories while missing or stale rows retain debt"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1251,7 +1292,8 @@
           "Decision eligibility and reason normalization preserve the executed distinction and fail closed",
           "Decision review cancellation retains draft and detached candidate callbacks cannot publish",
           "Decision review uses an outside-grid replacement and invalidates changed inputs and record versions"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1279,7 +1321,8 @@
         "titles": [
           "Decision admission includes versions already accepted by History",
           "Decision runtime coordinates queued and direct writes without clearing unrelated drafts"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1308,7 +1351,8 @@
           "Decision candidates preserve opaque paging and reject missing metadata cross-context and access failures",
           "Decision transport replays captured bytes with current credentials and no replacement precondition",
           "Decision transport validates complete receipts and distinguishes malformed success from rejection"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1337,7 +1381,8 @@
           "Workbook desktop surface selector enters a System view without selecting a built-in",
           "Workbook desktop surface selector enters once and navigates canonical surfaces without activation",
           "Workbook desktop surface selector preserves owned selector focus across responsive replacement without stealing external focus"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1362,7 +1407,8 @@
         "titles": [
           "Entity Find presentation preserves renderer fallback precedence and eligible literal fields on both schemas",
           "Entity Find presentation uses independently displayed collection fragments and excludes fallback metadata and arbitrary JSON"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1389,7 +1435,8 @@
         "titles": [
           "Entity merge record admission coordinates direct writes and synchronously rejects overlapping commands while unrelated records remain usable",
           "Entity merge record admission coordinates queued edits to either participant and refuses changed versions without replacing the review"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1420,7 +1467,8 @@
           "Workbook entity merge ownership reserves both records synchronously and requires the reviewed versions after coordination",
           "Workbook entity merge ownership retains exact replay after uncertainty without requiring the loser or a current presentation",
           "Workbook entity merge ownership separates timeout from transport settlement and retains late acknowledgement"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1448,7 +1496,8 @@
           "entityMergePlan explains owner promotion ordering, duplicates and aliases independently of collection positions",
           "entityMergePlan matches the owner identifier normalization corpus and separate alias policy",
           "entityMergePlan refuses missing, malformed, ineligible or inconsistent loaded inputs"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1474,7 +1523,8 @@
         "file": "apps/web/src/workbook/query/useEntitySurfaceQuery.test.tsx",
         "titles": [
           "useEntitySurfaceQuery conceals protected rows before rejecting an acceptance-required merge refresh"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1501,7 +1551,8 @@
         "titles": [
           "Entity merge recovery presentation conceals all protected recovery content during access loss and restores only the permitted memory lifetime",
           "Entity merge recovery presentation offers keyboard recovery, receipt completion and refresh-only retry for both entity types"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1529,7 +1580,8 @@
           "Entity merge captured transport preserves permitted long collision details and classifies definitive stale, transaction and lock rejection",
           "Entity merge captured transport replays identical path and bytes with current CSRF and retains every receipt field for both types",
           "Entity merge captured transport treats thrown transport, malformed success and inconsistent identities, versions or summary as uncertain"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1553,7 +1605,8 @@
         "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
         "titles": [
           "entityWorkbookModel checks reusable duplicates before promotion and preserves alias case"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1577,7 +1630,8 @@
         "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
         "titles": [
           "entityWorkbookModel keeps entity grouping and column widths contract-key based"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1601,7 +1655,8 @@
         "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
         "titles": [
           "entityWorkbookModel normalizes host and identity rows with label fallbacks, aliases, identifiers, and counts"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1625,7 +1680,8 @@
         "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
         "titles": [
           "entityWorkbookModel promotes loser identifiers only when the survivor canonical field is empty"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1655,7 +1711,8 @@
           "Workbook operation error policy classifies validation, merge preconditions, and retryability exactly",
           "Workbook operation error policy fails malformed success, error, and conflict envelopes closed",
           "Workbook operation error policy projects Evidence access reasons without exposing server prose"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1682,7 +1739,8 @@
         "titles": [
           "evidenceAccessPresentation derives polite preview blockers and distinct operation announcements from typed outcomes",
           "evidenceAccessPresentation keeps transient recovery separate from lifecycle and action blockers"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1718,7 +1776,8 @@
           "Evidence workbook bindings settles a stalled Download and keeps a late obsolete handle inert",
           "Evidence workbook bindings settles a stalled Preview and permits a fresh attempt despite ignored abort",
           "Evidence workbook bindings shares safe feedback across distinct row and inspector views and announces each outcome once"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1744,7 +1803,8 @@
           "WorkbookShell surface selection focuses a compact Surfaces destination and returns to its trigger on dismissal",
           "WorkbookShell surface selection focuses the first creation control for every explicitly selected built-in tab without a write",
           "WorkbookShell surface selection keeps query identity and raw authoring during desktop selector navigation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1772,7 +1832,8 @@
           "WorkbookGridControls keeps literal member correction native input identity and add remove focus",
           "WorkbookGridControls reopens literal sets without changing member boundaries in either operator",
           "WorkbookGridControls stages a comma-containing candidate member before explicit query application"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1807,7 +1868,8 @@
           "retains receipt before refresh and retries refresh without a mutation",
           "validates complete ordinary patch receipts and treats malformed success as uncertain",
           "waits for Task autosave receipt and source verification without waiting for presentation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1843,7 +1905,8 @@
           "extension availability lifecycle rolls over atomically and disables extensions when secure randomness fails",
           "extension availability lifecycle separates pending readiness withdrawal and current protocol defects",
           "extension availability lifecycle uses the build-bound browser bootstrap and fails closed when it is malformed"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1870,7 +1933,8 @@
           "Workbook Find binding intersects accepted and presented membership without reads and keeps focus loans independent",
           "Workbook Find binding permits only the admitted Adapter destination focus outside Find",
           "Workbook Find binding retires on schema or authority loss but retains intent on same-schema configuration replacement"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1895,7 +1959,8 @@
         "titles": [
           "Workbook Find controls keeps empty and zero-result feedback scoped and clears on Escape",
           "Workbook Find controls labels scope counts and navigation without moving while typing and collapses after explicit movement"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1926,7 +1991,8 @@
           "Workbook Find rechecks committed text after delayed settlement without treating value-only updates as a new window",
           "Workbook Find retains semantic current matches on reorder and clears disappearing matches without moving",
           "Workbook Find starts inclusively at the origin and navigates both directions with wrap feedback"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1952,7 +2018,8 @@
         "file": "apps/web/src/workbook/layout/WorkbookColumnLayoutController.test.ts",
         "titles": [
           "Workbook frozen layout preserves semantic boundaries through hidden reorder replacement and reset"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1980,7 +2047,8 @@
           "Generic inspector reference summary keeps declared order, collection values, and unavailable projections distinct in normal and Evidence summaries",
           "Generic inspector reference summary keeps truthful no-field messages and non-authoring viewer actions",
           "Generic inspector reference summary reads accepted direct Party values and opens only the selected ordinary field"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2005,7 +2073,8 @@
         "titles": [
           "GenericMutationControl descriptor derives options, sizing, clear labels, rows, number types, and timestamp hints",
           "GenericMutationControl descriptor resolves every field-control variant in form and grid modes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2029,7 +2098,8 @@
         "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
         "titles": [
           "genericWorkbookModel builds generic creates with omitted fields, trims, explicit clears, and minimum checks"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2053,7 +2123,8 @@
         "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
         "titles": [
           "genericWorkbookModel builds reference labels, party-link pairs, and collection item view models"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2077,7 +2148,8 @@
         "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
         "titles": [
           "genericWorkbookModel builds typed direct and collection patch changes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2101,7 +2173,8 @@
         "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
         "titles": [
           "genericWorkbookModel keeps display labels, widths, and minimum messages contract-driven"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2125,7 +2198,8 @@
         "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
         "titles": [
           "genericWorkbookModel keeps multiline detection, party email extraction, and mutation error parsing stable"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2149,7 +2223,8 @@
         "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
         "titles": [
           "genericWorkbookModel rejects invalid number and boolean direct payload values"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2173,7 +2248,8 @@
         "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
         "titles": [
           "genericWorkbookModel seeds owner defaults and known generic create minimums"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2197,7 +2273,8 @@
         "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
         "titles": [
           "genericWorkbookModel uses contract create minima and canonical alias actions for entity sheets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2259,7 +2336,8 @@
           "WorkbookGridControls shows requested Sort controls before acceptance and leaves late updates outside focus",
           "WorkbookGridControls stages candidate enum choices only on Add and applies custom mixtures explicitly",
           "WorkbookGridControls validates explicit sizing and restores one default with predictable cancellation focus"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2294,7 +2372,8 @@
           "workbookGridQueryControls rejects impossible date equality and reversed date ranges",
           "workbookGridQueryControls resets the pure presentation seam when its semantic subject changes",
           "workbookGridQueryControls scopes transient drafts to a subject and closes stale panels"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2322,7 +2401,8 @@
           "Retained grid authoring requires review for relevant committed changes without retargeting the draft",
           "Retained grid authoring retains exact raw input and explicit clear independently by semantic target",
           "Retained grid authoring uses authoring revisions so an older equal-valued attempt cannot clear newer work"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2348,7 +2428,8 @@
           "Grid field intent covers all 97 declared direct-value fields across 15 surfaces and seven editor families",
           "Grid field intent distinguishes unfinished timestamp and reference text from explicit null",
           "Grid field intent validates each scalar family and never introduces a specialized editor"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2384,7 +2465,8 @@
           "History action lookup restarts a deployment transition without accepting a mixed generation action proof",
           "History action lookup retains one exact admission across batches and cancels before dispatch",
           "History action lookup retries the failed request while retaining successful progress"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2418,7 +2500,8 @@
           "History browsing characterization previews a selected retained item beyond the first page",
           "History browsing characterization replaces session scope conceals lost access and preserves closed incident reads",
           "History browsing characterization reviews a retained later-page target before replacement admission"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2455,7 +2538,8 @@
           "History browsing state retains accepted pages on failure and retries the same page exactly once",
           "History browsing state retains historical items without regressing current record metadata",
           "History browsing state uses server continuation for short and empty pages and preserves server order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2488,7 +2572,8 @@
           "History captured transport retains the complete receipt and exact selector for restore",
           "History captured transport retains the complete receipt and exact selector for row_restore",
           "History captured transport sends the retained body exactly with current CSRF and preserves the full receipt"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2523,7 +2608,8 @@
           "WorkbookInspectorRecordHistory retains a tombstone version for delete and restores from that exact version",
           "WorkbookInspectorRecordHistory returns cancel, Escape, and rejected submissions to the same semantic action",
           "WorkbookInspectorRecordHistory uses History as the success fallback and discards invalidated focus requests"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2571,7 +2657,8 @@
           "Workbook history operation owner retains receipt on refresh failure and does not regress a newer record",
           "Workbook history operation owner retains same-account uncertainty while hiding it during session loss and retires another actor",
           "Workbook history operation owner retires actor and incident callbacks while an admitted response is pending"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2603,7 +2690,8 @@
           "record History presentation rejects stale read completion after retarget without keeping a second accepted value",
           "record History presentation requires accepted browsing before review and rejects mismatched subjects",
           "record History presentation retains the accepted page and provenance through failed refresh"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2630,7 +2718,8 @@
         "titles": [
           "acknowledges a history mutation before its projection refresh settles",
           "fences admitted effects when selection leaves and returns to the same record"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2678,7 +2767,8 @@
           "History recovery surfaces retains exact Timeline history_entry recovery after inspector closure",
           "History recovery surfaces retains exact Timeline restore recovery after inspector closure",
           "History recovery surfaces retains exact Timeline row_restore recovery after inspector closure"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2705,7 +2795,8 @@
         "titles": [
           "Timeline history rejects queued version changes without replacing the confirmed base",
           "useTimelineHistoryActions preserves the committed delete ordering trace"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2729,7 +2820,8 @@
         "file": "apps/web/src/workbook/components/WorkbookIncidentIdentityDisclosure.test.tsx",
         "titles": [
           "Workbook incident heading keeps one full identity heading and a separate keyboard disclosure through identity changes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2756,7 +2848,8 @@
         "titles": [
           "Indicator canonical authoring preserves observed text and requires an explicit value kind",
           "Indicator canonical type changes invalidate derived details without rewriting a retained draft"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2787,7 +2880,8 @@
           "Canonical late acceptance survives panel disposal but cannot attach to a retired account",
           "Canonical results associate explicit observation attempts and retain independent resolution recovery",
           "Canonical uncertainty replays original bytes independently of drafts panel closure and incident closure"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2814,7 +2908,8 @@
         "titles": [
           "Canonical refresh reads unfiltered pages and fences historical receipts against newer history",
           "Canonical refresh retains receipt on unavailable target access loss and detached history"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2842,7 +2937,8 @@
           "Canonical transport rejects invalid receipt bindings and classifies malformed or lost responses as uncertainty",
           "Canonical transport retains closed request bytes and complete accepted results with neutral status semantics",
           "Indicator canonical request constraints preserve exact vocabularies identity and omission semantics"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2869,7 +2965,8 @@
         "titles": [
           "Canonical workflow requires validated acceptance and explicit resolution with independent replay",
           "Canonical workflow retains a late result across closure without resolution and keeps the pivot read only"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2899,7 +2996,8 @@
           "Indicator lifecycle rejects invalid continuation and ignores late pages after restart",
           "Indicator lifecycle rejects malformed and duplicate support without reordering authored references",
           "Indicator lifecycle validates UTC dates, equal bounds, nullable fields and exact constraints"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2925,7 +3023,8 @@
         "file": "apps/web/src/workbook/features/indicators/indicatorLifecycle.characterization.test.tsx",
         "titles": [
           "Indicator lifecycle content is reachable in the canonical History panel"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2956,7 +3055,8 @@
           "Lifecycle late settlement survives detachment while retired accounts cannot materialize receipts",
           "Lifecycle receipt precedes projection failure and refresh recovery never sends a mutation",
           "Lifecycle replay uses current authority and access rejection cannot erase uncertainty"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2983,7 +3083,8 @@
         "titles": [
           "Indicator lifecycle shows complete interval details and field-local UTC authoring errors",
           "Indicator lifecycle support selection reaches a second query page and retains subject drafts"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3010,7 +3111,8 @@
         "titles": [
           "Lifecycle query materialization never regresses HTTP or socket version evidence",
           "Lifecycle reconciliation refreshes every affected identity beyond the first query page and fences stale history"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3037,7 +3139,8 @@
         "titles": [
           "Lifecycle runtime retains recovery across shell detachment and retires account data",
           "Lifecycle runtime waits for same-record edits and requires review of their accepted version"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3063,7 +3166,8 @@
         "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
         "titles": [
           "WorkbookCollaborationCoordinator accounts for Indicator socket versions before transaction suppression in either HTTP order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3090,7 +3194,8 @@
         "titles": [
           "Lifecycle transport preserves original route bytes and support ordering on explicit replay",
           "Lifecycle transport validates complete operation receipts and treats malformed success as uncertain"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3118,7 +3223,8 @@
           "Observation authoring previews the exact selection and omits unchosen type and target",
           "Observation targets page independently and retain the selected identity across filters",
           "Observation transition editors isolate targets and ordinary restore has no prior target"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3144,7 +3250,8 @@
         "file": "apps/web/src/workbook/features/indicators/indicatorObservations.characterization.test.tsx",
         "titles": [
           "Observation capture exposes committed source text for accessible selection"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3171,7 +3278,8 @@
         "titles": [
           "useTimelineInspectorFeatureController retains observation management across a same-source committed version while close and deletion retire it",
           "useTimelineInspectorFeatureController retains observation management through the coordinator's committed snapshot transition"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3200,7 +3308,8 @@
           "Observation drafts isolate source fields and observation targets without content dedupe",
           "Observation field discovery follows source text capability rather than editability",
           "Observation spans preserve ASCII Unicode repeated occurrences whitespace and line endings"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3233,7 +3342,8 @@
           "Observation late settlement survives Inspector disposal but cannot complete a retired account",
           "Observation runtime retains uncertainty across shell recovery with save status and retires account state",
           "Observation stale child and unavailable targets stay local while incident access loss suspends recovery"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3260,7 +3370,8 @@
         "titles": [
           "Observation pages reject nonprogress and fence obsolete reads",
           "Observation pages retain data retry the failed cursor and deduplicate identity not text"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3288,7 +3399,8 @@
           "Observation presentation fences late source reads and hides protected state on access loss",
           "Observation transition focus stays with its subject and provenance remains opaque text",
           "Observation uncertainty survives close and reopen without completing detached drafts or moving focus"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3315,7 +3427,8 @@
         "titles": [
           "Observation query materialization fences older HTTP projections against accepted socket evidence",
           "Observation reconciliation reads source previous and new Indicator identities beyond visible pages"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3341,7 +3454,8 @@
         "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
         "titles": [
           "WorkbookCollaborationCoordinator accounts for observation affected record versions before transaction suppression in either HTTP order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3367,7 +3481,8 @@
         "file": "apps/web/src/workbook/timeline/useTimelineObservationSource.test.tsx",
         "titles": [
           "Observation source preparation preserves raw committed strings and rejects saved or local source changes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3395,7 +3510,8 @@
           "Observation receipt validation rejects incomplete inconsistent and malformed success as uncertainty",
           "Observation transition receipts preserve historical provenance and require source old and new targets",
           "Observation transport admits only child request members preserves omissions and exact replay bytes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3421,7 +3537,8 @@
           "useInspectorCreateRelatedWorkflow binds every authored creation feature to exactly one retained operation owner",
           "useInspectorCreateRelatedWorkflow does not replace a missing retained owner with a generic form or transport",
           "useInspectorCreateRelatedWorkflow omits unbound additive creation and never dispatches a fallback"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3450,7 +3567,8 @@
           "binds every retained field and action to its original subject through refresh detachment and explicit return",
           "resumes an unchanged original draft in one command and requires explicit review after dependency changes",
           "retains selected reference identities outside the current option page and clears with explicit null"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3483,7 +3601,8 @@
           "requires explicit resumption and never lets another record or attachment consume raw work",
           "retains original raw intent and review dependencies independently from saved row objects",
           "validates scalar values and explicit clearing without mutating rough authoring"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3509,7 +3628,8 @@
         "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
         "titles": [
           "Workbook Inspector presentation guards requested edit focus against newer navigation, subject replacement and authority loss"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3541,7 +3661,8 @@
           "opens with saved values and submits only explicitly while Escape retains unfinished text",
           "preserves unfinished Entity text through same-record query replacement",
           "retains Entity field authoring for explicit return to its original field"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3569,7 +3690,8 @@
           "Inspector panel states announces each owner transition once across remounts and never carries feedback across subjects",
           "Inspector panel states commands-only panels do not fabricate an empty dataset and explain absent commands",
           "Inspector panel states distinguishes loading and empty data from retained failure and concealment"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3596,7 +3718,8 @@
         "titles": [
           "Inspector field feedback binds field failures only to the captured canonical edit and revision",
           "retains exact authoring and keeps newer feedback when an older rejection arrives"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3623,7 +3746,8 @@
         "titles": [
           "Workbook Inspector presentation keeps different causes distinct without changing action order or enabled actions",
           "Workbook Inspector presentation shares one permission explanation across affected actions"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3650,7 +3774,8 @@
         "titles": [
           "Workbook Inspector presentation renders every semantic History family with complete values and nested disclosure focus",
           "Workbook Inspector presentation suppresses only the semantic summary unit heading and stacks unknown historical values"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3676,7 +3801,8 @@
         "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
         "titles": [
           "Workbook Inspector presentation orders admitted action rows once with explicit outcomes across all configurations"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3709,7 +3835,8 @@
           "retains ordinary acknowledgement independently of refresh failure",
           "separates definitive rejection from uncertainty without automatically rekeying a request",
           "verifies committed versions through the source owner before capture and excludes later grid authoring from admission"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3738,7 +3865,8 @@
           "Workbook Inspector presentation keeps an explicit destination current through its body scroll, then resumes passive selection",
           "Workbook Inspector presentation keeps record context and Close outside the scrolling section body",
           "Workbook Inspector presentation measures navigation and fences owner attention without invoking commands"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3765,7 +3893,8 @@
           "inspector related-record model leaves defaults intact for a missing selected field",
           "inspector related-record model projects coordination source input seeds",
           "inspector related-record model rejects a mismatched target contract"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3791,7 +3920,8 @@
         "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
         "titles": [
           "Workbook Inspector presentation keeps Timeline review discoverable without permitting unauthorized pointer or keyboard activation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3817,7 +3947,8 @@
         "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
         "titles": [
           "Workbook Inspector presentation preserves declared saved field order and value distinctions across all configurations"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3848,7 +3979,8 @@
           "Timeline Details keeps newer authoring after acknowledgement and retries refresh without writes",
           "Timeline Details reads saved values and retains authoring until explicit submission",
           "Timeline Details sends explicit null empty and unchanged source text as distinct intents"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3878,7 +4010,8 @@
         "titles": [
           "preserves accepted provenance through cloning and source conversions without relabeling authority",
           "retains one inspector source across window eviction without treating absence as deletion"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3903,7 +4036,8 @@
         "titles": [
           "workbookQuery preserves literal set boundaries through saved restoration and unchanged reapplication",
           "workbookQuery validates every raw literal member without dropping blanks or imposing tag creation limits"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3933,7 +4067,8 @@
           "Incident membership management lifetime integration propagates current role loss and preserves ordinary reads while retiring privileged drafts",
           "Incident membership management lifetime integration retains one draft across actual drawer and section transitions under Strict Mode",
           "Incident membership management lifetime integration settles an admitted self-demotion while closed and propagates its recovered role"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3957,7 +4092,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.support.test.tsx",
         "titles": [
           "support TimelineWorkbookRuntimeFixture sends auto-resolution Undo with the current post-resolution row version"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3981,7 +4117,8 @@
         "file": "apps/web/src/workbook/navigation/WorkbookNavigationStatus.test.tsx",
         "titles": [
           "navigation details retain keyboard access and stable status controls across outcomes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4009,7 +4146,8 @@
           "navigation presentation settles failure cancellation and unmount once without late attachment",
           "navigation presentation waits for acceptance committed identity and selection before focusing the matching inspector",
           "navigation presentation waits for delayed mounts and falls back through eligible fields to the grid root"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4044,7 +4182,8 @@
           "Note association lifetime preserves readable data on refresh failure and conceals it on incident revocation",
           "Note association lifetime rejects stale preparation and fences late list responses after authority loss",
           "Note association lifetime replays captured bytes and retains accepted receipts through read-only refresh recovery"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4078,7 +4217,8 @@
           "Note authoring rejects source-only tags-only whitespace controls and scalar overflow without destroying raw input",
           "Note authoring retains raw fields and source across versions, detach, source replacement, and explicit clearing",
           "Note authoring stages paged source selection, retains off-page identity, and restores focus on cancel"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4118,7 +4258,8 @@
           "Note atomic recovery sends linked replay as POST with exact body and validates a complete HTTP receipt",
           "Note atomic recovery separates retained authoring and acknowledged refresh from unsettled save work",
           "Note atomic recovery uses ordinary atomic creation only after explicit source clearing without losing authored fields"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4146,7 +4287,8 @@
           "ordinary workbook authoring preserves omission, explicit clears, exact raw text and contract-specific normalization",
           "ordinary workbook authoring retains copyable work for role loss and closure but conceals and retires by security lifetime",
           "ordinary workbook authoring shares one draft across detachments and retains chosen identities off-page"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4172,7 +4314,8 @@
           "WorkbookShell surface selection retains ordinary Entity authoring when its inspector closes",
           "WorkbookShell surface selection retains ordinary authoring through sheet navigation for cartulary.view.evidence.v1",
           "WorkbookShell surface selection retains ordinary authoring through sheet navigation for cartulary.view.hosts.v1"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4200,7 +4343,8 @@
           "ordinary workbook reference controls keeps raw authoring copyable outside the read-only grid and conceals it with authority",
           "ordinary workbook reference controls stages paged selection, retains off-page identity and returns focus on Escape",
           "ordinary workbook reference controls uses known actor presentation without member inventory reads or changing selected authoring"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4229,7 +4373,8 @@
           "WorkbookShell surface selection retains detached ordinary acknowledgement and refreshes by reading",
           "WorkbookShell surface selection retains newer ordinary text after an earlier acceptance",
           "WorkbookShell surface selection retains ordinary acceptance when refresh fails and recovery only reads"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4253,7 +4398,8 @@
         "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
         "titles": [
           "genericWorkbookModel keeps untouched ordinary Evidence timestamps omitted"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4279,7 +4425,8 @@
           "ordinary creation query reconciliation fences late generic reads immediately when authorization is concealed",
           "ordinary creation query reconciliation keeps all generic schema queries above accepted versions without inserting filtered records",
           "ordinary creation query reconciliation reconciles explicit Entity sheets and prevents obsolete reads after suspension"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4312,7 +4459,8 @@
           "ordinary creation submission retains detached receipts and makes failed-refresh recovery read-only",
           "ordinary creation submission retains exact rejected text and uses fresh identities only after explicit correction",
           "ordinary creation submission suspends uncertain authority and requires revalidation before explicit recovery"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4338,7 +4486,8 @@
           "ordinary create transport classifies transport failures, server failures and malformed success as uncertain",
           "ordinary create transport preserves complete receipts and HTTP outcomes with unchanged captured replay bytes",
           "ordinary create transport verifies all fourteen discovered contracts and rejects changed fields, inputs and minima"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4371,7 +4520,8 @@
           "WorkbookParkedGridDrafts focus continuity moves last-position removal to the previous retained text",
           "WorkbookParkedGridDrafts focus continuity returns final draft removal and focused summary loss to the grid root",
           "WorkbookParkedGridDrafts focus continuity uses the visible shell fallback when the grid root is unavailable"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4404,7 +4554,8 @@
           "Party review Escape restores its trigger and cyclic paging remains stale until reload",
           "Party socket invalidation retains loaded candidates as stale until an authorized reload",
           "equal-label Party target selection waits for explicit Link and preserves source wording"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4442,7 +4593,8 @@
           "retains late accepted creation while authority changes and never links under obsolete review",
           "retains late accepted source receipts while hiding suspended and retired Party recovery",
           "unavailable Party targets fail preparation without source writes or incident access loss"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4470,7 +4622,8 @@
         "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
         "titles": [
           "WorkbookCollaborationCoordinator accounts for detached Evidence and Task Party versions before transaction suppression in either HTTP order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4505,7 +4658,8 @@
           "Workbook preference characterization rejects wrong incident and wrong user preference observations",
           "Workbook preference characterization retains the captured target and acknowledgement after a surface switch",
           "Workbook preference characterization updates the inspected value after the existing Set shortcut"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4549,7 +4703,8 @@
           "Workbook preference owner retains state during temporary access failure and retires only on confirmed loss",
           "Workbook preference owner retains uncertainty after a matching GET and requires an explicit new write",
           "Workbook preference owner sets clears and repeats both resources without changing surface identity"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4580,7 +4735,8 @@
           "Workbook preference transport returns no-op attribution unchanged and detaches immutable accepted resources",
           "Workbook preference transport separates known rejection from uncertain server transport and invalid success outcomes",
           "Workbook preference transport uses all four generated operations and explicit nullable PUT bodies with CSRF"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4621,7 +4777,8 @@
           "Workbook query browsing replays a located window through its ordinary cursor and refreshes from the beginning",
           "Workbook query browsing retains an accepted empty result after refresh failure and trusts short-page continuation",
           "navigation acceptance distinguishes rejection replacement and committed release"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4660,7 +4817,8 @@
           "retains bounded return state on detachment and clears it on authority retirement",
           "retires a replaced query port before reading its successor and refuses its late result",
           "retires focused recovery after surface and authority changes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4691,7 +4849,8 @@
           "Workbook canonical query metadata adopts canonical filter operands without copying effective tails into saved or continuation overrides",
           "Workbook canonical query metadata correlates grouping and authored sort order and permits eight sorts without group injection",
           "Workbook canonical query metadata requires complete paging and the effective default sort without assuming a short page is terminal"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4717,7 +4876,8 @@
           "conceals revoked owner summaries and keeps focus in the recovery list",
           "coordinates independent recovery owners without losing retained authoring",
           "restores the resolved cell only for the current recovery activation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4747,7 +4907,8 @@
           "Recovery navigation keeps completed notice dismissal separate from work and rejects stale activation",
           "Recovery navigation orders safe contributions and keeps selection by identity when other work changes",
           "Recovery navigation rejects duplicate source identities without admitting an ambiguous navigation target"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4771,7 +4932,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
           "WorkbookShell surface selection coordinates simultaneous recovery families through production shell controls"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4814,7 +4976,8 @@
           "uses a labelled local fallback when a sole selected item has no candidate",
           "uses committed target presentation without retargeting staged identity or editing the parent",
           "uses exact collection action identities in declared order with the pending edit limit"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4846,7 +5009,8 @@
           "Workbook reference selection preserves the accepted page and typed continuation failure until an explicit read retry succeeds",
           "Workbook reference selection reaches later pages with one accepted page and ten checkpoints while retaining ordered choices",
           "Workbook reference selection shares only in-flight reads and cancels one consumer independently with typed query metadata intact"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4881,7 +5045,8 @@
           "observation handles isolate same-resource release and preserve retained consumers",
           "observation handles preserve failure distinctions and abort on retirement",
           "retained resource refresh detaches when its last concrete consumer leaves"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4930,7 +5095,8 @@
           "Saved-view operation owner retains working configuration on background version changes and transient resource failure",
           "Saved-view operation owner treats saved-view denial as a resource problem and revalidates incident access",
           "Saved-view operation owner uses authoritative access loss and never publishes a stale access recovery"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4959,7 +5125,8 @@
           "session working set and return trail bounds semantic origins and consumes Return only after acceptance, without a bounce entry",
           "session working set and return trail coalesces identical pivots, cancels obsolete reads, and pushes only successful changed origins",
           "session working set and return trail detects duplicates before capacity, preserves insertion order, and never evicts pins"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4985,7 +5152,8 @@
           "isolated layout hosts one dock without query providers and restores focus across responsive closure",
           "query presentation cleanup fences replaced mounts and retires changed surface identities",
           "query surfaces and auxiliary destinations reject missing required providers"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5017,7 +5185,8 @@
           "Timeline attachment feedback keeps stage-specific actions bound to the original source",
           "Timeline attachment feedback preserves focus and disclosure state through background outcomes and returns lost controls locally",
           "Timeline attachment feedback shows new work on the same row and updates the feedback leaf without rebuilding its parent"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5043,7 +5212,8 @@
           "Timeline composition isolates unchanged publications and overlapping save status from grid and inspector cells",
           "Timeline composition observes editor activation drafts inspector changes and replacement conflicts independently",
           "Timeline inspector isolates unrelated drafts and observes selected retained work and authority"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5080,7 +5250,8 @@
           "Timeline supersession requires authored reason and frozen confirmation with optional replacement",
           "Timeline supersession retires held preparation on source replacement version or authority loss",
           "Timeline supersession retires late review after keyboard pointer or scroll navigation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5107,7 +5278,8 @@
         "titles": [
           "Timeline declares both capture actions in History with distinct confirmation policies",
           "Timeline supersession preserves authored reason and omits an absent replacement"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5143,7 +5315,8 @@
           "Timeline replays exactly after lost transport without fresh state or version eligibility",
           "Timeline reserves before React updates and captures identity only after preparation",
           "Timeline retains timeout attempts and late receipts independently of presentation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5171,7 +5344,8 @@
           "Timeline candidates use independent bounded query pages and reject inconsistent identity cursors and malformed rows",
           "Timeline transport distinguishes definitive rejection from exceptions ambiguous status and malformed success",
           "Timeline transport validates operation specific receipt identity version reason and replacement"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5199,7 +5373,8 @@
           "Timeline clear planning captures one ordered null command and preserves predecessor ownership",
           "Timeline clear planning distinguishes admitted draft revisions from newer grid and Inspector authoring",
           "Timeline clear planning rejects an entire selection for capability membership authority or unsubmitted drafts"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5231,7 +5406,8 @@
           "pending record readiness follows queue and scoped refresh publications without timers",
           "pending record readiness observes canonical conflicts without a React projection",
           "useTimelineCommittedRecordIdle refreshes a missing committed version at most once"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5258,7 +5434,8 @@
         "file": "apps/web/src/workbook/timeline/useTimelineCreateRelatedWorkflow.test.tsx",
         "titles": [
           "useTimelineCreateRelatedWorkflow retains accepted Evidence after navigation and refuses to replace its original unsent draft"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5298,7 +5475,8 @@
           "Timeline deferred continuity uses a visible fallback after bounded editor readiness and never reopens the editor",
           "Timeline deferred continuity uses the selected desktop tab when semantic grid targets are unavailable",
           "Timeline deferred continuity yields a pending row destination to external focus without a pointer or key event"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5325,7 +5503,8 @@
         "file": "apps/web/src/workbook/timeline/mutations/timelineFileDraftRecovery.test.ts",
         "titles": [
           "retains matching batch disclosure from captured sources across query races and presentation detachment"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5360,7 +5539,8 @@
           "settles a valid empty capture without clearing authoring added after dispatch",
           "settles capture successors by revision including clears and equal text without overwriting unrelated fields",
           "settles terminal validation immediately while preserving retryable transaction recovery"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5388,7 +5568,8 @@
           "useTimelineFillController captures semantic fill and preceding saves without local completion effects",
           "useTimelineFillController plans one ordered versioned command from a committed visible scalar source",
           "useTimelineFillController rejects every malformed, hidden, grouped, stale, pending, or non-editable fill atomically"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5412,7 +5593,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
           "preserves unfinished filter draft sort and group through Timeline filtered-empty recovery"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5439,7 +5621,8 @@
           "Timeline Find integration cancels a borrowed collection destination on keyboard focus departure while its write settles",
           "Timeline Find integration intersects accepted membership with presented order without querying or searching creation pins and local drafts",
           "Timeline Find integration retains rejected collection drafts and never departs recordless authoring through creation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5465,7 +5648,8 @@
           "Timeline Find text reads saved scalar text despite pending authoring and excludes drafts placeholders and unknown metadata",
           "Timeline Find text searches only the committed displayed collection label without overflow or authoring",
           "Timeline Find text uses formatted committed values as independent fragments and omits unavailable evidence fallbacks"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5493,7 +5677,8 @@
         "titles": [
           "browser.inspector-history inspector and row-local action coverage focuses the empty linked Evidence state on first Space open",
           "browser.inspector-history inspector and row-local action coverage keeps linked Evidence read actions available to a viewer in a closed incident"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5517,7 +5702,8 @@
         "file": "apps/web/src/workbook/timeline/useTimelineCompositionLifecycle.test.tsx",
         "titles": [
           "useTimelineGridEnvironment owns rounded measurement and observer cleanup"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5545,7 +5731,8 @@
           "useTimelineInspectorFeatureController fails closed while owning cancellation, unavailable messages, and mutually exclusive selection",
           "useTimelineInspectorFeatureController resets Indicator and generic workflows on subject, surface, lifecycle, and authorization changes",
           "useTimelineInspectorFeatureController routes canonical features with Indicator precedence and no generic fallback"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5569,7 +5756,8 @@
         "file": "apps/web/src/workbook/timeline/useTimelineInspectorLifecycle.test.tsx",
         "titles": [
           "useTimelineInspectorLifecycle shares one close command across explicit and layout requests"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5593,7 +5781,8 @@
         "file": "apps/web/src/workbook/timeline/useTimelineCompositionLifecycle.test.tsx",
         "titles": [
           "useTimelineInspectorStateComposition preserves continuity and resets selection lifecycle"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5622,7 +5811,8 @@
           "useTimelineKeyboardController owns scalar commit, navigation, range, draft, unavailable, and inspector focus order",
           "useTimelineKeyboardController owns work-area shortcuts and leaves controls, menus, dialogs, and unavailable actions unconsumed",
           "useTimelineKeyboardController rejects modified scalar departure with production draft navigation wired"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5655,7 +5845,8 @@
           "Timeline linked Evidence review intent ends a stalled multi-link Space check without inferring a sole preview",
           "Timeline linked Evidence review intent leaves the list in place when capability observation is indeterminate",
           "Timeline linked Evidence review intent uses the returned target ID and a fresh handle after bounded Space probes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5700,7 +5891,8 @@
           "shows delayed Review progress and cancels on a same-row Inspector retarget",
           "waits for source rendering before settling a failed Entity creation refresh",
           "waits for the response source version across resolution dismissal and reversion"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5730,7 +5922,8 @@
           "Mention candidates query eligible targets independently with contract sorting and explicit cursor pages",
           "Mention contextual authoring seeds only display name and requires reviewed identity fields",
           "Mention server search invalidates selection and exposes keyboard reachable unresolved dismissal"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5766,7 +5959,8 @@
           "Mention scope replacement retires pending read focus intent",
           "Mention search defers composition fences late results and bounds page checkpoints independently of selection",
           "Mention server-invalid continuation retains failed identity and requires Restart"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5795,7 +5989,8 @@
           "Mention transport preserves complete receipts raw text and opaque selector separation",
           "Mention transport separates confirmed rejection from lost responses and server ambiguity",
           "Mention transport treats missing required nulls inconsistent metadata and malformed success as uncertain"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5840,7 +6035,8 @@
           "Mention suspension conceals protected recovery while account retirement fences late acceptance",
           "Mention timeout permits exact replay and retains a late accepted receipt",
           "Mention uncertain creation replays its exact attempt and requires renewed review before linking"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5868,7 +6064,8 @@
         "titles": [
           "Mention reconciliation accepts cleared dismissal and keeps newer remote correction over an older receipt",
           "Mention reconciliation rejects stale sources malformed same-version projections and detached reads"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5898,7 +6095,8 @@
           "Timeline mutation driver plans makes stale accepted projection and discard effects explicit",
           "Timeline mutation driver plans pauses for authentication, terminal, and conflict gates",
           "Timeline mutation driver plans projects every rejected settlement into an explicit driver action"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5924,7 +6122,8 @@
           "useTimelinePresenceController clears the local draft on surface or authorization lifecycle reset without publishing",
           "useTimelinePresenceController derives row and editing-cell markers only from stable record and field identities",
           "useTimelinePresenceController publishes coherent viewing and editing transitions and keeps selection from overriding an edit"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5955,7 +6154,8 @@
           "Timeline related Evidence authoring rejects blank default-only and Party-only input while accepting every non-title minimum with exact omission",
           "Timeline related Evidence authoring retains original identity and exact input until explicit discard across presentation and authority changes",
           "Timeline related Evidence authoring validates initial lifecycle timestamps strings and exact Party IDs without erasing invalid input"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -5996,7 +6196,8 @@
           "Timeline related Evidence recovery routes collection conflicts and preserves the created checkpoint when the saved collection is kept",
           "Timeline related Evidence recovery serializes projection refresh after link admission and acknowledgement",
           "Timeline related Evidence recovery validates lost malformed and uncorrelated responses for each exact stage transport"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6022,7 +6223,8 @@
           "keeps Review keyboard accessible while source-local progress is busy",
           "keeps pending Undo and Retry Undo keyboard focusable while guarding duplicate activation",
           "shows a retryable Review read failure beside its disclosure"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6050,7 +6252,8 @@
         "titles": [
           "opens Timeline row actions from the committed row context menu",
           "opens Timeline row actions from the keyboard and ignores draft rows"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6079,7 +6282,8 @@
           "Timeline row menu lifetime cancels the entire semantic fallback chain for newer input focus and scope",
           "Timeline row menu lifetime keeps compatible refresh and invalidates hidden anchors and authority without stealing outside focus",
           "Timeline row menu lifetime uses current semantic row then root fallbacks when the invoking field or row disappears"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6103,7 +6307,8 @@
         "file": "apps/web/src/workbook/timeline/models/timelineRowsModel.test.ts",
         "titles": [
           "timelineRowsModel allocates one draft row only when the Timeline row set needs one"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6128,7 +6333,8 @@
         "titles": [
           "timelineRowsModel builds draft and committed rows with stable semantic identities",
           "timelineRowsModel orders Timeline grouping buckets independently of the unchanged query row order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6152,7 +6358,8 @@
         "file": "apps/web/src/workbook/timeline/useTimelineRows.test.tsx",
         "titles": [
           "useTimelineRows owns the initial draft row ref and monotonic draft index"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6176,7 +6383,8 @@
         "file": "apps/web/src/workbook/timeline/useTimelineMutationRuntimeBindings.test.tsx",
         "titles": [
           "useTimelineMutationRuntimeBindings retains registration through callback changes and cleans up on unmount"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6200,7 +6408,8 @@
         "file": "apps/web/src/workbook/timeline/useTimelineSurfaceFoundation.test.tsx",
         "titles": [
           "useTimelineSurfaceFoundation owns stable adapter row query and pending foundations"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6224,7 +6433,8 @@
         "file": "apps/web/src/workbook/timeline/timelineCompositionArchitecture.test.ts",
         "titles": [
           "Timeline workbook composition architecture keeps presentation regions stateless and excludes privileged runtime capabilities"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -6248,7 +6458,8 @@
         "file": "apps/web/src/workbook/timeline/timelineCompositionArchitecture.test.ts",
         "titles": [
           "Timeline workbook composition architecture keeps the public root slim and makes it the sole composition-hook caller"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -6272,7 +6483,8 @@
         "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
           "workbookConflictModel parses same-field conflict envelopes without optional metadata loss"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6296,7 +6508,8 @@
         "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
           "workbookConflictModel rejects empty string identity fields for pending queue admission"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6320,7 +6533,8 @@
         "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
           "workbookConflictModel rejects missing, malformed, and incomplete conflict envelopes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6344,7 +6558,8 @@
         "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
         "titles": [
           "timelineViewportContinuityModel holds continuity until the authoritative source row reaches its response version"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6368,7 +6583,8 @@
         "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
         "titles": [
           "timelineViewportContinuityModel rejects source row identity drift and never treats another row as convergence"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6392,7 +6608,8 @@
         "file": "apps/web/src/workbook/timeline/models/timelineViewportContinuityModel.test.ts",
         "titles": [
           "timelineViewportContinuityModel tracks named follow-ups, render generations, interruption generation, and terminal state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6418,7 +6635,8 @@
         "file": "apps/web/src/app/App.timeline-invalidation.support.test.tsx",
         "titles": [
           "Timeline workbook suppresses self-originated websocket invalidations without refocusing the draft row"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6452,7 +6670,8 @@
           "useGenericSurfaceQuery normalizes Notes rows and applies a newer sparse live patch",
           "useGenericSurfaceQuery rejects obsolete schema work and retains current rows after a mismatched envelope",
           "useGenericSurfaceQuery requires an accepted current query before authorization recovery can resume"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6478,7 +6697,8 @@
         "file": "apps/web/src/workbook/hooks/useWorkbookQueryController.test.tsx",
         "titles": [
           "useWorkbookQueryController keeps query defaults and updates isolated between Workbook instances"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6515,7 +6735,8 @@
           "useWorkbookStartupAdmission keeps a user selection made while startup is delayed",
           "useWorkbookStartupAdmission preserves a Base startup when extension availability admission is stale",
           "useWorkbookStartupAdmission waits for discovery before committing an extension startup and cancels an obsolete wait"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6539,7 +6760,8 @@
         "file": "apps/web/src/workbook/hooks/useWorkbookExtensionAvailability.test.tsx",
         "titles": [
           "useWorkbookExtensionAvailability mutates discovery after render and preserves one controller per subject"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6564,7 +6786,8 @@
         "titles": [
           "useWorkbookInspectorCoordinator closes idempotently and restores focus only when requested",
           "useWorkbookInspectorCoordinator coordinates explicit open, retarget, lifecycle invalidation, action completion, and focus restoration"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6588,7 +6811,8 @@
         "file": "apps/web/src/workbook/hooks/useWorkbookProjectionRefreshController.test.tsx",
         "titles": [
           "useWorkbookProjectionRefreshController separates initial session/entity loading from sheet projection refresh"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6616,7 +6840,8 @@
           "useWorkbookQueryController refuses direct invalid date admission and preserves raw input and requested intent",
           "useWorkbookQueryController refuses direct timestamp admission without changing requested state or raw draft",
           "useWorkbookQueryController refuses direct unset boolean admission and preserves the authored draft and query"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6645,7 +6870,8 @@
           "useWorkbookSavedViewController detaches an unmounted workbook while retaining a valid late receipt",
           "useWorkbookSavedViewController retains selected configuration while discovery is incomplete or fails",
           "useWorkbookSavedViewController selects saved query and layout explicitly while Reset never changes identity"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6670,7 +6896,8 @@
         "titles": [
           "useWorkbookStartupController keeps sheet URL writes inside the currently selected incident route",
           "useWorkbookStartupController owns selection identity, focus intent, versioning, and URL history"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6694,7 +6921,8 @@
         "file": "apps/web/src/workbook/hooks/useWorkbookStartupController.test.tsx",
         "titles": [
           "useWorkbookStartupController uses monotonic generations and exact acknowledgement for repeated selections"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6718,7 +6946,8 @@
         "file": "apps/web/src/workbook/hooks/useWorkbookStartupController.test.tsx",
         "titles": [
           "useWorkbookStartupController cancels an older request before every base or extension selection"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6755,7 +6984,8 @@
           "useWorkbookSemanticGridFocus uses only the newest generation when mounting follows a rapid switch",
           "useWorkbookSemanticGridFocus waits for completed draft focus without acknowledging or falling back",
           "useWorkbookSemanticGridFocus waits through busy data and retries from the ready state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6785,7 +7015,8 @@
           "Work restores first middle last and sole removal focus and closes immediately with Escape",
           "Work retires removal focus after deliberate interaction closure detachment and unmount",
           "Work skips disabled removal controls without moving focus for an unfocused removal"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6811,7 +7042,8 @@
           "Commands interaction conceals open command context immediately when incident authority becomes uncertain",
           "Commands interaction keeps the captured record and revalidates selection and owner eligibility before invocation",
           "Commands interaction pages all commands without execution and restores the borrowed draft on cancel"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6847,7 +7079,8 @@
           "workbench navigation admission retains Return on failed or cancelled reads and uses an explicit base fallback",
           "workbench navigation admission retains origin while location is pending and rejects late cancelled attachment",
           "workbench navigation reconciles a superseded inspector request until committed attachment and fences cancellation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6871,7 +7104,8 @@
         "file": "apps/web/src/workbook/navigation/useWorkbookWorkbench.test.tsx",
         "titles": [
           "equivalent semantic navigation coalesces independent of object member order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6896,7 +7130,8 @@
         "titles": [
           "workbook history presentation model shares rollback labels and pending field order",
           "workbook history presentation model shows source attribution and keeps technical references ordered"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6923,7 +7158,8 @@
           "workbook inspector error model keeps local messages on an explicit path without inference",
           "workbook inspector error model preserves the safe primary message for every failure kind",
           "workbook inspector error model uses the decoded row-version code and retains sanitized detail"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6949,7 +7185,8 @@
         "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
         "titles": [
           "Workbook Inspector presentation renders declared neutral announcements and assertive typed failures"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -6973,31 +7210,8 @@
         "file": "apps/web/src/workbook/query/workbookLatestRequest.test.ts",
         "titles": [
           "workbookLatestRequest keeps requests exclusive and aborts superseded controllers"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "web.workbook.regression.workbook_query_controls_preserve_ordered_chip_ca_0fc544e3c5",
-      "owner_id": "web.workbook",
-      "family_id": "web.workbook.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.workbook.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
-        "titles": [
-          "workbook query controls renders active filter chips and grouping controls by field key"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7021,7 +7235,8 @@
         "file": "apps/web/src/workbook/timeline/models/workbookRecordFreshness.test.ts",
         "titles": [
           "workbookRecordFreshness classifies stale row-version updates only when durable identity is comparable"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7045,7 +7260,8 @@
         "file": "apps/web/src/workbook/components/WorkbookRelationshipChip.test.tsx",
         "titles": [
           "WorkbookRelationshipChip preserves state details selectors and optional selection"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7081,7 +7297,8 @@
           "Workbook save status preserves accessible status details and keyboard recovery across responsive modes",
           "Workbook save status retains status identity without suppressing execution publications or same-label counts",
           "Workbook save status updates refresh recovery targets without changing the primary label"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7114,7 +7331,8 @@
           "Workbook saved-view adapter projects explicit paging and returns only correlated saved-view resources",
           "Workbook saved-view adapter reads a resource by ID and filters discovery before accepting correlated pages",
           "Workbook saved-view adapter rejects mismatched mutation acknowledgements and system-view mutation locally"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7143,7 +7361,8 @@
           "Workbook startup admission machine discards inconsistent selected identities without changing state",
           "Workbook startup admission machine keys admission by incident, canonical query, generation, selection, and availability",
           "Workbook startup admission machine plans base, saved-view, extension, and availability outcomes exactly"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7175,7 +7394,8 @@
           "Workbook incident adapter uses projected routes and returns only correlated semantic identity and members",
           "Workbook startup adapter derives the exact projected query and accepts correlated availability",
           "Workbook startup adapter rejects malformed and mismatched startup resources and contains aborts"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7199,7 +7419,8 @@
         "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
         "titles": [
           "workbookClipboard enforces the owner row limit before destination planning"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7223,7 +7444,8 @@
         "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
         "titles": [
           "workbookClipboard keeps scalar comma text out of interactive tabular dispatch"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7247,7 +7469,8 @@
         "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
         "titles": [
           "workbookClipboard decodes explicit CSV and plain TSV without punctuation guessing"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7271,7 +7494,8 @@
         "file": "apps/web/src/workbook/utils/workbookClipboard.test.ts",
         "titles": [
           "workbookClipboard preserves explicit empty records and rejects malformed or missing cells"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7300,7 +7524,8 @@
           "workbookContinuity bases visibility repair on the actual clamped scroll after restoring the preserved scroll",
           "workbookContinuity captures and restores an unchanged anchor without moving the grid",
           "workbookContinuity preserves horizontal scroll until the focused element would be clipped"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7328,7 +7553,8 @@
           "WorkbookContinuityPort captures and restores semantic identity through an opaque one-shot token",
           "WorkbookContinuityPort clears captures and selection and disposes idempotently",
           "WorkbookContinuityPort focuses and selects only stable schema, record, and field identities"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7371,7 +7597,8 @@
           "workbookQuery validates calendar dates for every declared date filter",
           "workbookQuery validates one-sided date ranges and inclusive boundaries",
           "workbookQuery validates timestamp equality for every declared timestamp filter without losing raw input"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7414,7 +7641,8 @@
           "workbook responsive layout model selects chrome mode from width 767",
           "workbook responsive layout model selects chrome mode from width 768",
           "workbook responsive layout model selects chrome mode from width NaN"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7441,7 +7669,8 @@
         "titles": [
           "workbookSavedViewControl parses only the editable scope vocabulary",
           "workbookSavedViewControl projects selected identity independently through pending failed and unavailable observations"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7465,7 +7694,8 @@
         "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
         "titles": [
           "workbookSavedViewRuntime derives runtime query state from saved-view query_json without mutating identity"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7489,7 +7719,8 @@
         "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
         "titles": [
           "workbookSavedViewRuntime omits structurally equal layout and includes a genuine portable layout change"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7513,7 +7744,8 @@
         "file": "apps/web/src/workbook/models/workbookSavedViewRuntime.test.ts",
         "titles": [
           "workbookSavedViewRuntime preserves saved-view sheet_ref and base view_schema identity separately"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7537,7 +7769,8 @@
         "file": "apps/web/src/workbook/models/workbookSavedViews.test.ts",
         "titles": [
           "workbookSavedViews canonicalizes saved-view query and layout JSON through the workbook contract"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7561,7 +7794,8 @@
         "file": "apps/web/src/workbook/models/workbookSavedViews.test.ts",
         "titles": [
           "workbookSavedViews keeps system saved views immutable while allowing admins and owners to mutate user views"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7585,7 +7819,8 @@
         "file": "apps/web/src/workbook/models/workbookSavedViews.test.ts",
         "titles": [
           "workbookSavedViews normalizes saved views without collapsing saved-view identity into view_schema_id"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7609,7 +7844,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
           "Timeline workbook autosave coverage commits Enter from the current editor value when row state is stale"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7633,7 +7869,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
           "Timeline workbook autosave coverage commits paste completion from the current editor value when row state is stale"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7657,7 +7894,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
           "Timeline workbook autosave coverage commits Tab from the current editor value when row state is stale"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7681,7 +7919,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
           "Timeline workbook autosave coverage queues a follow-up scalar save when the logical payload changes while a prior save is pending"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7705,7 +7944,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.autosave.test.tsx",
         "titles": [
           "Timeline workbook autosave coverage suppresses duplicate pending scalar saves that only differ by client_txn_id"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7729,7 +7969,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "Timeline workbook grid coverage classifies committed Timeline row freshness by record_id and row_version"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7753,7 +7994,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "Timeline workbook grid coverage ignores stale query errors after a newer committed row response"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7777,7 +8019,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "Timeline workbook grid coverage ignores stale sparse live row patches after a newer committed row is accepted"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7801,7 +8044,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "Timeline workbook grid coverage keeps accepted committed row state across stale invalidation queries and replay responses"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7825,7 +8069,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "Timeline workbook grid coverage keeps Timeline controls mounted while a sorted query refresh is pending"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7849,7 +8094,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "Timeline workbook grid coverage preserves an in-flight draft create across unrelated projection refresh"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7873,7 +8119,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "Timeline workbook grid coverage preserves draft row edits across projection refresh before create commit"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7897,7 +8144,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "Timeline workbook grid coverage surfaces a sorted query refresh failure without unmounting Timeline controls"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7921,7 +8169,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
           "browser.inspector-history inspector and row-local action coverage keeps the Timeline inspector unmounted until explicit activation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7945,7 +8194,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
           "browser.inspector-history inspector and row-local action coverage renders complete Timeline collections and local inputs in the inspector"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7969,7 +8219,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
         "titles": [
           "workbook query controls normalizes saved-view query_json and layout_json back to portable field-key state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7993,7 +8244,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.query.test.tsx",
         "titles": [
           "workbook query controls Notes full_text controls submit the exact-token operator"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8017,7 +8269,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
           "keyboard and grid anchor coverage keeps multi-row text in the native draft editor path without grid clipboard transport"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8041,7 +8294,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
           "keyboard and grid anchor coverage keeps single-line comma text on the scalar draft-input path"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8065,7 +8319,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
           "keyboard and grid anchor coverage grid anchor shell support updates Cartulary anchors by record_id and field_key during keyboard navigation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8089,7 +8344,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
           "keyboard and grid anchor coverage grid anchor shell support commits drafts before Enter navigation and retains edge Shift+Enter targets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8113,7 +8369,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
           "keyboard and grid anchor coverage grid anchor shell support retains edge anchors and preserves drafts across valid focus movement"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8137,7 +8394,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
           "keyboard and grid anchor coverage grid anchor shell support updates Cartulary anchors for vertical and horizontal spreadsheet movement"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8161,7 +8419,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
           "keyboard and grid anchor coverage grid anchor shell support fails closed for unavailable shortcuts without row mutation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8185,7 +8444,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
           "workbook collaboration coverage applies sparse live patches by record_id without moving an active cell draft"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8209,10 +8469,9 @@
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
         "titles": [
           "Assessment workbook surface ignores superseded assessment query responses after rapid filter changes",
-          "Assessment workbook surface ignores superseded entity query responses after rapid host filters",
-          "Assessment workbook surface maps band-first assessment create payloads without submitting the derived band",
-          "Assessment workbook surface submits assessment creates through the workbook UI"
-        ]
+          "Assessment workbook surface ignores superseded entity query responses after rapid host filters"
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8236,7 +8495,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage builds rollback targets only from advertised server actions and selectors"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8260,7 +8520,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage clears stale rollback previews when open history retargets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8284,7 +8545,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage fails closed for duplicate history_item_ref"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8308,7 +8570,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage fails closed for invalid revision_no"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8332,7 +8595,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage fails closed for missing history_entry rollback selector"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8356,7 +8620,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage fails closed for missing history_item_ref"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8380,7 +8645,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage fails closed for non-canonical action order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8404,7 +8670,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage fails closed for non-string history_item_ref"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8428,7 +8695,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage keeps workbook continuity through ordinary remove and invalidate socket updates"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8452,7 +8720,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage opens row-centric history from a selected workbook row and renders server metadata only"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8476,7 +8745,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
           "workbook collaboration coverage presence indicators render from keyed socket state without changing save-state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8500,7 +8770,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
           "workbook collaboration coverage resolver keep-saved action submits an explicit outcome and applies returned row state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8524,7 +8795,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
           "workbook collaboration coverage resolver merged-value action submits an explicit outcome and applies returned row state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8548,7 +8820,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.collaboration.test.tsx",
         "titles": [
           "workbook collaboration coverage resolver use-unsaved action submits an explicit outcome and applies returned row state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8572,7 +8845,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage retargets open row history to the newly selected inspector row"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8596,7 +8870,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage submits single-entry rollback with only the server-provided history selector"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8625,7 +8900,6 @@
           "WorkbookShell surface selection conceals session navigation during uncertainty and retires it on account replacement or incident departure",
           "WorkbookShell surface selection dispatches entity-origin paste through create targets while preserving exact-match reuse results",
           "WorkbookShell surface selection ignores superseded generic surface query responses after rapid filters",
-          "WorkbookShell surface selection issues opaque evidence preview and download handles from the evidence surface",
           "WorkbookShell surface selection keeps a selected saved-view sheet ref distinct from its base view_schema",
           "WorkbookShell surface selection keeps a user-selected system view when a delayed startup response resolves",
           "WorkbookShell surface selection keeps closed incidents readable while disabling grid mutation entry points",
@@ -8654,10 +8928,9 @@
           "WorkbookShell surface selection submits physical alias add/remove actions and restores inspector focus after authoritative refresh",
           "WorkbookShell surface selection surfaces entity merge precondition failures without submitting a second plan",
           "WorkbookShell surface selection surfaces upload failures inline without issuing Timeline patches",
-          "WorkbookShell surface selection uses backend startup selection for the initial workbook grid surface",
-          "generic workbook mutation payloads builds direct clears and typed collection actions",
-          "generic workbook mutation payloads builds required creates with direct values, timestamps, and explicit clears"
-        ]
+          "WorkbookShell surface selection uses backend startup selection for the initial workbook grid surface"
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8681,7 +8954,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.history.test.tsx",
         "titles": [
           "workbook history support coverage uses active and tombstone row versions for delete and restore controls"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8705,7 +8979,8 @@
         "file": "apps/web/src/workbook/timeline/models/timelineModelBoundaries.test.ts",
         "titles": [
           "workbookTimelineModel builds scalar, collection, and evidence payloads"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8729,7 +9004,8 @@
         "file": "apps/web/src/workbook/timeline/models/timelineModelBoundaries.test.ts",
         "titles": [
           "workbookTimelineModel expands Timeline columns only when the shell has surplus width"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8753,7 +9029,8 @@
         "file": "apps/web/src/workbook/timeline/models/timelineModelBoundaries.test.ts",
         "titles": [
           "workbookTimelineModel exposes Timeline bindings and focus keys without component-local field maps"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8777,7 +9054,8 @@
         "file": "apps/web/src/workbook/timeline/models/timelineModelBoundaries.test.ts",
         "titles": [
           "workbookTimelineModel normalizes rows, tag collections, grouping, and sparse live patches"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8801,7 +9079,8 @@
         "file": "apps/web/src/workbook/timeline/models/timelineModelBoundaries.test.ts",
         "titles": [
           "workbookTimelineModel uses the full measured Timeline grid width when distributing surplus pixels"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8825,7 +9104,8 @@
         "file": "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
         "titles": [
           "workbookValueFormat.stringifyGridValue joins collection display text without inventing labels"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8849,7 +9129,8 @@
         "file": "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
         "titles": [
           "workbookValueFormat.stringifyGridValue keeps unsupported and omitted values empty"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8873,7 +9154,8 @@
         "file": "apps/web/src/workbook/utils/workbookValueFormat.test.ts",
         "titles": [
           "workbookValueFormat.stringifyGridValue preserves primitive display strings from duplicate grid helpers"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8902,7 +9184,8 @@
           "useAssessmentCreationController publishes accepted standalone creation as polite neutral feedback",
           "useAssessmentCreationController retains drafts across selection and close and requires explicit resume or discard",
           "useAssessmentCreationController retains the append-only draft and support selection after rejection"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8926,7 +9209,8 @@
         "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
           "workbookConflictModel starts text merge from the saved value and never the suggestion"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8950,7 +9234,8 @@
         "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
           "workbookConflictModel preserves typed collection items and derives actions against saved"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8974,7 +9259,8 @@
         "file": "apps/web/src/workbook/runtime/workbookConflictModel.test.ts",
         "titles": [
           "workbookConflictModel rejects unknown conflict resolution classes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -9003,7 +9289,8 @@
           "useEntityMergeController fences presentation callbacks after closure or authorization loss",
           "useEntityMergeController invalidates confirmation synchronously for either participant, reason, eligibility, view or authority",
           "useEntityMergeController requires explicit completion or scoped discard of participant drafts before review"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -9034,7 +9321,8 @@
           "rejects cross-incident and undispatchable units before transport",
           "retains a late write receipt with its dispatch scope without granting current read authority",
           "retains exact patch bytes through acknowledgement loss and retires captured requests"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -9058,7 +9346,8 @@
         "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
         "titles": [
           "WorkbookMutationRuntime coalesces current-surface autosaves through one shell queue"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -9090,7 +9379,8 @@
           "createWorkbookClipboardPasteAdapter retains uncertainty for malformed success and replays captured create bytes",
           "createWorkbookClipboardPasteAdapter sends one exact generated request and preserves typed rows and conflicts",
           "createWorkbookClipboardPasteAdapter validates complete fill and tag receipts including conflicts-only and no-op outcomes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -9119,7 +9409,8 @@
           "workbookClipboardPaste constructs only bounded non-empty generated columns and targets",
           "workbookClipboardPaste parses exactly the generated paste-capable view identities",
           "workbookClipboardPaste rejects any target planned for another surface"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -9158,7 +9449,8 @@
           "Workbook runtime responsibilities settles source coordination when its own direct predecessor releases",
           "Workbook runtime responsibilities uses injected time and cancels a pending transport retry on disposal",
           "Workbook runtime responsibilities wakes on reservation release without another owner event and ignores repeated release"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -9193,7 +9485,8 @@
           "semantic mutation command ports normalizes task lifecycle and decision supersede into owner-specific outcomes",
           "semantic mutation command ports owns exact generic, entity, assessment, and coordination request identities and payloads",
           "semantic mutation command ports validates generated Workbook operation responses and contains public failures"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -9217,7 +9510,8 @@
         "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
         "titles": [
           "WorkbookMutationRuntime keeps secure transaction identity failure local without queue admission"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -9243,7 +9537,8 @@
         "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
         "titles": [
           "WorkbookMutationRuntime preserves the draft and refreshes a rejected legacy conflict token"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -9273,7 +9568,8 @@
           "WorkbookMutationRuntimeRegistry rejects a factory result from another pending-queue scope",
           "WorkbookMutationRuntimeRegistry retains ordinary drafts across same-account recovery and retires them on incident account and disposal boundaries",
           "WorkbookMutationRuntimeRegistry retires the previous scope on incident change and app disposal"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

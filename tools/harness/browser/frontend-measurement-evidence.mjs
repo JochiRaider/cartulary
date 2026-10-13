@@ -3,35 +3,37 @@ import { existsSync, lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { validateSchemaSync } from "../contract/index.mjs";
+import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { readCanonicalUnitEvents } from "../evidence-accounting/index.mjs";
 
 const forbiddenKey = /^(?:bucket_name|credential|credentials|database_name|dsn|email|entered_text|password|payload|record_id|runtime_path|secret|token|transaction_id|txn_id|user_id)$/iu;
 const reportByteLimit = 32 * 1024 * 1024;
 const attachmentByteLimit = 8 * 1024 * 1024;
 
-export function currentUnitEventFile(runRoot) {
-  const configured = String(process.env.CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE ?? "").trim();
-  if (!configured) return path.join(runRoot, "unit-events.ndjson");
-  if (!path.isAbsolute(configured)) {
+export function currentUnitEventSource(runRoot) {
+  const configured = process.env.CARTULARY_HARNESS_UNIT_EVENT_PREFIX;
+  if (configured === undefined) return { file: path.join(runRoot, "unit-events.ndjson") };
+  const prefix = parseStrictJSON(configured, "canonical event prefix");
+  validateSchemaSync("cartulary.harness_unit_event_prefix.v1", prefix);
+  if (prefix.run_id !== process.env.CARTULARY_TEST_RUN_ID) throw new Error("live unit-event prefix belongs to another run");
+  if (!path.isAbsolute(prefix.file)) {
     throw new Error("live unit-event staging path must be absolute");
   }
-  const resolved = path.resolve(configured);
-  const relative = path.relative(runRoot, resolved);
-  if (
-    !relative || relative.startsWith("..") || path.isAbsolute(relative) ||
-    !path.basename(resolved).startsWith("unit-events.ndjson.tmp-")
-  ) {
+  const resolved = path.resolve(prefix.file);
+  // Native admission supplies the exact stream; its temporary basename is
+  // private to the publisher. Validate the scope and inode, not its spelling.
+  if (resolved !== prefix.file || path.dirname(resolved) !== path.resolve(runRoot)) {
     throw new Error("live unit-event staging path escapes its run or has an invalid identity");
   }
   if (!existsSync(resolved)) {
     throw new Error("live unit-event staging path is missing");
   }
   const stat = lstatSync(resolved);
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw new Error("live unit-event staging path is not a regular file");
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 ||
+      stat.uid !== process.getuid() || (stat.mode & 0o777) !== 0o600) {
+    throw new Error("live unit-event staging path is not a private regular file");
   }
-  return resolved;
+  return { file: resolved, prefix };
 }
 
 function readBoundedJSON(file, label, maxBytes) {
@@ -315,7 +317,7 @@ export function collectFinalizedMeasurementSummaries({
   );
 }
 
-export async function readMeasurementSchedulerEvidenceForGroups(eventFile, groupResults) {
+export async function readMeasurementSchedulerEvidenceForGroups({ file: eventFile, prefix }, groupResults) {
   if (!existsSync(eventFile)) {
     throw new Error("measurement finalizer requires unit-events.ndjson");
   }
@@ -332,7 +334,7 @@ export async function readMeasurementSchedulerEvidenceForGroups(eventFile, group
   if (states.size !== groupResults.length) {
     throw new Error("measurement scheduler groups are duplicated");
   }
-  for await (const event of readCanonicalUnitEvents(eventFile)) {
+  for await (const event of readCanonicalUnitEvents(eventFile, { prefix })) {
     const state = states.get(event.unit_id);
     if (state !== undefined) {
         if (event.event === "started") {
@@ -377,7 +379,7 @@ export async function readMeasurementSchedulerEvidenceForGroups(eventFile, group
   return states;
 }
 
-export async function readMeasurementSchedulerEvidence(eventFile, groupResult) {
-  const states = await readMeasurementSchedulerEvidenceForGroups(eventFile, [groupResult]);
+export async function readMeasurementSchedulerEvidence(source, groupResult) {
+  const states = await readMeasurementSchedulerEvidenceForGroups(source, [groupResult]);
   return states.get(`browser_group:${groupResult.stage_id}:${groupResult.group_id}`);
 }

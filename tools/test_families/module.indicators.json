@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.indicators",
   "rows": [
     {
@@ -46,7 +46,8 @@
           "forwards accepted mutation metadata to stable-ID refresh coordination",
           "presents loading, retry, and empty observation states accessibly",
           "preserves prior observations while loading the next cursor page"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -77,7 +78,8 @@
           "preserves paging metadata for load-more requests",
           "resolves all four Indicator handlers by their complete semantic tuple",
           "uses the typed source-span operation without provenance fields"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

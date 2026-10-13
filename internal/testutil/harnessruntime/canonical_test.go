@@ -30,7 +30,7 @@ func canonicalFixture(t *testing.T) (*Plan, []map[string]any) {
 		if id == "harness:run" {
 			u = unit{Needs: []string{}, Services: []string{}, Claims: map[string]int64{}}
 		}
-		e := map[string]any{"schema_id": "cartulary.harness_unit_event.v3", "seq": len(events) + 1, "monotonic_ms": at, "event": name, "unit_id": id, "status": status, "needs": u.Needs, "resource_claims": u.Claims, "service_dependencies": u.Services}
+		e := map[string]any{"schema_id": "cartulary.harness_unit_event.v4", "seq": len(events) + 1, "monotonic_ms": at, "event": name, "unit_id": id, "status": status, "needs": u.Needs, "resource_claims": u.Claims, "service_dependencies": u.Services}
 		for k, v := range extra {
 			e[k] = v
 		}
@@ -40,15 +40,19 @@ func canonicalFixture(t *testing.T) (*Plan, []map[string]any) {
 	for _, u := range []unit{a, b} {
 		emit(0, "queued", u.ID, "pending", map[string]any{"unit_kind": u.Kind, "row_ids": []string{}})
 		emit(0, "eligible", u.ID, "pending", nil)
-		emit(0, "wait_started", u.ID, "pending", stoppedWait().fields())
+		emit(0, "wait_started", u.ID, "pending", waitDetails{"rank", []string{}, []string{}}.fields())
 	}
 	emit(10, "cache_bypass", "a", "pending", map[string]any{"cache_reason": "policy_none"})
-	emit(10, "wait_ended", "a", "pending", stoppedWait().fields())
+	emit(10, "wait_ended", "a", "pending", waitDetails{"rank", []string{}, []string{}}.fields())
 	emit(10, "admitted", "a", "running", nil)
 	emit(10, "started", "a", "running", nil)
+	emit(10, "wait_ended", "b", "pending", waitDetails{"rank", []string{}, []string{}}.fields())
+	emit(10, "wait_started", "b", "pending", waitDetails{"resources", []string{"cpu"}, []string{"a"}}.fields())
 	emit(15, "fixture_acquired", "a", "running", map[string]any{"fixture_lease_id": "fixture"})
+	emit(18, "wait_ended", "b", "pending", waitDetails{"resources", []string{"cpu"}, []string{"a"}}.fields())
+	emit(18, "wait_started", "b", "pending", waitDetails{"rank", []string{}, []string{}}.fields())
+	emit(20, "wait_ended", "b", "pending", waitDetails{"rank", []string{}, []string{}}.fields())
 	emit(20, "cache_bypass", "b", "pending", map[string]any{"cache_reason": "policy_none"})
-	emit(20, "wait_ended", "b", "pending", stoppedWait().fields())
 	emit(20, "admitted", "b", "running", nil)
 	emit(20, "started", "b", "running", nil)
 	emit(30, "completed", "a", "passed", nil)
@@ -69,7 +73,7 @@ func TestRuntimeCanonicalAccounting(t *testing.T) {
 	if err := f.validate(); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]int64{"setup_ms": 20, "fixture_ms": 5, "execution_ms": 15, "collation_ms": 0, "wrapper_ms": 5, "unattributed_ms": 0, "resource_blocking_ms": 20, "process_count": 2}
+	want := map[string]int64{"setup_ms": 20, "fixture_ms": 5, "execution_ms": 15, "collation_ms": 0, "wrapper_ms": 5, "unattributed_ms": 0, "resource_blocking_ms": 8, "process_count": 2}
 	if got := f.timing([]string{"a", "b"}, 45, true); !reflect.DeepEqual(got, want) {
 		t.Fatalf("timing %v want %v", got, want)
 	}
@@ -79,16 +83,37 @@ func TestRuntimeCanonicalAccounting(t *testing.T) {
 	if got := intervalUnion([]timeInterval{{start: 10, end: 30}, {start: 20, end: 40}}); got != 30 {
 		t.Fatal(got)
 	}
+	if w := f.waits["b"]; w.count != 3 || w.byReason["resources"] != 8 || w.byReason["rank"] != 12 {
+		t.Fatal(w)
+	}
 	pressure := f.pressure()
 	if pressure["peak_use"].(map[string]int64)["cpu"] != 2 || pressure["saturation_ms"].(map[string]int64)["cpu"] != 10 {
 		t.Fatal(pressure)
 	}
-	for _, kind := range []string{"duplicate", "reversal", "missing_wait", "forged_identity", "missing_terminal"} {
+	for _, kind := range []string{"duplicate", "reversal", "missing_wait", "forged_identity", "missing_terminal", "old_schema", "wait_gap", "wait_overlap", "wait_mismatch", "foreign_holder"} {
 		t.Run(kind, func(t *testing.T) {
 			bytes, _ := json.Marshal(events)
 			var altered []map[string]any
 			_ = json.Unmarshal(bytes, &altered)
 			switch kind {
+			case "old_schema":
+				altered[0]["schema_id"] = "cartulary.harness_unit_event.v3"
+			case "wait_gap", "wait_overlap", "wait_mismatch", "foreign_holder":
+				for _, e := range altered {
+					if e["unit_id"] == "b" && e["event"] == "wait_started" && e["wait_reason"] == "resources" {
+						switch kind {
+						case "wait_gap":
+							e["monotonic_ms"] = float64(11)
+						case "wait_overlap":
+							e["event"] = "wait_ended"
+						case "wait_mismatch":
+							e["blocking_resources"] = []any{"memory"}
+						case "foreign_holder":
+							e["blocking_unit_ids"] = []any{"foreign"}
+						}
+						break
+					}
+				}
 			case "duplicate":
 				altered[1]["seq"] = float64(1)
 			case "reversal":
@@ -214,11 +239,50 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 	}
 	defer publisher.Abort()
 	publisher.Forbidden = func() ([]string, error) { return []string{"private-sentinel"}, nil }
+	prefixes := make(chan string, len(p.facts.Graph.Units))
 	result, err := executeGraph(context.Background(), p, enginePorts{Event: publisher.Event, Terminal: publisher.Terminal, Execute: func(context.Context, executionRequest) unitResult {
+		prefix, err := publisher.Prefix()
+		if err != nil {
+			return unitResult{Status: "failed", ExitCode: 11, Failure: failed("artifact", "artifact_error")}
+		}
+		prefixes <- prefix
 		return unitResult{Status: "passed", Stdout: []byte("PASSWORD=private-sentinel\npostgres://user:password@host/db")}
 	}})
 	if err != nil {
 		t.Fatal(err)
+	}
+	close(prefixes)
+	count := 0
+	for encoded := range prefixes {
+		var prefix struct {
+			File  string `json:"file"`
+			RunID string `json:"run_id"`
+			Bytes int64  `json:"byte_length"`
+			Seq   int64  `json:"last_seq"`
+		}
+		if err := json.Unmarshal([]byte(encoded), &prefix); err != nil {
+			t.Fatal(err)
+		}
+		data, err := os.ReadFile(prefix.File)
+		if err != nil || prefix.Bytes < 1 || int64(len(data)) < prefix.Bytes || data[prefix.Bytes-1] != '\n' || prefix.RunID != p.facts.Manifest["run_id"] {
+			t.Fatal("issued prefix lacks flushed complete records", prefix, err)
+		}
+		lines := strings.Split(strings.TrimSuffix(string(data[:prefix.Bytes]), "\n"), "\n")
+		for index, line := range lines {
+			var record struct {
+				Seq int64 `json:"seq"`
+			}
+			if err := json.Unmarshal([]byte(line), &record); err != nil || record.Seq != int64(index+1) {
+				t.Fatal("issued prefix contains an incomplete or noncontiguous record", err)
+			}
+		}
+		if int64(len(lines)) != prefix.Seq {
+			t.Fatal("issued prefix sequence does not close", prefix.Seq, len(lines))
+		}
+		count++
+	}
+	if count != len(p.facts.Graph.Units) {
+		t.Fatal("not every launched unit received a committed prefix", count)
 	}
 	if _, err := os.Lstat(filepath.Join(root, "unit-events.ndjson")); !os.IsNotExist(err) {
 		t.Fatal("incomplete stream exposed")

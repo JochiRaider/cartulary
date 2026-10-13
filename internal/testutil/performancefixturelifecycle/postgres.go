@@ -39,12 +39,7 @@ func cloneDatabase(ctx context.Context, adminDSN string, source string, target s
 	if !safePostgresIdentifier(source) || !safePostgresIdentifier(target) {
 		return errors.New("performance fixture database identity is unsafe")
 	}
-	return withSharedCatalogMutation(ctx, adminDSN, target, func(admin *sql.DB) error {
-		if _, err := admin.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s" TEMPLATE "%s"`, target, source)); err != nil {
-			return fmt.Errorf("clone performance fixture database: %w", err)
-		}
-		return nil
-	})
+	return postgrescatalog.CloneDatabase(ctx, adminDSN, target, source, performanceFixtureCatalogLimit)
 }
 
 func sealTemplate(ctx context.Context, adminDSN string, name string, owner string) error {

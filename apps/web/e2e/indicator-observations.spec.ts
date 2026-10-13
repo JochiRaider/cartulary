@@ -87,7 +87,6 @@ test("Indicator observations replay source capture and every transition after co
   let failRefresh = true;
   await page.route(`**/views/${timelineViewSchemaId}/query`, async (route) => {
     if (!failRefresh) return route.continue();
-    failRefresh = false;
     await route.fulfill({
       status: 503,
       contentType: "application/json",
@@ -116,6 +115,9 @@ test("Indicator observations replay source capture and every transition after co
   expect(requests).toHaveLength(2);
   expect(requests[1]).toBe(requests[0]);
   expect(receipts[1]).toEqual({ ...receipts[0], replayed: true });
+  // Independent query invalidation must not consume the recovery outage.
+  // Restore service only at the explicit retry boundary.
+  failRefresh = false;
   await recovery
     .getByRole("button", { name: "Retry observation refresh" })
     .click();

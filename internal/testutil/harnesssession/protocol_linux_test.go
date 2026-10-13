@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,12 +16,44 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"golang.org/x/sys/unix"
 )
 
 func TestSessionProtocol(t *testing.T) {
 	if os.Getenv("CARTULARY_SESSION_PROTOCOL_TEST_CHILD") == "1" {
 		os.Exit(Main(nil, os.Stdin, os.Stdout))
 	}
+	t.Run("bounded_private_rejections_exclude_arbitrary_detail", func(t *testing.T) {
+		for _, tc := range []struct {
+			err    error
+			reason string
+			proc   bool
+		}{
+			{harnesslocal.ErrUnsafe, "unsafe", false},
+			{errors.Join(ErrUnresolved, &os.PathError{Op: "open", Path: "/proc/123/environ", Err: unix.EACCES}), "unresolved", true},
+			{&os.PathError{Op: "open", Path: "/private/credential-sentinel", Err: unix.ENOENT}, "io", false},
+			{context.DeadlineExceeded, "deadline", false},
+			{errors.New("credential-sentinel"), "internal", false},
+		} {
+			r := rejectReason(tc.err)
+			if r.Reason != tc.reason || (r.PID != nil) != tc.proc {
+				t.Fatal("incorrect private rejection", r)
+			}
+			if tc.proc && (*r.PID != 123 || r.ProofFile == nil || *r.ProofFile != "environ" || r.Errno == nil || *r.Errno != 13) {
+				t.Fatal("missing proof-read diagnostic", r)
+			}
+			data, err := json.Marshal(response{Schema: RequestSchema, ID: 1, Operation: "inspect_diagnostic_scope", Error: r})
+			if err != nil || bytes.Contains(data, []byte("credential-sentinel")) {
+				t.Fatal("private error leaked arbitrary detail", err)
+			}
+			value, err := harnessschema.Decode(data)
+			if err != nil || harnessschema.Validate(RequestSchema, value) != nil {
+				t.Fatal("invalid rejection frame", err)
+			}
+		}
+	})
 	t.Run("real_private_pipe_and_owner_binding", func(t *testing.T) {
 		repo, run, scratch := t.TempDir(), t.TempDir(), t.TempDir()
 		q := map[string]any{"schema_id": RequestSchema, "request_id": 1, "operation": "create", "repository": repo, "run_root": run, "run_id": "fixture", "scratch": scratch}

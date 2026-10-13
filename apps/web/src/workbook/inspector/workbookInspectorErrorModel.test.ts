@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
 import {
+  type WorkbookInspectorFeedback,
   workbookInspectorErrorPresentation,
   workbookInspectorLocalErrorFeedback,
   workbookInspectorLocalErrorPresentation,
@@ -66,6 +67,9 @@ describe("workbook inspector error model", () => {
   });
 
   it("constructs closed neutral-message and typed-operation feedback", () => {
+    expectTypeOf<
+      Extract<WorkbookInspectorFeedback, string>
+    >().toEqualTypeOf<never>();
     expect(workbookInspectorMessageFeedback("Ready.", "none")).toEqual({
       announcement: "none",
       kind: "message",

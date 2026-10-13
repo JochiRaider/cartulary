@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.networkflow",
   "rows": [
     {
@@ -883,7 +883,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "Verify production Network Flow grids, read-only behavior, stable references, virtualization, and adapter boundaries compose through semantic identities."
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -909,7 +910,8 @@
         "file": "apps/web/src/networkFlow/networkFlowPresentation.test.tsx",
         "titles": [
           "Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts."
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

@@ -98,15 +98,11 @@ export async function activateCandidateIdentities(
     await candidates.selectOption([...ids]);
     return;
   }
-  if (await candidates.getByRole("radio").count()) {
-    if (ids.length !== 1)
-      throw new Error(
-        "Single-target candidates require one explicit identity; clear through the owning selected summary.",
-      );
-    await candidates.locator(`input[type="radio"][value="${ids[0]}"]`).check();
-    return;
-  }
   if (!ids.length) {
+    if (await candidates.getByRole("radio").count())
+      throw new Error(
+        "Clear single-target candidates through the owning selected summary.",
+      );
     const checked = await candidates
       .getByRole("checkbox", { checked: true })
       .evaluateAll((inputs) =>
@@ -118,6 +114,17 @@ export async function activateCandidateIdentities(
         .uncheck();
     return;
   }
-  for (const id of ids)
-    await candidates.locator(`input[type="checkbox"][value="${id}"]`).check();
+  const controls = ids.map((id) =>
+    candidates.locator(
+      `input:is([type="radio"], [type="checkbox"])[value="${id}"]`,
+    ),
+  );
+  // Candidate loading is asynchronous. Resolve each requested control before
+  // deciding cardinality; an empty snapshot does not imply checkbox semantics.
+  const types = await Promise.all(
+    controls.map((control) => control.getAttribute("type")),
+  );
+  if (ids.length !== 1 && types.includes("radio"))
+    throw new Error("Single-target candidates require one explicit identity.");
+  for (const control of controls) await control.check();
 }

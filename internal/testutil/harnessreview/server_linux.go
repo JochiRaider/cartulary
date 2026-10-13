@@ -119,6 +119,33 @@ func serveConnection(connection net.Conn, record *registryRecord, session *Sessi
 		session.Stop(failure("interrupted"))
 	}
 }
+
+// serveControls owns accepted control connections through their final replies.
+func serveControls(listener net.Listener, record *registryRecord, session *Session) func() {
+	var handlers sync.WaitGroup
+	acceptDone := make(chan struct{})
+	go func() {
+		defer close(acceptDone)
+		for {
+			connection, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			handlers.Add(1)
+			go func() {
+				defer handlers.Done()
+				serveConnection(connection, record, session)
+			}()
+		}
+	}()
+	return func() {
+		_ = listener.Close()
+		// Stop admission before waiting: no handler can be added after this join.
+		<-acceptDone
+		handlers.Wait()
+	}
+}
+
 func control(ctx context.Context, repository string, q commandRequest, environment map[string]string) (Result, error) {
 	file, locator, err := readLocator(repository, q.Locator)
 	if err != nil {
@@ -327,15 +354,8 @@ func start(ctx context.Context, repository string, q commandRequest, environment
 		return session.Value("ui-review"), nil
 	}
 	emit("preparing", record.Locator)
-	go func() {
-		for {
-			connection, err := listener.Accept()
-			if err != nil {
-				return
-			}
-			go serveConnection(connection, record, session)
-		}
-	}()
+	drainControls := serveControls(listener, record, session)
+	defer drainControls()
 	go func() {
 		select {
 		case <-ctx.Done():

@@ -55,12 +55,6 @@ const fullTierSelfTests = [
   "harness.test_catalog.behavior.routing_contract",
   "package.test_utils.boundary_support.index_suite_466a5263a0"
 ];
-const rawGroups = [
-  "backend-unit-configtest",
-  "backend-unit-suiteservices",
-  "backend-integration-testutil",
-  "backend-process-processtest",
-];
 const retainedRows = [
   "harness.command_surface.unit.embedded_asset_layout",
   "harness.browser.integration.runtime_reset_recovery_purpose_contract",
@@ -86,12 +80,9 @@ function rowIDs(graph) {
 
 export function assertHarnessTierRouting(context) {
   const compiler = context.compiler;
-  assert.equal(fullTierSelfTests.length, 46);
   for (const rowID of fullTierSelfTests) {
     assert.equal(compiler.catalog.rowByID.get(rowID)?.minimum_tier, "full", rowID);
   }
-  assert.deepEqual(compiler.rawGoAggregates.map((entry) => entry.id).sort(), [...rawGroups].sort());
-  assert.ok(compiler.rawGoAggregates.every((entry) => entry.minimum_tier === "full"));
   const plans = new Map();
   for (const target of ["test-fast", "check", "test", "ci", "release-check"]) {
     const plan = compiler.compileAggregatePlan(target);
@@ -103,9 +94,7 @@ export function assertHarnessTierRouting(context) {
     for (const rowID of fullTierSelfTests) {
       assert.equal(selected.includes(rowID), includesFull, `${target}: ${rowID}`);
     }
-    for (const id of rawGroups) {
-      assert.equal(plan.graph.units.some((unit) => unit.unit_id === `raw_go:${id}`), includesFull, `${target}: ${id}`);
-    }
+    assert.ok(plan.graph.units.every((unit) => !unit.unit_id.startsWith("raw_go:")), "raw package selection is retired");
     // Retain every other ordinary tier-selected row, including product tests
     // co-located with helper tests. Policy-added evidence may widen this set.
     const rank = compiler.owner.tier_order.indexOf(compiler.owner.aggregate_tiers[target]);
@@ -126,9 +115,7 @@ export function assertHarnessTierRouting(context) {
       const members = plan.graph.units.filter((unit) => unit.current_run_evidence_outputs.includes(`rows/${rowID}.json`));
       assert.ok(members.every((unit) => projection.includes(unit.unit_id)), `${target}: row projection ${rowID}`);
     }
-    for (const entry of compiler.rawGoAggregates) {
-      assert.equal((plan.projections[entry.target] ?? []).includes(`raw_go:${entry.id}`), includesFull, `${target}: raw projection ${entry.id}`);
-    }
+
   }
   const check = plans.get("check");
   for (const rowID of retainedRows) assert.ok(rowIDs(check.graph).includes(rowID), rowID);
@@ -149,88 +136,53 @@ export function assertHarnessTierRouting(context) {
   }
   for (const target of ["backend-unit", "backend-integration", "backend-process"]) {
     const direct = compiler.compileTarget(target);
-    for (const entry of compiler.rawGoAggregates.filter((value) => value.target === target)) {
-      const id = `raw_go:${entry.id}`;
-      assert.deepEqual(direct.units.find((unit) => unit.unit_id === id), plans.get("test").graph.units.find((unit) => unit.unit_id === id));
-    }
+    assert.deepEqual(rowIDs(direct), compiler.targetRows.get(target).slice().sort(), `${target}: complete direct catalog selection`);
   }
 }
 
-export function assertRawTierValidation(context) {
-  const directory = mkdtempSync(path.join(tmpdir(), "cartulary-raw-tier-"));
+export function assertCatalogTopologyValidation(context) {
+  const directory = mkdtempSync(path.join(tmpdir(), "cartulary-catalog-topology-"));
   const manifestPath = path.join(directory, "tools/execution_topology_manifest.json");
   try {
     mkdirSync(path.join(directory, "tools"));
     writeFileSync(path.join(directory, "tools/task_surface_owner.json"), JSON.stringify(context.taskSurface));
     writeFileSync(path.join(directory, "tools/harness_work_graph_owner.json"), JSON.stringify(context.compiler.owner));
-    const invalid = [];
-    for (const tier of [undefined, null, "", "unknown", "FULL", false, 1, ["full"]]) {
-      const candidate = structuredClone(context.topology);
-      if (tier === undefined) delete candidate.go_targets.raw_go_aggregates[0].minimum_tier;
-      else candidate.go_targets.raw_go_aggregates[0].minimum_tier = tier;
-      invalid.push(candidate);
-    }
-    const omitted = structuredClone(context.topology);
-    delete omitted.go_targets.raw_go_aggregates;
-    invalid.push(omitted);
-    const legacy = { ...context.topology, schema_id: "cartulary.execution_topology.v8" };
-    invalid.push(legacy);
-    for (const candidate of invalid) {
+    const candidates = [
+      { ...context.topology, schema_id: "cartulary.execution_topology.v9" },
+      { ...context.topology, go_targets: { ...context.topology.go_targets, raw_go_aggregates: [] } },
+      ...[undefined, null, "./internal/testutil/configtest", ["../foreign"], ["./same", "./same"]].map((value) => ({
+        ...context.topology, go_targets: { ...context.topology.go_targets, catalog_packages: value },
+      })),
+    ];
+    for (const candidate of candidates) {
       writeFileSync(manifestPath, JSON.stringify(candidate));
-      assert.throws(() => validateSchemaSync(executionTopologySchemaID, candidate), /validation failed/u);
+      assert.throws(() => validateSchemaSync(executionTopologySchemaID, JSON.parse(JSON.stringify(candidate))), /validation failed/u);
       assert.throws(() => loadExecutionTopology({ root: directory, manifestPath }), /validation failed|must declare schema_id/u);
       assert.throws(() => new WorkGraphCompiler(directory), /validation failed|must declare schema_id/u);
     }
-    for (const tier of ["fast", "standard", "full", "release"]) {
-      const candidate = structuredClone(context.topology);
-      candidate.go_targets.raw_go_aggregates.forEach((entry) => { entry.minimum_tier = tier; });
-      writeFileSync(manifestPath, JSON.stringify(candidate));
-      const normalized = loadExecutionTopology({ root: directory, manifestPath });
-      assert.ok(normalized.goTargets.rawAggregates.every((entry) => entry.minimumTier === tier));
-      assert.ok(new WorkGraphCompiler(directory).rawGoAggregates.every((entry) => entry.minimum_tier === tier));
-    }
-    for (const mutate of [
-      (candidate) => candidate.go_targets.raw_go_aggregates.push(candidate.go_targets.raw_go_aggregates[0]),
-      (candidate) => { candidate.go_targets.raw_go_aggregates[0].target = "backend-absent"; },
-    ]) {
-      const candidate = structuredClone(context.topology);
-      mutate(candidate);
-      writeFileSync(manifestPath, JSON.stringify(candidate));
-      assert.throws(() => loadExecutionTopology({ root: directory, manifestPath }), /duplicate|unknown backend target/u);
-      assert.throws(() => new WorkGraphCompiler(directory), /duplicate|unknown backend target/u);
-    }
-    const empty = structuredClone(context.topology);
-    empty.go_targets.raw_go_aggregates = [];
-    writeFileSync(manifestPath, JSON.stringify(empty));
-    assert.deepEqual(new WorkGraphCompiler(directory).rawGoAggregates, []);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
 }
 
-export function assertIndependentRawTierSelection(context) {
+export function assertCatalogTierSelection(context) {
   const compiler = context.compiler;
   compiler.ensureCatalog();
-  // No catalog rows or policy roots can incidentally admit a backend target.
-  compiler._catalog = { ...compiler.catalog, rows: [], rowByID: new Map() };
-  compiler._targetRows = new Map();
-  compiler._rowTargets = new Map();
+  const independent = compiler.catalog.rows.filter((row) => row.runner === "go" && row.service_dependencies.length === 0).slice(0, 3);
+  const service = compiler.catalog.rowByID.get("harness.browser.integration.wstest_helper_contract");
+  const rows = [...independent, service].map((row, index) => ({ ...row, minimum_tier: compiler.owner.tier_order[index] }));
+  compiler._catalog = { ...compiler.catalog, rows, rowByID: new Map(rows.map((row) => [row.row_id, row])) };
   for (const target of Object.keys(compiler.owner.aggregate_tiers)) {
     compiler.owner.aggregate_policy_roots[target] = [];
     compiler.owner.aggregate_policy_inherits[target] = [];
   }
-  compiler.rawGoAggregates = compiler.rawGoAggregates.map((entry, index) => ({
-    ...entry, minimum_tier: compiler.owner.tier_order[index],
-  }));
   for (const [target, count] of [["test-fast", 1], ["check", 2], ["test", 3], ["ci", 3], ["release-check", 4]]) {
     const plan = compiler.compileAggregatePlan(target);
     assert.deepEqual(plan, compiler.compileAggregatePlan(target), `${target}: deterministic`);
     validateWorkGraph(plan.graph);
-    assert.deepEqual(plan.graph.units.filter((unit) => unit.unit_id.startsWith("raw_go:")).map((unit) => unit.unit_id).sort(),
-      compiler.rawGoAggregates.slice(0, count).map((entry) => `raw_go:${entry.id}`).sort());
-    assert.equal(plan.graph.units.some((unit) => unit.unit_id === "target:test-service-images"), count >= 3,
-      `${target}: only selected service consumers introduce readiness`);
+    assert.deepEqual(rowIDs(plan.graph), rows.slice(0, count).map((row) => row.row_id).sort());
+    assert.equal(plan.graph.units.some((unit) => unit.unit_id === "target:test-service-images"), count === 4,
+      `${target}: excluded service rows cannot introduce readiness`);
   }
-  compiler.rawGoAggregates = [];
-  assert.deepEqual(compiler.compileAggregate("release-check").units, []);
+  assert.deepEqual(rowIDs(compiler.compileRows([service.row_id])), [service.row_id], "explicit selection ignores aggregate tier");
 }

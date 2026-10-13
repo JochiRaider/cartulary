@@ -23,9 +23,36 @@ type Stream struct {
 	closed                     bool
 }
 
-// StagingPath is the exact current-epoch event stream consumed by graph units.
-// It is private until Close publishes the immutable terminal path.
-func (s *Stream) StagingPath() string { return filepath.Join(s.directory, s.temporary) }
+type StreamPrefix struct {
+	File, Device, Inode string
+	ByteLength          int64
+}
+
+// Prefix flushes the caller's complete records without publishing or copying
+// them. The owner must serialize Prefix with Write, Close and Abort.
+func (s *Stream) Prefix() (StreamPrefix, error) {
+	var empty StreamPrefix
+	if err := s.Flush(); err != nil {
+		return empty, err
+	}
+	if err := CheckDirectory(s.parent, s.directory); err != nil {
+		return empty, err
+	}
+	name := filepath.Join(s.directory, s.temporary)
+	info, err := s.file.Stat()
+	if err != nil {
+		return empty, err
+	}
+	current, err := os.Lstat(name)
+	if err != nil || !current.Mode().IsRegular() || !os.SameFile(info, current) {
+		return empty, errors.Join(err, ErrUnsafe)
+	}
+	identity, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || identity.Uid != uint32(os.Getuid()) || identity.Nlink != 1 || info.Mode().Perm() != 0600 || info.Size() <= 0 || info.Size() > 1<<53-1 {
+		return empty, ErrUnsafe
+	}
+	return StreamPrefix{File: name, Device: fmt.Sprint(identity.Dev), Inode: fmt.Sprint(identity.Ino), ByteLength: info.Size()}, nil
+}
 
 func NewStream(name string, bufferBytes int) (*Stream, error) {
 	parent, err := PrivateDirectory(filepath.Dir(name))

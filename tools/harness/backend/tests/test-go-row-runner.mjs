@@ -2,15 +2,40 @@
 
 import assert from "node:assert/strict";
 import path from "node:path";
+import os from "node:os";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 
 import {
   WorkGraphCompiler,
 } from "../../scheduler/work-graph/index.mjs";
-import { adaptGoInvocation } from "../../execution/runners/go.mjs";
+import { adaptGoInvocation, adaptGoInvocationFile } from "../../execution/runners/go.mjs";
 
 const invocation = {
   rows: [{ row_id: "row-a", selectors: ["TestA"] }],
 };
+const scratch = mkdtempSync(path.join(os.tmpdir(), "go-failure-details-"));
+try {
+  const file = path.join(scratch, "events");
+  const events = [];
+  for (let i = 0; i < 12; i++) {
+    const name = `TestA/case${i}`;
+    events.push({ Action: "output", Test: name, Output: `${"x".repeat(5000)}early assertion ${i}\n` });
+    events.push({ Action: "fail", Test: name });
+  }
+  events.push({ Action: "output", Test: "TestOther", Output: "unselected failure detail" }, { Action: "fail", Test: "TestOther" });
+  for (let i = 0; i < 100; i++) events.push({ Action: "output", Test: "TestLater", Output: "passing noise".repeat(100) });
+  writeFileSync(file, events.map((event) => JSON.stringify(event)).join("\n"), { mode: 0o600 });
+  let output;
+  const rows = await adaptGoInvocationFile(invocation, { stdoutPath: file }, (value) => { output = value; });
+  assert.equal(rows[0].terminal_state, "infrastructure_failed", "diagnostic detail cannot invent missing parent accounting");
+  assert.match(output, /early assertion 0/);
+  assert.match(output, /selected=8 omitted=4/);
+  assert.ok(!output.includes("passing noise") && !output.includes("unselected failure detail"));
+  assert.ok(Buffer.byteLength(output) < 40 * 1024);
+  writeFileSync(file, JSON.stringify({ Action: "pass", Test: "TestA" }));
+  await adaptGoInvocationFile(invocation, { stdoutPath: file }, (value) => { output = value; });
+  assert.equal(output, "");
+} finally { rmSync(scratch, { recursive: true, force: true }); }
 const passed = adaptGoInvocation(invocation, {
   status: 0,
   stdout: `${JSON.stringify({ Action: "pass", Test: "TestA", Elapsed: 0.01 })}\n`,

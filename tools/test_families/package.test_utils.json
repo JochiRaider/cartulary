@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "package.test_utils",
   "rows": [
     {
@@ -55,7 +55,8 @@
           "@cartulary/test-utils virtualized grid targeting treats a target unmounted between visibility and geometry reads as outside the viewport",
           "@cartulary/test-utils virtualized grid targeting treats an unmounted virtual target as outside the grid viewport",
           "@cartulary/test-utils virtualized grid targeting waits for target hydration when the grid never needs a scroll range"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",

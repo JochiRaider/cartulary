@@ -153,27 +153,27 @@ func stoppedWait() waitDetails { return waitDetails{"scheduler_stop", []string{}
 // the bounded mailbox. Required publication failure stops admission but still
 // drains every worker and finalizer; optional observation never owns outcomes.
 type graphEngine struct {
-	plan                    *Plan
-	ports                   enginePorts
-	ctx                     context.Context
-	cancel                  context.CancelFunc
-	mailbox                 chan engineMessage
-	byID                    map[string]unit
-	ranks, credits, claims  map[string]int64
-	shared                  map[string]int
-	exclusive               map[string]bool
-	running, eligible, warm map[string]bool
-	waits                   map[string]waitDetails
-	activities              map[string]string
-	activityWait            map[string]string
-	starts                  map[string]*int64
-	result                  graphResult
-	seq, lastMS             int64
-	phaseSequence           atomic.Int64
-	phase                   string
-	err                     error
-	stopAdmission           bool
-	deferredCache           []unit
+	plan                      *Plan
+	ports                     enginePorts
+	ctx                       context.Context
+	cancel                    context.CancelFunc
+	mailbox                   chan engineMessage
+	byID                      map[string]unit
+	ranks, eligibleAt, claims map[string]int64
+	shared                    map[string]int
+	exclusive                 map[string]bool
+	running, eligible         map[string]bool
+	waits                     map[string]waitDetails
+	activities                map[string]string
+	activityWait              map[string]string
+	starts                    map[string]*int64
+	result                    graphResult
+	seq, lastMS               int64
+	phaseSequence             atomic.Int64
+	phase                     string
+	err                       error
+	stopAdmission             bool
+	deferredCache             []unit
 }
 
 func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResult, error) {
@@ -187,8 +187,8 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	e := &graphEngine{plan: plan, ports: ports, ctx: ctx, cancel: cancel, mailbox: make(chan engineMessage, 256),
-		byID: map[string]unit{}, ranks: map[string]int64{}, credits: map[string]int64{}, claims: map[string]int64{},
-		shared: map[string]int{}, exclusive: map[string]bool{}, running: map[string]bool{}, eligible: map[string]bool{}, warm: map[string]bool{},
+		byID: map[string]unit{}, ranks: map[string]int64{}, eligibleAt: map[string]int64{}, claims: map[string]int64{},
+		shared: map[string]int{}, exclusive: map[string]bool{}, running: map[string]bool{}, eligible: map[string]bool{},
 		waits: map[string]waitDetails{}, activities: map[string]string{}, activityWait: map[string]string{}, starts: map[string]*int64{}, phase: "executing",
 		result: graphResult{States: map[string]string{}, Units: map[string]unitResult{}, Admissions: []string{}, Events: []map[string]any{}, Cleanup: []cleanupRecord{}}}
 	for _, u := range plan.facts.Graph.Units {
@@ -204,18 +204,15 @@ func executeGraph(ctx context.Context, plan *Plan, ports enginePorts) (graphResu
 		e.settleDependencies()
 		for ctx.Err() == nil && !e.stopAdmission && e.err == nil {
 			ready := e.ready()
+			barriers := readyExclusiveWaiters(ready)
 			for _, u := range ready {
-				e.openWait(u.ID, e.blocking(u), e.now())
+				e.openWait(u.ID, e.blocking(u, barriers), e.now())
 			}
-			chosen := e.choose(ready)
+			chosen := e.choose(ready, barriers)
 			if chosen == nil {
 				break
 			}
-			for _, other := range ready {
-				if other.ID != chosen.ID {
-					e.credits[other.ID]++
-				}
-			}
+
 			e.admit(*chosen)
 			e.settleDependencies()
 		}
@@ -301,7 +298,7 @@ func (e *graphEngine) emit(at int64, event, id, status string, extra map[string]
 	}
 	e.seq++
 	e.lastMS = max(e.lastMS, at)
-	r := map[string]any{"schema_id": "cartulary.harness_unit_event.v3", "seq": e.seq, "monotonic_ms": e.lastMS, "event": event, "unit_id": id, "status": status, "needs": needs, "resource_claims": claims, "service_dependencies": services}
+	r := map[string]any{"schema_id": "cartulary.harness_unit_event.v4", "seq": e.seq, "monotonic_ms": e.lastMS, "event": event, "unit_id": id, "status": status, "needs": needs, "resource_claims": claims, "service_dependencies": services}
 	if event == "queued" {
 		r["unit_kind"] = u.Kind
 		r["row_ids"] = rowIDs(u)
@@ -314,7 +311,7 @@ func (e *graphEngine) emit(at int64, event, id, status string, extra map[string]
 		var normalized any
 		normalized, err = harnessschema.Decode(data)
 		if err == nil {
-			err = harnessschema.Validate("cartulary.harness_unit_event.v3", normalized)
+			err = harnessschema.Validate("cartulary.harness_unit_event.v4", normalized)
 		}
 	}
 	if err != nil {
@@ -383,8 +380,21 @@ func (e *graphEngine) ready() []unit {
 	}
 	return ready
 }
-func (e *graphEngine) blocking(u unit) waitDetails {
-	w := waitDetails{"capacity", []string{}, []string{}}
+
+// The ready set is immutable during one scheduling decision or snapshot. Index
+// its exclusive waiters once, rather than rescanning every ready peer for every
+// pending unit. Rebuild after each reservation transition to retain exact facts.
+func readyExclusiveWaiters(ready []unit) map[string][]string {
+	waiters := map[string][]string{}
+	for _, u := range ready {
+		for _, lock := range u.ExclusiveLocks {
+			waiters[lock] = append(waiters[lock], u.ID)
+		}
+	}
+	return waiters
+}
+func (e *graphEngine) blocking(u unit, barriers map[string][]string) waitDetails {
+	w := waitDetails{"rank", []string{}, []string{}}
 	locks := []string{}
 	for r, n := range u.Claims {
 		if e.claims[r]+n > e.plan.facts.Capacities[r] {
@@ -421,6 +431,22 @@ func (e *graphEngine) blocking(u unit) waitDetails {
 	slices.Sort(w.units)
 	if len(w.resources) > 0 {
 		w.reason = "resources"
+		return w
+	}
+	for _, l := range u.SharedLocks {
+		for _, other := range barriers[l] {
+			if other != u.ID {
+				w.resources = append(w.resources, "lock_"+lockToken(l))
+				w.units = append(w.units, other)
+			}
+		}
+	}
+	slices.Sort(w.resources)
+	slices.Sort(w.units)
+	w.resources = slices.Compact(w.resources)
+	w.units = slices.Compact(w.units)
+	if len(w.units) > 0 {
+		w.reason = "exclusive_barrier"
 	}
 	return w
 }
@@ -438,19 +464,13 @@ func lockToken(s string) string {
 	}
 	return b.String()
 }
-func (e *graphEngine) choose(ready []unit) *unit {
+func (e *graphEngine) choose(ready []unit, barriers map[string][]string) *unit {
 	ordered := slices.Clone(ready)
 	now := e.now()
 	quantum := max(1, e.plan.facts.AgingMS)
 	slices.SortFunc(ordered, func(a, b unit) int {
-		if e.warm[a.Affinity] != e.warm[b.Affinity] {
-			if e.warm[a.Affinity] {
-				return -1
-			}
-			return 1
-		}
-		ar := e.ranks[a.ID] + (now/quantum+e.credits[a.ID])*quantum
-		br := e.ranks[b.ID] + (now/quantum+e.credits[b.ID])*quantum
+		ar := e.ranks[a.ID] + max(0, now-e.eligibleAt[a.ID])/quantum*quantum
+		br := e.ranks[b.ID] + max(0, now-e.eligibleAt[b.ID])/quantum*quantum
 		if ar > br {
 			return -1
 		}
@@ -460,31 +480,38 @@ func (e *graphEngine) choose(ready []unit) *unit {
 		return strings.Compare(a.ID, b.ID)
 	})
 	for _, u := range ordered {
-		if len(e.blocking(u).resources) > 0 {
-			continue
-		}
-		blocked := false
-		for _, l := range u.SharedLocks {
-			for _, other := range ready {
-				if other.ID != u.ID && slices.Contains(other.ExclusiveLocks, l) {
-					blocked = true
-				}
-			}
-		}
-		if !blocked {
+		if e.blocking(u, barriers).reason == "rank" {
 			return &u
 		}
 	}
 	return nil
 }
 func (e *graphEngine) openWait(id string, w waitDetails, at int64) {
-	if e.eligible[id] {
-		return
+	if prior, ok := e.waits[id]; ok {
+		if prior.reason == w.reason && slices.Equal(prior.resources, w.resources) && slices.Equal(prior.units, w.units) {
+			return
+		}
+		e.closeWait(id, at)
 	}
-	e.eligible[id] = true
+	if !e.eligible[id] {
+		e.eligible[id] = true
+		e.eligibleAt[id] = at
+		e.emit(at, "eligible", id, "pending", nil)
+	}
 	e.waits[id] = w
-	e.emit(at, "eligible", id, "pending", nil)
 	e.emit(at, "wait_started", id, "pending", w.fields())
+}
+
+// Refresh after each reservation change, including batched completions. The
+// state transition and both segment boundaries share one canonical instant.
+func (e *graphEngine) refreshWaits(at int64) {
+	ready := e.ready()
+	barriers := readyExclusiveWaiters(ready)
+	for _, u := range ready {
+		if e.eligible[u.ID] {
+			e.openWait(u.ID, e.blocking(u, barriers), at)
+		}
+	}
 }
 func (e *graphEngine) closeWait(id string, at int64) {
 	w, ok := e.waits[id]
@@ -564,12 +591,12 @@ func (e *graphEngine) admit(u unit) {
 	e.result.States[u.ID] = "running"
 	e.result.Units[u.ID] = unitResult{Cache: c}
 	e.activities[u.ID] = "admitted"
-	delete(e.warm, u.Affinity)
 	e.running[u.ID] = true
 	e.reserve(u, 1)
 	e.result.Admissions = append(e.result.Admissions, u.ID)
 	e.emit(at, "admitted", u.ID, "running", nil)
 	e.emit(at, "started", u.ID, "running", nil)
+	e.refreshWaits(at)
 	go e.work(u, c)
 }
 func (e *graphEngine) settleDependencies() {
@@ -654,10 +681,7 @@ func (e *graphEngine) complete(m engineMessage) {
 	e.result.States[m.ID] = r.Status
 	e.result.Units[m.ID] = r
 	if r.RetainedFixture {
-		e.warm[u.Affinity] = true
 		e.deferredCache = append(e.deferredCache, u)
-	} else {
-		delete(e.warm, u.Affinity)
 	}
 	event := "completed"
 	if r.Status != "passed" {
@@ -668,6 +692,7 @@ func (e *graphEngine) complete(m engineMessage) {
 		}
 	}
 	e.emit(m.At.Milliseconds(), event, m.ID, r.Status, failureFields(r.Failure))
+	e.refreshWaits(e.lastMS)
 	e.observe()
 }
 func (e *graphEngine) observe() {
@@ -675,6 +700,7 @@ func (e *graphEngine) observe() {
 		return
 	}
 	s := engineSnapshot{Phase: e.phase, ElapsedMS: e.now(), Units: []unitSnapshot{}}
+	barriers := readyExclusiveWaiters(e.ready())
 	for _, u := range e.plan.facts.Graph.Units {
 		status := e.result.States[u.ID]
 		r := e.result.Units[u.ID]
@@ -699,7 +725,7 @@ func (e *graphEngine) observe() {
 			if len(v.BlockingUnits) > 0 {
 				v.WaitReason = "dependencies"
 			} else if _, ok := e.waits[u.ID]; ok {
-				w := e.blocking(u)
+				w := e.blocking(u, barriers)
 				v.WaitReason = w.reason
 				v.BlockingResources = w.resources
 				v.BlockingUnits = w.units

@@ -19,7 +19,7 @@ import {
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import {
   collectFrontendMeasurementObservations,
-  currentUnitEventFile,
+  currentUnitEventSource,
   readMeasurementSchedulerEvidence,
 } from "./frontend-measurement-evidence.mjs";
 
@@ -136,7 +136,7 @@ async function main() {
     "browser-group-result.json",
   );
   const schedulerEvidence = await readMeasurementSchedulerEvidence(
-    currentUnitEventFile(base),
+    currentUnitEventSource(base),
     { group_id: options.group, stage_id: options.stage },
   );
   if (!existsSync(contained(base, groupResultRelative))) {

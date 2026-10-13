@@ -10,6 +10,133 @@ authority_boundary: Human implementation tracker and rationale; the Testing Harn
 
 ## Baseline and authorization
 
+### Current assurance execution status — E-086
+
+**S-065–S-073 / V-068–V-076 are DONE. F-061–F-067 are CLOSED.**
+Specification, implementation, validation, migration and handoff are complete
+for the selected remediation on freeze17 `d97866cb…`; final handoff below
+preserves historical failures, causal limits, assertion dispositions and migration.
+
+| Exact final-source evidence | Native exit | Outcome |
+| --- | --- | --- |
+| [Warm check17](../../.cartulary/test-results/assurance-s073-warm-check-20261013-17/run-summary.json) | 66330 / 0 | 733/733 units; 992 completed cleanups; scan PASS 4,955 files; all six readers passed |
+| [Full CI12](../../.cartulary/test-results/assurance-s073-ci-20261013-12/run-summary.json) | 32428 / 0 | 1,138/1,138 units; 1,759 completed cleanups; scan PASS 10,402 files; all six readers passed |
+
+Latest check: outer **9m49.490s**, graph **8m02.743s**, retained scan **1m40.560s**
+(**17.1%**). Build-operator queued **705ms** and executed **3,377ms**. CI outer
+was **46m02.280s**; graph **43m35.411s**, scan **2m18.700s**; operator queue
+**757ms**, execution **3,228ms**. Earlier admission is observed; these runs do not
+establish an overall throughput improvement. Sampling/execution are explicitly
+partial/truncated, and qualification stays **DEFERRED at 44.952/90 minutes**.
+
+Installed boundary/workflow/seeded checks, generation/finalization and all eleven
+final gates passed on the same source. Finalization19 changed no executable files;
+RESULTS_DIR was unset, so retained-run maintenance was skipped. All 377 frozen
+non-Markdown hashes and the complete entry-relative path set agree after CI12.
+No default private runtime owners or running containers remain. No new recovery
+script was needed for this cycle; earlier authorized recoveries remain preserved.
+
+CI11's candidate-control race has independent failing/passing browser evidence.
+Its original UI-review cleanup cause remains unknown; current closure and recovery
+preserve closed release context without exposing private errors. The final CI
+passes both affected rows, which does not retroactively explain historical cleanup.
+This is selected functional remediation, not a whole-repository audit or resumed
+instrumentation qualification.
+
+### Authorized assurance and execution remediation — E-077 / S-065 entry
+
+The user authorized the accepted S-065–S-073 plan on 2026-10-12. Entry is clean
+`18aa10063575821fe26b0bbfe2198df3065d4e36`; this supersedes planning-only scope
+for these new slices. S-058–S-064 and F-056–F-060 remain completed historical
+work at E-076, not reopened findings. The entry tracker is preserved at
+`/tmp/cartulary-remediation-s065-20261012/tracker-entry.md`, SHA-256
+`1b40384693e1d9c9ae912c42b22c4a4124e4767f9973f781c3314e815cd84be1`.
+
+This is the initial saved execution checkpoint. The sequence is strictly
+**S-065 → S-066 → S-067 → S-068 → S-069 → S-070 → S-071 → S-072 → S-073**.
+Each slice is a separate workstream, requires its predecessor's exit evidence,
+and saves this tracker before its successor begins. A required failed gate
+prevents DONE. S-073 is the mandatory validation and handoff completion slice.
+
+| Slice / workstream | Finding | Accepted remediation and exit |
+| --- | --- | --- |
+| S-065 / WF-65 | F-061–F-067 | Specification closure and independent characterization; inspect the operator prerequisite/admission path first, close duplicate/caller/assertion/routing ledgers, record live-session inventory and private cutovers; V-068. |
+| S-066 / WF-66 | F-061 | Catalog all 61 residual raw-selected Go functions; preserve the 45 overlapping catalog selections and any independently required distinct context; retire raw aggregate selection and schema/compiler paths; exact tier/direct/owner closure, V-069. |
+| S-067 / WF-67 | F-062 | Canonical leaf assurance units for overlapping CI harness entrypoints; retain distinct race, installed, lifecycle, adapter and observation boundaries; eliminate shared test registration and redundant dispatch; V-070. |
+| S-068 / WF-68 | F-066 | Replace three stale broad test-services integrations with routed bounded installed-boundary assertions for one owner, selected services, capability-specific isolation, owned cleanup and borrowed protection; V-071. |
+| S-069 / WF-69 | F-067 | Replace incidental filename/count/source-spelling guards with owner-backed import/AST/type/behavior assertions, including upload authority and producer ordering; benign refactors pass and architectural/security mutations fail; V-072. |
+| S-070 / WF-70 | F-065 | Canonical ordered wait segments track changed blockers/holders and fitting rank waits; update native/Node accounting, schemas and bounded readers together with no second reducer; exact timing union and malformed-input rejection, V-073. |
+| S-071 / WF-71 | F-064 | Native critical-path rank plus elapsed eligible waiting age; remove dispatch credits/warm precedence, retain fitting backfill/exclusivity/cancellation, investigate earlier operator-chain admission without special priority or more concurrency; V-074. |
+| S-072 / WF-72 | F-063 | One fresh Vitest process per compatible selected file group, typed singleton exceptions, exact row selection and outcomes, matching worker claims and semantic identity; no cross-file worker pool; V-075. |
+| S-073 / WF-73 | F-061–F-067 | Installed checks then agent-finalize, inspect/regenerate/freeze, final contracts/lints/projections/frontend checks, cache-off basic-diagnostics full warm check and full-tier ci, exact-run readers/native exits/scans, all twelve sections and final handoff; V-076. |
+
+**Design and rationale.** The adopted Testing Harness NLSpec owns observable
+behavior; domain.md supplies vocabulary/navigation only. One catalog replaces
+parallel raw selection. Existing catalog rows survive duplicate consolidation;
+a distinct execution context survives only when it proves a named requirement.
+Public harness commands project canonical assurance leaf unions, not nested
+schedulers. Native scheduling uses actual eligible wait age, not dispatch count
+or fixture warmth. Wait evidence follows changing authority/holders. Frontend
+sharing stops at a compatible file boundary. Tests protect behavior and genuine
+architectural boundaries rather than incidental representation. These structural
+changes reduce duplicated selection, drifting policy, false confidence and
+unnecessary compatibility burden while retaining required isolation and evidence.
+
+**Per-gap impact and risk.** F-061 changes specification, topology/schema,
+catalog/compiler, tests and documentation: uncorrected parallel inventories risk
+duplicate or missing assurance; migrate all functions before deleting raw inputs.
+F-062 changes task/catalog/graph routing and tests: repeated CI work conceals
+coverage identity; public operations retain their assertion unions while private
+units change. F-063 changes specification, catalog schema, compiler/runner/tests:
+repeated startup wastes resources, but batching must not hide contamination or
+missing cases; row IDs survive, private units/cache identities change. F-064
+changes specification/native scheduler/tests: dispatch frequency and warmth can
+override intended rank; ordering intentionally changes without capacity/deadline
+changes. F-065 changes specification/event schemas/producers/accounting/readers:
+stale initial blockers invite incorrect tuning; changed contracts version once,
+historical bytes remain immutable, unsupported readers reject. F-066 changes
+support tests/routing/acceptance examples: obsolete wrapper and fixture assumptions
+can freeze defects; replace assertions before deletion. F-067 changes tests and
+architectural projections: incidental spelling rejects harmless refactors and
+misses equivalent violations; retain all justified security/ownership boundaries.
+
+**Baseline and limits.** E-076's exact retained warm run is
+`.cartulary/test-results/lifecycle-s064-warm-check-20261012-01`: native exit 0,
+982/982 units, 1,241 completed cleanups, retained scan PASS; outer 458,970 ms,
+graph 447,012 ms, critical path 444,702 ms including 410,905 ms queued.
+Build-operator queued 337,305 ms and executed 3,453 ms; its following Recovery
+process unit queued 73,597 ms and executed 22,260 ms. Initial wait metadata is
+not complete causal attribution. CPU/object-store reservation saturation is not
+consumption. Resource observations were partial/truncated. Frontend selected
+667 rows in 393 files; cumulative pre-suite time is overlapping setup/loading,
+not wall time or module-loading proof. The 45 raw overlaps occur in full-tier
+routes and cannot be credited as improvement to this historical check.
+
+**Validation and migration.** Use public Make routes, fresh explicit run IDs,
+native exit capture and preserved failed attempts. After authored projection
+changes run generate, generate-drift, generated-artifact-policy-check and
+json-shape-check. Tests and generators never consume Markdown. Inventory affected
+sessions immediately before private/binary cutover and drain under their existing
+revision; ambiguity blocks that environment. Rollback restores coherent source,
+projections and binary under the same gate. No aliases, dual readers or second
+runner/reducer. Record every assertion's survivor or justified retirement.
+After finalizer inspection freeze executable source; later executable repairs
+invalidate affected passes. Final check uses cache off and basic diagnostics;
+full-tier ci validates work check does not select. Exact readers, native exit,
+cleanup and scan must agree before completion. RESULTS_DIR is supplied to
+agent-finalize only for eligible evidence, otherwise its maintenance skip is
+explicit. Checkpoints bind changes, source/toolchain, commands/roots/exits,
+cache posture, failures, cleanup, migration and successor readiness.
+
+Correctness and stable performance take priority over a promised speedup.
+Fresh frontend process-per-file grouping is the accepted default. Do not raise
+concurrency, relax deadlines/observation limits, pad work, refresh goldens,
+or enable diagnostics by default. Existing capacities and primary failures
+remain. Broader audit coverage stays explicitly partial. Historical E-068
+observation/admission failure remains causally unexplained. F-022/RB-006 and
+S-020–S-022 remain DEFERRED at **44.952/90 minutes**. No qualification acquisition
+or external telemetry is authorized by this remediation.
+
 ### Authorized remediation execution — E-076 / S-064 DONE
 
 The user explicitly authorized implementation of S-058–S-064 on 2026-10-12.
@@ -663,6 +790,14 @@ improvement or default-on claim.
 
 ## 1. Scope and Source Posture
 
+### Assurance remediation entry — E-077
+
+S-065–S-073, T-078–T-086 and V-068–V-076 are DONE; F-061–F-067 are CLOSED.
+Final source freeze17 d97866cb… passes installed boundaries, finalization, eleven
+final gates, warm check17 and CI12 with exact native exits/readers/cleanup/scans.
+All twelve sections and final documentation were reconciled. Historical failures,
+causal limits, the selected audit scope and deferred qualification remain explicit.
+
 ### Authorized implementation scope — E-076 complete
 
 The user authorized implementation of S-058–S-064, superseding E-069's document-only
@@ -900,6 +1035,43 @@ target. Ignored caches, dependencies and retained outputs are excluded from sour
 inventory. This is a bounded subsystem inspection, not a whole-repository audit.
 
 ## 2. Current-State Repository Inventory
+
+### Assurance remediation entry — E-077
+
+Affected owners: native runtime scheduling/canonical accounting; graph compiler and execution-topology normalization; catalog selectors and schemas; task-surface/CI projections; Vitest runner/report adaptation; test-services installed boundary; frontend architectural guards. Selected inspection is not a whole-repository audit. The 106-function raw-selection ledger is preserved below; 45 existing selections survive and all 61 residual functions now have catalog rows (E-079).
+
+### Changed-file inventory — S-065–S-073 execution
+
+The freeze17 candidate spans 382 paths relative to entry: 378
+belong to this remediation, and four instruction/lint paths were committed
+concurrently at 70004ad9…. The remediation changes 212 paths under `tools/harness/**`,
+66 family manifests, 20 schema paths, 46 `internal/testutil/**` paths, twelve frontend
+test files, three contract inputs, three test-services paths, two documentation
+files, one generated extension file, one extension contract test and twelve other
+machine owner/projection paths. The freeze17 inventory binds 377 non-Markdown
+paths including the concurrent lint configuration; 376 belong to this remediation.
+Documentation is excluded from executable identity.
+Generated files are regenerated from authored owners; no Markdown is an input.
+The S-072 checkpoint's 326-path counts remain source-specific historical evidence.
+
+| Workstream | Changed owners and responsibilities |
+| --- | --- |
+| S-065 | This tracker and `docs/testing-harness-nlspec.md`; specification/characterization ledgers E-078. `docs/domain.md` inspected, unchanged. |
+| S-066 | `tools/harness_work_graph_owner.json`, topology normalizer and `scheduler/work-graph/compiler.mjs`, v10 topology schema; catalog selector/metadata/tier/cutover tests; residual Go family declarations; extension dependency contract/test and PostgreSQL fixture policy; pgtest/s3test supporting assertions. |
+| S-067 | `tools/task_surface_owner.json`, `tools/harness_helper_ownership.json`, canonical harness leaf declarations/routing; contract suite support, catalog/tier/command tests; retired `test-support/browser-contract-tests.mjs`; generated task surface/topology. |
+| S-068 | `tools/testservices/main.go`, `main_test.go`, deleted `integration_test.go`; new `harnessruntime/boundary/selected_services_linux_test.go`; `harnessruntime/run_linux.go` selected-service union; pgtest assertion and verification/catalog routing. |
+| S-069 | Eight frontend guards: runtime architecture, Network Flow boundary, workbook evidence, source ownership, transport boundary, inspector error, workbook layout and timeline composition; harness frontend producer graph assertions. |
+| S-070 | Native `harnessruntime/{engine,canonical,live_linux}.go`, native observation/tests and `harnessdiag/observation.go`; canonical Node evidence/accounting/performance readers, presentation, diagnostics and fixtures; event v4, live/observation v3, performance v4 schemas and attachments. |
+| S-071 | Native `engine.go` and `engine_test.go`: elapsed eligible age, rank, fitting backfill and stable tie ordering; retired dispatch-credit/warm priority. |
+| S-072 | Graph compiler, catalog `selector-resolution.mjs`/facade/validator, Vitest runner and CLI, exact observation/report adapters and real diagnostics fixtures, native `publication_linux.go`; family v7/project registry v2 and all 66 families; 13 duplicate title dispositions, two retired row IDs and migration ledger; UI-review source schema consumer. |
+| S-073 | Native engine ready-exclusive index and overlapping-owner regression; physical fixture environment replacement; performance-fixture admitted scope and early cleanup; native complete-record prefix issuance, typed private prefix schema, strict bounded canonical reader, both browser finalizer consumers and adversarial stream/graph/frontend-artifact regressions; ignored real Vitest fixture; canonical graph test routing in task-surface owner and generated projections; explicit orphan-fixture child readiness in the existing native test binary; observation-only admission fences and native cleanup classification; provider-declared TLS cleanup files and coordinated start_result.v2 consumers/schema; physical recovery credential and prerequisite assertions; browser target failure preservation and focused keyboard-fixture repair; bounded private session v3 rejection diagnostics, coordinated native/Node/schema consumers and privacy assertions; artifact-worker inherited admission authority; accepted control-reply draining and deterministic pipe regression; deadline-capable private adapter descriptors, checked write deadlines and one intentional cancellation path with controlled real-process coverage; bounded exact-drop wait observations and redaction assertion in recoverybrowsertest; an explicit outage window in the indicator-observation recovery fixture; durable browser launch settlement and reset acknowledgement with independent regressions; service-supervisor anchor retention and explicit native environment binding; bounded redacted Go failure excerpts in the existing single parse and restored public routing of Go adapter assertions; bounded checkpoint wait/progress snapshots and a routed real database-local blocking case; explicit runtime authority forwarded by browser retirement, reset and acquisition with independent orphan-service cases; one native template-clone operation shared by pgtest, Recovery browser fixtures and performance fixtures, with owned-cluster preparation checkpoint/isolation coverage; exact delayed-candidate control activation with routed real-browser coverage; closed release context shared by native review closure/recovery and private failed-workflow evidence preservation; this handoff. No compatibility alias, deadline or capacity increase. |
+| Generated closure | `tools/task_surface.generated.mk`, task/topology manifests and render index, generated schema validators, native policy/schema data and extension artifacts. Authored inputs precede Make generation; E-079–E-086 record drift/policy/shape gates. |
+
+The per-workstream entries below retain exact affected callers, removed-assertion
+owners, generation steps and failed attempts. Broader unread lifecycle/repository
+files remain outside this selected audit; generated/reference searches are not
+promoted to behavioral inspection.
+
 
 ### Affected inspection and file disposition — E-076 complete
 
@@ -1530,7 +1702,148 @@ work concerns harness service/clock/cleanup support, not visual design or golden
 changes. The next discovery boundary is S-015's exact dynamic wrapper/helper and
 qualification workload roster, under the already specified owners and gates.
 
+
+### Raw selection entry ledger — S-065
+
+This reviewed source inventory is historical selection evidence, not an executable registry.
+
+| Package / function | Surviving catalog row or required migration |
+| --- | --- |
+| `./internal/testutil/configtest` / `TestLoadFixture` | `harness.command_surface.unit.configtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/configtest` / `TestOverlayAppliesToFixture` | `harness.command_surface.unit.configtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/configtest` / `TestInvalidFixtureMatchesGolden` | `harness.command_surface.unit.configtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/configtest` / `TestSetupTempRootsCreatesDeterministicSubpaths` | `harness.command_surface.unit.configtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestMigrationActivityPrivatePublicationAndShutdown` | `harness.evidence_accounting.behavior.local_migration_activities` |
+| `./internal/testutil/suiteservices` / `TestMigrationActivityMeasuresOnlyOperationAndRetainsFailure` | `harness.evidence_accounting.behavior.local_migration_activities` |
+| `./internal/testutil/suiteservices` / `TestMigrationActivityFatalExitRetainsIncompleteBeginning` | `harness.evidence_accounting.behavior.local_migration_activities` |
+| `./internal/testutil/suiteservices` / `TestCheckServiceDependenciesAllowsExplicitDirectInvocation` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestCheckServiceDependenciesRejectsOmittedService` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestCheckServiceDependenciesRejectsMalformedAssignment` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestProducerJournalIsBoundedAndRejectsCompletedCorruption` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestProducerJournalRejectsSymlinkDestination` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestProducerJournalRejectsSequenceGapsAndDuplicates` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestScopeV2OmitsExactResourcesAndPrivateLedgerIsOwnerOnly` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestRefreshSummaryPublishesCompleteSnapshotsUnderConcurrency` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestSummarizeReportsPostgresDatabasePreparations` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestRecordLifecycleEventTracksConcurrentChildrenAndIllegalTransitions` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestRecordLifecycleFailureEventWritesFailureFields` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestRecordLifecycleEventRejectsDuplicateChildAndTerminalMutation` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestSummarizeReportsFixtureActivity` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestSummarizeBoundsStrategyDiagnosticsWithoutLosingTotals` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestSummarizeStrategyIdentityIncludesFixtureClassAndCountTieOrdering` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestSummarizeReportsBrowserE2EFixtureLifecycle` | `harness.evidence_accounting.unit.suiteservices_helper_contract` (S-066/E-079) |
+| `./internal/testutil/suiteservices` / `TestResolveResultsRootCanonicalPaths` | `harness.evidence_accounting.behavior.local_migration_activities` |
+| `./internal/testutil/suiteservices` / `TestResolveSuiteRuntimeDirRejectsUnsafeRoots` | `harness.evidence_accounting.behavior.local_migration_activities` |
+| `./internal/testutil/suiteservices` / `TestResolveRunIDAndTargetEnvironment` | `harness.evidence_accounting.behavior.local_migration_activities` |
+| `./internal/testutil/testfailure` / `TestEncodeProducesBoundedMarkerWithoutDiagnosticText` | `harness.evidence_accounting.unit.testfailure_helper_contract` (S-066/E-079) |
+| `./internal/testutil/testfailure` / `TestEnvelopeRejectsUnregisteredValues` | `harness.evidence_accounting.unit.testfailure_helper_contract` (S-066/E-079) |
+| `./internal/testutil/httptestx` / `TestProjectionCapabilityCallerMatrix` | `module.projections.testsupport.projection_capability_caller_matrix_6f21615b92` |
+| `./internal/testutil/httptestx` / `TestHarnessBootsServerAndAssertsEnvelopes` | `app.server.integration.http_harness_restart_storage` |
+| `./internal/testutil/httptestx` / `TestStartServerHonorsTestRouteMode` | `app.server.integration.http_harness_restart_storage` |
+| `./internal/testutil/httptestx` / `TestApplyTestRouteModeRejectsMissingAndUnknownModes` | `harness.browser.unit.httptestx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/httptestx` / `TestRequireAuthCookies` | `harness.browser.unit.httptestx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness` | `harness.browser.unit.pgtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent` | `harness.browser.unit.pgtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestCreateDatabaseRejectsOmittedServiceBeforeAcquisition` | `harness.browser.unit.pgtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestPostgresSetupEnvelopeNormalizesReadinessAndCancellation` | `harness.browser.unit.pgtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestDatabaseNamesAreUniqueAcrossSimulatedProcesses` | `harness.browser.unit.pgtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestPostgresContainerWaitStrategyOnlyWaitsForPortMapping` | `harness.browser.unit.pgtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestOwnedPostgresAppliesContainerLabels` | `platform.postgres.support_unit.certificate_fixture_lifecycle` |
+| `./internal/testutil/pgtest` / `TestOwnedPostgresRetriesReadinessTimeoutAndTerminatesFailedAttempt` | `platform.postgres.support_unit.certificate_fixture_lifecycle` |
+| `./internal/testutil/pgtest` / `TestOwnedPostgresDoesNotRetryAuthenticationReadinessFailure` | `platform.postgres.support_unit.certificate_fixture_lifecycle` |
+| `./internal/testutil/pgtest` / `TestPostgresWaitReadyRespectsContextCancellation` | `harness.browser.unit.pgtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay` | `platform.postgres.support_unit.certificate_fixture_lifecycle` |
+| `./internal/testutil/pgtest` / `TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage` | `harness.browser.unit.pgtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestValidateSelectedPostgresFixturePolicy` | `harness.browser.unit.pgtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestPrepareIsolatedDatabaseTUsesFreshTemplateClones` | `harness.browser.unit.pgtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/pgtest` / `TestPrepareIsolatedDatabaseTCleanupDropsStandaloneDatabase` | `module.database_migrations.unit.test_harness_targeted_operation_validation` |
+| `./internal/testutil/pgtest` / `TestDatabaseCleanupUsesBoundedForcedFallbackOnlyForOwnedActiveDatabase` | `module.database_migrations.unit.test_harness_targeted_operation_validation` |
+| `./internal/testutil/pgtest` / `TestDatabaseCleanupUsesFreshForcedFallbackAfterBoundedNormalTimeout` | `module.database_migrations.unit.test_harness_targeted_operation_validation` |
+| `./internal/testutil/pgtest` / `TestDatabaseCleanupDoesNotForceNonConnectionFailure` | `module.database_migrations.unit.test_harness_targeted_operation_validation` |
+| `./internal/testutil/pgtest` / `TestPrepareIsolatedDatabaseTCleanupDropsAttachedSuiteTemplateClone` | `module.database_migrations.unit.test_harness_targeted_operation_validation` |
+| `./internal/testutil/pgtest` / `TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase` | `module.database_migrations.unit.test_harness_targeted_operation_validation` |
+| `./internal/testutil/pgtest` / `TestMigrationDatabaseTCleanupDropsAttachedSuiteScratchDatabase` | `module.database_migrations.unit.test_harness_targeted_operation_validation` |
+| `./internal/testutil/pgtest` / `TestMigrationDatabaseTargetedOperationValidation` | `module.database_migrations.unit.test_harness_targeted_operation_validation` |
+| `./internal/testutil/pgtest` / `TestHarnessStartsPostgresAndRunsCurrentMigrationPath` | `platform.postgres.integration.fresh_fixture_admission` |
+| `./internal/testutil/pgtest` / `TestPrepareIsolatedDatabaseTReturnsMigratedDatabase` | `platform.postgres.integration.fresh_fixture_admission` |
+| `./internal/testutil/pgtest` / `TestBeginRollbackDBTIsolatesRowsPerTransaction` | `harness.browser.integration.postgres_transaction_isolation` (S-066/E-079) |
+| `./internal/testutil/s3test` / `TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent` | `harness.browser.unit.s3test_helper_contract` (S-066/E-079) |
+| `./internal/testutil/s3test` / `TestBucketNamesAreUniqueAcrossSimulatedProcesses` | `harness.browser.unit.s3test_helper_contract` (S-066/E-079) |
+| `./internal/testutil/s3test` / `TestObjectStoreContainerWaitStrategyOnlyWaitsForPortMapping` | `harness.browser.unit.s3test_helper_contract` (S-066/E-079) |
+| `./internal/testutil/s3test` / `TestSeaweedFSS3AllowedOriginsDefaultSupportsLoopbackBrowserPortRange` | `harness.browser.unit.object_store_secure_origins` |
+| `./internal/testutil/s3test` / `TestOwnedObjectStoreAppliesContainerConfiguration` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestOwnedObjectStoreReadinessTimeoutIsTerminalForTheStartedLane` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestOwnedObjectStoreCleanupFailureRemainsSecondaryTypedEvidence` | `harness.browser.unit.s3test_helper_contract` (S-066/E-079) |
+| `./internal/testutil/s3test` / `TestOwnedObjectStoreRetriesOnlyPreReadinessStartupAndUsesFreshReadinessContext` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestOwnedObjectStoreDoesNotRetryAuthenticationReadinessFailure` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestObjectStoreMutationProbeRetriesTransientStagesOnSameLane` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestObjectStoreMutationProbeRejectsCapabilitiesImmediately` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestObjectStoreMutationProbeDeadlineRetainsCleanupEvidence` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestObjectStoreMutationProbePreservesPrimaryFailureDuringCleanupFailure` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestAttachedObjectStoreUsesMutationProbeContract` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestPackageBucketAdmissionProbesWithoutRemovingTheBucket` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestObjectStoreMutationProbeRejectsSizeMismatch` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestCreateBucketRejectsOmittedServiceBeforeClientAcquisition` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestPreparePackageBucketCoreClassifiesPutDeadlineAndCleanupFailure` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestPreparePackageBucketCoreRejectsCapabilityAndCancellation` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestPreparePackageBucketCoreReusesPackageBucket` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestPreparePackageBucketCoreAdmitsDistinctPackagesConcurrently` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/s3test` / `TestHarnessStartsSeaweedFSS3AndRoundTripsObjects` | `harness.browser.integration.object_store_fixture_roundtrip` |
+| `./internal/testutil/s3test` / `TestCleanupPrefixPreservesSiblingObjects` | `harness.browser.integration.object_store_fixture_roundtrip` |
+| `./internal/testutil/s3test` / `TestResetBucketPreservesNamespaceAndProvesMutation` | `harness.browser.unit.object_store_fixture_admission` |
+| `./internal/testutil/testcontainersx` / `TestInstalledOnlyRejectsImageAcquisitionWithoutCallingDocker` | `harness.browser.boundary_support.installed_only_images` |
+| `./internal/testutil/testcontainersx` / `TestStartWithRetryFailsFastOnPreflightError` | `harness.browser.unit.testcontainersx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/testcontainersx` / `TestStartWithRetryRetriesTransientDockerStartupError` | `harness.browser.unit.testcontainersx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/testcontainersx` / `TestStartWithRetryDoesNotRetryWithoutDeclaredAttempts` | `harness.browser.unit.testcontainersx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/testcontainersx` / `TestStartWithRetryEmitsObserverEvents` | `harness.browser.unit.testcontainersx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/testcontainersx` / `TestStartWithRetryRetriesCustomClassifiedStartupError` | `harness.browser.unit.testcontainersx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/testcontainersx` / `TestStartWithRetryReportsCustomRetryMetadataAfterExhaustion` | `harness.browser.unit.testcontainersx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/testcontainersx` / `TestStartWithRetryReturnsOriginalCauseWhenContextExpiresDuringBackoff` | `harness.browser.unit.testcontainersx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/testcontainersx` / `TestStartWithRetryBoundsRetryableStartupAttempt` | `harness.browser.unit.testcontainersx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/testcontainersx` / `TestStartWithRetryDoesNotRetryLogicalReadinessFailure` | `harness.browser.unit.testcontainersx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/testcontainersx` / `TestStartWithRetryFormatsFinalFailureWithContext` | `harness.browser.unit.testcontainersx_helper_contract` (S-066/E-079) |
+| `./internal/testutil/wstest` / `TestHarnessOpensAndClosesSocketAgainstBootstrapBoundary` | `harness.browser.integration.wstest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestStartServerFinalizesEnvironmentFromInheritedListener` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestServerProcessContractDefaults` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestResolveServerCommandRequiresRegularExecutable` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestResolveRepoRootHasNoFallback` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestWaitForExitIsRepeatableAndBroadcast` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestStopIsIdempotentAndConcurrent` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestStopAfterNaturalExit` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestStopForcesIgnoredSIGTERMWithinTotalBound` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestStopTerminatesProcessGroupDescendants` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestProcessOutputIsRetainedAfterExit` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+| `./internal/testutil/processtest` / `TestDiagnosticsJSONRequiresExactlyOneJSONObject` | `harness.command_surface.process.processtest_helper_contract` (S-066/E-079) |
+
 ## 3. Module Boundary Diagnosis
+
+### Implemented assurance boundaries — E-078–E-086
+
+One catalog owns test selection; canonical leaf unions own overlapping assurance.
+Native runtime owns elapsed-age rank, admission and ordered wait evidence, with
+the existing Go/Node canonical readers. The ready-exclusive index is local to
+each admission decision and does not introduce another policy owner. Frontend
+adapters group compatible selections within one fresh file process and retain
+per-row report adaptation; they do not share workers across files. The installed
+service owner acquires only the selected service union. Supporting fixtures use
+admitted native identity and sanitized environments. Tests constrain adopted
+behavior, authority and justified import boundaries instead of incidental names
+or counts. Exact candidate activation now waits for the declared control to appear;
+review closure and recovery share bounded release-error classification. No new
+process-control or public receipt shape is introduced. Final-source acceptance
+passes V-076 and final handoff at E-086.
+CI07 now supplies a concrete inaccessible-environment rejection and a separate
+cleanup failure. Read-only inspection also found repeated checks of acknowledged
+browser launches and terminal settlements. The resulting idempotency correction
+and the later service-anchor correction now have independent red/green coverage;
+process identity authority remains strict.
+The native PostgreSQL catalog helper now owns one completed template-copy
+operation. pgtest, Recovery browser fixtures and performance fixtures retain
+acquisition/provisioning/cleanup ownership while sharing that preparation policy.
+Physical copy synchronization finishes before consumer publication; ordinary
+scratch creation and exact-target drop remain separate operations. There is no
+new fixture service, hidden admission pool or deferred-deletion owner.
 
 ### Implemented owner boundaries — E-076 complete
 
@@ -1686,6 +1999,10 @@ is justified.
 | Current/historical plan | This tracker | Replace current summaries; preserve completed histories and evidence limitations | E-019/E-025 | F-019 / V-023 |
 
 ## 4. Public Contract and Behavior Freeze Map
+
+### Assurance remediation entry — E-077
+
+Public Make operations, required assertion unions, surviving row identities, failure precedence, cleanup/borrowed protection, capacities, deadlines and diagnostics defaults remain. E-085 explicitly maps the two retired duplicate row identities to their surviving assurance owners. Private schemas/units version coherently without aliases. Changed ordering and removal of duplicate execution are intentional. Spec closure in S-065 precedes implementation; old passes do not establish amended conformance. CI07/CI08 did not satisfy final acceptance. Their exact private owners were recovered under explicitly approved preserved revisions. Freeze14 includes independently validated launch-settlement, service-anchor and bounded Go/checkpoint diagnostic corrections. CI10 records a checkpoint DataFileSync wait; its private recovery is complete. Freeze15 fixes explicit browser settlement authority. Check15 now records seven per-test database-drop timeouts and a 20.039s checkpoint sync. Freeze16 moves physical template-copy synchronization into preparation through one shared native operation; its independent regression and affected callers pass. Freeze17 corrects delayed candidate activation and preserves release context through the existing closed receipt fields; prior receipt bytes and failure precedence remain unchanged. Final warm check17 and full CI12 now pass on freeze17 with native exit, cleanup, scan and reader agreement; final documentation and handoff are complete.
 
 ### Current contract acceptance map — E-076 complete
 
@@ -1886,6 +2203,27 @@ are not applicable because no product contract changes.
 
 ## 5. Coupling and Boundary Findings
 
+### Selected finding dispositions — E-078–E-086
+
+| Finding | Implemented remedy and owning checkpoint | Acceptance status |
+| --- | --- | --- |
+| F-061 raw/catalog duplication | Catalog-only selection; 45 survivors and 61 residual functions accounted for, E-079 | CLOSED; V-076 / E-086 passed |
+| F-062 overlapping CI assurance | Canonical assurance leaf unions, E-080 | CLOSED; V-076 / E-086 passed |
+| F-063 per-row frontend startup | Compatible file processes with exact row evidence and isolation, E-085 | CLOSED; V-076 / E-086 passed |
+| F-064 dispatch-credit aging/warm priority | Elapsed eligible age and stable ranked admission, E-084 | CLOSED; V-076 / E-086 passed |
+| F-065 stale wait attribution | Ordered reason/holder segments and one canonical accounting boundary, E-083 | CLOSED; V-076 / E-086 passed |
+| F-066 obsolete lifecycle assumptions | Installed selected-service assurance and admitted supporting fixtures, E-081/E-086 | CLOSED; V-076 / E-086 passed |
+| F-067 representation coupling | AST/type/behavior guards and private stream inode authority, E-082/E-086 | CLOSED; V-076 / E-086 passed |
+
+Selected functional acceptance is established by check17/CI12 and the final gates.
+Final documentation verification and the S-073 checkpoint are complete. Freeze17 has focused
+red/green evidence for CI11’s browser race; its cleanup cause remains unknown and
+new closed release context improves subsequent diagnosis. The observed retained
+event/scan cost, historical cleanup failures and restore classification mismatch
+remain explicit risks in Section 11; a passing rerun cannot explain them. CI07 adds concrete diagnostic proof-read failure evidence; its browser owner was
+recovered. Freeze15 check15 adds a concrete shared PostgreSQL checkpoint cost
+that prompted the controlled clone investigation and freeze16 preparation repair. Final-source check17/CI12 passed; these failures and their causal limits remain in E-086.
+
 ### Selected finding dispositions — E-076 complete
 
 | Finding | Remediation disposition | Owning slices, evidence and final gate |
@@ -2074,6 +2412,14 @@ owner violation receives a new named correction and regression test.
 | F-013 current tracker summaries describe completed foundation work as future work; E-011/E-017 | should_fix; documentation; this update | Replace current summaries, inventory, readiness and next-entry text; preserve stable IDs and historical ledgers under their original baselines | One unambiguous starting point and no repeated foundation delivery | No runtime migration; original run identities, failed attempts and applicability limits retained | Repeated work or historical success presented as qualification | V-013 / T-011; complete finding→contract→slice→validation trace and tracker-only preservation |
 
 ## 6. Refactor Workstreams
+
+### Assurance remediation entry — E-077
+
+The required S-065 → S-066 → S-067 → S-068 → S-069 → S-070 → S-071 → S-072 →
+S-073 sequence is DONE with saved predecessor checkpoints. S-073 closes on freeze17
+with final gates, check17/CI12, exact readers, cleanup/scans and final documentation.
+Independent assurance survives the structural simplifications; negative fixtures
+and failed historical attempts retain their original outcomes.
 
 ### Workstream execution chain — E-076 complete
 
@@ -2279,6 +2625,14 @@ lists are historical and do not redefine the current sequence.
 | WF-13 / S-013 validation/handoff | chain; WF-12 | Final source, generated outputs, owner routing, findings and durable handoff | V-012; final checkpoint with exact commands/runs/failures/skips | Overstated qualification; all selected obligations have current-source evidence and deferred work remains explicit |
 
 ## 7. Remediation Slice Plan
+
+### Assurance remediation entry — E-077
+
+S-065–S-073 are DONE. E-077 retains each remediation, rationale, long-term benefit,
+compatibility/migration impact, risk and validation mapping. E-078–E-086 record
+completed workstreams, passing exits, failed attempts and final-source handoff.
+No selected implementation or validation slice remains. Broader qualification and
+unread-file audit work remain deliberately deferred.
 
 ### Current slice and migration status — E-076 complete
 
@@ -3158,6 +3512,15 @@ S-014–S-022 or qualify its completed source. These rows retain prior stable ID
 
 ## 8. Validation Plan
 
+### Assurance remediation entry — E-077
+
+V-068–V-076 are DONE. Freeze17 passes installed boundary/workflow/seeded checks,
+generation/finalization19, all eleven final contracts/lints/projection/frontend
+gates, cache-off basic-diagnostics check17 and CI12, six exact readers for each,
+independent native exits, complete cleanup/scans and final Markdown verification.
+The new browser and native cases retain routed assurance; no failing prerequisite
+was relabelled or bypassed, and no executable source changed after finalization.
+
 ### Validation execution posture — E-076 complete
 
 V-061–V-067 passed with exact commands, native exits, source/toolchain identities,
@@ -3560,6 +3923,24 @@ Their commands/results are not current-source evidence for S-014–S-022.
 
 ## 9. Top-Level Work Tracker
 
+### Assurance remediation entry — E-077
+
+T-078–T-086 / S-065–S-073 / V-068–V-076 are DONE. This is the saved final
+selected-remediation checkpoint. The long-lived tracker remains IN_PROGRESS only
+for broader deferred work, including F-022/RB-006/S-020–S-022 at 44.952/90 minutes.
+
+| Workstream | Validation / evidence | Status |
+| --- | --- | --- |
+| S-065 / WF-65 | V-068 / E-078 | DONE |
+| S-066 / WF-66 | V-069 / E-079 | DONE |
+| S-067 / WF-67 | V-070 / E-080 | DONE |
+| S-068 / WF-68 | V-071 / E-081 | DONE |
+| S-069 / WF-69 | V-072 / E-082 | DONE |
+| S-070 / WF-70 | V-073 / E-083 | DONE |
+| S-071 / WF-71 | V-074 / E-084 | DONE |
+| S-072 / WF-72 | V-075 / E-085 | DONE |
+| S-073 / WF-73 | V-076 / E-086; freeze17/check17/CI12/handoff | DONE |
+
 ### Current execution work tracker — E-076 complete
 
 | Work | Status | Evidence / next exit |
@@ -3722,6 +4103,2709 @@ completed implementation slices do not establish successful qualification.
 | T-028 | S-022 validation and handoff / final verification | WF-22 | TODO | V-022/V-023 reconcile all selected obligations and final source; then T-007/T-008 and execution items may be DONE |
 
 ## 10. Session Handoff Log
+
+### E-086 — S-073 / WF-73 final validation and handoff complete
+
+**Saved completion checkpoint — 2026-10-13.** S-073/T-086/V-076 are DONE and
+F-061–F-067 are CLOSED on freeze17 `d97866cb…`. Installed and final gates, check17,
+CI12, all exact readers, independent native exits, cleanup/scans and default
+migration evidence agree. The complete final inventory has no executable changes,
+no default private owners and no running containers. All twelve numbered sections
+are reconciled; public `assurance-s073-handoff-markdown-20261013-20` passed
+(native 79929 exit 0), and `git diff --check` passed. The saved DONE labels also passed
+`assurance-s073-handoff-markdown-20261013-21` (native 44070 exit 0).
+
+Final source/toolchain, 377 executable-path hashes and preserved native/service
+binaries are in `s073-freeze17.json`; exact Make commands/exits are in
+`s073-final-gates17.json`, `s073-check17-readers.json`, `s073-ci12-readers.json`
+and `s073-native-exits.json`. Section 2 maps changed files to each workstream.
+The current evidence table at the top links both retained full-run roots.
+No substantive or executable work remains in the selected remediation. Historical
+CI11 cleanup remains causally unknown; the independently proven candidate race
+is fixed and both rows pass CI12. Qualification stays deferred at 44.952/90 minutes.
+Earlier checkpoints below retain their source-specific historical posture.
+
+Preserved CI08 checkpoint: freeze12 31b77a3e… passed all final gates and full
+warm check12/readers. CI08 exited 2. Its separately approved exact recovery ran unchanged using the
+preserved freeze12 binaries and exited 0 (native command execution
+`exec-4da7b4e0-e2b0-426d-b2b7-d2ac756c3e2a`, 2,496ms; exit independently
+retrieved from the command record after compaction). Both browser acquisitions
+and their managed suite settled, and the private runtime was removed. All
+10,377 retained files and the file set remain identical;
+`/tmp/cartulary-remediation-s065-20261012/ci8-recovery-result.json` records the
+verification. The default-runtime cutover gate is cleared; remaining failure
+investigation precedes another broad acceptance run. S-073/V-076 remain incomplete.
+
+Preserved CI07 recovery checkpoint: freeze11 d233ec23… passed installed/static
+gates and full warm check11/readers. CI07 failed. The user explicitly approved the exact recovery script
+`/tmp/cartulary-remediation-s065-20261012/recover-ci7.mjs`; it ran unchanged through
+the pinned Node runtime in native session 20774 and exited 0. Its preserved
+freeze11 native/service binaries verified the journals, settled the browser and
+then its managed suite, finalized fresh recovery detail and removed the private
+runtime. All 10,365 prior retained files are byte-identical with no additions or
+deletions. `ci7-recovery-result.json` in that scratch directory records the outcome;
+stdout confirms completion and stderr is empty. This exact procedural exception
+does not authorize other administrative recovery. The CI07 cutover blocker is
+cleared; independent correction and renewed final acceptance remain required.
+The following independent repair supersedes freeze11 executable identity.
+Pending-handoff documentation validation `assurance-s073-handoff-pending-20261013-01`
+ran public `make lint-markdown` and exited native 0. `git diff --check` passed;
+all twelve numbered sections remain present, all 358 executable/projection hashes
+and the installed native binary still match freeze11. This is an incomplete-work
+checkpoint, not V-076 acceptance or S-073 completion.
+
+**Post-CI07 settlement correction:** source is unfrozen. The existing browser
+acquisition reader parsed closed-launch acknowledgements but cleanup ignored them;
+terminal repetition also attempted process control again. Independent regressions
+failed through public `harness-ui-review-lifecycle` in
+`assurance-s073-acquisition-red-20261013-01` and `-02`, native exits 2. The second
+used VERBOSE=1 to retain the exact two assertion failures after the direct wrapper
+classified the first as harness/unknown_failure. Both failed the repeated-control
+sentinel; these are characterization failures, not passing gates.
+
+`browser-acquisition.mjs` now persists each successful native settlement, skips
+closed launches, rejects process publication after closure and returns immutable
+terminal settlement without signaling. `start-web-e2e.sh` resolves its just-drained
+backend against the exact acquisition journal and records native settlement before
+replacement. Failed proof remains retryable. Three new assertion groups cover
+later service failure, terminal repetition, creator settlement, publication fencing,
+foreign/reset selection and failed-stop retry; existing real descendant and partial
+acquisition cases remain. REQ-804's browser-acquisition contract explicitly states
+these outcomes. No native identity check, deadline or capacity changed.
+
+`assurance-s073-acquisition-green-20261013-01` passed the public lifecycle route,
+native 0. `assurance-s073-workflow-20261013-12` passed the real diagnostic workflow,
+native 0. Exact commands/output and native exits are preserved in remediation
+scratch. This focused pass does not explain CI07's inaccessible environment proof;
+no safety rule was relaxed. The settlement defect is independently confirmed but
+not asserted to be CI07's cleanup cause, whose original low-level error was lost.
+Installed boundary suffix 12 passed (128,330 ms, native 0). Seeded suffix 12
+failed (52,360 ms, native 2), classified harness/unknown_failure by the direct
+wrapper; its retained bounded summary omitted the underlying assertion. Default
+runtime owners, review registry JSON/socket records and host leases are empty.
+A fresh same-target suffix 13 with VERBOSE=1 is the bounded diagnostic reproduction,
+not acceptance of the failed attempt. Finalization and broad acceptance wait.
+
+Concurrent edits to root/nested AGENTS.md and `.markdownlint-cli2.jsonc` were
+observed and preserved. The updated root, backend and tooling instruction chains
+were read. They belong to separate concurrent work, not this remediation's edits;
+freeze inventories will distinguish them while checking a coherent workspace.
+The concurrent instruction cleanup was committed separately at
+`70004ad9c6b43bf8ed18b54c954e5d50b528a306`; this remediation created no commit.
+Entry remains 18aa1006…. The seeded diagnostic rerun suffix 13 passed with native
+exit 0 and complete private cleanup. It does not explain suffix 12's discarded
+assertion. The exact previously failing workbook browser row is selected through
+`service-backed-test-slice` before renewed finalization.
+That exact workbook row passed in `assurance-s073-workbook-cleanup-20261013-01`:
+native session 52563 exit 0, 47,780 ms graph, 11/11 units passed, every cleanup
+record completed and retained scan passed 68 files. Source is 63850029… at the
+new committed instruction baseline. Default suite owners, review registry JSON
+and sockets, and host leases are all zero. `agent-finalize` suffix 12 is now
+running with RESULTS_DIR unset; retained-run maintenance is skipped because no
+successful full warm evidence exists for this changed executable source.
+Finalizer suffix 12 exited 2 at json-shape-check before mutations. Its graph
+lasted 2,441 ms and retained scan passed. Narrow shape diagnosis suffix 01 was
+rejected before execution because that target does not accept Make VERBOSE;
+suffix 02 reproduced the actual stale topology input fingerprint for the changed
+browser acquisition owner. Public `make generate` refreshes that projection before
+another finalizer attempt; no generated file is edited by hand.
+Generation suffix 12 passed (native 0, 9,920 ms), changing only the topology
+render index. Finalizer suffix 13 then passed, native session 26603 exit 0, with
+no executable/projection mutations and RESULTS_DIR unset. Freeze12 binds source
+`sha256:31b77a3ed407e7678d49b94c1a0ff3828ecaa8deaf1c95b1b811e5be8a56f0d7`,
+toolchain 4b62e255… and the unchanged native binary 2cfc9c0d…. Its inventory contains
+362 executable/projection paths and 367 total paths relative to the original entry,
+including the four separately committed instruction/lint paths. This remediation
+accounts for 363 paths, of which 361 are executable/projection and two Markdown.
+The freeze is saved before final static gates and fresh check/ci acceptance.
+All eleven final gates suffix 12 passed with independent native exits 0:
+harness-contract, race-enabled runtime contract, local-session contract, script,
+shell and Markdown lint, generate-drift, generated-artifact policy, JSON shapes,
+frontend types and import boundaries. `s073-final-gates12.json` records exact
+roots, summaries, durations and native sessions. All 362 frozen executable and
+projection hashes remain unchanged. Fresh cache-off/basic warm check12 follows;
+full-tier CI and its terminal cleanup/scan still gate V-076.
+**Freeze12 warm check and exact readers:**
+`assurance-s073-warm-check-20261013-12`, cache off/basic diagnostics, source
+31b77a3e…, native session 39977 exit 0. All 733 units passed with 733 cache
+bypasses and no hits; all 992 cleanup outcomes completed; retained scan passed
+4,955 files. Exact status (terminal suffix 07), explanation, performance,
+resources, operator and observability readers all exited 0. Observability passes
+one invocation/four sources with diagnostic and execution truncation explicit.
+All 362 frozen file hashes still match; default owners, review registry records,
+sockets and host leases are zero before CI admission.
+
+Outer duration is 512,870 ms (8m32.870s), graph 417,386 ms (6m57.386s), and
+retained scan 86,200 ms (426,660–512,860), about 16.8% of outer time.
+The dependency critical path is 415,389 ms, including 397,243 ms queued.
+Operator wait is 198 ms (resources 119/rank 79; three segments), execution
+2,896 ms; install wait/execute 1/530, web 21/4,287, embedded assets 1/2,707 ms.
+The historical 337,305-ms operator wait did not recur. Total time remains above
+E-076's 458,970 ms on another source; no overall speedup, concurrency or
+qualification conclusion follows.
+
+Overlapping phase unions are runner 415,580 ms, evidence write 41,240,
+fixture acquisition 7,841, admission 5,208, fixture release 4,700, cache publication
+3,726 and lookup 98. Phase overlap is 62,764 ms; outside selected phases 1,757 ms.
+Resource sampling has 11,326 observations, 429 omissions, no discovery truncation
+and maximum sweep 99.131459 ms. The sampled simultaneous RSS sum is 9,650,352,128
+bytes, a partial sweep with possible shared-page duplication. Two owned containers
+have one omitted observation and no deadline overruns. Reservations are not
+consumption. The native exit and all exact reader outputs are saved in scratch.
+Full CI08 now follows on this unchanged source; S-073/V-076 remain IN_PROGRESS.
+**CI08 terminal checkpoint:** `assurance-s073-ci-20261013-08`, source 31b77a3e…,
+cache off/basic diagnostics, native session 39796 exit 2, graph 2,507,155ms.
+1,129/1,134 units passed; five failed, none skipped. Cleanup has 1,750 outcomes:
+1,744 completed, five failed, one blocked. Retained scan passed 10,375 files.
+After final receipts, 10,377 retained files are hashed before recovery. Status
+readers 01–03 exited 0; structured polling stopped at the declared measurement pause.
+
+Failures are native-review assertions (product/test_assertion_failure 10, original
+assertion absent from its retained 64 KiB tail); a Parties portability unit whose
+private capture failed (artifact/artifact_error 11, no row receipt); recovery
+browser database cleanup (harness/cleanup_error 12); workbook browser-group release
+(cleanup_error 12); and the derived browser-target failure. Diagnostic workflow
+passed. The restoration fixture now records the actual last drop wait:
+`type=IPC event=CheckpointStart blockers=0` at the unchanged 10-second deadline.
+This establishes a checkpoint wait during this occurrence, not the cause of every
+historical timeout.
+
+One exact default runtime retains two browser acquisitions and their managed
+suite. They contain 25 launches/24 closed acknowledgements and 23/22 respectively;
+only each frontend remains unacknowledged. Both recorded leaders are absent at
+inspection. All recovery files, including required TLS credentials, exist. The
+new reset/settlement acknowledgements persisted; no cause for the remaining
+frontend failure is inferred from leader absence. Service cleanup is blocked
+behind these consumers. Preserved freeze12 native/service binaries, journal hashes
+and all retained-file hashes are saved in remediation scratch. The unchanged
+source still matches all 362 frozen non-Markdown paths.
+
+The user separately approved
+`/tmp/cartulary-remediation-s065-20261012/recover-ci8.mjs` (SHA-256
+`51323cc63a8e2db6e2d3876728cbe6f2c15265f3812003f81b465f93b3501d87`).
+It ran unchanged, checked frozen files/binaries/owner/journals, settled both
+browsers before their shared suite, and removed the runtime; native exit 0.
+Fresh recovery output was finalized. All 10,377 prior retained files are identical.
+No administrative fallback was needed. This checkpoint is saved before further
+executable edits; S-073/V-076 remain incomplete.
+
+**Post-CI08 independent correction checkpoint:** the preserved-version recovery
+above completed before executable changes. `assurance-s073-native-review-20261013-01`
+(`make test-slice OWNER=harness.browser ROWS=harness.browser.unit.native_review`,
+cache off, native session 11900 exit 0, graph 20,711ms) passed; this does not
+explain CI08's discarded assertion.
+
+`assurance-s073-service-anchor-red-20261013-01` (`make
+harness-ui-review-lifecycle VERBOSE=1`, cache off, session 98177 exit 2) independently
+reproduced the detached service wrapper losing its group anchor when its immediate
+payload exited while a descendant remained. Its teardown mistakenly lacked
+independent descendant authority; one fixture process (PID 13873, start 151685493,
+PGID/SID 13827, recorded boot 815ef6fd-1bf2-48e9-b253-82ec5320511a) and the synthetic
+runtime `/tmp/browser-acquisition-private-dV5GIz/suite-runtime/suite-acquisition-test-e137e675-6900-43c1-9373-90030b4e2907`
+remain. This is a new fixture failure, not a CI08 resource. The prepared
+`/tmp/cartulary-remediation-s065-20261012/recover-anchor-red.py` verifies exact
+journal hashes, process identity and an empty synthetic service inventory, uses
+pidfd signaling for this descendant, and closes the private runtime. The user separately approved this exact script; it ran unchanged with native exit 0.
+The descendant is no longer live and the private runtime is absent. All six retained
+red-run files have modification times preceding recovery; no pre-recovery byte
+hash inventory was captured for that synthetic run, so byte immutability is not
+independently proved. The script accesses only external fixture paths, and all
+10,377 CI08 files remain hash-identical. `anchor-red-recovery-result.json` records
+the outcome. No approval remains pending.
+
+The browser adapter now retains the journaled service supervisor until physical
+settlement starts, even after immediate payload completion. Producer completion
+remains separate. REQ-804 states that boundary. The native stop adapter accepts
+an explicit caller environment so fixture teardown can bind its own recorded
+resource authority instead of an ambient runtime. The regression now records its
+independent descendant proof before assertions. `assurance-s073-service-anchor-green-20261013-01`
+(same Make route, session 68590 exit 0, 35 cases passed) confirms the anchor survives
+payload exit and native settlement removes the descendant. The original failure
+and leaked-fixture exception remain explicit; this does not prove CI08 causality.
+
+The Go runner now projects bounded failure identities/excerpts during its existing
+single report parse, retains eight failure tails despite later passing output,
+bounds active diagnostic state, reports omissions, and uses ordinary redaction
+before publication. Row evidence remains owned by the existing adapter. REQ-379
+states this observable diagnostic requirement. Caller, producer and owning tests
+are changed together; no new runner or compatibility reader is introduced.
+`assurance-s073-go-diagnostics-20261013-01` (`make harness-contract-tests`, session
+51967 exit 2, graph 55,961ms, 8/9 units passed) failed the owner-boundary case because
+three generated topology input fingerprints were stale. This is related to the
+authored edits, not a new behavioral failure. Its exact explain reader exited 0.
+Generation 13 exited 0; a final bounded-buffer edit required generation 14 before
+renewed validation. Generation 14 passed (session 5982 exit 0, 9,790ms).
+On source `sha256:dbdf11414c9c1ea7bc93a45453765206239c522d4b7e657a2f175b1fd61747fc`,
+`assurance-s073-go-diagnostics-20261013-02` passed all nine units, all 18 cleanup
+outcomes and its 123-file retained scan (session 24110 exit 0, 56,532ms).
+`assurance-s073-repair-{scripts,markdown,drift,policy,shapes}-20261013-01` also
+passed their public Make routes, with native exits 0 (sessions 38249, 35131,
+58768, 96424, 70104 respectively). Generation/drift/policy/shape agreement is
+restored; no generated root was hand-edited. Tracker-only additions passed `assurance-s073-repair-markdown-20261013-02`
+(native session 93422 exit 0).
+
+Changed in this correction: browser acquisition owner and its regression,
+runtime owned-process environment binding, Go runner/row adapter and owning
+Go-runner contract tests, generated topology render index, REQ-804/379 and this
+tracker. The detached-process teardown correction is tested through native
+journal-bound authority; it is not an arbitrary process-control endpoint.
+The approved exact red-fixture recovery completed before renewed installed/final
+acceptance; default runtime owner inventory is zero. Routing inspection then found the Go adapter test file was only referenced by
+legacy internal smoke machinery; the earlier nine-unit contract pass did not
+execute its new assertion. The existing public command-surface contract is now
+the named surviving assurance boundary for the complete Go adapter tests. Its
+authored command and backing-script inputs include the file; the unused
+`harness-smoke-run-go-target` registration and tier references are removed without
+aliases. Generation 15 passed. `assurance-s073-go-projection-20261013-01`
+(`make harness-command-surface-contract VERBOSE=1`, native session 59973 exit 0)
+actually executes that file, including early-failure preservation, bounded
+excerpts, omitted-count reporting and unchanged row accounting. This routing
+correction affects command-surface/projection validation, not the physical
+behavior verified by boundary13 (native session 27767 exit 0, 129,420ms).
+
+Installed workflow13 (session 50867 exit 0, 16,840ms) and seeded14 (session
+45314 exit 0, 53,900ms) passed. Default runtime owners, review registry/socket
+entries and host leases are zero after completion. Agent-finalize14 (session
+68395 exit 0, graph 21,514ms) changed no executable file; RESULTS_DIR was unset,
+so retained-run maintenance was skipped. Freeze13 is now
+`sha256:dfc72e71bf43c3c3eaf9bb0d50692c1eff5ec4948f6525b7b2b5995b1da6a8ae` with 365 changed non-Markdown paths relative to the
+original entry, including the separately committed lint configuration. Native
+binary remains `2cfc9c0dc9fa509ae7e2bc8a321948077a13507b2caa53098d0b1c732ff50b21`;
+toolchain identity is unchanged. Exact file hashes and preserved binaries are
+saved in `s073-freeze13.json` and adjacent scratch files. All eleven final gates
+passed on freeze13 with independently observed native exits 0: harness contract,
+runtime, local session, scripts/shell/Markdown, drift/policy/shapes and frontend
+types/import boundaries. `s073-final-gates13.json` records exact run roots,
+commands, native handles and durations; `s073-native-exits.json` retains their
+exits. All 365 frozen non-Markdown path hashes still agree. Full warm check13
+and CI09 remain the final acceptance gates. Earlier final passes remain historical.
+No timeout, observation requirement or concurrency limit was relaxed.
+
+**Freeze13 warm-check checkpoint:**
+`assurance-s073-warm-check-20261013-13` (`CARTULARY_HARNESS_CACHE_MODE=off`,
+`HARNESS_DIAGNOSTICS=basic make check`, native session 83105 exit 0) passed
+733/733 work units, 733 bypasses and zero cache hits. All 992 cleanup outcomes
+completed; retained scan passed 4,955 files. Exact status/explain/performance/
+resources/operator/observability readers all exited 0; `s073-check13-readers.json`
+and `s073-check13-*.out` record their commands and results. Observability passed
+one invocation/four sources with explicit truncated diagnostic/execution coverage.
+
+Outer duration is 523,380ms; graph 417,229ms; retained scan 98,830ms (18.9% of
+outer duration). Dependency path is 415,191ms including 377,167ms queued.
+Build-operator queued 326ms (164 resource/162 rank, three segments) and executed
+3,472ms; its frontend-install/build-web/embedded-assets prerequisites queued
+2/21/1ms and executed 513/4,288/2,801ms. The historical 337,305ms operator wait
+does not recur, but the overall check exceeds the historical 458,970ms outer
+run on a different source. This is descriptive evidence, not a throughput,
+concurrency or qualification claim.
+
+Phase unions overlap: runner 415,514ms, evidence 41,832ms, fixture acquisition
+10,179ms, host admission 7,770ms, fixture release 4,057ms, cache publication
+5,888ms and lookup 142ms; overlap is 69,841ms and outside selected phases 1,688ms.
+The run records 491,889 wait events and 1,063,057,216 canonical-event bytes.
+Resources contain 11,578 samples, 507 omissions, zero discovery truncations and
+77.745423ms maximum sweep. The sampled RSS sum is 12,222,529,536 bytes with
+partial/sweep-subset coverage and potentially repeated shared pages. Two owned
+containers have one omitted observation and no deadline overrun. CPU/object-store/
+PostgreSQL saturated reservations (193,268/389,507/168,474ms) are not consumption.
+All 365 frozen path hashes still agree and default runtime owners are zero.
+Full CI09 follows; S-073/V-076 remain IN_PROGRESS.
+
+**CI09 terminal checkpoint:** `assurance-s073-ci-20261013-09`, freeze13
+source dfc72e71…, cache off/basic diagnostics, native session 60434 exit 2,
+graph 2,524,515ms. Of 1,134 work units, 1,132 passed and two failed: the
+restore-browser group and its derived browser target summary. Both preserve
+harness/cleanup_error/12. All 1,750 graph cleanup results completed and retained
+scan passed 10,379 files. Default private runtime inventory is empty; no recovery
+exception or resource control is needed for this run. The earlier native-review,
+private-capture and frontend-settlement failures did not recur; this does not
+explain their historical causes.
+
+The exact restore row reports target.database cleanup from fixture elapsed
+3,730ms through 13,731ms: its 10-second deadline expired while the observed
+DROP waited at `type=IPC event=CheckpointStart blockers=0`. Source.database then
+closed in 486ms. This repeats the CI08 checkpoint-start observation, but neither
+run retained the checkpointer's own wait/progress state. The browser assertions
+completed before the cleanup failure. `s073-ci09-explain.out`, the owning row,
+unit/group results and immutable prior evidence preserve this failure. Narrow
+checkpoint diagnostics/reproduction now precede a repair; no timeout, durability
+setting, concurrency limit or acceptance requirement is relaxed. Freeze13 passes
+remain source-specific; any executable change reopens affected final gates.
+
+**Post-CI09 diagnostic checkpoint:** source is unfrozen only for bounded
+checkpoint observation and its owning tests/routing. `drop_diagnostic.go` now
+retains at most first/last structural snapshots of the exact drop wait plus the
+checkpointer's closed wait vocabulary and requested/completed/buffer counters.
+Counters are cumulative and may lag; they do not identify the requested
+checkpoint or establish its completion. SQL, credentials and unrelated process
+identities remain private. Unknown waits remain explicit rather than copied.
+No database behavior or budget changes. PostgreSQL 18's
+[database-drop implementation](https://raw.githubusercontent.com/postgres/postgres/REL_18_STABLE/src/backend/commands/dbcommands.c)
+requests a synchronous checkpoint; its
+[checkpoint coordination](https://raw.githubusercontent.com/postgres/postgres/REL_18_STABLE/src/backend/postmaster/checkpointer.c)
+separates waiting for a new checkpoint to start from waiting for completion.
+The [statistics documentation](https://www.postgresql.org/docs/18/monitoring-stats.html#MONITORING-PG-STAT-CHECKPOINTER-VIEW)
+defines the observed cumulative counters. These explain the diagnostic fields,
+not the cause of the CI08/CI09 delay.
+
+The owning lifecycle unit route passed (`assurance-s073-checkpoint-unit-20261013-01`,
+native 27528 exit 0). Scoped Recovery service-backed execution passed 19/19 work
+units including restore (`assurance-s073-recovery-checkpoint-20261013-01`, native
+56496 exit 0, 45,461ms); this is not a reproduction or explanation of CI09.
+A new catalog row `harness.browser.integration.recovery_drop_observation` is the
+named assurance boundary for a real controlled observation: an uncommitted
+rename holds only a unique owned database's object lock, the exact DROP is
+observed waiting, bounded/checkpointer fields are verified, then rollback lets
+DROP complete. It passed via its service-backed slice
+(`assurance-s073-checkpoint-observer-20261013-01`, native 60906 exit 0, 15,023ms).
+The final small formatting guard avoids emitting an empty first snapshot when
+all observations are unavailable. It will be covered by renewed gates.
+Default runtime inventory is empty after these runs. The existing runtime,
+settlement, scheduling, capacity and database-durability behavior is unchanged.
+Generation, finalization and renewed final-source validation follow.
+
+**Freeze14 entry:** generate16 (native 20659 exit 0) and agent-finalize15
+(native 61764 exit 0, graph 21,748ms) passed. Finalization changed no executable
+file. RESULTS_DIR was unset because the prior successful full check predates
+the diagnostic change; retained-run maintenance was skipped. Freeze14 source is
+`sha256:5461b2ddfa8a3097d334efeb9c8d05e1320fdf69c5a3848da6ceff8d7651a8d2`;
+`s073-freeze14.json` binds 366 changed non-Markdown paths and preserved binaries.
+The new controlled installed database-observer route and scoped Recovery run
+cover the changed physical path. Freeze13 review/workflow/seeded and native
+physical-owner evidence remains applicable to those unchanged implementations;
+current final gates/full check/CI will establish the amended whole-source result.
+All eleven final gates passed with independently observed native exits 0;
+`s073-final-gates14.json` records their exact commands, run roots, handles and
+durations. All 366 frozen non-Markdown path hashes still agree. Full warm
+check14 and CI10 remain required. No final completion is claimed from focused
+or static passes.
+
+**Freeze14 warm-check checkpoint:**
+`assurance-s073-warm-check-20261013-14`, cache off/basic diagnostics, native
+session 25070 exit 0: 733/733 work units passed, 733 bypasses and zero hits.
+All 992 cleanup outcomes completed; retained scan passed 4,955 files. Exact
+status/explain/performance/resources/operator/observability readers all exited 0;
+`s073-check14-readers.json` and `s073-check14-*.out` bind their results.
+Observability passed one invocation/four sources with truncated diagnostic and
+execution coverage. All 366 frozen path hashes agree; default private roots are
+empty. Full CI10 follows on this source.
+
+Outer duration is 529,620ms (8m49.620s), graph 422,528ms (7m02.528s), retained
+scan 98,350ms (18.6% of outer duration). Dependency path is 420,495ms including
+400,803ms queued. Build-operator queued 339ms (158 resource/181 rank, five
+segments), executed 2,934ms. Frontend-install/build-web/embedded-assets queued
+1/16/1ms and executed 529/4,746/2,771ms. Earlier operator-chain admission remains
+visible without a special operator priority or increased concurrency; the overall
+run does not establish a speedup against the historical different-source baseline.
+
+Phase unions (overlapping) are runner 420,715ms, evidence 45,800ms, fixture
+acquisition 8,561ms, host admission 9,243ms, release 4,750ms, cache publication
+7,411ms and lookup 108ms. Overlap is 75,823ms; outside selected phases 1,763ms.
+The canonical stream contains 488,682 wait events and 1,055,672,587 bytes.
+Resource diagnostics contain 11,689 samples, 672 omissions, **one discovery
+truncation**, and 103.715888ms maximum sweep. Sampled RSS sum 12,871,946,240 bytes
+is partial and may repeat shared pages. Two owned containers have one omitted
+observation and no deadline overrun. CPU/object-store/PostgreSQL saturated
+reservations are 201,467/407,358/169,029ms, not consumption. No measurement
+qualification, complete profiling or throughput claim follows these results.
+
+**CI10 terminal checkpoint:** `assurance-s073-ci-20261013-10`, freeze14
+5461b2dd…, cache off/basic diagnostics, native 13044 exit 2. Graph duration
+2,511,691ms; 1,133/1,135 units passed. The only failing units are the restore
+browser group and its derived target summary, harness/cleanup_error/12. All
+prior failure attempts remain immutable. The controlled PostgreSQL observer row
+passed in this full context.
+
+The target database drop again exhausted 10 seconds, now with the checkpointer's
+own observed state: `type=IO event=DataFileSync blockers=0`, alongside the drop's
+`type=IPC event=CheckpointStart blockers=0`. The bounded snapshot reports
+requested=703, done=704, buffers=1052228. These cumulative counters can include
+time-driven checkpoints and are not a per-drop progress guarantee. This proves
+a checkpointer data-file synchronization wait during the observed stall, not the
+underlying host/storage cause or an explanation for every historical failure.
+No deadline or durability setting has changed.
+
+Graph cleanup has 1,753 results: 1,749 completed, three failed and one blocked.
+The failed restore fixture release (twice recorded) and provider close retain
+one browser acquisition; its managed suite is correctly blocked. The browser
+journal has 23 launches, 22 durably closed and one unsettled frontend proof;
+its leader was absent at terminal inspection. That alone is not settlement proof.
+All required private recovery files remain. Retained scan passed 10,384 files;
+a post-terminal inventory hashes all 10,386 retained files including final
+receipts. Exact root is
+`/tmp/cartulary-harness-scratch/suite-runtime/suite-assurance-s073-ci-20261013-10-6ed85f5b-c8ef-44b5-8344-b6326ede6168`,
+lease `7bcaa752-9d03-40a6-aabe-e616694803c7`.
+
+Prepared `recover-ci10.mjs` under the task scratch directory (SHA-256
+`03ee46c23efc7b7628451616bb83b89153f56a8b0ce9d187829d26f1d96dab80`)
+checks freeze14 source/binaries, exact journal hashes, dependency bindings and
+all retained hashes before native recovery. It uses a fresh recovery attempt,
+settles only that browser then its suite, and rechecks the retained file set and
+bytes after closure. It has **not run**: a new exact procedural exception to
+AGENTS.md public-Make routing is pending. Earlier approvals do not cover CI10.
+No source replacement or broad rerun occurs while this private cutover is blocked.
+
+**CI10 recovery completion:** the user authorized needed repair scripts on
+2026-10-13. The prepared exact `recover-ci10.mjs` completed in native session
+60163 with exit 0 using preserved freeze14 binaries. The one recorded browser
+allocation settled before its managed-suite dependency; the private runtime is
+absent. Independent post-recovery hashing confirms all **10,386 retained files**
+and the file set are unchanged. `ci10-recovery-result.json` records this check.
+This clears the default-environment cutover gate. CI10 remains failed evidence;
+S-073/V-076 remain IN_PROGRESS while cleanup diagnosis and final acceptance
+continue. The earlier procedural approval requests remain historical.
+
+**Explicit settlement authority correction:** independent orphan-service cases
+reproduced an adapter defect in ordinary browser retirement and reset: the
+caller supplied its runtime environment, but `stopAcquisitionProcesses` and
+`settleAcquisitionService` discarded it before native authorization. Both now
+forward the exact environment; the acquisition supervisor does the same.
+`test-browser-acquisition.mjs` launches each service through a different process
+that exits, so cleanup requires journal authority instead of direct ancestry.
+Independent fixture teardown uses the correct journal binding even on failure.
+
+`assurance-s073-authority-red-20261013-01` exited 2 (native 18168); its summary
+lost useful test detail. A diagnostic rerun with `VERBOSE=1`,
+`assurance-s073-authority-red-20261013-02`, exited 2 (native 8989) and identifies
+exactly the two new authority cases. After correction,
+`assurance-s073-authority-green-20261013-01` exited 0 (native 96656): 37 tests,
+no failures. Red evidence remains unchanged. This establishes the adapter bug,
+not the cause of every historical browser cleanup failure. The exact CI10
+resource reader also passed (native 15311), with explicit partial/truncated
+coverage; it does not establish host storage causality. The PostgreSQL
+checkpoint delay remains unresolved and unchanged. Renewed installed and final
+validation follows; S-073 remains IN_PROGRESS.
+
+**Installed authority validation checkpoint:** the corrected adapters pass
+`harness-runtime-boundary-contract` (`assurance-s073-authority-boundary-20261013-01`,
+native 81722 exit 0, 124,190ms), `harness-ui-review-workflow`
+(`assurance-s073-authority-workflow-20261013-01`, native 48520 exit 0, seven tests),
+and `harness-ui-review-seeded-default`
+(`assurance-s073-authority-seeded-20261013-01`, native 60688 exit 0). These are
+new-source installed checks, alongside the 37-test lifecycle pass. Finalization
+follows with RESULTS_DIR unset because the latest successful full check predates
+this executable correction; retained-run maintenance is therefore skipped.
+No passing final-source check/CI is yet claimed.
+
+**Finalization preflight correction:** `assurance-s073-finalize-20261013-16`
+exited 2 (native 85196) at `json-shape-check`, before generator mutations;
+all ten graph cleanup outcomes completed. Exact explanation exited 0. A direct
+public shape diagnosis with `VERBOSE=1` was rejected at preflight because that
+input is unsupported for this target; its fresh attempt is retained. The normal
+public shape route also failed, native 41692 exit 2. Under the user's script
+repair authorization, a read-only direct diagnostic exposed the concrete cause:
+the generated topology input hashes for `acquire-process.mjs` and
+`browser-acquisition.mjs` were stale. That direct script is diagnosis, not
+canonical verification. `make generate` now refreshes the declared projections
+before another finalization attempt. No requirement or assertion was weakened.
+
+**Freeze15 entry:** generation17 (native 81566 exit 0) updated only the
+render index. Finalization17 (native 13911 exit 0) changed no executable file;
+RESULTS_DIR remained unset and retained-run maintenance was skipped. Source is
+`sha256:0b253c4d83b8cb57c77359fb1dcaf175f689ab969508b9115bc3faac913fd651` with unchanged toolchain/native binary and a rebuilt service binary bound in the
+freeze inventory.
+`s073-freeze15.json` binds all 367 changed non-Markdown paths. Default runtime
+owners are absent. The affected lifecycle, installed boundary, workflow and
+seeded review checks passed before finalization. Current-source final gates,
+full warm check and full CI remain required; no database-delay repair is claimed.
+
+**Freeze15 gate failure:** ten final/static gates passed, but
+`assurance-s073-contract-20261013-15` exited 2 (native 40047) with one of nine
+units failed: `harness.test_catalog.behavior.routing_contract`, normalized
+product/test_assertion_failure. All 18 graph cleanup outcomes completed. The
+exact explanation passed; the owning row selects `harness-graph-contract`.
+A focused verbose diagnostic on that existing public route precedes any retry
+or broad acceptance. Source replacement remains unnecessary until the concrete
+failure is identified; no failed gate is counted as complete.
+
+**Freeze15 routing diagnosis checkpoint:** the focused public
+`harness-graph-contract VERBOSE=1` passed all 15 tests (native 21169 exit 0,
+`assurance-s073-routing-diagnosis-20261013-01`). This did not explain the earlier
+failure. Contrary to the initial file-listing interpretation, retained logs were
+present: Git ignore filtering hid `unit-logs/**/stderr.log`. The original row log
+identifies native runtime close in `test-frontend-artifact.mjs`; its 14 catalog
+assertions passed. No log-retention defect is established.
+
+The concurrent native runtime gate deliberately creates a same-UID process with
+unreadable environment proof. An authorized controlled diagnostic,
+`diagnose-proof-interference.mjs`, proves that this condition rejects a different
+runtime's close, and closure succeeds after the protected process is stopped.
+`proof-interference.out` retains the native rejection. This is an established
+interference mechanism and a plausible historical cause, not proof of the exact
+historical interleaving. Security checks, deadlines and scheduling capacity stay
+unchanged. The next contract gate runs without another fault-injection gate.
+
+`recover-frontend-artifact.mjs` used preserved freeze15 native authority to close
+exactly the two synthetic owners left in `frontend-artifact-test-V8RmoW`, after
+checking journal hashes and absence of resource records/service ownership. Exit
+0; no retained receipt changed. The inventory and recovery script are saved in
+the S-073 scratch directory. No executable source changed in this diagnosis.
+S-073/V-076 remain IN_PROGRESS.
+
+**Freeze15 contract completion:** `assurance-s073-contract-20261013-16`
+passed (native 76258 exit 0), nine units and 18 completed cleanup outcomes,
+56,083ms graph time. The same executable source was used, with the deliberate
+native proof-denial gate no longer running concurrently. Earlier failed evidence
+and the precise causal limit remain above. All eleven final gates now have
+passing freeze15 evidence; `s073-final-gates15.json` retains the original contract
+failure and the native ledger records its separate successor. Frozen file hashes
+remain unchanged. Full warm check15 and full CI11 remain required.
+
+**Freeze15 warm-check failure and timing checkpoint:**
+`CARTULARY_TEST_RUN_ID=assurance-s073-warm-check-20261013-15
+CARTULARY_HARNESS_CACHE_MODE=off make check HARNESS_DIAGNOSTICS=basic` exited 2
+(native 59504). The manifest binds unchanged freeze15 source/toolchain. Of 733
+units, 726 passed and seven failed; all 733 bypassed cache. The seven affected
+packages are incidentbundles, extensions, indicators, workbook, Recovery,
+database migrations and imports. Each retained bounded Go failure excerpt names
+`pgtest.go:676` and a forced database-drop context deadline. The canonical
+classification remains product/test_assertion_failure; identifying a cleanup
+failure in the Go assertion does not rewrite that normalization.
+
+All 992 graph cleanup outcomes completed; retained scan passed 4,955 files.
+Docker reports no running containers, and the default runtime inventory is empty.
+No manual recovery is needed for check15. Exact status, explanation, performance,
+resources, build-operator performance and observability readers all exited 0;
+`s073-check15-readers.json` and `check15-*.out` retain commands/handles/results.
+These reader passes validate available evidence, not test success. The status03
+reader itself exited 0; a subsequent scratch display expression assumed a live
+payload and failed on the terminal result. That display error did not affect the
+run, reader, retained evidence or later exact terminal inspection.
+
+Outer duration was 520,450ms (8m40.450s), graph 411,234ms (6m51.234s), retained
+scan 100,270ms (19.3% of outer duration). The dependency path is 409,024ms,
+including 386,492ms queued. Build-operator queued 559ms (412 resource/147 rank,
+three segments), executed 3,081ms. Frontend-install/build-web/embedded-assets
+queued 1/20/2ms and executed 499/4,192/2,739ms. Earlier prerequisite admission
+continues to be visible without an operator priority or capacity increase, but a
+failed run on different source cannot establish throughput improvement.
+
+Phase unions overlap: runner 409,355ms, evidence 42,444ms, acquisition 7,622ms,
+host admission 8,227ms, release 4,459ms, cache publication 6,294ms and lookup 63ms.
+Overlap is 69,057ms; 1,827ms is outside selected phases. Resource evidence is
+partial/truncated: 11,553 samples, 482 omissions, zero discovery truncations,
+99.568384ms maximum sweep and 12,053,209,088 bytes sampled RSS sum (shared pages
+may repeat). Two owned containers have three omissions and no collection deadline
+overrun. Observability passes one invocation/four sources with truncated
+instrumentation/execution coverage. No qualification claim follows.
+
+While the owned PostgreSQL container was still running, authorized read-only
+Docker diagnostics captured its log interval 16:52:00–16:54:20 UTC in private
+scratch `check15-postgres-early.log` (0600), outside retained run evidence.
+At 16:53:48.220 UTC, a checkpoint completed after 20.227s: writes 0.118s,
+synchronization 20.039s across 8,151 files, longest single sync 0.042s. This
+interval overlaps several failed drops. PostgreSQL's synchronous database-drop
+checkpoint mechanism and this observed sync cost identify shared cluster I/O as
+the bottleneck; the exact host/device cause and all historical failures remain
+unproven. Docker Desktop uses a local volume for PGDATA; no disk-capacity shortage
+was observed (Linux filesystem 19%, Windows C: 60%, no memory-pressure signal in
+the observed interval). No durability, capacity or deadline setting changed.
+
+Full CI11 is deliberately unstarted because the required warm-check gate failed.
+No broad retry is justified solely by earlier successes. A bounded checkpoint
+reproduction, preserving database ownership and current budgets, precedes a
+structural isolation/resource-lifecycle decision or demonstrated environment
+repair. S-073/V-076 remain IN_PROGRESS; frozen executable bytes are unchanged.
+Tracker maintenance passed `make lint-markdown` as
+`assurance-s073-check15-checkpoint-markdown-20261013-01` (native 55698 exit 0,
+19,180ms), and `git diff --check` passed. All twelve numbered sections remain;
+all 367 frozen non-Markdown file hashes agree. The finalizer remains the recorded
+freeze15 finalization17; no executable edit followed it. RESULTS_DIR was unset,
+so retained-run maintenance was skipped. This checkpoint preserves an incomplete
+handoff rather than marking a failed prerequisite or S-073 complete.
+
+**Post-check15 controlled clone investigation and repair entry.** The user's
+authorization covers required repair scripts. Public session up/down ran as
+`assurance-s073-pg-probe-{up,down}-20261013-01`, native 15848/74934 exit 0;
+their tool summaries report 4,280/770ms. A separate private descriptor under
+`/tmp/cartulary-remediation-s065-20261012/pg-probe/` bound the exact container,
+session labels, UID and template before three bounded diagnostic scripts ran.
+Scripts `pg-clone-probe.py`, `pg-mixed-lifetime-probe.py` and
+`pg-mixed-lifetime-repeat.py` exited 0 (native 7289/67267/56824). These are
+controlled investigation, not canonical tests or a second runner. The matching
+JSON and private PostgreSQL logs preserve every operation and checkpoint. All
+experimental databases were absent before public session shutdown; Docker then
+reported no running containers. PostgreSQL 180006 retained fsync, full-page
+writes, synchronous commit and checksums; the migrated template was 19,044,031
+bytes. No capacity or deadline was changed.
+
+Closing all clones together did not reproduce the historical cost. With eight
+clones and seven left present, the first WAL_LOG drop took 6,011ms, with a
+5.779s checkpoint synchronizing 8,984 files. Repeated same-size treatments took
+3,822/3,371ms; FILE_COPY first drops took 149/121/127ms, after 1,725/1,672/1,491ms
+creation. WAL_LOG creation took 416/375/389ms. This identifies deferred template
+copy synchronization as a reproducible cross-fixture cost; it does not establish
+the entire historical 20s delay or final-source throughput. PostgreSQL's
+[creation strategy contract](https://www.postgresql.org/docs/18/sql-createdatabase.html)
+explains the explicit preparation checkpoints.
+
+The narrow structural repair is one native template-clone operation used by
+pgtest, Recovery browser fixtures and performance fixtures: complete FILE_COPY
+before consumer publication, preserving physical drop and all existing budgets.
+REQ-804 closes that preparation boundary before implementation. No cluster pool,
+deferred deletion, compatibility alias, capacity reduction or durability change
+is adopted. An independent owned-cluster checkpoint/isolation regression must
+fail under the prior preparation behavior, then pass with the common operation.
+Affected caller verification, generation, finalization and a new frozen-source
+acceptance cycle follow. Freeze15 evidence remains historical after edits;
+S-073/V-076 remain IN_PROGRESS.
+
+**Preparation regression and implementation checkpoint.** The first exact-row
+launch `assurance-s073-template-red-20261013-01` rejected unsupported VERBOSE
+before execution (native immediate exit 2). The corrected cache-off public
+`service-backed-test-slice OWNER=harness.browser
+ROWS=harness.browser.integration.postgres_template_preparation` ran as
+`assurance-s073-template-red-20261013-02` (native 53073 exit 2): one failing test,
+2/3 graph units passed, all 14 cleanups completed, retained scan PASS 22 files.
+Its owned cluster observed no completed preparation checkpoint when the clone
+was published. This is expected red characterization, not an implementation pass.
+The exact-run explanation exited 0; Docker reported zero remaining containers.
+The test uses a separate cluster and WAL/checkpoint positions, not a timing limit.
+
+One `postgrescatalog.CloneDatabase` now owns the prepared template copy operation;
+pgtest, recoverybrowsertest and performancefixturelifecycle call it with their
+existing admission budgets. Caller ownership/provisioning and normal scratch
+creation remain distinct. The common operation rejects unsafe or identical
+identities, never replaces an existing database, and uses PostgreSQL FILE_COPY.
+The integration regression also checks migrated schema, mutation isolation, live
+peer protection, template preservation, duplicate target rejection and missing
+source failure. No frozen-source acceptance is claimed until its green route,
+affected caller routes, generation/finalization and complete gates pass.
+
+**Candidate verification.** The first candidate selection
+`assurance-s073-template-green-20261013-01` exited 2 (native 44973): the new
+preparation regression and performance/cleanup cases passed, but Recovery's
+removed SQL block left an unused database/sql import and its package failed to
+compile. Canonical graph classification remains infra/preflight_error, with the
+row's missing_selector_result preserved. All 23 cleanups completed. Removing
+that import led to `assurance-s073-template-green-20261013-02`, native 89494 exit 0,
+6/6 units, 23 completed cleanups, scan PASS 45 files, 20,437ms graph duration.
+The previously failing Recovery browser scenario also passed through exact-row
+`make test-slice` as `assurance-s073-template-restore-20261013-01`, native 92663
+exit 0, 11/11 units, 22 completed cleanups, scan PASS 68 files, 31,418ms. These
+are focused candidate checks; full-source check/CI acceptance remains pending.
+
+**Freeze16 entry.** Generation18 passed (native 63811 exit 0), changing only the
+expected execution-topology render index. Installed boundary/workflow/seeded
+routes `assurance-s073-{boundary,workflow,seeded}-20261013-17` passed with native
+88462/24009/73252 exit 0 and tool durations 142,510/18,830/57,070ms. Finalization18
+passed (native 86758 exit 0), with zero executable changes. RESULTS_DIR was unset;
+retained-run maintenance was skipped. The fresh default-runtime inventory and
+Docker inventory were empty before freeze. No pending session needs migration.
+
+`/tmp/cartulary-remediation-s065-20261012/s073-freeze16.json` records executable
+source `sha256:be95a14024e2a3b64cdf5d63e6798e9ba58ba144f67c7e7cfbf04090538ae02e`,
+371 changed non-Markdown paths relative to entry (including the concurrent lint
+configuration), unchanged toolchain `4b62e255…`, native binary
+`2cfc9c0d…` and service binary `af7d4e0c…`; both binaries are preserved beside the
+manifest. Compared with freeze15, changes are the new common clone operation and
+owned-cluster regression, its three caller files, the authored harness.browser
+row and generated reference index. Current verification routing is machine-owned;
+neither test nor generator reads the specification or this tracker. Final gates,
+full warm check and full-tier CI on this freeze remain required.
+
+**Freeze16 final gates passed.** All eleven public gates in
+`s073-final-gates16.json` exited 0 on unchanged freeze16. The race-enabled runtime
+gate ran alone (native 33200), followed by contract (44252), scripts (98559), shell
+(40613), local-session (33247), Markdown (76481), policy (96010), shapes (39915),
+drift (28579), frontend typecheck (79194) and import boundary (93286). Run IDs
+are `assurance-s073-<name>-20261013-17`; the manifest stores exact Make targets.
+The aggregate contract passed 9/9 units in 60,749ms. No executable hash changed.
+The next prerequisite is cache-off, basic-diagnostics full warm check16; full CI11
+remains gated on that result and its exact-run readers, cleanup and retained scan.
+
+**Freeze16 full warm check passed.** Exact public command
+`CARTULARY_TEST_RUN_ID=assurance-s073-warm-check-20261013-16
+CARTULARY_HARNESS_CACHE_MODE=off make check HARNESS_DIAGNOSTICS=basic`
+completed with native 13275 exit 0. Its manifest binds freeze16/toolchain above.
+All 733 units passed, all 992 graph cleanup outcomes completed and retained scan
+PASS covers 4,955 files. All 733 cache decisions bypassed reuse. No default private
+runtime or running container remains; every frozen hash still agrees.
+
+All six exact-run operations in `s073-check16-readers.json` exited 0: status and
+explanation returned directly, performance native 84483, resources 3016, operator
+68279 and observability 36773. Observability passed one invocation/four sources,
+with explicitly truncated diagnostics/execution coverage. The native Make exit
+was independently observed, not inferred from those readers.
+
+Outer duration was **585,440ms (9m45.440s)**; graph **479,097ms (7m59.097s)**;
+retained scan **100,250ms (17.1% of outer)**. Dependency path was 477,160ms,
+including 459,536ms invocation-path queue. Phase unions were runner 477,410,
+evidence 52,966, acquisition 7,959, host admission 7,146, release 5,344, cache
+publication 5,719 and lookup 169ms; they overlap by 79,274ms, with 1,658ms outside
+selected phases. These phase values are not additive wall-time categories.
+
+Build-operator queued **141ms** (69ms resource/72ms rank, three segments) and
+executed 2,996ms. Its prerequisites: frontend-install queue 1/execute 572ms,
+build-web 17/4,436ms and embedded-web-assets 694/2,276ms. Earlier admission is
+observed; a faster overall run is not established. Check15 was a failed,
+different-source 520,450ms run, and historical successful check14 was 529,620ms.
+This successful candidate is slower; no throughput or qualification claim follows.
+
+Resources remain partial: 12,466 samples, 540 omitted observations, zero discovery
+truncations, maximum sweep 137.301846ms and sampled RSS sum 13,498,961,920 bytes
+(one sweep subset; shared pages may repeat). Two owned containers were sampled
+with zero omitted container observations or deadline overruns. The required
+full-tier CI11 can now begin on unchanged freeze16. S-073/V-076 remain incomplete
+until that run and final handoff satisfy all gates.
+
+**Full CI11 launch.** After the successful warm-check checkpoint, public
+`CARTULARY_TEST_RUN_ID=assurance-s073-ci-20261013-11
+CARTULARY_HARNESS_CACHE_MODE=off make ci HARNESS_DIAGNOSTICS=basic` began with
+native session 81708, output `ci11.out`, and unchanged freeze16. Its final exit,
+cleanup, retained scan and exact-run readers are pending. No completion is inferred
+from the prior gate. This run is required full-tier functional acceptance, not
+resumption of the deferred instrumentation qualification ledger.
+
+**Full CI11 terminal checkpoint.** The exact launch above completed with native
+81708 exit 2, graph duration 2,668,520ms and product/test_assertion_failure.
+1,133 of 1,136 units passed. UI-review workflow failed at its first browser stop
+with cleanup_failed (33,788ms row); the stateful sentinel failed while selecting
+an incoming-owner candidate (60,619ms test / 63,708ms group). The third failed
+unit is the derived stateful target summary. All 1,756 graph cleanup outcomes
+completed and retained scan PASS covers 10,391 files. No default private runtime
+owner or running container remained at terminal inspection. All six exact-run
+readers in `s073-ci11-readers.json` exited 0, separately from the failed native
+owner; `s073-native-exits.json` records both.
+
+Retained browser context shows the expected identity as a radio while the helper
+waited for a checkbox: its immediate radio-count branch ran before candidates
+loaded. Correct control readiness needs an independent delayed-candidate case.
+UI-review's public workflow assertion retained only cleanup_failed and then
+removed its scratch evidence. The specific cleanup cause is unresolved; prior
+controlled proof-denial interference is not attributed to this failure without
+current-run evidence. Preserve bounded structural cleanup evidence before a
+controlled reproduction. Freeze16 passes remain source-specific; S-073/V-076
+stay IN_PROGRESS and any executable correction requires renewed final gates.
+
+**CI11 diagnosis and regression admission.** Exact-run timing readers report
+2,807,150ms outer, 2,668,520ms graph and 130,300ms retained scan. Build-operator
+queued 769ms (343ms resource / 426ms rank) and executed 5,551ms. This supports
+earlier admission, not overall throughput improvement. The inaccessible-proof
+native session row ran at 17:58:14Z, after the failed workflow at 17:56:08–42Z;
+that test is not a supported explanation for this attempt.
+
+The new candidate-readiness regression holds DOM candidate publication until the
+helper requests a control, then publishes a real radio or checkbox. No scheduling
+sleep or changed existing timeout is used. Initial `candidate-red-01` rejected
+unsorted authored rows; its exact reader had no published run to read. Public
+`candidate-catalog-01` exposed the ASCII ordering error. After sorting,
+`candidate-catalog-02` exited 0; `candidate-red-02` still rejected incomplete
+browser batch routing before execution. The authored batch now includes the exact
+new support row/spec. These are configuration failures, not characterization
+passes; `candidate-red-03` is the first admitted regression attempt.
+
+**Controlled candidate red and repair.** `assurance-s073-candidate-red-20261013-03`
+(native 50002 exit 2) reproduces the exact incorrect checkbox wait with the real
+radio held until selection begins. Graph 87,516ms, 9/11 units passed; the browser
+group and its derived summary failed at the unchanged 60-second test deadline.
+All 22 cleanup outcomes completed. The helper now resolves each exact requested
+radio-or-checkbox before deciding cardinality or activating it. Multi-identity
+radio requests reject before partial activation; native select behavior remains.
+The independent support row and its authored browser batch retain this assurance.
+
+REQ-502 now requires closed cleanup context. Native review closure/recovery map
+release boundaries and bounded error categories into existing receipt fields;
+private messages and identities remain excluded, and failure precedence and
+budgets are unchanged. The public workflow preserves its private caller scratch
+on any unexpected command failure instead of erasing failed terminal evidence.
+Native tests cover context/redaction and a failing diagnostic resource alongside
+an independently closing service. These improve diagnosis; CI11's cleanup cause
+is still unresolved. `repair-format-19` native 68077 exited 0. Generation and
+focused controlled validation precede any broader acceptance rerun.
+
+**Focused successor passed.** `candidate-green-20261013-01` (native 68217 exit 0)
+passed 13/13 units in 59,838ms: real delayed radio/checkbox regression, native
+review context/redaction assertions and public UI-review workflow. All 24 cleanup
+outcomes completed, retained scan PASS 79 files. The original Timeline row passed
+in `sentinel-green-20261013-01` (native 85660 exit 0): 11/11 units, 58,980ms graph,
+22 completed cleanups and scan PASS 68 files; the product scenario took 9,421ms.
+The red run's retained scan passed 70 files. Generation19 native 20256 exited 0.
+These exact source-scoped results establish the candidate-selection correction;
+they do not retroactively explain CI11 cleanup. Installed boundary/workflow/seeded
+checks now precede finalization and a new executable freeze. S-073/V-076 remain
+IN_PROGRESS.
+
+**Freeze17 installed and finalization checkpoint.** Public IDs
+`assurance-s073-{boundary,workflow,seeded}-20261013-19` passed: native 73290 /
+145,560ms, 62363 / 18,400ms and 96231 / 59,860ms respectively. The boundary status
+reader returned not_published for its non-graph outer operation; its native exit
+and tool summary, not that observation, establish success. Default runtime entries
+and running containers were zero after all three checks.
+
+`assurance-s073-finalize-20261013-19` (native 13505 exit 0) passed in 21,507ms.
+RESULTS_DIR was unset, so retained-run maintenance was skipped. Comparing all 377
+entry-relative non-Markdown paths before/after finalization found no mutation.
+`s073-freeze17.json` binds source
+`sha256:d97866cb8f2f1a6d89799fcf6124b468affab1f94524098cdacb777ad5f5f13b`,
+unchanged toolchain `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`,
+native binary `8d4264e8a0723fb6122d38f7b85cd91da798f928c24a0ebb2d486ee4b45f005f`
+and service binary `af7d4e0c4307ee0e7183ae2e01d1024ce6b399dfc87ec322ae8f6db8431eaccb`.
+Both binaries are preserved with suffix freeze17. The entry-relative inventory is
+382 paths: 378 remediation and four concurrent instruction/lint paths, preserved.
+Final gates now follow this frozen source; no executable edits are permitted
+without invalidating affected acceptance evidence.
+
+**Freeze17 final gates passed.** All eleven public gates in
+`s073-final-gates17.json` exited 0 with fresh `assurance-s073-<name>-20261013-19`
+identities and cache reuse off. Native runtime contract ran alone (57699); aggregate
+contract native 87386 passed 9/9 units in 60,767ms. Scripts 30855, shell 91297,
+local-session 7662, Markdown 20060, generated policy 29787, JSON shapes 50403,
+generation drift 70693, frontend typecheck 31709 and import boundary 8139 all
+passed. Finalization19 had ten completed cleanup outcomes and scan PASS ten files.
+All 377 frozen executable hashes remain unchanged. The next required gate is
+warm check17 with explicit basic diagnostics/cache off, followed by its exact-run
+readers and full CI12. S-073/V-076 remain IN_PROGRESS.
+
+**Warm check17 launch.** Public
+`CARTULARY_TEST_RUN_ID=assurance-s073-warm-check-20261013-17
+CARTULARY_HARNESS_CACHE_MODE=off make check HARNESS_DIAGNOSTICS=basic`
+is running via native 66330, output `check17.out`. Its manifest confirms freeze17
+and the pinned toolchain. Status02 observed 159/733 units passed, zero failures,
+at 85,781ms. This is progress only; native exit, terminal cleanup/scan and exact
+readers still gate CI12. No executable source has changed.
+
+**Freeze17 warm check and readers passed.**
+`assurance-s073-warm-check-20261013-17` completed with native 66330 exit 0,
+733/733 passing units, 992 completed cleanup outcomes and scan PASS 4,955 files.
+All 733 cache decisions bypassed reuse. All six public readers in
+`s073-check17-readers.json` exited 0: status/explain directly, performance 73735,
+resources 71011, operator 22703 and observability 92319. Observability passed
+one invocation/four sources, with diagnostics and execution explicitly truncated.
+
+Exact outer duration **589,490ms (9m49.490s)**, graph **482,743ms (8m02.743s)**,
+retained scan **100,560ms (17.1%)**. Dependency path 480,779ms includes 462,070ms
+invocation-path queue. Phase unions: runner 481,063ms, evidence 51,720ms,
+acquisition 7,791ms, release 6,187ms, admission 9,480ms, cache publication 7,186ms
+and lookup 163ms. They overlap by 82,500ms, with 1,653ms outside selected phases;
+these values are not additive wall-time categories.
+
+Build-operator queued **705ms** (609ms resources/96ms rank, three segments) and
+executed **3,377ms**. Prerequisite queue/execution: frontend-install 1/534ms,
+build-web 17/5,470ms, embedded-web-assets 1/2,261ms. The 337-second historical wait
+is no longer observed, but different-source runs and uncontrolled host effects
+prevent an overall throughput or qualification claim.
+
+Resources: 11,825 samples, 989 omissions, one discovery truncation, maximum sweep
+125.260872ms and sampled RSS sum 16,022,888,448 bytes (partial sweep subset; shared
+pages may repeat). Container observations had three omissions and zero deadline
+overruns. No default private runtime or running container remains. All 377 frozen
+hashes agree. This checkpoint admits CI12; S-073/V-076 remain IN_PROGRESS until
+full-tier native exit, summaries, cleanup, scan, exact readers and final handoff
+agree on this same source.
+
+**Full CI12 launch.** After saving the warm-check/readers checkpoint, public
+`CARTULARY_TEST_RUN_ID=assurance-s073-ci-20261013-12
+CARTULARY_HARNESS_CACHE_MODE=off make ci HARNESS_DIAGNOSTICS=basic` began through
+native 32428 at 2026-10-13T19:05:43.739Z. The manifest confirms freeze17/toolchain;
+status01 observed 33/1,138 units passed and zero failures at 17,361ms. Output is
+`ci12.out`. Native exit, terminal cleanup/scan and exact readers are pending.
+No selected completion or qualification claim follows from this launch.
+
+**Freeze17 full CI and terminal readers passed — final executable acceptance.**
+The exact CI12 command above completed with native **32428 exit 0**. All
+**1,138/1,138 units passed** with cache bypass, all **1,759 cleanup outcomes
+completed**, and retained scan PASS covers **10,402 files**. All six operations in
+`s073-ci12-readers.json` exited 0: status/explain directly, performance 12638,
+resources 82406, operator 92884 and observability 56283. Observability passed one
+invocation/four sources with diagnostics/execution explicitly truncated. The native
+exit was collected independently. Status03 at 160,238ms entered paused_measurement;
+no structured observers ran again until the native command completed.
+
+CI12 outer **2,762,280ms (46m02.280s)**, graph **2,615,411ms (43m35.411s)**,
+retained scan **138,700ms (2m18.700s)**. Dependency path 2,611,799ms includes
+2,108,941ms invocation-path queue. Phase unions: runner 2,569,072ms, acquisition
+117,930ms, release 13,138ms, admission 152,737ms, evidence 51,778ms, cache
+publication 9,037ms and lookup 146ms. They overlap by 303,565ms, with 5,138ms outside
+selected phases; phase values are not additive wall-time categories.
+Build-operator queue **757ms** (648 resources/109 rank), execution **3,228ms**;
+prerequisite queue/execution: frontend-install 0/538ms, build-web 17/4,350ms,
+embedded-web-assets 1/2,729ms. No concurrency or throughput conclusion is inferred.
+
+Resources: 17,642 samples, 1,586 omissions, one discovery truncation, maximum sweep
+83.863666ms, sampled RSS sum 13,334,749,184 bytes (observed subset, possibly repeated
+shared pages), two owned container identities, one container omission and zero
+container deadline overruns. Diagnostic validity is not complete profiling.
+
+The final full-tier rows passed: delayed-control support 3,065ms wall; public
+UI-review workflow 22,562ms; original Timeline scenario 10,284ms wall / 7,548ms test;
+template preparation 12,406ms wall / 11,500ms native test. These results close
+current-source acceptance; they do not explain the lost historical cleanup detail.
+All 377 frozen hashes and the complete entry-relative executable path set agree.
+Default private-runtime entries and running Docker containers are zero. No
+post-freeze repair, alias, relaxed deadline, capacity increase or workload padding
+was introduced. Final documentation verification follows before the DONE checkpoint.
+
+**Final assertion, migration and handoff disposition.** S-065 specification closure
+and independent cases are in E-078; catalog survivors/residuals E-079; assurance
+leaf ownership E-080; installed service lifecycle E-081; architecture/security
+mutation guards E-082; changing wait reasons E-083; elapsed-age admission E-084;
+file-compatible frontend processes E-085. E-086's final gates exercise those owners
+on freeze17, plus every added physical/privacy/recovery regression. Deliberately
+failed negative fixtures prove rejection/unresolved outcomes and remain distinct
+from successful cleanup. Candidate-red03 retains its expected failed assertion,
+22 completed cleanups and passing 70-file scan; earlier failed configuration
+attempts never admitted resources. CI11 and every earlier failed attempt remain
+unchanged and source-specific.
+
+The changed-file map in section 2 and `s073-freeze17.json` account for 382 paths
+relative to S-065 entry, 378 remediation plus four preserved concurrent paths.
+No domain vocabulary changed. Public command identities, required assurance,
+borrowed-resource protection, failure precedence, budgets and diagnostic defaults
+remain; private projections/consumers changed coherently without aliases. The
+recorded default-environment migration is complete. Other environments and rollback
+still require exact-session inventory and a coherent source/projection/binary set;
+unresolved proof and historical retained bytes must be preserved. Scope remains
+selected affected callers, not an exhaustive audit of the original 146-file corpus.
+F-022/RB-006/S-020–S-022 remain deferred at **44.952/90 minutes**.
+
+The following cycles and failures remain source-specific historical evidence.
+
+**Current acceptance state:** CI03 failed, its exact resources were recovered,
+and independent characterization/focused validation established the subsequent
+repairs. Source 86a3ffb8… passed installed checks, repository finalization and all
+final static gates. Warm check07 and exact readers passed; full-tier CI04 failed one UI-review workflow. The eighth freeze 20593820… below adds closed private rejection diagnostics and correct artifact-worker ancestry; installed/finalization/static checks and check08/readers passed; CI05 failed and the following source repairs are in progress. V-076/final handoff are incomplete. Earlier failed attempts,
+source-specific passes and causal limits remain preserved below.
+
+**Post-CI03 recovery and repair checkpoint:** source is unfrozen; fifth-freeze
+passes below remain historical and do not establish current-source acceptance.
+The user approved the exact administrative recovery and then its exact-container
+fallback as procedural exceptions to public Make routing (no graph-runtime
+recovery operation exists). The first two attempts settled browser processes
+and released one browser resource but could not retire the measurement clone:
+its administrator TLS root/client certificate/key had been purged. This is a
+confirmed recovery defect, not an explanation of the original ordinary-release
+failure whose stderr was empty. Provider-declared minimum cleanup files are now
+being implemented in private start_result.v2, its native consumer and tests;
+there is no DSN-parser compatibility adapter or old schema reader.
+
+Approved fallback `/tmp/cartulary-remediation-s065-20261012/recover-ci3-container-fallback.mjs`
+verified the original journals, exact container IDs and ownership labels, and
+used preserved native/service binaries. The first launch did not execute (bare
+Node unavailable, native 127); the pinned Node launch exited 0, helper exit 0,
+independently confirmed both exact containers absent, then released resources
+and closed the runtime. All 10,388 retained files are byte-identical, with zero
+added/missing/modified files (`s073-ci3-after-recovery.json`). The binaries are
+preserved in the same scratch directory; native SHA remains 6806c249… and service
+SHA is 1234971fa02c50351f74a6ca45047f22a13e30cddbdde13735bbc4d03995b4d9.
+The default CI03 migration obstruction is cleared; other environments still need
+their own inventory. Neither recovery rewrote historical failed receipts.
+
+Independent controlled characterization confirmed collector admission starvation
+behind ordinary resource waiters. `assurance-s073-observation-red-20261013-01`
+failed the native_collection row (native 2). Native root-only observation fences
+now bypass resource-only waiters, carry zero workload claims, permit no children
+or guards, and remain blocked by every pending/active exclusive request.
+Ordinary FIFO/capacity semantics and measurement boundaries are unchanged.
+The paired native_collection/observation_admission selection passed at
+`assurance-s073-observation-green-20261013-01` (native 0, graph 1,105 ms), and the
+real native_graph_observations row passed at
+`assurance-s073-observation-boundary-20261013-01` (native 0, 43,164 ms). These
+independent results do not establish that this caused CI03's missing sample.
+The initial guide invocation incorrectly supplied run/cache variables as Make
+arguments and failed configuration; its corrected environment-input attempt
+passed. Both attempts remain retained.
+
+A real native child exit 12 independently reproduced incorrect product
+classification in `assurance-s073-cleanup-classification-red-20261013-01`
+(native 2). The classifier now preserves harness/cleanup_error; the full native
+race contract passed at `assurance-s073-cleanup-classification-green-20261013-01`
+(native 0). Minimum credential preservation has independent red evidence at
+`assurance-s073-recovery-proof-red-20261013-01` (fixture contract, native 2).
+Its corrective validation, browser focus and restore-cleanup investigations,
+final-source gates and handoff are still pending. No deadline, capacity,
+observation requirement or diagnostic default was relaxed.
+
+**Credential and finalizer validation checkpoint:** private start_result.v2 now
+carries provider-owned minimum recovery files. Native startup rejects foreign,
+missing and unsafe file claims before admitting consumers. The PostgreSQL
+provider declares only the administrator CA/certificate/key; object storage
+supplies its cleanup CA. The persistent-service consumer pins the new schema
+and registers the same proof. Retired v1 has no reader or forwarding alias.
+
+`assurance-s073-recovery-generate-20261013-01` and format counterpart passed.
+The projections invocation passed generate-drift (20,995 ms) but incorrectly
+combined multiple graph entrypoints with one explicit run ID; the second command
+rejected its nonempty root (native 2). Separate fresh policy/shapes roots passed
+(native 0; 1,040/3,491 ms). Producer/pgtest owner rows passed at
+`assurance-s073-recovery-producer-20261013-01` (native 0, 3,379 ms).
+Fixture contract 01 failed because the new foreign-path test used a private-file
+writer beneath an intentionally foreign parent; fixing the fixture's creation
+method preserved the rejection assertion. Fixture contract 02 passed (native 0).
+
+`assurance-s073-recovery-physical-20261013-01` failed overall (native 2, graph
+54,769 ms): the borrowed case attempted startup before rebuilding the installed
+service producer. Owned and failed_cleanup cases passed. The latter now proves
+that a fresh PostgreSQL connection succeeds after detail purge, administrator
+TLS proof remains, ordinary runtime credentials are absent, actual recovery
+succeeds, and prior evidence is unchanged. The early borrowed setup failure left
+an empty native owner (no resource records or service sessions); a deferred owner
+close was added before setup. Exact empty-owner administrative close is awaiting
+its own procedural exception; no foreign process/container cleanup is proposed.
+
+The target-summary finalizer's unconditional product exit independently failed
+`assurance-s073-target-classification-red-20261013-02` (native 2, expected 12,
+actual 10). Attempt 01 failed earlier because its new fixture omitted required
+session-artifact references; that failed fixture attempt remains separate.
+The fix consumes typed row/reset failures, preserves product-primary precedence,
+and treats cleanup-only group failure as cleanup. Adapter contract green01
+passed (native 0), covering cleanup, mixed product/cleanup, infrastructure,
+artifact and group-only cleanup cases. The native group correction is distinct
+from CI03's aggregate: its other real authoring assertion already justifies a
+product-primary target failure.
+
+The authoring row now presses Escape on the enabled Cancel support selection
+control inside the picker, rather than a non-focusable empty fieldset. Existing
+focus restoration, unchanged selection and no-submit assertions remain intact.
+Installed boundary and exact browser-row validation are in progress. Restore's
+10-second database cleanup timeout remains causally unresolved; no budget or
+admission capacity has changed.
+
+**Installed follow-up checkpoint:**
+`assurance-s073-recovery-installed-20261013-02` passed the public installed native
+boundary (native 0); `assurance-s073-focus-row-20261013-01` passed the exact
+boolean-support browser row (native 0, graph 27,440 ms). The user separately
+approved the empty-owner close script; its native exit was 0 and the exact root
+is absent. It controlled no process or container. Preparation now builds the
+required service producer through the existing recipe before the borrowed test
+starts its service session; owned variants retain their existing full build
+recipe. Format02 and diff whitespace validation passed. Final installed gates
+are rerunning on this correction before agent-finalize and source freeze.
+
+**Finalization preparation checkpoint:** installed boundary06, workflow06 and
+seeded06 passed (native 0; 136,580 / 17,310 / 53,730 ms). Before finalization,
+the default suite-runtime root was empty and host admission held zero leases.
+The earlier raw-contract status-reader attempt was invalid (native 2); terminal
+tool summaries and owning exits, not that reader, establish those passes.
+
+Finalization06 failed at json-shape-check (native 2, graph 2,514 ms), before
+mutation. A fresh direct shape check02 confirmed a stale generated topology
+fingerprint for the edited browser target finalizer. Generate07 then passed
+(native 0, 10,310 ms), refreshing authored-input projections. Finalization07 is
+in progress. RESULTS_DIR is unset, so retained-run maintenance is skipped. The
+340-path executable/projection inventory is saved as
+`s073-prefinalize7-files.json`; documentation remains outside executable source
+identity. The next freeze requires its post-finalizer comparison and final gates.
+
+**Frozen-source final gates:** finalization07 passed (native 0, graph 22,267 ms),
+with no changes to the 340-path executable/projection inventory. Retained-run
+maintenance was skipped because RESULTS_DIR was unset. Current executable
+source is sha256:86a3ffb89069a0902bb0e73bc5cfde1d54d93e31a44ea4d725c5802766c97861;
+toolchain remains 4b62e255… and native binary SHA-256 is
+92d2ba94350e271b3bd45191368da07e5d8695132af15264edfa17ee8a0c9527.
+
+All `assurance-s073-<stem>-20261013-07` final gates exited native 0:
+contract (57,330 ms), runtime race contract, local-session contract, scripts
+(522 ms), shell (1,461 ms), markdown (19,080 ms), drift (18,061 ms), policy
+(997 ms), shapes (3,459 ms), type (20,332 ms), import (5,977 ms). Every graph
+manifest matches the freeze, all cleanup outcomes completed and retained scans
+passed. The executable/projection inventory still matches exactly. Full warm
+check07 and full-tier CI04 are the remaining final acceptance gates, followed
+by exact-run readers, final migration inventory and all-section handoff closure.
+
+**Current-source full warm check and exact readers:**
+assurance-s073-warm-check-20261013-07 passed with independently captured native
+Make exit 0: 733/733 units passed, 733 cache bypasses, zero hits, all 992 cleanup
+outcomes completed, retained scan passed 4,955 files. Manifest source/toolchain
+and the 340-path inventory still match the freeze. Status, explain, performance,
+resources, operator and observability readers all exited native 0. Observability
+validated one invocation/four sources; diagnostic and execution views explicitly
+report truncation rather than claiming complete observation.
+
+The terminal receipt reports outer duration 507,310 ms (8m27.310s), canonical
+graph 414,626 ms (6m54.626s), and retained scan 86,350 ms (17.0% of outer time).
+The queue-inclusive dependency path is 412,628 ms, including 395,730 ms queue
+(95.9%). Its chain remains frontend-install → build-web → embedded-web-assets →
+build-operator → the packaged Recovery server Go unit. Operator execution was
+2,901 ms and its ready-queue wait 272 ms: 191 ms resource blocking plus 81 ms rank,
+three segments. Its prerequisites waited/executed 1/528 ms (install), 20/4,526 ms
+(web) and 902/2,294 ms (assets). The original 337,305 ms operator wait is no longer
+present in this run. Cross-source evidence does not establish causation or a
+throughput improvement: outer time is still above E-076's 458,970 ms baseline.
+
+Phase unions (overlapping, not additive): runner 412,805 ms; evidence write
+37,559; fixture acquisition 7,051; host admission 5,638; cache publication 4,350;
+fixture release 3,986; cache lookup 222. Overlap is 58,754 ms and canonical time
+outside those phases 1,769 ms. There are 498,419 wait events and 917,791,841
+canonical-event bytes. These expose remaining evidence-volume/scan costs; no
+observation requirement was weakened to reduce them.
+
+Basic resources cover 11,975 samples with 422 omissions, zero discovery
+truncations and max sweep 135.478456 ms. Containers show two owned identities,
+one omission and zero deadline overruns. Sampled RSS sum peaked at 10,526,101,504
+bytes for the observed sweep subset; it is not a simultaneous whole-host total.
+Reservation saturation was CPU 220,182 ms (cap 19), object storage 400,045 ms
+(cap 3), PostgreSQL 198,112 ms (cap 8), not measured utilization. There is no
+basis here for a concurrency increase. Qualification remains deferred.
+
+**CI04 terminal checkpoint:** `assurance-s073-ci-20261013-04`, frozen source
+86a3ffb8…, cache off/basic diagnostics, native session 12906 exit 2. Graph
+2,497,741 ms; 1,133 passed, one failed, zero skipped of 1,134 units, all bypassed
+cache. All 1,749 cleanup records completed; retained scan passed 10,364 files.
+Terminal status reader suffix 06 exited 0. The single failed unit is
+`row:harness.browser.boundary_support.ui_review_workflow` (normalized product /
+test_assertion_failure exit 10; nested Make exit 2). Both concurrent public
+workflow fixtures recorded operation 5 / detach failure at 04:13:59 UTC:
+`target_unavailable`, secondary `cleanup_failed`, private cause `native private
+runtime rejected`, last command status null. This establishes a native private
+transaction rejection, not its cause or a confirmed browser timeout. The similar
+CI02 failure remains unresolved; standalone passes do not explain either failure.
+Exact unit evidence and bounded stderr are under this run's `unit-results/` and
+`unit-logs/row-harness.browser.boundary_support.ui_review_workflow/`. V-076 and
+final handoff remain incomplete pending causal investigation, any required
+repair, current-source gates and final reconciliation.
+
+**Post-CI04 investigation checkpoint:** source is unfrozen. Default
+`/tmp/cartulary-harness-scratch/suite-runtime` is empty and host admission has
+zero leases before the private-interface cutover. The installed-boundary red
+`assurance-s073-native-rejection-red-20261013-02` failed as expected because the
+client discards rejection details (native 2, graph 56,250 ms). The earlier suffix
+01 used a nonexistent row and failed configuration; it supplied no regression
+coverage. Native session v3 now defines a closed bounded failure response for
+validated transactions: operation/category/errno and only recognized proc identity
+fields, never arbitrary messages, paths or request values. The Node adapter keeps
+this non-enumerable and the review adapter records it only in private failure
+detail. Malformed frames and transport failures remain distinct. The v2 schema is
+retired without a legacy reader. REQ-854 clarifies failure diagnosability; no
+cleanup authority or deadline changes. This repairs a confirmed diagnostic gap;
+it does not yet explain or repair CI04's underlying rejection. Focused native and
+installed-boundary validation plus controlled overlapping workflow reproduction
+are next. Previous final-source passes remain historical.
+
+Native rejection owner row `assurance-s073-native-rejection-green-20261013-01`
+passed (native 0, graph 1,445 ms), covering closed error categories, proc-only
+fields and exclusion of arbitrary secret strings. The first overlapping
+reproduction used a standalone workflow with a graph-admitted runtime row:
+`assurance-s073-overlap-runtime-20261013-01` passed (39,257 ms), while
+`...overlap-workflow...-01` failed at admission/capacity_exceeded (16,990 ms).
+This is a different failure and does not reproduce CI04. The next controlled
+pair uses catalog-admitted slices for both workloads, retaining their ordinary
+resource claims and parent credits; no limit or deadline changes. In that pair,
+`assurance-s073-overlap-runtime-20261013-02` passed (56,092 ms), while the workflow
+suffix 02 failed at artifact-mode `ui-capture` admission/capacity_exceeded
+(18,794 ms), after its diagnostic snapshot passed. Neither overlapping attempt
+reproduced CI04's rejection, and neither is causal proof for it. Both failed
+attempts remain retained. Installed boundary validation and the full acceptance
+sequence will exercise the new private rejection contract; CI04's original
+native reason remains unavailable rather than inferred from these runs.
+
+**Artifact-mode admission correction:** the catalog-admitted overlap exposed a
+separate confirmed ownership defect. `ReviewAdapter` initialized its parent
+lease to null; artifact-mode preparation returns before browser preparation
+supplies a session lease. Its workers therefore lost the caller's existing
+reservation and competed as independent roots. The adapter now preserves the
+validated inherited lease from construction; browser preparation still replaces
+it with the browser session's child lease. Idle artifact sessions hold no new
+lifetime activity or browser reservation. REQ-381 makes this invariant explicit;
+existing weighted-parent, expired-parent and public artifact/workflow assertions
+remain at their owners. No capacity/deadline changes or synthetic workload added.
+
+The repeated catalog-admitted pair's workflow
+`assurance-s073-overlap-workflow-20261013-03` passed (native 0, graph 17,787 ms)
+while the native runtime slice remained active. This supports the ancestry fix,
+not a cause for CI04's different native rejection. Private rejection installed
+boundary `assurance-s073-native-rejection-installed-20261013-01` passed before
+this adapter correction (native 0, tool 133,830 ms). Final installed checks and
+freeze are being refreshed for the combined source.
+
+**Eighth source freeze:** installed boundary/workflow/seeded checks suffix 08
+all passed with native exits 0 (125,500 / 16,700 / 51,660 ms). Default runtime
+inventory is empty and host admission has zero leases. `agent-finalize` suffix
+08 passed, native 0, graph 21,398 ms; RESULTS_DIR was unset, so retained-run
+maintenance was skipped (no eligible successful full warm evidence for this
+changed source). Its refresh changed no executable/projection files. The frozen
+350-path inventory is `s073-freeze8.json` in the remediation scratch directory,
+source `sha256:20593820d4c5123d4b4acdb640c070dc160e114cb622e8db1209bc95900f22b2`.
+All eleven final contracts/lints/projection/frontend gates suffix 08 passed with
+native exits 0; `s073-final-gates8.json` and the native-exit ledger record exact
+targets and roots. The inventory remains unchanged after those checks. Fresh
+full warm check08 and CI05 evidence remain required. Native rejection
+v3 and inherited artifact admission do not establish a cause for CI04.
+
+**Current-source warm check08 and reader checkpoint:**
+`assurance-s073-warm-check-20261013-08`, source 20593820…, cache off/basic
+ diagnostics, native session 86593 exit 0: 733/733 units passed, 733 bypasses,
+zero cache hits, all 992 cleanup outcomes completed and retained scan PASS
+4,955 files. Exact status, explanation, performance, resources, operator and
+observability readers exited 0; final status uses suffix 07. The first terminal
+status read reused observer ID suffix 01 (read-only, no retained mutation); suffix
+07 supplies a fresh identity. Observability passes one invocation/four sources
+with diagnostics/execution truncation explicit. The frozen inventory is unchanged.
+
+Outer duration 487,680 ms (8m07.680s), graph 395,381 ms (6m35.381s), retained
+scan 86,270 ms (401,400–487,670), about 17.7% of outer time. Critical path
+393,462 ms includes 376,780 ms queued (~95.8%). The same install → web → embedded
+assets → operator → packaged recovery-server chain remains critical. Operator
+wait is 252 ms (resources 177/rank 75, three segments), execution 2,777 ms;
+install wait/execute 1/535, web 24/4,745, assets 1/2,147 ms. E-076's 337,305-ms
+operator wait did not recur, but these are different sources. Current outer time
+still exceeds E-076's 458,970 ms, so no overall speedup or concurrency claim is
+made.
+
+Overlapping phase unions: runner 393,670 ms, evidence write 33,809, fixture
+acquisition 7,080, admission 5,393, cache publication 4,171, fixture release 3,747,
+cache lookup 120; overlap 54,293 and outside selected phases 1,684 ms. There are
+500,618 wait events and 919,327,347 canonical-event bytes. Resource evidence has 11,457 samples, 664 omissions, zero
+discovery truncations and max sweep 152.70805 ms; two owned container identities,
+one omission, zero deadline overruns. Peak sampled RSS sum 10,460,893,184 bytes
+is a sweep subset with possibly repeated shared pages. CPU/object-store/Postgres
+reservation saturation is 217,258 / 381,867 / 201,327 ms; reservations are not
+measured utilization. Qualification remains deferred at 44.952/90 minutes.
+
+**CI05 terminal checkpoint:** `assurance-s073-ci-20261013-05`, frozen source
+20593820…, cache off/basic diagnostics, native session 90519 exited **2**.
+Graph `sha256:a211912fcc4cd151e83c044560de784333f51f1e06103ac487a893c1202c830d`
+ran 2,507,587 ms; 1,131 passed, three failed, zero skipped of 1,134 units.
+All 1,750 graph cleanup records completed. Retained scan passed 10,379 files.
+Final exact status reader suffix 06 exited 0; this is not CI acceptance.
+
+Two root failures remain. The public workflow passed diagnostic capture but its
+ordinary `ui-review-stop` returned `session_lost`; this is distinct from CI04's
+native rejection and has no new diagnostic-failure file. The restore browser
+fixture again exhausted the existing 10-second forced database-drop deadline.
+Its browser group and derived target summary correctly retained exit 12 and
+`harness/cleanup_error`. The graph's completed resource cleanup does not erase
+that fixture failure. Default suite-runtime inventory is empty after CI05.
+No deadline, proof-authority, concurrency or observation requirement is relaxed.
+S-073/V-076 remain IN_PROGRESS; further source repairs invalidate affected
+freeze8 acceptance evidence. Failed attempts and historical uncertainty remain.
+
+**After CI05:** executable source is unfrozen. Review control serving previously
+returned on session completion without joining accepted response handlers. A
+pipe-controlled independent stop client now proves the owner cannot exit while
+its final reply is blocked. `server_linux.go` stops admission, joins the accept
+loop and drains all accepted handlers under existing read/write bounds; REQ-416
+now explicitly requires this. Native review row red attempt 01 failed compilation
+(duplicate test import), 02 also encountered an invalid stub receipt, and 03
+failed the pre-fix behavioral gate (18,297 ms); green 01 passed (18,276 ms),
+native exits 2/2/2/0. Bounded aggregate stderr discarded the early red assertion
+text; do not claim retained exact assertion text. Existing session interruption,
+publication recovery and immutable repeat-stop coverage remain selected.
+
+The restore fixture now provisionally records bounded wait-state observations of
+its exact forced-drop SQL while the existing operation deadline remains active.
+Only structural wait categories/counts may be retained, never SQL or DSNs.
+`assurance-s073-restore-diagnosis-20261013-01` is the focused authorized public
+service-backed row reproduction; native 0, graph 29,635 ms. This isolated pass
+is not a database remediation. CI05 shared its restore interval with the existing
+a11y and stateful browser groups. The public `browser-e2e-webserver-backed`
+context reproduction `assurance-s073-restore-context-20261013-01` is running
+with cache off to exercise accumulated fixture use.
+The same-source focused `assurance-s073-cleanup-contracts-20261013-01` passed
+both native review and recovery-fixture lifecycle rows, native 0, 21,534 ms;
+this includes the closed wait-vocabulary redaction assertion. Review registry
+inventory was empty during contextual reproduction. CI04's protected-process
+negative-fixture overlap hypothesis was checked against routing: the native
+session row ran after the rejection and no runtime-contract target unit exists
+in that CI graph. That hypothesis is not established and no isolation or
+proof-policy change is justified from it.
+
+**Post-CI05 contextual gate:** `assurance-s073-restore-context-20261013-01`
+passed native 0, graph 971,643 ms, all 148 units and all 299 cleanup records;
+retained scan passed 2,196 files. Restore group passed in 8,447 ms. This does
+not explain or erase the earlier 10-second drop failures. The bounded wait
+observer remains for diagnosis, with exact-query selection, one-second samples
+only for slow drops, closed category/event vocabulary, bounded counts, no SQL
+or DSN output, and lifetime limited by the unchanged cleanup deadline.
+Default suite owners, review registry records and host leases were all zero
+before formatting/replacement. Formatting `assurance-s073-stop-diagnostic-format-20261013-01`
+passed native 0, 9,145 ms. The independent pipe regression now runs after the
+existing subprocess-helper dispatch guard. REQ-416/AC-110 own accepted-reply
+completion. Ninth installed/finalization/frozen-source acceptance is next;
+S-073/V-076 remain IN_PROGRESS.
+
+
+
+**Ninth source freeze:** installed boundary/workflow/seeded suffix 09 each passed
+native 0 (132,930 / 17,110 / 52,200 ms). Generation suffix 09 passed native 0,
+9,870 ms. Agent-finalize suffix 09 passed native 0, 21,554 ms; RESULTS_DIR was
+unset, so retained-run maintenance was skipped because no successful full warm
+run yet matched this changed source. No executable/projection file changed during
+finalization. Freeze source `sha256:c2aa64e4da726d25f8ca16051bef076c32783179401105dec625d3baca3b70a0`;
+toolchain `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`;
+installed native binary SHA-256 `8452b4c2089c5815f0ab788bd79352eea252e2ce0866fc8edad3e0c2dfddbe24`.
+The scratch freeze9 inventory binds 355 changed executable/projection paths.
+Pre-finalizer suite owners, review JSON records/socket endpoints and host leases
+were zero; the review directory retains 52 regular `.lock` files, not owner
+records. Final static, warm-check, readers and full-tier CI gates remain pending.
+
+**Ninth frozen-source gate failure:** harness-contract suffix 09 passed native 0,
+55,501 ms. Race-enabled runtime suffix 09 failed native 2 (tool exit 1),
+43,800 ms, normalized `harness/unknown_failure`: `TestReviewIPC/native_initialization_deadline_seeded` observed
+`cleanup_failed` after intentional termination. New reply-drain coverage passed;
+this failure is not a reported Go data race. The original generic diagnostic
+omits the physical cause, so no causal claim is made. Script/shell/Markdown
+suffix 09 gates passed native 0 (603 / 1,550 / 18,830 ms). Broad acceptance is
+blocked pending diagnosis; all failed evidence remains. Source will be unfrozen
+for any required correction and affected gates repeated.
+
+The first write-deadline characterization attempt
+`assurance-s073-write-deadline-red-20261013-01` unexpectedly passed native 0,
+43,130 ms. Inspection found the adapter's raw socketpair has blocking descriptors
+and ignores `SetWriteDeadline` errors. Therefore a past-deadline write may still
+succeed and the first case did not prove entry through the write-error branch.
+Attempt 02 adds an explicit transport-deadline capability assertion before the
+controlled write. Deadline budget and failure policy remain unchanged; original
+runtime-09 physical cause is not yet established. Source is unfrozen.
+
+Write-deadline red attempt 02 failed native 2 with retained exact assertion:
+`private adapter transport cannot enforce write deadlines file type does not
+support deadline`. The socketpair is now created nonblocking before wrapping
+its descriptors, and deadline-setting failures are checked. Attempt 03 tests
+this transport correction independently of the still-unchanged write-error
+cancellation path. No deadline or physical settlement requirement is relaxed.
+
+Write-deadline red attempt 03 failed native 2 with the now deadline-capable
+transport: `settled intentional termination became cleanup failure session_lost`
+and `signal: killed`. This independently demonstrates the write-error path's
+missing intentional-termination state. `adapter_linux.go` now uses the same
+termination, two-second grace and settlement path for write expiry and response
+expiry; non-cancellation transport errors remain errors. The race-enabled green
+attempt 01 passed native 0. REQ-416/AC-110 clarify bounded private writes and
+single cancellation semantics. The original runtime-09 physical cause remains
+unproven; conditional test diagnostics now preserve bounded cleanup operation,
+error type and unsafe/unresolved/deadline categories without private values.
+Tenth installed/finalization/frozen-source acceptance follows this source repair.
+Additional diagnosis inspected `postgrescleanup/forced_drop.go`, its integration
+fixtures, and `postgrescatalog/coordinator.go`; these files remain unchanged.
+The slow-drop observer's closed output and cancellation on fast cleanup are
+covered, but no historical database timeout has been reproduced with a captured
+wait category. That limit is retained rather than inferred away from later passes.
+
+
+**Tenth source freeze:** installed boundary/workflow/seeded suffix 10 passed
+native 0 (121,330 / 16,990 / 51,170 ms). Formatting passed native 0, 8,696 ms.
+Agent-finalize suffix 10 passed native 0, 21,419 ms; RESULTS_DIR was unset and
+retained-run maintenance skipped because no successful full warm check matched
+this repaired source. No executable/projection mutation occurred in finalization.
+Default suite owners, review JSON/socket records and host leases were zero.
+Source `sha256:8af996c07cfa8f3bd3bb24cb379d885560f591e25695c34b3259d3985bcfd630`;
+toolchain `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`;
+native binary SHA-256 `2cfc9c0dc9fa509ae7e2bc8a321948077a13507b2caa53098d0b1c732ff50b21`.
+Freeze10 binds 357 changed executable/projection paths. All eleven final gates
+suffix 10 passed native 0: harness-contract (55,414 ms), race-enabled runtime
+(43,580 ms), local-session, script/shell/Markdown lints (612 / 1,655 / 8,020 ms),
+generate-drift (17,685 ms), generated-artifact policy (1,060 ms), JSON shapes
+(3,538 ms), frontend types (19,783 ms) and import boundary (6,228 ms). Native
+exits and exact target/run mappings are saved in the scratch final-gates10 ledger.
+All 357 executable/projection file hashes still match the freeze.
+**Tenth-source warm acceptance checkpoint:**
+`assurance-s073-warm-check-20261013-10`, cache off/basic diagnostics, exited
+native 0 (session 81672): 733/733 units passed, all 992 cleanup records completed,
+retained scan passed 4,955 files. Graph digest
+`sha256:78a23503354bd7afffd637ca9de56b8176f7ada475c32bfa160a8dcca4a31e4d`.
+Exact status suffix 04 and explain suffix 01 exited native 0. Performance,
+resources, operator and observability readers suffix 02 all exited native 0;
+suffix 01 outputs remain retained, but their native returns were unavailable
+following context recovery and are not inferred from their output. Observability
+passed one invocation/four sources, with diagnostics and execution truncated.
+
+The terminal receipt records 501,350 ms outer duration (8m21.350s), graph
+394,826 ms and retained scan 100,550 ms. The queue-inclusive critical path is
+392,807 ms, including 375,386 ms queue time. Phase unions (overlapping, not
+additive) are runner 393,101; evidence write 39,635; fixture acquisition 8,032;
+host admission 7,706; cache publication 5,687; fixture release 4,142; lookup 91 ms.
+Phase overlap is 65,265 ms; canonical time outside selected phases is 1,697 ms.
+`build-operator` queued 263 ms (resources 165/rank 98; three segments), then ran
+3,163 ms. Its prerequisite queue/execution pairs are frontend-install 1/570,
+build-web 16/4,407 and embedded-web-assets 357/2,688 ms. The E-076 337-second wait
+is absent here; sources differ, so this does not qualify a causal speedup or a
+concurrency increase. Compared with historical check08, outer duration rose
+13,670 ms while graph time fell 555 ms; the retained scan increased 14,280 ms.
+
+Resource observations: 11,221 samples, 913 omitted observations, zero discovery
+truncations, maximum sweep 116.25416 ms; sampled RSS sum peak 14,687,899,648 bytes
+is an observed sweep subset with potentially repeated shared pages. Two owned
+container identities, two omissions and zero deadline overruns. Reservation
+saturation: CPU 198,945 / object store 381,799 / PostgreSQL 207,435 ms; these are
+admission claims, not measured consumption. Canonical wait events: 492,364.
+All 357 executable/projection hashes still match freeze10; default suite owners
+are absent. Full-tier `assurance-s073-ci-20261013-06` is running via native session 42582,
+cache off/basic diagnostics, exact source/toolchain matching freeze10 and graph
+`sha256:a211912fcc4cd151e83c044560de784333f51f1e06103ac487a893c1202c830d`.
+Final handoff remains pending. Earlier failures and qualification limits remain intact.
+
+**CI06 terminal checkpoint:** `assurance-s073-ci-20261013-06`, freeze10,
+cache off/basic diagnostics, native session 42582 exited 2. Graph 2,497,427 ms;
+1,132 passed / two failed / zero skipped of 1,134 units. All 1,750 cleanup
+records completed and retained scan passed 10,379 files. Exact terminal status
+reader suffix 03 exited 0. The sole independent failure is
+`module.workbook.browser.indicator_observations_exact_recovery`, normalized
+product/test_assertion_failure 10; its browser target aggregate is the second
+failed unit. The other row in its group passed. Review workflow and restore
+checks both passed; their historical failure causes are not erased.
+
+The retained Playwright network evidence confirms the fixture's one-shot 503 was
+consumed by a timeline query at 07:57:09.710Z, before the replay POST at
+07:57:09.875Z; replay's subsequent refresh returned 200. The assertion at
+`indicator-observations.spec.ts:115` expected refresh-required state after replay.
+This is a fault-injection timing defect: the test released the outage on the
+first query instead of the explicit retry boundary. The fixture now retains the outage until the explicit retry boundary, preserving
+all recovery, exact-replay and no-duplicate-history assertions. The failing trace
+is independent characterization. Source is unfrozen for focused repair validation. All freeze10 passes remain historical;
+affected final acceptance will be rerun. S-073/V-076 remain IN_PROGRESS.
+
+**CI06 fixture repair checkpoint:** the public owner guide exited 0, then
+`assurance-s073-observation-outage-20261013-01` ran
+`make service-backed-test-slice OWNER=module.workbook
+ROWS=module.workbook.browser.indicator_observations_exact_recovery`, cache off.
+Native exit 0, 30,686 ms, all 11 units and 22 cleanups completed; retained scan
+passed 68 files. The outage now spans replay through the explicit retry, so
+independent timeline queries cannot consume a one-shot fault. This changes only
+fixture timing, retains the five-second assertion deadline, and does not change
+product behavior. Installed checks suffix 11 precede finalization and a new freeze.
+
+**Eleventh source freeze:** installed boundary/workflow/seeded suffix 11 passed
+native 0 (126,070 / 18,620 / 55,800 ms). Agent-finalize suffix 11 passed native 0,
+21,566 ms; RESULTS_DIR was unset, so retained-run maintenance was skipped.
+No executable/projection mutation occurred. All 358 changed executable/projection
+paths are bound in freeze11; 360 total changed paths include two Markdown files.
+Post-finalizer default suite owners, review JSON/socket records and host leases
+are zero. The native owner binary is unchanged from freeze10.
+Source `sha256:d233ec2346c4ca213c49b723237c077057e2c658647f48f583c68e24c7d38145`;
+toolchain `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`;
+native SHA-256 `2cfc9c0dc9fa509ae7e2bc8a321948077a13507b2caa53098d0b1c732ff50b21`.
+All eleven final gates suffix 11 passed native 0: harness-contract 57,910 ms;
+race-enabled runtime 47,650; local-session 430; script/shell/Markdown lints
+797 / 1,930 / 9,970; drift 21,067; generated policy 1,321; shapes 4,052;
+frontend types 21,936; imports 6,778 ms. Exact summaries/native exits are bound
+in `s073-final-gates11.json` and the native-exit ledger. All 358 file hashes still
+match freeze11.
+
+**Eleventh-source warm acceptance checkpoint:**
+`assurance-s073-warm-check-20261013-11`, cache off/basic diagnostics, native
+session 63560 exited 0: all 733 units passed, all 992 cleanups completed and
+retained scan passed 4,955 files. Exact status, explain, performance, resources,
+operator and observability readers suffix 01 each exited native 0. Observability
+passed one invocation/four sources with diagnostics and execution truncated.
+
+The terminal receipt records 518,680 ms overall (8m38.680s): canonical graph
+412,039 ms and retained scan 100,690 ms. Critical path 409,927 ms includes
+391,214 ms queued. Phase unions (overlapping, not additive): runner 410,049;
+evidence write 44,773; fixture acquisition 8,675; host admission 7,282; cache
+publication 6,532; fixture release 5,486; lookup 170 ms. Overlap is 72,686 ms;
+1,758 ms canonical time is outside selected phases. `build-operator` queued
+344 ms (resources 244/rank 100; three segments) and ran 3,359 ms. Prerequisite
+queue/execution pairs are frontend-install 1/583, build-web 18/5,497 and
+embedded-web-assets 1/2,449 ms. The historical 337,305 ms operator wait is absent,
+but total wall time is greater than E-076's 458,970 ms; changed sources and
+partial observations do not establish causal speedup or concurrency benefit.
+
+The retained canonical stream has 494,744 wait events and 1,079,843,463 bytes.
+Resource coverage is partial/truncated: 11,684 samples, 710 omitted observations,
+zero discovery truncations, maximum sweep 95.5278 ms. Sampled RSS sum peak
+16,832,684,032 bytes is a sweep subset and shared pages may repeat. Two owned
+container identities, three omissions and zero deadline overruns. Reservation
+saturation CPU/object store/PostgreSQL is 201,516 / 398,066 / 214,045 ms;
+reservations are not consumption. All 358 executable/projection hashes still
+match freeze11. Default suite owners, review JSON/socket records and host leases
+are zero. `assurance-s073-ci-20261013-07` is running via native session 44175,
+cache off/basic diagnostics, matching freeze11 source/toolchain and graph
+`sha256:a211912fcc4cd151e83c044560de784333f51f1e06103ac487a893c1202c830d`.
+Its terminal evidence and final handoff remain pending.
+
+Read-only follow-up confirms the native-session protected-process fixture ran
+11:25:02.486–11:25:03.512Z, after the failing native-review row ended at
+11:24:55.049Z. It does not explain that failure. The private-capture failure lacks
+its row receipt, and native review retains only a truncated package-failure tail;
+those limits are explicit. Further correction needs independent characterization
+and bounded causal diagnostics, not deadline changes or a pass-only rerun.
+PostgreSQL's [wait-event documentation](https://www.postgresql.org/docs/current/monitoring-stats.html)
+defines CheckpointStart as waiting for a checkpoint to start. The recorded state
+does not establish why the checkpoint was delayed. The repository's target/stripe
+catalog admission and exact forced-drop implementation were inspected; neither
+an ownership mismatch nor a specific checkpoint blocker has been established.
+
+**CI07 terminal checkpoint:** `assurance-s073-ci-20261013-07`, freeze11,
+cache off/basic diagnostics, native session 44175 exited 2. Graph 2,518,203 ms;
+1,132 passed / two failed / zero skipped of 1,134 units. Cleanup has 1,749 records:
+1,745 completed, three failed and one blocked. Retained scan passed 10,363 files.
+Terminal status reader suffix 02 exited 0. The indicator-observation recovery row
+repaired after CI06 passed. Two distinct failures remain: public UI diagnostic
+workflow product/test_assertion_failure 10, and a passing workbook-generic browser
+group whose fixture release failed with harness/cleanup_error 12.
+
+Private diagnostic evidence identifies native `inspect_diagnostic_scope` rejection:
+unresolved / errno 13 / process 74457 / environ, at 08:44:19.399Z. The native
+protected-process test ran later (08:45:32–33), so its overlap does not explain
+this failure. No inaccessible-proof safety rule is weakened. One default runtime
+retains one browser acquisition and its managed suite; cleanup blocked that
+service dependency. All TLS recovery files now exist. The runtime and 10,365
+retained files are preserved, with pre-recovery hashes in scratch. A new exact
+CI07 recovery script was prepared using preserved freeze11 native/service binaries;
+execution awaits the requested AGENTS.md public-Make procedural exception.
+S-073/V-076 remain IN_PROGRESS; no replacement or broad rerun occurs while this
+private cutover gate is unresolved. Read-only causal investigation continues.
+
+**CI03 terminal checkpoint:** `assurance-s073-ci-20261013-03`, fifth-freeze
+source, cache off/basic diagnostics, graph 2,506,062 ms: 1,127 passed, six failed,
+one skipped of 1,134 units. Cleanup has 1,750 records: 1,744 completed, five failed,
+one blocked. Retained scan passed 10,386 files. Terminal status reader suffix 12
+exited native 0. Reader success does not make the underlying invocation pass.
+
+The first timeline blank-row measurement browser group passed (32,497 ms; row
+30,118 ms), but native fixture release failed for lease-000023 (cleanup sequences
+128/129), producing harness/cleanup_error 12 with empty stdout/stderr. Its summary
+then rejected the missing receipt
+`performance-fixtures/6145980556a84a514f095184bcc1d812495b973fa84655b6adbf8a99d5f51b39/leases/module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13.json`.
+This is separate from the repaired partial-record reader defect.
+
+The HTTPS native-observation row failed for no real owned-container observation.
+Its nested graph passed 11/11 in 46,037 ms. The resource index reports containers
+not_observed, zero identities/omissions/deadline overruns, seven sweeps/117 samples,
+no failed sweeps or discovery truncation, max sweep 11.340027 ms. Unlike CI02,
+this is a no-attempt result. Source inspection found that a zero-reservation
+collector fence can be denied behind an ordinary queued resource waiter; a
+controlled regression is required before attributing this occurrence to that
+mechanism. Preserve pending/active exclusive measurement fencing and deadlines.
+The child ran 02:12:33.606–02:13:21.777 UTC, after outer timeline measurements
+finished by 02:11:50.939; direct overlap is not established.
+
+The authoring-candidates group failed the boolean support filter row at
+`authoring-candidates.spec.ts:502`: after Escape, the expected Choose support
+button was absent within the existing 5,000 ms focus assertion. Row 11,699 ms,
+group 80,348 ms. Its fixture release also failed (lease-000081, sequences 938/939).
+The restore browser row reported infrastructure_failed/harness/cleanup_error 12:
+forced drop of its exact target database exhausted the existing 10,000 ms cleanup
+deadline. Source cleanup succeeded afterward. The group and target summary
+misclassified the cleanup failure as product/test_assertion_failure. The earlier
+same-class failure and unchanged intervening passes remain historical evidence,
+not a causal explanation. These two browser groups and their target summary
+complete the six failed units; the measurement target summary was skipped.
+
+Final provider_close failed (sequence 1748) and services_close was blocked (1749).
+Private inventory identifies exactly two acquired browser_stack resources and
+their common managed_suite dependency in the matching default runtime. Its exact
+owner proof is boot 815ef6fd-1bf2-48e9-b253-82ec5320511a, PID 4881, start 148020257;
+the PID is absent. Host admission has zero leases, no UI-review session records
+or persistent test-services session were found. Recovery is pending under the
+unchanged installed revision; no new executable cutover is admitted yet. Prior
+public receipts must remain byte-identical. No private event staging was read.
+
+**Fifth executable freeze:**
+`sha256:9200763174026292df606c80c913e226d262bec525b2fdb77a78a236429794f5`.
+Toolchain remains `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`;
+installed native binary remains
+`6806c24991939b94e96510b20e1e3001ebfc226e073d554ef0a863da18148f59`
+because the readiness repair changes test fixtures only.
+`assurance-s073-installed-20261013-05` ran the boundary, workflow and seeded
+public Make targets sequentially and exited native 0 (tool durations 124,600 /
+16,600 / 51,720 ms). All six nested service graphs passed with completed cleanup
+and passing retained scans. `assurance-s073-finalize-20261013-05` passed (native 0,
+21,427 ms; ten completed cleanups; scan pass). RESULTS_DIR remained unset because
+there was no eligible successful full-warm run on the repaired source; retained-run
+maintenance was skipped. Its 326-path before/after inventory found no mutations
+(`s073-prefinalize5-files.json`). Static and full-run final gates follow.
+
+**Fifth-freeze static gates:** every captured native exit is 0; cache off.
+Roots are `.cartulary/test-results/assurance-s073-<stem>-20261013-05`.
+All graph manifests bind the fifth freeze, cleanup completed and retained scans
+passed. Executable/projection hashes match the pre-finalization inventory.
+
+| Stem | Public Make target | Duration ms | Completed cleanup records |
+| --- | --- | ---: | ---: |
+| contract | harness-contract | 58,094 | 18 |
+| scripts | lint-scripts | 717 | 11 |
+| shell | lint-shell | 1,818 | 13 |
+| markdown | lint-markdown | 9,510 | tool summary |
+| drift | generate-drift | 20,837 | 13 |
+| policy | generated-artifact-policy-check | 1,256 | 12 |
+| shapes | json-shape-check | 4,026 | 12 |
+| type | frontend-typecheck | 20,592 | 11 |
+| import | frontend-import-boundary-check | 6,330 | 11 |
+
+**Fifth-freeze full warm check and exact-run readers — passed:**
+`CARTULARY_TEST_RUN_ID=assurance-s073-warm-check-20261013-05 CARTULARY_HARNESS_CACHE_MODE=off make check HARNESS_DIAGNOSTICS=basic`
+exited native 0, with 733/733 units passed, 992 completed cleanup records,
+retained scan pass over 4,955 files, zero result-cache hits and 733 bypasses.
+The manifest binds the fifth freeze and graph
+`sha256:78a23503354bd7afffd637ca9de56b8176f7ada475c32bfa160a8dcca4a31e4d`.
+Root: `.cartulary/test-results/assurance-s073-warm-check-20261013-05`.
+The exact terminal `test-run-status` (reader suffix 05), `explain-run`, full
+performance/resource views, operator-scoped performance view, and
+`harness-observability-check` all exited native 0. Reader IDs are
+`assurance-s073-check5-<reader>-20261013-01` except terminal status suffix 05.
+Observability reports PASS, one invocation/four sources, with truncated diagnostics
+and execution. The native-session row passed, including explicit orphan readiness.
+
+| Latest check boundary | Milliseconds |
+| --- | ---: |
+| Owning wrapper duration | 515,060 |
+| Canonical graph | 402,796 |
+| Retained scan, wrapper 408,800–515,050 | 106,250 |
+| Dependency critical path | 400,667 |
+| Queue on that path | 382,244 |
+| Frontend install queue / execution | 1 / 527 |
+| Web build queue / execution | 18 / 5,059 |
+| Embedded assets queue / execution | 1 / 2,814 |
+| Operator build queue / execution | 475 / 3,413 |
+
+The unchanged prerequisite chain is frontend-install → build-web → embedded-web-assets
+→ build-operator → Recovery packaged-server row
+`module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e`.
+Operator wait comprises 332 ms resource blocking and 143 ms rank waiting. The
+historical E-076 337,305 ms operator wait is not reproduced, but different-source
+observations are not a matched causal throughput experiment. Outer E-076 duration
+was 458,970 ms; the latest command is slower overall. No capacity increase is
+justified by these observations.
+
+There are 490,615 wait segments and 1,069,677,860 canonical-event bytes. Retained
+scanning occupies about 20.6% of the outer command. Reservation saturation is CPU
+206,161 ms (capacity 19), object store 390,227 ms (capacity 3), and PostgreSQL
+200,821 ms (capacity 8); reservations are not consumption. Resource evidence has
+11,446 samples, 663 omitted observations, no discovery truncation, partial/truncated
+coverage, and maximum sweep 104.517929 ms. Peak sampled simultaneous RSS sum is
+13,597,413,376 bytes with potentially repeated shared pages. Container observations
+have one omission and no deadline overrun. Phase unions are runner 400,945 ms,
+evidence-write 44,326, fixture-acquire 9,861, host-admission 8,577, cache-publish
+6,402, fixture-release 4,844, and cache-lookup 107. They overlap by 74,088 ms and
+must not be added; 1,822 ms lies outside selected phases. None of this is observer
+qualification. Full-tier CI and final handoff remain required for V-076.
+
+**Fourth warm-check failure and fixture-readiness investigation:**
+`assurance-s073-warm-check-20261013-04` exited native 2: 391,572 ms graph,
+732/733 units passed, one product/test_assertion_failure in
+`harness.evidence_accounting.behavior.native_session`. All 992 cleanup records
+completed; retained scan passed over 4,955 files. The failing subcase is
+`diagnostic_scope_recovers_orphan_before_pid_publication` at
+`lifecycle_linux_test.go:148`, reporting unresolved ownership in about 3 ms.
+The native producer exited after drain. Default suite runtimes, UI-review session
+records and persistent test-services session were absent before any further edit.
+This attempt does not satisfy V-076; its source freeze and passing gates remain
+historical, not evidence for the next repair.
+
+Inspection found that the fixture's background `setsid sleep` launch does not
+synchronize session establishment: its independent census accepts the nonce before
+requiring stable PGID/SID. Native authority correctly refuses an identity change.
+A producer/child readiness handshake will establish the detached session before
+the producer exits, without publishing the daemon PID to recovery. This repairs
+an under-specified fixture boundary; the retained failure lacks enough detail to
+claim that race was its actual cause. Production identity checks, unresolved
+outcomes, observation cadence and deadlines remain unchanged. Revalidate the
+native route and subsequent final-source gates after the fixture repair.
+
+**Orphan-fixture repair checkpoint:** the existing native test binary now has
+private producer/child fixture modes. The child starts with Setsid at the fork/exec
+boundary and sends a readiness word; the producer observes it and exits without
+publishing the PID. Independent fixture census still discovers the nonce and now
+checks PID=PGID=SID before invoking journal-authorized recovery. Production scope
+authorization, discovery, signaling and failure behavior are unchanged.
+`assurance-s073-orphan-runtime-20261013-01` passed the race-enabled native route
+(native 0, 44,570 ms); `assurance-s073-orphan-format-20261013-01` and
+`git diff --check` passed. This is functional validation of explicit readiness,
+not a causal explanation of the earlier retained failure. Installed checks and
+a new finalization/freeze cycle follow; V-076 is still incomplete.
+
+**Fourth executable freeze:**
+`sha256:1b0558c3f11580dbc582e8df6fc138e9a8240c2c564577fce8a9648eafeff799`.
+Toolchain remains `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`;
+installed native harness SHA-256
+`6806c24991939b94e96510b20e1e3001ebfc226e073d554ef0a863da18148f59`.
+Installed boundary `assurance-s073-boundary-20261013-04` passed (native 0,
+122,210 ms), including independent HTTPS/PostgreSQL observations and selected
+pure/PostgreSQL/object-store/mixed service graphs; all six nested graphs passed,
+all cleanup records completed, all scans passed. Workflow `assurance-s073-workflow-20261013-04`
+passed (native 0, 16,980 ms), seeded review `assurance-s073-seeded-20261013-04`
+passed (native 0, 52,530 ms), and `assurance-s073-generate-20261013-04` passed
+(native 0, 10,040 ms). These reruns do not causally explain the prior CI failures.
+
+`assurance-s073-finalize-20261013-04` passed (native 0, 21,995 ms), with ten
+completed cleanup records and retained scan pass. RESULTS_DIR was unset because
+no successful full-warm check existed on the repaired source; retained-run
+maintenance was skipped. The complete 324-path before/after map found no
+finalizer mutations (`s073-prefinalize4-files.json`); `git diff --check` passed.
+Final static gates, full warm check, full CI and exact-run inspection on this
+freeze remain required before V-076 can pass.
+
+**Fourth-freeze static gates:** all captured native exits were 0; cache off.
+Roots are `.cartulary/test-results/assurance-s073-<stem>-20261013-04`.
+Graph cleanup completed and retained scans passed. Executable/projection hashes
+still match the pre-finalization map. The warm check and full CI remain pending.
+
+| Stem | Public Make target | Duration ms | Completed cleanup records |
+| --- | --- | ---: | ---: |
+| contract | harness-contract | 57,410 | 18 |
+| scripts | lint-scripts | 618 | 11 |
+| shell | lint-shell | 1,644 | 13 |
+| markdown | lint-markdown | 17,050 | tool summary |
+| drift | generate-drift | 18,347 | 13 |
+| policy | generated-artifact-policy-check | 1,091 | 12 |
+| shapes | json-shape-check | 3,685 | 12 |
+| type | frontend-typecheck | 20,641 | 11 |
+| import | frontend-import-boundary-check | 6,479 | 11 |
+
+**Complete-record-prefix repair checkpoint (2026-10-13 UTC):** REQ-281 now
+requires a native-issued, complete record boundary for same-run measurement
+finalization. The native publisher serializes event writes and prefix issuance,
+flushes buffered records, and binds run, device/inode, byte length and final
+sequence. Both browser finalizers use that closed private schema through the
+existing canonical reader. It opens one no-follow descriptor, verifies identity
+and private-file authority, bounds reads to the issued bytes and rejects an
+incomplete record or mismatched final sequence. Terminal readers remain strict.
+The former unbounded live-path input and string-path consumer contract are retired.
+
+New adversarial coverage exercises concurrent/partial appends, replaced or
+truncated files, invalid boundaries, foreign authority and mismatched sequences.
+Public focused gates, cache off, each captured native exit 0:
+`assurance-s073-prefix-evidence-20261012-01` (8,500 ms),
+`assurance-s073-prefix-graph-20261012-01` (20,110 ms), and
+`assurance-s073-prefix-runtime-20261012-01` (48,640 ms, race enabled).
+Their public routes publish tool-run summaries rather than top-level graph
+summaries. Schema generation and Go formatting also passed; `git diff --check`
+passed. The focused real measurement `assurance-s073-prefix-measurement-20261013-01`
+passed: native 0, 167,949 ms, 14/14 units, all 27 cleanup records completed,
+and retained scan pass over 89 files. Its group and target finalizers validate the
+new prefix through installed execution. A new final-source validation cycle is
+pending. This repair supersedes the executable freeze below, without turning any
+previous failed attempt into passing evidence. Other CI02 failures retain their
+unresolved dispositions.
+
+**Prior executable freeze (superseded by prefix repair):**
+`sha256:693b2c6aa87e8606fc146c4a3199e260396d87de9dfede721c0938ee54b12b40`.
+Toolchain `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`;
+installed native harness SHA-256
+`8bd2ed24f24372ac2f0e7871b8ba0e30bb352a1c422df47a656d755cc418b79b`.
+Seeded installed review `assurance-s073-seeded-20261012-03` passed (native 0;
+52,920 ms). `assurance-s073-finalize-20261012-03` passed (native 0; 22,233 ms;
+ten completed cleanups; scan pass). RESULTS_DIR was unset because no eligible
+successful full-warm evidence exists for this repaired source; retained-run
+maintenance was skipped. The 296-path before/after map confirms no finalizer
+mutations (`s073-prefinalize3-files.json`). Final contracts/lints/projections,
+full warm check and exact-run inspection passed on this freeze; full-tier CI
+attempt 02 failed as preserved below. Earlier freezes and passing/failed runs below remain source-specific.
+
+Final static gates on this freeze passed with independently captured native exits
+0. Roots are `.cartulary/test-results/assurance-s073-<stem>-20261012-03`, cache
+off. Every graph cleanup completed and every retained scan passed; Markdown
+records its tool summary. The full warm check at
+`assurance-s073-warm-check-20261012-03` passed as recorded below.
+
+| Stem | Public Make target | Duration ms | Completed cleanup records |
+| --- | --- | ---: | ---: |
+| contract | harness-contract | 56,525 | 18 |
+| scripts | lint-scripts | 649 | 11 |
+| shell | lint-shell | 1,707 | 13 |
+| markdown | lint-markdown | 10,760 | tool summary |
+| drift | generate-drift | 22,066 | 13 |
+| policy | generated-artifact-policy-check | 1,286 | 12 |
+| shapes | json-shape-check | 4,133 | 12 |
+| type | frontend-typecheck | 22,276 | 11 |
+| import | frontend-import-boundary-check | 6,902 | 11 |
+
+**Final-source full warm check:**
+`CARTULARY_TEST_RUN_ID=assurance-s073-warm-check-20261012-03 CARTULARY_HARNESS_CACHE_MODE=off make check HARNESS_DIAGNOSTICS=basic`
+passed with independently captured native Make exit 0, 733/733 passed units,
+992 completed cleanup records and retained scan pass over 4,955 files. Root:
+`.cartulary/test-results/assurance-s073-warm-check-20261012-03`.
+The final `test-run-status`, `explain-run`, performance/resource views,
+operator-scoped performance view and `harness-observability-check` all exited 0;
+their IDs are `assurance-s073-check3-{status,explain,performance,resources,operator,observability}-20261012-*`
+(terminal status is suffix 08; other terminal readers suffix 01). Observability
+passes with one invocation/four sources and explicit truncated diagnostic and
+execution coverage. The wrapper receipt reports child exit 0 and scan passed.
+Cache hits are zero; all 733 units bypass reuse. Graph digest remains
+`sha256:78a23503354bd7afffd637ca9de56b8176f7ada475c32bfa160a8dcca4a31e4d`.
+
+**Final check timing:** graph 391,381 ms; wrapper outer 500,110 ms; retained scan
+102,690 ms (397,400–500,090 on the wrapper clock). The 389,245 ms dependency path
+contains 371,532 ms queueing and still follows frontend-install → build-web →
+embedded-web-assets → build-operator → the packaged Recovery row named below.
+That Recovery unit queues 371,231 ms (370,881 resource-blocked, 350 fitting rank)
+and executes 6,649 ms. Phase unions: runner 389,602; evidence write 43,379;
+fixture acquire 8,914; host admission 8,788; cache publish 6,675; fixture release
+4,237; cache lookup 151 ms. They overlap by 72,113 ms and are not additive;
+1,748 ms lies outside selected phases.
+
+| Final operator prerequisite | Queue ms | Execution ms | Queue attribution |
+| --- | ---: | ---: | --- |
+| frontend-install | 1 | 544 | fitting rank 1 |
+| build-web | 17 | 4,737 | fitting rank 17 |
+| embedded-web-assets | 1 | 2,663 | fitting rank 1 |
+| build-operator | 282 | 3,120 | resources 177; fitting rank 105 |
+
+Earlier operator admission is observed without added concurrency or removed
+prerequisites. Different-source historical comparisons do not establish a causal
+effect size or throughput improvement: outer time remains higher than E-076's
+458,970 ms. The 496,190 exact wait segments produce 1,083,336,384 event bytes;
+retained scan cost remains a material performance risk. Reservation saturation
+is CPU 19 for 200,297 ms, object-store 3 for 378,443 ms and PostgreSQL 8 for
+213,664 ms; reservation claims are not consumption or evidence for more capacity.
+Basic diagnostics record 11,210 samples, 1,176 omissions, one discovery truncation,
+partial coverage, peak sampled RSS sum 15,002,918,912 bytes (shared pages may
+repeat), maximum sweep 79.139 ms and collector thread CPU 2.325488 seconds.
+Collector CPU excludes startup, parent/helpers, readers and publication.
+No qualification, default, budget or observation requirement is changed.
+
+Full-tier CI `assurance-s073-ci-20261012-02` completed on freeze 693b2c6a… with
+cache off and explicit basic diagnostics: native Make exit 2; graph 2,500,420 ms;
+1,126 passed, seven failed, one skipped of 1,134 units. All 1,748 graph cleanup
+records completed; retained scan passed over 10,315 files. Terminal public
+`test-run-status` suffix 14 exited 0 and agrees with the failed summary. The
+restore browser row passed (1,306 ms) without a restore implementation change;
+this does not explain its prior timeout or classification discrepancy.
+
+Before replacement, the one remaining default runtime was matched to this exact
+run's `native-engine/selected-graph-46681-off` and its original dead owner. Its
+ordinary detail state was fenced with two admitted producers. The unchanged
+native binary admitted `recover_close`, exited 0 and removed the private root;
+all retained child-run bytes remained unchanged. Recovery is separate evidence,
+not a rewrite of the failed cleanup. The recorded result is
+`/tmp/cartulary-remediation-s065-20261012/s073-ci2-runtime-recovery.json`.
+The resulting default inventory has zero suite-runtime roots, zero UI-review
+session records and no persistent test-services session. This saved checkpoint
+authorizes the coherent private prefix cutover below in this environment.
+
+CI attempt 02 reported seven failed units and one dependency skip while
+independent work drained; source stayed frozen. Four timeline measurement
+finalizers now reach the authorized stream but parse an unfinished final JSON
+record while unrelated events append. The bounded first log inspection names
+line 1,338,312 of the native staging stream; staging content was not inspected.
+The durable repair must provide a native-issued complete-record prefix bound to
+the exact inode, byte boundary and sequence, consumed through the existing
+canonical reader. It must not trim malformed terminal evidence, follow a growing
+EOF, or introduce a second reducer. This repair and its adversarial validation
+will invalidate affected final-source gates after the active attempt drains.
+
+`harness.browser.integration.native_graph_observations` also fails: its HTTPS
+child graph passes 11 units, but the independent reader finds no real owned
+container observation. The child resource index records one container deadline
+overrun, two omitted container observations, zero identities, 156 samples and
+partial coverage. This reproduces the historical observation failure class;
+causality is not established and its assertion/budgets remain unchanged.
+`harness.command_surface.unit.native_runtime` fails in the off child
+`native-engine/selected-graph-46681-off`: both selected units pass, then
+runtime_close reports cleanup_error. Its original errno is unavailable.
+`harness.browser.boundary_support.ui_review_workflow` fails the diagnostic
+same-page assertion at the invariants stage with target_unavailable; six of its
+seven tests pass. These failures remain separately classified and unresolved.
+
+Structured polling stopped at the measurement pause. A single later bounded
+admission observation verified ten granted shared leases against this exact run's
+UID/boot/start/environment identity, permitting status to resume. Public status
+confirmed active draining. No source edit, workload padding, budget change or
+observation relaxation occurred during the attempt.
+
+Final cutover inventory before this finalization: zero default suite-runtime
+roots, zero JSON session records under `/tmp/cartulary-ui-review-1000` (38 inert
+lock entries), and no persistent test-services session. This establishes the
+recorded default environment only; future environments/rollback require their
+own inventory and coherent source/projection/binary replacement.
+
+Installed rechecks on the repaired source passed with captured native exits 0:
+`assurance-s073-boundary-20261012-03` (124,320 ms) and
+`assurance-s073-workflow-20261012-03` (17,160 ms). Boundary child HTTPS/PG and
+pure/PG/S3/mixed selections all pass with 22/14/10/14/14/20 completed cleanup
+records and passing scans. `assurance-s073-graph-20261012-06` passes (18,350 ms),
+including the newly routed stream and independent foreign-staging assertions;
+`assurance-s073-command-20261012-04` passes (51,800 ms).
+
+Focused physical reproduction `assurance-s073-physical-repro-20261012-01`
+failed unchanged (native 2, 36,562 ms; borrowed/standalone pass, owned/failed-cleanup
+acquisition fail). Replacing the preparation environment map alone made
+`assurance-s073-physical-repro-20261012-02` pass (native 0, 53,258 ms). Both
+attempts have ten completed graph cleanups and passing retained scans; default
+private runtimes were empty before each source cutover. This isolates the stale
+parent-environment merge defect from host contention. The sanitized recipe now
+replaces its caller environment and rejects retained parent command authority.
+
+The performance fixture repair retains the admitted run/capability, derives a
+separate suite namespace, removes fabricated runtime authority and an ignored
+runtime-root override, and registers cleanup before build. Exact public
+`service-backed-test-slice` at `assurance-s073-performance-fixture-20261012-01`
+passes (native 0; 14,776 ms; 14 completed cleanups; scan pass), exercising four
+isolated cleanable clones and partial acquisition cleanup. Source at that narrow
+gate is `sha256:e3a10f0f8e61b49d1d44c6270380df0ff8109f3d4b30a81f38f7994161433b67`.
+The stream-authority and ignored temporary-fixture changes are also applied;
+finalization and a new executable freeze remain required.
+
+Focused restore reproduction `assurance-s073-restore-repro-20261012-01` passes
+(native 0; 25,784 ms; 22 completed cleanups; scan pass). No restore implementation,
+cleanup budget or classification was changed; the earlier force-drop timeout and
+its aggregate-versus-row classification difference remain explicitly unresolved.
+
+`assurance-s073-command-20261012-03` failed (native 2; owning tool code 1;
+38,630 ms). Moving the real Vitest fixture to root `tmp` violated the existing
+approved runner-root contract; the selector correctly rejected it before launch.
+The fixture now uses ignored `apps/web/.cartulary`, preserving runner containment
+without entering source snapshots. No runner-root exception was introduced.
+
+The current stream-validation assertions lived only in the extended private
+smoke inventory. The existing canonical public `harness-graph-contract` now owns
+the browser graph/stream test and its frontend-artifact import as explicit authored
+command/backing inputs. This makes its security/representation regression part of
+normal CI/contract acceptance without a second runner or new public command.
+Make generation precedes validation of the changed routing.
+`assurance-s073-generate-20261012-01` passes (native 0, 10,150 ms).
+`assurance-s073-command-20261012-04` passes (native 0).
+
+The newly routed graph gate fails at `assurance-s073-graph-20261012-04` and the
+verbose diagnostic attempt `assurance-s073-graph-20261012-05` (native 2 each).
+The imported frontend-artifact test expects an obsolete error-message phrase.
+Its original negative case also used a missing-entry staging tree and an already
+consumed producer, so rejection alone did not isolate the intended boundary.
+The replacement uses a valid foreign staging tree and fresh native runtime,
+asserts rejection, unchanged foreign bytes and absence of sealed output/receipt.
+It no longer depends on prose spelling and does not weaken staging authority.
+
+
+
+
+Full-tier CI attempt `assurance-s073-ci-20261012-01` has completed: native Make
+exit 2; graph 2,486,388 ms; 1,125 passed, eight failed and one dependency-skipped
+of 1,134 units. All 1,749 graph cleanup records completed; retained scan passed
+10,299 files. The default private suite-runtime inventory was empty before the
+focused reproduction. The failed attempt and its original source remain retained.
+Acceptance is blocked pending the following repairs and final-source revalidation.
+
+The first six failures were: the native physical fixture row
+`harness.browser.integration.native_fixture_lifecycle` failed in owned and
+failed-cleanup variants during acquisition (harness/fixture_error); borrowed and
+standalone-session cases passed. Retained service scopes show successful service
+startup and cleanup. Earlier standalone passes do not explain this failure;
+causal diagnosis and a focused public reproduction remain necessary.
+
+`harness.browser.integration.performance_fixture_snapshot_lifecycle` failed
+because its supporting test replaces retained run identity while retaining the
+outer runtime capability, violating the exact native run/lease binding. Its
+fallback also fabricates runtime authority. Repair will retain the admitted
+scope and isolate fixture names within it, with cleanup registered before build.
+
+Four timeline measurement finalizers failed with artifact/artifact_error:
+`currentUnitEventFile` requires the obsolete `unit-events.ndjson.tmp-` spelling,
+while the native publisher supplies an opaque `.publishing-` stream. The planned
+repair validates a direct same-run private regular inode (owner, mode, link count)
+instead of its basename. Foreign, nested, relative, symlink, hardlink and unsafe
+permission inputs retain rejection coverage. Neither repair was applied during CI; executable source remained frozen.
+
+Structured polling stopped during the reported measurement pause. A later
+bounded exact-owner admission observation established subsequent shared work;
+public status then confirmed active publication. The 1,799,378 ms snapshot has
+1,014 passed, six failed, one skipped, three running and 110 pending units.
+No deadlock, concurrency benefit or causal explanation is inferred from silence.
+The final native exit, summary, cleanup and retained scan are recorded above.
+
+The additional root failure is the restore browser fixture row
+`module.recovery.browser.a_harness_owned_browser_fixture_captures_a_retai_d8973973b0`:
+its target database force-drop exceeded the unchanged 10-second cleanup budget,
+after target HTTP/runtime/pools had reported closure. The row reports
+harness/cleanup_error with a detailed lifecycle diagnostic; its enclosing group
+and target finalizer report product/test_assertion_failure. These are one fixture
+failure and its propagation, not two independent browser assertions. The cause
+of the force-drop timeout is unresolved; targeted reproduction is required.
+
+Static inspection found two further supporting-test defects for correction:
+`fixtures_linux_test.go` unmarshals the sanitized preparation environment into a
+nonempty parent map, restoring omitted parent command authority; a fresh map must
+replace it. `test-vitest-diagnostics.mjs` creates its temporary group below
+unignored `apps/web`, potentially perturbing concurrent source snapshots; move it
+under an ignored directory within the approved runner roots. Neither is attributed causally to
+an earlier failure without reproduction evidence.
+
+Previous frozen-source full warm check passed at
+`.cartulary/test-results/assurance-s073-warm-check-20261012-02`:
+`CARTULARY_TEST_RUN_ID=assurance-s073-warm-check-20261012-02 CARTULARY_HARNESS_CACHE_MODE=off make check HARNESS_DIAGNOSTICS=basic`.
+Native Make exit 0; 733/733 units passed, all 992 cleanup records completed;
+retained-secret scan passed over 4,955 files. Exact-run `test-run-status`,
+`explain-run`, performance/resource views, operator-scoped performance view and
+`harness-observability-check` all exited 0. Status is terminal pass; wrapper receipt
+has child exit 0 and scan passed. Observability validation passes with explicitly
+truncated execution/diagnostic coverage. No evidence reader result substitutes
+for the independently captured owning exit.
+
+**Where the check time went.** Canonical graph 386,689 ms; wrapper receipt outer
+504,160 ms; retained scan 111,590 ms (392,560–504,150 on the wrapper clock).
+Dependency path 384,588 ms, including 366,720 ms queueing (95.35%). The path remains
+frontend-install → build-web → embedded-web-assets → build-operator → the packaged
+Recovery server row `module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e`.
+The Recovery unit queued 366,446 ms (366,094 resource-blocked, 352 fitting-rank)
+and executed 6,720 ms. Phase unions overlap and are not additive wall time.
+
+| Operator prerequisite | Queue ms | Execution ms | Queue attribution |
+| --- | ---: | ---: | --- |
+| frontend-install | 1 | 522 | fitting rank 1 |
+| build-web | 17 | 4,646 | fitting rank 17 |
+| embedded-web-assets | 1 | 2,668 | fitting rank 1 |
+| build-operator | 255 | 3,312 | resources 154; fitting rank 101 |
+
+The historical 337,305 ms operator wait is now 255 ms in this different-source
+observation, without added concurrency or removed prerequisites. This supports
+earlier chain admission in this run, not a matched throughput or causal effect
+size claim. The original historical event format cannot retrospectively resolve
+all changing blockers. Overall outer time is worse than E-076's 458,970 ms even
+though graph time is lower than 447,012 ms. The new 491,794 wait segments occupy
+1,075,430,688 retained event bytes; scan cost is now material. This is a recorded
+performance/qualification risk, not concealed by the earlier operator admission.
+Future representation work must preserve exact holder/reason changes and the
+single canonical accounting boundary; reducing checks or discarding required
+observations is not an acceptable shortcut.
+
+Reservation saturation: CPU 19 tokens for 194,988 ms; object-store capacity 3 for
+373,825 ms; PostgreSQL capacity 8 for 207,729 ms. These are claims, not actual
+consumption, and do not establish that more concurrency helps. Basic sampling:
+11,417 samples, 529 omitted observations, zero discovery truncations, observed
+partial coverage; peak sampled RSS sum 15,225,737,216 bytes (shared pages may
+repeat), maximum sweep 127.693 ms. Collector CPU 2.351 seconds is component-only,
+not total instrumentation cost. Execution coverage is truncated. Default-off
+settings, observation limits and the 44.952/90-minute qualification ledger remain.
+
+Second freeze, before the CI-discovered repairs: `sha256:79200663b7540f9b1c8a1bd25c6022e04877bf34e04668d977788c768e62e99f`.
+All repair/installed gates passed with captured native exit 0, fresh IDs
+`assurance-s073-{runtime,graph,evidence,scheduler,boundary,workflow,seeded}-20261012-02`:
+45,780 / 16,900 / 8,300 / 9,120 / 122,580 / 18,560 / 55,060 ms respectively.
+Runtime off/basic/basic-second child graphs pass with 11 completed cleanups and
+passing scans each. Installed boundary children retain 22/14/10/14/14/20 completed
+cleanups and passing scans. `agent-finalize` at `assurance-s073-finalize-20261012-02`
+passed (native 0; 21,237 ms); RESULTS_DIR unset and retained-run maintenance skipped.
+The 292-path identity comparison (`s073-prefinalize2-files.json`) confirms no
+finalizer mutations. The following historical final-gate attempts and check/ci used that freeze.
+
+
+Final frozen-source gates below all have separately captured native exit 0.
+Roots use `.cartulary/test-results/assurance-s073-<stem>-20261012-02`, cache off;
+all graph cleanups completed and retained scans passed. Markdown uses its tool
+summary rather than a fabricated graph receipt.
+
+| Stem | Public Make target | Duration ms | Completed cleanup records |
+| --- | --- | ---: | ---: |
+| contract | harness-contract | 58,339 | 18 |
+| scripts | lint-scripts | 784 | 11 |
+| shell | lint-shell | 3,105 | 13 |
+| markdown | lint-markdown | 10,930 | tool summary |
+| drift | generate-drift | 27,884 | 13 |
+| policy | generated-artifact-policy-check | 1,421 | 12 |
+| shapes | json-shape-check | 5,618 | 12 |
+| type | frontend-typecheck | 26,858 | 11 |
+| import | frontend-import-boundary-check | 8,164 | 11 |
+
+First frozen-source full check `assurance-s073-warm-check-20261012-01` failed:
+native Make exit 2, graph 625,275 ms, 732/733 units passed, one product assertion
+failure in `harness.command_surface.unit.native_runtime`. Its nested
+`native-engine/selected-graph-51221-basic` passed both units but recorded
+`runtime_close` cleanup_error (native code 12). The outer 992 cleanups completed;
+outer/child retained scans passed (4,935/17 files). The retained classification
+does not expose a causal errno; the original cleanup cause remains unresolved.
+The installed, unchanged native `session recover_close` recovered that exact
+dead-owner runtime before replacement: exit 0, root absent, retained bytes
+unchanged (`s073-failed-runtime-recovery.json` in scratch). Default suite-runtime
+inventory is empty again. This successful recovery does not erase the failure.
+
+Inspection during the failed check found avoidable repeated scheduler work:
+`observe` rebuilt the ready set for every pending unit, and each shared-lock
+check rescanned all ready peers. S-073 repairs this by indexing ready exclusive
+waiters once per immutable scheduling/snapshot state, rebuilding on reservation
+transitions. Exact holder facts, rank, aging, capacities and deadlines stay intact.
+An independently expected overlapping-lock test preserves holder attribution.
+No timing-causality claim connects this cost to the separate cleanup failure.
+The first executable freeze and its passing gates remain source-specific history;
+all affected final gates will run again after finalization on the repaired source.
+
+Initial installed gates passed with captured native exit 0, cache off, fresh roots
+`.cartulary/test-results/assurance-s073-{boundary,workflow,seeded}-20261012-01`:
+`harness-runtime-boundary-contract` 124,500 ms; `harness-ui-review-workflow` 18,980 ms;
+`harness-ui-review-seeded-default` 57,070 ms. Boundary children HTTPS/PostgreSQL and
+pure/PG/S3/mixed selected-service graphs all pass, with 22/14/10/14/14/20 completed
+cleanups respectively and retained scans pass. Deliberate unresolved negative cases
+remain expected assertions, not cleanup success claims.
+
+`make agent-finalize`, root `assurance-s073-finalize-20261012-01`, passed with native
+exit 0 and 21,438 ms graph duration. RESULTS_DIR was unset because no eligible
+current-source successful full-warm run existed; retained-run maintenance was
+therefore skipped. The complete 292-path before/after changed-file identity map
+shows no finalizer mutations (`s073-prefinalize-files.json` in the scratch evidence
+directory). Executable source is frozen at
+`sha256:567a279aa5632c345820d6d023d4e5c092bb23beca72ca422f4029ba6de8885a`.
+Final gates, full check/ci, exact-run reader/owning-exit agreement and final tracker
+reconciliation remain pending. No completion claim is made by this entry.
+
+### E-085 — S-072 / WF-72 complete; V-075 passed
+
+Saved before S-073 entry. F-063 is functionally remediated, pending final V-076.
+The compiler groups selected Vitest rows only within one file/project and matching
+owner, evidence class, runtime/resource/fixture profile, services, prerequisite
+edges, resolved environment, failure policy, timeout and cache contract. Sorted
+selected membership and that contract own the semantic unit ID. Exclusive or
+managed-process rows remain singleton processes. Every group invokes one fresh
+Vitest process with maxWorkers=1; resource-profile claims remain authoritative.
+No cross-file pool, second runner, target-specific priority or expanded deadlines.
+
+The existing catalog source resolver now resolves exact full test identities;
+anchored runtime selection replaces suffix matching. Project selection is explicit.
+The existing adapter rejects unexpected execution, missing/ambiguous/duplicate
+observations and selected skipped cases, while retaining an independently completed
+row when another selected row is missing. Common invalid evidence/setup failures
+remain shared failures. Native publication binds grouped diagnostics to the first
+sorted selected row independently of private unit-ID spelling. Cache/receipt shapes
+and row-level failure precedence remain unchanged.
+
+**Changed ownership:** compiler, existing Vitest adapter/row CLI, catalog resolver
+and loader/facade, diagnostic observation selection, native publication and existing
+routed graph/catalog/real-Vitest tests. Family schema v6→v7 adds mandatory Vitest
+project identity and admits typed Vitest singleton isolation; runner registry v1→v2
+registers the two existing projects. All authored families, schema attachments,
+fixtures and generated validators cut over together. REQ-805 and schema references
+are reconciled; previous schemas are removed, with no aliases or legacy reader.
+
+**Additional confirmed duplicates:** exact identity resolution exposed 13 prior
+leaf-name/full-name overlaps across seven files. Subsystem-owned behavioral rows
+below are the named surviving assurance boundaries. Two wholly redundant web rows
+are retired in the existing `test_catalog_row_migrations.json`; other web rows keep
+their distinct assertions. Collaboration and View Query survivors move from full to
+fast to preserve the earliest prior selected tier. View Query's complete five-case
+row now runs in fast, preserving cohesion rather than splitting its selector solely
+for compatibility. Public selection of retired row IDs rejects; migration records
+are explanatory, not forwarding aliases. No assertion was removed from its survivor.
+
+| Removed duplicate selection from | Named surviving row / assurance boundary |
+| --- | --- |
+| `web.collaboration.regression.incidentcollaborationsession_suite_6b9c4a2c72` — IncidentCollaborationSession builds hello and resume session messages from socket resume state | `module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_39079d3c85`; `module.collaboration.verification.behavior_contract` |
+| `web.collaboration.regression.incidentcollaborationsession_suite_6b9c4a2c72` — IncidentCollaborationSession ignores duplicate stream sequences and refreshes on sequence gaps | `module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_39079d3c85`; `module.collaboration.verification.behavior_contract` |
+| `web.collaboration.regression.incidentcollaborationsession_suite_6b9c4a2c72` — IncidentCollaborationSession keeps replayable events unsynchronized until the owner completes reset | `module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_39079d3c85`; `module.collaboration.verification.behavior_contract` |
+| `web.collaboration.regression.incidentcollaborationsession_suite_6b9c4a2c72` — IncidentCollaborationSession suppresses reconnect and clears connection state after revocation | `module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_39079d3c85`; `module.collaboration.verification.behavior_contract` |
+| `web.workbook.regression.workbook_query_controls_preserve_ordered_chip_ca_0fc544e3c5` — workbook query controls renders active filter chips and grouping controls by field key | `platform.viewquery.frontend_unit.compile_sort_filter_group_layout_and_active_chip_b59bab4f62`; `platform.viewquery.verification.behavior_contract` |
+| `web.workbook.regression.workbookshell_assessments_suite_f2e4a841a2` — Assessment workbook surface maps band-first assessment create payloads without submitting the derived band | `module.assessments.frontend.the_workbook_assessment_payload_builder_maps_ban_0e5d9eb77a`; `module.assessments.verification.behavior_contract` |
+| `web.workbook.regression.workbookshell_assessments_suite_f2e4a841a2` — Assessment workbook surface submits assessment creates through the workbook UI | `module.assessments.frontend.the_ordinary_workbook_assessment_panel_submits_t_3f8efe2007`; `module.assessments.verification.behavior_contract` |
+| `web.workbook.regression.workbookshell_surfaces_suite_668e482b1e` — WorkbookShell surface selection issues opaque evidence preview and download handles from the evidence surface | `module.evidence.frontend.the_ordinary_evidence_workbook_surface_issues_pr_6b6cd04008`; `module.evidence.verification.behavior_contract` |
+| `web.workbook.regression.workbookshell_surfaces_suite_668e482b1e` — generic workbook mutation payloads builds direct clears and typed collection actions | `module.workbook.frontend.the_generic_workbook_mutation_builder_maps_direc_d71c7bf2bf`; `module.workbook.verification.behavior_contract` |
+| `web.workbook.regression.workbookshell_surfaces_suite_668e482b1e` — generic workbook mutation payloads builds required creates with direct values, timestamps, and explicit clears | `module.workbook.frontend.the_generic_workbook_mutation_builder_emits_crea_ae1bd25e13`; `module.workbook.verification.behavior_contract` |
+| `web.networkflow.regression.networkflowpresentation_suite_ad52825df6` — Network Flow presentation metadata Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts. | `module.networkflow.frontend_unit.verify_network_analysis_presentation_query_layou_11c071dbd2`; `module.networkflow.verification.behavior_contract` |
+| `web.application.regression.browserapi_suite_96242311a1` — fetchJSON route-boundary CSRF headers follow cookie-backed mutating request rules | `module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_7388943255`; `module.auth.verification.behavior_contract` |
+| `web.application.regression.referencepackadminpanel_discards_stale_reference_4aefb31c15` — ReferencePackAdminPanel discards stale reference pack search responses | `module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79`; `module.reference_data.verification.behavior_contract` |
+
+The exact 13-selector ledger is also saved at
+`/tmp/cartulary-remediation-s065-20261012/s072-title-overlap-ledger.json`.
+Retired singleton IDs are
+`web.application.regression.referencepackadminpanel_discards_stale_reference_4aefb31c15`
+and `web.workbook.regression.workbook_query_controls_preserve_ordered_chip_ca_0fc544e3c5`.
+
+**Validation:** final source
+`sha256:567a279aa5632c345820d6d023d4e5c092bb23beca72ca422f4029ba6de8885a`;
+toolchain remains `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`.
+All commands ran from repository root with fresh explicit run IDs and cache off
+for verification. All passing owning native exits below were captured as 0.
+
+| Run root under `.cartulary/test-results/` | Public Make target | Result |
+| --- | --- | --- |
+| assurance-s072-generate-20261012-03 | generate | pass, 9,650 ms |
+| assurance-s072-catalog-20261012-01 | test-catalog-check | pass, 930 ms; canonical selector overlap closure |
+| assurance-s072-graph-20261012-01 | harness-graph-contract | pass, 21,320 ms; grouping, incompatible partitions, singleton isolation, subset/direct/owner identity and per-row outputs |
+| assurance-s072-command-20261012-01 | harness-command-surface-contract | pass, 69,790 ms; real same-file fresh-process fixtures, anchored selection, partial row outcomes, existing timeout/cancellation/setup/redaction diagnostics |
+| assurance-s072-runtime-20261012-01 | harness-runtime-contract | race-enabled pass, 69,340 ms; off/basic/basic-second installed children each pass with 11 completed cleanups and scan pass |
+| assurance-s072-evidence-20261012-01 | harness-evidence-contract | pass, 10,240 ms; accounting/catalog/current schema coverage |
+| assurance-s072-frontend-20261012-01 | frontend-unit | pass, 198,626 ms graph; 451/451 units, 706/706 passed rows, 460 completed cleanups; retained scan pass over 2,965 files |
+| assurance-s072-drift-20261012-01 | generate-drift | pass, 39,753 ms; 13 completed cleanups, scan pass |
+| assurance-s072-policy-20261012-01 | generated-artifact-policy-check | pass, 7,535 ms; 12 completed cleanups, scan pass |
+| assurance-s072-shapes-20261012-01 | json-shape-check | pass, 10,793 ms; 12 completed cleanups, scan pass |
+
+`make target-plan-json TARGET=frontend-unit` exited 0: 450 file units for 706 rows,
+85 multi-row groups, largest 28 rows. Exact frontend-root `test-run-status` and
+`explain-run DETAIL=performance JSON=1` exited 0; the latter reconstructs reason
+segments and is saved at `/tmp/cartulary-remediation-s065-20261012/s072-frontend-performance.json`.
+These are descriptive observations, not a same-treatment speedup claim: narrow
+gates shared host capacity. The event stream is 293,895,988 bytes; final performance
+analysis must include increased retained scan/reader work instead of treating graph
+summary publication as owning completion. `format-go` and `git diff --check` pass.
+
+**Failures preserved:** generate-01 (9,590 ms) exited native 2/tool 1 on the first
+confirmed duplicate; generate-02 (9,750 ms) exited 2/1 after bounded diagnostics
+identified all 13. Generation passed only after documented assertion consolidation.
+Real diagnostic fixtures intentionally fail their child tests; the owning contract
+passes only after checking correct normalization and cleanup.
+
+Default private runtime inventory was empty before cutover and again after all
+owning exits. Old retained receipts are unchanged. Source, catalog/project schema,
+projections and installed native publication form one rollback unit under the
+existing session inventory gate. S-073 is READY; selected findings are not finally
+closed until V-076. Qualification stays 44.952/90 minutes deferred.
+
+### E-084 — S-071 / WF-71 complete; V-074 passed
+
+Saved before S-072 entry. F-064 is functionally remediated, pending V-076. The native
+engine records first eligibility and adds whole authored quanta of elapsed eligible
+time to critical-path rank, using one clock snapshot per selection. Dispatch-credit
+and warm-priority maps are deleted. Fixture retention and deferred cache publication
+remain physical lifecycle responsibilities. Fitting backfill, ready exclusive
+barriers, stable ASCII ties, failed-dependency closure and cancellation remain intact.
+Changes are confined to `engine.go` and its existing routed `TestRuntimeScheduling`
+subtests; REQ-802 already adopted this behavior at E-078. No projections changed.
+
+Independent clock fixtures prove zero elapsed time cannot manufacture age, 999 ms
+versus one 1,000 ms quantum, no age before dependency completion, an elapsed waiter
+overtaking fresh work, retained warmth losing to higher rank, and lower-ranked
+fitting work proceeding without violating claims. Existing lifecycle/race fixtures
+continue to own cleanup, cancellation and fixture reuse. The old dispatch-credit
+ordering assertion is deliberately replaced, not preserved as compatibility.
+
+Final source `sha256:1ac0d0b2caacf1f93516a699951b4d021d8c84e59937e298e36c4edfcac7dd10`;
+toolchain remains E-083's. All runs are fresh explicit IDs, cache off, repository-root
+public Make commands, with separately captured native exit 0:
+
+| Run root below `.cartulary/test-results/` | Command | Evidence |
+| --- | --- | --- |
+| assurance-s071-runtime-20261012-02 | make harness-runtime-contract | race-enabled native pass; three off/basic/basic-second installed child graphs pass, each 11 completed cleanups and retained scan pass |
+| assurance-s071-scheduler-20261012-02 | make harness-scheduler-contract | pass, 9,190 ms |
+| assurance-s071-graph-20261012-02 | make harness-graph-contract | pass, 16,560 ms |
+
+The corresponding `-01` runs all passed (45,970 / 9,140 / 16,520 ms). Final reruns
+follow removal of an empty branch and making the stable-rank fixture explicitly
+zero-clock; no failure was discarded. `format-go` -01/-02 and `git diff --check`
+passed. No capacity, deadline, observation-budget or workload-padding changes.
+
+`make target-plan-json TARGET=build-operator` exited 0; its exact projection is saved
+at `/tmp/cartulary-remediation-s065-20261012/s071-operator-plan.json`. The mandatory
+frontend-install → build-web → embedded-web-assets → build-operator chain remains,
+with operator CPU claim 1 and estimated work 5,000 ms. The historical 337,305 ms queue
+cannot be attributed retroactively from its initial wait record. Removing dispatch
+credits and warm precedence addresses two confirmed scheduling defects; S-073's
+new wait segments must establish actual current admission timing. No speedup or
+concurrency benefit is claimed from deterministic unit fixtures.
+
+The default private runtime inventory was empty at entry; all installed runs
+cleaned their owned resources. Rollback uses coherent source/binary plus the existing
+session-inventory gate. S-072 is READY. Qualification and historical observation
+failure remain unchanged and deferred.
+
+### E-083 — S-070 / WF-70 complete; V-073 passed
+
+Saved before S-071 entry. F-065 is functionally remediated, pending final V-076.
+Native engine wait transitions now close/reopen on changed reason, resources or
+holders, including every reservation acquisition and batched release. Fitting
+ranking, held resources, pending exclusive barriers and cancellation are distinct;
+eligibility remains once per unit. No scheduling priority/capacity/deadline changes.
+The existing Go and Node reducers compact adjacent resource intervals and retain
+per-unit totals, counts and unique holders without a history array. Queue duration
+includes all segments; resource blocking excludes rank/barrier delay. Bounded
+performance views expose reason totals and segment counts.
+
+**Authored changes:** native engine/canonical accounting and their existing routed
+tests; Node canonical reducer/performance projection; canonical-evidence, performance
+analysis/presentation and retained fixtures; diagnostic live producers/readers;
+schema attachments and current fixture references. REQ-371's obsolete prohibition
+on holder updates is reconciled with the adopted changing-wait requirement. Event
+v3→v4, live snapshot/observation v2→v3 and performance explanation v3→v4 are coherent
+hard cutovers; old schemas/validators are removed through generation, no aliases.
+Historical retained bytes are untouched. Assertion coverage includes exact reason
+sums and unions, changed holders, exclusive barriers, overlapping/gapped/mismatched
+segments, foreign identities, post-admission starts, old schema rejection and
+2,000 holder transitions compacted into one resource interval. Native/Node parity
+uses the same independent expected timing fixture, not a retired implementation.
+
+**Evidence:** all roots below are under `.cartulary/test-results/`; commands ran
+from repository root. Final source `sha256:02257ca991294dc1685459f70d4d9ea2c7ca7aa782a73dc73d7f6dbc5d053498`;
+toolchain remains `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`.
+Fresh explicit `CARTULARY_TEST_RUN_ID` roots are shown; verification cache is off.
+
+| Root | Public command | Native exit / evidence |
+| --- | --- | --- |
+| assurance-s070-generate-20261012-01 | make generate | 0; 10,070 ms |
+| assurance-s070-runtime-20261012-02 | make harness-runtime-contract | 0; race-enabled native suite pass, 46,460 ms; off/basic/basic-second installed child runs each pass, 11 completed cleanups and retained scan pass |
+| assurance-s070-evidence-20261012-02 | make harness-evidence-contract | 0; pass, 8,350 ms; accounting, bounded readers, live diagnostics and current-schema fixtures |
+| assurance-s070-observation-20261012-01 | make harness-observation-contract | 0; pass, 160 ms; intermediate source before fixture correction, superseded by final evidence/runtime coverage |
+| assurance-s070-drift-20261012-02 | make generate-drift | 0; pass, 21,337 ms; 13 completed cleanups, scan pass |
+| assurance-s070-policy-20261012-02 | make generated-artifact-policy-check | 0; pass, 1,153 ms; 12 completed cleanups, scan pass |
+| assurance-s070-shapes-20261012-02 | make json-shape-check | 0; pass, 3,842 ms; 12 completed cleanups, scan pass |
+
+Exact drift-root `make explain-run ... DETAIL=performance JSON=1` and exact runtime-root
+`make test-run-status ... JSON=1` both exited 0, presenting new contracts. Reader exits
+are separate from captured owning exits. `format-go` and `git diff --check` passed.
+Initial evidence-01/runtime-01 exited 2 (tool 1): a synthetic normalized-facts fixture
+still used the old wait representation and counted rank delay as resource blocking;
+the installed native run invoked that same failing evidence suite. Retained roots
+and failures remain; corrected independent expectations yielded the passes above.
+No deadline adjustment or rerun-only explanation was used.
+
+**Migration:** default private runtime directory was empty immediately before
+cutover and after final gates. No affected live session required draining. Current
+producer, generated validators and installed native owner agree; rollback requires
+the same empty/drained-session gate and a coherent source/projection/binary revision.
+Old observation receipts remain historical evidence, not current-reader inputs.
+S-071 is READY. Qualification remains 44.952/90 minutes deferred; historical E-068
+observation failure remains unexplained and is not erased by these passes.
+
+### Assurance remediation entry — E-077
+
+E-077 is saved in Baseline and authorization above. Baseline/native characterization identities and outcomes will be recorded in E-078 after the independent cases complete. No successor started.
+
+### E-082 — S-069 architectural assurance without incidental representation — DONE
+
+V-072 passed. This checkpoint is saved before S-070 starts. Product behavior,
+public command IDs, retained row IDs and service/resource budgets are unchanged.
+Supporting title selectors changed coherently with removed/replaced assertions.
+The architectural owner and actual behavior decide which checks survive; source
+comments, call formatting, helper basenames and incidental call counts do not.
+
+| Prior guard | Disposition and named surviving assurance |
+| --- | --- |
+| One hard-coded transaction caller and 24-file wire-intent roster including tests | sourceOwnershipPolicy scans production AST: transaction identity stays in the mutation owner, presentation cannot construct wire-intent properties, and feature command modules may be renamed or expanded. Aliased imports and computed properties are negative fixtures; comments and renamed owner modules pass. Source ownership still accounts for every live file exactly once. |
+| Raw fetch count of two plus one at exact filenames | transportBoundaryPolicy checks syntax references (including aliases, destructuring and computed global access) against the authored web.services adapter owner. The boundary is service-adapter ownership, not a frozen list of two files or three calls. No raw transport moves into presentation. |
+| Upload source snippets for target/method/credentials/headers/CSRF | Retired to module.evidence.frontend_unit.upload_retry_body_discard_697516c4d8 and private_object_blob_upload_hides_target_4b2f89cd31. The former now also asserts the exact issued URL, PUT, arbitrary issued header forwarding and current cookie overriding a stale issued CSRF header. Existing missing-cookie, malformed/cross-incident response, one-attempt and unread response-body cases remain. |
+| Timeline exact hook call, argument/JSX spelling and known component filenames | Existing frontend-timeline import-direction rules retain sole composition authority. Public root discovery follows its exported API identity; AST rejects state imports/DOM ownership and detects aliased React hooks. Presentation component regions remain stateless; exported presentation hooks own binding lifecycle. Privileged presentation-runtime keys are rejected by TypeScript assertions. |
+| Typed feedback source spelling and ten named caller files | Retired to workbookInspectorErrorModel behavior row plus a compile-checked assertion that WorkbookInspectorFeedback excludes string. Existing closed message/error construction and safe failure rendering assertions remain. Visible-column source placement is not behavioral proof; workbookquery_suite_904073db6c owns semantic column projection and Timeline lifecycle/browser rows own runtime behavior. |
+| Seven exact Network Flow controller invocation spellings and client import substrings | Retired to frontend-network-flow-protocol-adapter-owner / facade import rules, module.networkflow.frontend_integration.verify_production_network_flow_grids_read_only_b_f662be335e and NetworkAnalysisWorkspace behavioral rows. Their production source and routing remain unchanged. Semantic design-token, protected projection-input and authoritative evidence guards remain justified. |
+| Four concrete surface filenames containing a layout name | workbookLayoutPolicy discovers semantic primaryGrid JSX consumers across Workbook and rejects local minimum geometry through AST, including computed keys. Shared layout ownership/type contracts and surface_composition_debb2dc3cb behavior remain. Renamed/aliased layout imports and comments pass. |
+| workbook.spec.ts contains the exact invalid-startup URL/error source | Retired redundant meta-test; module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01 retains the real browser 400/invalid_startup_request/unknown_field assertion. Current-view literal binding checks use AST; self exclusion follows import.meta.url rather than a basename. Existing reachability, ambiguous-import and facade tests remain. |
+| Makefile substring extraction, fixed header order and fake source spelling | frontend-producer-graph queries GNU Make's resolved artifact dependencies under real workspace admission with renamed artifact outputs; graph children omit upstream producers and standalone files retain web → embedded assets → server ordering. The existing generated-Make forbidden-producer fixture and compiler dependency/cycle/selection checks remain. |
+| S-067 private entrypoint filename union | Public canonical assurance leaf identities replace the private filename roster. Dynamic entrypoint uniqueness, direct/CI identity and complete-versus-partial target projections remain enforced; E-080's historical losslessness ledger remains intact. |
+
+No second architecture framework, test runner or reducer was introduced. Existing
+TypeScript parsing, import policy, source ownership and owning behavior tests are
+used. This review closes the identified guard candidates; it is not an exhaustive
+review of every remaining source assertion in the repository.
+
+Final slice source is
+`sha256:11f42bcfcde466a81f751f08f06208a9e2001d086f790c47af3f324982465df1`;
+toolchain remains `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`.
+Every command below ran at repository root with CARTULARY_HARNESS_CACHE_MODE=off,
+default-off diagnostics and CARTULARY_TEST_RUN_ID equal to its listed ID. Roots
+are .cartulary/test-results/<run-id>; each accepted native command returned 0.
+
+| Run ID | Exact Make arguments | Outcome |
+| --- | --- | --- |
+| assurance-s069-generate-20261012-02 | generate | PASS 10,060 ms. |
+| assurance-s069-arch-20261012-02 | test-slice OWNER=web.architecture | PASS 8,300 ms; 13 units, 22 completed cleanups, scan PASS. |
+| assurance-s069-workbook-20261012-02 | test-slice OWNER=web.workbook ROWS=web.workbook.regression.surface_composition_debb2dc3cb,web.workbook.regression.timeline_workbook_presentation_regions_remain_st_f91e14f779,web.workbook.regression.timeline_workbook_public_root_remains_slim_and_i_72f70cc3fc,web.workbook.regression.workbook_inspector_error_model_9aa287127d | PASS 3,898 ms; 5 units, 14 completed cleanups, scan PASS. |
+| assurance-s069-evidence-20261012-02 | test-slice OWNER=module.evidence ROWS=module.evidence.frontend_unit.attachment_preserves_custody,module.evidence.frontend_unit.private_object_blob_upload_hides_target_4b2f89cd31,module.evidence.frontend_unit.upload_retry_body_discard_697516c4d8 | PASS 4,876 ms; 4 units, 13 completed cleanups, scan PASS. |
+| assurance-s069-network-20261012-02 | test-slice OWNER=web.networkflow ROWS=web.networkflow.boundary_support.networkflowboundarypolicy_suite_6f1f265586 | PASS 3,493 ms; 2 units, 11 completed cleanups, scan PASS. |
+| assurance-s069-browser-20261012-02 | test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.architecturepolicy_suite_4e0bacb131 | PASS 6,034 ms; 2 units, 11 completed cleanups, scan PASS. |
+| assurance-s069-graph-20261012-02 | harness-graph-contract | tool PASS 18,310 ms. |
+| assurance-s069-command-20261012-03 | harness-command-surface-contract | tool PASS 55,050 ms; all 30 tests pass. |
+| assurance-s069-type-20261012-02 | frontend-typecheck | PASS 22,489 ms; 11 completed cleanups, scan PASS. |
+| assurance-s069-import-20261012-02 | frontend-import-boundary-check | PASS 6,814 ms; 11 completed cleanups, scan PASS. |
+| assurance-s069-drift-20261012-02 | generate-drift | PASS 22,220 ms; 13 completed cleanups, scan PASS. |
+| assurance-s069-policy-20261012-02 | generated-artifact-policy-check | PASS 1,192 ms; 12 completed cleanups, scan PASS. |
+| assurance-s069-shapes-20261012-02 | json-shape-check | PASS 4,026 ms; 12 completed cleanups, scan PASS. |
+
+All corresponding -01 frontend/type/import/projection/graph gates passed the
+intermediate source; generation-01 and format-frontend-01/02 passed. Command-01
+failed native 2 / tool 1 in 54,770 ms because the initial Make database query
+reported no expected artifact dependency. Command-02 failed native 2 / tool 1
+in 50,320 ms: the Node test worker lacked the inherited admission descriptor,
+and recursive Make did not retain the fixture overrides. The corrected fixture
+enters the existing workspace admission wrapper and requests the artifact goals
+before querying; command-03 passed. These failures concern the new test query,
+not changed product build ordering. Expected negative Vitest collector fixtures
+within the contract remain distinguishable from these outer failures.
+
+An additional attempt, assurance-s069-import-fixtures-20261012-01, invoked the
+internal smoke-case name harness-smoke-frontend-import-boundaries as a Make target;
+Make correctly rejected it with native 2/no target, before a retained root existed.
+No direct-script substitute or new runner was used. Existing import-policy source
+checks and independent AST positive/negative fixtures passed through supported
+routes; broader smoke/CI evidence belongs to V-076, not this rejected command.
+
+Changed files: eight frontend/support test files (sourceOwnershipPolicy,
+transportBoundaryPolicy, workbookEvidence, workbookInspectorErrorModel,
+workbookLayoutPolicy, timelineCompositionArchitecture, networkFlowBoundaryPolicy,
+E2E architecturePolicy), their affected family title lists, frontend producer and
+canonical-union harness tests, and regenerated topology index. No runtime private
+interface or live-session migration is required by this slice. No active default
+private runtimes remain. git diff --check passes. S-069/T-082 DONE; F-067 corrected
+pending V-076; S-070 READY. Deferred qualification remains 44.952/90 minutes.
+
+### E-081 — S-068 selected service lifecycle and supporting assurance — DONE
+
+The stale tools/testservices/integration_test.go is removed. Its three broad,
+unrouted integrations assumed obsolete target names, nested wrapper counts, a
+fixed service pair, one template, or no hot-path database drops. Their surviving
+assurance is now explicit: native_selected_service_lifecycle covers pure,
+PostgreSQL-only, object-only and mixed consumers; native_fixture_lifecycle routes
+the existing owned/borrowed/failed-cleanup and standalone native session tests.
+The existing graph observation boundary remains distinct. Catalog coverage now
+includes the boundary package's four Linux test entrypoints. REQ-405 acceptance
+examples describe observable ownership/isolation rather than wrapper topology.
+
+The new PostgreSQL-only case reproduced an implementation gap: the graph supplied
+service declarations but the shared physical owner unconditionally started both
+services. Native graph startup now supplies the complete selected service union;
+start-suite acquires only those services and writes only their acquired resources
+to the existing variable-length lease. Concurrent requested startup is retained;
+one deferred cleanup path settles pending object-store startup on any later
+failure. Standalone full-suite commands retain their complete service scope.
+The current private schema already represents variable resources; no alias or
+legacy reader was added. Unit admission rejects empty, unknown, duplicate and
+unsorted canonical declarations before acquisition. The PostgreSQL rollback test
+now retains its real selected capability/run identity and checks only its own
+attributed transaction events instead of overwriting identity into a temp scope.
+
+| Retired expectation | Surviving assurance |
+| --- | --- |
+| Obsolete backend-store Make target / fixed pair | Exact existing catalog rows under the native installed graph; pure gets no services, each single-service selection gets exactly that service. |
+| Nested pass-through wrapper count | One retained suite owner, exact run identity and successful cleanup; no required nested wrappers. |
+| One template / no eager drop regardless of capability | Transaction row proves two rollbacks with no database reset; dedicated mixed consumers prove unique complete database identity examples across processes and eager drops; object namespaces prove cleanup. |
+| Migration drift must create no services, but Docker absence skips | Pure selected graph starts no suite; required installed infrastructure failure is failure, never a passing skip. |
+| Unrouted physical owned/borrowed lifecycle | New native_fixture_lifecycle catalog row retains TestNativeFixturePhysicalLifecycle and TestStandaloneNativeSession; installed public boundary also exercises them. |
+
+Final slice source: sha256:cc40097c44faa9c7568d1e50898e84c16aba8e6d9d4ada6d4b30d94973766024.
+Toolchain: sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810.
+All validation uses repository-root Make, explicit run IDs, cache off and default
+off diagnostics. Roots are .cartulary/test-results/<run-id>. Native exits are
+captured separately from summaries. No capacity, timeout or observation limit changed.
+
+| Run ID | Make arguments | Result |
+| --- | --- | --- |
+| assurance-s068-generate-20261012-03 | generate | native 0; PASS 9,850 ms. |
+| assurance-s068-selected-20261012-03 | test-slice OWNER=harness.browser ROWS=harness.browser.integration.native_selected_service_lifecycle,harness.browser.unit.testservices_lifecycle_contract | native 0; PASS 41,693 ms, 2/2 units; new four-case physical selection plus 41 lifecycle unit functions; 11 completed cleanup outcomes; retained scan PASS. |
+| assurance-s068-drift-20261012-03 | generate-drift | native 0; PASS 23,767 ms; 13 completed cleanups; scan PASS. |
+| assurance-s068-policy-20261012-03 | generated-artifact-policy-check | native 0; PASS 2,281 ms; 12 completed cleanups; scan PASS. |
+| assurance-s068-shapes-20261012-03 | json-shape-check | native 0; PASS 4,733 ms; 12 completed cleanups; scan PASS. |
+| assurance-s068-fixture-20261012-01 | harness-fixture-contract | native 0; PASS 7,120 ms, race-enabled fixture/object-proxy tests; tool summary, not a graph scan claim. |
+
+Preserved attempts: selected-01 was cancelled through its exact native session
+(native 130, 254,260 ms). The test fixture lowered nested CPU capacity below the
+live parent reservation, correctly preventing admission; removing that fixture
+override fixed the test without changing production capacities. Outer cleanup
+completed ten operations and scan passed. The interrupted pure child left one
+private runtime. No public Make recovery operation exists; exact-runtime recovery
+used the installed native private session recover_close operation after verifying
+its recorded repository/run binding. Native 0, private root absent, retained child
+bytes unchanged by SHA-256 comparison. The safe receipt is at
+/tmp/cartulary-remediation-s065-20261012/s068-cancelled-runtime-recovery.json.
+This was private recovery maintenance, not a public Make validation substitute.
+
+Selected-02 then failed native 2 / normalized assertion 10 in 27,051 ms:
+PostgreSQL-only started object storage too. Pure and mixed passed; ten cleanup
+outcomes and scan passed. This causal regression led to the selected-union repair.
+Generate-01/02 and projection-01/02 passed intermediate source only. Projection-01
+wall times (drift 273,419; policy 255,454; shapes 258,947 ms) include admission
+waiting behind cancelled selected-01 and are not generator performance estimates.
+Format-go-01/02/03 returned 0. All attempts remain retained.
+
+Changed authored files: NLSpec; native selected_services_linux_test.go and
+run_linux.go; pgtest_test.go; tools/testservices/main.go/main_test.go; removed
+integration_test.go; harness.browser family and verification owner; topology
+catalog package coverage roster. Generated topology index/projections were
+regenerated from owner inputs. Final-source broad check/ci remain V-076; this
+slice is not throughput or qualification evidence.
+
+Installed harness-runtime-boundary-contract completed as
+assurance-s068-boundary-20261012-01, native 0 / tool PASS, 131,810 ms. It covers
+all four Linux boundary functions, including existing owned, borrowed and
+intentional failed-cleanup/recovery variants. Native PostgreSQL/HTTPS graphs
+passed with 14/22 completed cleanup outcomes; the four selected-service graphs
+passed with 10/14/14/20 completed outcomes. All six retained scans passed. The
+intentional failed-cleanup fixture repairs its proof and recovers before exit;
+it is not an abandoned default-environment resource. The new catalog physical
+row binds these existing functions; full-tier execution remains V-076.
+
+No affected live default sessions existed before replacement or after validation:
+suite-runtime scratch empty, default UI/persistent service sessions absent. The
+only interrupted child was recovered through its existing installed authority
+before replacement. Historical receipts were not rewritten. git diff --check
+passes. V-071 and S-068/T-081 DONE; this checkpoint is saved before S-069 starts.
+F-066 is corrected pending V-076 final-source acceptance. S-069 READY;
+qualification remains DEFERRED at 44.952/90 minutes.
+
+### E-080 — S-067 canonical CI assurance leaves — DONE
+
+V-070 completed and this checkpoint was saved before S-068 begins. Public
+harness-contract and harness-contract-tests now select unions of canonical leaves.
+CI deduplicates those same definitions with owner/catalog selections. Union
+projections are published only when their complete member set is present; partial
+check selection cannot claim contract completion. No nested scheduler or fallback
+alias remains. All units retain required failure effects and ordinary graph cleanup.
+
+| Previous duplicated or opaque responsibility | Named surviving assurance boundary |
+| --- | --- |
+| Command-surface contract cases, command failure, producer and status-command tests; Vitest diagnostics | Existing harness.command_surface.behavior.public_registry_parity / harness-command-surface-contract. |
+| Evidence cases, observation-reader registration, canonical events/performance and agent finalizer | Existing harness.evidence_accounting.behavior.current_epoch_evidence / harness-evidence-contract. |
+| Whole broad suite hidden behind catalog routing row | Existing harness.test_catalog.behavior.routing_contract now selects harness-graph-contract; graph cases and metadata selectors live here. Other assertions move to the named leaves below. |
+| Metadata registration imported from two entrypoints | One import in the graph contract entrypoint; no assertions removed. |
+| Global case-definition validation repeated once per suite | One graph-owned validation of all suite definitions; per-suite nonempty admission still enforced. |
+| Boundary and native scheduler adapter cases | New owner_boundaries and scheduler_contract rows under harness.command_surface; harness-boundary-contract and harness-scheduler-contract. Native Go/race routes remain distinct. |
+| Local service-session lifecycle and Playwright row adaptation | New harness.browser.boundary_support.local_session and playwright_adapter rows and matching leaf commands. |
+| Browser UI-review contract imported by command surface and independently selected | Existing harness.browser.boundary_support.ui_review_contract; broad unions include it directly. Deleted browser-contract-tests registration facade and its allowed-consumer exception. |
+| Observability contract in CI broad command | harness-observation-contract policy leaf; full test does not gain this policy-only scope. |
+| Identical observability smoke assertions under two launch spellings | harness-smoke-observability survives with Node test mode; retired canonical-observability duplicate removed from smoke checks and tier membership. |
+
+The broad commands preserve their previous assertion unions, including transitive
+UI-review assertions. Internal command-surface/evidence entrypoints relinquish
+misplaced metadata/browser registration to the named owner. Public command IDs
+remain stable; the private catalog binding now names graph assurance correctly.
+No new runner, test result reducer, compatibility schema or forwarding alias was
+introduced. Existing capacities, deadlines, race/installed/lifecycle boundaries and
+diagnostic defaults remain unchanged. A reviewed entrypoint ledger tests lossless
+union selection, direct/CI identity, one selected unit per leaf, complete target
+projections and full-versus-standard tier separation.
+
+Authored files changed in this slice: task_surface_owner, harness_work_graph_owner,
+harness_helper_ownership, command-surface verification owner, three affected family
+manifests plus harness.test_catalog; compiler union projection; graph/command-surface/
+evidence entrypoints, contract-suite-support and frontend-producer-graph tests;
+deleted test-support/browser-contract-tests. Task surface, topology render index
+and generated projections were regenerated from owner inputs. Source for final
+slice gates is
+`sha256:97ef18b0e8208e14f4775f066ba82a9c89eb4462335a5c4972c7412e5d5b5b89`;
+toolchain remains `sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`.
+
+All commands below ran from repository root with their explicit run ID and
+CARTULARY_HARNESS_CACHE_MODE=off. Diagnostics remained off. Roots use
+`.cartulary/test-results/<run-id>`; accepted native exits were independently 0.
+
+| Run ID | Make arguments | Result |
+| --- | --- | --- |
+| assurance-s067-generate-20261012-04 | generate | PASS; 9,850 ms. |
+| assurance-s067-contract-tests-20261012-01 | harness-contract-tests | PASS; 9/9 units, all eight selected rows passed; 55,065 ms; 18 completed cleanups, retained scan PASS. |
+| assurance-s067-contract-20261012-01 | harness-contract | PASS; 9/9 units; 53,305 ms; 18 completed cleanups, retained scan PASS. |
+| assurance-s067-drift-20261012-02 | generate-drift | PASS; 24,416 ms; 13 completed cleanups, retained scan PASS. |
+| assurance-s067-policy-20261012-02 | generated-artifact-policy-check | PASS; 1,195 ms; 12 completed cleanups, retained scan PASS. |
+| assurance-s067-shapes-20261012-02 | json-shape-check | PASS; 4,285 ms; 12 completed cleanups, retained scan PASS. |
+
+Exact explain-run readers for both broad command roots returned 0 and agree with
+native exits, graph summaries and cleanup. This is functional slice evidence, not
+a controlled throughput comparison or final CI execution. CI compilation is tested;
+its full execution remains V-076. Earlier graph-01 (test-catalog-check plus
+harness-graph-contract) and projection-01 gates passed intermediate source. Generate-01
+failed with native 2 / child 1 because the new graph recipe omitted its required
+harnessruntime/main.go backing declaration; the declaration was fixed. Generate-02
+and -03 passed before final facade/ownership cleanup; all attempts remain retained.
+Non-graph summaries do not independently establish retained-scan success.
+
+No affected live default sessions existed immediately before cutover or after
+validation: runtime scratch empty, UI sessions absent except inert locks, persistent
+service session absent. No drain was required; coherent rollback inventory rules
+still apply. git diff --check passes. F-062 is corrected pending V-076 final-source
+acceptance. S-067/T-080 DONE; S-068 READY. Qualification stays DEFERRED at 44.952/90.
+
+### E-079 — S-066 catalog-only Go selection — DONE
+
+V-069 completed and this checkpoint was saved before S-067 begins. All 106
+formerly raw-selected functions now resolve exactly once to 20 catalog rows:
+the ten pre-existing rows retain 45 functions; ten new rows own the other 61.
+Section 2 records each function's survivor. The sorted nine-package coverage
+roster is enforced by the existing platform-aware selector resolver, excluding
+TestMain. Raw aggregate selection, compilation and normalization are deleted;
+topology v10 rejects v9 and hybrid raw inputs. There is no compatibility reader.
+
+Authored changes: execution_topology_manifest and v10 schema/attachment;
+execution-topology.mjs, work-graph/compiler.mjs; test-catalog and selector-resolution;
+harness.browser/command_surface/evidence_accounting family manifests; command-surface
+verification owner and transaction-row policy; tier, cutover, catalog metadata and
+JSON-shape tests. Four pgtest/s3test stub cases now explicitly declare the service
+authority they exercise, without acquiring those services. Pure helpers retain
+fixture independence; the real transaction and WebSocket tests retain their
+service boundaries; process helpers retain exclusive process isolation. Generated
+validators and render index were rebuilt with make generate, never hand edited.
+
+All commands use repository-root Make, explicit run IDs below and cache off;
+diagnostics remain off. Roots are `.cartulary/test-results/<run-id>`. Native outer
+exits for the accepted gates are 0. Toolchain digest is
+`sha256:4b62e2558e6dcbe1d3c632fb9c0bb47e5a89e5dda08f103a72f61347b5ef1810`.
+Final slice source is
+`sha256:d44d776cc108272bbb2f3af27eaa0a0f7c1d06751fc32d60dff4e95b1a061bd7`.
+The earlier focused row executions used
+`sha256:e72c2dfb52c3d05eb56a49c332e6d50ac3ff34c90b1e5321f281814f615ccdfb`;
+subsequent edits hardened topology rejection and its negative tests, with no Go
+assertion, row, service or execution changes. Final contracts revalidate selection.
+
+| Run ID | Public Make arguments / selection | Result |
+| --- | --- | --- |
+| assurance-s066-contract-20261012-04 | test-catalog-check harness-contract-tests | Both PASS; native 0; exact catalog closure, all tiers, direct selection and legacy-input rejection. |
+| assurance-s066-command-rows-20261012-01 | test-slice OWNER=harness.command_surface ROWS=configtest_helper_contract,processtest_helper_contract (full IDs in row artifacts) | 2 selected rows PASS; 8,886 ms; 11 completed cleanups, scan PASS. |
+| assurance-s066-evidence-rows-20261012-01 | test-slice OWNER=harness.evidence_accounting ROWS=suiteservices_helper_contract,testfailure_helper_contract | 2 rows PASS; 1,682 ms; 11 completed cleanups, scan PASS. |
+| assurance-s066-browser-rows-20261012-01 | test-slice OWNER=harness.browser ROWS=httptestx_helper_contract,pgtest_helper_contract,s3test_helper_contract,testcontainersx_helper_contract,postgres_transaction_isolation,wstest_helper_contract | 6 rows PASS; 14,517 ms; 21 completed cleanups, scan PASS. |
+| assurance-s066-surviving-evidence-20261012-01 | test-slice OWNER=harness.evidence_accounting; local_migration_activities plus the two helper rows | PASS; 479 ms; 11 completed cleanups, scan PASS. |
+| assurance-s066-surviving-browser-20261012-01 | test-slice OWNER=harness.browser; installed_only_images, object_store_fixture_roundtrip, object_store_fixture_admission, object_store_secure_origins, s3test_helper_contract | PASS; 10,247 ms; 20 completed cleanups, scan PASS. |
+| assurance-s066-surviving-migrations-20261012-01 | test-slice OWNER=module.database_migrations; test_harness_targeted_operation_validation | PASS; 1,145 ms; 10 completed cleanups, scan PASS. |
+| assurance-s066-surviving-postgres-20261012-01 | test-slice OWNER=platform.postgres; fresh_fixture_admission, certificate_fixture_lifecycle | PASS; 9,700 ms; 15 completed cleanups, scan PASS. |
+| assurance-s066-surviving-server-20261012-01 | test-slice OWNER=app.server; http_harness_restart_storage | PASS; 11,663 ms; 14 completed cleanups, scan PASS. |
+| assurance-s066-surviving-projections-20261012-01 | test-slice OWNER=module.projections; projection_capability_caller_matrix_6f21615b92 | PASS; 9,638 ms; 14 completed cleanups, scan PASS. |
+| assurance-s066-generate-20261012-04 | generate | PASS; native 0; 9,740 ms. |
+| assurance-s066-drift-20261012-03 | generate-drift | PASS; 19,430 ms; 13 completed cleanups, scan PASS. |
+| assurance-s066-policy-20261012-03 | generated-artifact-policy-check | PASS; 1,068 ms; 12 completed cleanups, scan PASS. |
+| assurance-s066-shapes-20261012-03 | json-shape-check | PASS; 3,725 ms; 12 completed cleanups, scan PASS. |
+
+Row selection names above abbreviate shared prefixes for readability; retained row
+artifacts, manifests and the Section 2 function ledger preserve full exact IDs.
+The three new-row runs and six survivor runs cover all 106 functions. Direct and
+aggregate compilation preserves one selection per function; no distinct required
+assurance context was lost. Exact browser-run explain-run returned 0; final drift
+status reported PASS while correctly disclaiming outer-exit observation. Native
+sessions independently supplied the accepted exits. Non-graph tool summaries have
+no independent scan field; no scan claim is inferred for them.
+
+Preserved failed attempts: generate-01 rejected a managed-process capability with
+no services (corrected to independent fixture plus exclusive isolation);
+generate-02 rejected a missing transaction approval (added the owner entry);
+projections-01 passed its first graph then rejected reuse of a nonempty run root
+for the second target (subsequent targets use separate IDs); contract-02 failed
+one projection-boundary assertion after a loader edit made generated inputs stale
+(regenerated in generate-04). Their native exits were 2, child exits 1 where
+published. Contract-01 and first projection gates passed their earlier source.
+Contract-03 and drift/policy/shapes-02 summaries passed final source, but their
+native session handles were lost during continuation; they remain supporting
+results with outer exit unavailable. Fresh contract-04 and projection-03 gates
+restore independently captured exits without deleting or reclassifying any attempt.
+
+Private cutover inventory before replacement and after validation: suite-runtime
+is empty, UI-review contains inert locks only, persistent service session absent.
+No affected live consumer needed draining. Rollback still requires coherent source,
+projection and executable revisions under the same inventory gate. git diff --check
+passes. F-061 implementation is corrected pending V-076 final acceptance;
+S-066/T-079 DONE, S-067 READY. Other findings and qualification remain unchanged.
+
+### E-078 — S-065 specification closure and characterization — DONE
+
+V-068 completed before S-066 starts. Specification edits adopt catalog-only
+selection/topology v10, canonical harness assurance unions, elapsed eligible
+aging, changing wait segments and compatible Vitest file grouping. Existing
+public identities, capacities, deadlines, row evidence and cleanup obligations
+remain. No production implementation changed in S-065. Entry executable source
+is commit 18aa10063575821fe26b0bbfe2198df3065d4e36; characterization changes were
+limited to temporary independent tests whose exact additions remain in
+`/tmp/cartulary-remediation-s065-20261012/`. They are restored to entry after
+recording red evidence and will be adopted by their owning correction slices;
+no passing regression or implementation conformance is claimed from red runs.
+
+All commands ran from repository root with explicit CARTULARY_TEST_RUN_ID below.
+Runtime/contract commands used CARTULARY_HARNESS_CACHE_MODE=off and default-off
+diagnostics. Go launcher/effective toolchain was 1.27.1/1.27.2. Evidence roots are
+`.cartulary/test-results/<run-id>`; native outer exits were captured independently.
+
+| Run ID | Public Make arguments | Native exit / evidence |
+| --- | --- | --- |
+| assurance-s065-baseline-20261012-01 | harness-runtime-contract harness-command-surface-contract harness-evidence-contract test-catalog-check | 0; all four tool summaries PASS (44,690/52,380/8,420/870 ms). |
+| assurance-s065-admission-characterization-20261012-01 | harness-runtime-contract | 2; child 1, known red zero-time admission [a1,a2,waiter,a3] versus independently expected [a1,a2,a3,waiter]. |
+| assurance-s065-selection-characterization-20261012-01 | harness-contract-tests | 2; child 1, 191 pass/3 expected red: four raw units remain, CI retains opaque target:harness-contract, compatible file selection launches two units instead of one. Zero skipped/todo. |
+| assurance-s065-wait-characterization-20261012-01 | harness-runtime-contract | 2; child 1, known red: waiting evidence never identifies the actual CPU holder after initial eligibility. |
+| assurance-s065-markdown-20261012-01 | lint-markdown | 0; PASS, 19,420 ms, before this checkpoint text. |
+| assurance-s065-guide-20261012-01 | task-guide ROLE=module-author OWNER=harness.command_surface | 0; focused owner and broader contract routes discovered. |
+
+The raw ledger accounts for 106 functions: configtest 4/0 overlaps,
+suiteservices+testfailure 24/6, integration helpers 67/39, processtest 11/0.
+The 45 overlaps resolve to ten named current rows in Section 2. Raw aggregate
+fixture/environment breadth adds no independent assertion to those same functions;
+catalog-owned behavioral/service contexts survive. Sixty-one residual functions
+will receive exact owner rows. Pure helper contexts and real service cases are
+separated explicitly; TestMain is not a selected test. Broad helper coverage
+closure will use the existing platform-aware selector resolver.
+
+Affected ledgers close compiler/raw normalization, topology schema/attachments,
+tier tests, work-graph cutover tests and JSON shape fixtures; task recipes,
+aggregate policy, shell catalog rows, contract-case dispatch and shared test
+imports; native engine and both canonical readers; Vitest grouping/reconciliation;
+three obsolete test-services integrations; and the named frontend architecture
+and Make producer guards. Generated references are regenerated, never hand edited.
+The repeated metadata suite is imported by command-surface and evidence entrypoints;
+its single future owner is catalog-routing assurance. Native race and ordinary
+Go contexts remain distinct. Stale lifecycle assertions are replaced by installed
+owner/resource evidence. Source spelling assertions retain architectural/security
+intent only. Unrelated lifecycle files remain unaudited.
+
+The historical operator path remains frontend-install → build-web → embedded
+web assets → build-operator → Recovery process tests. Required producer edges
+remain. Existing event metadata cannot prove the full 337-second cause; controlled
+zero-time and holder-change fixtures independently reproduce two policy/evidence
+gaps. Baseline native observation cases passed, but do not explain E-068's older
+intermittent observation/admission failure.
+
+Initial and post-characterization inventory contains no active suite/runtime
+sessions; UI review has inert locks only and persistent test-services session is
+absent. No old private consumer needs draining at this entry. Every later private
+cutover repeats inventory. Isolated negative fixture failures are not unresolved
+default sessions. Tool summaries have no independent retained-scan field; no scan
+success is inferred for these non-graph routes. Historical full-warm scan remains
+source-specific. V-068 is characterization closure, not amended conformance.
+S-065/T-078 DONE; S-066 READY. F-061–F-067 remain OPEN until correction and V-076.
+Qualification remains DEFERRED at 44.952/90 minutes.
 
 ### E-076 — S-064 final validation and handoff completion — DONE
 
@@ -7701,6 +10785,44 @@ document checkpoint, not a runtime-validation result.
 
 ## 11. Open Questions and Blockers
 
+### Assurance risks and migration limits — E-086
+
+| Concern | Current disposition |
+| --- | --- |
+| Final-source acceptance | Freeze17 d97866cb… passes every executable gate, warm check17 and CI12 with independent native exits, readers, cleanup and scans. Final documentation and handoff passed. Both previously failing CI11 rows pass; historical cleanup cause remains unknown. |
+| Default-environment migration | Inventories and earlier approved recoveries remain in E-079–E-086. Freeze11 began with zero owners. CI07 retained one browser acquisition and its managed suite; the explicitly approved preserved-version recovery closed both and removed its runtime, preserving all 10,365 prior files. CI08 retained two browser acquisitions and their managed suite; its separately approved exact recovery removed the runtime and preserved all 10,377 prior files. CI10 retained one browser allocation and its suite; authorized exact recovery removed its runtime and preserved all 10,386 retained files. Other environments and rollback need their own inventory and coherent replacement. |
+| Retained wait evidence cost | Check17 scanning took 100,560ms, 17.1% of 589,490ms outer duration. Build-operator queued 705ms. CI12 scanning took 138,700ms and operator queued 757ms. Earlier admission is observed; total throughput improvement is not established. |
+| Historical observation/admission failure | E-068 remains causally unresolved. No isolated pass establishes its explanation. |
+| First warm-check cleanup failure | E-086 retains the failed runtime_close and exact dead-owner recovery. Missing original errno prevents a causal claim; native ready-index optimization is not asserted to explain it. |
+| First CI restore failure | Target database force-drop repeatedly exceeded its existing 10-second budget through CI05. Isolated and contextual checks, CI06 and CI07 restore rows passed later; the historical cause remains unresolved. CI08 and CI09 then recorded CheckpointStart with zero lock blockers at deadline. Freeze14 adds the checkpointer state/counters, validated under a controlled database-local lock; CI10 observes DataFileSync in the checkpointer during the stalled drop. Underlying storage causality remains unproven, without a deadline change. |
+| Diagnostic coverage | Check17: 989 omissions/one discovery truncation; CI12: 1,586 omissions/one discovery truncation. Both observability checks pass with partial/truncated coverage. A controlled same-UID inaccessible-proof fixture establishes an interference mechanism, not historical interleaving; that native session row ran after CI11’s failed workflow. Historical cleanup causality remains unknown. |
+| Audit scope | Selected callers, producers, routing, projections and assertions are covered; the wider original lifecycle/repository inventory is not claimed fully read or conformant. |
+| Qualification | F-022/RB-006/S-020–S-022 remain DEFERRED at 44.952/90 minutes. No qualifying run or external telemetry is added. |
+
+Negative contract fixtures deliberately retain failed or unresolved outcomes when
+authority or settlement cannot be established. Owning contract success verifies
+those outcomes and their preservation; it does not reclassify them as cleanup
+success. Prior retained evidence is immutable. Narrow supporting repairs and
+their independent regression evidence are recorded at E-086; historical causality
+limits remain explicit. Diagnostic assertion routing discovered during final
+acceptance is corrected and recorded at E-086.
+
+**Controlled investigation gate completed:** bounded owned fixtures reproduced
+template-copy synchronization during a peer's drop, with unchanged durability and
+budgets. Cohorts closing together were cheap; staggered closure exposed thousands
+of file synchronizations. Alternating FILE_COPY/WAL_LOG treatments and the
+independent checkpoint regression support the freeze16 preparation repair in
+E-086. This establishes the cross-fixture mechanism, not the exact storage cause
+of every historical timeout. Warm check17 and CI12 now pass on freeze17 with exact readers, cleanup and scans.
+The final source also contains the independently verified delayed-candidate fix
+and closed cleanup context; historical CI11 cleanup remains causally unresolved.
+
+Physical-cluster pooling and deferred database retirement were considered but
+not adopted: the narrower shared copy-completion boundary preserves existing
+physical cleanup and avoids new resource ownership or compatibility contracts.
+No deadline, capacity, durability, observation or workload-padding change was made.
+Qualification and broader unread-file limits remain deferred.
+
 ### Remaining risks and closed prerequisites — E-076 complete
 
 | Gate | Current disposition |
@@ -7854,6 +10976,16 @@ Pre-existing staged tracker content is preserved.
 | RB-003 | Independent pre-move characterization not executed for new launch/correlation/timing boundaries; S-009–S-012 | S-008 current-source V-008–V-011 baseline results and exact consumer/test routing inventory; explicitly assigned correction obligations | DONE; S-008 executed characterization and saved caller/routing inventory before movement |
 
 ## 12. Binary Completion Criteria
+
+### Assurance remediation entry — E-077
+
+Selected completion requires F-061–F-067 closed by V-076, S-065–S-073 DONE
+with saved checkpoints, exact native exits/readers/cleanup/scans agreeing on frozen
+source, complete assertion/migration ledgers, and all twelve sections reconciled.
+**These selected completion criteria are met.** Freeze17 final gates, check17/CI12,
+exact native exits/readers/cleanup/scans, an empty final owner inventory and final
+documentation close F-061–F-067 and S-065–S-073. All predecessor and final checkpoints
+are saved. Qualification and broader audit limits remain deferred and unchanged.
 
 ### Functional completion boundary — E-076 complete
 

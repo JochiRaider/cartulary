@@ -124,15 +124,17 @@ export function createAcquisitionLaunch(file, role) {
   writeResource(file, `launch-${launchID}.json`, { launch_id: launchID, role });
   return launchID;
 }
-// Only the creator calls this after proving no child was created or reaping
-// its exact process group. Recovery never infers it from an absent PID journal.
-export function closeAcquisitionLaunch(file, launchID) {
+// The creator proves no child was created, or the physical owner proves the
+// exact group settled. This durable acknowledgement retires process authority;
+// recovery never infers it from leader exit or an absent PID journal.
+export function closeAcquisitionLaunch(file, launchID, environment = process.env) {
   launchRecord(file, launchID);
   if (receipt(file)) return;
-  writeResource(file, `closed-${launchID}.json`, { launch_id: launchID }, { duringStop: true });
+  writeResource(file, `closed-${launchID}.json`, { launch_id: launchID }, { duringStop: true, environment });
 }
 export function recordAcquisitionProcess(file, launchID, pid = process.pid) {
   const { role } = launchRecord(file, launchID);
+  if (resources(file).closed.has(launchID)) throw invalid();
   const proof = ownedProcess(pid);
   writeResource(file, `process-${launchID}-${pid}.json`, { launch_id: launchID, role, proof }, { duringStop: true });
   return proof;
@@ -194,18 +196,17 @@ function resources(file) {
   return result;
 }
 
-export async function stopAcquisitionProcesses(file, { producerActive = false, stop = stopOwnedProcess } = {}) {
-  const stopped = new Set();
+export async function stopAcquisitionProcesses(file, { producerActive = false, stop = stopOwnedProcess, environment = process.env } = {}) {
   // Stopping fences new launches. First stop the producer, then rescan because
   // a child can publish its exact identity while its creator is being reaped.
   for (let pass = 0; pass < 4; pass++) {
     const records = resources(file);
     const pending = records.processes.filter((entry) => !(producerActive && entry.role === "producer") &&
-      !stopped.has(`${entry.launch_id}:${entry.proof.pid}`)).sort((a, b) => Number(b.role === "producer") - Number(a.role === "producer"));
+      !records.closed.has(entry.launch_id)).sort((a, b) => Number(b.role === "producer") - Number(a.role === "producer"));
     if (pending.length) {
       const failures = [];
       for (const entry of pending) {
-        try { await stop(entry.proof); stopped.add(`${entry.launch_id}:${entry.proof.pid}`); }
+        try { await stop(entry.proof, { environment }); closeAcquisitionLaunch(file, entry.launch_id, environment); }
         catch (error) { failures.push(error); }
       }
       if (failures.length) throw new AggregateError(failures, "browser process cleanup failed");
@@ -218,6 +219,17 @@ export async function stopAcquisitionProcesses(file, { producerActive = false, s
     return;
   }
   throw new CommandFailure("browser processes did not settle", { failure_class: "harness", failure_reason: "cleanup_error" });
+}
+
+// A reset selects only a service already bound to this acquisition. Native
+// settlement, not a shell's leader/listener observation, retires its authority.
+export async function settleAcquisitionService(file, pid, { stop = stopOwnedProcess, environment = process.env } = {}) {
+  if (!Number.isSafeInteger(pid) || pid < 2) throw invalid();
+  const records = resources(file);
+  const matches = records.processes.filter((entry) => entry.role !== "producer" && entry.proof.pid === pid && !records.closed.has(entry.launch_id));
+  if (matches.length !== 1) throw invalid();
+  await stop(matches[0].proof, { environment });
+  closeAcquisitionLaunch(file, matches[0].launch_id, environment);
 }
 
 export function releaseAcquisitionPorts(file) {
@@ -249,10 +261,7 @@ export function acknowledgeBrowserSettlement(file, environment = process.env) {
 async function settle({ file, runtime, root, environment = {}, producerActive = false, recovery = false, recoveryResultsRoot,
   stop = stopOwnedProcess, run = spawnSync } = {}) {
   const owner = readBrowserAcquisition(file, runtime);
-  if (receipt(file)) {
-    await stopAcquisitionProcesses(file, { producerActive, stop });
-    return { state: "released" };
-  }
+  if (receipt(file)) return { state: "released" };
   const suiteBytes = readLocalFile(owner.suite_lease, { maximum: 1048576 });
   if (digest(suiteBytes) !== owner.suite_digest) throw invalid();
   const suite = suiteProof(suiteBytes, owner.run_id);
@@ -267,7 +276,7 @@ async function settle({ file, runtime, root, environment = {}, producerActive = 
     try { writer.claimRecoveryOutput(); } finally { writer.close(); }
   }
   writeResource(file, "stopping.json", {}, { duringStop: true, environment });
-  await stopAcquisitionProcesses(file, { producerActive, stop });
+  await stopAcquisitionProcesses(file, { producerActive, stop, environment });
   releaseAcquisitionPorts(file);
   if (existsSync(metadata)) {
     readLocalFile(metadata, { maximum: 1048576 });
@@ -321,15 +330,28 @@ export function settleBrowserAcquisition(options) {
 async function launch(file, launchID, command, args) {
   recordAcquisitionProcess(file, launchID);
   if (stopping(file)) return;
+  const service = launchRecord(file, launchID).role !== "producer";
   // Install before spawning. A group signal reaches the command as well; keep
   // its supervisor alive to await the command's exit trap and reap it.
-  const signals = new Map(["SIGINT", "SIGTERM"].map((name) => [name, () => {}]));
+  let acknowledgeStop;
+  const stopRequested = new Promise((resolve) => { acknowledgeStop = resolve; });
+  const signals = new Map(["SIGINT", "SIGTERM"].map((name) => [name, acknowledgeStop]));
   for (const [name, listener] of signals) process.on(name, listener);
-  const child = spawn(command, args, { stdio: "inherit", env: process.env });
-  await new Promise((resolve, reject) => { child.once("error", reject); child.once("close", (code, signal) => {
-    process.exitCode = code ?? (signal === "SIGINT" ? 130 : signal === "SIGTERM" ? 143 : 1); resolve();
-  }); });
-  for (const [name, listener] of signals) process.removeListener(name, listener);
+  // A service payload can exit while its grandchildren survive. Retain this
+  // journaled group anchor until the physical owner begins settlement. Signal
+  // handlers alone do not keep Node's event loop alive. Producers instead must
+  // report workload completion to their direct native acquisition owner.
+  const anchor = service ? setInterval(() => {}, 60_000) : null;
+  try {
+    const child = spawn(command, args, { stdio: "inherit", env: process.env });
+    await new Promise((resolve, reject) => { child.once("error", reject); child.once("close", (code, signal) => {
+      process.exitCode = code ?? (signal === "SIGINT" ? 130 : signal === "SIGTERM" ? 143 : 1); resolve();
+    }); });
+    if (service) await stopRequested;
+  } finally {
+    clearInterval(anchor);
+    for (const [name, listener] of signals) process.removeListener(name, listener);
+  }
 }
 
 // The browser owner constructs its executable protocol; an import facade is not a CLI.
@@ -390,6 +412,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     else if (operation === "launch") await launch(file, args[0], args[1], args.slice(2));
     else if (operation === "reserve-port") process.exitCode = reserveAcquisitionPort(file, args[0], Number(args[1])) ? 0 : 1;
     else if (operation === "spawn") await spawnService(file, args[0], args[1], args[2], args.slice(3));
+    else if (operation === "settle-service" && args.length === 1) await settleAcquisitionService(file, Number(args[0]));
     else if (operation === "settle") await settleBrowserAcquisition({ file, root, environment: process.env, producerActive: args[0] === "producer-active" });
     else throw invalid();
   } catch (error) {

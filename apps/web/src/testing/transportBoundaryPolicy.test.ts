@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const webSourceDirectory = path.resolve(
@@ -23,35 +24,64 @@ function runtimeSourceFiles(directory: string): string[] {
   });
 }
 
-describe("frontend transport boundary policy", () => {
-  it("allows raw fetch only in the shared transport and presigned upload adapter", () => {
-    const callers = runtimeSourceFiles(webSourceDirectory).flatMap((file) => {
-      const source = readFileSync(file, "utf8");
-      const count = source.match(/\bfetch\s*\(/gu)?.length ?? 0;
-      return count === 0 ? [] : [{ file, count }];
-    });
-    expect(
-      callers.map(({ file, count }) => ({
-        file: path.relative(webSourceDirectory, file),
-        count,
-      })),
-    ).toEqual([
-      { file: "services/httpTransport.ts", count: 2 },
-      { file: "services/workbookEvidence.ts", count: 1 },
-    ]);
-  });
+function rawTransportReferences(source: string): boolean {
+  const syntax = ts.createSourceFile(
+    "subject.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  let found = false;
+  const visit = (node: ts.Node) => {
+    if (ts.isIdentifier(node) && node.text === "fetch") found = true;
+    if (
+      ts.isElementAccessExpression(node) &&
+      ts.isStringLiteral(node.argumentExpression) &&
+      node.argumentExpression.text === "fetch"
+    )
+      found = true;
+    ts.forEachChild(node, visit);
+  };
+  visit(syntax);
+  return found;
+}
 
-  it("keeps the raw upload call constrained to the server-issued target", () => {
-    const source = readFileSync(
-      path.join(webSourceDirectory, "services/workbookEvidence.ts"),
-      "utf8",
+describe("frontend transport boundary policy", () => {
+  it("confines raw transport references to the service adapter owner", () => {
+    const manifest = JSON.parse(
+      readFileSync(
+        path.resolve(
+          webSourceDirectory,
+          "../../../tools/frontend_source_ownership.json",
+        ),
+        "utf8",
+      ),
+    ) as { entries: { owner_id: string; paths: string[] }[] };
+    const adapters = new Set(
+      manifest.entries.find((entry) => entry.owner_id === "web.services")
+        ?.paths,
     );
-    expect(source).toContain("uploadTarget.href");
-    expect(source).toContain("method: uploadTarget.method");
-    expect(source).toContain('credentials: "include"');
-    expect(source).toContain('readCookie("cartulary_csrf")');
-    expect(source).toContain("headers.set(csrfHeaderName, csrfToken);");
-    expect(source).toContain("Object.entries(uploadTarget.headers)");
-    expect(source).toContain("headers.set(key, value);");
+    expect(adapters.size).toBeGreaterThan(0);
+    for (const file of runtimeSourceFiles(webSourceDirectory)) {
+      if (rawTransportReferences(readFileSync(file, "utf8"))) {
+        expect(
+          adapters.has(
+            `apps/web/src/${path.relative(webSourceDirectory, file).split(path.sep).join("/")}`,
+          ),
+          file,
+        ).toBe(true);
+      }
+    }
+    for (const source of [
+      "fetch (url)",
+      "globalThis.fetch(url)",
+      'const send = window["fetch"]; send(url)',
+      "const {fetch: send} = globalThis; send(url)",
+    ])
+      expect(rawTransportReferences(source), source).toBe(true);
+    expect(
+      rawTransportReferences('// fetch(url)\nconst label = "fetch(url)";'),
+    ).toBe(false);
   });
 });

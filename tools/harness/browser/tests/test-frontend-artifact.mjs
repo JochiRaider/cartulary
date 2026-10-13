@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, lstatSync, linkSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, linkSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createRuntime } from "../../runtime/session-client.mjs";
@@ -68,7 +68,21 @@ try {
   assert.equal(lstatSync(path.join(second.directory, "index.html")).mode & 0o777, 0o644);
   chmodSync(path.join(second.directory, "index.html"), 0o600);
   rmSync(path.join(partial, "index.html"));
-  assert.throws(() => sealFrontendArtifact({ repoRoot: root, runRoot: first.runRoot, runtime: first.runtime, profile, staging: scratch }), /private suite root/u);
+  // A valid foreign staging tree must fail before sealing or publication,
+  // independently of missing entries or an already consumed producer claim.
+  const foreign = path.join(scratch, "foreign-staging");
+  mkdirSync(foreign, { mode: 0o700 });
+  const foreignBytes = Buffer.from("foreign frontend");
+  writeFileSync(path.join(foreign, "index.html"), foreignBytes, { mode: 0o600 });
+  const foreignRun = path.join(scratch, "foreign-run");
+  mkdirSync(foreignRun, { mode: 0o700 });
+  writeFileSync(path.join(foreignRun, "run-manifest.json"), readFileSync(path.join(first.runRoot, "run-manifest.json")), { mode: 0o600 });
+  const foreignRuntime = createRuntime({ repoRoot: root, runRoot: foreignRun, runID: "foreign-run", scratchRoot: path.join(scratch, "private") });
+  runtimes.push(foreignRuntime);
+  assert.throws(() => sealFrontendArtifact({ repoRoot: root, runRoot: foreignRun, runtime: foreignRuntime, profile, staging: foreign }));
+  assert.deepEqual(readFileSync(path.join(foreign, "index.html")), foreignBytes);
+  assert.equal(existsSync(path.join(foreignRun, "build-web/frontend-artifact.json")), false);
+  assert.equal(existsSync(foreignRuntime.privatePath("frontend-production")), false);
   second.runtime.close();
   second.runtime.close();
   assert.throws(() => resolveFrontendArtifact(root, "build-web", second.environment));

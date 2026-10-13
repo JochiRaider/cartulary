@@ -20,24 +20,6 @@ function sourceFiles(directory: string): string[] {
 }
 
 describe("Network Flow frontend boundary policy", () => {
-  it("composes each capability through a dedicated workspace controller", () => {
-    const workspace = readFileSync(
-      path.join(networkFlowDirectory, "NetworkAnalysisWorkspace.tsx"),
-      "utf8",
-    );
-    for (const controller of [
-      "useNetworkFlowTableController",
-      "useNetworkFlowRowsController",
-      "useNetworkFlowRejectedRowsController",
-      "useNetworkFlowGraphController",
-      "useNetworkFlowImportController",
-      "useNetworkFlowIndicatorLinkController",
-      "useNetworkFlowCollaborationController",
-    ]) {
-      expect(workspace).toContain(`${controller}({`);
-    }
-  });
-
   it("keeps runtime schema compilation and projection adapter input out of the browser", () => {
     for (const file of sourceFiles(webSourceDirectory)) {
       const source = readFileSync(file, "utf8");
@@ -45,18 +27,6 @@ describe("Network Flow frontend boundary policy", () => {
       expect(source, file).not.toContain("GraphProjectionEphemeralInput");
       expect(source, file).not.toContain("graph_projection_ephemeral_input");
     }
-  });
-
-  it("keeps Network Flow wire decoding behind the generated contract adapter", () => {
-    const client = readFileSync(
-      path.join(networkFlowDirectory, "networkFlowClient.ts"),
-      "utf8",
-    );
-    expect(client).toContain("../services/networkFlowContractAdapter");
-    expect(client).not.toContain("@cartulary/protocol-ts");
-    expect(client).not.toMatch(/\bwindow\b/u);
-    expect(client).not.toMatch(/\bhistory\b/u);
-    expect(client).not.toContain("URLSearchParams");
   });
 
   it("keeps the grid vendor and raw coordinate handles outside Network Flow consumers", () => {

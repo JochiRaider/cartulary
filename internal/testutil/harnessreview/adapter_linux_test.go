@@ -3,16 +3,21 @@
 package harnessreview
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
@@ -21,6 +26,31 @@ func TestReviewIPC(t *testing.T) {
 		preparationStallHelper(t, stage)
 		return
 	}
+	t.Run("stop_drains_accepted_reply", testStopDrainsAcceptedReply)
+	t.Run("cleanup_receipts_keep_closed_context_without_private_errors", func(t *testing.T) {
+		for _, test := range []struct {
+			operation, subject, condition string
+			cause                         error
+		}{
+			{"provider_close", "preparation_child", "timeout", context.DeadlineExceeded},
+			{"managed_suite", "test_services", "cancelled", context.Canceled},
+			{"browser_process", "browser", "invalid_artifact", harnesslocal.ErrUnsafe},
+			{"diagnostic_scope", "browser", "resource_conflict", harnesssession.ErrUnresolved},
+			{"browser_stack", "browser_stack", "resource_conflict", harnessfixtures.ErrCleanupBlocked},
+			{"provider_close", "preparation_child", "child_failed", failure("session_lost")},
+			{"host_release", "host_lock", "unknown", errors.New("private-token-and-path")},
+		} {
+			cause := errors.Join(errors.New("private-token-and-path"), test.cause)
+			value := cleanupFailure(test.operation, cause)
+			if value.Record.validate() != nil || value.Record.Code != "cleanup_failed" || *value.Record.Phase != "cleanup" || *value.Record.Subject != test.subject || *value.Record.Condition != test.condition || *value.Record.Recovery != "exact_stop" || !errors.Is(value, test.cause) {
+				t.Fatal("lost cleanup boundary, classification or internal cause", value.Record)
+			}
+			data, err := json.Marshal(value.Record)
+			if err != nil || strings.Contains(string(data), "private-token-and-path") {
+				t.Fatal("private error escaped structural receipt")
+			}
+		}
+	})
 	testPreparationDeadlines(t)
 	t.Run("diagnostic_failure_does_not_starve_fixture_close", func(t *testing.T) {
 		root, run := t.TempDir(), t.TempDir()
@@ -43,8 +73,17 @@ func TestReviewIPC(t *testing.T) {
 			t.Fatal(err)
 		}
 		d := &productionDriver{root: root, runRoot: run, runtime: r, fixtures: fixtures, environment: map[string]string{"NODE_BIN": filepath.Join(root, "missing-node")}}
-		if failures := d.Close(context.Background()); len(failures) == 0 || closed != 1 {
+		failures := d.Close(context.Background())
+		if len(failures) == 0 || closed != 1 {
 			t.Fatal("lost failure or starved independent close", failures, closed)
+		}
+		found := false
+		for _, err := range failures {
+			f := normalized(err, "cleanup_failed").Record
+			found = found || f.Phase != nil && *f.Phase == "cleanup" && *f.Subject == "browser" && *f.Condition == "resource_conflict"
+		}
+		if !found {
+			t.Fatal("resource cleanup cause lost before receipt")
 		}
 	})
 	t.Run("independent_response_rejections", func(t *testing.T) {
@@ -184,4 +223,72 @@ func TestReviewIPC(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A pipe blocks the final reply until its independent client reads it. Session
+// completion must not let the process owner return while that reply is pending.
+func testStopDrainsAcceptedReply(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		session := NewSession("uireview-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "run", "artifacts", &testDriver{}, &controlTestPublisher{})
+		if err := session.Prepare(); err != nil {
+			t.Fatal(err)
+		}
+		server, client := net.Pipe()
+		defer client.Close()
+		listener := &controlTestListener{connection: make(chan net.Conn, 1), done: make(chan struct{})}
+		listener.connection <- server
+		record := &registryRecord{Session: session.id, Token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
+		drain := serveControls(listener, record, session)
+		message := controlRequest{Schema: channelSchema, Session: session.id, Token: record.Token, Command: "ui-review-stop"}
+		data, err := jsonDocument(channelSchema, message)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := client.Write(data); err != nil {
+			t.Fatal(err)
+		}
+		<-session.Done()
+		drained := make(chan struct{})
+		go func() { drain(); close(drained) }()
+		synctest.Wait()
+		select {
+		case <-drained:
+			t.Error("owner returned before accepted stop reply was delivered")
+		default:
+		}
+		data, err = bufio.NewReader(client).ReadBytes('\n')
+		if err != nil {
+			t.Fatal(err)
+		}
+		var result Result
+		if err := json.Unmarshal(data, &result); err != nil || result.Status != "ok" || result.State == nil || *result.State != "closed" {
+			t.Fatalf("stop reply: %s; %v", data, err)
+		}
+		<-drained
+	})
+}
+
+type controlTestListener struct {
+	connection chan net.Conn
+	done       chan struct{}
+	once       sync.Once
+}
+
+func (l *controlTestListener) Accept() (net.Conn, error) {
+	select {
+	case connection := <-l.connection:
+		return connection, nil
+	case <-l.done:
+		return nil, net.ErrClosed
+	}
+}
+func (l *controlTestListener) Close() error { l.once.Do(func() { close(l.done) }); return nil }
+func (l *controlTestListener) Addr() net.Addr {
+	return &net.UnixAddr{Name: "control-test", Net: "unix"}
+}
+
+type controlTestPublisher struct{ testPublisher }
+
+func (p *controlTestPublisher) Terminal(l Locator, r Receipt, failed bool) (*Reference, error) {
+	return &Reference{Path: "ui-review/terminal.json", SHA256: strings.Repeat("a", 64), Bytes: 1, MediaType: "application/json"}, nil
 }

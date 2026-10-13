@@ -82,7 +82,9 @@ type adapter struct {
 }
 
 func startAdapter(root, session string, runtime *harnesssession.Runtime, environment map[string]string, onLost func(error)) (*adapter, error) {
-	sockets, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+	// os.File deadlines require a pollable descriptor. Set nonblocking mode
+	// before NewFile so an unresponsive peer cannot bypass the producer clock.
+	sockets, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC|unix.SOCK_NONBLOCK, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +266,9 @@ func (a *adapter) write(ctx context.Context, id int, operation string, payload a
 	if end, ok := ctx.Deadline(); ok && end.Before(deadline) {
 		deadline = end
 	}
-	_ = a.channel.SetWriteDeadline(deadline)
+	if err := a.channel.SetWriteDeadline(deadline); err != nil {
+		return err
+	}
 	_, err = a.channel.Write(data)
 	return err
 }
@@ -292,12 +296,14 @@ func (a *adapter) call(ctx context.Context, operation string, payload any) (adap
 	err := a.write(ctx, id, operation, payload)
 	a.dispatch.Unlock()
 	if err != nil {
-		a.reject(err)
-		a.kill()
 		if ctx.Err() != nil {
-			<-a.done
+			// Write expiry is the same intentional cancellation as response
+			// expiry: stop and settle once, then let cleanup use that outcome.
+			a.terminate()
 			return adapterReply{}, preparationCancellation(ctx, operation)
 		}
+		a.reject(err)
+		a.kill()
 		return adapterReply{}, err
 	}
 	var reply adapterReply

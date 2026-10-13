@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.graphprojection",
   "rows": [
     {
@@ -27,9 +27,9 @@
           "TestGraphRestoreCurrentRegistryAndBindingsAreExact",
           "TestGraphRestoreExportedFunctionAllowlist_Unit",
           "TestGraphRestorePackageProductionBoundaryAllowlist_Unit",
-		  "TestGraphRestoreReadinessRequiresExactReconciliationProof_Unit",
-		  "TestGraphRestoreResultContractClosesStatesAndSafeErrors",
-		  "TestGraphRestoreServiceRequiresPublisherAndRegistry_Unit"
+          "TestGraphRestoreReadinessRequiresExactReconciliationProof_Unit",
+          "TestGraphRestoreResultContractClosesStatesAndSafeErrors",
+          "TestGraphRestoreServiceRequiresPublisherAndRegistry_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -55,7 +55,7 @@
       "selector": {
         "package": "./internal/modules/graphprojection",
         "tests": [
-		  "TestProjectV2MaximumSemanticBounds_Unit"
+          "TestProjectV2MaximumSemanticBounds_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -83,12 +83,12 @@
         "tests": [
           "TestGraphProjectionPackageTopologyAllowlist_Unit",
           "TestGraphProjectionRootExportedFunctionAllowlist_Unit",
-		  "TestGraphProjectionV2RootProductionBoundary_Unit",
-		  "TestProjectV2CancellationAndIdentityFraming_Unit",
-		  "TestProjectV2GoldenDeterminismAndCompletedResult_Unit",
-		  "TestProjectV2RejectsRemovedUnknownAndUnsafeMembers_Unit",
-		  "TestProjectV2SemanticOrderingAndNumericNormalization_Unit",
-		  "TestProjectV2TrustedInvocationDoesNotEnterConfigurationDigest_Unit"
+          "TestGraphProjectionV2RootProductionBoundary_Unit",
+          "TestProjectV2CancellationAndIdentityFraming_Unit",
+          "TestProjectV2GoldenDeterminismAndCompletedResult_Unit",
+          "TestProjectV2RejectsRemovedUnknownAndUnsafeMembers_Unit",
+          "TestProjectV2SemanticOrderingAndNumericNormalization_Unit",
+          "TestProjectV2TrustedInvocationDoesNotEnterConfigurationDigest_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -116,7 +116,7 @@
         "package": "./internal/modules/graphprojection",
         "tests": [
           "TestProjectV2NonEmptySemanticGolden_Unit",
-		  "TestProjectV2NullDefaultWildcardOrderingAndFailureAtomicity_Unit",
+          "TestProjectV2NullDefaultWildcardOrderingAndFailureAtomicity_Unit",
           "TestProjectV2ProjectedValueAdmissionCoversEveryTypeAndBoundary_Unit",
           "TestProjectV2SemanticMatrixMatchesContractAndExecutesEveryPair_Unit",
           "TestProjectV2SemanticMergeRulesAreExact_Unit",
@@ -181,11 +181,11 @@
         "tests": [
           "TestGraphRestoreAcceptanceGPRA01And16ClearsAllDerivedHistory_Integration",
           "TestGraphRestoreAcceptanceGPRA02PublishesOneFreshAvailableRun_Integration",
-		  "TestGraphRestoreAcceptanceGPRA12PublicationFailureRollsBackClear_Integration",
-		  "TestGraphRestoreWriterCommitAndPostcommitFailuresAreIndeterminate_Integration",
-		  "TestGraphRestoreWriterReconcilesBeforeCommitAndReturnsExactCounts_Integration",
-		  "TestGraphRestoreWriterRequiresDatabaseAndReconciler_Unit",
-		  "TestGraphRestoreWriterRollsBackEveryPrecommitPhase_Integration"
+          "TestGraphRestoreAcceptanceGPRA12PublicationFailureRollsBackClear_Integration",
+          "TestGraphRestoreWriterCommitAndPostcommitFailuresAreIndeterminate_Integration",
+          "TestGraphRestoreWriterReconcilesBeforeCommitAndReturnsExactCounts_Integration",
+          "TestGraphRestoreWriterRequiresDatabaseAndReconciler_Unit",
+          "TestGraphRestoreWriterRollsBackEveryPrecommitPhase_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -213,8 +213,8 @@
       "selector": {
         "package": "./internal/modules/graphprojection/postgresresult",
         "tests": [
-		  "TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration",
-		  "TestStorageMaintenanceProjectionMatchesRuntime_Unit"
+          "TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration",
+          "TestStorageMaintenanceProjectionMatchesRuntime_Unit"
         ]
       },
       "evidence_class": "integration",

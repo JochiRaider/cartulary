@@ -1,5 +1,4 @@
 import "../observability/tests/test-execution-index.mjs";
-import "./test-catalog-metadata-fixtures.mjs";
 import { runContractSuite } from "./contract-suite-support.mjs";
 import { registerRunObservationTests } from "../diagnostics/tests/run-observation-cases.mjs";
 runContractSuite("evidence");

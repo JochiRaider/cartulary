@@ -40,7 +40,14 @@ const borrowed=borrowRuntime({repoRoot,runRoot,environment});
 borrowed.registerSecret('standalone-boundary-value');
 // Secret and retained-scan assertions live at the native session owner.
 borrowed.close(); assert.equal(existsSync(owned.root),true);
-assert.throws(()=>borrowRuntime({repoRoot,runRoot,environment:{...environment,CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:'00000000-0000-4000-8000-000000000000'}}));
+assert.throws(()=>borrowRuntime({repoRoot,runRoot,environment:{...environment,CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:'00000000-0000-4000-8000-000000000000'}}), error => {
+  assert.equal(error.message,'native private runtime rejected');
+  assert.equal(error.privateDiagnostic.operation,'borrow');
+  assert.equal(error.privateDiagnostic.reason,'unsafe');
+  assert.equal(JSON.stringify(error).includes('privateDiagnostic'),false);
+  assert.equal(JSON.stringify(error).includes(owned.root),false);
+  return true;
+});
 owned.close(); owned.close(); assert.equal(existsSync(owned.root),false);
 const source="import {createRuntime} from './tools/harness/runtime/session-client.mjs';const r=createRuntime({repoRoot:process.cwd(),runRoot:process.argv[1],runID:'lost-owner',scratchRoot:process.argv[2]});r.record({kind:'managed_suite',target:r.recoveryPath('pending.json'),state:'pending',depends_on:[]});process.stdout.write(JSON.stringify({root:r.root,leaseID:r.leaseID,runID:r.runID}));";
 const child=spawnSync(process.execPath,['--input-type=module','-e',source,runRoot,scratchRoot],{cwd:repoRoot,encoding:'utf8'});

@@ -127,7 +127,11 @@ describe("workbookEvidence", () => {
           expires_at: "2026-08-04T00:30:00Z",
           href: "/api/v1/object-uploads/upload-token",
           method: "PUT",
-          headers: { "Content-Type": "application/cartulary-evidence" },
+          headers: {
+            "Content-Type": "application/cartulary-evidence",
+            "X-Upload-Proof": "issued",
+            "X-CSRF-Token": "stale-server-value",
+          },
         },
         new File(["abc"], "evidence.txt", { type: "text/plain" }),
       ),
@@ -137,11 +141,16 @@ describe("workbookEvidence", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const uploadInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "/base/api/v1/object-uploads/upload-token",
+    );
+    expect(uploadInit.method).toBe("PUT");
     expect(uploadInit.credentials).toBe("include");
     const uploadHeaders = new Headers(uploadInit.headers);
     expect(uploadHeaders.get("Content-Type")).toBe(
       "application/cartulary-evidence",
     );
+    expect(uploadHeaders.get("X-Upload-Proof")).toBe("issued");
     expect(uploadHeaders.get("X-CSRF-Token")).toBe("evidence-csrf");
     expect(responseText).not.toHaveBeenCalled();
   });

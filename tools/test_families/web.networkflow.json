@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "web.networkflow",
   "rows": [
     {
@@ -14,14 +14,13 @@
       "selector": {
         "file": "apps/web/src/networkFlow/networkFlowBoundaryPolicy.test.ts",
         "titles": [
-          "Network Flow frontend boundary policy composes each capability through a dedicated workspace controller",
-          "Network Flow frontend boundary policy keeps Network Flow wire decoding behind the generated contract adapter",
           "Network Flow frontend boundary policy keeps runtime schema compilation and projection adapter input out of the browser",
           "Network Flow frontend boundary policy keeps the grid vendor and raw coordinate handles outside Network Flow consumers",
           "Network Flow frontend boundary policy rejects legacy light-theme variable fallbacks in Network Flow source",
           "Network Flow frontend boundary policy rejects synthetic markup in authoritative Network Flow browser evidence",
           "Network Flow frontend boundary policy uses only authored Cartulary design-token variables in Network Flow source"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -48,7 +47,8 @@
         "file": "apps/web/src/networkFlow/networkFlowImportAdmission.test.ts",
         "titles": [
           "Network Flow import dispatch admission rechecks the analytical claim after shared queue admission before transmitting bytes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -80,7 +80,8 @@
           "Network Flow import ownership invalidates approval applicability on fingerprint mismatch without selecting or applying",
           "Network Flow import ownership preserves copyable drafts on write loss and closure and purges replaced authority",
           "Network Flow import ownership retains the immutable submitted candidate and typed definite rejection"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -118,7 +119,8 @@
           "Network Flow import recovery retains resource-specific denials without declaring lost incident access",
           "Network Flow import recovery retains terminal job success when a delayed cancellation acknowledgement arrives",
           "Network Flow import recovery revalidates retained intent after authority changes before replaying selection"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -154,7 +156,8 @@
           "Indicator link captured operation projects one status by precedence and expires success without discarding the receipt",
           "Indicator link captured operation uses captured transport bytes CSRF and a validated receipt",
           "Indicator link captured operation withdraws writes synchronously while retaining copyable drafts and never automatically resubmits"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -181,7 +184,8 @@
           "Exploration continuity fences late contributor success and failure after bucket and selection changes",
           "Exploration continuity pauses hidden reads and restores a noninitial bucket page selection and committed contributors",
           "Exploration continuity withdraws navigation and pending contributors for replacement source staleness and authority changes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -206,7 +210,8 @@
         "titles": [
           "NetworkAnalysisWorkspace preserves a noninitial exploration page through Saved and metadata refresh and restores focus with Escape",
           "NetworkAnalysisWorkspace preserves off-page exploration selection and restores focus through Reveal and Close"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -230,7 +235,8 @@
         "file": "apps/web/src/networkFlow/explorationFocus.test.tsx",
         "titles": [
           "withdraws removed graph focus safely and cancels an older semantic focus intent"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -258,7 +264,8 @@
           "Exploration navigation preserves metadata and subview continuity but resets a different accepted result",
           "Exploration navigation retains exact off-page selection and computes reveal and close focus semantically",
           "Exploration navigation uses complete selectors and stable ordering without inventing link or contributor meaning"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -284,7 +291,8 @@
           "Network Flow client transport boundary fails before transport when the discovered Network Flow route is no longer claimed",
           "Network Flow client transport boundary keeps malformed success responses behind the generated decoder",
           "Network Flow client transport boundary uses the owner-neutral browser transport for decoding, cancellation, and CSRF"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -314,7 +322,8 @@
           "Network Flow control presentation seam preserves native button behavior and exposes deterministic variants",
           "Network Flow control presentation seam retains selected semantics and requires an accessible icon name",
           "Network Flow control presentation seam ships scoped dark, focus, autofill, dialog, and responsive rules"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -338,7 +347,8 @@
         "file": "apps/web/src/networkFlow/NetworkFlowQueryControls.test.tsx",
         "titles": [
           "Network Flow query authoring integrity retains protocol lists and complete counter predicates on unchanged Apply"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -362,7 +372,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace clears protected data immediately when authorization is lost"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -386,7 +397,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace clears table-scoped state when the active table becomes inactive"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -410,7 +422,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace enforces the viewer, editor, reviewer, and admin command matrix"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -434,7 +447,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace keeps the import entry role-gated"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -458,7 +472,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace previews an ordinal-aware mapping and selects the returned table resource"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -482,7 +497,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace refreshes table metadata after a rename version conflict before retry"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -506,7 +522,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace withdraws mutation dispatch and retains a copyable draft when the role is downgraded"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -530,7 +547,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace renames by stable table identity and soft-deletes only after exact confirmation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -554,7 +572,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace renders rejected diagnostics through the semantic grid and applies owner filters"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -578,7 +597,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace supports keyboard table navigation and restores focus from lifecycle dialogs"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -602,7 +622,8 @@
         "file": "apps/web/src/services/networkFlowContractAdapter.test.ts",
         "titles": [
           "networkFlowContractAdapter requires a claimed profile and a supported compiled contract major"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -627,7 +648,8 @@
         "titles": [
           "interpretNetworkFlowCollaborationMessage preserves table and saved graph identities and rejects unrelated resources",
           "preserves normalized authorization scope in every Network Flow owner lifecycle"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -651,7 +673,8 @@
         "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
         "titles": [
           "networkFlowControllerReducer clears all table state when authorization is lost"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -675,7 +698,8 @@
         "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
         "titles": [
           "networkFlowControllerReducer preserves selection on refresh and advances it on deletion"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -699,7 +723,8 @@
         "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
         "titles": [
           "networkFlowControllerReducer preserves table identity on rename and selects next then previous on deletion"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -726,7 +751,8 @@
           "Network Flow structured errors falls back to status-safe text when the server message is unsafe",
           "Network Flow structured errors preserves status, code, reason, field, retry action, and a safe message",
           "Network Flow structured errors uses exact structured authorization signals instead of message substrings"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -753,7 +779,8 @@
           "Network Flow import mapping model builds mappings from generated transforms without a compatibility schema_id",
           "Network Flow import mapping model keeps duplicate aliases distinct and blocks preview until every collision is explicit",
           "Network Flow import mapping model requires distinct ordinal-aware NetFlow uptime timestamp inputs"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -777,7 +804,8 @@
         "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
         "titles": [
           "networkFlowIndicatorLinkModel accepts the active cell anywhere inside its same-field semantic range"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -801,7 +829,8 @@
         "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
         "titles": [
           "networkFlowIndicatorLinkModel compiles a same-value IP range to ordered owner row refs"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -825,7 +854,8 @@
         "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
         "titles": [
           "networkFlowIndicatorLinkModel compiles one active IP cell to its immutable owner row identity"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -849,7 +879,8 @@
         "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
         "titles": [
           "networkFlowIndicatorLinkModel rejects mixed values, mixed fields, non-owner anchors, and ranges over the owner limit"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -872,13 +903,13 @@
       "selector": {
         "file": "apps/web/src/networkFlow/networkFlowPresentation.test.tsx",
         "titles": [
-          "Network Flow presentation metadata Verify Network Analysis presentation, query, layout, lifecycle, and reconciliation units use extension-owned semantic contracts.",
           "Network Flow presentation metadata groups contributors by workspace table order without changing server order within a group",
           "Network Flow presentation metadata keeps display formatting separate from canonical clipboard scalars",
           "Network Flow presentation metadata localizes registered diagnostics and safely falls back to the server message",
           "Network Flow presentation metadata reuses grid-row wrappers only for unchanged owner objects and derived metadata",
           "Network Flow presentation metadata uses extension resource identities for accepted and diagnostic rows"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -907,7 +938,8 @@
           "Network Flow query model preserves server order while reusing only unchanged rows and dropping removed rows",
           "Network Flow query model reconciles rejected diagnostics and contributors at their owner identities",
           "Network Flow query model reuses owner-identified row references only when every contract field is equal"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -935,7 +967,8 @@
           "NetworkFlowSemanticGrid accessibility maps typed protected-state loss to permission denial without retaining rows or inventing Retry",
           "NetworkFlowSemanticGrid accessibility preserves the visible Source row header and accessible name for populated and empty results",
           "NetworkFlowSemanticGrid accessibility retains authorized rows for a retryable stale refresh failure"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -959,7 +992,8 @@
         "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
         "titles": [
           "NetworkFlowSemanticGrid accessibility restores semantic focus to the same field in the nearest replacement row and then the grid root"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -983,7 +1017,8 @@
         "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
         "titles": [
           "NetworkFlowSemanticGrid accessibility supports keyboard column reordering with a polite semantic announcement"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1013,7 +1048,8 @@
           "Network Flow page recovery boundaries keeps draft context stable while fencing replaced role session and availability read identities",
           "Network Flow page recovery boundaries recovers contributor expiry on the same graph and routes stale composition through recomputation",
           "Network Flow page recovery boundaries rejects malformed counts table identities contributor bindings and row references"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1038,7 +1074,8 @@
         "titles": [
           "Network Flow page feedback names the committed page separately from pending destinations and successful recovery",
           "Network Flow page feedback separates failed destination retry from refresh and honors correction and resource recovery"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1062,7 +1099,8 @@
         "file": "apps/web/src/networkFlow/NetworkFlowSemanticGrid.test.tsx",
         "titles": [
           "NetworkFlowSemanticGrid accessibility clears a vanished page selection without moving focus from pagination"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1089,7 +1127,8 @@
           "Network Flow query application ownership attributes rejection to the submitted entry without rewriting a newer draft",
           "Network Flow query application ownership captures attempts retains successful state and ignores superseded success and failure",
           "Network Flow query application ownership retains separate drafts through navigation and purges authority replacements"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1119,7 +1158,8 @@
           "Network Flow typed query compilation uses inclusive numeric and half-open timestamp ranges without epsilon",
           "Network Flow typed query compilation validates exact uint64 bounds and rejects numeric coercion",
           "Network Flow typed query compilation validates overlap filters together while keeping graph time range separate"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1151,7 +1191,8 @@
           "Saved graph captured operations requires current-state review after a metadata or version conflict and retains the draft",
           "Saved graph captured operations resolves the actual uncertain attempt from a late acknowledgement after observation deadline",
           "Saved graph captured operations withdraws only affected source bindings and preserves retirement tombstones across stale reads"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1180,7 +1221,8 @@
           "NetworkAnalysisWorkspace distinguishes initial saved declaration and result failures from empty and unmaterialized states",
           "NetworkAnalysisWorkspace recovers an acknowledged graph and paused job independently of the selected declaration",
           "NetworkAnalysisWorkspace recovers saved graph drafts, conflicts, and uncertain writes locally with keyboard focus"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1207,7 +1249,8 @@
         "file": "apps/web/src/services/networkFlowContractAdapter.test.ts",
         "titles": [
           "networkFlowContractAdapter decodes saved graphs only through the generated major-7 contract"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1234,7 +1277,8 @@
           "Saved graph bounded observation expires the observation window and permits explicit resume from retained progress",
           "Saved graph bounded observation observes serially and requires a correctly scoped terminal graph reference",
           "Saved graph bounded observation rejects regressing terminal status and pauses on a missing job without inferring failure"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1265,7 +1309,8 @@
           "Saved graph recovery boundaries resumes the captured create query after definite failure and dialog closure",
           "Saved graph recovery boundaries retains a copyable write-loss draft but purges it when the profile is withdrawn",
           "Saved graph recovery boundaries withdraws saved exposure for the canonical unclaimed profile response"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1293,7 +1338,8 @@
           "Saved graph transport integrity requires empty 204 retirement on initial response and replay",
           "Saved graph transport integrity sends identical captured bytes on replay and accepts only the scoped narrow job receipt",
           "Saved graph transport integrity uses NFC and exact whitespace with UTF-8 byte limits and rejects controls before trimming"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1330,7 +1376,8 @@
           "Saved graph recovery boundaries restarts an interrupted initial result read after valid authority reconciliation",
           "Saved graph recovery boundaries withdraws cached exposure on an authoritative list denial and permits explicit current-state recovery",
           "Saved graph recovery boundaries withdraws result and contributors when a contributor request reports lost read authority"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1357,7 +1404,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace bounds saved graph rendering to 500 vertices and 1000 edges with paged navigation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1384,7 +1432,8 @@
           "Saved graph recovery boundaries does not replace a materialized declaration with its historical creation receipt",
           "Saved graph recovery boundaries preserves selection made after the original attempt across explicit replay",
           "Saved graph recovery boundaries retains original uncertainty after a denied replay and resolves only the same attempt"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1411,7 +1460,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace enforces viewer, editor, reviewer, and administrator controls for saved graphs"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1439,7 +1489,8 @@
           "Saved graph semantic result continuity fences deferred results across A to B to A and protected-scope replacement",
           "Saved graph semantic result continuity keeps a prior result during pending refresh and failed reads but clears removed bindings immediately",
           "Saved graph semantic result continuity retains the exact result and contributor context through rename and unchanged declaration polling"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1466,7 +1517,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace completes the saved graph lifecycle with exact results, last-safe refresh, contributors, bounded rendering, and role-aware controls"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1502,7 +1554,8 @@
           "Table lifecycle operations requires explicit review on peer changes and never reselects a conflict target",
           "Table lifecycle operations retains a meaningful delete receipt while removing its active resource",
           "Table lifecycle operations validates receipt identity lifecycle immutable fields and normalized no-op"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1527,7 +1580,8 @@
         "titles": [
           "networkFlowControllerReducer rejects catalog regression and resurrection after terminal removal",
           "networkFlowControllerReducer uses prior next then previous order when a complete list loses the active table"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1552,7 +1606,8 @@
         "titles": [
           "Table consumer continuity preserves graph identity through rename and unrelated removal then requires affected recomputation",
           "Table consumer continuity tracks all-active membership independently of names and resolves fresh sources on recompute"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1576,7 +1631,8 @@
         "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkOperation.test.ts",
         "titles": [
           "Indicator link captured operation preserves indicator intent across table metadata and unrelated deletion"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1602,7 +1658,8 @@
           "Table catalog continuity fences pending lists crossing rename delete and collaboration",
           "Table catalog continuity preserves navigation across a delayed validated import handoff",
           "Table catalog continuity purges resource drafts and context knowledge only at the authorized lifetime boundary"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1629,7 +1686,8 @@
         "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
         "titles": [
           "NetworkAnalysisWorkspace validates temporal ranges, echoes canonical bucket selectors, and navigates empty buckets without mounting unrelated objects"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1653,7 +1711,8 @@
         "file": "apps/web/src/networkFlow/useNetworkFlowExtensionEvents.test.tsx",
         "titles": [
           "useNetworkFlowExtensionEvents deduplicates changes and resumes after reconnect"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1677,7 +1736,8 @@
         "file": "apps/web/src/networkFlow/useNetworkFlowExtensionEvents.test.tsx",
         "titles": [
           "useNetworkFlowExtensionEvents maps incident closure to a fail-closed workspace removal"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1702,7 +1762,8 @@
         "titles": [
           "useNetworkFlowGridLayout keeps show, move, and resize state for the mounted session and resets explicitly",
           "useNetworkFlowGridLayout persists layout across component remounts in one browser session"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1738,7 +1799,8 @@
           "useNetworkFlowPagedQuery retries the failed destination independently of refreshing the displayed page",
           "useNetworkFlowPagedQuery uses exact next continuations and replays the request that produced the previous page",
           "useNetworkFlowPagedQuery uses the captured initial query when expiry races a newer mutable initial request"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

@@ -232,7 +232,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 			result = errors.Join(result, p.Runtime.RecordResource("managed_suite", leaseFile, "released"))
 		}
 	}()
-	start, err := readObject(resultFile, "cartulary.test_services.start_result.v1", 1048576)
+	start, err := readObject(resultFile, "cartulary.test_services.start_result.v2", 1048576)
 	if err != nil {
 		if !startup.Started {
 			return nil, &Failure{Class: "config", Reason: "configuration_error", Cause: commandErr}
@@ -305,8 +305,17 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	if err := saveRecoveryEnvironment(environmentFile, admitted); err != nil {
 		return nil, artifactFailure(err)
 	}
-	if err := p.Runtime.RecordResource("managed_suite", leaseFile, "acquired", recoveryEnvironmentFiles(p.Runtime.Root, environmentFile, admitted)...); err != nil {
+	recoveryFiles := []string{environmentFile}
+	for _, file := range start["recovery_files"].([]any) {
+		recoveryFiles = append(recoveryFiles, file.(string))
+	}
+	if err := p.Runtime.RecordResource("managed_suite", leaseFile, "acquired", recoveryFiles...); err != nil {
 		return nil, artifactFailure(err)
+	}
+	for _, file := range recoveryFiles {
+		if _, err := harnesslocal.ReadFile(file, 1048576, false); err != nil {
+			return nil, artifactFailure(err)
+		}
 	}
 	if proof, err := readObject(leaseFile, "cartulary.test_services.lease.v1", 1048576); err == nil {
 		p.containerProof(map[string]any{"lease": proof, "ownership": "owned", "borrower_file": "", "borrower_id": ""})
@@ -337,13 +346,6 @@ func saveRecoveryEnvironment(file string, environment map[string]string) error {
 		return err
 	}
 	return harnesslocal.ReplaceFile(file, data)
-}
-func recoveryEnvironmentFiles(root, file string, environment map[string]string) []string {
-	files := []string{file}
-	if cert := environment["SSL_CERT_FILE"]; strings.HasPrefix(cert, root+string(filepath.Separator)) {
-		files = append(files, cert)
-	}
-	return files
 }
 func readRecoveryEnvironment(file string) (map[string]string, error) {
 	data, err := harnesslocal.ReadFile(file, 1048576, false)

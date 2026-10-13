@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -476,7 +477,7 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 		t.Fatalf("refresh start-result service scope: %v", err)
 	}
 	resultFile := filepath.Join(t.TempDir(), "start-result.json")
-	if err := writeStartSuiteResult(resultFile, resultEnv, false); err != nil {
+	if err := writeStartSuiteResult(resultFile, resultEnv, false, nil); err != nil {
 		t.Fatalf("write failed start result: %v", err)
 	}
 	resultInfo, err := os.Lstat(resultFile)
@@ -2327,4 +2328,70 @@ func summaryPath(deps testDeps) string {
 		"suite-redaction",
 		"service-scope.json",
 	)
+}
+
+// Selected startup must not invoke unrequested services, including on failure.
+func TestStartSuiteHonorsSelectedServices(t *testing.T) {
+	for _, selected := range []string{"postgres", "object_store", "object_store,postgres", "", "postgres,object_store", "unknown", "postgres,postgres"} {
+		t.Run(selected, func(t *testing.T) {
+			deps := defaultTestDependencies(t)
+			deps.env[suiteservices.HarnessServiceDependenciesEnv] = selected
+			postgresCalls, objectCalls, templateCalls := 0, 0, 0
+			deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
+				postgresCalls++
+				return postgresService{cleanupFiles: []string{"/private/pg/root.pem", "/private/pg/admin.pem", "/private/pg/admin.key"}}, nil
+			}
+			deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
+				objectCalls++
+				return objectStoreService{rootCertificatePath: "/private/s3/root.pem"}, nil
+			}
+			deps.createTemplate = func(context.Context, string, string) error { templateCalls++; return nil }
+			dir := t.TempDir()
+			code := run([]string{"start-suite", "--env-file", filepath.Join(dir, "env.json"), "--lease-file", filepath.Join(dir, "lease.json"), "--result-file", filepath.Join(dir, "result.json")}, deps.env, deps.dependencies)
+			valid := selected == "postgres" || selected == "object_store" || selected == "object_store,postgres"
+			if !valid {
+				if code != 2 || postgresCalls != 0 || objectCalls != 0 || templateCalls != 0 {
+					t.Fatalf("invalid selection acquired resources: exit=%d pg=%d s3=%d template=%d", code, postgresCalls, objectCalls, templateCalls)
+				}
+				return
+			}
+			if code != 0 {
+				t.Fatalf("selected startup exit=%d", code)
+			}
+			wantPG, wantObject := 0, 0
+			if strings.Contains(selected, "postgres") {
+				wantPG = 1
+			}
+			if strings.Contains(selected, "object_store") {
+				wantObject = 1
+			}
+			if postgresCalls != wantPG || templateCalls != wantPG || objectCalls != wantObject {
+				t.Fatalf("wrong acquisition: pg=%d template=%d s3=%d", postgresCalls, templateCalls, objectCalls)
+			}
+			var startResult startSuiteResult
+			data, err := os.ReadFile(filepath.Join(dir, "result.json"))
+			if err != nil || json.Unmarshal(data, &startResult) != nil {
+				t.Fatal("missing startup result", err)
+			}
+			expectedFiles := []string{}
+			if wantPG == 1 {
+				expectedFiles = append(expectedFiles, "/private/pg/root.pem", "/private/pg/admin.pem", "/private/pg/admin.key")
+			}
+			if wantObject == 1 {
+				expectedFiles = append(expectedFiles, "/private/s3/root.pem")
+			}
+			if !slices.Equal(startResult.RecoveryFiles, expectedFiles) {
+				t.Fatal("startup lost selected cleanup authority")
+			}
+			lease, err := readServiceLease(filepath.Join(dir, "lease.json"))
+			if err != nil || len(lease.Resources) != wantPG+wantObject {
+				t.Fatalf("lease does not reflect acquisition: %v %v", lease, err)
+			}
+			for _, resource := range lease.Resources {
+				if !strings.Contains(selected, resource.Service) {
+					t.Fatal("unselected resource in lease")
+				}
+			}
+		})
+	}
 }

@@ -391,6 +391,8 @@ func classifyProcessFailure(u unit, code int, stdout, stderr []byte) *failure {
 		return failed("product", "test_assertion_failure")
 	case 11:
 		return failed("artifact", "artifact_error")
+	case 12:
+		return failed("harness", "cleanup_error")
 	case 13:
 		return failed("timing", "timeout_failure")
 	}

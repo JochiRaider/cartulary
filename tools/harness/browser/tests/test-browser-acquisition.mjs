@@ -7,7 +7,7 @@ import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionProcess, reserveAcquisitionPort, settleBrowserAcquisition } from "../browser-acquisition.mjs";
+import { browserAcquisitionLaunchArguments, createAcquisitionLaunch, closeAcquisitionLaunch, createBrowserAcquisition, readBrowserAcquisition, recordAcquisitionProcess, reserveAcquisitionPort, settleAcquisitionService, settleBrowserAcquisition } from "../browser-acquisition.mjs";
 import { createRuntime, openRecoveryAttempt } from "../../runtime/session-client.mjs";
 import { processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { ownedProcess, stopOwnedProcess } from "../../runtime/owned-process.mjs";
@@ -50,6 +50,46 @@ function recoveryOutput(f) {
  return path.dirname(attempt.allocateOutput());
 }
 
+test("service supervisor retains its identity after payload exit until physical settlement", async (t) => {
+  const f = fixture(t);
+  const launchID = createAcquisitionLaunch(f.file, "frontend");
+  const environment = { ...process.env, CARTULARY_TEST_RESULTS_DIR: path.join(f.scratch, "results"), CARTULARY_TEST_RUN_ID: f.runtime.runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: f.runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: f.runtime.runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: f.runtime.leaseID };
+  delete environment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+  const marker = path.join(f.scratch, "payload.json");
+  const payload = `const {spawn}=require('node:child_process');const fs=require('node:fs');const child=spawn(process.execPath,['-e','process.stdout.write("ready");setInterval(()=>{},1000)'],{stdio:['ignore','pipe','ignore']});child.stdout.once('data',()=>{fs.writeFileSync(${JSON.stringify(marker)},JSON.stringify({payload:process.pid,descendant:child.pid}));process.exit(0);});`;
+  const child = spawn(process.execPath, browserAcquisitionLaunchArguments(f.file, launchID, process.execPath, ["-e", payload]), {
+    cwd: root, env: environment, detached: true, stdio: "ignore",
+  });
+  const closed = once(child, "close");
+  const proof = ownedProcess(child.pid);
+  f.cleanup.push(async () => { if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL"); await closed; });
+  let processes;
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    if (existsSync(marker)) processes = JSON.parse(readFileSync(marker, "utf8"));
+    if (processes && !existsSync(`/proc/${processes.payload}`)) break;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.ok(processes && !existsSync(`/proc/${processes.payload}`), "payload must already be reaped");
+  const descendant = ownedProcess(processes.descendant);
+  // Independent fallback authority keeps a deliberately failing regression
+  // from depending on the broken wrapper's group anchor for its own teardown.
+  f.runtime.record({ kind: "helper_process", target: descendant, depends_on: [] });
+  f.cleanup.unshift(async () => {
+    await stopOwnedProcess(descendant, { environment });
+    f.runtime.record({ kind: "helper_process", target: descendant, state: "released" });
+  });
+  // Give a prematurely returning wrapper time to exit. The invariant is that
+  // no amount of idle time can retire the anchor before physical settlement.
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal(processIdentityAlive(proof), true, "payload completion must not discard the group anchor");
+  await stopOwnedProcess(proof);
+  await closed;
+  assert.equal(processIdentityAlive(descendant), false, "physical settlement must include surviving descendants");
+});
+
 test("browser acquisition before launch settles without a ready lease", async (t) => {
   const f = fixture(t);
   const environment = { ...process.env, CARTULARY_TEST_RESULTS_DIR: path.join(f.scratch, "results"), CARTULARY_TEST_RUN_ID: f.runtime.runID,
@@ -72,6 +112,30 @@ test("browser acquisition before launch settles without a ready lease", async (t
   f.runtime.record({ kind: "browser_stack", target: f.file, state: "released" });
   assert.equal(existsSync(f.suiteLease), true, "browser settlement never closes its borrowed suite");
   assert.equal((await settleBrowserAcquisition({ ...f, root })).state, "released");
+});
+
+for (const operation of ["retire", "reset"]) test(`orphaned service ${operation} uses its explicit runtime authority`, async (t) => {
+  const f = fixture(t);
+  const environment = { ...process.env, CARTULARY_TEST_RESULTS_DIR: path.join(f.scratch, "results"), CARTULARY_TEST_RUN_ID: f.runtime.runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: f.runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: f.runtime.runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: f.runtime.leaseID };
+  delete environment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+  delete environment.CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT;
+  const launched = spawnSync(process.execPath, ["--", path.join(root, "tools/harness/browser/browser-acquisition.mjs"),
+    "spawn", f.file, "frontend", path.join(f.scratch, "service.log"), process.execPath, "-e", "setInterval(()=>{},1000)"],
+  { cwd: root, env: environment, encoding: "utf8", timeout: 10000, maxBuffer: 4096 });
+  assert.equal(launched.error, undefined);
+  assert.equal(launched.status, 0);
+  const pid = Number(launched.stdout.trim());
+  const proof = ownedProcess(pid);
+  // The launcher has exited, so ancestry cannot authorize cleanup. Independent
+  // journal-bound teardown must also work when the assertion intentionally fails.
+  f.cleanup.unshift(() => stopOwnedProcess(proof, { environment }));
+  assert.equal(processIdentityAlive(proof), true);
+  if (operation === "reset") await settleAcquisitionService(f.file, pid, { environment });
+  else await settleBrowserAcquisition({ ...f, root, environment });
+  assert.equal(processIdentityAlive(proof), false);
+  assert.equal(existsSync(f.suiteLease), true, "service settlement preserves the borrowed suite");
 });
 
 for (const recovery of [false, true]) test(`browser fixture retirement binds ${recovery ? "recovery" : "ordinary cleanup"} output independently of caller environment`, async (t) => {
@@ -168,6 +232,49 @@ test("failed process cleanup retains acquisition and suite proof for explicit re
   const calls = [];
   await settleBrowserAcquisition({ ...f, root, stop: async (proof) => { calls.push(proof.pid); } });
   assert.deepEqual(calls, [process.pid]);
+});
+
+test("confirmed launch settlement survives later fixture failure and terminal repetition", async (t) => {
+  const f = fixture(t);
+  const launchID = createAcquisitionLaunch(f.file, "backend");
+  recordAcquisitionProcess(f.file, launchID);
+  const metadata = path.join(f.sessionRoot, "runtime-root", "test-services-web-e2e.json");
+  mkdirSync(path.dirname(metadata), { mode: 0o700 });
+  writeFileSync(metadata, "{}", { mode: 0o600 });
+  let stops = 0;
+  const stop = async () => {
+    assert.equal(++stops, 1, "settled process identity must never be signaled again, even after PID reuse");
+  };
+  await assert.rejects(settleBrowserAcquisition({ ...f, root, stop, run: () => ({ status: 1 }) }));
+  assert.equal((await settleBrowserAcquisition({ ...f, root, stop, run: () => ({ status: 0 }) })).state, "released");
+  const receipt = readFileSync(path.join(path.dirname(f.file), "settlement.json"));
+  assert.equal((await settleBrowserAcquisition({ ...f, root, stop })).state, "released");
+  assert.equal(stops, 1);
+  assert.deepEqual(readFileSync(path.join(path.dirname(f.file), "settlement.json")), receipt);
+});
+
+test("creator's confirmed process settlement retires its published launch identity", async (t) => {
+  const f = fixture(t);
+  const launchID = createAcquisitionLaunch(f.file, "backend");
+  recordAcquisitionProcess(f.file, launchID);
+  closeAcquisitionLaunch(f.file, launchID);
+  assert.throws(() => recordAcquisitionProcess(f.file, launchID));
+  assert.equal((await settleBrowserAcquisition({ ...f, root,
+    stop: async () => assert.fail("closed launch must not reauthorize process control") })).state, "released");
+});
+
+test("reset settlement resolves only an open service launch and preserves failed authority", async (t) => {
+  const f = fixture(t);
+  const launchID = createAcquisitionLaunch(f.file, "backend");
+  recordAcquisitionProcess(f.file, launchID);
+  let calls = 0;
+  await assert.rejects(settleAcquisitionService(f.file, 1, { stop: async () => { calls++; } }));
+  await assert.rejects(settleAcquisitionService(f.file, process.pid, { stop: async () => { calls++; throw new Error("unresolved"); } }));
+  assert.equal(existsSync(path.join(path.dirname(f.file), `closed-${launchID}.json`)), false);
+  await settleAcquisitionService(f.file, process.pid, { stop: async (proof) => { calls++; assert.equal(proof.pid, process.pid); } });
+  assert.equal(calls, 2);
+  await assert.rejects(settleAcquisitionService(f.file, process.pid, { stop: async () => assert.fail("closed authority") }));
+  assert.equal((await settleBrowserAcquisition({ ...f, root, stop: async () => assert.fail("retired reset authority") })).state, "released");
 });
 
 test("wrong runtime or changed suite proof is rejected before destructive recovery", async (t) => {

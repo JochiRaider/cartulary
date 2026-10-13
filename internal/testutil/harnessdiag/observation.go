@@ -35,7 +35,7 @@ func validToken(value string, maximum int, initialUnderscore bool) bool {
 	return true
 }
 
-const observationSchema = "cartulary.harness_run_observation.v2"
+const observationSchema = "cartulary.harness_run_observation.v3"
 const observationLimit = 64 * 1024
 
 type Inputs struct{ ResultsDir, RunID, Target, AfterRevision, WaitSeconds string }
@@ -149,7 +149,7 @@ func sortedUnique(values []string) bool {
 	return true
 }
 func validateLive(snapshot, manifest object) error {
-	if err := Validate("cartulary.harness_live_snapshot.v2", snapshot); err != nil {
+	if err := Validate("cartulary.harness_live_snapshot.v3", snapshot); err != nil {
 		return err
 	}
 	for key, manifestKey := range map[string]string{"run_id": "run_id", "public_target": "target", "command_id": "command_id", "source_digest": "source_digest", "graph_digest": "graph_digest"} {

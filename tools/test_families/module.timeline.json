@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.timeline",
   "rows": [
     {
@@ -3628,7 +3628,8 @@
         "file": "apps/web/e2e/measurement/timingSupport.test.ts",
         "titles": [
           "rejects wrong, hidden, offscreen, unfocused, unstable, and pre-acceptance states"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3655,7 +3656,8 @@
         "file": "apps/web/e2e/support/performance/ac043Snapshot.test.ts",
         "titles": [
           "preserves the typed supported-envelope fixture and traffic shape"
-        ]
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3688,7 +3690,8 @@
           "timeline inspector element registry fulfills first-open Evidence list focus only when the matching element registers",
           "timeline inspector element registry rejects disconnected, hidden, and disabled elements",
           "timeline inspector element registry targets complete collection members and restores only live semantic triggers"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3729,7 +3732,8 @@
           "Timeline collection inspection removes one exact saved tag after acknowledgement while preserving the unsent input and next focus",
           "Timeline collection inspection retains an uncertain saved-tag request for exact replay and read-only refresh recovery",
           "Timeline collection inspection targets hidden tags without editing or committing pending text"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3755,7 +3759,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.payload.test.tsx",
         "titles": [
           "does not create a Timeline row from presses cancellation or non-primary activation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3782,7 +3787,8 @@
         "file": "apps/web/src/workbook/timeline/composition/useTimelineSourceWriteCoordination.test.tsx",
         "titles": [
           "coordinates an evicted original source and refuses its retained unsubmitted draft without scanning query pages"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3808,7 +3814,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "binds Timeline grid columns from the active view_schema and commits writable cells by field_key"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3834,7 +3841,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "binds saved rows by record_id and row_version instead of visible row index"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3860,7 +3868,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.grid.test.tsx",
         "titles": [
           "keeps sorted and filtered local edits bound to the original record_id, base_row_version, and field_key"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3886,7 +3895,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.payload.test.tsx",
         "titles": [
           "creates an explicit blank Timeline row with only client_txn_id and suppresses duplicate pending submits"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3916,7 +3926,8 @@
           "autosaves blur without a Save button and keeps exact save-state labels",
           "autosaves paste completion without a Save button and keeps exact save-state labels",
           "reports Conflict after autosave failure and preserves local editor value"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3942,7 +3953,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.payload.test.tsx",
         "titles": [
           "builds zero-field Timeline create payloads only for explicit blank-row creation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3972,7 +3984,8 @@
           "derives history routes and rejects target-inconsistent history responses",
           "normalizes Timeline review outcomes and fails closed on supersede replacement drift",
           "owns entity mention creation and resolution transport behind semantic outcomes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4005,7 +4018,8 @@
           "Timeline bulk tag interaction retains pending members and explicit deselection while pruning departed and unauthorized records",
           "Timeline bulk tag interaction retains raw text across detachment and its native input through zero selection and late outcomes",
           "Timeline bulk tag interaction surfaces real admission refusal and rejects incomplete or blocked intended targets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4032,7 +4046,8 @@
         "titles": [
           "Timeline bulk-tag plan builds one ordered versioned command from the selected records",
           "Timeline bulk-tag plan rejects access loss, missing capability, partial selection, and stale targets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4062,7 +4077,8 @@
           "timelineClipboardPastePlan fails closed for authority, grouping, field, shape, and surface drift",
           "timelineClipboardPastePlan maps only exact schema headers and counts data rows while preserving scalar comma text",
           "timelineClipboardPastePlan matches only stable fields, surfaces, row identities, and create positions"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4089,7 +4105,8 @@
         "titles": [
           "maps scalar navigation without performing focus or save effects",
           "maps work-area shortcuts to semantic panel and mention intent"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4130,7 +4147,8 @@
           "Timeline editor draft registry retains refused local values across surface detachment without retaining input references",
           "Timeline editor draft registry retires only captured revisions in the originating editor context",
           "Timeline editor draft registry settles repeated collection callers once per surface revision and admits later identical tokens"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4160,7 +4178,8 @@
           "Timeline file gesture targets fails closed for missing ambiguous and unavailable targets without substituting a draft",
           "Timeline file gesture targets leaves pending creation and source write coordination to the existing owners",
           "Timeline file gesture targets retains an exact draft and follows only its accepted lifecycle alias"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4192,7 +4211,8 @@
           "Timeline load machine publishes initial and refresh starts and commits only the complete active subject",
           "Timeline load machine resets a changed subject and preserves state for an equal subject",
           "Timeline load machine tracks accepted mutations and refuses a pre-mutation success"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4220,7 +4240,8 @@
         "titles": [
           "Timeline Mention action plan binds explicit mention identity separately from opaque selector source and target",
           "Timeline Mention action plan refuses missing public identity and source versions without parsing selectors"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4251,7 +4272,8 @@
           "Timeline mutation models preserves canonical null empty and absent cells independently of display strings and queued work",
           "Timeline mutation models projects accepted draft replacement and its deterministic continuation",
           "Timeline mutation models releases evicted query observations while retaining drafts, the inspector source, and mutation version floors"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4280,7 +4302,8 @@
           "derives and validates Workbook query transport behind the shared semantic port",
           "fails closed on malformed or cross-context query success and contains aborts",
           "preserves route query cursors and projected pagination reasons without trusting unknown reasons"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4315,7 +4338,8 @@
           "useTimelineRowMutationCoordinator retains one query-scoped created row when a refresh omits it",
           "useTimelineRowMutationCoordinator reveals a committed draft row without restoring the pre-create scroll",
           "useTimelineRowMutationCoordinator settles accepted work after unmount without committing or focusing a detached projection"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4342,7 +4366,8 @@
         "titles": [
           "TimelineScalarEditor leaves managed departure to the grid owner",
           "TimelineScalarEditor preserves controlled draft read-only presence and commit behavior"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

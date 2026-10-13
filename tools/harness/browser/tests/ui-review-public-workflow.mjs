@@ -35,6 +35,9 @@ export async function publicWorkflow({ seeded = false, profile = "default", resu
     if (value) { const file = path.join(privateRoot, `request-${++requestIndex}.json`); writeFileSync(file, JSON.stringify(value), { mode: 0o600 }); inputs = [`UI_REQUEST=${file}`]; }
     const response = await make([command, `UI_SESSION=${locator}`, ...inputs, ...extra], { ...env, CARTULARY_OUTPUT_MODE: "machine" }).ended;
     const result = validate("command_result", JSON.parse(response.output));
+    // A failed stop's receipt is evidence, even if a later exact stop finishes
+    // cleanup. Keep caller-owned scratch private instead of erasing the failure.
+    if (result.status !== "ok") preserveFailure = true;
     let diagnostic = "";
     if (result.status !== "ok" && command === "ui-browser" && value?.action === "diagnostic_snapshot") {
       try {

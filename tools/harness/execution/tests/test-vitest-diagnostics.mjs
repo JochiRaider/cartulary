@@ -7,12 +7,14 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { primaryPublicFailure, publicExitCodeForFailures, validateSchemaSync } from "../../contract/index.mjs";
 import { normalizeVitestObservations, readVitestJSON, reconcileVitestReport } from "../../diagnostics/vitest-failure-details.mjs";
-import { adaptVitestInvocation } from "../runners/vitest.mjs";
+import { adaptVitestInvocation, buildVitestInvocations } from "../runners/vitest.mjs";
 import { createCommandFailureContext } from "../../runtime/command-failure.mjs";
 import { createRuntime } from "../../runtime/session-client.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 const fixture = path.join(root, "tmp", `vitest-diagnostics-${randomUUID()}`);
+// Temporary runner fixtures must not enter the executable source snapshot.
+const groupedFixture = path.join(root, "apps/web/.cartulary", `vitest-group-${randomUUID()}`);
 mkdirSync(fixture, { recursive: true, mode: 0o700 });
 const runRoot = path.resolve(root, process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
 const output = path.join(runRoot, "vitest-diagnostics-contract", randomUUID());
@@ -66,12 +68,13 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });
   assert.ok(!readFileSync(reportFile, "utf8").includes("vitest-fixture-sensitive-value"));
   assert.equal(statSync(detailsFile).mode & 0o777, 0o600);
   const file = path.relative(root, testFile);
-  const invocation = { root, file, rows: [
+  const invocation = { root, file, project: details.observations.find((item) => item.scope === "test").project, rows: [
     { row_id: "test.timeout", selectors: ["deadline"] },
     { row_id: "test.assertion", selectors: ["original cause"] },
     { row_id: "test.unknown", selectors: ["marker only"] },
     { row_id: "test.names", selectors: ["left same name", "right same name"] },
     { row_id: "test.hook", selectors: ["hook deadline"] },
+    { row_id: "test.redaction", selectors: ["redaction"] },
   ] };
   const rows = adaptVitestInvocation(invocation, { details, report, status: result.status });
   assert.equal(rows[0].exit_code, 13);
@@ -84,6 +87,12 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });
   assert.ok(rows[4].duration_ms >= 30);
   assert.equal(adaptVitestInvocation(invocation, { details: {}, report })[0].failure_reason, "artifact_error");
   assert.equal(adaptVitestInvocation({ ...invocation, rows: [{ row_id: "ambiguous", selectors: ["same name"] }] }, { details, report })[0].failure_reason, "scheduler_accounting_error");
+  const missingSelection = { ...invocation, rows: [...invocation.rows, { row_id: "missing", selectors: ["absent"] }] };
+  const partial = adaptVitestInvocation(missingSelection, { details, report, status: result.status });
+  assert.equal(partial[3].terminal_state, "passed", "a missing row must not erase a completed row");
+  assert.equal(partial.at(-1).failure_reason, "scheduler_accounting_error");
+  const unselected = { ...invocation, rows: invocation.rows.filter((row) => row.row_id !== "test.names") };
+  assert.ok(adaptVitestInvocation(unselected, { details, report }).every((row) => row.failure_reason === "scheduler_accounting_error"));
   const raw = structuredClone(details);
   raw.failures = [];
   const context = { invocationID: raw.invocation_id, runID: raw.run_id, runnerJSON: reportFile, stdoutLog: "", stderrLog: "" };
@@ -157,6 +166,31 @@ if (mode !== 'missing') writeFileSync(process.env.CARTULARY_VITEST_CAPTURE_FILE,
       assert.equal(adaptVitestInvocation(invocation, { status: invalid.status, commandFailure: failureContext.read() })[0].failure_reason, expectedReason);
     } finally { failureContext.close(); }
   }
+  // Use the real invocation builder and a fresh worker for each same-file
+  // selection. A suffix-sharing unselected case must never execute.
+  mkdirSync(groupedFixture, { recursive: true, mode: 0o700 });
+  const groupedFile = path.join(groupedFixture, "selection.test.ts");
+  const groupedConfig = path.join(groupedFixture, "vite.config.mjs");
+  writeFileSync(groupedConfig, `export default ${JSON.stringify({ root: groupedFixture, test: { name: "harness-node", include: ["*.test.ts"], environment: "node" } })};`);
+  writeFileSync(groupedFile, `import { test, describe, expect } from ${JSON.stringify(api)};
+let count = 0;
+describe('scope', () => { test('one', () => { expect(count++).toBe(0); }); test('two', () => { expect(count++).toBe(1); }); });
+test('prefix scope one', () => { throw new Error('unselected suffix collision executed'); });
+`);
+  const selectedRows = ["one", "two"].map((title) => ({ row_id: `fixture.${title}`, runner: "vitest", fixture_capability: "none",
+    selector: { file: path.relative(root, groupedFile), project_id: "harness-node", titles: [title] } }));
+  for (const attempt of ["first", "second"]) {
+    const [grouped] = buildVitestInvocations(root, selectedRows, process.env.PNPM || path.join(root, ".cache/cartulary/node-runtime/bin/pnpm"), path.join(output, attempt));
+    assert.equal(grouped.args.at(-1), "--maxWorkers=1");
+    assert.deepEqual(grouped.rows.map((row) => row.selectors), [["scope one"], ["scope two"]]);
+    const executed = spawnSync(grouped.command, [...grouped.args, `--config=${groupedConfig}`], { cwd: root, env: fixtureEnvironment, encoding: "utf8", timeout: 30000 });
+    assert.equal(executed.status, 0, executed.stderr);
+    const groupedDetails = readVitestJSON(grouped.detailsFile), groupedReport = readVitestJSON(grouped.runnerJSON);
+    assert.deepEqual(adaptVitestInvocation(grouped, { status: executed.status, details: groupedDetails, report: groupedReport }).map((row) => row.terminal_state), ["passed", "passed"]);
+    assert.equal(groupedDetails.observations.filter((item) => item.scope === "test" && item.status === "passed").length, 2);
+  }
+  assert.throws(() => buildVitestInvocations(root, [selectedRows[0], { ...selectedRows[1], process_isolation: "exclusive" }], "pnpm", output), /compatible file/u);
+  assert.throws(() => buildVitestInvocations(root, [selectedRows[0], { ...selectedRows[1], selector: { ...selectedRows[1].selector, project_id: "browser-unit" } }], "pnpm", output), /compatible file/u);
   const loadFile = path.join(fixture, "load.test.mjs");
   writeFileSync(loadFile, "throw new Error('suite collection failed');");
   const loadCommand = [...command, loadFile];
@@ -175,6 +209,7 @@ if (mode !== 'missing') writeFileSync(process.env.CARTULARY_VITEST_CAPTURE_FILE,
   assert.equal(smoke.status, 0, `full Vitest wrapper smoke: ${smoke.stdout}\n${smoke.stderr}`);
   process.stdout.write("Vitest real collector, classification, attribution, redaction, and validation contracts passed\n");
 } finally {
+  rmSync(groupedFixture, { recursive: true, force: true });
   rmSync(fixture, { recursive: true, force: true });
   ownedSuiteRuntime?.close();
 }

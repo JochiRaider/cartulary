@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.assessments",
   "rows": [
     {
@@ -202,7 +202,8 @@
           "useAssessmentSurfaceQuery rejects a stale rapid-filter response and applies a newer live patch",
           "useAssessmentSurfaceQuery requires an accepted current query before authorization recovery can resume",
           "useAssessmentSurfaceQuery retains accepted rows on a stale error and clears them on access loss"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -228,7 +229,8 @@
         "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
         "titles": [
           "owns confidence mapping and normalized create payload construction"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -254,7 +256,8 @@
         "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
         "titles": [
           "seeds follow-on drafts from subject identity only"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -280,7 +283,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
         "titles": [
           "preserves stable selection and an editable subject-only follow-on draft"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -306,7 +310,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
         "titles": [
           "submits assessment creates through the workbook UI"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -332,7 +337,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.assessments.test.tsx",
         "titles": [
           "maps band-first assessment create payloads without submitting the derived band"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

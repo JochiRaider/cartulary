@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "harness.evidence_accounting",
   "rows": [
     {
@@ -193,6 +193,70 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.evidence_accounting.unit.suiteservices_helper_contract",
+      "owner_id": "harness.evidence_accounting",
+      "family_id": "harness.evidence_accounting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.evidence_accounting.verification.performance_resource_diagnostics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/suiteservices",
+        "tests": [
+          "TestCheckServiceDependenciesAllowsExplicitDirectInvocation",
+          "TestCheckServiceDependenciesRejectsMalformedAssignment",
+          "TestCheckServiceDependenciesRejectsOmittedService",
+          "TestProducerJournalIsBoundedAndRejectsCompletedCorruption",
+          "TestProducerJournalRejectsSequenceGapsAndDuplicates",
+          "TestProducerJournalRejectsSymlinkDestination",
+          "TestRecordLifecycleEventRejectsDuplicateChildAndTerminalMutation",
+          "TestRecordLifecycleEventTracksConcurrentChildrenAndIllegalTransitions",
+          "TestRecordLifecycleFailureEventWritesFailureFields",
+          "TestRefreshSummaryPublishesCompleteSnapshotsUnderConcurrency",
+          "TestScopeV2OmitsExactResourcesAndPrivateLedgerIsOwnerOnly",
+          "TestSummarizeBoundsStrategyDiagnosticsWithoutLosingTotals",
+          "TestSummarizeReportsBrowserE2EFixtureLifecycle",
+          "TestSummarizeReportsFixtureActivity",
+          "TestSummarizeReportsPostgresDatabasePreparations",
+          "TestSummarizeStrategyIdentityIncludesFixtureClassAndCountTieOrdering"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.evidence_accounting.unit.testfailure_helper_contract",
+      "owner_id": "harness.evidence_accounting",
+      "family_id": "harness.evidence_accounting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.evidence_accounting.verification.performance_resource_diagnostics"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/testfailure",
+        "tests": [
+          "TestEncodeProducesBoundedMarkerWithoutDiagnosticText",
+          "TestEnvelopeRejectsUnregisteredValues"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
       "service_dependencies": []
     }
   ]

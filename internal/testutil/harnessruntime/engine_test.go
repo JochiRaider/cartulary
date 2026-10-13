@@ -36,17 +36,105 @@ func boundedGraph(t *testing.T, p *Plan, ports enginePorts) graphResult {
 	return r
 }
 func TestRuntimeScheduling(t *testing.T) {
-	t.Run("aging_waiter_precedes_newly_ready_work", func(t *testing.T) {
+	t.Run("wait_segments_follow_reservations_and_barriers", func(t *testing.T) {
+		p := enginePlan(engineUnit("holder", 10), engineUnit("waiter", 1))
+		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
+		var reasons []string
+		for _, e := range r.Events {
+			if e["unit_id"] == "waiter" && e["event"] == "wait_started" {
+				reasons = append(reasons, e["wait_reason"].(string))
+				if e["wait_reason"] == "resources" && !slices.Equal(stringList(e["blocking_unit_ids"]), []string{"holder"}) {
+					t.Fatal(e)
+				}
+			}
+		}
+		if !slices.Equal(reasons, []string{"rank", "resources", "rank"}) {
+			t.Fatal(reasons)
+		}
+		facts := newCanonicalFacts(p)
+		for _, e := range r.Events {
+			if err := facts.consume(e); err != nil {
+				t.Fatal(e, err)
+			}
+		}
+		if err := facts.validate(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("rapid_dispatch_does_not_manufacture_age", func(t *testing.T) {
 		p := enginePlan(engineUnit("a1", 3000), engineUnit("a2", 2000, "a1"), engineUnit("a3", 1000, "a2"), engineUnit("waiter", 1))
 		r := boundedGraph(t, p, enginePorts{Now: func() time.Duration { return 0 }, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
-		if !slices.Equal(r.Admissions, []string{"a1", "a2", "waiter", "a3"}) {
+		if !slices.Equal(r.Admissions, []string{"a1", "a2", "a3", "waiter"}) {
+			t.Fatal(r.Admissions)
+		}
+	})
+	t.Run("elapsed_eligible_age_overtakes_new_critical_work", func(t *testing.T) {
+		var clock atomic.Int64
+		p := enginePlan(engineUnit("a1", 3000), engineUnit("a2", 2000, "a1"), engineUnit("a3", 1000, "a2"), engineUnit("waiter", 1))
+		r := boundedGraph(t, p, enginePorts{Now: func() time.Duration { return time.Duration(clock.Load()) * time.Millisecond }, Execute: func(_ context.Context, req executionRequest) unitResult {
+			if req.Unit.ID == "a1" {
+				clock.Store(3000)
+			}
+			return unitResult{Status: "passed"}
+		}})
+		if !slices.Equal(r.Admissions, []string{"a1", "waiter", "a2", "a3"}) {
+			t.Fatal(r.Admissions)
+		}
+	})
+	t.Run("age_starts_at_eligibility_and_uses_whole_quanta", func(t *testing.T) {
+		for _, elapsed := range []int64{999, 1000} {
+			var clock atomic.Int64
+			r := boundedGraph(t, enginePlan(engineUnit("seed", 10000), engineUnit("fresh", 500, "seed"), engineUnit("waiter", 1)), enginePorts{Now: func() time.Duration { return time.Duration(clock.Load()) * time.Millisecond }, Execute: func(_ context.Context, req executionRequest) unitResult {
+				if req.Unit.ID == "seed" {
+					clock.Store(elapsed)
+				}
+				return unitResult{Status: "passed"}
+			}})
+			want := []string{"seed", "fresh", "waiter"}
+			if elapsed == 1000 {
+				want = []string{"seed", "waiter", "fresh"}
+			}
+			if !slices.Equal(r.Admissions, want) {
+				t.Fatal(elapsed, r.Admissions)
+			}
+		}
+	})
+	t.Run("retained_fixture_does_not_override_rank", func(t *testing.T) {
+		a, b, c := engineUnit("seed", 100), engineUnit("warm", 1), engineUnit("critical", 20)
+		a.Affinity, b.Affinity = "shared", "shared"
+		r := boundedGraph(t, enginePlan(a, b, c), enginePorts{Now: func() time.Duration { return 0 }, Execute: func(_ context.Context, req executionRequest) unitResult {
+			return unitResult{Status: "passed", RetainedFixture: req.Unit.ID == "seed"}
+		}})
+		if !slices.Equal(r.Admissions, []string{"seed", "critical", "warm"}) {
+			t.Fatal(r.Admissions)
+		}
+	})
+	t.Run("fitting_backfill_preserves_claims", func(t *testing.T) {
+		a, b, c := engineUnit("holder", 10000), engineUnit("large", 100), engineUnit("fitting", 1)
+		b.Claims["cpu"] = 2
+		p := enginePlan(a, b, c)
+		p.facts.Capacities["cpu"] = 2
+		backfilled := make(chan struct{})
+		r := boundedGraph(t, p, enginePorts{Now: func() time.Duration { return 0 }, Execute: func(ctx context.Context, req executionRequest) unitResult {
+			if req.Unit.ID == "holder" {
+				select {
+				case <-backfilled:
+				case <-ctx.Done():
+				}
+			}
+			if req.Unit.ID == "fitting" {
+				close(backfilled)
+			}
+			return unitResult{Status: "passed"}
+		}})
+		if !slices.Equal(r.Admissions, []string{"holder", "fitting", "large"}) {
 			t.Fatal(r.Admissions)
 		}
 	})
 	t.Run("critical_path_and_ASCII", func(t *testing.T) {
 		p := enginePlan(engineUnit("a", 10), engineUnit("b", 10), engineUnit("c", 2), engineUnit("d", 30, "c"))
-		r := boundedGraph(t, p, enginePorts{Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
-		if want := []string{"c", "a", "b", "d"}; !slices.Equal(r.Admissions, want) {
+		r := boundedGraph(t, p, enginePorts{Now: func() time.Duration { return 0 }, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
+		if want := []string{"c", "d", "a", "b"}; !slices.Equal(r.Admissions, want) {
 			t.Fatalf("admission %v want %v", r.Admissions, want)
 		}
 		if r.Status != "passed" {
@@ -57,9 +145,39 @@ func TestRuntimeScheduling(t *testing.T) {
 		a, b := engineUnit("a", 10000), engineUnit("b", 1)
 		b.SharedLocks = []string{}
 		b.ExclusiveLocks = []string{"host_activity"}
-		r := boundedGraph(t, enginePlan(a, b), enginePorts{Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
+		r := boundedGraph(t, enginePlan(a, b), enginePorts{RetainEvents: true, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
+		found := false
+		for _, e := range r.Events {
+			if e["unit_id"] == "a" && e["wait_reason"] == "exclusive_barrier" {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal("exclusive barrier not attributed")
+		}
 		if !slices.Equal(r.Admissions, []string{"b", "a"}) {
 			t.Fatal(r.Admissions)
+		}
+	})
+	t.Run("exclusive_barriers_name_only_overlapping_ready_owners", func(t *testing.T) {
+		consumer := engineUnit("consumer", 1000)
+		consumer.SharedLocks = append(consumer.SharedLocks, "left", "right")
+		left, right, unrelated := engineUnit("left-holder", 3), engineUnit("right-holder", 2), engineUnit("unrelated", 1)
+		left.ExclusiveLocks, right.ExclusiveLocks, unrelated.ExclusiveLocks = []string{"left"}, []string{"right"}, []string{"other"}
+		p := enginePlan(consumer, left, right, unrelated)
+		p.facts.Capacities["cpu"] = 2
+		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Now: func() time.Duration { return 0 }, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
+		found := false
+		for _, event := range r.Events {
+			if event["unit_id"] == "consumer" && event["event"] == "wait_started" && event["wait_reason"] == "exclusive_barrier" {
+				if !found && (!slices.Equal(stringList(event["blocking_unit_ids"]), []string{"left-holder", "right-holder"}) || !slices.Equal(stringList(event["blocking_resources"]), []string{"lock_left", "lock_right"})) {
+					t.Fatal(event)
+				}
+				found = true
+			}
+		}
+		if !found || r.Status != "passed" {
+			t.Fatal(found, r.Status)
 		}
 	})
 	t.Run("parallel_capacity_and_dependency", func(t *testing.T) {

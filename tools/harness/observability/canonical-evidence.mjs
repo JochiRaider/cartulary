@@ -119,7 +119,7 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
     same(target.exclusive_wall_ms, intervalUnion(target.unit_ids.filter((id) => !childUnits.has(id)).map((id) => intervals.get(id)).filter(Boolean)), "exclusive interval union");
   }
   return {
-    phases: eventState.phases, registrations: eventState.registrations, intervals,
+    waits: eventState.waits, phases: eventState.phases, registrations: eventState.registrations, intervals,
     eventCount: eventState.eventCount,
     manifest,
     summary,

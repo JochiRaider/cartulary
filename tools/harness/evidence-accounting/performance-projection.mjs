@@ -58,7 +58,7 @@ export function canonicalTimingAccounting(
       .map((unit) => [unit.unit_id, unit]),
   );
   const intervals = [];
-  const resourceWaitIntervals = [...facts.waits].filter(([id]) => byID.has(id)).map(([, wait]) => wait);
+  const resourceWaitIntervals = [...facts.waits].filter(([id]) => byID.has(id)).flatMap(([, wait]) => wait.resource_intervals);
   const cleanupStarted = facts.cleanupStarted;
   let firstUnitStarted = null;
   let processCount = 0;
@@ -158,8 +158,8 @@ export function projectResourcePressure(facts, graph, capacities) {
     resolved_capacity: capacities,
     peak_use: Object.fromEntries([...peak.entries()].sort(([left], [right]) => left.localeCompare(right))),
     saturation_ms: Object.fromEntries([...saturationMs.entries()].sort(([left], [right]) => left.localeCompare(right))),
-    wait_events: waits.length,
-    blocked_units: [...facts.waits.keys()].sort(),
-    resource_holders: [...new Set(waits.flatMap((event) => event.blocking_unit_ids ?? []))].sort(),
+    wait_events: waits.reduce((sum, wait) => sum + wait.count, 0),
+    blocked_units: [...facts.waits].filter(([, wait]) => wait.resource_holders.size > 0).map(([id]) => id).sort(),
+    resource_holders: [...new Set(waits.flatMap((wait) => [...wait.resource_holders]))].sort(),
   };
 }

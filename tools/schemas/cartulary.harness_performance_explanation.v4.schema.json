@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_performance_explanation.v3",
+  "$id": "cartulary.harness_performance_explanation.v4",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -28,7 +28,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_performance_explanation.v3"
+      "const": "cartulary.harness_performance_explanation.v4"
     },
     "run_id": {
       "type": "string",
@@ -94,7 +94,9 @@
           "kind",
           "queue_ms",
           "execution_ms",
-          "on_invocation_dependency_path"
+          "on_invocation_dependency_path",
+          "queue_by_reason_ms",
+          "wait_segments"
         ],
         "properties": {
           "unit_id": {
@@ -123,6 +125,38 @@
           },
           "on_invocation_dependency_path": {
             "type": "boolean"
+          },
+          "queue_by_reason_ms": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resources",
+              "exclusive_barrier",
+              "rank",
+              "scheduler_stop"
+            ],
+            "properties": {
+              "resources": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "exclusive_barrier": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "rank": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "scheduler_stop": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "wait_segments": {
+            "type": "integer",
+            "minimum": 1
           }
         }
       }

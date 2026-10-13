@@ -1,19 +1,35 @@
 {
-  "schema_id": "cartulary.test_runner_registry.v1",
+  "schema_id": "cartulary.test_runner_registry.v2",
   "runners": [
     {
       "runner": "go",
       "selector_kind": "go_exact_tests",
       "adapter_path": "tools/harness/execution/runners/go.mjs",
-      "approved_roots": ["cmd", "internal", "tools/objectstoreprobe", "tools/testservices"]
+      "approved_roots": [
+        "cmd",
+        "internal",
+        "tools/objectstoreprobe",
+        "tools/testservices"
+      ]
     },
     {
       "runner": "playwright",
       "selector_kind": "playwright_exact_scenarios",
       "adapter_path": "tools/harness/execution/runners/playwright.mjs",
-      "approved_roots": ["apps/web/e2e"],
-      "project_ids": ["chromium"],
-      "stages": ["accessibility", "measurement", "stateful", "support", "visual", "webserver_backed"]
+      "approved_roots": [
+        "apps/web/e2e"
+      ],
+      "project_ids": [
+        "chromium"
+      ],
+      "stages": [
+        "accessibility",
+        "measurement",
+        "stateful",
+        "support",
+        "visual",
+        "webserver_backed"
+      ]
     },
     {
       "runner": "shell",
@@ -25,7 +41,14 @@
       "runner": "vitest",
       "selector_kind": "vitest_exact_titles",
       "adapter_path": "tools/harness/execution/runners/vitest.mjs",
-      "approved_roots": ["apps/web", "packages"]
+      "approved_roots": [
+        "apps/web",
+        "packages"
+      ],
+      "project_ids": [
+        "browser-unit",
+        "harness-node"
+      ]
     }
   ]
 }

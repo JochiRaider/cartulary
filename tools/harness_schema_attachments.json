@@ -137,8 +137,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.execution_topology.v9",
-      "path": "tools/schemas/cartulary.execution_topology.v9.schema.json",
+      "schema_id": "cartulary.execution_topology.v10",
+      "path": "tools/schemas/cartulary.execution_topology.v10.schema.json",
       "classification": "owner_input",
       "producer": "execution topology owner",
       "validation": "json-shape-check"
@@ -467,8 +467,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_live_snapshot.v2",
-      "path": "tools/schemas/cartulary.harness_live_snapshot.v2.schema.json",
+      "schema_id": "cartulary.harness_live_snapshot.v3",
+      "path": "tools/schemas/cartulary.harness_live_snapshot.v3.schema.json",
       "classification": "public_contract",
       "producer": "harness live observation",
       "validation": "json-shape-check",
@@ -489,8 +489,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_performance_explanation.v3",
-      "path": "tools/schemas/cartulary.harness_performance_explanation.v3.schema.json",
+      "schema_id": "cartulary.harness_performance_explanation.v4",
+      "path": "tools/schemas/cartulary.harness_performance_explanation.v4.schema.json",
       "classification": "public_contract",
       "producer": "harness local instrumentation",
       "validation": "json-shape-check",
@@ -608,8 +608,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_run_observation.v2",
-      "path": "tools/schemas/cartulary.harness_run_observation.v2.schema.json",
+      "schema_id": "cartulary.harness_run_observation.v3",
+      "path": "tools/schemas/cartulary.harness_run_observation.v3.schema.json",
       "classification": "public_contract",
       "producer": "harness live observation",
       "validation": "json-shape-check",
@@ -640,8 +640,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_runtime_session.v2",
-      "path": "tools/schemas/cartulary.harness_runtime_session.v2.schema.json",
+      "schema_id": "cartulary.harness_runtime_session.v3",
+      "path": "tools/schemas/cartulary.harness_runtime_session.v3.schema.json",
       "classification": "shared_component",
       "producer": "native private runtime owner",
       "validation": "json-shape-check",
@@ -693,10 +693,18 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.harness_unit_event.v3",
-      "path": "tools/schemas/cartulary.harness_unit_event.v3.schema.json",
+      "schema_id": "cartulary.harness_unit_event.v4",
+      "path": "tools/schemas/cartulary.harness_unit_event.v4.schema.json",
       "classification": "public_contract",
       "producer": "unified harness scheduler",
+      "validation": "json-shape-check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_unit_event_prefix.v1",
+      "path": "tools/schemas/cartulary.harness_unit_event_prefix.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native canonical event publisher",
       "validation": "json-shape-check",
       "foundation_runtime": true
     },
@@ -1171,8 +1179,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_family_manifest.v6",
-      "path": "tools/schemas/cartulary.test_family_manifest.v6.schema.json",
+      "schema_id": "cartulary.test_family_manifest.v7",
+      "path": "tools/schemas/cartulary.test_family_manifest.v7.schema.json",
       "classification": "owner_input",
       "producer": "test family owner",
       "validation": "json-shape-check"
@@ -1199,8 +1207,8 @@
       "validation": "json-shape-check"
     },
     {
-      "schema_id": "cartulary.test_runner_registry.v1",
-      "path": "tools/schemas/cartulary.test_runner_registry.v1.schema.json",
+      "schema_id": "cartulary.test_runner_registry.v2",
+      "path": "tools/schemas/cartulary.test_runner_registry.v2.schema.json",
       "classification": "owner_input",
       "producer": "test runner registry",
       "validation": "json-shape-check"
@@ -1264,8 +1272,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.test_services.start_result.v1",
-      "path": "tools/schemas/cartulary.test_services.start_result.v1.schema.json",
+      "schema_id": "cartulary.test_services.start_result.v2",
+      "path": "tools/schemas/cartulary.test_services.start_result.v2.schema.json",
       "classification": "shared_component",
       "producer": "service suite broker",
       "validation": "json-shape-check",

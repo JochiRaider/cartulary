@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "web.architecture",
   "rows": [
     {
@@ -15,7 +15,8 @@
         "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
         "titles": [
           "selector contract policy distinguishes direct heading focus assertions from readiness and ambiguous uses"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -39,7 +40,8 @@
         "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
         "titles": [
           "selector contract policy classifies authentication cross-boundary selector families as shared-builder owned"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -63,7 +65,8 @@
         "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
         "titles": [
           "selector contract policy keeps cross-boundary selector templates behind shared builders"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -87,7 +90,8 @@
         "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
         "titles": [
           "selector contract policy keeps delivery-shaped selector helpers out of production modules"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -111,7 +115,8 @@
         "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
         "titles": [
           "selector contract policy rejects raw authentication selector literals at helper-level selector sinks"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -138,7 +143,8 @@
           "frontend source ownership policy centralizes transaction identity and confines wire intents to owner-local command modules",
           "frontend source ownership policy keeps authorization recovery and collaboration transport dependencies below Workbook reconciliation",
           "frontend source ownership policy reports missing duplicate stale and unsafe paths explicitly"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -162,7 +168,8 @@
         "file": "apps/web/src/testing/timelineWorkbookTestSupport.test.tsx",
         "titles": [
           "timeline workbook test support replaces controlled input values without interleaving with the existing value"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -186,7 +193,8 @@
         "file": "apps/web/src/testing/timelineWorkbookTestSupport.test.tsx",
         "titles": [
           "timeline workbook test support waits for delayed workbook row identity with the shared bounded helper"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -209,9 +217,9 @@
       "selector": {
         "file": "apps/web/src/testing/transportBoundaryPolicy.test.ts",
         "titles": [
-          "frontend transport boundary policy allows raw fetch only in the shared transport and presigned upload adapter",
-          "frontend transport boundary policy keeps the raw upload call constrained to the server-issued target"
-        ]
+          "frontend transport boundary policy confines raw transport references to the service adapter owner"
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -238,7 +246,8 @@
         "titles": [
           "workbook layout policy keeps surface geometry in the shared layout owner",
           "workbook layout policy keeps viewport and row-count geometry behind semantic layout rules"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -265,7 +274,8 @@
         "titles": [
           "workbook inspector test support diagnoses expected and mounted inspector subjects without row payloads",
           "workbook inspector test support waits for delayed entity inspector readiness by stable subject identity"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",

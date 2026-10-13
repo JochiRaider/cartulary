@@ -54,6 +54,20 @@
         "web.application.regression.registered_overlay_semantic_focus_navigation_42dc7fdfee"
       ],
       "reason": "The retired mapper mixed Grid Adapter navigation, Timeline editor behavior, Workbook application shortcuts, and focus side effects. Exact Timeline and Workbook policies plus the registered overlay-focus primitive now prove each authority independently."
+    },
+    {
+      "retired_row_id": "web.application.regression.referencepackadminpanel_discards_stale_reference_4aefb31c15",
+      "replacement_row_ids": [
+        "module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79"
+      ],
+      "reason": "Exact full-title resolution identified duplicate selection. The existing subsystem-owned row retains the assertion and its earliest assurance tier; the redundant web regression selector is retired without forwarding aliases."
+    },
+    {
+      "retired_row_id": "web.workbook.regression.workbook_query_controls_preserve_ordered_chip_ca_0fc544e3c5",
+      "replacement_row_ids": [
+        "platform.viewquery.frontend_unit.compile_sort_filter_group_layout_and_active_chip_b59bab4f62"
+      ],
+      "reason": "Exact full-title resolution identified duplicate selection. The existing subsystem-owned row retains the assertion and its earliest assurance tier; the redundant web regression selector is retired without forwarding aliases."
     }
   ]
 }

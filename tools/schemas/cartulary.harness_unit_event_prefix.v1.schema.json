@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_unit_event_prefix.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "run_id", "file", "device", "inode", "byte_length", "last_seq"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_unit_event_prefix.v1" },
+    "run_id": { "type": "string", "minLength": 1, "maxLength": 96, "pattern": "^[A-Za-z0-9_.-]+$" },
+    "file": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "device": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,19})$" },
+    "inode": { "type": "string", "pattern": "^(0|[1-9][0-9]{0,19})$" },
+    "byte_length": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "last_seq": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "package.grid_adapter",
   "rows": [
     {
@@ -51,7 +51,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "Reject unsafe record identities and keep non-record semantic rows from mutation-capable anchors."
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -75,7 +76,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "Translate private RDG positions through stable record_id and field_key anchors."
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -99,7 +101,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "Resolve grid editability from explicit editor adapters and contract writeability only."
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -123,7 +126,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "Resolve renderers and editors deterministically and clean adapter-owned resources."
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -147,7 +151,8 @@
         "file": "packages/grid-adapter/src/clipboardCodec.test.ts",
         "titles": [
           "clipboard representation preserves values and rejects invalid representations"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -173,7 +178,8 @@
           "Grid column sizing normalizes finite measurements once with owner bounds and CSS zoom",
           "Grid column sizing rejects unavailable columns and cancels pending measurement on abort or invalidation",
           "Grid column sizing routes production header keyboard and double-click intents without sorting"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -197,7 +203,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grouping model builds one typed bucket per normalized committed group value"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -221,7 +228,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid policies clears anchors for invalid row, field, group, and recordless targets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -245,7 +253,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grouping model preserves first-seen order when an unassigned bucket follows a named bucket"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -269,7 +278,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid policies does not change semantic anchors without an explicit adapter operation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -293,7 +303,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grouping model keeps recordless drafts outside semantic group buckets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -317,7 +328,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid policies maps filtered overflow to explicit create-row targets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -341,7 +353,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grouping model preserves ungrouped semantic row order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -365,7 +378,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid state precedence merges owner state with adapter-derived context without weakening state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -389,7 +403,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grouping model groups committed empty values in the unassigned bucket without test IDs"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -413,7 +428,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid state precedence orders invalid, pending, active, selected, read-only, and saved states"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -437,7 +453,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "extension grid semantic identities rejects duplicate extension identities and all mutation target compilation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -461,7 +478,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid policies rejects invalid anchors and create-disabled grouped overflow"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -485,7 +503,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid policies requires a valid semantic anchor for paste planning"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -509,7 +528,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "extension grid semantic identities resolves extension semantic positions, ranges, grouping, and navigation without Core aliases"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -533,7 +553,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid state precedence resolves the design priority while retaining declared co-displays"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -557,7 +578,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid policies supports semantic page, row-edge, and grid-edge navigation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -581,7 +603,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid policies targets sorted paste rows by stable visible record identities"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -605,7 +628,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid policies resolves valid semantic positions to stable record_id and field_key anchors"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -629,7 +653,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grouping model normalizes owner group values before typed bucket identity"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -653,7 +678,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid policies moves semantic anchors for keyboard navigation and rejects missing targets"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -677,7 +703,8 @@
         "file": "packages/grid-adapter/src/semanticKernel.test.ts",
         "titles": [
           "shared semantic grid kernel admits only surface-valid capabilities and derives one effective mode"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -701,7 +728,8 @@
         "file": "packages/grid-adapter/src/semanticKernel.test.ts",
         "titles": [
           "shared semantic grid kernel resolves every data-state branch through one precedence table"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -725,7 +753,8 @@
         "file": "packages/grid-adapter/src/semanticKernel.test.ts",
         "titles": [
           "shared semantic grid kernel returns closed keyboard decisions for edit, rejection, exit, navigation, range, fill, and ignore"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -749,7 +778,8 @@
         "file": "packages/grid-adapter/src/semanticKernel.test.ts",
         "titles": [
           "shared semantic grid kernel plans copy, paste, and fill without binding coordinates or effects"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -773,7 +803,8 @@
         "file": "packages/grid-adapter/src/semanticKernel.test.ts",
         "titles": [
           "shared semantic grid kernel plans sorting and bulk selection with reference-preserving rejected transitions"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -797,7 +828,8 @@
         "file": "packages/grid-adapter/src/index.test.tsx",
         "titles": [
           "grid-adapter keeps creation focus independent from patch eligibility through registration and authority changes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -821,7 +853,8 @@
         "file": "packages/grid-adapter/src/editorReveal.test.ts",
         "titles": [
           "frozen data placement admits only complete prefixes at the measured CSS pixel budget"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -889,7 +922,8 @@
           "grid-adapter translates live cell events and the restricted handle through semantic coordinates",
           "keeps modified departure chords out of the production editor acceptance gate",
           "keeps multiline select and composition keys local in the production editor"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -918,7 +952,8 @@
           "mounted editor reveal keeps RTL scroll offsets within the negative horizontal range",
           "mounted editor reveal reveals the actual control in local scroll units at CSS zoom without touching text or focus",
           "mounted editor reveal uses minimal translations and leaves an oversized spanning control stable"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -942,7 +977,8 @@
         "file": "packages/grid-adapter/src/index.test.tsx",
         "titles": [
           "defers nested editor navigation and dismissal without submitting the parent cell"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -966,7 +1002,8 @@
         "file": "packages/grid-adapter/src/index.test.tsx",
         "titles": [
           "grid-adapter restores overlay cell focus without replacing an independently selected range"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -998,7 +1035,8 @@
           "semantic range interaction requires pointer adoption and rejects missing structural or hidden destinations",
           "semantic range interaction restores prior selection on cancellation without retaining invalid or substituted membership",
           "semantic range interaction resumes scrolling after acceptance and cancels a released destination on newer authoring"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1027,7 +1065,8 @@
           "range keyboard entry uses presented membership including read-only fields and respects hidden reordered and removed members",
           "selected-cell clear capture admits only unmodified Delete as the optional clear chord",
           "selected-cell clear capture captures reversed visible membership including offscreen rows without filtering fields"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1052,7 +1091,8 @@
         "titles": [
           "range pointer binding owns capture cleanup and compatibility clicks while preserving native controls",
           "range pointer binding scrolls both axes with bounded frame work and stops after outside release"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1082,7 +1122,8 @@
           "semantic cell navigation retains the original editor on rejection and never reveals the destination",
           "semantic cell navigation waits for the existing editor gate and passes the abort signal to virtualized focus",
           "semantic presentation port publishes ordered identity-only membership without changing revision for value-only refresh"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1110,7 +1151,8 @@
           "semantic focus requests keeps explicit cell focus out of roving descendant controls",
           "semantic focus requests rejects unavailable and disabled targets and cancels on user navigation",
           "semantic focus requests waits for registration and acknowledges only the declared primary control"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1134,7 +1176,8 @@
         "file": "packages/grid-adapter/src/core.test.ts",
         "titles": [
           "semantic grid policies preserves original range membership on append and clears evicted or noncontiguous ranges"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

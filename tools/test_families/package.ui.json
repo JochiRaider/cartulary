@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "package.ui",
   "rows": [
     {
@@ -15,7 +15,8 @@
         "file": "packages/ui-contracts/src/design-tokens.test.ts",
         "titles": [
           "Cartulary design token exports exposes explicit font role tokens without changing the default UI or mono stacks"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -39,7 +40,8 @@
         "file": "packages/ui-contracts/src/design-tokens.test.ts",
         "titles": [
           "Cartulary design token exports exposes the adopted default theme as generated presentation tokens"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -63,7 +65,8 @@
         "file": "packages/ui-contracts/src/design-tokens.test.ts",
         "titles": [
           "Cartulary design token exports renders CSS variables without unresolved object values"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -90,7 +93,8 @@
           "@cartulary/ui-contracts application selectors provides shared builders for app shell and incident membership selectors",
           "@cartulary/ui-contracts application selectors provides stable authentication bootstrap, landing, session, admin, and error selectors",
           "@cartulary/ui-contracts application selectors rejects invalid authentication selector vocabularies"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -117,7 +121,8 @@
           "design presentation projection contains every closed grid data state exactly once",
           "design presentation projection exports the adopted loading and transient timing rules",
           "design presentation projection projects interaction state independently with one composition rule"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -144,7 +149,8 @@
           "@cartulary/ui-contracts Network Flow selectors encodes stable Network Flow table, graph, row, and diagnostic identities",
           "@cartulary/ui-contracts Network Flow selectors fails closed for malformed Network Flow identity and ordinal inputs",
           "@cartulary/ui-contracts Network Flow selectors preserves every closed Network Analysis selector in exact order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -173,7 +179,8 @@
           "@cartulary/ui-contracts selector core rejects malformed stable IDs and keeps selector segments collision-resistant",
           "@cartulary/ui-contracts selector core returns deterministic selectors for identical stable identifiers",
           "@cartulary/ui-contracts selector core validates view_schema_id selectors against the generated registry"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -204,7 +211,8 @@
           "@cartulary/ui-contracts workbook interaction selectors derives stable collaboration collaboration and status selectors",
           "@cartulary/ui-contracts workbook interaction selectors provides shared builders for workbook action families",
           "@cartulary/ui-contracts workbook interaction selectors validates closed-vocabulary-derived selector tokens"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -239,7 +247,8 @@
           "@cartulary/ui-contracts workbook shell and grid selectors parses every density row height and fails closed for a malformed token",
           "@cartulary/ui-contracts workbook shell and grid selectors preserves closed shell and system-view order with exact accessibility labels",
           "@cartulary/ui-contracts workbook shell and grid selectors targets saved and draft workbook rows when scoped through the grid shell"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.entities",
   "rows": [
     {
@@ -460,7 +460,8 @@
           "entity clipboard paste plan builds an all-create batch while proving source targets are current",
           "entity clipboard paste plan fails closed for stale targets, grouping, and unavailable fields",
           "entity clipboard paste plan keeps scalar paste on the existing-record mutation path"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -490,7 +491,8 @@
           "useEntitySurfaceQuery owns explicit host and identity admission, indexing, live patching, and cleanup",
           "useEntitySurfaceQuery rejects obsolete Entity results after rapid refresh and schema departure",
           "useEntitySurfaceQuery requires an accepted current query before authorization recovery can resume"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -518,7 +520,8 @@
           "preserves closed mention chip states by stable identifiers and field keys",
           "rejects malformed and unknown relationship collection members",
           "retains dismissed evidence through stale projections and prunes it only after a newer restore version"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

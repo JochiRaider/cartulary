@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.auth",
   "rows": [
     {
@@ -631,7 +631,8 @@
         "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
           "enterprise auth discovery renders provider sign-in and begins with a relative return_to"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -657,7 +658,8 @@
         "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
           "ordinary account-security controls issue password-change and totp-enrollment requests, surface failures on the shell, and refresh back to anonymous state after success"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -683,7 +685,8 @@
         "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
           "ordinary deployment-admin controls create and load users, send versioned patch requests, and surface user_version_conflict plus last_deployment_admin on the shell"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -709,7 +712,8 @@
         "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
           "ordinary shell follows mfa_setup_required through totp begin and complete, sends bootstrap-token requests, and proves completion alone does not issue a session"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -736,7 +740,8 @@
         "titles": [
           "ordinary shell admits the directory independently and loads credential errors only in account security",
           "ordinary shell keeps the anonymous login surface, sends the login request, refreshes session and credential state after success, and keeps deployment-user controls denied for non-admin sessions"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -767,7 +772,8 @@
           "loads, filters, selects, and pages deployment users",
           "renders claimed enterprise binding controls only inside the selected-user inspector and calls binding routes",
           "shows the anonymous login surface when the browser has no session"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -793,7 +799,8 @@
         "file": "apps/web/src/services/browserApi.test.ts",
         "titles": [
           "route-boundary CSRF headers follow cookie-backed mutating request rules"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -826,7 +833,8 @@
           "route-boundary incident landing uses /api/v1/incidents with closed create bodies and public errors",
           "route-boundary logout failures render public envelopes without ending the visible session",
           "route-boundary session TOTP complete errors render public envelopes without private details"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -854,7 +862,8 @@
           "route-boundary bootstrap token authorization is limited to TOTP begin and complete",
           "route-boundary client helpers keep auth and account requests under /api/v1/ with route-specific cookie-backed CSRF and closed bodies",
           "validates every remaining shell operation and rejects malformed successes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

@@ -14,8 +14,12 @@ var errCanonical = errors.New("canonical graph accounting does not close")
 type timeInterval struct{ start, end, queue int64 }
 type canonicalWait struct {
 	timeInterval
-	details waitDetails
-	closed  bool
+	details             waitDetails
+	closed              bool
+	segmentStart, count int64
+	resources           []timeInterval
+	holders             map[string]bool
+	byReason            map[string]int64
 }
 type canonicalTerminal struct {
 	event, status string
@@ -29,23 +33,23 @@ type canonicalPhase struct {
 	closed               bool
 }
 type canonicalFacts struct {
-	plan                       *Plan
-	byID                       map[string]unit
-	registered, eligible, hits map[string]bool
-	starts, fixtures           map[string]int64
-	waits                      map[string]canonicalWait
-	admissions                 map[string]canonicalAdmission
-	terminals                  map[string]canonicalTerminal
-	phases                     map[string]canonicalPhase
-	phaseCounts                map[string]int
-	cache                      map[string]int64
-	seq, finalMS               int64
-	started, completed         bool
-	cleanupStarted             *int64
+	plan                         *Plan
+	byID                         map[string]unit
+	registered, eligible, hits   map[string]bool
+	starts, fixtures, eligibleAt map[string]int64
+	waits                        map[string]canonicalWait
+	admissions                   map[string]canonicalAdmission
+	terminals                    map[string]canonicalTerminal
+	phases                       map[string]canonicalPhase
+	phaseCounts                  map[string]int
+	cache                        map[string]int64
+	seq, finalMS                 int64
+	started, completed           bool
+	cleanupStarted               *int64
 }
 
 func newCanonicalFacts(p *Plan) *canonicalFacts {
-	f := &canonicalFacts{plan: p, byID: map[string]unit{}, registered: map[string]bool{}, eligible: map[string]bool{}, hits: map[string]bool{}, starts: map[string]int64{}, fixtures: map[string]int64{}, waits: map[string]canonicalWait{}, admissions: map[string]canonicalAdmission{}, terminals: map[string]canonicalTerminal{}, phases: map[string]canonicalPhase{}, phaseCounts: map[string]int{}, cache: map[string]int64{"hit": 0, "miss": 0, "bypass": 0}}
+	f := &canonicalFacts{plan: p, byID: map[string]unit{}, registered: map[string]bool{}, eligible: map[string]bool{}, hits: map[string]bool{}, starts: map[string]int64{}, eligibleAt: map[string]int64{}, fixtures: map[string]int64{}, waits: map[string]canonicalWait{}, admissions: map[string]canonicalAdmission{}, terminals: map[string]canonicalTerminal{}, phases: map[string]canonicalPhase{}, phaseCounts: map[string]int{}, cache: map[string]int64{"hit": 0, "miss": 0, "bypass": 0}}
 	for _, u := range p.facts.Graph.Units {
 		f.byID[u.ID] = u
 	}
@@ -77,7 +81,7 @@ func stringList(v any) []string {
 	return out
 }
 func (f *canonicalFacts) consume(e map[string]any) error {
-	if _, err := documentBytes("cartulary.harness_unit_event.v3", e); err != nil {
+	if _, err := documentBytes("cartulary.harness_unit_event.v4", e); err != nil {
 		return err
 	}
 	seq, at := integerValue(e["seq"]), integerValue(e["monotonic_ms"])
@@ -144,18 +148,55 @@ func (f *canonicalFacts) consume(e map[string]any) error {
 			return errCanonical
 		}
 		f.eligible[id] = true
+		f.eligibleAt[id] = at
 	case "wait_started":
-		if _, ok := f.waits[id]; ok || !f.eligible[id] {
+		w, exists := f.waits[id]
+		_, admitted := f.admissions[id]
+		if !f.eligible[id] || admitted || exists && (!w.closed || w.end != at) || !exists && f.eligibleAt[id] != at {
 			return errCanonical
 		}
-		f.waits[id] = canonicalWait{timeInterval: timeInterval{start: at}, details: waitDetails{e["wait_reason"].(string), stringList(e["blocking_resources"]), stringList(e["blocking_unit_ids"])}}
+		details := waitDetails{e["wait_reason"].(string), stringList(e["blocking_resources"]), stringList(e["blocking_unit_ids"])}
+		if !slices.IsSorted(details.resources) || !slices.IsSorted(details.units) {
+			return errCanonical
+		}
+		blocked := details.reason == "resources" || details.reason == "exclusive_barrier"
+		if blocked != (len(details.resources) > 0) || blocked != (len(details.units) > 0) {
+			return errCanonical
+		}
+		for _, holder := range details.units {
+			if _, ok := f.byID[holder]; !ok || holder == id {
+				return errCanonical
+			}
+		}
+		if exists && reflect.DeepEqual(details, w.details) {
+			return errCanonical
+		}
+		if !exists {
+			w = canonicalWait{timeInterval: timeInterval{start: at}, holders: map[string]bool{}, byReason: map[string]int64{"resources": 0, "exclusive_barrier": 0, "rank": 0, "scheduler_stop": 0}}
+		}
+		w.segmentStart, w.closed, w.details = at, false, details
+		w.count++
+		f.waits[id] = w
 	case "wait_ended":
 		w, ok := f.waits[id]
 		if !ok || w.closed || w.details.reason != e["wait_reason"] || !slices.Equal(w.details.resources, stringList(e["blocking_resources"])) || !slices.Equal(w.details.units, stringList(e["blocking_unit_ids"])) {
 			return errCanonical
 		}
-		w.end = at
-		w.closed = true
+		w.end, w.closed = at, true
+		w.byReason[w.details.reason] += at - w.segmentStart
+		if w.details.reason == "resources" {
+			for _, holder := range w.details.units {
+				w.holders[holder] = true
+			}
+			if at > w.segmentStart {
+				n := len(w.resources)
+				if n > 0 && w.resources[n-1].end == w.segmentStart {
+					w.resources[n-1].end = at
+				} else {
+					w.resources = append(w.resources, timeInterval{start: w.segmentStart, end: at})
+				}
+			}
+		}
 		f.waits[id] = w
 	case "admitted":
 		w := f.waits[id]
@@ -329,7 +370,7 @@ func (f *canonicalFacts) timing(selected []string, duration int64, envelope bool
 	count := int64(0)
 	for _, id := range selected {
 		if w, ok := f.waits[id]; ok {
-			waits = append(waits, w.timeInterval)
+			waits = append(waits, w.resources...)
 		}
 		start, ok := f.starts[id]
 		if !ok {
@@ -442,12 +483,18 @@ func (f *canonicalFacts) pressure() map[string]any {
 		}
 	}
 	blocked, holders := []string{}, []string{}
+	var count int64
 	for id, w := range f.waits {
-		blocked = append(blocked, id)
-		holders = append(holders, w.details.units...)
+		count += w.count
+		if len(w.holders) > 0 {
+			blocked = append(blocked, id)
+		}
+		for holder := range w.holders {
+			holders = append(holders, holder)
+		}
 	}
 	slices.Sort(blocked)
 	slices.Sort(holders)
 	holders = slices.Compact(holders)
-	return map[string]any{"requested_capacity": requested, "resolved_capacity": f.plan.facts.Capacities, "peak_use": peaks, "saturation_ms": saturated, "wait_events": len(f.waits), "blocked_units": blocked, "resource_holders": holders}
+	return map[string]any{"requested_capacity": requested, "resolved_capacity": f.plan.facts.Capacities, "peak_use": peaks, "saturation_ms": saturated, "wait_events": count, "blocked_units": blocked, "resource_holders": holders}
 }

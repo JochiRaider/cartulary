@@ -22,7 +22,7 @@ func TestRuntimeProcessLifecycle(t *testing.T) {
 	for _, c := range []struct {
 		name, script, status, reason string
 		timeout                      int64
-	}{{"pass", "printf done", "passed", "", 1000}, {"assertion", "exit 10", "failed", "test_assertion_failure", 1000}, {"marker", "printf 'failure_class=infra failure_reason=resource_conflict'; exit 2", "failed", "resource_conflict", 1000}, {"deadline", "trap '' TERM; sleep 30", "failed", "timeout_failure", 20}} {
+	}{{"pass", "printf done", "passed", "", 1000}, {"assertion", "exit 10", "failed", "test_assertion_failure", 1000}, {"cleanup", "exit 12", "failed", "cleanup_error", 1000}, {"marker", "printf 'failure_class=infra failure_reason=resource_conflict'; exit 2", "failed", "resource_conflict", 1000}, {"deadline", "trap '' TERM; sleep 30", "failed", "timeout_failure", 20}} {
 		t.Run(c.name, func(t *testing.T) {
 			u := engineUnit("test:process", 1)
 			u.Command = command{Executable: "/bin/sh", Args: []string{"-c", c.script}, Environment: map[string]string{}}

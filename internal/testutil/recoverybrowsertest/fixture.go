@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -733,29 +732,13 @@ func createFromTemplateDB(ctx context.Context, baseDSN string, databaseName stri
 }
 
 func createDatabase(ctx context.Context, adminDSN string, name string, templateDatabase string) error {
-	quotedTemplate, err := pgIdentifier(templateDatabase)
-	if err != nil {
+	if _, err := pgIdentifier(templateDatabase); err != nil {
 		return err
 	}
 	if err := postgrescleanup.ForceDropDatabase(ctx, adminDSN, name); err != nil {
 		return fmt.Errorf("drop existing target db: %w", err)
 	}
-	quoted, err := pgIdentifier(name)
-	if err != nil {
-		return err
-	}
-	return postgrescatalog.WithMutation(
-		ctx,
-		adminDSN,
-		name,
-		restoreBrowserCatalogAdmissionLimit,
-		func(admin *sql.DB) error {
-			if _, err := admin.ExecContext(ctx, `CREATE DATABASE `+quoted+` TEMPLATE `+quotedTemplate); err != nil {
-				return fmt.Errorf("create target db: %w", err)
-			}
-			return nil
-		},
-	)
+	return postgrescatalog.CloneDatabase(ctx, adminDSN, name, templateDatabase, restoreBrowserCatalogAdmissionLimit)
 }
 
 func dropDatabase(ctx context.Context, sourceDSN string, name string) error {
@@ -763,7 +746,19 @@ func dropDatabase(ctx context.Context, sourceDSN string, name string) error {
 	if err != nil {
 		return err
 	}
-	return postgrescleanup.ForceDropDatabase(ctx, adminDSN, name)
+	// A failed bounded drop must retain enough structural evidence to distinguish
+	// PostgreSQL lock/barrier waits from connection or scheduler delay. Observe
+	// only this exact authored command, never retain SQL or connection strings.
+	observationCtx, stop := context.WithCancel(ctx)
+	observed := make(chan string, 1)
+	go func() { observed <- observeDatabaseDrop(observationCtx, adminDSN, name) }()
+	err = postgrescleanup.ForceDropDatabase(ctx, adminDSN, name)
+	stop()
+	wait := <-observed
+	if err != nil && wait != "" {
+		return fmt.Errorf("%w (last drop wait: %s)", err, wait)
+	}
+	return err
 }
 
 func databaseDSN(rawDSN string, database string) (string, error) {

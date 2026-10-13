@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_unit_event.v3",
+  "$id": "cartulary.harness_unit_event.v4",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,7 +16,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_unit_event.v3"
+      "const": "cartulary.harness_unit_event.v4"
     },
     "seq": {
       "type": "integer",
@@ -82,8 +82,8 @@
     "wait_reason": {
       "enum": [
         "resources",
-        "earlier_overlapping_ready",
-        "capacity",
+        "exclusive_barrier",
+        "rank",
         "scheduler_stop"
       ]
     },

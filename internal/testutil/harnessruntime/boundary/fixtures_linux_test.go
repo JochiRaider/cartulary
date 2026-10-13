@@ -5,8 +5,10 @@ package boundary
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"io/fs"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,6 +21,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 // Real physical ownership through the native library, without a fixture-session
@@ -60,6 +63,13 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// Preparation can fail before the fixture coordinator exists.
+			// Always finalize the native owner created by this test.
+			defer func() {
+				if err := r.Close(); err != nil {
+					t.Error("final private owner close", err)
+				}
+			}()
 			environment := map[string]string{}
 			for k, v := range env {
 				environment[k] = v
@@ -75,6 +85,22 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 				}
 				return cmd.Output()
 			}
+			// Source compilation and build recipes remain Node responsibilities.
+			source := `import {writeFileSync,readFileSync} from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {borrowRuntime} from './tools/harness/runtime/session-client.mjs';import {buildSourceSnapshot} from './tools/harness/test-catalog/index.mjs';import {goReadiness} from './tools/harness/readiness/installed-readiness.mjs';import {recipeEnvironment,buildReviewProducer} from './tools/harness/browser/review-recipes.mjs';const root=process.cwd(),runRoot=process.argv[1],runtime=borrowRuntime({repoRoot:root,runRoot});const input={preparation_policy:'installed_only',presentation:'design',profile:'default'};writeFileSync(path.join(runRoot,'run-manifest.json'),JSON.stringify({purpose:'interactive_design_review',source_digest:buildSourceSnapshot(root).digest,toolchain_digest:'sha256:'+createHash('sha256').update(readFileSync('tools/toolchain_pins.json')).digest('hex')}),{mode:0o600});const environment=recipeEnvironment(root,runRoot,runtime,input);environment.GO=goReadiness(environment,root);for(const target of (process.argv[2]==='borrowed'?['testservices-build']:['build-web','embedded-web-assets','build-server-harness','build-migrate','testservices-build'])) await buildReviewProducer({target,root,environment,input,runtime,signal:new AbortController().signal});process.stdout.write(JSON.stringify(environment));`
+			out, err := invoke(source, run, variant)
+			if err != nil {
+				t.Fatal("physical fixture preparation", err)
+			}
+			// The recipe returns a complete child environment. Unmarshalling
+			// into the parent map would restore keys the recipe removed.
+			var prepared map[string]string
+			if json.Unmarshal(out, &prepared) != nil || prepared == nil {
+				t.Fatal("invalid preparation facts")
+			}
+			if _, inherited := prepared["CARTULARY_MAKE_INPUT_SOURCES"]; inherited {
+				t.Fatal("preparation retained parent command authority")
+			}
+			environment = prepared
 			var sessionFile string
 			if variant == "borrowed" {
 				sessionFile = filepath.Join(r.Root, "persistent-owner", "session.json")
@@ -84,16 +110,6 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 				}
 				environment["CARTULARY_TEST_SERVICES_MODE"] = "attach"
 				environment["CARTULARY_TEST_SERVICES_SESSION_FILE"] = sessionFile
-			} else {
-				// Source compilation and build recipes remain Node responsibilities.
-				source := `import {writeFileSync,readFileSync} from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {borrowRuntime} from './tools/harness/runtime/session-client.mjs';import {buildSourceSnapshot} from './tools/harness/test-catalog/index.mjs';import {recipeEnvironment,buildReviewProducer} from './tools/harness/browser/review-recipes.mjs';const root=process.cwd(),runRoot=process.argv[1],runtime=borrowRuntime({repoRoot:root,runRoot});const input={preparation_policy:'installed_only',presentation:'design',profile:'default'};writeFileSync(path.join(runRoot,'run-manifest.json'),JSON.stringify({purpose:'interactive_design_review',source_digest:buildSourceSnapshot(root).digest,toolchain_digest:'sha256:'+createHash('sha256').update(readFileSync('tools/toolchain_pins.json')).digest('hex')}),{mode:0o600});const environment=recipeEnvironment(root,runRoot,runtime,input);for(const target of ['build-web','embedded-web-assets','build-server-harness','build-migrate','testservices-build']) await buildReviewProducer({target,root,environment,input,runtime,signal:new AbortController().signal});process.stdout.write(JSON.stringify(environment));`
-				out, err := invoke(source, run)
-				if err != nil {
-					t.Fatal("physical fixture preparation", err)
-				}
-				if json.Unmarshal(out, &environment) != nil {
-					t.Fatal("invalid preparation facts")
-				}
 			}
 			target := "ui-review"
 			if variant == "borrowed" {
@@ -171,6 +187,35 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 				}
 				if _, err := os.Stat(detail); !os.IsNotExist(err) {
 					t.Fatal("sibling detail retained", err)
+				}
+				// Minimum administrator TLS proof must still authorize a fresh
+				// connection after purge; ordinary runtime keys must be gone.
+				var cleanupEnvironment map[string]string
+				readSelectedBoundaryJSON(t, filepath.Join(r.Root, "test-services", "suite-environment.json"), &cleanupEnvironment)
+				adminDSN := cleanupEnvironment["CARTULARY_PGTEST_ADMIN_DSN"]
+				parsed, err := url.Parse(adminDSN)
+				if err != nil || parsed.Query().Get("sslmode") != "verify-full" {
+					t.Fatal("missing TLS cleanup binding")
+				}
+				for _, key := range []string{"sslrootcert", "sslcert", "sslkey"} {
+					if _, err := os.Stat(parsed.Query().Get(key)); err != nil {
+						t.Fatal("cleanup credential purged", key, err)
+					}
+				}
+				extraKey := filepath.Join(filepath.Dir(parsed.Query().Get("sslkey")), "cartulary_runtime_login.key")
+				if _, err := os.Stat(extraKey); !os.IsNotExist(err) {
+					t.Fatal("ordinary credential survived recovery preservation", err)
+				}
+				db, err := sql.Open("pgx", adminDSN)
+				if err != nil {
+					t.Fatal("open fresh cleanup connection", err)
+				}
+				pingCtx, cancelPing := context.WithTimeout(ctx, 10*time.Second)
+				pingErr := db.PingContext(pingCtx)
+				cancelPing()
+				closeErr := db.Close()
+				if pingErr != nil || closeErr != nil {
+					t.Fatal("preserved cleanup credentials unusable", pingErr, closeErr)
 				}
 				blocked = ""
 				// A completed failed attempt cannot restart its budget. Recovery opens a new owner.

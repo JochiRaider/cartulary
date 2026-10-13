@@ -11,6 +11,14 @@
       ]
     },
     {
+      "verification_id": "harness.command_surface.verification.helper_contract",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
       "verification_id": "harness.command_surface.verification.native_runtime",
       "behavior_class": "harness",
       "profile": "support",
@@ -28,6 +36,14 @@
         "static_check"
       ],
       "public_target": "harness-contract"
+    },
+    {
+      "verification_id": "harness.command_surface.verification.scheduler_contract",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ]
     }
   ]
 }

@@ -9,15 +9,17 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"golang.org/x/sys/unix"
 )
 
-const RequestSchema = "cartulary.harness_runtime_session.v2"
+const RequestSchema = "cartulary.harness_runtime_session.v3"
 
 type request struct {
 	Schema          string            `json:"schema_id"`
@@ -40,11 +42,52 @@ type request struct {
 }
 
 type response struct {
-	Schema    string `json:"schema_id"`
-	ID        int    `json:"request_id"`
-	Operation string `json:"operation"`
-	OK        bool   `json:"ok"`
-	Result    any    `json:"result"`
+	Schema    string     `json:"schema_id"`
+	ID        int        `json:"request_id"`
+	Operation string     `json:"operation"`
+	OK        bool       `json:"ok"`
+	Result    any        `json:"result"`
+	Error     *rejection `json:"error,omitempty"`
+}
+
+// Closed private diagnostics deliberately exclude arbitrary error messages,
+// paths and request values. A proc identity is a diagnostic, never authority.
+type rejection struct {
+	Reason    string  `json:"reason"`
+	Errno     *int    `json:"errno"`
+	PID       *int    `json:"process_id"`
+	ProofFile *string `json:"proof_file"`
+}
+
+func rejectReason(err error) *rejection {
+	r := &rejection{Reason: "internal"}
+	switch {
+	case errors.Is(err, harnesslocal.ErrUnsafe):
+		r.Reason = "unsafe"
+	case errors.Is(err, ErrUnresolved):
+		r.Reason = "unresolved"
+	case errors.Is(err, context.DeadlineExceeded):
+		r.Reason = "deadline"
+	}
+	var errno unix.Errno
+	if errors.As(err, &errno) && errno > 0 && errno <= 4095 {
+		value := int(errno)
+		r.Errno = &value
+		if r.Reason == "internal" {
+			r.Reason = "io"
+		}
+	}
+	var file *os.PathError
+	if errors.As(err, &file) {
+		parts := strings.Split(file.Path, "/")
+		if len(parts) == 4 && parts[0] == "" && parts[1] == "proc" {
+			pid, e := strconv.Atoi(parts[2])
+			if e == nil && pid >= 2 && pid <= 2147483647 && (parts[3] == "stat" || parts[3] == "status" || parts[3] == "environ" || parts[3] == "statm") {
+				r.PID, r.ProofFile = &pid, &parts[3]
+			}
+		}
+	}
+	return r
 }
 
 func runtimeIdentity(r *Runtime) map[string]string {
@@ -105,6 +148,7 @@ func execute(data []byte, repository string, caller harnessadmission.Proof) (out
 		out.OK = result == nil
 		if result != nil {
 			out.Result = nil
+			out.Error = rejectReason(result)
 		}
 	}()
 	var r *Runtime
@@ -217,7 +261,7 @@ func Main(args []string, input io.Reader, output io.Writer) int {
 		return 11
 	}
 	reply, err := execute(data, repository, caller)
-	if err != nil {
+	if err != nil && reply.ID == 0 {
 		return 11
 	}
 	encoded, e := json.Marshal(reply)
@@ -229,6 +273,9 @@ func Main(args []string, input io.Reader, output io.Writer) int {
 		return 11
 	}
 	if _, e = output.Write(append(encoded, '\n')); e != nil {
+		return 11
+	}
+	if err != nil {
 		return 11
 	}
 	return 0

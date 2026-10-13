@@ -53,7 +53,7 @@ func (p *livePublisher) publishLocked() {
 	p.last = monotonicNS()
 	p.dirty = false
 	v := maps.Clone(p.identity)
-	v["schema_id"] = "cartulary.harness_live_snapshot.v2"
+	v["schema_id"] = "cartulary.harness_live_snapshot.v3"
 	v["revision"] = p.revision + 1
 	v["sampled_at"] = time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	v["sampled_elapsed_ms"] = p.view.ElapsedMS + max(0, (p.last-p.received)/1e6)
@@ -102,7 +102,7 @@ func (p *livePublisher) publishLocked() {
 			v["resources"] = r
 		}
 	}
-	b, err := documentBytes("cartulary.harness_live_snapshot.v2", v)
+	b, err := documentBytes("cartulary.harness_live_snapshot.v3", v)
 	if err == nil && len(b)+1 > 16*1024*1024 {
 		delete(v, "targets")
 		delete(v, "units")
@@ -110,7 +110,7 @@ func (p *livePublisher) publishLocked() {
 		v["unavailable_reason"] = "snapshot_too_large"
 	}
 	if err == nil {
-		err = writeEvidence(p.root, "diagnostics/live-status.json", "cartulary.harness_live_snapshot.v2", v, true)
+		err = writeEvidence(p.root, "diagnostics/live-status.json", "cartulary.harness_live_snapshot.v3", v, true)
 	}
 	p.publicationErr = err
 	if err == nil {

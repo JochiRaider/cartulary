@@ -3,9 +3,11 @@
 package harnesssession
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,6 +20,40 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"golang.org/x/sys/unix"
 )
+
+// The producer acknowledges child readiness, never its PID. Setsid happens in
+// the fork/exec boundary before the child can publish readiness, so recovery
+// observes a fully established session even when the producer has already died.
+func diagnosticOrphanFixture() {
+	switch os.Getenv("CARTULARY_SCOPE_TEST_ORPHAN") {
+	case "child":
+		fmt.Fprintln(os.Stdout, "ready")
+		os.Stdout.Close()
+		time.Sleep(time.Minute)
+		os.Exit(0)
+	case "producer":
+		child := exec.Command(os.Args[0], "-test.run=^TestSessionRuntimeProof$")
+		child.Env = append(os.Environ(), "CARTULARY_SCOPE_TEST_ORPHAN=child")
+		child.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+		output, err := child.StdoutPipe()
+		if err != nil || child.Start() != nil {
+			os.Exit(2)
+		}
+		line, err := bufio.NewReader(output).ReadString('\n')
+		output.Close()
+		if err != nil || line != "ready\n" {
+			_ = child.Process.Kill()
+			_ = child.Wait()
+			os.Exit(3)
+		}
+		if child.Process.Release() != nil {
+			_ = child.Process.Kill()
+			_ = child.Wait()
+			os.Exit(4)
+		}
+		os.Exit(0)
+	}
+}
 
 func testCorruptJournalDetail(t *testing.T) {
 	t.Run("persisted_corruption_cannot_retain_disposable_detail", func(t *testing.T) {
@@ -104,9 +140,13 @@ func testLifecycleGaps(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer r.RecordResource("diagnostic_scope", scope, "released")
-		// The producer exits without publishing its detached child's identity.
-		producer := exec.Command("/bin/sh", "-c", "setsid sleep 60 </dev/null >/dev/null 2>&1 &")
-		producer.Env = append(os.Environ(), "CARTULARY_DIAGNOSTIC_TOKEN="+token)
+		// Wait for session establishment, then lose the producer before any PID
+		// publication. A nonce alone cannot establish fixture readiness while
+		// the old asynchronous setsid command is still changing PGID/SID.
+		launch, stopLaunch := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stopLaunch()
+		producer := exec.CommandContext(launch, os.Args[0], "-test.run=^TestSessionRuntimeProof$")
+		producer.Env = append(os.Environ(), "CARTULARY_DIAGNOSTIC_TOKEN="+token, "CARTULARY_SCOPE_TEST_ORPHAN=producer")
 		if err := producer.Run(); err != nil {
 			t.Fatal(err)
 		}
@@ -138,6 +178,9 @@ func testLifecycleGaps(t *testing.T) {
 			t.Fatal("producer did not create marked orphan")
 		}
 		defer syscall.Kill(orphan.PID, syscall.SIGKILL)
+		if orphan.PGID != orphan.PID || orphan.SID != orphan.PID {
+			t.Fatal("orphan readiness preceded session establishment")
+		}
 		resources, err := r.Resources(8)
 		if err != nil {
 			t.Fatal(err)

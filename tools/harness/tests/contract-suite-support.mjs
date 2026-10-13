@@ -61,7 +61,7 @@ import { createContractTestContext } from "./contract-test-context.mjs";
 import { assertLazyCaseContext, assertImportAndFailureIsolation } from "./contract-initialization-cases.mjs";
 import { assertPostgresCatalogClosure, assertPostgresPolicyFixtures, assertFixtureBuilderClosure, assertSelectorResolutionScope, assertPrivateRowSelection, assertSourceSnapshotIdentity } from "./contract-catalog-cases.mjs";
 
-import { assertHarnessTierRouting, assertRawTierValidation, assertIndependentRawTierSelection } from "./contract-tier-cases.mjs";
+import { assertHarnessTierRouting, assertCatalogTopologyValidation, assertCatalogTierSelection } from "./contract-tier-cases.mjs";
 
 import { assertPrivateChildCaptureBoundary } from "./private-child-capture-cases.mjs";
 
@@ -382,7 +382,7 @@ const generalCases = [
     acceptance_ids: ["TH-HARNESS-AC-082"],
     run(context) {
       assert.equal(context.taskSurface.schema_id, "cartulary.task_surface_owner.v2");
-      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v9");
+      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v10");
     },
   },
   {
@@ -508,7 +508,7 @@ async function assertBoundaryContract(context, kind) {
       for (const schema of [
         "cartulary.harness_work_graph.v5.schema.json",
         "cartulary.harness_run_manifest.v2.schema.json",
-        "cartulary.harness_unit_event.v3.schema.json",
+        "cartulary.harness_unit_event.v4.schema.json",
         "cartulary.harness_run_summary.v1.schema.json",
       ]) assert.ok(existsSync(path.join(root, "tools/schemas", schema)));
       return;
@@ -1280,8 +1280,8 @@ const suiteCases = {
   ],
   graph: [
     semanticCase("harness_self_test_tier_routing", "full-tier self-tests preserve direct selection and product coverage", ["TH-HARNESS-AC-082"], assertHarnessTierRouting),
-    semanticCase("raw_go_tier_input_validation", "raw Go tiers fail closed in schema, normalization, and compilation", ["TH-HARNESS-AC-082"], assertRawTierValidation),
-    semanticCase("raw_go_independent_tier_selection", "raw Go groups select by tier before readiness without catalog coupling", ["TH-HARNESS-AC-082"], assertIndependentRawTierSelection),
+    semanticCase("catalog_topology_input_validation", "catalog topology rejects retired raw selectors and malformed coverage inputs", ["TH-HARNESS-AC-082"], assertCatalogTopologyValidation),
+    semanticCase("catalog_independent_tier_selection", "catalog tiers select before readiness without policy coupling", ["TH-HARNESS-AC-082"], assertCatalogTierSelection),
     semanticCase("visual_semantic_partition", "visual groups bound complete catalog claims without duplicate or missing execution", ["TH-HARNESS-AC-011", "TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "visual_semantic_partition")),
     semanticCase("measurement_semantic_identity", "measurement groups preserve complete semantic identities independently of private storage", ["TH-HARNESS-AC-011", "TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "measurement_semantic_identity")),
     semanticCase("aggregate_graph_determinism", "aggregate work graphs are deterministic", ["TH-HARNESS-AC-082"], (context) => assertGraphContract(context, "aggregate_determinism")),
@@ -1363,10 +1363,8 @@ function assertCaseDefinitions() {
 
 export function runContractSuite(suite, { contextFactory = () => createContractTestContext(root) } = {}) {
   const cases = suiteCases[suite];
-  test(`${suite}: case definitions are unique and valid`, () => {
-    assert.ok(cases?.length > 0, `contract suite ${suite} is empty`);
-    assertCaseDefinitions();
-  });
+  assert.ok(cases?.length > 0, `contract suite ${suite} is empty`);
+  if (suite === "graph") test("contract case definitions are unique and valid", assertCaseDefinitions);
   for (const entry of cases ?? []) {
     test(`${entry.id}: ${entry.name}`, async () => {
       await entry.run(contextFactory());

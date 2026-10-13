@@ -53,6 +53,50 @@ func TestAdmissionWeightedTree(t *testing.T) {
 	}
 }
 func TestAdmissionQuietOrdering(t *testing.T) {
+	t.Run("bounded observation does not reorder workload or bypass quietness", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		holder := request(t, root, "a", 2, 2)
+		apply(t, holder, true)
+		waiter := request(t, root, "b", 2, 2)
+		apply(t, waiter, false)
+		later := request(t, root, "c", 0, 2)
+		apply(t, later, false)
+		observer := request(t, root, "d", 0, 0)
+		observer.Mode = "observation"
+		apply(t, observer, true)
+		apply(t, later, false)
+		// Passive capacity values cannot lower the workload capacity ceiling.
+		apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
+		apply(t, waiter, true)
+		apply(t, later, true)
+		exclusive := request(t, root, "e", 0, 2)
+		exclusive.Mode = "exclusive"
+		apply(t, exclusive, false)
+		next := request(t, root, "f", 0, 2)
+		next.Mode = "observation"
+		apply(t, next, false)
+		apply(t, Request{Root: root, Operation: "release", Token: waiter.Token}, false)
+		apply(t, Request{Root: root, Operation: "release", Token: later.Token}, false)
+		apply(t, exclusive, false) // The admitted observation still owns its fence.
+		apply(t, Request{Root: root, Operation: "release", Token: observer.Token}, false)
+		apply(t, exclusive, true)
+		apply(t, next, false)
+		apply(t, Request{Root: root, Operation: "release", Token: exclusive.Token}, false)
+		apply(t, next, true)
+		for _, change := range []func(*Request){
+			func(r *Request) { r.Claims = testQuantities(1) },
+			func(r *Request) { r.Parent = &next.Token },
+			func(r *Request) { r.Mode = "shared"; r.Parent = &next.Token },
+			func(r *Request) { r.Operation = "bind"; r.Token = next.Token; r.Guard = next.Owner },
+		} {
+			invalid := request(t, root, "9", 0, 2)
+			invalid.Mode = "observation"
+			change(&invalid)
+			if _, err := Transact(context.Background(), invalid); err == nil {
+				t.Fatal("observation admitted workload, nesting or an inherited guard")
+			}
+		}
+	})
 	root := filepath.Join(t.TempDir(), "admission")
 	first := request(t, root, "a", 0, 2)
 	apply(t, first, true)

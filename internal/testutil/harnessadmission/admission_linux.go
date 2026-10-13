@@ -80,6 +80,20 @@ func quantities(q Quantities) bool {
 	}
 	return true
 }
+func validMode(mode string, claims Quantities, parent *string) bool {
+	if mode == "shared" || mode == "exclusive" {
+		return true
+	}
+	if mode != "observation" || parent != nil {
+		return false
+	}
+	for _, value := range claims {
+		if value != 0 {
+			return false
+		}
+	}
+	return true
+}
 func proofShape(p Proof) bool { return p.Boot != "" && p.PID > 1 && digits.MatchString(p.Start) }
 func Identity(pid int) (Proof, error) {
 	boot, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
@@ -183,9 +197,9 @@ func readState(directory *os.File, mutable bool) (*state, error) {
 	if json.Unmarshal(data, &shape) != nil || shape.Sequence == nil {
 		return nil, ErrConflict
 	}
-	tokens := map[string]bool{}
+	tokens := map[string]*lease{}
 	for i, l := range s.Leases {
-		if l == nil || len(shape.Leases[i]) != 10 || !proofShape(l.Process) || l.Guards == nil || len(l.Guards) > 64 || !tokenPattern.MatchString(l.Token) || tokens[l.Token] || (l.Mode != "shared" && l.Mode != "exclusive") || !integer(l.Sequence) || l.Sequence < 1 || l.Sequence > s.Sequence || !quantities(l.Claims) || !quantities(l.Capacities) || (l.Parent != nil && !tokens[*l.Parent]) {
+		if l == nil || len(shape.Leases[i]) != 10 || !proofShape(l.Process) || l.Guards == nil || len(l.Guards) > 64 || !tokenPattern.MatchString(l.Token) || tokens[l.Token] != nil || !validMode(l.Mode, l.Claims, l.Parent) || !integer(l.Sequence) || l.Sequence < 1 || l.Sequence > s.Sequence || !quantities(l.Claims) || !quantities(l.Capacities) || (l.Parent != nil && (tokens[*l.Parent] == nil || tokens[*l.Parent].Mode == "observation")) || (l.Mode == "observation" && len(l.Guards) != 0) {
 			return nil, ErrConflict
 		}
 		for _, p := range l.Guards {
@@ -202,7 +216,7 @@ func readState(directory *os.File, mutable bool) (*state, error) {
 		if !quantityShape(shape.Leases[i]["claims"]) || !quantityShape(shape.Leases[i]["capacities"]) {
 			return nil, ErrConflict
 		}
-		tokens[l.Token] = true
+		tokens[l.Token] = l
 	}
 	return &s, nil
 }
@@ -311,7 +325,7 @@ func mutate(s *state, r Request) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		if l == nil || !l.Granted || l.Released || !value {
+		if l == nil || !l.Granted || l.Released || !value || l.Mode == "observation" {
 			return false, ErrConflict
 		}
 		guards := []Proof{}
@@ -331,7 +345,7 @@ func mutate(s *state, r Request) (bool, error) {
 		l.Guards = guards
 		return true, nil
 	case "admit":
-		if !quantities(r.Claims) || !quantities(r.Capacities) || (r.Mode != "shared" && r.Mode != "exclusive") {
+		if !quantities(r.Claims) || !quantities(r.Capacities) || !validMode(r.Mode, r.Claims, r.Parent) {
 			return false, ErrConflict
 		}
 		for _, key := range resources {
@@ -353,7 +367,7 @@ func mutate(s *state, r Request) (bool, error) {
 			}
 			if r.Parent != nil {
 				ancestor := find(*r.Parent)
-				if ancestor == nil || !ancestor.Granted || ancestor.Released {
+				if ancestor == nil || !ancestor.Granted || ancestor.Released || ancestor.Mode == "observation" {
 					return false, ErrConflict
 				}
 			}
@@ -397,6 +411,15 @@ func mutate(s *state, r Request) (bool, error) {
 					compatible = false
 				}
 			}
+		} else if r.Mode == "observation" {
+			// A bounded observer reserves no workload capacity and must be able
+			// to inspect resource holders while ordinary work is queued. Any
+			// pending exclusive request fences even an earlier observer retry.
+			for _, entry := range s.Leases {
+				if entry.Mode == "exclusive" && !entry.Released {
+					compatible = false
+				}
+			}
 		} else if r.Mode == "exclusive" {
 			compatible = len(roots) == 0 && len(predecessors) == 0
 		} else {
@@ -427,9 +450,14 @@ func mutate(s *state, r Request) (bool, error) {
 		}
 		fits := true
 		for _, key := range resources {
+			if r.Mode == "observation" {
+				break
+			}
 			capacity := r.Capacities[key]
 			for _, entry := range active {
-				capacity = math.Min(capacity, entry.Capacities[key])
+				if entry.Mode != "observation" {
+					capacity = math.Min(capacity, entry.Capacities[key])
+				}
 			}
 			sum := float64(0)
 			for _, entry := range s.Leases {

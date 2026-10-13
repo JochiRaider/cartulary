@@ -318,9 +318,12 @@ function testTitles(root, file, source, scope) {
   }
   collectBindings(sourceFile);
   const matches = new Map();
+  const fullTitles = new Map();
   let testIdentity = 0;
 
-  function record(candidate, identity) {
+  function record(candidate, identity, fullTitle) {
+    if (!fullTitles.has(candidate)) fullTitles.set(candidate, new Set());
+    fullTitles.get(candidate).add(fullTitle);
     if (!matches.has(candidate)) matches.set(candidate, new Set());
     matches.get(candidate).add(identity);
   }
@@ -352,8 +355,8 @@ function testTitles(root, file, source, scope) {
           const fullTitle = [...ancestors, expandedTitle].join(" ");
           const identity = testIdentity;
           testIdentity += 1;
-          record(expandedTitle, identity);
-          record(fullTitle, identity);
+          record(expandedTitle, identity, fullTitle);
+          record(fullTitle, identity, fullTitle);
         }
         return;
       }
@@ -366,10 +369,14 @@ function testTitles(root, file, source, scope) {
     [...matches].map(([candidate, identities]) => [candidate, identities.size]),
   );
   for (const suite of registrationSuiteSources(root, file, sourceFile, ts, scope)) {
-    for (const [title, count] of testTitles(root, suite.file, suite.source, scope)) {
+    const imported = testTitles(root, suite.file, suite.source, scope);
+    for (const [title, count] of imported) {
       counts.set(title, (counts.get(title) ?? 0) + count);
+      if (!fullTitles.has(title)) fullTitles.set(title, new Set());
+      for (const full of imported.fullTitles.get(title)) fullTitles.get(title).add(full);
     }
   }
+  counts.fullTitles = fullTitles;
   scope.titles.set(file, counts);
   return counts;
 }
@@ -593,7 +600,8 @@ function resolveScopedRowSelector({ root, row, runner, taskSurfaceCommandIDs }, 
         (scenarioID) => `playwright:${row.selector.project_id}:${row.selector.stage}:${scenarioID}`,
       );
     }
-    return row.selector.titles.map((title) => `vitest:${row.selector.file}:${title}`);
+    if (runner.project_ids && !runner.project_ids.includes(row.selector.project_id)) throw new Error(`${label}.project_id is not registered`);
+    return row.selector.titles.map((title) => `vitest:${row.selector.project_id ?? ""}:${row.selector.file}:${[...titles.fullTitles.get(title)][0]}`);
   }
   if (row.runner === "shell") {
     if (!taskSurfaceCommandIDs.has(row.selector.command_id)) {
@@ -610,7 +618,21 @@ function resolveScopedRowSelector({ root, row, runner, taskSurfaceCommandIDs }, 
 // heuristics or process-global source retention. Path checks remain per selector.
 export function createRowSelectorResolver(root) {
   const scope = { packages: new Map(), sources: new Map(), titles: new Map(), goContext: null };
-  return (options) => resolveScopedRowSelector({ ...options, root }, scope);
+  const resolve = (options) => resolveScopedRowSelector({ ...options, root }, scope);
+  resolve.assertGoPackageCoverage = (packages, runner, selected) => {
+    for (const packageName of packages) {
+      const directory = packageDirectory(root, packageName, runner.approved_roots, "catalog package coverage");
+      const { activeCounts } = goSymbols(root, directory, scope);
+      for (const [symbol, count] of activeCounts) {
+        // TestMain owns package setup, not a selectable testing.T assertion.
+        if (symbol === "TestMain") continue;
+        if (count !== 1 || !selected.has(`go:${packageName}:${symbol}`)) {
+          throw new Error(`catalog package ${packageName}: ${symbol} is not cataloged exactly once`);
+        }
+      }
+    }
+  };
+  return resolve;
 }
 
 export function resolveRowSelector({ root, ...options }) {
@@ -625,4 +647,19 @@ export function assertSortedUnique(values, label) {
   if (new Set(values).size !== values.length) {
     throw new Error(`${label} must not contain duplicates`);
   }
+}
+
+// Resolve catalog selectors once per invocation to full names, using the same
+// source facts as catalog overlap validation. No suffix-based runtime selection.
+export function resolveVitestTitles(root, rows) {
+  const runner = JSON.parse(readFileSync(path.join(root, "tools/test_runner_registry.json"), "utf8")).runners.find((entry) => entry.runner === "vitest");
+  const scope = { sources: new Map(), titles: new Map() };
+  return new Map(rows.map((row) => {
+    const { source } = containedFile(root, row.selector.file, runner.approved_roots, row.row_id, scope);
+    const facts = testTitles(root, row.selector.file, source, scope);
+    return [row.row_id, row.selector.titles.map((title) => {
+      if (facts.get(title) !== 1) throw new Error(`${row.row_id}: selected Vitest title must resolve exactly once`);
+      return [...facts.fullTitles.get(title)][0];
+    })];
+  }));
 }

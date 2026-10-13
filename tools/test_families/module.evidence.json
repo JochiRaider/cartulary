@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.evidence",
   "rows": [
     {
@@ -1194,7 +1194,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.evidence.test.tsx",
         "titles": [
           "reflects attached evidence counts on the workbook surface without forcing navigation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1220,7 +1221,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
           "issues opaque evidence preview and download handles from the evidence surface"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1249,7 +1251,8 @@
         "titles": [
           "creates a blob-backed Evidence row atomically and reuses the row transaction ID after response uncertainty",
           "fails Evidence materialization closed before any Timeline mutation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1276,7 +1279,8 @@
         "file": "apps/web/src/services/workbookEvidence.test.ts",
         "titles": [
           "attaches an empty file without changing Evidence custody"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1307,7 +1311,8 @@
           "Evidence attachment chooser cancels without admission and refuses completion without an invocation",
           "Evidence attachment chooser captures the invoking callback across source replacement for both presentations",
           "Evidence attachment chooser keeps a draft invocation when the trailing draft is replaced"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1335,7 +1340,8 @@
         "titles": [
           "creates and uploads a private Evidence object blob without exposing its target",
           "fails closed before upload for malformed or cross-incident blob-slot responses"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1377,7 +1383,8 @@
           "retained Evidence file recovery retains timed-out finalization through replay denial and accepts its late receipt",
           "retained Evidence file recovery retires an unused capability after issuing-session replacement",
           "retained Evidence file recovery starts no upload for an unavailable original Timeline source"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1406,7 +1413,8 @@
         "titles": [
           "shares screenshot creation with later ordinary input and retains its promotion after detachment",
           "waits for the original ordinary create instead of admitting a second screenshot create"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1433,7 +1441,8 @@
         "titles": [
           "fails closed before upload when the current CSRF cookie is absent",
           "uses one authenticated CSRF-bound upload attempt without reading response bodies"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1462,7 +1471,8 @@
           "evidence lifecycle view models fails inconsistent and unknown owner states closed without inventing lifecycle values",
           "evidence lifecycle view models keeps owner-valid lifecycle and upload combinations separate",
           "evidence lifecycle view models uses projected record counts independently of access and pending upload slots"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

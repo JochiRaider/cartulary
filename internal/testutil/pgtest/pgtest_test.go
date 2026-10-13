@@ -23,6 +23,7 @@ import (
 )
 
 func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
 	resetSharedHarness(t)
 
 	t.Setenv(suiteservices.PGAdminDSNEnv, "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable")
@@ -73,6 +74,7 @@ func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
 }
 
 func TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent(t *testing.T) {
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
 	resetSharedHarness(t)
 	t.Setenv(suiteservices.PGAdminDSNEnv, "")
 	t.Setenv(suiteservices.PGDSNTemplateEnv, "")
@@ -511,6 +513,7 @@ func TestValidateSelectedPostgresFixturePolicy(t *testing.T) {
 }
 
 func TestPrepareIsolatedDatabaseTUsesFreshTemplateClones(t *testing.T) {
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
 	t.Setenv(suiteservices.SuiteIDEnv, "")
 	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyTemplateClone)
 
@@ -998,12 +1001,6 @@ SELECT EXISTS (
 }
 
 func TestBeginRollbackDBTIsolatesRowsPerTransaction(t *testing.T) {
-	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyTransaction)
-	t.Setenv(suiteservices.SuiteIDEnv, "rollback-db")
-	t.Setenv(suiteservices.TargetEnv, "backend-store")
-	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
-	t.Setenv("CARTULARY_TEST_RUN_ID", "rollback-db")
-
 	harness := Start(t)
 
 	t.Run("insert rows inside rollback fixture", func(t *testing.T) {
@@ -1032,7 +1029,10 @@ func TestBeginRollbackDBTIsolatesRowsPerTransaction(t *testing.T) {
 		t.Fatal("expected suite service summary")
 	}
 	transactionCount := 0
-	for _, activity := range scope.Fixture.ByStrategy {
+	for _, activity := range scope.Fixture.ByTest {
+		if !strings.HasPrefix(activity.TestName, t.Name()+"/") {
+			continue
+		}
 		if activity.Operation == "database-reset" {
 			t.Fatalf("rollback fixture must not emit database-reset activity: %#v", activity)
 		}
@@ -1041,7 +1041,7 @@ func TestBeginRollbackDBTIsolatesRowsPerTransaction(t *testing.T) {
 		}
 	}
 	if transactionCount != 2 {
-		t.Fatalf("expected two rollback transaction events, got %d in %#v", transactionCount, scope.Fixture.ByStrategy)
+		t.Fatalf("expected two attributed rollback transaction events, got %d", transactionCount)
 	}
 }
 

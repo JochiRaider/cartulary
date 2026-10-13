@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
@@ -206,6 +207,42 @@ func (d *productionDriver) Interrupt() {
 		a.interrupt()
 	}
 }
+
+// Cleanup uses the same closed structural context as preparation. Never copy
+// error text, process identities, private paths or provider output into receipts.
+func cleanupFailure(operation string, err error) *ReviewError {
+	subject := "preparation_child"
+	switch operation {
+	case "managed_suite", "borrowed_suite", "services_close":
+		subject = "test_services"
+	case "browser_stack":
+		subject = "browser_stack"
+	case "browser_process", "diagnostic_scope", "browser_renderer":
+		subject = "browser"
+	case "host_release":
+		subject = "host_lock"
+	}
+	condition := "unknown"
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		condition = "timeout"
+	case errors.Is(err, context.Canceled):
+		condition = "cancelled"
+	case errors.Is(err, harnesslocal.ErrUnsafe):
+		condition = "invalid_artifact"
+	case errors.Is(err, harnesssession.ErrUnresolved), errors.Is(err, harnessfixtures.ErrCleanupBlocked), errors.Is(err, harnessadmission.ErrConflict):
+		condition = "resource_conflict"
+	default:
+		var review *ReviewError
+		if errors.As(err, &review) {
+			condition = "child_failed"
+		}
+	}
+	failure := contextual("cleanup_failed", "cleanup", subject, condition, "exact_stop")
+	failure.Cause = err
+	return failure
+}
+
 func (d *productionDriver) Close(ctx context.Context) []error {
 	failures := []error{}
 	attempt := func(operation string, fn func(context.Context) error, maximum time.Duration) {
@@ -214,7 +251,7 @@ func (d *productionDriver) Close(ctx context.Context) []error {
 		done()
 		d.cleanup = append(d.cleanup, cleanupStep{operation, err})
 		if err != nil {
-			failures = append(failures, failure("cleanup_failed"))
+			failures = append(failures, cleanupFailure(operation, err))
 		}
 	}
 	if a := d.worker(); a != nil {
@@ -236,7 +273,11 @@ func (d *productionDriver) Close(ctx context.Context) []error {
 			operation = "services_close"
 		}
 		d.cleanup = append(d.cleanup, cleanupStep{operation, outcome.Err})
+		if outcome.Err != nil {
+			failures = append(failures, cleanupFailure(outcome.Kind, outcome.Err))
+		}
 	}
+	beforeResources := len(failures)
 	var err error
 	if d.fixtures != nil {
 		d.fixtures.Options.ReportCleanup = owner.ReportCleanup
@@ -244,8 +285,8 @@ func (d *productionDriver) Close(ctx context.Context) []error {
 	} else {
 		err = owner.Recover(context.WithoutCancel(ctx))
 	}
-	if err != nil {
-		failures = append(failures, failure("cleanup_failed"))
+	if err != nil && len(failures) == beforeResources {
+		failures = append(failures, cleanupFailure("browser_stack", err))
 	}
 
 	if d.admission != nil {

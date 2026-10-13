@@ -498,7 +498,9 @@ test("Boolean support filters stage typed queries and retain selected identities
   ).toContainText("Supporting records (2/64)");
   await button(page, "Choose support").click();
   await activateCandidateIdentities(candidates, []);
-  await candidates.press("Escape");
+  // An empty candidate fieldset cannot receive focus. Exercise Escape from a
+  // keyboard control inside this picker, preserving the outer drawer.
+  await button(support, "Cancel support selection").press("Escape");
   await expect(button(page, "Choose support")).toBeFocused();
   await expect(
     page.getByRole("region", {

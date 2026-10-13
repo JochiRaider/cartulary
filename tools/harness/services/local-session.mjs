@@ -525,7 +525,7 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
       const serviceLease = JSON.parse(readFileSync(leaseFile, "utf8"));
       const startResult = JSON.parse(readFileSync(resultFile, "utf8"));
       validateSchemaSync(serviceLease.schema_id, serviceLease);
-      validateSchemaSync(startResult.schema_id, startResult);
+      validateSchemaSync("cartulary.test_services.start_result.v2", startResult);
       if (
         startResult.status !== "ready" ||
         startResult.run_id !== "session-up" ||
@@ -583,7 +583,8 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
       };
       validateSchemaSync(descriptor.schema_id, descriptor);
       suiteRuntime.registerEnvironment(selectedEnvironment);
-      suiteRuntime.record({ kind: "managed_suite", target: leaseFile });
+      for (const file of startResult.recovery_files) assertPrivateFile(file, "local service cleanup credential");
+      suiteRuntime.record({ kind: "managed_suite", target: leaseFile, recovery_files: startResult.recovery_files });
       writePrivateJSON(sessionFile, descriptor);
       rmSync(envFile, { force: true });
       return statusValue(

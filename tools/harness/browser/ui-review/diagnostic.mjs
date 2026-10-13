@@ -177,7 +177,7 @@ export async function diagnosticSnapshot({ owner, runtime, dependencies, operati
     const detail = { operation_id: operationID, stage, diagnostic_code: failure.diagnostic,
       cause_name: ["Error", "TimeoutError", "AbortError", "SyntaxError"].includes(cause.name) ? cause.name : "Other",
       cause_code: ["EAGAIN", "ENOENT", "ESRCH", "EACCES", "EPIPE", "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT"].includes(cause.code) ? cause.code : null,
-      message: String(cause.message ?? "").slice(0, 2048), last_command: lastCommand };
+      message: String(cause.message ?? "").slice(0, 2048), native_rejection: cause.privateDiagnostic ?? null, last_command: lastCommand };
     let bytes = JSON.stringify(detail);
     if (Buffer.byteLength(bytes) > limits.request) bytes = JSON.stringify({ ...detail, message: "", last_command: null });
     try { atomicLocalFile(runtime.privatePath("artifacts", "diagnostic-failure.json"), bytes, { replace: true }); }

@@ -204,6 +204,22 @@ func TestCollectorStorageFailures(t *testing.T) {
 	}
 }
 func TestCollectorQuietAndCancellation(t *testing.T) {
+	t.Run("resource waiter does not starve observation", func(t *testing.T) {
+		c, _ := fixtureCollector(t)
+		request := harnessadmission.Request{Root: c.admissionRoot, Operation: "admit", Token: strings.Repeat("a", 32), Owner: c.owner, Mode: "shared", Claims: harnessadmission.Quantities{"browser_stack": 0, "cpu": 2, "io": 0, "memory_mb": 0, "process": 0}, Capacities: c.capacities}
+		if granted, err := harnessadmission.Transact(context.Background(), request); err != nil || !granted {
+			t.Fatal("capacity holder", granted, err)
+		}
+		request.Token = strings.Repeat("b", 32)
+		if granted, err := harnessadmission.Transact(context.Background(), request); err != nil || granted {
+			t.Fatal("resource waiter", granted, err)
+		}
+		observed := false
+		quiet, err := c.fenced(context.Background(), func(context.Context) error { observed = true; return nil })
+		if err != nil || quiet || !observed {
+			t.Fatalf("zero-reservation observation starved: quiet=%v observed=%v err=%v", quiet, observed, err)
+		}
+	})
 	for _, control := range []object{{"type": "restart"}, {"type": "stop", "request": "stop"}, {"type": "resume", "extra": true}, {"type": "pause", "request": float64(1), "omitted_registrations": nil}} {
 		if validControl(control) {
 			t.Fatal("accepted open control protocol")

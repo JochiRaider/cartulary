@@ -10,11 +10,13 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 )
 
 type graphPublication struct {
+	mu        sync.Mutex
 	plan      *Plan
 	root      string
 	facts     *canonicalFacts
@@ -43,6 +45,8 @@ func newGraphPublication(plan *Plan, runRoot string) (*graphPublication, error) 
 	return &graphPublication{plan: plan, root: runRoot, facts: newCanonicalFacts(plan), events: stream}, nil
 }
 func (p *graphPublication) Event(record map[string]any) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.closed {
 		return harnesslocal.ErrUnsafe
 	}
@@ -54,6 +58,23 @@ func (p *graphPublication) Event(record map[string]any) error {
 		return err
 	}
 	return p.events.Write(append(bytes, '\n'))
+}
+func (p *graphPublication) Prefix() (string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.closed {
+		return "", harnesslocal.ErrUnsafe
+	}
+	prefix, err := p.events.Prefix()
+	if err != nil {
+		return "", err
+	}
+	data, err := documentBytes("cartulary.harness_unit_event_prefix.v1", map[string]any{
+		"schema_id": "cartulary.harness_unit_event_prefix.v1", "run_id": p.plan.facts.Manifest["run_id"],
+		"file": prefix.File, "device": prefix.Device, "inode": prefix.Inode,
+		"byte_length": prefix.ByteLength, "last_seq": p.facts.seq,
+	})
+	return string(data), err
 }
 func writeEvidence(root, relative, schema string, value any, replace bool) error {
 	if !safeRelative(relative) {
@@ -163,9 +184,9 @@ func (p *graphPublication) Terminal(u unit, r *unitResult) error {
 func (p *graphPublication) writeUnit(u unit, r unitResult, executed bool) error {
 	evidence := slices.Clone(u.Evidence)
 	evidence = append(evidence, serviceReferences(r)...)
-	if strings.HasPrefix(u.ID, "row:") {
+	if ids := rowIDs(u); len(ids) > 0 {
 		for _, name := range []string{"runner.json", "vitest-failure-details.json"} {
-			relative := "unit-logs/" + strings.ReplaceAll(u.ID, ":", "-") + "/" + name
+			relative := "unit-logs/row-" + ids[0] + "/" + name
 			if info, err := os.Lstat(filepath.Join(p.root, relative)); err == nil && info.Mode().IsRegular() {
 				evidence = append(evidence, relative)
 			}
@@ -209,6 +230,8 @@ func statusForSelection(selected []string, states map[string]string) string {
 	return status
 }
 func (p *graphPublication) Finish(result graphResult) (map[string]any, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.closed {
 		return nil, harnesslocal.ErrUnsafe
 	}
@@ -385,6 +408,8 @@ func (p *graphPublication) Finish(result graphResult) (map[string]any, error) {
 	return summary, nil
 }
 func (p *graphPublication) Abort() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.closed {
 		return nil
 	}

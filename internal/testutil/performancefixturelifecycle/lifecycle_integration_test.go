@@ -30,11 +30,11 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 		t.Fatal("service-backed performance fixture integration requires the suite migrated template")
 	}
 	env[suiteservices.CallModeEnv] = "owned"
-	env[suiteservices.SuiteIDEnv] = "ac043-snapshot-integration"
-	if env[suiteservices.SuiteRuntimeRootEnv] == "" {
-		env[suiteservices.SuiteRuntimeRootEnv] = t.TempDir()
-		env[suiteservices.SuiteRuntimeLeaseIDEnv] = "00000000-0000-4000-8000-000000000001"
-		env[suiteservices.SuiteRuntimeRunIDEnv] = "performance-fixture-integration"
+	// Keep the admitted run and runtime capability together. Fixture names get
+	// their own suite namespace; this test borrows the physical service owners.
+	env[suiteservices.SuiteIDEnv] += "-snapshot-integration"
+	if _, ok, err := suiteservices.ResolveSuiteRuntimeDir(env); err != nil || !ok {
+		t.Fatalf("service-backed integration requires an admitted runtime: ok=%v err=%v", ok, err)
 	}
 	env[suiteservices.PGAdminDSNEnv] = postgresHarness.AdminDSN()
 	env[suiteservices.PGTemplateDBEnv] = templateDB
@@ -43,8 +43,6 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	env[suiteservices.S3SecretKeyEnv] = objectStoreHarness.SecretKey
 	env[suiteservices.S3SecureEnv] = "true"
 	env["SSL_CERT_FILE"] = objectStoreHarness.RootCertificatePath()
-	env["CARTULARY_TEST_RESULTS_DIR"] = t.TempDir()
-	env["CARTULARY_TEST_RUN_ID"] = "performance-fixture-integration"
 	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
 	profile := lifecycleTestProfile(t)
 	args := BuildArgs{
@@ -55,6 +53,11 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 		BuilderUnitID:        "fixture_snapshot:default:" + profile.FixtureProfileID + ":" + performanceFixtureTestKey,
 		ArtifactFile:         filepath.Join(t.TempDir(), "snapshot-build.json"),
 	}
+	t.Cleanup(func() {
+		if err := CleanupSuite(context.Background(), env); err != nil {
+			t.Errorf("cleanup performance fixture suite: %v", err)
+		}
+	})
 	ctx := context.Background()
 	build, err := Build(ctx, env, profile, args, appfixture.NewProduction)
 	if err != nil {
@@ -63,11 +66,6 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	if build.State != "sealed" || len(build.ContributionReceipts) != 6 || !build.Validation.ConnectionsClosed || len(build.Validation.Counts) == 0 || len(build.Validation.Conditions) == 0 {
 		t.Fatalf("builder did not produce one closed sealed contribution set: %#v", build)
 	}
-	t.Cleanup(func() {
-		if err := CleanupSuite(context.Background(), env); err != nil {
-			t.Errorf("cleanup performance fixture suite: %v", err)
-		}
-	})
 
 	rows := []struct{ row, predicate string }{
 		{"module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6", "perf.typing_ack.v1"},
@@ -85,7 +83,6 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 		cloneEnv["CARTULARY_FIXTURE_PREDICATE_ID"] = binding.predicate
 		cloneEnv["CARTULARY_FIXTURE_CLONE_LEASE_ID"] = "lease-" + binding.predicate
 		cloneEnv["CARTULARY_FIXTURE_CLONE_ORDINAL"] = strconv.Itoa(index + 1)
-		cloneEnv["CARTULARY_WEB_E2E_RUNTIME_ROOT"] = filepath.Join(t.TempDir(), "predicate-runtime")
 		prepared, err := prepareWithProfile(ctx, cloneEnv, profile)
 		if err != nil {
 			t.Fatal(err)

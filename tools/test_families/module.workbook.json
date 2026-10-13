@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.workbook",
   "rows": [
     {
@@ -7337,7 +7337,8 @@
           "requires a valid semantic anchor for paste planning",
           "targets sorted paste rows by stable visible record identities",
           "treats single-line comma clipboard text as scalar paste input"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7363,7 +7364,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.sentinel.test.tsx",
         "titles": [
           "registers grouped paste conflicts without losing selection continuity"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7389,7 +7391,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
           "builds required creates with direct values, timestamps, and explicit clears"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7415,7 +7418,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
         "titles": [
           "builds direct clears and typed collection actions"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7444,7 +7448,8 @@
           "focuses stable record_id and field_key anchors through the consumer handle",
           "rejects invalid row, field, surface, and recordless targets",
           "resolves Arrow, Tab, Enter, and Shift+Enter navigation through adapter anchors"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7473,7 +7478,8 @@
           "does not consume an unavailable command",
           "owns Find only for enabled grid navigation and Find controls",
           "returns explicit commands and consumption decisions"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7499,7 +7505,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.timelineQuery.test.tsx",
         "titles": [
           "Verify Timeline query response rows render full view_row_v1 cells and preserve row identity through create, patch, validation error, and refresh."
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7525,7 +7532,8 @@
         "file": "apps/web/src/workbook/utils/workbookRowReconciliation.test.ts",
         "titles": [
           "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7552,7 +7560,8 @@
         "titles": [
           "workbook status secondary selection rejects every inactive-surface candidate",
           "workbook status secondary selection uses the generated exhaustive priority independent of input order"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7581,7 +7590,8 @@
           "keeps collection identity and count separate from unavailable observation",
           "lists a saved linked record with explicit file actions",
           "uses row-specific file inputs for committed row evidence"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7614,7 +7624,8 @@
           "retargets synchronously by stable schema, record, and row-version identity",
           "selects immutable schema configuration, starts closed, and exposes the declared no-row state",
           "separates review replacement from attachment departure and never revives old attachments"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7641,7 +7652,8 @@
         "titles": [
           "closes the Timeline inspector when the active sheet identity changes",
           "renders the configured no-row state when no saved row is selected"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7667,7 +7679,8 @@
         "file": "apps/web/src/workbook/layout/workbookDensity.test.ts",
         "titles": [
           "keeps Core null defaults while letting explicit account density override every workbook surface"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7695,7 +7708,8 @@
           "groups System views by stable group tokens and registry-backed IDs",
           "keeps optional standardized surfaces additive after required surfaces",
           "registers built-in and system workbook surfaces by stable IDs"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7721,7 +7735,8 @@
         "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.test.ts",
         "titles": [
           "Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata."
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7747,7 +7762,8 @@
         "file": "packages/view-contracts/src/contracts.test.ts",
         "titles": [
           "uses generated Inspector panels and feature groups validated before browser initialization"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7774,7 +7790,8 @@
         "titles": [
           "creates a related Task Request from the Timeline inspector using emitted seed bindings",
           "creates related Evidence from the Timeline inspector and links it back through the Timeline patch route"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7800,7 +7817,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
         "titles": [
           "Verify inspector selection, tab state, details, relationships, evidence, and history anchors are record_id based and survive row refresh."
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7828,7 +7846,8 @@
           "derives exactly one primary save-state label for every Table C input condition",
           "keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
           "preserves same-field conflict anchors by record_id, field_key, and base_row_version"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7854,7 +7873,8 @@
         "file": "apps/web/src/workbook/WorkbookShell.saveState.test.tsx",
         "titles": [
           "renders derived secondary save-state detail inside the workbook status strip"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7887,7 +7907,8 @@
           "resolves workbook startup fallback order by stable sheet_ref identity",
           "skips or clears invalid startup pointers without failing workbook open",
           "treats deleted saved-view pointers as unavailable saved views"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7915,7 +7936,8 @@
           "fails locally when Web Crypto is unavailable",
           "retains the prefix and uses the platform UUID generator",
           "uses RFC 4122 v4 formatting with secure random bytes as fallback"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7945,7 +7967,8 @@
           "requires a second Mark reviewed click after a queued material edit commits",
           "sends Timeline actions with the current row version after earlier workbook mutations",
           "waits for a pending material autosave before supersede dispatch"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7988,7 +8011,8 @@
           "retires pending replay irreversibly across late outcomes",
           "retires verified unchanged work only at an authorized never-dispatched FIFO head",
           "transfers late closure conflicts without stranding removed replay units"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8018,7 +8042,8 @@
           "drives WorkbookShell retry and success settlement from the shared pending queue model",
           "drives WorkbookShell terminal halt presentation from the shared pending queue model",
           "recovers a Timeline client transaction conflict with a fresh opaque request ID"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8044,7 +8069,8 @@
         "file": "apps/web/src/services/clientTransactionIdPolicy.test.ts",
         "titles": [
           "keeps browser mutation IDs independent of counters, clocks, and insecure randomness"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8073,7 +8099,8 @@
           "constructs exact create, linked-note, collection, and patch requests",
           "fails closed on malformed and future create or collection members",
           "rejects empty, ambiguous, and malformed patch changes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

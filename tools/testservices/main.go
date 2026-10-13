@@ -93,16 +93,17 @@ var (
 )
 
 type postgresService struct {
-	adminDSN    string
-	dsnTemplate string
-	host        string
-	port        string
-	user        string
-	close       func(context.Context) error
-	containerID string
-	name        string
-	image       string
-	labels      map[string]string
+	cleanupFiles []string
+	adminDSN     string
+	dsnTemplate  string
+	host         string
+	port         string
+	user         string
+	close        func(context.Context) error
+	containerID  string
+	name         string
+	image        string
+	labels       map[string]string
 }
 
 type objectStoreService struct {
@@ -137,14 +138,15 @@ type objectStoreStartResult struct {
 }
 
 type startSuiteResult struct {
-	SchemaID        string  `json:"schema_id"`
-	Status          string  `json:"status"`
-	RunID           string  `json:"run_id"`
-	Target          string  `json:"target"`
-	SuiteID         string  `json:"suite_id"`
-	ServiceScopeRef string  `json:"service_scope_ref"`
-	FailureClass    *string `json:"failure_class"`
-	FailureReason   *string `json:"failure_reason"`
+	RecoveryFiles   []string `json:"recovery_files"`
+	SchemaID        string   `json:"schema_id"`
+	Status          string   `json:"status"`
+	RunID           string   `json:"run_id"`
+	Target          string   `json:"target"`
+	SuiteID         string   `json:"suite_id"`
+	ServiceScopeRef string   `json:"service_scope_ref"`
+	FailureClass    *string  `json:"failure_class"`
+	FailureReason   *string  `json:"failure_reason"`
 }
 
 type serviceCleanupResult struct {
@@ -544,6 +546,22 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	return childExitCode
 }
 
+// Canonical graph callers supply the complete selected union. Standalone suite
+// commands request the full service scope; they have no row selection.
+func selectedSuiteServices(env map[string]string) ([]string, error) {
+	value, selected := env[suiteservices.HarnessServiceDependenciesEnv]
+	if !selected {
+		return []string{suiteservices.ServiceObjectStore, suiteservices.ServicePostgres}, nil
+	}
+	if err := suiteservices.CheckServiceDependencies(env); err != nil {
+		return nil, err
+	}
+	if value == "" {
+		return []string{}, nil
+	}
+	return strings.Split(value, ","), nil
+}
+
 func runStartSuite(args []string, env map[string]string, deps dependencies) (exitCode int) {
 	wrapperStart := time.Now().UTC()
 	envFile, leaseFile, resultFile, usageErr := parseStartSuiteArgs(args)
@@ -553,6 +571,12 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	}
 	if suiteservices.SuiteAuthorized(env) {
 		fmt.Fprintln(os.Stderr, "start-suite requires ownership of a new suite; nested active suites are not supported")
+		return 2
+	}
+
+	services, err := selectedSuiteServices(env)
+	if err != nil || len(services) == 0 {
+		fmt.Fprintln(os.Stderr, "start-suite requires a valid nonempty service selection")
 		return 2
 	}
 
@@ -567,11 +591,12 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
 	ownedEnv[suiteservices.CallModeEnv] = "owned"
 	ready := false
+	recoveryFiles := []string{}
 	defer func() {
 		if !ready && exitCode == 1 {
 			exitCode = startSuiteFailureExitCode(ownedEnv)
 		}
-		if err := writeStartSuiteResult(resultFile, ownedEnv, ready); err != nil {
+		if err := writeStartSuiteResult(resultFile, ownedEnv, ready, recoveryFiles); err != nil {
 			fmt.Fprintf(os.Stderr, "write test-services start result: %v\n", err)
 			exitCode = 1
 		}
@@ -604,96 +629,102 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 
 	var postgresSvc postgresService
 	var objectStoreSvc objectStoreService
+	var schemaHash, templateDB, generatedLeasePath string
 	startupCtx, cancelStartup := context.WithCancel(context.Background())
 	defer cancelStartup()
-	postgresResultCh := startPostgresAsync(startupCtx, deps, ownedEnv)
-	objectStoreResultCh := startObjectStoreAsync(startupCtx, deps, ownedEnv)
+	var objectStoreResultCh <-chan objectStoreStartResult
+	if slices.Contains(services, suiteservices.ServiceObjectStore) {
+		objectStoreResultCh = startObjectStoreAsync(startupCtx, deps, ownedEnv)
+	}
+	settleObjectStore := func() error {
+		if objectStoreResultCh == nil {
+			return nil
+		}
+		result := <-objectStoreResultCh
+		objectStoreResultCh = nil
+		objectStoreSvc = result.service
+		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", result.start, result.end, result.err)
+		if result.err == nil {
+			deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventServiceStarted, Service: suiteservices.ServiceObjectStore, Details: map[string]any{"secure": objectStoreSvc.secure}})
+			deps.refreshSummary(ownedEnv)
+		}
+		return result.err
+	}
+	defer func() {
+		if !ready {
+			cancelStartup()
+			_ = settleObjectStore()
+			cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
+		}
+	}()
+	if slices.Contains(services, suiteservices.ServicePostgres) {
+		postgresResultCh := startPostgresAsync(startupCtx, deps, ownedEnv)
+		postgresResult := <-postgresResultCh
+		postgresSvc = postgresResult.service
+		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start postgres", postgresResult.start, postgresResult.end, postgresResult.err)
+		if postgresResult.err != nil {
+			cancelStartup()
+			recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
+			return 1
+		}
 
-	postgresResult := <-postgresResultCh
-	postgresSvc = postgresResult.service
-	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start postgres", postgresResult.start, postgresResult.end, postgresResult.err)
-	if postgresResult.err != nil {
-		cancelStartup()
-		objectStoreResult := <-objectStoreResultCh
-		objectStoreSvc = objectStoreResult.service
-		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
-		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
+		schemaHash, err = pgschema.Hash()
+		if err != nil {
+			recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "hash postgres schema", err))
+			return 1
+		}
+		ownedEnv[suiteservices.PGSchemaHashEnv] = schemaHash
+		templateDB = templateDatabaseName(suiteID, schemaHash)
+		deps.recordEvent(ownedEnv, suiteservices.Event{
+			Type:    suiteservices.EventServiceStarted,
+			Service: suiteservices.ServicePostgres,
+			Details: map[string]any{
+				"user":              postgresSvc.user,
+				"template_database": templateDB,
+			},
+		})
+		deps.refreshSummary(ownedEnv)
+
+		templateCtx, cancelTemplate := context.WithTimeout(context.Background(), templateStartupTimeout)
+		templateStart := time.Now().UTC()
+		err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
+		recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
+		cancelTemplate()
+		if err != nil {
+			cancelStartup()
+			recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
+			return 1
+		}
+		deps.recordEvent(ownedEnv, suiteservices.Event{
+			Type:    suiteservices.EventPostgresDBCreated,
+			Name:    templateDB,
+			Kind:    "template",
+			Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
+		})
+		deps.recordEvent(ownedEnv, suiteservices.Event{
+			Type:    suiteservices.EventPostgresDBMigrated,
+			Name:    templateDB,
+			Kind:    "template",
+			Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
+		})
+		deps.refreshSummary(ownedEnv)
+	}
+	if err := settleObjectStore(); err != nil {
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceObjectStore, stageObjectStoreStart, "start suite object-store", err))
 		return 1
 	}
-
-	schemaHash, err := pgschema.Hash()
-	if err != nil {
-		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "hash postgres schema", err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
-		return 1
+	recoveryFiles = append(recoveryFiles, postgresSvc.cleanupFiles...)
+	if objectStoreSvc.rootCertificatePath != "" {
+		recoveryFiles = append(recoveryFiles, objectStoreSvc.rootCertificatePath)
 	}
-	ownedEnv[suiteservices.PGSchemaHashEnv] = schemaHash
-	templateDB := templateDatabaseName(suiteID, schemaHash)
-	deps.recordEvent(ownedEnv, suiteservices.Event{
-		Type:    suiteservices.EventServiceStarted,
-		Service: suiteservices.ServicePostgres,
-		Details: map[string]any{
-			"user":              postgresSvc.user,
-			"template_database": templateDB,
-		},
-	})
-	deps.refreshSummary(ownedEnv)
 
-	templateCtx, cancelTemplate := context.WithTimeout(context.Background(), templateStartupTimeout)
-	templateStart := time.Now().UTC()
-	err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
-	recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
-	cancelTemplate()
-	if err != nil {
-		cancelStartup()
-		objectStoreResult := <-objectStoreResultCh
-		objectStoreSvc = objectStoreResult.service
-		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
-		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
-		return 1
-	}
-	deps.recordEvent(ownedEnv, suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBCreated,
-		Name:    templateDB,
-		Kind:    "template",
-		Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
-	})
-	deps.recordEvent(ownedEnv, suiteservices.Event{
-		Type:    suiteservices.EventPostgresDBMigrated,
-		Name:    templateDB,
-		Kind:    "template",
-		Details: postgresPreparationDetails(ownedEnv, suiteservices.PostgresPreparationTemplate, ""),
-	})
-	deps.refreshSummary(ownedEnv)
-
-	objectStoreResult := <-objectStoreResultCh
-	objectStoreSvc = objectStoreResult.service
-	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
-	if objectStoreResult.err != nil {
-		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceObjectStore, stageObjectStoreStart, "start suite object-store", objectStoreResult.err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
-		return 1
-	}
-	deps.recordEvent(ownedEnv, suiteservices.Event{
-		Type:    suiteservices.EventServiceStarted,
-		Service: suiteservices.ServiceObjectStore,
-		Details: map[string]any{
-			"secure": objectStoreSvc.secure,
-		},
-	})
-	deps.refreshSummary(ownedEnv)
-
-	generatedLeasePath, err := writeServiceLease(ownedEnv, postgresSvc, objectStoreSvc)
+	generatedLeasePath, err = writeServiceLease(ownedEnv, postgresSvc, objectStoreSvc)
 	if err != nil {
 		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
 	if err := copyFile(generatedLeasePath, leaseFile, 0o600); err != nil {
 		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "copy suite service lease", err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
 
@@ -704,12 +735,10 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	cancelJanitor()
 	if err != nil {
 		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
 	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventReadinessPassed, ""); err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "record service readiness lifecycle", err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
 
@@ -733,7 +762,6 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	}
 	if err := writeEnvJSON(envFile, childEnv); err != nil {
 		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "write suite child environment", err))
-		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
 	deps.refreshSummary(ownedEnv)
@@ -1162,12 +1190,13 @@ func parseStartSuiteArgs(args []string) (string, string, string, error) {
 	return envFile, leaseFile, resultFile, nil
 }
 
-func writeStartSuiteResult(path string, env map[string]string, ready bool) error {
+func writeStartSuiteResult(path string, env map[string]string, ready bool, recoveryFiles []string) error {
 	suiteID := suiteservices.SuiteID(env)
 	runID := suiteservices.ResolveRunID(env)
 	target := firstNonEmptyString(strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.TargetEnv)), "test-services")
 	result := startSuiteResult{
-		SchemaID:        "cartulary.test_services.start_result.v1",
+		SchemaID:        "cartulary.test_services.start_result.v2",
+		RecoveryFiles:   []string{},
 		Status:          "failed",
 		RunID:           runID,
 		Target:          target,
@@ -1176,6 +1205,7 @@ func writeStartSuiteResult(path string, env map[string]string, ready bool) error
 	}
 	if ready {
 		result.Status = "ready"
+		result.RecoveryFiles = append(result.RecoveryFiles, recoveryFiles...)
 	} else {
 		failureClass := suiteservices.FailureClassHelper
 		failureReason := "fixture_error"
@@ -1466,6 +1496,13 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 		},
 		CleanupState: "not_started",
 	}
+	services, err := selectedSuiteServices(env)
+	if err != nil {
+		return "", err
+	}
+	lease.Resources = slices.DeleteFunc(lease.Resources, func(resource leaseproof.LeaseResource) bool {
+		return !slices.Contains(services, resource.Service)
+	})
 	if objectStoreSvc.probeBucket != "" {
 		lease.ProofPrefixes["object_store_probe_bucket"] = objectStoreSvc.probeBucket
 	}
@@ -1630,16 +1667,17 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 		return postgresService{}, err
 	}
 	return postgresService{
-		adminDSN:    harness.AdminDSN(),
-		dsnTemplate: harness.DSNTemplate(),
-		host:        harness.Host,
-		port:        harness.Port,
-		user:        harness.User,
-		close:       harness.Close,
-		containerID: harness.ContainerID(),
-		name:        containerName(ctx, harness.Container),
-		image:       pgtest.ContainerImage(),
-		labels:      labels,
+		cleanupFiles: harness.CleanupFiles(),
+		adminDSN:     harness.AdminDSN(),
+		dsnTemplate:  harness.DSNTemplate(),
+		host:         harness.Host,
+		port:         harness.Port,
+		user:         harness.User,
+		close:        harness.Close,
+		containerID:  harness.ContainerID(),
+		name:         containerName(ctx, harness.Container),
+		image:        pgtest.ContainerImage(),
+		labels:       labels,
 	}, nil
 }
 

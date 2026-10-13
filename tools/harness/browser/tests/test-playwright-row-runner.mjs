@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import process from "node:process";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { validateSchemaSync } from "../../contract/index.mjs";
 
@@ -333,4 +337,53 @@ test("browser fixture retirement rejects an unanchored surviving group", async (
     if (descendantPID) process.kill(descendantPID, "SIGKILL");
     await fixture.stop().catch(() => {});
   }
+});
+
+
+test("browser target finalization preserves typed row failures and cleanup precedence", () => {
+  const scratch = mkdtempSync(path.join(os.tmpdir(), "browser-target-classification-"));
+  const root = path.resolve(import.meta.dirname, "../../../..");
+  const target = "browser-e2e-webserver-backed";
+  const cleanup = { failure_class: "harness", failure_reason: "cleanup_error", exit_code: 12 };
+  const product = { failure_class: "product", failure_reason: "test_assertion_failure", exit_code: 10 };
+  try {
+    for (const [id, failures, expected] of [
+      ["cleanup", [cleanup], 12],
+      ["product_and_cleanup", [product, cleanup], 10],
+      ["artifact", [{ failure_class: "artifact", failure_reason: "artifact_error", exit_code: 11 }], 11],
+      ["infra", [{ failure_class: "infra", failure_reason: "service_start_error", exit_code: 3 }], 3],
+      ["group_cleanup", [null], 12],
+    ]) {
+      const groups = failures.map((failure, index) => {
+        const groupID = `group-${index}`;
+        const rowID = `harness.browser.boundary_support.probe_${index}`;
+        const directory = path.join(scratch, id, target, "browser-groups", groupID);
+        mkdirSync(directory, { recursive: true, mode: 0o700 });
+        const group = {
+          schema_id: "cartulary.browser_group_result.v7", target_id: target,
+          stage_id: "webserver-backed", group_id: groupID, browser_session_id: `session-${index}`,
+          runtime_profile_id: "default", service_requirement: "test-services",
+          fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
+          resource_profile_ids: ["browser_isolated"], selected_rows: [rowID],
+          started_at: "2026-10-13T00:00:00Z", finished_at: "2026-10-13T00:00:01Z",
+          duration_ms: 1000, status: "fail", exit_code: failure?.exit_code ?? 12,
+          row_results: [{ row_id: rowID, terminal_state: failure ? "failed" : "passed", duration_ms: 1000,
+            exit_code: failure?.exit_code ?? 0, failure_class: failure?.failure_class ?? null,
+            failure_reason: failure?.failure_reason ?? null, failure_diagnostic: null }],
+          session_artifacts: ["stack_v7", "startup_diagnostics_v2"].map(kind => ({
+            kind, ref: `${kind}.json`, sha256: `sha256:${"0".repeat(64)}`,
+          })), artifacts: { playwright_report: "report.json", stdout: "stdout.log", stderr: "stderr.log" },
+        };
+        validateSchemaSync(group.schema_id, group);
+        writeFileSync(path.join(directory, "browser-group-result.json"), JSON.stringify(group), { mode: 0o600 });
+        return groupID;
+      });
+      const result = spawnSync(process.execPath, [path.join(root, "tools/harness/browser/browser-target-finalizer-cli.mjs"),
+        "--target", target, "--groups", groups.join(","), "--group-targets", groups.map(group => `${group}=${target}`).join(","),
+        "--reset-prefix", `browser_reset:${target}:`], {
+        cwd: root, encoding: "utf8", env: { ...process.env, CARTULARY_TEST_RESULTS_DIR: scratch, CARTULARY_TEST_RUN_ID: id },
+      });
+      assert.equal(result.status, expected, `${id}: ${result.stderr}`);
+    }
+  } finally { rmSync(scratch, { recursive: true, force: true }); }
 });

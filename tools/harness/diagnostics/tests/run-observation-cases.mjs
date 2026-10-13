@@ -47,7 +47,7 @@ function fixture(t, count = 2) {
   t.after(() => rmSync(parent, { recursive: true, force: true }));
   // Authored reader input, independent of either runtime publisher.
   const publisher = () => {
-    replace({ schema_id: "cartulary.harness_live_snapshot.v2", run_id: manifest.run_id,
+    replace({ schema_id: "cartulary.harness_live_snapshot.v3", run_id: manifest.run_id,
       public_target: manifest.target, command_id: manifest.command_id, source_digest: digest,
       graph_digest: graph.graph_digest, revision: 1, sampled_at: "2026-10-09T00:00:00.000Z",
       sampled_elapsed_ms: 0, last_transition_seq: 0, publication_mode: "active",
@@ -251,7 +251,7 @@ export function registerRunStatusCommandTests() {
     const f = fixture(t); f.publisher();
     const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(?:CARTULARY_|MAKE|MFLAGS$|RESULTS_DIR$|RUN_ID$|TARGET$|OWNER$|ROWS$|JSON$|AFTER_REVISION$|WAIT_SECONDS$)/u.test(key)));
     const run = (args, extra = {}) => spawnSync("make", ["--no-print-directory", "test-run-status", `RESULTS_DIR=${f.runRoot}`, ...args], { cwd: root, env: { ...environment, ...extra }, encoding: "utf8", timeout: 15000, maxBuffer: 131072 });
-    const result = run(["JSON=1"], { CARTULARY_TEST_RUN_ID: "sibling", TASK_SURFACE_MANIFEST: "/do-not-open", CARTULARY_TASK_SURFACE_MANIFEST: "/do-not-open", OWNER: "invalid-owner", ROWS: "not-a-row", CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE: "/do-not-open" });
+    const result = run(["JSON=1"], { CARTULARY_TEST_RUN_ID: "sibling", TASK_SURFACE_MANIFEST: "/do-not-open", CARTULARY_TASK_SURFACE_MANIFEST: "/do-not-open", OWNER: "invalid-owner", ROWS: "not-a-row", CARTULARY_HARNESS_UNIT_EVENT_PREFIX: "invalid-private-prefix" });
     assert.equal(result.status, 0, result.stderr); assert.equal(JSON.parse(result.stdout).run.run_id, "selected");
     assert.equal(result.stdout.trim().split("\n").length, 1);
     for (const args of [["OWNER=invalid-owner"], ["UNDECLARED=1"], ["JSON=2"], ["WAIT_SECONDS=31"], ["WAIT_SECONDS=1"], ["JSON=1", "CARTULARY_OUTPUT_MODE=machine"], ["GO_CACHE_DIR=relative"], [`GO_CACHE_DIR=${root}/cache`], ["GO_CACHE_DIR=/tmp/same", "GO_MOD_CACHE_DIR=/tmp/same"]]) assert.notEqual(run(args).status, 0);

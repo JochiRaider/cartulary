@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "package.protocol_ts",
   "rows": [
     {
@@ -38,7 +38,8 @@
         "file": "packages/protocol-ts/src/index.test.ts",
         "titles": [
           "@cartulary/protocol-ts family conformance checks evidence protocol values through generated types"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -65,7 +66,8 @@
           "@cartulary/protocol-ts family conformance decodes exact Network Flow contracts without exposing payload data on failure",
           "@cartulary/protocol-ts family conformance projects replayable messages to fresh known members at every additive boundary",
           "@cartulary/protocol-ts family conformance rejects incomplete envelopes, invalid payloads, and non-server families"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -89,7 +91,8 @@
         "file": "packages/protocol-ts/src/index.test.ts",
         "titles": [
           "@cartulary/protocol-ts family conformance implements extension discovery tolerance through the HTTP owner policy"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -117,7 +120,8 @@
           "@cartulary/protocol-ts family conformance exposes stable current-profile view schema identifiers",
           "@cartulary/protocol-ts family conformance exposes the typed error and reason-code registry",
           "@cartulary/protocol-ts family conformance exposes typed extension registry profiles"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -142,7 +146,8 @@
         "titles": [
           "@cartulary/protocol-ts family conformance exposes deterministic generated HTTP operation bindings without payload leakage",
           "@cartulary/protocol-ts family conformance requires complete incident paging and consistent continuation metadata"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

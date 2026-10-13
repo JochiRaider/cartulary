@@ -11,7 +11,7 @@ const root = path.resolve(import.meta.dirname, "../../../..");
 
 function event(seq, monotonicMs, kind, unitID, status, extra = {}) {
   return {
-    schema_id: "cartulary.harness_unit_event.v3",
+    schema_id: "cartulary.harness_unit_event.v4",
     seq,
     monotonic_ms: monotonicMs,
     event: kind,

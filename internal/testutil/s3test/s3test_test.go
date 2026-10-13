@@ -79,6 +79,7 @@ func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
 }
 
 func TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent(t *testing.T) {
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "object_store")
 	resetSharedHarness(t)
 	t.Setenv(suiteservices.S3EndpointEnv, "")
 	t.Setenv(suiteservices.S3AccessKeyEnv, "")

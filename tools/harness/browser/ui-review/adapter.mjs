@@ -7,6 +7,7 @@ import net from "node:net";
 import path from "node:path";
 import { parseStrictJSON, validateSchemaSync } from "../../contract/index.mjs";
 import { borrowRuntime } from "../../runtime/session-client.mjs";
+import { inheritedHostLease } from "../../runtime/host-admission.mjs";
 import { readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { buildSourceSnapshot } from "../../test-catalog/index.mjs";
 import { captureCapabilitySnapshot, resourceCapacities } from "../../scheduler/work-graph/capability.mjs";
@@ -18,7 +19,7 @@ import { preparationFailure } from "./failure.mjs";
 import { repoRoot } from "./policy.mjs";
 
 export class ReviewAdapter {
-  constructor(identity) { this.identity = identity; this.abort = new AbortController(); this.parentLease = null; }
+  constructor(identity) { this.identity = identity; this.abort = new AbortController(); this.parentLease = inheritedHostLease(); }
   async initialize({ input, profile, repository, run_root, runtime_root }) {
     if (repository !== repoRoot || runtime_root !== process.env.CARTULARY_HARNESS_SUITE_RUNTIME_ROOT) throw new ReviewFailure("invalid_request");
     this.input = input; this.profile = profile; this.runRoot = run_root;

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "web.application",
   "rows": [
     {
@@ -15,7 +15,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle documents selector-active and staged font roles in the manifest"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -39,7 +40,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle rejects badBytes fixture"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -63,7 +65,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle rejects badHash fixture"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -87,7 +90,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle rejects deadFontVariable fixture"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -111,7 +115,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle rejects localSource fixture"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -135,7 +140,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle rejects missingActivationMetadata fixture"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -159,7 +165,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle rejects missingCssFontReference fixture"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -183,7 +190,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle rejects missingLicense fixture"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -207,7 +215,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle rejects remoteFont fixture"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -231,7 +240,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle rejects undocumentedStagedFamily fixture"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -255,7 +265,8 @@
         "file": "apps/web/src/app/fontBundle.test.ts",
         "titles": [
           "vendored font bundle validates the checked-in manifest, checksums, notice, CSS, and source metadata"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -279,7 +290,8 @@
         "file": "apps/web/src/app/fontRoles.test.tsx",
         "titles": [
           "vendored font role activation activates the internal hyperlegible reading profile on the rendered app shell"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -303,7 +315,8 @@
         "file": "apps/web/src/app/fontRoles.test.tsx",
         "titles": [
           "vendored font role activation marks compact workbook metadata for the condensed font role"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -327,7 +340,8 @@
         "file": "apps/web/src/app/otelBoundary.test.ts",
         "titles": [
           "OpenTelemetry browser boundary keeps browser state from creating telemetry exporters or remote telemetry requests"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -360,7 +374,8 @@
           "account application menu interaction opens at the current action and moves by semantic menu items",
           "account application menu interaction reconciles a removed focused capability to the next available action",
           "account application menu interaction reconciles nested removal and exits nested Tab without trapping or restoring"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -397,7 +412,8 @@
           "account edit lifecycle retries initial load and preserves usable data and dirty drafts through refresh failure",
           "account edit lifecycle treats timeout and malformed success as uncertain and excludes late ignored-abort completion",
           "account edit lifecycle validates scalar display names and preserves rejected drafts"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -427,7 +443,8 @@
           "account frontend boundaries keeps confirmed user mutation separate from a failed session refresh",
           "account frontend boundaries retains newer user input across save completion",
           "account frontend boundaries sends a sparse user patch and preserves edits made while saving"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -460,7 +477,8 @@
           "account frontend boundaries keeps dialog dismissal and focus stable through lifecycle replay and changing controls",
           "account frontend boundaries restores dialog focus to the connected fallback when its trigger is removed",
           "account frontend boundaries suppresses duplicate login with ordinary email"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -494,7 +512,8 @@
           "account settings editing retains the appearance draft after a definitive version conflict",
           "account settings editing retries an unavailable profile without changing opening focus",
           "account settings editing suppresses duplicate activation at the submission boundary"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -530,7 +549,8 @@
           "Administrative audit browsing renders additive vocabulary and distinct visible JSON values versus redaction",
           "Administrative audit browsing retains page and inputs across route mounts but clears a retired lifetime",
           "Administrative audit browsing survives Strict Mode cleanup and document visibility fencing"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -558,7 +578,8 @@
           "Administrative audit exact query normalizes explicit instants and compares nanosecond range boundaries",
           "Administrative audit exact query projects current filter vocabulary from the authored operation",
           "Administrative audit exact query validates exact filters and the target dependency without aliases"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -594,7 +615,8 @@
           "Administrative audit read ownership requires explicit fresh recovery for rejected or cycling cursors",
           "Administrative audit read ownership separates editable applied and accepted state and retains invalid input",
           "Administrative audit read ownership suppresses stale success error and page publication after replacement"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -619,7 +641,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing clears audit rows and delayed reads when the session loses deployment administration"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -645,7 +668,8 @@
         "titles": [
           "Administrative audit typed client accepts additive vocabulary while enforcing safe complete deployment pages",
           "Administrative audit typed client uses only the existing deployment operation and exact query members"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -669,7 +693,8 @@
         "file": "apps/web/src/app/App.auth.test.tsx",
         "titles": [
           "ordinary app shell keeps deployment-admin target actions disabled until a target load completes and leaves version-conflict status stable"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -693,7 +718,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing cancels an in-flight shell refresh when the app unmounts"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -717,7 +743,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing enables deployment-user panel target actions after selecting a loaded user"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -741,7 +768,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing gates reference-pack deployment administration on the claimed extension profile"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -765,7 +793,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing keeps explicit incident-directory navigation on the landing screen when exactly one incident is visible"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -789,7 +818,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing keeps reference-pack deployment administration hidden when 'the profile is unclaimed'"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -813,7 +843,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing keeps reference-pack deployment administration hidden when 'the profile is missing'"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -837,7 +868,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing loads additional visible incident rows from the server cursor"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -862,7 +894,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing loads administrative audit directly from the deployment administration panel"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -886,7 +919,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing loads deployment administration as a separate route without incident-directory fetches"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -910,7 +944,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing disables continuation while replacing the accepted search and status scope"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -934,7 +969,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing opens account settings from the account menu and keeps deployment panels off the root"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -958,7 +994,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing opens an imported incident from terminal incident import job refs"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -982,7 +1019,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing keeps exactly one visible incident in the directory until explicit selection"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1006,7 +1044,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing passes workbook incident controls through the app account menu handoff"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1030,7 +1069,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing preserves incident and directory routes across popstate navigation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1054,7 +1094,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing renders one or many visible incidents on the landing screen"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1078,7 +1119,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing renders the workbook directly from an authenticated incident route under StrictMode"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1102,7 +1144,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing renders workbook role, incidents, and expandable controls inside the account menu"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1126,7 +1169,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing returns non-admin direct deployment administration navigation to the incident directory"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1151,7 +1195,8 @@
         "titles": [
           "Incident landing leaves revoked incident content before independent account refresh settles and never reopens it",
           "Incident landing returns to the landing screen when workbook access is lost"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1175,7 +1220,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing searches visible incidents through the owner-backed list query and discards stale directory responses"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1199,7 +1245,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing sends only declared optional metadata when creating an incident from the directory"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1223,7 +1270,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing shows the zero-incident landing state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1247,7 +1295,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing updates the open workbook density after saving account appearance"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1287,7 +1336,8 @@
           "settles overlapping recovery callers without publishing the obsolete account",
           "settles session and supporting observations at thirty seconds despite ignored aborts",
           "survives React lifecycle replay and disposes pending observations after unmount"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1317,7 +1367,8 @@
           "rejects stale attachments mismatched subjects and bindings after retirement or disposal",
           "replaces the committed session subscription and ignores callbacks from the old source",
           "retires all old authority before publishing and suppresses a reentrant superseded session"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1361,7 +1412,8 @@
           "authentication and Security operation lifetime serializes local and enterprise activation while preserving exact login bytes",
           "authentication and Security operation lifetime treats malformed authentication success as uncertainty and clears terminal-failure secrets",
           "authentication and Security operation lifetime validates owner email and provisioning scalar boundaries without password transformations"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1392,10 +1444,10 @@
           "fetchJSON omits the CSRF header for mutating requests that do not include credentials",
           "fetchJSON omits the CSRF header when 'the CSRF cookie is absent'",
           "fetchJSON omits the CSRF header when 'the CSRF cookie value is empty'",
-          "fetchJSON route-boundary CSRF headers follow cookie-backed mutating request rules",
           "readCookie decodes the named cookie value",
           "readCookie distinguishes an empty cookie from a missing cookie"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1432,7 +1484,8 @@
           "deployment user operation ownership requires a fresh successful observation for the captured uncertain operation",
           "deployment user operation ownership routes self revocation through the session owner and requires review for transaction conflict",
           "deployment user operation ownership suppresses empty patches and acknowledges only the submitted draft revision"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1458,7 +1511,8 @@
           "extension import coordinator stages blocks selection and apply when durable approval returns a stale fingerprint",
           "extension import coordinator stages keeps discovery, side-effect-free preview, approval, selection, and apply as explicit stages",
           "extension import coordinator stages preserves public preview errors and creates no durable mapping"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1483,7 +1537,8 @@
         "titles": [
           "incident directory React binding retains query drafts on inactivity but clears them on authentication replacement",
           "incident directory React binding survives strict effect replay and cancels the retired observation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1509,7 +1564,8 @@
           "incident directory HTTP adapter preserves public failures and propagates cancellation to the caller",
           "incident directory HTTP adapter rejects malformed resource and paging successes without filling defaults",
           "incident directory HTTP adapter uses declared query members and preserves opaque cursor and search values"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1543,7 +1599,8 @@
           "Incident landing directory lifecycle rejects a late page after directory navigation and re-entry",
           "Incident landing directory lifecycle rejects obsolete authorization errors without ending replacement authentication",
           "Incident landing directory lifecycle retains the query across workbook navigation and refreshes only authoritative directory results"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1583,7 +1640,8 @@
           "incident directory operation supersedes refresh and rejects old successes and errors",
           "incident directory operation times out observation without automatic retry or late acceptance",
           "incident directory operation uses continuation metadata for an empty nonterminal page"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1607,7 +1665,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing retains import recovery across panels and clears it before demoted session publication"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1634,7 +1693,8 @@
           "incident import client preserves exact multipart bytes metadata and csrf on admission and replay",
           "incident import client rejects inconsistent jobs and preserves opaque cancellation idempotency",
           "incident import client requires complete queued or running 202 admission and validates terminal reads"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1659,7 +1719,8 @@
         "titles": [
           "normalizes malformed admission bodies without losing received rejection or authorization status",
           "settles malformed read and cancellation bodies with operation-specific outcomes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1693,7 +1754,8 @@
           "requires a newly started job read before opening and suppresses duplicate intent",
           "retains a supported result action throughout an unchanged refresh",
           "retains the exact cancellation attempt after dispatch loss across panel changes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1728,7 +1790,8 @@
           "incident import lifecycle renders no inferred navigation for nonsuccess and uses server reads for job unavailability",
           "incident import lifecycle requires explicit opening and retries only the handoff after workbook failure",
           "incident import lifecycle retains in-flight admission across navigation but excludes lost capability and new sessions"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1753,7 +1816,8 @@
         "titles": [
           "does not restore import action focus while the document is hidden",
           "retains the focused import result control through refresh failure and recovery"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1780,7 +1844,8 @@
           "pure import transitions reject conflicting terminal targets without replacing the last validated result",
           "pure import transitions retain exact unresolved attempts and clear protected data on reset",
           "retains server-established unavailability through later read failures until a validated observation succeeds"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1811,7 +1876,8 @@
           "incident import workflow offers exact admission recovery after malformed success",
           "incident import workflow offers recovery after a lost admission response",
           "restores import access only after a new confirmed session observation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1838,7 +1904,8 @@
           "Incident membership audit lifetime integration does not grant incident access through deployment administration and delegates hidden incident loss",
           "Incident membership audit lifetime integration retains only filters across actual drawer and section transitions under Strict Mode",
           "Incident membership audit lifetime integration synchronously clears accepted session role loss while preserving visible incident navigation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1865,7 +1932,8 @@
           "Incident membership audit query matches authored incident request vocabulary without admitting additive response choices",
           "Incident membership audit query preserves nanosecond instants explicit offsets and inclusive exclusive ordering",
           "Incident membership audit query requires exact targets and binds incident actor session query and route context"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1900,7 +1968,8 @@
           "Incident membership audit read ownership requires explicit first page after cursor rejection including close and reopen",
           "Incident membership audit read ownership retains one page and twenty prior cursors while permitting older traversal and bounded backward navigation",
           "Incident membership audit read ownership separates drafts applied intent and accepted page through validation and replacement failure"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1926,7 +1995,8 @@
           "Incident membership audit typed client accepts additive read vocabulary and safe redaction without weakening response validation",
           "Incident membership audit typed client rejects malformed wrong scope unordered duplicate and inconsistent paging responses",
           "Incident membership audit typed client uses the generated incident operation with only exact filters and captured cursor context"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1950,7 +2020,8 @@
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "titles": [
           "IncidentAdminPanel keeps incident summary visible when a workbook preference route fails"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1974,7 +2045,8 @@
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "titles": [
           "IncidentAdminPanel renders null and view-schema workbook preference sheet refs without treating refs as strings"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1998,7 +2070,8 @@
         "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
         "titles": [
           "IncidentAdminPanel renders saved-view workbook preference sheet refs and marks malformed refs unavailable"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2025,7 +2098,8 @@
           "Lifecycle App integration keeps a hidden acknowledgement without hidden reads and clears it on account replacement",
           "Lifecycle App integration rejects late old-session publication even when transport ignores abort",
           "Lifecycle App integration retains reason through drawer return and current-member demotion with renewed administrator review"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2071,7 +2145,8 @@
           "Incident lifecycle ownership retains work across drawer hiding and revalidates on return without hidden dispatch",
           "Incident lifecycle ownership separates reason discard and departure forgetting from server cancellation",
           "Incident lifecycle ownership settles a dispatched action while hidden without starting follow-up reads"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2098,7 +2173,8 @@
           "Incident lifecycle transport preserves typed error distinctions without retaining private diagnostics",
           "Incident lifecycle transport rejects identity version transition and closed-at contradictions",
           "Incident lifecycle transport uses existing generated operations and sends only exact captured members"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2137,7 +2213,8 @@
           "Incident membership management ownership retains pending and uncertain writes across ordinary close without background list publication",
           "Incident membership management ownership retires privileged drafts on downgrade while nonadmin membership reads remain available",
           "Incident membership management ownership uses a fresh crypto identity for creates and exact immutable uncertain replay"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2163,7 +2240,8 @@
           "Incident membership management presentation issues versioned create patch and bodyless delete with deliberate review and retained receipts",
           "Incident membership management presentation keeps non-admin incident browsing and excludes privileged forms",
           "Incident membership management presentation requires Stay or Discard before replacing dirty input and preserves explicit cancellation"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2192,7 +2270,8 @@
           "Incident membership management typed transport retains safe error identities without raw server message or arbitrary details",
           "Incident membership management typed transport uses captured PATCH and DELETE bodies and accepts a bodyless 204",
           "Incident membership management typed transport uses only limit and opaque cursor and retains the server ordering"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2218,7 +2297,8 @@
           "App departure review rejects retirement or newly outstanding work before navigation",
           "App departure review reviews all outstanding owners sequentially without overlapping dialogs",
           "App departure review stops on Stay and preserves unreviewed work"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2244,7 +2324,8 @@
           "Incident metadata lifetime integration clears incident access without logging out and excludes a late acknowledgement after account replacement",
           "Incident metadata lifetime integration requires renewed review after current role changes while retaining authorized values and drafts",
           "Incident metadata lifetime integration retains exact drafts through real drawer transitions and publishes a late save into summary without preference reloads"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2286,7 +2367,8 @@
           "Incident metadata ownership retains one draft through closure and section return but rereads current eligibility",
           "Incident metadata ownership revalidates a reopened drawer while transport remains pending without admitting another write",
           "Incident metadata ownership suppresses untouched saves and locks admission before current authorization"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2313,7 +2395,8 @@
           "Incident metadata transport rejects malformed wrong-incident regressing and unexpected-status success responses",
           "Incident metadata transport retains only safe known error identities and bounded field reasons",
           "Incident metadata transport uses generated paths and preserves sparse null and exact Unicode input"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2345,7 +2428,8 @@
           "Network Flow import application binding hides protected state while the shell is absent and restores only explicit recovery",
           "Network Flow import application binding retains submitted intent on write loss and retires either withdrawn extension claim",
           "clears retained work when an unsupported profile arrives while detached"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2369,7 +2453,8 @@
         "file": "apps/web/src/app/App.landing.test.tsx",
         "titles": [
           "Incident landing handles obsolete debug parameters through ordinary shell bootstrap"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2396,7 +2481,8 @@
           "Preference App integration ignores workbook publications addressed to another incident or actor",
           "Preference App integration retains authorized observations on demotion and clears protected state on membership loss",
           "Preference App integration retains pending work across drawer closure and confirms the captured target on return"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2421,31 +2507,8 @@
         "titles": [
           "public error presentation falls back without accepting or inspecting human message text",
           "public error presentation uses structured code and operation context for every current locus"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "web.application.regression.referencepackadminpanel_discards_stale_reference_4aefb31c15",
-      "owner_id": "web.application",
-      "family_id": "web.application.regression",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.application.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/app/ReferencePackAdminPanel.test.tsx",
-        "titles": [
-          "ReferencePackAdminPanel discards stale reference pack search responses"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2484,7 +2547,8 @@
           "retains a form through native disabled blur without swallowing deliberate focus departure",
           "returns to the trigger when the last registered item disappears",
           "validates a semantic replacement and never reclaims an outside destination"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2514,7 +2578,8 @@
           "app route state parses the root route without accidental debug state",
           "app route state reads root navigation independently of obsolete history flags",
           "app route state writes push and replace history entries with the route-owned history state"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2539,7 +2604,8 @@
         "titles": [
           "publicError normalization replaces unsafe messages and details with status-safe presentation",
           "publicError normalization retains structured codes, safe messages, and allowlisted details"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2566,7 +2632,8 @@
           "useTransientMessageController does not dismiss a message with a still-valid action",
           "useTransientMessageController pauses for pointer hover and keyboard focus and resumes the remainder",
           "useTransientMessageController pauses while the document is hidden and resumes the exact remainder"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2596,7 +2663,8 @@
           "Workbook import application binding fences incident and account replacement before a pending write can be accepted",
           "Workbook import application binding retains copyable work on role loss and purges it on confirmed profile withdrawal",
           "clears retained work when an unsupported profile arrives while detached"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -2620,7 +2688,8 @@
         "file": "apps/web/src/services/workbookEvidence.test.ts",
         "titles": [
           "workbookEvidence accepts only public evidence handle routes"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -2647,7 +2716,8 @@
         "file": "apps/web/src/workbook/evidence/evidenceAccessPresentation.test.ts",
         "titles": [
           "evidenceAccessPresentation ignores arbitrary public prose and unknown reasons"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

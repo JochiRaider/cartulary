@@ -32,7 +32,6 @@
         "tools/harness/browser/index.mjs"
       ],
       "allowed_consumers": [
-        "tools/harness/test-support/browser-contract-tests.mjs",
         "tools/harness/test-support/owner-fixtures.mjs"
       ]
     },

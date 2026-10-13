@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "package.view_contracts",
   "rows": [
     {
@@ -30,7 +30,8 @@
           "requires an exact inline_create policy",
           "requires explicit boolean grid_editable inputs",
           "resolves header sort keys from contract metadata"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -54,7 +55,8 @@
         "file": "packages/view-contracts/src/facade.test.ts",
         "titles": [
           "exposes the supported public package facade"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -81,7 +83,8 @@
         "titles": [
           "ordinary reference field contracts accounts for every ordinary direct reference and declared reference action without widening specialized fields",
           "ordinary reference field contracts keeps member identity separate and includes all eligible first-class record surfaces"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -111,7 +114,8 @@
           "rejects missing and malformed row identity and version values",
           "rejects row view identity mismatches deterministically",
           "requires complete full-row cells and rejects technical cells"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -140,7 +144,8 @@
           "exposes required reference-pack metadata from view contracts",
           "joins workbook identity and status metadata in Core 01 Table 7.4-A order",
           "matches generated surface projections by shared identity"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

@@ -92,6 +92,26 @@
       "lint-go",
       "lint-scripts",
       "lint-shell"
+    ],
+    "harness-contract": [
+      "harness-boundary-contract",
+      "harness-command-surface-contract",
+      "harness-evidence-contract",
+      "harness-graph-contract",
+      "harness-local-session-contract",
+      "harness-observation-contract",
+      "harness-scheduler-contract",
+      "harness-ui-review-contract"
+    ],
+    "harness-contract-tests": [
+      "harness-boundary-contract",
+      "harness-command-surface-contract",
+      "harness-evidence-contract",
+      "harness-graph-contract",
+      "harness-local-session-contract",
+      "harness-playwright-adapter-contract",
+      "harness-scheduler-contract",
+      "harness-ui-review-contract"
     ]
   },
   "policy_units": {
@@ -314,15 +334,6 @@
       "cache_policy": "same_run",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "harness-contract": {
-      "needs": [
-        "frontend-install"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 10000,
-      "resource_profile_id": "harness_contract",
       "service_dependencies": []
     },
     "json-shape-check": {
@@ -683,6 +694,87 @@
     "syft-toolchain": {
       "needs": [
         "toolchain-drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness-graph-contract": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness-boundary-contract": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness-scheduler-contract": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness-local-session-contract": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness-playwright-adapter-contract": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness-observation-contract": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness-command-surface-contract": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness-evidence-contract": {
+      "needs": [
+        "frontend-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness-ui-review-contract": {
+      "needs": [
+        "frontend-install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1000,

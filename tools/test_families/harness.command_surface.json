@@ -1,7 +1,28 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "harness.command_surface",
   "rows": [
+    {
+      "row_id": "harness.command_surface.behavior.owner_boundaries",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.public_registry_parity"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_boundary_contract.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
     {
       "row_id": "harness.command_surface.behavior.public_registry_parity",
       "owner_id": "harness.command_surface",
@@ -17,6 +38,89 @@
       "evidence_class": "static",
       "runtime_profile_id": "none",
       "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.command_surface.behavior.scheduler_contract",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.behavior",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.scheduler_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_scheduler_contract.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.command_surface.process.processtest_helper_contract",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.process",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.helper_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/processtest",
+        "tests": [
+          "TestDiagnosticsJSONRequiresExactlyOneJSONObject",
+          "TestProcessOutputIsRetainedAfterExit",
+          "TestResolveRepoRootHasNoFallback",
+          "TestResolveServerCommandRequiresRegularExecutable",
+          "TestServerProcessContractDefaults",
+          "TestStartServerFinalizesEnvironmentFromInheritedListener",
+          "TestStopAfterNaturalExit",
+          "TestStopForcesIgnoredSIGTERMWithinTotalBound",
+          "TestStopIsIdempotentAndConcurrent",
+          "TestStopTerminatesProcessGroupDescendants",
+          "TestWaitForExitIsRepeatableAndBroadcast"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "managed_process",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": [],
+      "process_isolation": "exclusive"
+    },
+    {
+      "row_id": "harness.command_surface.unit.configtest_helper_contract",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.helper_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/configtest",
+        "tests": [
+          "TestInvalidFixtureMatchesGolden",
+          "TestLoadFixture",
+          "TestOverlayAppliesToFixture",
+          "TestSetupTempRootsCreatesDeterministicSubpaths"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",

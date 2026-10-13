@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_runtime_session.v2",
+  "$id": "cartulary.harness_runtime_session.v3",
   "anyOf": [
     {
       "type": "object",
@@ -16,7 +16,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -63,7 +63,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -120,7 +120,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -184,7 +184,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -257,7 +257,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -320,7 +320,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -372,7 +372,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -421,7 +421,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -471,7 +471,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -521,7 +521,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -552,7 +552,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -582,7 +582,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -612,7 +612,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -642,7 +642,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -676,7 +676,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -739,7 +739,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -774,7 +774,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -827,7 +827,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -861,7 +861,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -913,7 +913,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -966,7 +966,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1018,7 +1018,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1052,7 +1052,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1109,7 +1109,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1142,7 +1142,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1191,7 +1191,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1226,7 +1226,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1279,7 +1279,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1313,7 +1313,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1366,7 +1366,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1402,7 +1402,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1465,7 +1465,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1499,7 +1499,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1552,7 +1552,7 @@
       ],
       "properties": {
         "schema_id": {
-          "const": "cartulary.harness_runtime_session.v2"
+          "const": "cartulary.harness_runtime_session.v3"
         },
         "request_id": {
           "type": "integer",
@@ -1598,6 +1598,101 @@
             "CARTULARY_HARNESS_RECOVERY_ATTEMPT": {
               "type": "string",
               "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "request_id",
+        "operation",
+        "ok",
+        "result",
+        "error"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "cartulary.harness_runtime_session.v3"
+        },
+        "request_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "operation": {
+          "enum": [
+            "allocate_recovery_output",
+            "begin_recovery_attempt",
+            "borrow",
+            "claim_recovery_output",
+            "close",
+            "create",
+            "create_diagnostic_scope",
+            "finish_recovery_attempt",
+            "inspect_diagnostic_scope",
+            "private_path",
+            "producer_environment",
+            "record",
+            "recover_close",
+            "recovery_detail_path",
+            "recovery_path",
+            "register",
+            "settle_diagnostic_scope"
+          ]
+        },
+        "ok": {
+          "const": false
+        },
+        "result": {
+          "type": "null"
+        },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason",
+            "errno",
+            "process_id",
+            "proof_file"
+          ],
+          "properties": {
+            "reason": {
+              "enum": [
+                "unsafe",
+                "unresolved",
+                "deadline",
+                "io",
+                "internal"
+              ]
+            },
+            "errno": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 4095
+            },
+            "process_id": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 2,
+              "maximum": 2147483647
+            },
+            "proof_file": {
+              "enum": [
+                "stat",
+                "status",
+                "environ",
+                "statm",
+                null
+              ]
             }
           }
         }

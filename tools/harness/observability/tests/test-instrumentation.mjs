@@ -205,13 +205,13 @@ test("terminating an observer thread cannot strand its measurement fence", async
 
 test("retained validation reconstructs path and target fields and rejects tampered summaries", async (t) => {
   const dir = temporary(t), graph = { units: [unit("a")] };
-  const wait = { wait_reason: "capacity", blocking_resources: [], blocking_unit_ids: [] };
+  const wait = { wait_reason: "rank", blocking_resources: [], blocking_unit_ids: [] };
   const events = [
     ["run_started", 0], ["queued", 0, { unit_kind: "runner", row_ids: [] }],
     ["eligible", 0], ["wait_started", 0, wait], ["wait_ended", 2, wait],
     ["admitted", 2], ["started", 2], ["completed", 9],
     ["cleanup_started", 9], ["cleanup_completed", 10], ["run_completed", 10],
-  ].map(([event, monotonic_ms, extra = {}], index) => ({ schema_id: "cartulary.harness_unit_event.v3",
+  ].map(([event, monotonic_ms, extra = {}], index) => ({ schema_id: "cartulary.harness_unit_event.v4",
     seq: index + 1, monotonic_ms, event, unit_id: /^(run_|cleanup_)/u.test(event) ? "harness:run" : "a",
     status: ["completed", "run_completed", "cleanup_completed"].includes(event) ? "passed" : "running",
     needs: [], resource_claims: /^(run_|cleanup_)/u.test(event) ? {} : { cpu: 1, process: 1 }, service_dependencies: [], ...extra }));
@@ -222,14 +222,14 @@ test("retained validation reconstructs path and target fields and rejects tamper
     command_id: "cartulary.harness.command.test_slice.v2", declared_inputs: {}, source_commit: "a".repeat(40), source_state: "dirty",
     source_digest: digest, toolchain_digest: digest, system_digest: digest, graph_digest: digest, capability_snapshot: capability,
     cache_mode: "off", instrumentation: { mode: "basic", policy_digest: digest }, started_at: "2026-10-09T00:00:00.000Z" };
-  const timing = { setup_ms: 2, fixture_ms: 0, execution_ms: 7, collation_ms: 0, wrapper_ms: 1, unattributed_ms: 0, resource_blocking_ms: 2, process_count: 1 };
+  const timing = { setup_ms: 2, fixture_ms: 0, execution_ms: 7, collation_ms: 0, wrapper_ms: 1, unattributed_ms: 0, resource_blocking_ms: 0, process_count: 1 };
   const summary = { schema_id: "cartulary.harness_run_summary.v1", run_id: "synthetic", target: "test-slice", status: "pass",
     failure_class: null, failure_reason: null, unit_counts: { total: 1, passed: 1, failed: 0, skipped: 0, cancelled: 0 },
     wall_duration_ms: 10, critical_path: ["a"], actual_dependency_critical_path_ms: 9, timing_accounting: timing,
     resource_pressure: {
       requested_capacity: { browser_stack: 0, cpu: 1, io: 0, memory_mb: 0, object_store: 0, port_lane: 0, postgres: 0, process: 1, service_stack: 0, volume: 0 },
       resolved_capacity: { browser_stack: 1, cpu: 2, io: 1, memory_mb: 1, object_store: 1, port_lane: 1, postgres: 1, process: 2, service_stack: 1, volume: 1 },
-      peak_use: { cpu: 1, process: 1 }, saturation_ms: {}, wait_events: 1, blocked_units: ["a"], resource_holders: [],
+      peak_use: { cpu: 1, process: 1 }, saturation_ms: {}, wait_events: 1, blocked_units: [], resource_holders: [],
     }, cache: {}, artifact_refs: ["target-summaries/test-slice.json"] };
   const target = { schema_id: "cartulary.harness_target_summary.v1", target: "test-slice", command_id: manifest.command_id,
     status: "pass", failure_class: null, failure_reason: null, workload_digest: digest, unit_ids: ["a"],
@@ -251,7 +251,8 @@ test("retained validation reconstructs path and target fields and rejects tamper
   assert.equal(explained.invocation_path_queue_ms, 2);
   assert.deepEqual(JSON.parse(formatPerformanceExplanation(explained, { json: true })), explained);
   const human = formatPerformanceExplanation(explained);
-  assert.ok(human.includes("[UNIT] a queue_ms=2 execution_ms=7 invocation_path=true"));
+  assert.ok(human.includes("[UNIT] a queue_ms=2 execution_ms=7 queue_by_reason_ms="));
+  assert.deepEqual(explained.units[0].queue_by_reason_ms, { resources: 0, exclusive_barrier: 0, rank: 2, scheduler_stop: 0 });
   assert.ok(human.includes("activity=report_parse outcome=failed duration_ms=5"));
   assert.ok(Buffer.byteLength(human) < 8192);
   const many = structuredClone(explained);

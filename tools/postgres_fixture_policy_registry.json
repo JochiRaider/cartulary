@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.postgres_fixture_policy_registry.v2",
-  "catalog_schema_id": "cartulary.test_family_manifest.v6",
+  "catalog_schema_id": "cartulary.test_family_manifest.v7",
   "capability_policies": [
     {
       "capability": "postgres_dedicated",
@@ -22,6 +22,7 @@
     }
   ],
   "transaction_row_approvals": [
+    "harness.browser.integration.postgres_transaction_isolation",
     "module.assessments.store.assessment_import_create_facade_contract_7282c4a7e3",
     "module.assessments.store.assessment_projection_query_remains_owner_backed_172051cb0d",
     "module.assessments.store.assessment_support_refs_task_linked_record_ids_d_9c08a8f2f2",

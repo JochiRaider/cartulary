@@ -12,6 +12,8 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
+  primaryPublicFailure,
+  publicExitCodeForFailure,
   secureMkdir,
   secureWriteFile,
   validateSchemaSync,
@@ -28,7 +30,7 @@ import {
 } from "./frontend-visual-golden-manifest.mjs";
 import {
   collectFinalizedMeasurementSummaries,
-  currentUnitEventFile,
+  currentUnitEventSource,
   readMeasurementSchedulerEvidenceForGroups,
 } from "./frontend-measurement-evidence.mjs";
 import { promoteVisualSnapshotCandidate } from "./visual-snapshot-promotion.mjs";
@@ -156,12 +158,8 @@ function rendererAttestationPaths(groups) {
 }
 
 async function measurementSchedulerOverlapCount(base, groups) {
-  const eventsFile = currentUnitEventFile(base);
-  if (!existsSync(eventsFile)) {
-    throw new Error("measurement qualification requires unit-events.ndjson");
-  }
   const states = await readMeasurementSchedulerEvidenceForGroups(
-    eventsFile,
+    currentUnitEventSource(base),
     groups.map((group) => group.result),
   );
   return [...states.values()].reduce((total, state) => total + state.overlap_count, 0);
@@ -463,5 +461,17 @@ if (!complete) {
   process.stderr.write(
     `browser target ${options.target} contains failed groups or target artifacts\n`,
   );
-  process.exitCode = 10;
+  const failures = groups.flatMap(({ result }) => {
+    const rows = result.row_results.filter((row) => row.failure_reason !== null);
+    if (rows.length || result.status === "pass") return rows;
+    // A group can fail during physical release after every row passed.
+    return [{ failure_class: result.exit_code === 12 ? "harness" : "unknown",
+      failure_reason: result.exit_code === 12 ? "cleanup_error" : "unknown_failure" }];
+  });
+  failures.push(...resets.filter((reset) => reset.failure_reason !== null));
+  const failure = primaryPublicFailure(failures, {
+    failure_class: "product", failure_reason: "test_assertion_failure",
+  });
+  process.stderr.write(`failure_class=${failure.failure_class} failure_reason=${failure.failure_reason}\n`);
+  process.exitCode = publicExitCodeForFailure(failure);
 }

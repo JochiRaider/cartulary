@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v9",
+  "schema_id": "cartulary.execution_topology.v10",
   "runtime_profiles": [
     {
       "id": "default",
@@ -447,86 +447,17 @@
         ]
       }
     ],
-    "raw_go_aggregates": [
-      {
-        "id": "backend-unit-configtest",
-        "target": "backend-unit",
-        "section": "unit",
-        "packages": [
-          "./internal/testutil/configtest"
-        ],
-        "selection_pattern": "^Test",
-        "execution_family": "backend-unit-configtest",
-        "execution_label": "backend-unit configtest",
-        "fixture_capability": "none",
-        "runtime_profile_id": "none",
-        "resource_profile_id": "standard",
-        "service_dependencies": [],
-        "estimated_work_ms": 1500,
-        "minimum_tier": "full"
-      },
-      {
-        "id": "backend-unit-suiteservices",
-        "target": "backend-unit",
-        "section": "unit",
-        "packages": [
-          "./internal/testutil/suiteservices",
-          "./internal/testutil/testfailure"
-        ],
-        "selection_pattern": "^Test",
-        "execution_family": "backend-unit-suiteservices",
-        "execution_label": "backend-unit suiteservices",
-        "fixture_capability": "none",
-        "runtime_profile_id": "none",
-        "resource_profile_id": "standard",
-        "service_dependencies": [],
-        "estimated_work_ms": 2000,
-        "minimum_tier": "full"
-      },
-      {
-        "id": "backend-integration-testutil",
-        "target": "backend-integration",
-        "section": "integration",
-        "packages": [
-          "./internal/testutil/httptestx",
-          "./internal/testutil/pgtest",
-          "./internal/testutil/s3test",
-          "./internal/testutil/testcontainersx",
-          "./internal/testutil/wstest"
-        ],
-        "selection_pattern": "^Test",
-        "execution_family": "backend-integration-testutil",
-        "execution_label": "backend-integration testutil",
-        "fixture_capability": "postgres_dedicated",
-        "runtime_profile_id": "default",
-        "resource_profile_id": "standard",
-        "service_dependencies": [
-          "object_store",
-          "postgres"
-        ],
-        "estimated_work_ms": 5000,
-        "minimum_tier": "full"
-      },
-      {
-        "id": "backend-process-processtest",
-        "target": "backend-process",
-        "section": "process",
-        "packages": [
-          "./internal/testutil/processtest"
-        ],
-        "selection_pattern": "^Test",
-        "execution_family": "backend-process-processtest",
-        "execution_label": "backend-process processtest",
-        "fixture_capability": "managed_process",
-        "runtime_profile_id": "default",
-        "resource_profile_id": "managed_process",
-        "service_dependencies": [
-          "object_store",
-          "postgres"
-        ],
-        "estimated_work_ms": 8000,
-        "minimum_tier": "full"
-      }
+    "catalog_packages": [
+      "./internal/testutil/configtest",
+      "./internal/testutil/harnessruntime/boundary",
+      "./internal/testutil/httptestx",
+      "./internal/testutil/pgtest",
+      "./internal/testutil/processtest",
+      "./internal/testutil/s3test",
+      "./internal/testutil/suiteservices",
+      "./internal/testutil/testcontainersx",
+      "./internal/testutil/testfailure",
+      "./internal/testutil/wstest"
     ]
   },
   "browser_e2e_batch": {

@@ -64,6 +64,34 @@ function assertCanonicalCurrentRunOutputs(unitValue, rowIDs, label) {
 
 function assertGraphCutover() {
   const compiler = new WorkGraphCompiler(root);
+  const frontendRows = compiler.catalog.rows.filter((row) => row.runner === "vitest");
+  const firstFrontend = frontendRows.find((row) => frontendRows.filter((other) => other.selector.file === row.selector.file &&
+    other.owner_id === row.owner_id && other.evidence_class === row.evidence_class && other.resource_profile_id === row.resource_profile_id).length > 1);
+  const pair = frontendRows.filter((row) => row.selector.file === firstFrontend.selector.file && row.owner_id === firstFrontend.owner_id &&
+    row.evidence_class === firstFrontend.evidence_class && row.resource_profile_id === firstFrontend.resource_profile_id).slice(0, 2);
+  const ids = pair.map((row) => row.row_id).sort();
+  const consumers = (graph) => graph.units.filter((unit) => unit.current_run_evidence_outputs.some((output) => ids.some((id) => output === `rows/${id}.json`)));
+  const sharedGraph = compiler.compileRows(ids), shared = consumers(sharedGraph);
+  assert.equal(shared.length, 1, "compatible file rows must share one fresh process");
+  assert.equal(shared[0].command.environment.VITEST_MAX_WORKERS, "1");
+  assert.equal(shared[0].resource_claims.cpu, 1);
+  assertCanonicalCurrentRunOutputs(shared[0], ids, "Vitest file group");
+  assert.deepEqual(compiler.compileRows([...ids].reverse()), sharedGraph);
+  assert.deepEqual(compiler.compileOwner(pair[0].owner_id, ids), sharedGraph);
+  const single = consumers(compiler.compileRows([ids[0]]));
+  assertCanonicalCurrentRunOutputs(single[0], [ids[0]], "Vitest subset");
+  assert.notEqual(single[0].unit_id, shared[0].unit_id, "selected membership owns semantic identity");
+  for (const mutation of [
+    { process_isolation: "exclusive" }, { evidence_class: "security" },
+    { runtime_profile_id: "default" }, { resource_profile_id: "harness_contract" },
+    { owner_id: pair[1].owner_id === "web.architecture" ? "harness.browser" : "web.architecture" },
+    { selector: { ...pair[1].selector, project_id: pair[1].selector.project_id === "browser-unit" ? "harness-node" : "browser-unit" } },
+  ]) {
+    const prior = compiler.catalog.rowByID.get(pair[1].row_id);
+    compiler.catalog.rowByID.set(prior.row_id, { ...prior, ...mutation });
+    try { assert.equal(consumers(compiler.compileRows(ids)).length, 2, JSON.stringify(mutation)); }
+    finally { compiler.catalog.rowByID.set(prior.row_id, prior); }
+  }
   const topology = JSON.parse(
     readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"),
   );
@@ -175,12 +203,12 @@ function assertGraphCutover() {
   assert.equal(managedProcessUnits.length, 2, "managed-process rows must remain process-isolated");
   assert.ok(managedProcessUnits.every((entry) => entry.fixture_lease === "managed_process"));
 
-  const rawPostgresUnit = compiler
+  const catalogPostgresUnit = compiler
     .compile({ kind: "target", target: "backend-integration" })
-    .units.find((entry) => entry.unit_id === "raw_go:backend-integration-testutil");
-  assert.equal(rawPostgresUnit.resource_claims.cpu, 1);
-  assert.equal(rawPostgresUnit.resource_claims.postgres, 1);
-  assert.equal(rawPostgresUnit.command.environment.GOMAXPROCS, "1");
+    .units.find((entry) => entry.current_run_evidence_outputs.includes("rows/harness.browser.integration.wstest_helper_contract.json"));
+  assert.equal(catalogPostgresUnit.resource_claims.cpu, 1);
+  assert.equal(catalogPostgresUnit.resource_claims.postgres, 1);
+  assert.equal(catalogPostgresUnit.command.environment.GOMAXPROCS, "1");
 
   const ioHeavy = compiler.compile({
     kind: "rows",

@@ -147,7 +147,8 @@ function sessionFixture({ ageMS = 0 } = {}) {
         cleanup_state: "active",
       });
       privateJSON(resultFile, {
-        schema_id: "cartulary.test_services.start_result.v1",
+        schema_id: "cartulary.test_services.start_result.v2",
+        recovery_files: [],
         status: "ready",
         run_id: "session-up",
         target: "test-services-session-up",

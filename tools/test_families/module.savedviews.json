@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v6",
+  "schema_id": "cartulary.test_family_manifest.v7",
   "owner_id": "module.savedviews",
   "rows": [
     {
@@ -440,7 +440,8 @@
         "titles": [
           "Workbook saved-view pagination machine rejects duplicate resources schema mismatch and inconsistent continuation without sorting",
           "Workbook saved-view pagination machine validates adapter pages against incident, limit, cursor, and resources"
-        ]
+        ],
+        "project_id": "browser-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

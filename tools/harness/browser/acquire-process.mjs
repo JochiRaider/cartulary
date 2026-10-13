@@ -34,7 +34,7 @@ export async function acquireProcess(command, args, { cwd, environment, signal, 
     clearTimeout(killDeadline);
     signal?.removeEventListener("abort", abort);
     for (const cleanup of [async () => {
-      if (proof) await stopOwnedProcess(proof);
+      if (proof) await stopOwnedProcess(proof, { environment });
       if (!child?.pid || proof) onReaped();
     }, released, () => diagnostic?.close()]) {
       try { await cleanup(); } catch (error) { primary ??= new CommandFailure("acquisition cleanup failed", { failure_class: "harness", failure_reason: "cleanup_error" }); (primary.cleanupFailures ??= []).push(error); }

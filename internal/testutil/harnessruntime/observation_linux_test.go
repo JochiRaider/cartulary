@@ -150,7 +150,7 @@ func TestRuntimeObservations(t *testing.T) {
 			t.Fatal(err)
 		}
 		raw, err := harnessschema.Decode(after)
-		if err != nil || harnessschema.Validate("cartulary.harness_live_snapshot.v2", raw) != nil {
+		if err != nil || harnessschema.Validate("cartulary.harness_live_snapshot.v3", raw) != nil {
 			t.Fatal("invalid live snapshot", err)
 		}
 		if live.publicationErr != nil {

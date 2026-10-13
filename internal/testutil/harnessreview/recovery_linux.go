@@ -119,14 +119,17 @@ func recoverSession(ctx context.Context, repository, file string, locator Locato
 				operation = "services_close"
 			}
 			cleanupSteps = append(cleanupSteps, cleanupStep{operation, outcome.Err})
+			if outcome.Err != nil {
+				failures = appendFailure(failures, cleanupFailure(outcome.Kind, outcome.Err).Record)
+			}
 		}
 		if err = owner.Recover(ctx); err != nil {
 			cleanup = append(cleanup, err)
 		}
 
 		cleanupFailed = len(cleanup) > 0
-		if cleanupFailed {
-			failures = append(failures, failure("cleanup_failed").Record)
+		if cleanupFailed && len(failures) == 1 {
+			failures = append(failures, cleanupFailure("browser_stack", err).Record)
 		}
 	}
 	if record.Outcome != nil && record.Publication == nil {

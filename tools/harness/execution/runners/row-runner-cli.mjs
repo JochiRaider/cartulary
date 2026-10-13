@@ -120,7 +120,7 @@ function invocationsForRows(rows) {
   if (runner === "vitest") {
     const command = process.env.PNPM || path.join(root, `${workspaceLayout.node_runtime}/bin/pnpm`);
     return {
-      invocations: buildVitestInvocations(root, rows, workers, command, runRoot()),
+      invocations: buildVitestInvocations(root, rows, command, runRoot()),
       adapt: adaptVitestInvocationFile,
     };
   }
@@ -188,15 +188,17 @@ async function main() {
   for (const invocation of invocations) {
     const execution = await execute(invocation, rows[0].runner);
     try {
+      let failureOutput = "";
       const parsing = beginActivity({ repoRoot: root, environment: process.env, launch: execution.launch, activity: "report_parse" });
       try {
-        const adapted = await adapt(invocation, execution);
+        const adapted = await adapt(invocation, execution, (output) => { failureOutput = output; });
         parsing.finish(adapted.some((row) => row.failure_class === "artifact" || row.failure_class === "harness") ? "failed" : "passed");
         results.push(...adapted);
       } catch (error) { parsing.finish(error.name === "AbortError" ? "cancelled" : "failed"); throw error; }
       if (execution.status !== 0) {
         if (execution.stdout) process.stderr.write(redactString(execution.stdout));
         if (execution.stderr) process.stderr.write(redactString(execution.stderr));
+        if (failureOutput) process.stderr.write(redactString(failureOutput));
       }
     } finally {
       try { execution.cleanup(); }

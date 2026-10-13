@@ -121,7 +121,7 @@ const graph = { units: [
 const facts = {
   starts: new Map([["a", 2], ["b", 5]]),
   terminals: new Map([["a", { event: "completed", monotonic_ms: 9, seq: 11 }], ["b", { event: "failed", monotonic_ms: 10, seq: 12 }]]),
-  waits: new Map([["a", { start: 0, end: 2, blocking_unit_ids: [] }], ["b", { start: 3, end: 5, blocking_unit_ids: ["a"] }]]),
+  waits: new Map([["a", { count: 1, resource_intervals: [], resource_holders: new Set() }], ["b", { count: 1, resource_intervals: [{ start: 3, end: 5 }], resource_holders: new Set(["a"]) }]]),
   admissions: new Map([["a", { time: 2, seq: 4 }], ["b", { time: 5, seq: 9 }]]),
   fixtureAcquired: new Map([["a", 4]]), cleanupStarted: 10, finalMonotonicMs: 12,
 };
@@ -129,17 +129,17 @@ const facts = {
 test("independent overlapping accounting expectations include precedence and reservations", () => {
   assert.deepEqual(canonicalTimingAccounting(facts, graph, 12), {
     setup_ms: 2, fixture_ms: 2, execution_ms: 1, collation_ms: 5,
-    wrapper_ms: 2, unattributed_ms: 0, resource_blocking_ms: 4, process_count: 2,
+    wrapper_ms: 2, unattributed_ms: 0, resource_blocking_ms: 2, process_count: 2,
   });
   assert.deepEqual(canonicalTimingAccounting(facts, graph, 7, { selectedUnitIDs: ["a"], includeRunEnvelope: false }), {
     setup_ms: 0, fixture_ms: 2, execution_ms: 5, collation_ms: 0,
-    wrapper_ms: 0, unattributed_ms: 0, resource_blocking_ms: 2, process_count: 1,
+    wrapper_ms: 0, unattributed_ms: 0, resource_blocking_ms: 0, process_count: 1,
   });
   const pressure = projectResourcePressure(facts, graph, { cpu: 2, process: 2, io: 1, memory_mb: 1, postgres: 1, object_store: 1, port_lane: 1, browser_stack: 1, service_stack: 1, volume: 1 });
   assert.deepEqual(pressure.peak_use, { cpu: 2 });
   assert.deepEqual(pressure.saturation_ms, { cpu: 4 });
   assert.equal(pressure.wait_events, 2);
-  assert.deepEqual(pressure.blocked_units, ["a", "b"]);
+  assert.deepEqual(pressure.blocked_units, ["b"]);
   assert.deepEqual(pressure.resource_holders, ["a"]);
 });
 
@@ -148,7 +148,7 @@ test("canonical phases retain incomplete ends and reject the 129th start", async
   const entries = [{ event: "queued", unit_kind: "runner", row_ids: [], status: "pending" }];
   for (let i = 1; i <= 128; i++) entries.push({ event: "phase_started", interval_id: `phase:${i}`, phase: "runner" });
   const publish = () => writeFileSync(file, entries.map((entry, i) => JSON.stringify({
-    schema_id: "cartulary.harness_unit_event.v3", seq: i + 1, monotonic_ms: i,
+    schema_id: "cartulary.harness_unit_event.v4", seq: i + 1, monotonic_ms: i,
     unit_id: "a", status: "running", needs: [], resource_claims: {}, service_dependencies: [], ...entry,
   })).join("\n") + "\n");
   publish();

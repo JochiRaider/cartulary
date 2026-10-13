@@ -653,7 +653,7 @@ func waitForLeaseState(t *testing.T, lease *processlease.Lease, want processleas
 func TestExtensionBehaviorRouting_Static(t *testing.T) {
 	root := extensionsRepoRoot(t)
 	manifest := readExtensionsFamilyManifest(t, root)
-	if manifest.SchemaID != "cartulary.test_family_manifest.v6" || manifest.OwnerID != "module.extensions" {
+	if manifest.SchemaID != "cartulary.test_family_manifest.v7" || manifest.OwnerID != "module.extensions" {
 		t.Fatalf("unexpected Extensions family identity %q/%q", manifest.SchemaID, manifest.OwnerID)
 	}
 

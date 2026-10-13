@@ -1,17 +1,11 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const layoutDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workbookDirectory = path.resolve(layoutDirectory, "..");
-
-const concreteSurfacePaths = [
-  "components/AssessmentWorkbookSurface.tsx",
-  "components/EntityWorkbookSurface.tsx",
-  "components/GenericWorkbookSurface.tsx",
-  "timeline/presentation/TimelineWorkbookView.tsx",
-] as const;
 
 function productionTypeScriptPaths(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -46,15 +40,59 @@ describe("workbook layout policy", () => {
   });
 
   it("keeps surface geometry in the shared layout owner", () => {
-    for (const relativePath of concreteSurfacePaths) {
-      const source = readFileSync(
-        path.join(workbookDirectory, relativePath),
-        "utf8",
-      );
-      expect(source, relativePath).toContain("WorkbookSurfaceLayout");
-      expect(source, relativePath).not.toMatch(
-        /\b(?:minHeight|minBlockSize)\s*:/u,
+    for (const file of productionTypeScriptPaths(workbookDirectory)) {
+      if (file.startsWith(`${layoutDirectory}${path.sep}`)) continue;
+      expect(surfaceGeometryProblems(readFileSync(file, "utf8")), file).toEqual(
+        [],
       );
     }
+    expect(
+      surfaceGeometryProblems(
+        'import {WorkbookSurfaceLayout as Renamed} from "../layout/WorkbookSurfaceLayout"; const view = <Renamed primaryGrid={grid}/>;',
+      ),
+    ).toEqual([]);
+    expect(
+      surfaceGeometryProblems(
+        'const view = <Surface primaryGrid={grid} style={{["minHeight"]: 400}}/>;',
+      ),
+    ).toEqual(["minHeight"]);
+    expect(
+      surfaceGeometryProblems(
+        "// minHeight: 400\nconst view = <Surface primaryGrid={grid}/>;",
+      ),
+    ).toEqual([]);
   });
 });
+
+function surfaceGeometryProblems(source: string): string[] {
+  const syntax = ts.createSourceFile(
+    "renamable.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  let surface = false;
+  const dimensions = new Set<string>();
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isJsxAttribute(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === "primaryGrid"
+    )
+      surface = true;
+    if (ts.isPropertyAssignment(node)) {
+      const key = ts.isComputedPropertyName(node.name)
+        ? node.name.expression
+        : node.name;
+      if (
+        (ts.isIdentifier(key) || ts.isStringLiteral(key)) &&
+        (key.text === "minHeight" || key.text === "minBlockSize")
+      )
+        dimensions.add(key.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(syntax);
+  return surface ? [...dimensions].sort() : [];
+}

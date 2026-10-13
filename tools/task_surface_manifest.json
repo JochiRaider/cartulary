@@ -2472,30 +2472,12 @@
       "failure_note": "inspect Markdown lint diagnostics; do not run broad prose reflow"
     },
     "harness-contract-tests": {
-      "type": "step_command",
+      "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
-      "mode": "run_step",
-      "step_label": "harness-contract-tests",
-      "command": [
-        "$(NODE_BIN)",
-        "--test",
-        "--test-concurrency=1",
-        "./tools/harness/browser/tests/test-playwright-row-runner.mjs",
-        "./tools/harness/services/tests/test-local-session.mjs",
-        "./tools/harness/tests/test-harness-boundary-contracts.mjs",
-        "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
-        "./tools/harness/tests/test-harness-evidence-contracts.mjs",
-        "./tools/harness/tests/test-harness-graph-contracts.mjs",
-        "./tools/harness/tests/test-harness-scheduler-contracts.mjs",
-        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs",
-        "./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
-        "./tools/harness/observability/tests/test-canonical-performance.mjs",
-        "./tools/harness/tests/test-agent-finalize.mjs"
-      ],
+      "selection": "target",
       "test_target": "self"
     },
     "harness-command-surface-contract": {
@@ -2512,7 +2494,8 @@
         "--test",
         "--test-concurrency=1",
         "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
-        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs"
+        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs",
+        "./tools/harness/backend/tests/test-go-row-runner.mjs"
       ],
       "test_target": "self"
     },
@@ -2536,33 +2519,13 @@
       "test_target": "self"
     },
     "harness-contract": {
-      "type": "step_command",
+      "type": "work_graph",
       "prerequisites": [
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)",
         "$(HARNESS_RUNTIME_BIN)"
       ],
-      "mode": "run_step",
-      "step_label": "harness-contract",
-      "command": [
-        "$(NODE_BIN)",
-        "--test",
-        "--test-concurrency=1",
-        "./tools/harness/services/tests/test-local-session.mjs",
-        "./tools/harness/tests/test-harness-boundary-contracts.mjs",
-        "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
-        "./tools/harness/tests/test-harness-evidence-contracts.mjs",
-        "./tools/harness/tests/test-harness-graph-contracts.mjs",
-        "./tools/harness/tests/test-harness-scheduler-contracts.mjs",
-        "./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
-        "./tools/harness/observability/tests/test-observability.mjs",
-        "./tools/harness/execution/tests/test-vitest-diagnostics.mjs",
-        "./tools/harness/observability/tests/test-canonical-performance.mjs",
-        "./tools/harness/tests/test-agent-finalize.mjs"
-      ],
-      "test_target": "self",
-      "success_summary": true,
-      "graph_entry": true
+      "selection": "target",
+      "test_target": "self"
     },
     "lint-shell": {
       "prerequisites": [
@@ -3290,6 +3253,7 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
+        "--test-concurrency=1",
         "./tools/harness/browser/tests/test-ui-review-contract.mjs"
       ],
       "test_target": "self"
@@ -3617,6 +3581,109 @@
         "test",
         "-count=1",
         "./internal/testutil/harnessruntime/boundary"
+      ],
+      "test_target": "self"
+    },
+    "harness-graph-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-graph-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "--test",
+        "--test-concurrency=1",
+        "./tools/harness/tests/test-harness-graph-contracts.mjs",
+        "./tools/harness/browser/tests/test-browser-work-graph.mjs"
+      ],
+      "test_target": "self"
+    },
+    "harness-boundary-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-boundary-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "--test",
+        "--test-concurrency=1",
+        "./tools/harness/tests/test-harness-boundary-contracts.mjs"
+      ],
+      "test_target": "self"
+    },
+    "harness-scheduler-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-scheduler-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "--test",
+        "--test-concurrency=1",
+        "./tools/harness/tests/test-harness-scheduler-contracts.mjs"
+      ],
+      "test_target": "self"
+    },
+    "harness-local-session-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-local-session-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "--test",
+        "--test-concurrency=1",
+        "./tools/harness/services/tests/test-local-session.mjs"
+      ],
+      "test_target": "self"
+    },
+    "harness-playwright-adapter-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-playwright-adapter-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "--test",
+        "--test-concurrency=1",
+        "./tools/harness/browser/tests/test-playwright-row-runner.mjs"
+      ],
+      "test_target": "self"
+    },
+    "harness-observation-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-observation-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "--test",
+        "--test-concurrency=1",
+        "./tools/harness/observability/tests/test-observability.mjs"
       ],
       "test_target": "self"
     }
@@ -11703,7 +11770,8 @@
         "tools/harness/tests/test-harness-command-surface-contracts.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs",
         "tools/harness/tests/test-harness-graph-contracts.mjs",
-        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs",
+        "tools/harnessruntime/main.go"
       ],
       "command_id": "cartulary.harness.command.harness_test_catalog_tests.v2",
       "target_class": "check_internal",
@@ -11713,7 +11781,7 @@
     {
       "name": "harness-command-surface-contract",
       "backing_scripts": [
-        "tools/harness/browser/tests/test-ui-review-contract.mjs",
+        "tools/harness/backend/tests/test-go-row-runner.mjs",
         "tools/harness/diagnostics/vitest-collector.mjs",
         "tools/harness/diagnostics/vitest-observations.mjs",
         "tools/harness/execution/tests/test-run-vitest-step.sh",
@@ -11754,7 +11822,6 @@
         "tools/harness/tests/contract-tier-cases.mjs",
         "tools/harness/tests/private-child-capture-cases.mjs",
         "tools/harness/tests/test-agent-finalize.mjs",
-        "tools/harness/tests/test-catalog-metadata-fixtures.mjs",
         "tools/harness/tests/test-harness-evidence-contracts.mjs"
       ],
       "command_id": "cartulary.harness.command.harness_evidence_contract.v2",
@@ -18278,6 +18345,69 @@
       "target_class": "check_internal",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-graph-contract",
+      "backing_scripts": [
+        "tools/harness/tests/test-harness-graph-contracts.mjs",
+        "tools/harness/tests/test-catalog-metadata-fixtures.mjs",
+        "tools/harness/browser/tests/test-browser-work-graph.mjs",
+        "tools/harness/browser/tests/test-frontend-artifact.mjs"
+      ],
+      "command_id": "cartulary.harness.command.harness_graph_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-boundary-contract",
+      "backing_scripts": [
+        "tools/harness/tests/test-harness-boundary-contracts.mjs"
+      ],
+      "command_id": "cartulary.harness.command.harness_boundary_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-scheduler-contract",
+      "backing_scripts": [
+        "tools/harness/tests/test-harness-scheduler-contracts.mjs"
+      ],
+      "command_id": "cartulary.harness.command.harness_scheduler_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-local-session-contract",
+      "backing_scripts": [
+        "tools/harness/services/tests/test-local-session.mjs"
+      ],
+      "command_id": "cartulary.harness.command.harness_local_session_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-playwright-adapter-contract",
+      "backing_scripts": [
+        "tools/harness/browser/tests/test-playwright-row-runner.mjs"
+      ],
+      "command_id": "cartulary.harness.command.harness_playwright_adapter_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-observation-contract",
+      "backing_scripts": [
+        "tools/harness/observability/tests/test-observability.mjs"
+      ],
+      "command_id": "cartulary.harness.command.harness_observation_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
     }
   ],
   "harness_tiers": {
@@ -18323,14 +18453,12 @@
         "harness-smoke-make-node-tools",
         "harness-smoke-canonical-performance",
         "harness-smoke-canonical-evidence",
-        "harness-smoke-canonical-observability",
         "harness-smoke-browser-work-graph",
         "harness-smoke-print-target-plan",
         "harness-smoke-work-graph-scheduler-matrix",
         "harness-smoke-fixture-broker-matrix",
         "harness-smoke-work-graph-matrix",
         "harness-smoke-observability",
-        "harness-smoke-run-go-target",
         "harness-smoke-frontend-import-boundaries",
         "harness-smoke-fallow-static"
       ]
@@ -18389,14 +18517,12 @@
         "harness-smoke-make-node-tools",
         "harness-smoke-canonical-performance",
         "harness-smoke-canonical-evidence",
-        "harness-smoke-canonical-observability",
         "harness-smoke-browser-work-graph",
         "harness-smoke-print-target-plan",
         "harness-smoke-work-graph-scheduler-matrix",
         "harness-smoke-fixture-broker-matrix",
         "harness-smoke-work-graph-matrix",
         "harness-smoke-observability",
-        "harness-smoke-run-go-target",
         "harness-smoke-frontend-import-boundaries",
         "harness-smoke-fallow-static",
         "harness-smoke-web-e2e-lifecycle",
@@ -18582,7 +18708,8 @@
       ],
       "command": [
         "$(NODE_BIN)",
-        "./tools/harness/observability/tests/test-observability.mjs"
+        "--test",
+        "tools/harness/observability/tests/test-observability.mjs"
       ]
     },
     {
@@ -18697,17 +18824,6 @@
       ]
     },
     {
-      "name": "harness-smoke-canonical-observability",
-      "backing_scripts": [
-        "tools/harness/observability/tests/test-observability.mjs"
-      ],
-      "command": [
-        "$(NODE_BIN)",
-        "--test",
-        "tools/harness/observability/tests/test-observability.mjs"
-      ]
-    },
-    {
       "name": "harness-smoke-browser-work-graph",
       "backing_scripts": [
         "tools/harness/browser/tests/test-browser-work-graph.mjs",
@@ -18724,16 +18840,6 @@
       "name": "harness-smoke-run-step",
       "backing_scripts": [
         "tools/harness/tests/test-run-step.sh"
-      ]
-    },
-    {
-      "name": "harness-smoke-run-go-target",
-      "backing_scripts": [
-        "tools/harness/backend/tests/test-go-row-runner.mjs"
-      ],
-      "command": [
-        "$(NODE_BIN)",
-        "tools/harness/backend/tests/test-go-row-runner.mjs"
       ]
     },
     {

@@ -1,6 +1,7 @@
 import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 type SourceOwnershipManifest = {
@@ -80,6 +81,44 @@ function sourceOwnershipProblems(
   for (const sourcePath of live)
     if (!declared.has(sourcePath)) problems.push(`Missing path: ${sourcePath}`);
   return problems.sort();
+}
+
+function commandOwnershipProblems(file: string, source: string): string[] {
+  const syntax = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const problems = new Set<string>();
+  const inspect = (node: ts.Node) => {
+    if (
+      ((ts.isIdentifier(node) && node.text === "clientTxnID") ||
+        (ts.isElementAccessExpression(node) &&
+          ts.isStringLiteral(node.argumentExpression) &&
+          node.argumentExpression.text === "clientTxnID")) &&
+      !file.includes("/workbook/mutations/")
+    )
+      problems.add("transaction identity outside mutation owner");
+    if (
+      ts.isPropertyAssignment(node) ||
+      ts.isPropertySignature(node) ||
+      ts.isShorthandPropertyAssignment(node)
+    ) {
+      const name = node.name;
+      const key = ts.isComputedPropertyName(name) ? name.expression : name;
+      if (
+        (ts.isIdentifier(key) || ts.isStringLiteral(key)) &&
+        key.text === "client_txn_id" &&
+        file.includes("/workbook/components/")
+      )
+        problems.add("wire intent in presentation");
+    }
+    ts.forEachChild(node, inspect);
+  };
+  inspect(syntax);
+  return [...problems].sort();
 }
 
 describe("frontend source ownership policy", () => {
@@ -171,51 +210,46 @@ describe("frontend source ownership policy", () => {
       (sourcePath) =>
         !sourcePath.endsWith(".test.ts") && !sourcePath.endsWith(".test.tsx"),
     );
-    const transactionIdCallers = productionPaths.filter((sourcePath) =>
-      /\bclientTxnID\b/u.test(
-        readFileSync(path.join(repoRoot, sourcePath), "utf8"),
+    for (const sourcePath of productionPaths) {
+      expect(
+        commandOwnershipProblems(
+          sourcePath,
+          readFileSync(path.join(repoRoot, sourcePath), "utf8"),
+        ),
+        sourcePath,
+      ).toEqual([]);
+    }
+    // File renames, local aliases, formatting and comments are not authority.
+    expect(
+      commandOwnershipProblems(
+        "apps/web/src/workbook/mutations/renamed.ts",
+        'import { clientTxnID as create } from "../../services/browserApi"; void create;',
       ),
-    );
-    expect(transactionIdCallers).toEqual([
-      "apps/web/src/workbook/mutations/secureTransactionId.ts",
-    ]);
-
-    const featureAndPresentationRoots = [
-      path.join(workbookRoot, "components"),
-      path.join(workbookRoot, "features"),
-    ];
-    const ownerLocalWireIntents = featureAndPresentationRoots
-      .flatMap(liveTypeScriptPaths)
-      .filter((sourcePath) => {
-        const source = readFileSync(path.join(repoRoot, sourcePath), "utf8");
-        return source.includes("client_txn_id");
-      });
-    expect(ownerLocalWireIntents).toEqual([
-      "apps/web/src/workbook/components/WorkbookBatchRecovery.test.tsx",
-      "apps/web/src/workbook/features/coordination/WorkbookContextualTaskDecisionCreateOwner.ts",
-      "apps/web/src/workbook/features/coordination/WorkbookCoordinationCreateOwner.ts",
-      "apps/web/src/workbook/features/coordination/contextualCreateAuthoring.test.tsx",
-      "apps/web/src/workbook/features/coordination/contextualCreateModel.ts",
-      "apps/web/src/workbook/features/coordination/contextualCreateRecovery.test.tsx",
-      "apps/web/src/workbook/features/coordination/coordinationCreateAuthoring.test.tsx",
-      "apps/web/src/workbook/features/coordination/coordinationCreateModel.ts",
-      "apps/web/src/workbook/features/coordination/coordinationCreateRecovery.test.tsx",
-      "apps/web/src/workbook/features/evidence/WorkbookTimelineRelatedEvidenceOwner.ts",
-      "apps/web/src/workbook/features/evidence/evidenceOrdinaryCreate.ts",
-      "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceAuthoring.test.tsx",
-      "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceModel.ts",
-      "apps/web/src/workbook/features/evidence/timelineRelatedEvidenceRecovery.test.tsx",
-      "apps/web/src/workbook/features/generic/genericCreateRequestBuilder.ts",
-      "apps/web/src/workbook/features/indicators/indicatorCreateAuthoring.test.tsx",
-      "apps/web/src/workbook/features/indicators/indicatorCreateModel.ts",
-      "apps/web/src/workbook/features/indicators/indicatorOrdinaryCreate.ts",
-      "apps/web/src/workbook/features/notes/WorkbookNoteCreateOwner.ts",
-      "apps/web/src/workbook/features/notes/noteCreateAuthoring.test.tsx",
-      "apps/web/src/workbook/features/notes/noteCreateModel.ts",
-      "apps/web/src/workbook/features/notes/noteCreateRecovery.test.tsx",
-      "apps/web/src/workbook/features/ordinary/WorkbookOrdinaryCreateOwner.test.ts",
-      "apps/web/src/workbook/features/ordinary/prepareOrdinaryCreateFields.ts",
-    ]);
+    ).toEqual([]);
+    expect(
+      commandOwnershipProblems(
+        "apps/web/src/workbook/features/notes/renamed.ts",
+        'const request = { ["client_txn_id"] : id };',
+      ),
+    ).toEqual([]);
+    expect(
+      commandOwnershipProblems(
+        "apps/web/src/workbook/components/renamed.tsx",
+        '// client_txn_id clientTxnID\nconst label = "client_txn_id";',
+      ),
+    ).toEqual([]);
+    expect(
+      commandOwnershipProblems(
+        "apps/web/src/workbook/components/renamed.tsx",
+        'import { clientTxnID as create } from "../../services/browserApi";',
+      ),
+    ).toEqual(["transaction identity outside mutation owner"]);
+    expect(
+      commandOwnershipProblems(
+        "apps/web/src/workbook/components/renamed.tsx",
+        'const request = { ["client_txn_id"] : id };',
+      ),
+    ).toEqual(["wire intent in presentation"]);
   });
 
   it("keeps authorization recovery and collaboration transport dependencies below Workbook reconciliation", () => {
@@ -225,30 +259,34 @@ describe("frontend source ownership policy", () => {
       (sourcePath) =>
         !sourcePath.endsWith(".test.ts") && !sourcePath.endsWith(".test.tsx"),
     );
-    const sources = workbookProduction.map((sourcePath) => ({
-      sourcePath,
-      source: readFileSync(path.join(repoRoot, sourcePath), "utf8"),
-    }));
-    expect(
-      sources
-        .filter(({ source }) => source.includes("CollaborationSheetRef"))
-        .map(({ sourcePath }) => sourcePath),
-    ).toEqual([]);
-    expect(
-      sources
-        .filter(({ source }) => source.includes("/api/v1/auth/session"))
-        .map(({ sourcePath }) => sourcePath),
-    ).toEqual([]);
-
-    const coordinatorSource = readFileSync(
-      path.join(
-        repoRoot,
-        "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.ts",
-      ),
-      "utf8",
-    );
-    expect(coordinatorSource).not.toMatch(
-      /from\s+["'][^"']*services\/browserApi["']/u,
-    );
+    for (const sourcePath of workbookProduction) {
+      const syntax = ts.createSourceFile(
+        sourcePath,
+        readFileSync(path.join(repoRoot, sourcePath), "utf8"),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TSX,
+      );
+      const violations: string[] = [];
+      const visit = (node: ts.Node) => {
+        if (ts.isIdentifier(node) && node.text === "CollaborationSheetRef")
+          violations.push("transport identity in Workbook");
+        if (
+          ts.isStringLiteralLike(node) &&
+          node.text.includes("/api/v1/auth/session")
+        )
+          violations.push("session transport in Workbook");
+        if (
+          ts.isImportDeclaration(node) &&
+          ts.isStringLiteral(node.moduleSpecifier) &&
+          sourcePath.includes("/workbook/collaboration/") &&
+          /(?:^|\/)services\//u.test(node.moduleSpecifier.text)
+        )
+          violations.push("service import in reconciliation owner");
+        ts.forEachChild(node, visit);
+      };
+      visit(syntax);
+      expect(violations, sourcePath).toEqual([]);
+    }
   });
 });

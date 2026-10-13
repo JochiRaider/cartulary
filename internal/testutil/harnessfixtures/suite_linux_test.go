@@ -114,10 +114,11 @@ func TestFixtureSuiteOwner(t *testing.T) {
 			t.Fatal("acquire after close")
 		}
 	})
-	for _, variant := range []string{"ready", "forged_scope", "duplicate_environment", "startup_failure", "missing_result"} {
+	for _, variant := range []string{"ready", "recovery_proof", "missing_recovery_file", "foreign_recovery_file", "unsafe_recovery_file", "forged_scope", "duplicate_environment", "startup_failure", "missing_result"} {
 		t.Run(variant, func(t *testing.T) {
 			runtime, root, run := runtimeFixture(t)
 			stops := 0
+			credentialFiles := []string{}
 			options := ProductionOptions{Root: root, RunRoot: run, Target: "test", Runtime: runtime, Environment: map[string]string{"TEST_SERVICES_BIN": "/fixed/testservices"}}
 			options.Run = func(_ context.Context, executable string, args []string, environment map[string]string) (CommandResult, error) {
 				if executable != "/fixed/testservices" {
@@ -135,7 +136,7 @@ func TestFixtureSuiteOwner(t *testing.T) {
 				}
 				suite := "work-graph-test"
 				scope := serviceScope(runtime.RunID, "test", suite)
-				status := map[string]any{"schema_id": "cartulary.test_services.start_result.v1", "status": "ready", "run_id": runtime.RunID, "target": "test", "suite_id": suite, "service_scope_ref": "_shared/test-services/" + suite + "/service-scope.json", "failure_class": nil, "failure_reason": nil}
+				status := map[string]any{"schema_id": "cartulary.test_services.start_result.v2", "recovery_files": []string{}, "status": "ready", "run_id": runtime.RunID, "target": "test", "suite_id": suite, "service_scope_ref": "_shared/test-services/" + suite + "/service-scope.json", "failure_class": nil, "failure_reason": nil}
 				writeFixtureJSON(t, args[4], map[string]string{"private": "lease"})
 				if variant == "missing_result" {
 					return CommandResult{Started: true, Exit: 1}, errors.New("worker death")
@@ -150,23 +151,66 @@ func TestFixtureSuiteOwner(t *testing.T) {
 					scope["failure"] = map[string]any{"failure_class": "infra", "failure_reason": "service_start_error", "attempts_started": 1, "max_attempts": 1, "retryable": false, "retry_blocked_by_context": false}
 				}
 				writeFixtureJSON(t, filepath.Join(run, status["service_scope_ref"].(string)), scope)
-				writeFixtureJSON(t, args[6], status)
 				if variant == "duplicate_environment" {
 					if err := harnesslocal.PublishNew(args[2], []byte(`{"SSL_CERT_FILE":"a","SSL_CERT_FILE":"b"}`)); err != nil {
 						t.Fatal(err)
 					}
+				} else if variant == "recovery_proof" {
+					for _, name := range []string{"root.pem", "admin.pem", "admin.key"} {
+						file := filepath.Join(runtime.Root, "test-services", "postgres-tls", name)
+						writeFixtureJSON(t, file, map[string]string{"fixture": name})
+						credentialFiles = append(credentialFiles, file)
+					}
+					writeFixtureJSON(t, filepath.Join(runtime.Root, "unrelated-secret.json"), map[string]string{"unneeded": "secret"})
+					writeFixtureJSON(t, args[2], map[string]string{"CARTULARY_PGTEST_ADMIN_DSN": "postgres://fixture@localhost/postgres?sslrootcert=" + credentialFiles[0] + "&sslcert=" + credentialFiles[1] + "&sslkey=" + credentialFiles[2]})
 				} else {
 					writeFixtureJSON(t, args[2], map[string]string{"CARTULARY_PGTEST_ADMIN_DSN": "private-password", "IGNORE_THIS": "foreign"})
 				}
+				if variant == "recovery_proof" {
+					status["recovery_files"] = credentialFiles
+				}
+				if variant == "missing_recovery_file" {
+					status["recovery_files"] = []string{filepath.Join(runtime.Root, "missing.pem")}
+				}
+				if variant == "foreign_recovery_file" {
+					file := filepath.Join(t.TempDir(), "foreign.pem")
+					if err := os.WriteFile(file, []byte("foreign proof"), 0600); err != nil {
+						t.Fatal(err)
+					}
+					status["recovery_files"] = []string{file}
+				}
+				if variant == "unsafe_recovery_file" {
+					file := filepath.Join(runtime.Root, "unsafe.pem")
+					writeFixtureJSON(t, file, map[string]string{"unsafe": "proof"})
+					if err := os.Chmod(file, 0644); err != nil {
+						t.Fatal(err)
+					}
+					status["recovery_files"] = []string{file}
+				}
+				writeFixtureJSON(t, args[6], status)
 				if variant == "startup_failure" {
 					return CommandResult{Started: true, Exit: 1}, errors.New("startup")
 				}
 				return CommandResult{Started: true}, nil
 			}
 			suite, err := options.StartSuite(context.Background())
-			if variant == "ready" {
+			if variant == "ready" || variant == "recovery_proof" {
 				if err != nil {
 					t.Fatal(err)
+				}
+				defer suite.Close(context.Background())
+				if variant == "recovery_proof" {
+					if err := runtime.PreserveRecovery(); err != nil {
+						t.Fatal(err)
+					}
+					for _, file := range credentialFiles {
+						if _, err := os.Stat(file); err != nil {
+							t.Fatalf("cleanup credential was purged before its resource settled: %s: %v", filepath.Base(file), err)
+						}
+					}
+					if _, err := os.Stat(filepath.Join(runtime.Root, "unrelated-secret.json")); !errors.Is(err, os.ErrNotExist) {
+						t.Fatal("unrelated detail survived preservation", err)
+					}
 				}
 				if suite.Environment["IGNORE_THIS"] != "" {
 					t.Fatal("unadmitted binding")

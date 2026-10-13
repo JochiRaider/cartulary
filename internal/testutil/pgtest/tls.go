@@ -97,6 +97,20 @@ func certificateDSN(host, port, database, login, directory string) string {
 	return u.String()
 }
 
+// CleanupFiles names only the certificate material needed by AdminDSN after
+// ordinary consumers stop. Runtime, migration, renewal and server keys are not
+// recovery authority and must not survive detail purging for this purpose.
+func (h *Harness) CleanupFiles() []string {
+	if h.tlsDirectory == "" {
+		return []string{}
+	}
+	return []string{
+		filepath.Join(h.tlsDirectory, "root.pem"),
+		filepath.Join(h.tlsDirectory, h.User+".pem"),
+		filepath.Join(h.tlsDirectory, h.User+".key"),
+	}
+}
+
 func purposeCertificateDSN(dsn, login string) (string, error) {
 	u, err := url.Parse(dsn)
 	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.User == nil {

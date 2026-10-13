@@ -1158,25 +1158,24 @@ func pingAdminDSN(ctx context.Context, dsn string) error {
 }
 
 func createDatabase(ctx context.Context, adminDSN string, name string, templateDB string) error {
-	err := postgrescatalog.WithMutation(
-		ctx,
-		adminDSN,
-		name,
-		postgresCatalogAdmissionTimeout,
-		func(admin *sql.DB) error {
-			statement := fmt.Sprintf(`CREATE DATABASE "%s"`, name)
-			if templateDB != "" {
-				statement += fmt.Sprintf(` TEMPLATE "%s"`, templateDB)
-			}
-			if _, err := admin.ExecContext(ctx, statement); err != nil {
-				if templateDB != "" {
-					return fmt.Errorf("create test database %s from template %s: %w", name, templateDB, err)
+	var err error
+	if templateDB != "" {
+		err = postgrescatalog.CloneDatabase(ctx, adminDSN, name, templateDB, postgresCatalogAdmissionTimeout)
+	} else {
+		err = postgrescatalog.WithMutation(
+			ctx,
+			adminDSN,
+			name,
+			postgresCatalogAdmissionTimeout,
+			func(admin *sql.DB) error {
+				statement := fmt.Sprintf(`CREATE DATABASE "%s"`, name)
+				if _, err := admin.ExecContext(ctx, statement); err != nil {
+					return fmt.Errorf("create test database %s: %w", name, err)
 				}
-				return fmt.Errorf("create test database %s: %w", name, err)
-			}
-			return nil
-		},
-	)
+				return nil
+			},
+		)
+	}
 	if err != nil {
 		return err
 	}

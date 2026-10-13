@@ -1,5 +1,5 @@
 import { parseStrictJSON } from "../contract/strict-json.mjs";
-import { createReadStream, existsSync, lstatSync } from "node:fs";
+import { closeSync, constants, createReadStream, fstatSync, openSync, readSync } from "node:fs";
 import { createInterface } from "node:readline";
 
 import { maximumPhasesPerUnit, validateSchemaSync } from "../contract/index.mjs";
@@ -20,16 +20,39 @@ function abortError() {
 }
 
 export async function* readCanonicalUnitEvents(file, options = {}) {
-  if (!existsSync(file)) throw new Error(`${file} is required canonical event evidence`);
-  const stat = lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw new Error(`${file} must be a non-symlink regular canonical event file`);
-  }
   const maxLineBytes = options.maxLineBytes ?? defaultCanonicalEventLineLimit;
   if (!Number.isSafeInteger(maxLineBytes) || maxLineBytes < 1024) {
     throw new Error("canonical event maxLineBytes must be a safe integer of at least 1024");
   }
-  const input = createReadStream(file, { encoding: "utf8" });
+  const prefix = options.prefix;
+  if (prefix !== undefined) validateSchemaSync("cartulary.harness_unit_event_prefix.v1", prefix);
+  let descriptor;
+  try {
+    descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error) {
+    if (error.code === "ENOENT") throw new Error(`${file} is required canonical event evidence`);
+    throw error;
+  }
+  let input;
+  try {
+    const stat = fstatSync(descriptor, { bigint: true });
+    if (!stat.isFile()) throw new Error(`${file} must be a non-symlink regular canonical event file`);
+    if (prefix !== undefined) {
+      if (prefix.file !== file || stat.dev.toString() !== prefix.device || stat.ino.toString() !== prefix.inode ||
+          stat.size < BigInt(prefix.byte_length) || stat.uid !== BigInt(process.getuid()) ||
+          stat.nlink !== 1n || (stat.mode & 0o777n) !== 0o600n) {
+        throw new Error("canonical event prefix inode authority does not match");
+      }
+      const boundary = Buffer.alloc(1);
+      if (readSync(descriptor, boundary, 0, 1, prefix.byte_length - 1) !== 1 || boundary[0] !== 10) {
+        throw new Error("canonical event prefix must end at a complete record boundary");
+      }
+    }
+    input = createReadStream(file, { fd: descriptor, encoding: "utf8", ...(prefix === undefined ? {} : { start: 0, end: prefix.byte_length - 1 }) });
+  } catch (error) {
+    closeSync(descriptor);
+    throw error;
+  }
   const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
   const signal = options.signal;
   let previousSeq = 0;
@@ -54,7 +77,7 @@ export async function* readCanonicalUnitEvents(file, options = {}) {
       } catch (error) {
         throw new Error(`${file} line ${lineNumber} is invalid JSON: ${error.message}`);
       }
-      validateSchemaSync("cartulary.harness_unit_event.v3", event);
+      validateSchemaSync("cartulary.harness_unit_event.v4", event);
       if (
         terminalEventNames.has(event.event) &&
         event.status !== terminalStatuses.get(event.event)
@@ -73,6 +96,9 @@ export async function* readCanonicalUnitEvents(file, options = {}) {
       yield event;
     }
     if (eventCount === 0) throw new Error(`${file} is empty`);
+    if (prefix !== undefined && previousSeq !== prefix.last_seq) {
+      throw new Error("canonical event prefix final sequence does not match");
+    }
   } finally {
     signal?.removeEventListener("abort", onAbort);
     lines.close();
@@ -84,7 +110,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
   const selected = options.unitIDs === undefined ? null : new Set(options.unitIDs);
   const starts = new Map();
   const terminals = new Map();
-  const eligible = new Set();
+  const eligible = new Map();
   const openWaits = new Map();
   const closedWaits = new Map();
   const admitted = new Set();
@@ -138,10 +164,12 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
       if (eligible.has(event.unit_id)) {
         throw new Error(`${file} has duplicate eligible event for ${event.unit_id}`);
       }
-      eligible.add(event.unit_id);
+      eligible.set(event.unit_id, event.monotonic_ms);
     }
     if (event.event === "wait_started") {
-      if (!eligible.has(event.unit_id) || openWaits.has(event.unit_id) || closedWaits.has(event.unit_id)) {
+      const prior = waits.get(event.unit_id);
+      if (!eligible.has(event.unit_id) || openWaits.has(event.unit_id) || admitted.has(event.unit_id) || terminals.has(event.unit_id) ||
+        event.monotonic_ms !== (closedWaits.get(event.unit_id) ?? eligible.get(event.unit_id))) {
         throw new Error(`${file} has invalid wait start for ${event.unit_id}`);
       }
       const wait = {
@@ -150,7 +178,20 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
         blocking_resources: event.blocking_resources,
         blocking_unit_ids: event.blocking_unit_ids,
       };
-      waits.set(event.unit_id, wait);
+      const blocked = ["resources", "exclusive_barrier"].includes(wait.wait_reason);
+      if (blocked !== (wait.blocking_resources.length > 0) || blocked !== (wait.blocking_unit_ids.length > 0) ||
+        [wait.blocking_resources, wait.blocking_unit_ids].some((ids) => JSON.stringify(ids) !== JSON.stringify([...ids].sort())) ||
+        wait.blocking_unit_ids.includes(event.unit_id) ||
+        (selected === null && wait.blocking_unit_ids.some((id) => !registrations.has(id)))) throw new Error("invalid wait authority");
+      if (prior && prior.last.wait_reason === wait.wait_reason &&
+        JSON.stringify(prior.last.blocking_resources) === JSON.stringify(wait.blocking_resources) &&
+        JSON.stringify(prior.last.blocking_unit_ids) === JSON.stringify(wait.blocking_unit_ids)) throw new Error("unchanged wait segment");
+      const summary = prior ?? { start: event.monotonic_ms, end: null, count: 0,
+        by_reason: { resources: 0, exclusive_barrier: 0, rank: 0, scheduler_stop: 0 },
+        resource_intervals: [], resource_holders: new Set() };
+      summary.count += 1;
+      summary.last = wait;
+      waits.set(event.unit_id, summary);
       openWaits.set(event.unit_id, wait);
     }
     if (event.event === "wait_ended") {
@@ -164,6 +205,17 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
         throw new Error(`${file} has mismatched wait end for ${event.unit_id}`);
       }
       opened.end = event.monotonic_ms;
+      const summary = waits.get(event.unit_id);
+      summary.end = opened.end;
+      summary.by_reason[opened.wait_reason] += opened.end - opened.start;
+      if (opened.wait_reason === "resources") {
+        for (const holder of opened.blocking_unit_ids) summary.resource_holders.add(holder);
+        if (opened.end > opened.start) {
+          const prior = summary.resource_intervals.at(-1);
+          if (prior?.end === opened.start) prior.end = opened.end;
+          else summary.resource_intervals.push({ start: opened.start, end: opened.end });
+        }
+      }
       openWaits.delete(event.unit_id);
       closedWaits.set(event.unit_id, event.monotonic_ms);
     }

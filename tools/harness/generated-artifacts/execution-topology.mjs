@@ -9,7 +9,7 @@ import { validateSchemaSync } from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v9";
+export const executionTopologySchemaID = "cartulary.execution_topology.v10";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v2";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
 const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
@@ -117,28 +117,7 @@ function normalizeGoTargets(raw, runtimeBinaries) {
       }),
     );
   }
-  uniqueByID(raw.go_targets.raw_go_aggregates, "go_targets.raw_go_aggregates");
-  const rawAggregates = raw.go_targets.raw_go_aggregates.map((entry) => ({
-    id: entry.id,
-    target: entry.target,
-    section: entry.section,
-    packages: [...entry.packages],
-    selectionPattern: entry.selection_pattern,
-    executionFamily: entry.execution_family,
-    executionLabel: entry.execution_label,
-    fixtureCapability: entry.fixture_capability,
-    runtimeProfileID: entry.runtime_profile_id,
-    resourceProfileID: entry.resource_profile_id,
-    serviceDependencies: [...entry.service_dependencies],
-    estimatedWorkMs: entry.estimated_work_ms,
-    minimumTier: entry.minimum_tier,
-  }));
-  for (const entry of rawAggregates) {
-    if (!byName.has(entry.target)) {
-      throw new Error(`raw Go aggregate ${entry.id} has unknown backend target ${entry.target}`);
-    }
-  }
-  return { targets, byName, runtimeBinariesByFamily, rawAggregates };
+  return { targets, byName, runtimeBinariesByFamily };
 }
 
 function validateBrowserOwner(raw, dependencyIDs, targets, runtimeProfileIDs) {

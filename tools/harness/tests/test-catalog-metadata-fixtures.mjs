@@ -52,3 +52,47 @@ test("metadata fixtures preserve current catalog facts without acquiring source 
     syncBuiltinESMExports();
   }
 });
+
+test("catalog package closure rejects a silently removed helper test", () => {
+  const read = fs.readFileSync;
+  const manifestPath = path.join(root, "tools/test_families/harness.command_surface.json");
+  fs.readFileSync = (file, ...args) => {
+    const value = read(file, ...args);
+    if (String(file) !== manifestPath) return value;
+    const manifest = JSON.parse(value);
+    const row = manifest.rows.find((entry) => entry.row_id === "harness.command_surface.unit.configtest_helper_contract");
+    row.selector.tests = row.selector.tests.filter((name) => name !== "TestLoadFixture");
+    return JSON.stringify(manifest);
+  };
+  syncBuiltinESMExports();
+  try {
+    assert.throws(() => loadTestCatalog(root), /TestLoadFixture is not cataloged exactly once/u);
+  } finally {
+    fs.readFileSync = read;
+    syncBuiltinESMExports();
+  }
+  assert.equal(loadTestCatalog(root).summary.status, "pass", "TestMain is not a missing catalog assertion");
+});
+
+test("catalog entry rejects legacy and hybrid topology before selector work", () => {
+  const read = fs.readFileSync;
+  const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
+  let legacy = true;
+  fs.readFileSync = (file, ...args) => {
+    const value = read(file, ...args);
+    if (String(file) !== topologyPath) return value;
+    const topology = JSON.parse(value);
+    if (legacy) topology.schema_id = "cartulary.execution_topology.v9";
+    else topology.go_targets.raw_go_aggregates = [];
+    return JSON.stringify(topology);
+  };
+  syncBuiltinESMExports();
+  try {
+    assert.throws(() => loadTestCatalog(root), /validation failed/u);
+    legacy = false;
+    assert.throws(() => loadTestCatalog(root), /validation failed/u);
+  } finally {
+    fs.readFileSync = read;
+    syncBuiltinESMExports();
+  }
+});

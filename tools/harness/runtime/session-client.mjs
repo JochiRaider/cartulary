@@ -5,8 +5,14 @@ import { workspaceLayout } from "../../workspace_layout.generated.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
 
-const schema = "cartulary.harness_runtime_session.v2";
-const rejected = () => Object.assign(new Error("native private runtime rejected"), { failure_class: "artifact", failure_reason: "artifact_error" });
+const schema = "cartulary.harness_runtime_session.v3";
+const rejected = (diagnostic = null) => {
+  const error = Object.assign(new Error("native private runtime rejected"), { failure_class: "artifact", failure_reason: "artifact_error" });
+  // Deliberate private access only: generic error serialization must not retain
+  // process identities or expose native proof diagnostics in public receipts.
+  Object.defineProperty(error, "privateDiagnostic", { value: diagnostic });
+  return error;
+};
 function transaction(repository, runRoot, runID, operation, fields, environment) {
   const message = { schema_id: schema, request_id: 1, operation, repository, run_root: runRoot, run_id: runID, ...fields };
   validateSchemaSync(schema, message);
@@ -14,11 +20,14 @@ function transaction(repository, runRoot, runID, operation, fields, environment)
   if (input.length > lifecyclePolicy.limits.frame) throw rejected();
   const binary = environment.CARTULARY_HARNESS_RUNTIME_BIN || path.resolve(import.meta.dirname, "../../..", workspaceLayout.toolbin, "cartulary-harness");
   const result = spawnSync(binary, ["session"], { cwd: repository, env: environment, input, stdio: ["pipe", "pipe", "ignore"], maxBuffer: lifecyclePolicy.limits.frame, timeout: 30000, killSignal: "SIGKILL" });
-  if (result.error || result.status !== 0) throw rejected();
+  const transport = { operation, reason: "transport", status: result.status, signal: result.signal, code: result.error?.code ?? null };
+  if (result.error) throw rejected(transport);
   let reply;
   try { reply = parseStrictJSON(new TextDecoder("utf-8", { fatal: true }).decode(result.stdout)); validateSchemaSync(schema, reply); }
-  catch { throw rejected(); }
-  if (reply.request_id !== 1 || reply.operation !== operation || reply.ok !== true) throw rejected();
+  catch { throw rejected(transport); }
+  if (reply.request_id !== 1 || reply.operation !== operation) throw rejected(transport);
+  if (reply.ok === false && result.status === 11) throw rejected({ operation, ...reply.error });
+  if (result.status !== 0 || reply.ok !== true) throw rejected(transport);
   return reply.result;
 }
 function handle(repository, runRoot, identity, environment, owned, admissionToken = () => null, attempt = null) {
