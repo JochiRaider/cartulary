@@ -361,3 +361,138 @@ Documentation lint passed in `remediation-performance-stability-markdown-2026101
 with native exit 0 in 9.880 s before this result entry. The successor freeze
 starts with the complete `release-check` provider to expose integration defects
 before collecting the remaining portfolio windows.
+
+The successor source is clean commit
+`7ccec27a9d905bcd4d8024df58d67c7d5a73f53d`, executable snapshot
+`b3463443139a16a16aa1ec2d820c9ab712295bfdf19ca70f4f6b45fb8642fcb2`.
+The first cold release invocation is
+`remediation-cost-reference-release-check-20261016-01-cold`, native session
+33967, graph `195b03c43c1af2124fcb2108cfdf55cd04a1f2d5ee09621d9b71f0e6480addc9`.
+It selects 1,275 work units. At launch no outcome, adoption or qualified cost
+window is established. The pending check window uses suffix `02` and excludes
+the initial cold check above. Other planned provider identities remain unchanged.
+
+The cold release completed with native exit 0, 6,257.716 seconds, 1,275/1,275
+passed work units and no cache hits. All 1,980 cleanup operations completed;
+the retained-secret scan passed over 12,070 files. Every target projection
+passed, including production rendering, package/independent recovery, visual,
+accessibility and all product measurement contexts. The observed dependency
+critical path is 6,254.287 seconds. Canonical non-overlapping buckets are
+setup 0.047 s, fixture 793.891 s, execution 5,301.945 s, collation 155.738 s,
+wrapper 3.230 s and unattributed 2.865 s. Resource-blocking time is contextual,
+not an additional charge. Diagnostics were off; no measured CPU or memory cost
+is inferred. This is one cold observation and source-bound integrated acceptance,
+not a qualified multi-observation portfolio or a Core 05 publication claim.
+
+### Retained finalizer admission follow-up
+
+Review of `agent-finalize-retained-run.mjs` found that its preflight requires a
+successful complete `check` roster and matching source but does not enforce
+`manifest.cache_mode='normal'`. Harness §8.3 explicitly rejects cold retained
+roots before mutation. Add a narrow rejection and an adversarial retained-root
+case before claiming final handoff/maintenance closure. Also review the ordering
+of complete retained-evidence validation against the first mutating action;
+the existing partial preflight must not substitute for complete canonical
+admission. This does not affect the active release invocation, which supplies
+no finalizer `RESULTS_DIR`, and does not invalidate its ordinary assertions.
+Preserve the frozen provider window while it runs; perform the maintenance
+repair at the next source-change boundary and retain exact source applicability.
+
+The normative cleanup now states the exact warm cache mode and removes the stale
+command-table references to the retired duration-refresh and duration-drift
+finalizer actions.
+The current closed action registry remains unchanged: generated-structure
+refresh is its only mutating action; standalone duration writers keep their own
+public admission rules. The implementation follow-up must reuse canonical
+retained-evidence validation before that mutation, validate unit/row closure,
+and reject prohibited evidence paths before filesystem traversal. No new runtime
+catalog or document dependency is appropriate. These guards remain unimplemented
+at this checkpoint and must be validated before final remediation closure.
+
+### Finalizer and support-projection implementation checkpoint
+
+The source-change boundary after the successful cold release implements the
+pre-mutation guard. The finalizer now uses the canonical event/context readers,
+current compiled full-check graph, current host/capacity and shared unit/row and
+cleanup validators. It requires normal cache mode and a passing retained-secret
+scan. Safe descriptor-relative reads replace its direct retained-file traversal;
+the unused recursive walker is removed. Latest eligible sibling selection first
+filters manifests and validates candidates without rerunning work. Explicit older
+root override remains unchanged.
+
+The integrated Timeline owner audit exposed a separate partition defect:
+`remediation-integrated-audit-timeline-20261016-01` failed with native exit 2 in
+1.627 s, `config/configuration_error`, all ten cleanup operations complete, and
+`unknown public evidence target`. Its catalog-required backend/browser support
+projections exist in the successful release root. REQ-121 requires known catalog
+partitions; the auditor incorrectly restricted all partitions to public command
+entries. The correction admits only current required support projections from
+a public provider, with exact compiled graph, command and row closure. An
+internal projection without its own command identity binds the enclosing
+provider's identity, matching canonical publication. Unrelated private targets
+and direct private providers reject. This does not add a command, alias or runner.
+
+The shared validator keeps owner audits and finalizer maintenance consistent.
+`remediation-retained-finalizer-contract-20261016-01` passed the exact
+`harness.evidence_accounting.behavior.current_epoch_evidence` row through
+`make test-slice`, native exit 0, 11.188 s. Cases cover cold/cache-off input,
+partial/current-graph and command mismatch, host/capacity mismatch, altered or
+absent unit/row evidence, context/scan/cleanup failure, unsafe paths rejected
+before traversal, retained sibling selection and both support projection forms.
+`remediation-retained-finalizer-finalize-20261016-01` passed with native exit 0,
+22.100 s. `RESULTS_DIR` was unset, so retained maintenance remains skipped until
+a new compatible full warm check passes. Broader harness validation and the
+actual retained-maintenance invocation are still required.
+
+The cold release remains valid integrated evidence for its recorded source.
+It is excluded from the successor cost window as `superseded_validation_policy`;
+the operational manifest now uses release suffix `02`, retaining the rejected
+root and reason. Do not mix the new harness assertions into the older window.
+Other unstarted provider windows retain their planned identities. No qualifying
+cost portfolio has yet been published.
+
+After the frozen windows, collect one explicitly instrumented full warm check
+with `HARNESS_DIAGNOSTICS=basic` for the final resource-cost handoff. Keep it
+separate from the default-off performance windows. Use the public performance
+and resource explainers to report observed process/group CPU, memory, shared
+service context and missing attribution. It must not invent per-test resource
+cost or establish an instrumentation-overhead or product benchmark claim.
+
+### Production retained-maintenance admission
+
+The broader `remediation-retained-finalizer-harness-20261016-01` passed
+`make harness-contract` with native exit 0 in 55.968 s. The subsequent full
+normal-cache `remediation-retained-finalizer-warm-check-20261016-01` reports
+799/799 work units passed in 673.556 s, no cache hits, and a passing retained
+scan over 5,383 files. Its executable snapshot is
+`e8e21db1a28155f29ad025142e995a9e046894a5bc8d4a2fdce3c306222c4524`.
+The native session handle was unavailable after context recovery, so its outer
+exit is unavailable; the terminal summary is not substituted for that exit.
+
+Actual maintenance against that root,
+`remediation-retained-finalizer-maintenance-20261016-01`, exited 2 in 12.954 s.
+The finalizer's precise failure was `artifact/artifact_error`: retained scan
+policy differs from execution. All ten cleanup operations completed and the
+mutating refresh was skipped. The outer target reports `harness/child_target_failure`.
+Investigation found an incorrect equality between two independent identities:
+the native scanner hashes its scanner patterns, whereas instrumentation hashes
+the resource-collection policy. No scan failure occurred.
+
+The finalizer and performance reader now validate the scan schema and successful
+outcome without equating those independent policies. Performance windows still
+reject mixed scanner identities. The scanner remains the only scan-policy
+owner; no patterns or compatibility identities are copied into JavaScript.
+Fixtures deliberately use different scanner and instrumentation digests and
+retain failed/malformed-scan rejection. The exact current-epoch evidence row
+passed in `remediation-retained-scan-policy-contract-20261016-01`, native exit 0,
+11.248 s. Fresh full-check maintenance at the corrected source remains required.
+
+The corrected slice's `make agent-finalize` passed in
+`remediation-retained-scan-policy-finalize-20261016-01`, native exit 0,
+21.820 s; retained maintenance was skipped because `RESULTS_DIR` was unset.
+Broader `make harness-contract` passed in
+`remediation-retained-scan-policy-harness-20261016-01`, native exit 0,
+54.852 s. Documentation lint passed in
+`remediation-retained-scan-policy-markdown-20261016-01`, native exit 0,
+10.750 s. The successor check cost window will provide the new compatible
+normal-cache root for actual maintenance; no old root is relabeled or altered.

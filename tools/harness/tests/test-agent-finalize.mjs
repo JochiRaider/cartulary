@@ -13,6 +13,9 @@ import {
 } from "../finalization/agent-finalize-action-plan.mjs";
 import { restoreTrackedWorkspace, snapshotTrackedWorkspace } from "../finalization/tracked-workspace-snapshot.mjs";
 import { captureFinalizationSubstep } from "../finalization/captured-substep.mjs";
+import { assertRetainedFinalizerPreflight } from "./retained-finalizer-cases.mjs";
+
+await assertRetainedFinalizerPreflight();
 
 const definitions = [
   { actionID: "generated_structure_refresh", requiresResultsDir: false, mutating: true, substeps: [] },

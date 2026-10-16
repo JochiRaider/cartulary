@@ -250,7 +250,7 @@ try {
     write(path.join(dir, "run-summary.json"), summary);
     write(path.join(dir, "execution-context.json"), context);
     write(path.join(dir, "cleanup-results.json"), { schema_id: "cartulary.harness_cleanup_results.v1", run_id: name, results: [] });
-    write(path.join(dir, "retained-secret-scan.json"), { schema_id: "cartulary.harness_retained_secret_scan.v1", status: "pass", scanned_files: 12, policy_digest: manifest.instrumentation.policy_digest });
+    write(path.join(dir, "retained-secret-scan.json"), { schema_id: "cartulary.harness_retained_secret_scan.v1", status: "pass", scanned_files: 12, policy_digest: byteHash("independent scanner fixture") });
     const targetFile = path.join(dir, "target-summaries/test-slice.json"), target = JSON.parse(readFileSync(targetFile));
     target.workload_digest = hash({ target: "test-slice", evidence_outputs: [] });
     write(targetFile, target);
@@ -368,6 +368,7 @@ try {
   await tamper("unknown context", "execution-context.json", (x) => { x.private_bindings = {}; }, /schema|additional/u);
   await tamper("cleanup failure", "cleanup-results.json", (x) => { x.results = [{ sequence: 1, operation: "runtime_close", unit_id: null, fixture_lease_id: null, outcome: "blocked", failure_class: null, failure_reason: null, failures: [], artifact_refs: [] }]; }, /cleanup is incomplete/u);
   await tamper("failed retained scan", "retained-secret-scan.json", (x) => { x.status = "fail"; }, /schema|constant/u);
+  await tamper("mixed scan policies", "retained-secret-scan.json", (x) => { x.policy_digest = `sha256:${"b".repeat(64)}`; }, /mixes retained scan policies/u);
   for (const [name, mutate, expected] of [
     ["dirty source", (x) => { x.source_state = "dirty"; }, /dirty_source/u],
     ["toolchain substitution", (x) => { x.toolchain_digest = `sha256:${"f".repeat(64)}`; }, /toolchain.*binding/u],

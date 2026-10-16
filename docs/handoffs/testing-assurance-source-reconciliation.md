@@ -4,6 +4,15 @@ Baseline: `00d24aa5354284dfcf6533b8f650e9eb0291ad44`. This human inventory recor
 
 ## Integrated companion fixture repairs
 
+The retained-maintenance correction adds helper-only
+`tools/harness/observability/retained-selection.mjs` and
+`tools/harness/tests/retained-finalizer-cases.mjs`. The existing finalizer command
+test invokes the latter; existing owner-audit tests cover required internal
+support projections. The active route remains
+`harness.evidence_accounting.behavior.current_epoch_evidence`, whose selected
+slice passed in `remediation-retained-finalizer-contract-20261016-01` with native
+exit 0. No test entrypoint, execution surface or catalog row is retired.
+
 Recipient validation now lives in the private production helper
 `internal/modules/reporting/recipient_validation.go`. Existing
 `TestDecoderNormalizationAndRegisteredReasons_Unit` checks retained-policy

@@ -1072,7 +1072,15 @@ distinct. Validation summaries MUST describe the reconstructed collections.
 ## 9.2 Section object
 
 **REQ-RPT-039a**
-The release/preview identity union changes adopted artifact schemas. The slide-deck schema advances to v2; the token and reveal artifacts advance to v3 with the subject/use ownership correction in §13, and the redaction manifest advances to v4 with distinct structural-removal evidence. Their retired variants are not admitted by this cutover. The new snapshot materialization and render-identity projections use previously unpublished v1 identifiers.
+The release/preview identity union changes adopted artifact schemas. The current
+slide-deck schema is v2; token and reveal artifacts are v3 with the subject/use
+ownership correction in §13, and the redaction manifest is v5 with the closed
+field and structural-removal evidence defined there. Retired variants are not
+admitted by this cutover. Immutable capture uses
+`cartulary.reporting_snapshot_capture.v1`, snapshot materialization uses
+`cartulary.reporting_snapshot_model.v6`, and the admitted render projection uses
+`cartulary.reporting_export_model.v7`. Their identity preimages retain the exact
+schema identifiers in §10; artifact revisions do not implicitly rename them.
 
 The snapshot worker MUST retain `cartulary.reporting_snapshot_capture.v1` from the single consistent capture defined by Core 01 REQ-01-477, using the exact snapshot identity allocated by its admitted Job and the Reference Data binding pinned at request admission. Job admission and immutable source capture are separate durable steps. The closed `cartulary.reporting_snapshot_admission.v1` retains the exact Job, incident, actor, transaction, admission timestamp, nullable requested boundary and Reference Pack binding under a schema-domain digest. The complete capture payload retains its own timestamp, the admission timestamp and requested boundary, exact source-boundary bytes, source capture and schema-domain digest. A retained capture MUST match the independently retained admission and Jobs request identity. Unknown, omitted, altered or retired admission input fails closed. Capture is cancelable work; completion MUST never reread current source or replace an already retained capture. Validation of retained case-content bytes MUST complete before acquiring the Jobs transition lock. Snapshot publication MUST use a short-lived, owner-created validated candidate containing only bounded metadata and MUST recheck that the exact retained payload version validated by that candidate is still current. A changed payload invalidates the candidate even if its embedded digest is unchanged or its former bytes are restored. Candidate validation remains cancelable and MUST drain before a terminal cancellation is published. The final transaction rechecks the independent admission and publishes only snapshot metadata plus the Jobs outcome; it MUST NOT decode, hash or materialize the full capture under the Jobs lock. Recovery independently validates retained capture bytes and their snapshot digest.
 

@@ -45,7 +45,7 @@ function fixture(t, target = "test-slice") {
   units.forEach((unit) => save(`unit-results/${unit.unit_id}.json`, unitResult(unit)));
   save("cleanup-results.json", cleanup);
   const commandID = (name) => `cartulary.harness.command.${name.replaceAll("-", "_")}.v1`;
-  const projection = { target, command_id: commandID(target), status: "pass", unit_ids: units.map((unit) => unit.unit_id), evidence_refs: units.flatMap((unit) => unit.current_run_evidence_outputs) };
+  const projection = { target, command_id: commandID(target), status: "pass", failure_class: null, failure_reason: null, unit_ids: units.map((unit) => unit.unit_id), evidence_refs: units.flatMap((unit) => unit.current_run_evidence_outputs) };
   const run = {
     manifest: { run_id: "synthetic", target, source_digest: digest, graph_digest: digest, declared_inputs: target === "test-slice" ? { OWNER: owner } : {} },
     summary: { status: "pass", failure_class: null, failure_reason: null },
@@ -74,6 +74,33 @@ test("owner audit accepts a complete owner or explicit target partition without 
   assert.deepEqual(report.unused_inputs, [f.options.manifest.entries[0]]);
   const leaf = fixture(t, "backend-unit");
   assert.equal((await auditOwnerEvidence(leaf.options)).selection, "target_partitions");
+});
+
+test("owner audit admits required support projections from a public provider", async (t) => {
+  for (const target of ["backend-integration-support", "browser-e2e-support"]) {
+    const f = fixture(t, target);
+    const provider = { name: "release-check", command_id: "cartulary.harness.command.release_check.v2", target_class: "public" };
+    const support = { name: target, target_class: target === "backend-integration-support" ? "check_internal" : "internal_helper",
+      ...(target === "browser-e2e-support" ? { command_id: "cartulary.harness.command.browser_e2e_support.v2" } : {}) };
+    f.options.surface.targets.push(provider, support);
+    Object.assign(f.run.manifest, { target: provider.name, command_id: provider.command_id, declared_inputs: {} });
+    f.projection.command_id = support.command_id ?? provider.command_id;
+    for (const row of f.rows) {
+      if (target === "backend-integration-support") Object.assign(row, { family_id: `${owner}.support_integration`, evidence_class: "integration", runtime_profile_id: "default" });
+      else Object.assign(row, { runner: "playwright", selector: { stage: "support" }, evidence_class: "browser", runtime_profile_id: "default" });
+      f.save(`rows/${row.row_id}.json`, { ...f.rowResult(row), runner: row.runner });
+    }
+    assert.equal((await auditOwnerEvidence(f.options)).status, "pass");
+    f.projection.command_id = "cartulary.harness.command.unrelated.v1";
+    await assert.rejects(auditOwnerEvidence(f.options), /target projection/u);
+    f.projection.command_id = support.command_id ?? provider.command_id;
+    f.run.manifest.target = target;
+    await assert.rejects(auditOwnerEvidence(f.options), /public invocation/u);
+    f.options.surface.targets.push({ name: "unrelated-private", target_class: "internal_helper", command_id: "cartulary.harness.command.unrelated.v1" });
+    f.options.manifest.entries.push({ target: "unrelated-private", run_root: "unread" });
+    f.options.loadRun = () => assert.fail("unowned private target must reject before evidence reads");
+    await assert.rejects(auditOwnerEvidence(f.options), (error) => error.exit_code === 2);
+  }
 });
 
 test("owner audit accepts cache reuse from canonical events without inventing a child execution", async (t) => {

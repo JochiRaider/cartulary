@@ -2,7 +2,7 @@
 
 ## Decision and applicability
 
-Status: **reviewed candidate; promotion pending integrated validation**.
+Status: **reviewed candidate; integrated validation passed; coordinated promotion pending final remediation handoff**.
 
 The user authorized coordinated Reporting 1.4.0 and Report Composition 1.3.0
 adoption, a clean pre-production cutover and removal of unnecessary compatibility
@@ -67,6 +67,20 @@ next table, not an executable requirement-to-test contract.
 | RC-072, RC-073, RC-073c, RC-074, RC-075a, RC-076a | Explicit local validation v2. Retire silently ignored context v1; Reporting Jobs retain complete contextual checks. Sort filtered findings by normative provenance, revalidate immutable bodies, and enforce binding before digest before semantic checks. | Composition validation |
 | RC-080, RC-084 | Builder guidance and behavioral scenarios use explicit local scope. Builder UI is optional under unchanged RC-079; no builder conformance is claimed. | Composition validation; scope review |
 
+## Interface and compatibility handoff
+
+This table summarizes this cutover for reviewers; the normative owners and
+their closed registries remain authoritative. It is not runtime metadata.
+
+| Boundary | Current cutover contract | Retired behavior and migration consequence |
+| --- | --- | --- |
+| Snapshot admission | Prompt common-Job acceptance, one consistent cancelable capture, independently bound admission and public `source_capture_sha256`. | Full-model snapshot storage/payloads are unsupported. Admission does not fabricate a completed capture or perform expensive expansion under its response/transition lock. |
+| Release and preview execution | v4 Jobs retain the exact recipe; worker preparation seals the materialized model/profile. Preview identity remains `preview_attempt_id`. | Full-model v2/v3 Job payload readers are removed. Missing identity, admission time, policy or provenance is never inferred. |
+| Built-in selectors | `cartulary.report.default@4`, template manifest v3, authored redaction profile v3, and built-in redaction profiles at version 5. | Template versions 1–3, profile versions 1–4, and retired manifest/profile shapes have no aliases. Exact internal omission defaults remain; external selectors remain explicit. |
+| Composition validation | Validate request/summary v2 and explicit `local_authoring` scope; ordinary resource lifecycle and immutable composition bytes remain owner-defined. | The ignored contextual validation interface is retired. Local success cannot replace Reporting Job validation or release approval. |
+| Historical portability | Portable catalog v3 binds exact immutable source captures and release manifests. | Old catalogs/full-model snapshots are rejected. Portable import creates historical artifacts without native identity, activation or destination trust; reveal maps are excluded. |
+| Rendering environment | Receipt-bound runtime installation, toolchain snapshot v2, actual pinned Slidev PDF and Mermaid SVG, declared confinement and fixed environment. | No placeholder output, host-binary fallback, network package resolution, remote assets or cross-environment byte-determinism claim. PNG/PPTX remain unsupported. |
+
 ## Observable obligations and assurance
 
 Exact operational selection, fixture and runner facts remain in
@@ -113,6 +127,45 @@ top-level test; helpers are not additional executable identities.
 
 ## Companion decisions
 
+The frozen integrated release now passes at commit
+`7ccec27a9d905bcd4d8024df58d67c7d5a73f53d`, executable snapshot
+`b3463443139a16a16aa1ec2d820c9ab712295bfdf19ca70f4f6b45fb8642fcb2`.
+`remediation-cost-reference-release-check-20261016-01-cold` returned native
+exit 0 in 6,257.716 seconds, with all 1,275 work units and 1,980 cleanup operations
+successful and retained-secret scan passed. Its source-bound measurement aggregate
+qualified all 29 predicates with zero scheduler overlap. Reporting snapshot and
+render observations were 214.5 ms and 216.3 ms respectively. The packaged
+Reference Pack, independent operational recovery, rendering confinement and
+release-readiness projections also passed.
+
+Explicit `make test-evidence-audit` manifests under
+`.cartulary/remediation-evidence/release-<owner>-20261016.json` select only
+that exact release root and the owner's named target partitions. The following
+audits all returned native exit 0, with no unused input or rejected partition:
+
+| Owner | Exact audit run ID | Rows / partitions | Duration |
+| --- | --- | --- | --- |
+| Reporting | `remediation-integrated-audit-reporting-20261016-01` | 43 / 4 | 26.893 s |
+| Composition | `remediation-integrated-audit-reportcomposition-20261016-01` | 4 / 2 | 26.596 s |
+| Reference Data | `remediation-integrated-audit-reference-data-20261016-01` | 43 / 5 | 26.742 s |
+| Extensions | `remediation-integrated-audit-extensions-20261016-01` | 34 / 4 | 26.893 s |
+| Graph Projection | `remediation-integrated-audit-graphprojection-20261016-01` | 9 / 2 | 26.739 s |
+| Incident Bundles | `remediation-integrated-audit-incidentbundles-20261016-01` | 28 / 2 | 26.580 s |
+| Recovery | `remediation-integrated-audit-recovery-20261016-01` | 34 / 5 | 26.800 s |
+
+These results supersede the earlier integrated-pending entries for this exact
+source. Subsequent harness-only finalizer/auditor changes require their own
+validation and source-impact record. They do not retroactively alter the executed
+product behaviors. Promotion remains coordinated with the final Core and
+subsystem status edits; no deployment reset or publication claim is implied.
+
+Final document reconciliation also corrected REQ-RPT-039a's stale transition
+summary: the current redaction manifest is v5, immutable capture is v1,
+snapshot materialization is v6 and the render export model is v7. Those exact
+identities already govern the closed registry, detailed normative tables and
+implementation. Identity-preimage schema IDs remain unchanged. This correction
+adds no compatibility reader or new product behavior.
+
 The final portability review found stale companion projections: Core 01 still
 named portable catalog v2, Reporting's built-in paragraphs still named template
 3 and profile 4/internal 2, and Core 04 AC-266/267 still described eager
@@ -124,12 +177,11 @@ selector strings do not make independent releases the same attempt. This
 reconciliation is part of the pending coordinated amendment, not promotion.
 
 Implementation review also found that recipient validation resolved the current
-profile selector again during preparation. It must consume the retained authored
-policy, with no transport-layer dependency or registry lookup. Add a negative
-case in the existing decoder/reason row where the retained policy's allowed
-partitions differ from the current built-in policy, then qualify the repaired
-owner and packaged recovery path. Until that evidence exists, this entry is
-an open implementation obligation.
+profile selector again during preparation. The repair consumes the retained
+authored policy, with no transport-layer dependency or registry lookup. The
+existing decoder/reason row now exercises retained policy whose allowed
+partitions differ from the current built-in policy. Owner and packaged recovery
+qualification for this repair are recorded below.
 
 The implementation now validates recipients against the retained authored policy
 through a Reporting-only validator; it no longer resolves selectors or depends
@@ -141,10 +193,9 @@ existing route idempotency integration also checks a missing recipient through
 ordinary admission, failed preparation, absent release row and exact replay.
 Focused unit validation passed in
 `remediation-retained-recipient-focused-20261016-01`, native exit 0 in 4.011 s.
-Full owner and package evidence remains pending. Finalization 01 passed in
-21.937 s before the additional public integration assertion; its successor
-must qualify the complete source. Retained-run maintenance remains skipped
-because `RESULTS_DIR` is unset.
+Finalization 01 passed in 21.937 s before the additional public integration
+assertion; the successor below qualifies the complete source. Retained-run
+maintenance was skipped because `RESULTS_DIR` was unset.
 
 The complete repair passed finalization 02 (`22.162 s`) and
 `remediation-retained-recipient-owner-20261016-01` (`make test-slice
@@ -161,8 +212,8 @@ selects only that full-owner root. Its `make test-evidence-audit` passed in
 `remediation-retained-recipient-audit-20261016-01`, native exit 0, 2.848 s.
 The companion specification reconciliation passed `make lint-markdown` in
 `remediation-companion-reconciliation-markdown-20261016-01`, native exit 0,
-10.320 s, before this result entry. Final integrated and package qualification
-remain separate; this closes the identified retained-policy repair.
+10.320 s, before this result entry. Final integrated qualification remains
+separate; this closes the identified retained-policy repair.
 
 The packaged Reference Pack path now also passes:
 `remediation-reference-package-repair-20261016-03`, public
@@ -188,13 +239,40 @@ release acceptance still requires its own successful invocation.
 | Core 01 | Only Slidev/Mermaid; exact snapshot/release/preview tuples, fixed admission time, complete output options, composition binding and bundle-root digest; no invented failed-release facts. | Candidate owner text reconciled. |
 | Core 02 | Host/Identity six party-assignment collections and versioned state are source-owner data, captured at the snapshot boundary. | Adopted owner; ordinary mutation/browser evidence retained. |
 | Core 03 | Party controls use ordinary inspector authority. REQ-03-287b defines the bounded Snapshots and reports drawer, uncertainty/replay/cancel behavior and exact Job results. | Remove proposed label only at coordinated adoption. |
-| Core 04 | Private reveal maps, rendering confinement, default-false authored text permission, exact product progress predicates. | Candidate owner text reconciled; all timed families have retained observations. |
-| Reporting / Composition | Promote 1.4.0 and 1.3.0 together; local-authoring validation v2 does not authorize contextual execution. | Pending integrated validation. |
+| Core 04 | Private reveal maps, rendering confinement, default-false authored text permission, exact product progress predicates. | Candidate owner text reconciled; all timed families qualified in the frozen integrated release. |
+| Reporting / Composition | Promote 1.4.0 and 1.3.0 together; local-authoring validation v2 does not authorize contextual execution. | Integrated validation and both owner audits passed; coordinated status update pending. |
 | Reference Data | Adopted Reference Pack 0.2.0 / contract major 2 owns exact set identity, trust, pinning, retention and payload verification. | Current full owner passed; no authority moved into Reporting. |
-| Extensions | Adopted 0.12.0 / contract major 2 owns typed participant/condition boundaries, with no active capability grant. | Reporting uses bounded typed owner contributions; integrated dependency checks pending. |
-| Graph Projection | Adopted 2.2.0 owns exact immutable result refs and leases. Reporting consumes typed projections and cannot regenerate from live source. | Current interface review complete; integrated owner checks pending. |
-| Incident Bundles | Core 01 owns historical portability; exact optional-section inventory and no destination trust/native identity synthesis. | Retained portability passes; integrated owner checks pending. |
-| Recovery | Core owner and typed state catalog govern complete relational/object closure, private artifact encryption and readiness validation. | Actual release/preview backup/restore passes; integrated owner checks pending. |
+| Extensions | Adopted 0.12.0 / contract major 2 owns typed participant/condition boundaries, with no active capability grant. | Typed contribution review and integrated owner audit passed. |
+| Graph Projection | Adopted 2.2.0 owns exact immutable result refs and leases. Reporting consumes typed projections and cannot regenerate from live source. | Current interface review and integrated owner audit passed. |
+| Incident Bundles | Core 01 owns historical portability; exact optional-section inventory and no destination trust/native identity synthesis. | Native portability, packaged historical transfer and integrated owner audit passed. |
+| Recovery | Core owner and typed state catalog govern complete relational/object closure, private artifact encryption and readiness validation. | Actual release/preview backup/restore, independent package recovery and integrated owner audit passed. |
+
+## Cutover and rollback handoff
+
+This is a pre-production initialization boundary. Existing incompatible history
+must reject before migration or source mutation; the rehearsal is
+`TestReportingIdentityCutoverDoesNotReconstructHistory_Integration`, reached by
+the full Reporting owner. The packaged `make standup-reference-pack-smoke`
+rehearsal above creates and destroys only its explicitly named disposable
+installations. These results do not authorize resetting a deployment.
+
+For an actual cutover, retain the prior application image, configuration, key
+material, database and object roots as one matching recovery set. Initialize the
+new version in a separate empty deployment with its exact receipt-bound renderer
+installation. Enable the claimed profile only after startup admits that complete
+installation under the deployed confinement policy. Exercise ordinary snapshot,
+internal preview, release, cancellation, backup and independent restore before
+changing the deployment entry point. Preserve the exact image/runtime identity
+and readiness results with the deployment record. No old snapshot, release,
+preview, admission time, Reference Pack binding or provenance is reconstructed.
+
+Rollback restores the matching prior application/data/configuration/key/object
+set, or initializes a separate empty deployment. Do not run the old application
+against newly initialized data or attempt an in-place downgrade. Historical
+portable imports remain historical artifacts; they grant no native Job identity,
+release approval, Reference Pack activation or destination trust. Private reveal
+maps remain outside portable shareable inventories and inside encrypted recovery
+closure.
 
 ## Current Composition validation evidence
 

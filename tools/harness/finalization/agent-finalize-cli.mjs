@@ -3,7 +3,6 @@ import { spawnSync } from "../workspace/child-process.mjs";
 import {
   existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -225,40 +224,8 @@ function readJSON(file) {
   }
 }
 
-function walkFiles(root) {
-  const files = [];
-  const stack = [root];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    let entries = [];
-    try {
-      entries = readdirSync(current, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-      } else if (entry.isFile()) {
-        files.push(next);
-      }
-    }
-  }
-  return files.sort();
-}
-
-function filesNamed(root, name) {
-  if (!existsSync(root)) {
-    return [];
-  }
-  return walkFiles(root).filter((file) => path.basename(file) === name);
-}
-
 const retainedRunPreflight = createRetainedRunPreflight({
   allowOlderResultsDir,
-  filesNamed,
-  readJSON,
   relToRepo,
   repoRoot,
   resultsDirInput,

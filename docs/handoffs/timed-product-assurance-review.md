@@ -1244,3 +1244,51 @@ Source: `sha256:700d45dd9e4772407495836300b4525ac4887972c792d3f487d19319bd8c3815
 Graph: `sha256:1454b4d899b8143a8ca133b9dfd08ac7ce4e3bf43e58d8c91b2639ba482a4e02`.
 The current cleanup is complete; the prior aggregate release's cleanup symptom
 remains unconfirmed and is not declared repaired by this later result.
+
+## Frozen integrated measurement qualification
+
+`remediation-cost-reference-release-check-20261016-01-cold` completed with native
+exit 0 in 6,257.716 seconds, all 1,275 work units passed, all 1,980 cleanup
+operations completed and retained-secret scan passed. The clean executable
+source is `b3463443139a16a16aa1ec2d820c9ab712295bfdf19ca70f4f6b45fb8642fcb2`
+at commit `7ccec27a9d905bcd4d8024df58d67c7d5a73f53d`; graph
+`195b03c43c1af2124fcb2108cfdf55cd04a1f2d5ee09621d9b71f0e6480addc9`.
+The retained `browser-e2e-measurement/frontend-measurement-aggregate.json` is
+v5 and `qualified`. Its four profile groups each have one builder, respectively
+2/4/2/21 isolated clones, and zero scheduler overlap. All 29 rollups passed.
+This closes the integrated applicability review at this source; later source
+changes retain their own impact review. It is not Core 05 publication evidence
+or a multi-observation execution-cost portfolio. Values below are rounded to
+one decimal millisecond; exact samples and statistics remain in retained evidence.
+
+| Predicate | Sampling / observed statistic | Outcome |
+| --- | --- | --- |
+| `perf.evidence_inspector.metadata_shell.v2` | 100 observations: p95 46.2 ms | Passed |
+| `perf.evidence_verification.visible_with_cancel.v1` | One observation: 159.2 ms | Passed |
+| `perf.import_csv_apply.visible_with_cancel.v1` | One observation: 218.3 ms | Passed |
+| `perf.import_csv_discovery.visible_with_cancel.v1` | One observation: 544.0 ms | Passed |
+| `perf.import_xlsx_apply.visible_with_cancel.v1` | One observation: 230.9 ms | Passed |
+| `perf.import_xlsx_discovery.visible_with_cancel.v1` | One observation: 335.0 ms | Passed |
+| `perf.reporting_render.visible_with_cancel.v1` | One observation: 216.3 ms | Passed |
+| `perf.reporting_snapshot.visible_with_cancel.v1` | One observation: 214.5 ms | Passed |
+| `perf.anchor_stability_under_live_updates.v2` | Seeded trace: 11/11 steps | Passed |
+| `perf.reference_pack_import.visible_with_cancel.v1` | One observation: 215.8 ms | Passed |
+| `perf.reference_pack_refresh.visible_with_cancel.v1` | One observation: 183.8 ms | Passed |
+| `perf.reference_pack_reverify.visible_with_cancel.v1` | One observation: 123.5 ms | Passed |
+| `perf.timeline_blank_row_create.v1` | 100 observations: p95 122.6 ms | Passed |
+| `perf.timeline_change_set_rollback.rendered.v2` | One observation: 356.9 ms | Passed |
+| `perf.timeline_filter.first_useful_viewport.v1` | 100 observations: p95 166.9 ms | Passed |
+| `perf.timeline_filter.stable_viewport.v1` | 100 observations: p95 185.8 ms | Passed |
+| `perf.timeline_group.first_useful_viewport.v1` | 100 observations: p95 170.0 ms | Passed |
+| `perf.timeline_group.stable_viewport.v1` | 100 observations: p95 160.6 ms | Passed |
+| `perf.timeline_history_entry_rollback.rendered.v2` | One observation: 264.9 ms | Passed |
+| `perf.timeline_paste_20x5.v2` | One observation: 391.2 ms | Passed |
+| `perf.timeline_presence_cell.rendered.v1` | One observation: 183.1 ms | Passed |
+| `perf.timeline_presence_row.rendered.v1` | One observation: 182.2 ms | Passed |
+| `perf.timeline_presence_surface.rendered.v1` | One observation: 36.7 ms | Passed |
+| `perf.timeline_row_restore.rendered.v2` | One observation: 392.8 ms | Passed |
+| `perf.timeline_sort.first_useful_viewport.v1` | 100 observations: p95 183.0 ms | Passed |
+| `perf.timeline_sort.stable_viewport.v1` | 100 observations: p95 198.0 ms | Passed |
+| `perf.timeline_summary_focus_edit.v1` | 100 observations: p95 36.8 ms | Passed |
+| `perf.timeline_summary_selection_down.v1` | 100 observations: p95 28.3 ms | Passed |
+| `perf.typing_ack.v1` | 100 observations: p95 26.6 ms | Passed |

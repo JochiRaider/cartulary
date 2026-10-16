@@ -39,9 +39,21 @@ and its explicit evidence audit. Current packaged Reference Pack qualification
 passes production rendering, portability, encrypted export, source loss and
 independent recovery through all fourteen scenarios. The reviewed visual refresh
 has both required ordinary passes against the same final manifest; see the
-[golden review](ui-ux/remediation-golden-review-2026-10-16.md). The next clean
-source freeze is for integrated acceptance and execution-cost windows. It does
-not promote the subsystem candidates or remove the pending Saved View scenario.
+[golden review](ui-ux/remediation-golden-review-2026-10-16.md). Integrated acceptance
+used clean `7ccec27a9d905bcd4d8024df58d67c7d5a73f53d`. The cold release invocation
+`remediation-cost-reference-release-check-20261016-01-cold` passed with native
+exit 0 in 6,257.716 seconds: 1,275/1,275 work units, no cache hits, all 1,980
+cleanup operations complete and retained-secret scan passed. The preceding cold check passed 799/799 work units
+at its recorded source, but is excluded from the successor cost window.
+The [performance review](performance-portfolio-remediation.md) records the
+validated stability guards and subsequent retained-finalizer/support-projection
+repairs. Their focused evidence-contract and broader harness-contract checks
+pass. The new full warm check reports 799 passed work units and a passing scan;
+its native outer exit was unavailable after context recovery. Actual retained
+maintenance then exposed an incorrect equality between scanner and instrumentation
+policies. The corrected reader and adversarial fixtures pass their focused row;
+fresh full-check maintenance remains required before closure. No subsystem candidate has yet been promoted and the
+Saved View scenario remains pending reference-cost qualification.
 
 ## Workstream status
 
@@ -79,10 +91,14 @@ and validated. Proposal-only tests cannot close an adopted-base discrepancy.
 
 ## Closure and handoff
 
-Implementation and assurance are incomplete. Required production tests,
-generated checks, finalization, release verification and qualified performance
-windows remain pending. `RESULTS_DIR` has not been supplied for retained-run
-maintenance. No adoption or performance claim is made by this handoff.
+Overall implementation and assurance closure are incomplete. Production
+rendering, confinement, owner validation, packaged portability/recovery and
+visual refresh and integrated release have passed at their recorded sources.
+The retained-finalizer preflight repair, qualified performance
+windows, the reviewed Saved View removal and coordinated adoption remain open.
+The first real `RESULTS_DIR` maintenance attempt rejected before mutation; its
+diagnosis and correction are retained in the performance review. No adoption
+or performance claim is made by this handoff.
 
 ## Closure applicability
 

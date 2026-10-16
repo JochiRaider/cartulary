@@ -1940,8 +1940,7 @@ Go duration-baseline maintenance MUST use the retained-run eligibility declared 
 | `go-test-duration-baseline-coverage` | Does not require retained-run evidence. It verifies planned baseline coverage only, is read-only, and may remain ordinary `check` evidence. |
 | `go-test-duration-baseline-drift` | MAY use `RESULTS_DIR` explicitly supplied by the caller or the current retained run when invoked inside a retained-run context. It MUST be read-only and MUST reject missing, failed, incomplete, or artifact-insufficient evidence before producing a drift verdict. |
 | `go-test-duration-baselines` | MUST require explicit `RESULTS_DIR`. It MUST reject ambiguous result roots unless exactly one retained run is resolved by Sections 5 and 6. It MAY mutate baseline files only after retained-run validation succeeds. |
-| `agent-finalize duration_baseline_refresh` | MUST use an existing retained full warm `make check` run root. Service-backed-only, owner-slice, browser-only, and other partial roots are invalid. |
-| `agent-finalize duration_baseline_drift_validation` | MUST use the same retained-run requirement as `duration_baseline_refresh`, but remains read-only. |
+| `agent-finalize` retained-run validation | MUST use an existing retained full warm `make check` run root with `cache_mode='normal'`. Service-backed-only, owner-slice, browser-only, cold, cache-off, and other partial roots are invalid. Duration-baseline refresh is not a finalizer action. |
 
 Duration retained-run evidence MUST be rejected if it is failed, incomplete, contaminated, non-warm where warm evidence is required, missing full-check markers where full-check evidence is required, artifact-insufficient, or older than the latest sibling retained check run without the Section 8.2 older-run override where that override applies. A mutating baseline update MUST fail before the first mutation when retained-run validation fails.
 
@@ -2665,7 +2664,13 @@ physical run root MAY be named by multiple explicit target entries. A known supp
 target that is not applicable to the selected owner MUST be reported in
 `unused_inputs`; an unknown or duplicate target is `usage_error`. Missing required
 target entries are `usage_error`; unsafe roots or incompatible contents are
-`artifact_error`. As an atomic alternative to leaf target partitions, a manifest
+`artifact_error`. A required partition MAY be an internal support projection
+when the current catalog resolves rows to that projection. It MUST be retained
+by a public invocation and match that invocation's compiled graph. Validate the
+projection's own command identity when declared, otherwise the enclosing public
+provider's command identity. An unrelated private target is not an admissible
+unused input, and this evidence rule does not expose a new execution command.
+As an atomic alternative to leaf target partitions, a manifest
 MAY contain one `target=test-slice` entry whose retained canonical projection
 selects the owner's complete active row set. In that mode the auditor MUST verify
 the full-owner selection and all compatibility fields directly from that artifact;
@@ -4034,9 +4039,9 @@ available only when `agent-finalize` is itself selected in a canonical graph;
 standalone finalization executes each selected action exactly once. Historical
 action-cache records and disable/force variables are unsupported current input.
 
-When `RESULTS_DIR` is set, `agent-finalize` MUST validate the supplied retained run before any mutating generated-artifact or duration-baseline refresh. A valid finalizer `RESULTS_DIR` is an existing retained full warm `make check` run root that identifies a successful, uncontaminated run and contains schema-valid `run-manifest.json`, `unit-events.ndjson`, `run-summary.json`, `target-summaries/check.json`, and every selected row and unit result. The retained root MUST be the latest successful full warm `make check` root under the same retained-results parent unless `ALLOW_OLDER_RESULTS_DIR=1` is supplied and recorded. Every consumed artifact MUST match the current source, system, semantic, catalog, verification, graph, capacity, and cache-mode identity. Partial, failed, contaminated, mixed-schema, older-without-override, or evidence-incomplete roots MUST be rejected before mutation as `configuration_error` for invalid caller input or `artifact_error` for unsafe retained evidence.
+When `RESULTS_DIR` is set, `agent-finalize` MUST validate the supplied retained run before mutating generated-structure refresh. A valid finalizer `RESULTS_DIR` is an existing retained full warm `make check` run root with `cache_mode='normal'` that identifies a successful, uncontaminated run and contains schema-valid `run-manifest.json`, `unit-events.ndjson`, `run-summary.json`, `target-summaries/check.json`, and every selected row and unit result. The retained root MUST be the latest successful full warm `make check` root under the same retained-results parent unless `ALLOW_OLDER_RESULTS_DIR=1` is supplied and recorded. Every consumed artifact MUST match the current source, system, semantic, catalog, verification, graph, capacity, and cache-mode identity. Partial, cold, cache-off, failed, contaminated, mixed-schema, older-without-override, or evidence-incomplete roots MUST be rejected before mutation as `configuration_error` for invalid caller input or `artifact_error` for unsafe retained evidence.
 
-After retained-run preflight succeeds, the finalizer MUST freeze the accepted pre-mutation source-snapshot identity for every retained-evidence child action. A later child that reads owner accounting after an earlier baseline writer intentionally changes tracked maintenance bytes MUST compare that accounting with the frozen identity, not a newly computed mid-transaction snapshot. The frozen identity is private finalizer context: it MUST be scoped to the exact normalized retained root, MUST fail closed when malformed or paired with a different root, and MUST NOT alter standalone public baseline commands, which continue to compare retained evidence with the current source snapshot.
+After retained-run preflight succeeds, the finalizer MUST freeze the accepted pre-mutation source-snapshot identity for every retained-evidence child action. A later child that reads owner accounting after generated-structure refresh intentionally changes tracked maintenance bytes MUST compare that accounting with the frozen identity, not a newly computed mid-transaction snapshot. The frozen identity is private finalizer context: it MUST be scoped to the exact normalized retained root, MUST fail closed when malformed or paired with a different root, and MUST NOT alter standalone public baseline commands, which continue to compare retained evidence with the current source snapshot.
 
 When `agent-finalize/finalize-summary.json` records a normalized child failure, the enclosing shell step and public target summaries MUST promote that failure class, reason, headline, and child target. The generic nonzero shell wrapper failure MUST NOT outrank or duplicate the normalized finalizer failure as `unknown_failure`; raw wrapper stdout and stderr remain retained log artifacts.
 
@@ -8875,7 +8880,7 @@ remain additional obligations.
 | --- | --- |
 | `unit` | The unit or fast execution target resolved by the registered runner and selector. |
 | `integration` | The integration execution target resolved by the registered runner, selector and fixture profile. |
-| `browser` | The Playwright stage's webserver-backed, stateful, or support public gate. |
+| `browser` | The Playwright stage's webserver-backed, stateful, or support projection from a public invocation. |
 | `accessibility` | `browser-e2e-a11y`. |
 | `visual` | Visual golden digest validation and `browser-e2e-visual`. |
 | `measurement` | `browser-e2e-measurement`; informative unless an active claim authorizes publication. |

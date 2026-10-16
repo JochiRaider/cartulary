@@ -101,8 +101,7 @@ async function readCanonicalRoot(repositoryRoot, baseDirectory, reference, targe
     const bindings = validateExecutionContext(context, canonical, cleanup);
     const scan = readJSON(path.join(runRoot, "retained-secret-scan.json"));
     validateSchemaSync("cartulary.harness_retained_secret_scan.v1", scan);
-    if (scan.policy_digest !== canonical.manifest.instrumentation.policy_digest) throw new Error("retained scan policy differs from execution");
-    return { ...canonical, ...bindings, context };
+    return { ...canonical, ...bindings, context, scanPolicyDigest: scan.policy_digest };
   })());
   const canonical = await retained.get(runRoot);
   const { manifest, summary, targetSummaries, terminal } = canonical;
@@ -114,7 +113,8 @@ async function readCanonicalRoot(repositoryRoot, baseDirectory, reference, targe
     throw new Error(`${reference} does not contain successful ${target} evidence`);
   }
   return { runRoot, root: rootReference(repositoryRoot, runRoot, reference), manifest, summary, targetSummary,
-    systemProfileDigest: canonical.systemProfileDigest, eventCount: canonical.eventCount, inclusive_wall_ms: targetSummary.inclusive_wall_ms };
+    systemProfileDigest: canonical.systemProfileDigest, scanPolicyDigest: canonical.scanPolicyDigest,
+    eventCount: canonical.eventCount, inclusive_wall_ms: targetSummary.inclusive_wall_ms };
 }
 
 function semanticDeclaredInputs(inputs) {
@@ -175,6 +175,7 @@ function assertSameWindow(target, records) {
     if (!Number.isFinite(end) || Date.parse(records[index].manifest.started_at) < end) throw new Error(`${target} performance window is overlapping or out of order`);
   }
   for (const record of records.slice(1)) {
+    if (record.scanPolicyDigest !== identity.scanPolicyDigest) throw new Error(`${target} performance window mixes retained scan policies`);
     if (record.systemProfileDigest !== identity.systemProfileDigest) throw new Error(`${target} performance window mixes host profiles`);
     for (const field of ["source_commit", "source_digest", "system_digest", "toolchain_digest", "graph_digest"]) {
       if (record.manifest[field] !== identity.manifest[field]) {
