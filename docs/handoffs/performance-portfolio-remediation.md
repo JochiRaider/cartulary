@@ -496,3 +496,39 @@ Broader `make harness-contract` passed in
 `remediation-retained-scan-policy-markdown-20261016-01`, native exit 0,
 10.750 s. The successor check cost window will provide the new compatible
 normal-cache root for actual maintenance; no old root is relabeled or altered.
+
+### Isolated capture failure during the successor cold check
+
+The corrected freeze is `776b5ad23ab9e0c3ea52d238083b43840a0287c5`, executable
+digest `d001bcb0a384ba451d670e4921d624a188490ee52b3c624978bc293fd2dee57a`.
+`remediation-cost-reference-check-20261016-02-cold` exited 2, with canonical
+`artifact/artifact_error`, 696.031 s, 798 passed and one failed work unit.
+All 1,080 cleanup operations completed; the retained scan passed over 5,382 files.
+The failed unit `go:7868cac819e3077b:4e0b012e5ef2` selected
+`platform.openapi.unit.runtime_contract_parity_4fc98c2b71`. Its bounded diagnostic
+is `private child capture failed`; no row result was published. This is not
+evidence of a product assertion failure. The capture's cause is unresolved.
+
+The capture adapter now exposes only a closed operation label and allowlisted
+error code. Unknown codes and raw cause text remain private. Existing capture
+fault fixtures check the operation labels and non-disclosure. No lifecycle,
+retry, timeout or capture-security rule was weakened. The isolated affected row
+passed with fresh cache-off execution in
+`remediation-openapi-capture-diagnosis-20261016-01`, native exit 0, 1.249 s.
+That smaller context does not reproduce the failed full-check context or prove
+its cause repaired. Preserve the incident as unconfirmed, with one full-context
+failure and one narrower diagnostic pass, not a combined failure-rate estimate.
+
+The failed root is excluded as `artifact_error_private_child_capture`; the
+successor check window uses suffix `03`. No automatic retry-to-green occurred.
+Further full-context execution uses the diagnostic correction and a new source
+freeze so a recurrence can identify the failed lifecycle operation.
+
+Diagnostic validation passed with native exit 0 in
+`remediation-private-capture-diagnostic-contract-20261016-01` (22.709 s),
+`remediation-private-capture-diagnostic-finalize-20261016-01` (21.644 s),
+`remediation-private-capture-diagnostic-harness-20261016-01` (54.148 s), and
+`remediation-private-capture-diagnostic-markdown-20261016-01` (10.920 s).
+Retained maintenance was skipped by that finalizer because `RESULTS_DIR` was
+unset. These are diagnostic implementation checks, not a repaired-cause claim
+or qualified cost observations.

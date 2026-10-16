@@ -36,9 +36,10 @@ function privateCaptureDirectory(runtime) {
   return directory;
 }
 
-function captureFailure(reason, cause) {
+function captureFailure(reason, cause, stage = "cleanup") {
+  const code = new Set(["ENOENT", "ESRCH", "EACCES", "EPERM", "EMFILE", "ENFILE", "ENOSPC", "EIO", "ETIMEDOUT"]).has(cause?.code) ? cause.code : "unclassified";
   return new CommandFailure(
-    reason === "cleanup_error" ? "private child capture cleanup failed" : "private child capture failed",
+    `${reason === "cleanup_error" ? "private child capture cleanup failed" : "private child capture failed"} (stage=${stage}, code=${code})`,
     { failure_class: reason === "cleanup_error" ? "harness" : "artifact", failure_reason: reason },
     { cause },
   );
@@ -51,6 +52,7 @@ export async function runPrivateCapturedProcess(command, args, options) {
   const files = new Set();
   let directory, runtime, processProof, processCompletion;
   let interrupted = false;
+  let stage = "input";
   const interrupt = () => { interrupted = true; if (processProof) void stopOwnedProcess(processProof).catch(() => {}); };
   const drain = async () => {
     if (!processProof) return;
@@ -115,11 +117,13 @@ export async function runPrivateCapturedProcess(command, args, options) {
     if (!Number.isSafeInteger(tailBytes) || tailBytes < 1024 || tailBytes > 1024 * 1024) {
       throw new Error("private child diagnostic tail must be between 1 KiB and 1 MiB");
     }
+    stage = "runtime_borrow";
     runtime = borrowRuntime({
       repoRoot: options.repoRoot,
       runRoot: options.runRoot,
       environment: options.env,
     });
+    stage = "capture_directory";
     directory = mkdtempSync(path.join(privateCaptureDirectory(runtime), "capture-"));
     const component = path.basename(directory);
     if (!componentPattern.test(component) || component.length > 128) {
@@ -128,11 +132,15 @@ export async function runPrivateCapturedProcess(command, args, options) {
     assertPrivate(lstatSync(directory), true);
     const stdoutPath = path.join(directory, "stdout");
     const stderrPath = path.join(directory, "stderr");
+    stage = "stdout_open";
     const stdoutFD = createStream(stdoutPath);
+    stage = "stderr_open";
     const stderrFD = createStream(stderrPath);
+    stage = "child_environment";
     const childEnvironment = { ...options.env, ...launch.environment, ...runtime.producerEnvironment() };
     const failureContext = childEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
     if (failureContext && JSON.parse(failureContext).invocation_id !== launch.identity.invocation_id) delete childEnvironment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+    stage = "spawn";
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: childEnvironment,
@@ -154,13 +162,16 @@ export async function runPrivateCapturedProcess(command, args, options) {
     completion.catch(() => {});
     processCompletion = completion;
     if (child.pid) {
+      stage = "process_proof";
       try { processProof = ownedProcess(child.pid); }
       catch (error) { if (!["ENOENT", "ESRCH"].includes(error.code)) throw error; }
+      stage = "process_registration";
       if (processProof) runtime.record({ kind: "helper_process", target: processProof, depends_on: options.dependencies });
     }
     process.on("SIGINT", interrupt); process.on("SIGTERM", interrupt);
     if (interrupted) interrupt();
     if (child.pid && options.onSpawn) {
+      stage = "spawn_callback";
       const proof = ownedProcess(child.pid);
       try { options.onSpawn(child); }
       catch (error) {
@@ -171,19 +182,25 @@ export async function runPrivateCapturedProcess(command, args, options) {
         throw error;
       }
     }
+    stage = "completion";
     const outcome = await completion;
+    stage = "process_drain";
     await drain();
+    stage = "launch_settlement";
     if (!options.launch) launch.settle(outcome.signal ? "cancelled" : outcome.status === 0 ? "passed" : "failed");
+    stage = "stream_close";
     close(stdoutFD);
     close(stderrFD);
+    stage = "stdout_read";
     const stdout = boundedTail(stdoutPath, tailBytes);
+    stage = "stderr_read";
     const stderr = boundedTail(stderrPath, tailBytes);
     // Ownership transfers only after both validated reads have completed.
     return { ...outcome, launch: launch.identity, stderr, stderrPath, stdout, stdoutPath, cleanup };
   } catch (error) {
     try { await drain(); } catch (cleanupError) { (error.cleanupFailures ??= []).push(cleanupError); }
     launch.settle(spawned ? "failed" : "spawn_failed");
-    const failure = captureFailure("artifact_error", error);
+    const failure = captureFailure("artifact_error", error, stage);
     try { cleanup(); }
     catch (cleanupError) {
       failure.message += "; cleanup_error during release";

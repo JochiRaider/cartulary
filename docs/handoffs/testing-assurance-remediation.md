@@ -55,6 +55,14 @@ policies. The corrected reader and adversarial fixtures pass their focused row;
 fresh full-check maintenance remains required before closure. No subsystem candidate has yet been promoted and the
 Saved View scenario remains pending reference-cost qualification.
 
+The successor clean cold check at `776b5ad23` recorded one private-child-capture
+artifact failure, 798 passed units, complete cleanup and a passing retained scan.
+The affected OpenAPI row passes its smaller fresh diagnostic context. Its cause
+remains unconfirmed; the capture now reports closed operation/error-code labels
+without exposing private cause text. The performance review records the failed
+root and excludes it from qualification. A new frozen source is required for the
+next cost window; no failed observation is relabeled as a warm-up or successful run.
+
 ## Workstream status
 
 | Finding | Owner | Status | Exit evidence |

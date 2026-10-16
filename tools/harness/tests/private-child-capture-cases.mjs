@@ -56,7 +56,7 @@ async function exercise(scenario) {
   patch("openSync", (file, flags, ...rest) => {
     if (scenario === "second-open" && String(file).startsWith(parent) && path.basename(file) === "stderr" && flags & fs.constants.O_CREAT) {
       injected = true;
-      throw new Error("injected second stream open");
+      throw Object.assign(new Error("injected second stream open with private path and payload"), { code: "private-payload-must-not-escape" });
     }
     const descriptor = originalOpen(file, flags, ...rest);
     if (String(file).startsWith(`${parent}/`)) descriptors.set(descriptor, String(file));
@@ -252,6 +252,10 @@ async function exercise(scenario) {
       await assert.rejects(invocation, (error) => {
         assert.equal(error.failure_reason, "artifact_error");
         assert.ok(!error.message.includes(runtime.root));
+        assert.ok(!error.message.includes("private-payload-must-not-escape"));
+        if (scenario === "second-open") assert.match(error.message, /stage=stderr_open, code=unclassified/u);
+        if (["tail-read", "read-and-cleanup"].includes(scenario)) assert.match(error.message, /stage=stderr_read, code=unclassified/u);
+        if (scenario === "spawn") assert.match(error.message, /stage=completion, code=ENOENT/u);
         if (scenario === "read-and-cleanup") assert.ok(error.cause.errors.some((cause) => cause.failure_reason === "cleanup_error"));
         return true;
       });
