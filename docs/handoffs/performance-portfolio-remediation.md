@@ -676,3 +676,53 @@ installed and validated for the next occurrence. The full `check` window at
 suffix `05` is the next required context; any failure stops acquisition for
 diagnosis. Successful full normal-cache evidence is also required for actual
 retained-run maintenance.
+
+### Complete full-check window 05 and retained maintenance
+
+All seven `remediation-cost-reference-check-20261016-05-*` invocations completed
+with native exit 0 at clean commit `a603188c3d2afacf58e8a39894ac9ed5e1ef6704`,
+executable source
+`6fc8b6b5057f89135a449380b4760a29140c2cf92728ac78e7c58d446d609c88`
+and graph `01038448d002f6e15ad1cd371db15e61e5686391bb7e86ae14ff9b5b53918fab`.
+Every run passed all 799 work units. The cold observation recorded 623 misses,
+176 bypasses, all 1080 cleanup operations complete and a passing retained-secret
+scan over 5383 files. Each normal-cache observation recorded 623 hits and 176
+bypasses, all 457 cleanup operations complete and a passing scan: 4439 files for
+the discarded warm-up and 4436 for each measured run. Native exits were observed
+separately after scanning.
+
+| Observation suffix | Canonical invocation wall (ms) | Selected interval union (ms) |
+| --- | --- | --- |
+| `cold` | 688590 | 686822 |
+| `warmup` | 670974 | 669722 |
+| `measured-1` | 703733 | 702456 |
+| `measured-2` | 676988 | 675676 |
+| `measured-3` | 656940 | 655643 |
+| `measured-4` | 651816 | 650636 |
+| `measured-5` | 693326 | 692029 |
+
+The public performance reader validated every root and supplied the intervals.
+The five measured selected intervals have p50 675676 ms, nearest-rank p90
+702456 ms and MAD 20033 ms, below ten percent of p50. No baseline-variability
+sixth observation is earned. This is the third collected provider window;
+portfolio qualification and publication remain pending the existing v3 writer.
+The earlier capture failures did not recur. Fresh assembly-row execution in this
+full warm context does not identify or repair their historical causes.
+
+After the window completed,
+`CARTULARY_TEST_RUN_ID=remediation-retained-finalizer-maintenance-20261016-02 CARTULARY_OUTPUT_MODE=ci make agent-finalize RESULTS_DIR=.cartulary/test-results/remediation-cost-reference-check-20261016-05-measured-5`
+passed with native exit 0 in 29.909 s. Its finalization artifact identifies the
+supplied root as valid and latest, with no older-root override. Canonical evidence,
+scheduler drift, schema shape, tier coverage and generated-structure actions all
+passed; `updated_files` is empty. All ten cleanup operations completed and the
+retained-secret scan passed over 23 files. This exercises the repaired preflight
+and distinct scanner-policy handling against a real compatible full warm check.
+It supersedes the failed maintenance attempt as current validation, without
+removing that attempt's evidence. Retained maintenance was performed here rather
+than reported skipped for an unset `RESULTS_DIR`.
+
+The completed `test-fast` record passed `make lint-markdown` in
+`remediation-test-fast-window-markdown-20261016-01`, native exit 0, 9.740 s,
+before this full-check/maintenance entry. The remaining nine provider windows,
+full portfolio publication, browser consolidation and coordinated adoption are
+still open.

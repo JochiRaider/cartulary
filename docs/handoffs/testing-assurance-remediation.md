@@ -84,6 +84,17 @@ collection and actual retained maintenance remain open; the failed warm root
 cannot satisfy either. The performance review records exact identities,
 cleanup, cache posture and the next full-check context.
 
+The complete `remediation-cost-reference-check-20261016-05-*` window now passes
+at clean `a603188c3`: all seven invocations exited 0, all 799 work units passed
+in each, cleanup completed and retained scans passed. Its five measured intervals
+have p50 675.676 s and MAD 20.033 s. Actual retained maintenance then passed in
+`remediation-retained-finalizer-maintenance-20261016-02`, native exit 0,
+29.909 s, selecting the final measured root as valid/latest and changing no
+files. This closes the retained-finalizer validation prerequisite. Three provider
+windows are collected; the full portfolio, browser consolidation and coordinated
+adoption remain open. Historical capture causes remain unresolved and are not
+declared repaired by these passes.
+
 ## Workstream status
 
 | Finding | Owner | Status | Exit evidence |
@@ -123,11 +134,12 @@ and validated. Proposal-only tests cannot close an adopted-base discrepancy.
 Overall implementation and assurance closure are incomplete. Production
 rendering, confinement, owner validation, packaged portability/recovery and
 visual refresh and integrated release have passed at their recorded sources.
-The retained-finalizer preflight repair, qualified performance
-windows, the reviewed Saved View removal and coordinated adoption remain open.
-The first real `RESULTS_DIR` maintenance attempt rejected before mutation; its
-diagnosis and correction are retained in the performance review. No adoption
-or performance claim is made by this handoff.
+The retained-finalizer preflight repair now passes actual maintenance against
+the compatible final warm-check root. The qualified performance portfolio,
+reviewed Saved View removal and coordinated adoption remain open. The first real
+`RESULTS_DIR` maintenance attempt rejected before mutation; its diagnosis,
+correction and successful successor are retained in the performance review.
+No adoption or portfolio qualification claim is made by this handoff.
 
 ## Closure applicability
 
