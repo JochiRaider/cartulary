@@ -112,7 +112,10 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 	server, db := startServer(t, runtime, "authentication-support-user-list-search")
 	defer db.Close()
 
-	nonAdminID := seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000711", "search-viewer@example.test", "Search Viewer", "SearchViewer1!", false)
+	seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000711", "search-viewer@example.test", "Search Viewer", "SearchViewer1!", false)
+	// An unrelated row may sort before the named viewer, including the bootstrap
+	// admin. Only the searched user's position beyond the first page matters.
+	seedFixedLocalUser(t, db, "00000000-0000-4000-8000-000000000710", "search-earlier@example.test", "Earlier User", "SearchEarlier1!", false)
 	adminID := seedFixedLocalUser(t, db, "d56d8685-f36e-448c-8f44-bd2978aa26d8", "uuid-admin@example.test", "UUID Admin", "UUIDAdmin12!", true)
 
 	adminSession, _ := loginLocalUser(t, server, "uuid-admin@example.test", "UUIDAdmin12!", nil)
@@ -149,7 +152,7 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageRows := firstPageBody["data"].(map[string]any)["users"].([]any)
-	if len(firstPageRows) != 1 || firstPageRows[0].(map[string]any)["user_id"] != nonAdminID {
+	if len(firstPageRows) != 1 || firstPageRows[0].(map[string]any)["user_id"] == adminID {
 		t.Fatalf("expected unsearched first page to prove later-page search fixture, got %#v", firstPageRows)
 	}
 	nextCursor := requirePagingCursor(t, firstPageBody)

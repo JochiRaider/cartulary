@@ -63,6 +63,15 @@ without exposing private cause text. The performance review records the failed
 root and excludes it from qualification. A new frozen source is required for the
 next cost window; no failed observation is relabeled as a warm-up or successful run.
 
+The next cold check passed all 799 units at `8b8aa5c53`. Its warm-up exposed an
+Auth test assumption: a random bootstrap-admin UUID can sort before the test's
+named viewer. The corrected test checks the searched user's later-page position
+and explicitly includes an earlier unrelated user. Its fresh service-backed
+row passes; UUID/email matching, cursor-scope denial and non-admin denial remain
+exercised. The failed and superseded check roots remain excluded from cost
+qualification. The finalizer's seven-observation window is collected, with
+portfolio qualification still pending. Exact outcomes are in the cost review.
+
 ## Workstream status
 
 | Finding | Owner | Status | Exit evidence |

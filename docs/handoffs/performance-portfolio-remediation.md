@@ -532,3 +532,54 @@ Diagnostic validation passed with native exit 0 in
 Retained maintenance was skipped by that finalizer because `RESULTS_DIR` was
 unset. These are diagnostic implementation checks, not a repaired-cause claim
 or qualified cost observations.
+
+### First complete provider window and Auth fixture correction
+
+At clean `8b8aa5c53085d0d089d96a7dc85e443fde5ac1a3`, executable snapshot
+`297bff537501816b3e0bd5e5810e550fbfddeec6bd6e28a65c526e35fb519ffc`, all seven
+`remediation-cost-reference-agent-finalize-20261016-01-*` observations exited 0.
+Each completed all ten cleanup operations and passed its retained scan. Canonical
+target intervals were cold 21.557 s, discarded warm-up 21.225 s, and measured
+21.962 / 21.363 / 21.856 / 21.513 / 21.637 s. Derived median is 21.637 s,
+nearest-rank p90 21.962 s and MAD 0.219 s. These are collected observations;
+the complete portfolio writer has not yet qualified or published them.
+Their canonical finalizer invocation omits `RESULTS_DIR` as prescribed by its
+measurement profile; it is not evidence of retained-maintenance acceptance.
+
+The same-source `remediation-cost-reference-check-20261016-03-cold` passed with
+native exit 0, 679.694 s, 799/799 work units, no cache hits, all 1,080 cleanup
+operations complete and a passing scan over 5,383 files. The subsequent warm-up
+`remediation-cost-reference-check-20261016-03-warmup` exited 2 with
+`product/test_assertion_failure`: 798 passed and one failed work unit, 665.487 s,
+623 cache hits, all 457 cleanup operations complete, scan passed over 4,439 files.
+
+The exact failure is the Auth integration row
+`module.auth.integration.user_list_search_tokenizes_identifiers_and_binds_45c3e062a8`.
+`TestUserListSearchTokenizesIdentifiersAndBindsCursorScope` incorrectly required
+its named viewer to be the first unfiltered result. The server's bootstrap admin
+has a random UUID and can legitimately sort before that viewer under the existing
+ascending-ID contract. The retained assertion shows exactly that case. The test
+must establish that its searched user is beyond the first unfiltered page, not
+assert the incidental identity of the preceding user.
+
+The correction retains the exact UUID/email search, pagination-scope denial and
+non-admin authorization assertions. It adds an explicit earlier unrelated user
+so the former assertion would fail deterministically, then checks the actual
+later-page precondition. No product ordering, authorization or cursor behavior
+changes. This attributes the observed failure to a test-fixture assumption;
+the cold/warm cache policies differ and do not establish an intermittent rate.
+The earlier capture incident remains independently unresolved.
+
+Both check roots are retained outside the successor window, respectively as
+`superseded_auth_test_fixture` and `test_assertion_failure_auth_search_order`.
+The replacement check window uses suffix `04`; the completed finalizer window
+retains its original exact-source applicability.
+
+The corrected Auth row passed in
+`remediation-auth-search-order-contract-20261016-01`, native exit 0, 13.716 s,
+through the exact service-backed slice with cache off. `make agent-finalize`
+passed in `remediation-auth-search-order-finalize-20261016-01`, native exit 0,
+22.335 s; retained maintenance was skipped because `RESULTS_DIR` was unset.
+Markdown lint passed in `remediation-auth-search-order-markdown-20261016-01`,
+native exit 0, 9.630 s. Full warm-check validation remains the next required
+triggering-context evidence.
