@@ -726,3 +726,150 @@ The completed `test-fast` record passed `make lint-markdown` in
 before this full-check/maintenance entry. The remaining nine provider windows,
 full portfolio publication, browser consolidation and coordinated adoption are
 still open.
+
+### Complete migration and API compatibility windows
+
+At clean `d672cfc53ee412718ecb7f9455cbe86590e0a0ad`, executable digest
+`6fc8b6b5057f89135a449380b4760a29140c2cf92728ac78e7c58d446d609c88`, all seven
+invocations in each window below completed with native exit 0. Cold and warm-up
+observations remain separate from the five measured samples. The public
+performance reader validated every retained root; neither window earns a sixth
+observation from baseline variability.
+
+`remediation-cost-reference-migration-drift-20261016-01-*` uses graph
+`4d1f16f9f3962cf093eb970b21fbe9f1ffef90a649b97190161b04c869b3c744`.
+Every invocation passed six work units, all cache-bypassed, completed all 17
+cleanup operations and passed the retained scan over 33 files. The real
+PostgreSQL schema bootstrap remains part of this command's workload.
+
+| Observation suffix | Canonical invocation wall (ms) | Selected interval union (ms) |
+| --- | --- | --- |
+| `cold` | 11536 | 11076 |
+| `warmup` | 11662 | 11255 |
+| `measured-1` | 12163 | 11442 |
+| `measured-2` | 13512 | 12974 |
+| `measured-3` | 13793 | 13231 |
+| `measured-4` | 13678 | 13133 |
+| `measured-5` | 11264 | 10856 |
+
+Measured selected intervals: p50 12974 ms, nearest-rank p90 13231 ms,
+MAD 257 ms.
+
+`remediation-cost-reference-openapi-compatibility-check-20261016-01-*` uses
+graph `6f2e6b1a10da78a5149b87c02a93bb4f760ff4448e3551650596be84911352b2`.
+Every invocation passed four work units, all cache-bypassed, completed all 13
+cleanup operations and passed the retained scan over 20 files. No immutable
+release schema or declared API change set was altered to obtain these results.
+
+| Observation suffix | Canonical invocation wall (ms) | Selected interval union (ms) |
+| --- | --- | --- |
+| `cold` | 1027 | 1013 |
+| `warmup` | 1011 | 992 |
+| `measured-1` | 1017 | 1001 |
+| `measured-2` | 1012 | 994 |
+| `measured-3` | 935 | 919 |
+| `measured-4` | 1023 | 1008 |
+| `measured-5` | 1029 | 1015 |
+
+Measured selected intervals: p50 1001 ms, nearest-rank p90 1015 ms,
+MAD 7 ms. Five provider windows are collected; complete portfolio qualification
+and publication remain pending. The preceding full-check and retained-maintenance
+record passed `make lint-markdown` in
+`remediation-check-window-markdown-20261016-01`, native exit 0, 10.000 s,
+before this entry.
+
+### Complete object-store release-evidence window
+
+All seven `remediation-cost-reference-seaweedfs-release-evidence-20261016-01-*`
+invocations completed with native exit 0 at the same clean `d672cfc53` source
+above, using graph
+`23039836c35953a33c310b3fdbb5a4e01a6aacb98bee568fa7d386db85a3e2b4`.
+Each passed nine work units and the retained scan over 42 files. The cold run
+recorded one cache miss and eight bypasses, completing all 20 cleanup operations.
+Each normal-cache run recorded one hit and eight bypasses, completing all 19
+cleanup operations. Compatibility, license and software-bill-of-materials
+prerequisites remained in the public command's workload.
+
+| Observation suffix | Canonical invocation wall (ms) | Selected interval union (ms) |
+| --- | --- | --- |
+| `cold` | 10557 | 10148 |
+| `warmup` | 10384 | 9988 |
+| `measured-1` | 10378 | 9972 |
+| `measured-2` | 10452 | 10004 |
+| `measured-3` | 10524 | 10079 |
+| `measured-4` | 10474 | 10053 |
+| `measured-5` | 10397 | 9963 |
+
+The public performance reader validated every root. Measured selected intervals
+have p50 10004 ms, nearest-rank p90 10079 ms and MAD 41 ms. No sixth observation
+is earned by baseline variability. Six provider windows are collected; the full
+portfolio is not yet qualified or published.
+
+### Complete full-owner slice window
+
+The canonical `test-slice` workload is `OWNER=module.auth`, with `ROWS` omitted.
+Public owner discovery reports 69 catalog rows, including 37 service-backed
+rows; these compile to 38 execution work units in the full-owner slice. The
+service-backed command has a separate window and cannot substitute for this one.
+Two read-only attempts to pass `OWNER` to `explain-target` rejected before
+execution with `config/usage_error`, exit 2; no run root was reported. The corrected public
+`make explain-test-owner OWNER=module.auth JSON=1` and task guide supplied the
+owner selection; no command interface was widened to accommodate the typo.
+
+All seven `remediation-cost-reference-test-slice-20261016-01-*` invocations
+completed with native exit 0 at clean `d672cfc53ee412718ecb7f9455cbe86590e0a0ad`,
+executable digest `6fc8b6b5057f89135a449380b4760a29140c2cf92728ac78e7c58d446d609c88`,
+and graph `cd1978901617968e61029e70261e10bceb89b701d2f062f794e5d020d65c70cd`.
+Each passed all 38 work units. Cold execution recorded eight misses and 30
+bypasses, all 75 cleanup operations complete and a passing scan over 405 files.
+Each normal-cache invocation recorded eight hits and 30 bypasses, all 67 cleanup
+operations complete and a passing scan over 397 files.
+
+| Observation suffix | Canonical invocation wall (ms) | Selected interval union (ms) |
+| --- | --- | --- |
+| `cold` | 130934 | 130146 |
+| `warmup` | 122357 | 121551 |
+| `measured-1` | 123155 | 122343 |
+| `measured-2` | 122098 | 121331 |
+| `measured-3` | 124041 | 123323 |
+| `measured-4` | 158293 | 157480 |
+| `measured-5` | 173848 | 172900 |
+
+The public performance reader validated every root. Measured selected intervals
+have p50 123323 ms, nearest-rank p90 172900 ms and MAD 1992 ms. Both longer
+observations remain in the window; none was discarded or retried to lower the
+reported duration. MAD remains below ten percent of p50, so baseline variability
+does not earn a sixth observation. Seven provider windows are collected; the
+complete portfolio remains unqualified and unpublished.
+
+### Complete service-backed slice window
+
+The canonical command is `make service-backed-test-slice OWNER=module.auth`,
+with `ROWS` omitted. The public command supplies its intrinsic
+`SERVICE_BACKED_ONLY=1` selection; no undeclared user override was introduced.
+The 37 service-backed catalog rows compile to 30 work units, all cache-bypassed.
+
+All seven
+`remediation-cost-reference-service-backed-test-slice-20261016-01-*`
+invocations completed with native exit 0 at the same clean `d672cfc53` commit
+and `6fc8b6b5` executable digest recorded above. Graph:
+`90506ab791764fb6a55ad70d86e82f48bd75e6d01b95c3a9ac677755df731f36`.
+Every invocation passed all 30 work units, completed all 67 cleanup operations
+and passed its retained-secret scan over 341 files.
+
+| Observation suffix | Canonical invocation wall (ms) | Selected interval union (ms) |
+| --- | --- | --- |
+| `cold` | 183858 | 182725 |
+| `warmup` | 155338 | 154653 |
+| `measured-1` | 124719 | 123928 |
+| `measured-2` | 124498 | 123721 |
+| `measured-3` | 123379 | 122661 |
+| `measured-4` | 123683 | 122862 |
+| `measured-5` | 126618 | 125771 |
+
+The public performance reader validated every root. Measured selected intervals
+have p50 123721 ms, nearest-rank p90 125771 ms and MAD 859 ms. No sixth observation
+is earned by baseline variability. Eight provider windows are collected. The
+remaining windows are `test`, `ci`, `browser-e2e` and `release-check`; the full
+portfolio remains unqualified and unpublished until the existing writer
+validates every named binding and retained observation.

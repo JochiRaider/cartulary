@@ -95,6 +95,14 @@ windows are collected; the full portfolio, browser consolidation and coordinated
 adoption remain open. Historical capture causes remain unresolved and are not
 declared repaired by these passes.
 
+The migration, API compatibility, object-store release-evidence, full Auth slice
+and service-backed Auth slice windows are also collected at clean `d672cfc53`.
+All seven invocations in each completed with native exit 0, complete cleanup
+and passing retained scans. Their exact scopes, durations and variability are
+in the performance review. Eight of the twelve provider windows are collected;
+`test`, `ci`, `browser-e2e` and `release-check` remain. This is acquisition
+progress, not portfolio qualification or closure of the remaining findings.
+
 ## Workstream status
 
 | Finding | Owner | Status | Exit evidence |
