@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
+import childProcess from "node:child_process";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
@@ -8,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 import { createRuntime } from "../runtime/session-client.mjs";
 
-const scenarios = ["allocation", "status", "second-open", "spawn", "spawn-sync", "tail-read", "read-and-cleanup", "cleanup-retry", "close", "parent-mode", "parent-symlink", "parent-owner", "file-mode", "file-symlink", "tail-limits", "component-length", "component-character", "snapshot-caller", "make-wrapper"];
+const scenarios = ["allocation", "status", "second-open", "spawn", "spawn-sync", "tail-read", "read-and-cleanup", "cleanup-retry", "close", "parent-mode", "parent-symlink", "parent-owner", "file-mode", "file-symlink", "tail-limits", "component-length", "component-character", "snapshot-caller", "make-wrapper", "registration-rejection", "registration-transport"];
 
 // Fault injection lives in isolated subprocesses; importing this case module is inert.
 export function assertPrivateChildCaptureBoundary() {
@@ -37,12 +38,14 @@ async function exercise(scenario) {
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
   } };
   const originals = new Map();
+  const originalSpawnSync = childProcess.spawnSync;
   const patch = (name, implementation) => {
     if (!originals.has(name)) originals.set(name, fs[name]);
     fs[name] = implementation;
   };
   const restore = () => {
     for (const [name, implementation] of originals) fs[name] = implementation;
+    childProcess.spawnSync = originalSpawnSync;
     syncBuiltinESMExports();
   };
   const descriptors = new Map();
@@ -53,6 +56,18 @@ async function exercise(scenario) {
   const originalStat = fs.lstatSync;
   let injected = false;
   let cleanupInjected = false;
+  if (scenario.startsWith("registration-")) childProcess.spawnSync = (command, args, settings) => {
+    if (args?.[0] === "session" && !injected) {
+      const request = JSON.parse(settings.input);
+      if (request.operation === "record" && request.resource.state === "acquired") {
+        injected = true;
+        if (scenario === "registration-transport") return { status: null, signal: "SIGKILL", stdout: Buffer.alloc(0), error: Object.assign(new Error("private transport payload"), { code: "ETIMEDOUT" }) };
+        return { status: 11, stdout: Buffer.from(JSON.stringify({ schema_id: request.schema_id, request_id: 1, operation: "record", ok: false, result: null,
+          error: { reason: "io", errno: 13, process_id: 32101, proof_file: "environ" } })) };
+      }
+    }
+    return originalSpawnSync(command, args, settings);
+  };
   patch("openSync", (file, flags, ...rest) => {
     if (scenario === "second-open" && String(file).startsWith(parent) && path.basename(file) === "stderr" && flags & fs.constants.O_CREAT) {
       injected = true;
@@ -248,7 +263,7 @@ async function exercise(scenario) {
       result.cleanup();
     } else {
       const invocation = scenario === "spawn" ? capture(path.join(fixture, "absent"), [], options)
-        : scenario === "spawn-sync" ? capture(null, [], options) : run();
+        : scenario === "spawn-sync" ? capture(null, [], options) : run(scenario.startsWith("registration-") ? "setInterval(()=>{},1000)" : undefined);
       await assert.rejects(invocation, (error) => {
         assert.equal(error.failure_reason, "artifact_error");
         assert.ok(!error.message.includes(runtime.root));
@@ -256,6 +271,13 @@ async function exercise(scenario) {
         if (scenario === "second-open") assert.match(error.message, /stage=stderr_open, code=unclassified/u);
         if (["tail-read", "read-and-cleanup"].includes(scenario)) assert.match(error.message, /stage=stderr_read, code=unclassified/u);
         if (scenario === "spawn") assert.match(error.message, /stage=completion, code=ENOENT/u);
+        if (scenario.startsWith("registration-")) {
+          assert.ok(injected);
+          assert.ok(!error.message.includes("32101") && !error.message.includes("environ") && !error.message.includes("private transport payload"));
+          assert.match(error.message, scenario === "registration-transport"
+            ? /stage=process_registration, code=ETIMEDOUT, native=transport, errno=none/u
+            : /stage=process_registration, code=unclassified, native=io, errno=13/u);
+        }
         if (scenario === "read-and-cleanup") assert.ok(error.cause.errors.some((cause) => cause.failure_reason === "cleanup_error"));
         return true;
       });

@@ -37,9 +37,15 @@ function privateCaptureDirectory(runtime) {
 }
 
 function captureFailure(reason, cause, stage = "cleanup") {
-  const code = new Set(["ENOENT", "ESRCH", "EACCES", "EPERM", "EMFILE", "ENFILE", "ENOSPC", "EIO", "ETIMEDOUT"]).has(cause?.code) ? cause.code : "unclassified";
+  const diagnostic = cause?.privateDiagnostic;
+  const candidateCode = cause?.code ?? diagnostic?.code;
+  const code = new Set(["ENOENT", "ESRCH", "EACCES", "EPERM", "EMFILE", "ENFILE", "ENOSPC", "EIO", "ETIMEDOUT", "ETXTBSY", "ENOBUFS"]).has(candidateCode) ? candidateCode : "unclassified";
+  // Retain only closed categories. Native process identities, proof-file names,
+  // request values and raw cause text remain private.
+  const native = new Set(["unsafe", "unresolved", "deadline", "io", "internal", "transport"]).has(diagnostic?.reason) ? diagnostic.reason : "none";
+  const errno = Number.isInteger(diagnostic?.errno) && diagnostic.errno > 0 && diagnostic.errno <= 4095 ? diagnostic.errno : "none";
   return new CommandFailure(
-    `${reason === "cleanup_error" ? "private child capture cleanup failed" : "private child capture failed"} (stage=${stage}, code=${code})`,
+    `${reason === "cleanup_error" ? "private child capture cleanup failed" : "private child capture failed"} (stage=${stage}, code=${code}, native=${native}, errno=${errno})`,
     { failure_class: reason === "cleanup_error" ? "harness" : "artifact", failure_reason: reason },
     { cause },
   );

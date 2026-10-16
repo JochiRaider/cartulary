@@ -583,3 +583,55 @@ passed in `remediation-auth-search-order-finalize-20261016-01`, native exit 0,
 Markdown lint passed in `remediation-auth-search-order-markdown-20261016-01`,
 native exit 0, 9.630 s. Full warm-check validation remains the next required
 triggering-context evidence.
+
+### Registration failure isolated from the Auth fixture
+
+The Auth correction is frozen at
+`f338b0c3556cee2d59bf2b457f823c96b3ae62ed`, executable snapshot
+`5ecfb504aa01eb0b25c22c7ce0c69c6c57c66823d6aeebd0727dda9cf91bd17f`.
+`remediation-cost-reference-check-20261016-04-cold` passed with native exit 0,
+662.419 s, all 799 work units, no cache hits, all 1,080 cleanup operations complete
+and a passing retained scan over 5,383 files. Its warm-up
+`remediation-cost-reference-check-20261016-04-warmup` exited 2 with
+`artifact/artifact_error`, 694.117 s, 798 passed and one failed work unit,
+623 cache hits, all 457 cleanup operations complete and a passing scan over
+4,438 files. The Auth search row passed in this full warm context.
+
+The new failure selected
+`app.server.unit.evidence_cleanup_activation_and_telemetry_a1b2c3d4e5`, unit
+`go:571ba902511e922a:5d3edc6d7053`. Its diagnostic is
+`private child capture failed (stage=process_registration, code=unclassified)`;
+no row result was published. This localizes the failure to capture ownership
+registration, not an application assertion. The earlier OpenAPI capture failure
+did not retain a stage and cannot yet be attributed to this same mechanism.
+
+Registration can reject during schema validation, resource recording or host
+admission. The next diagnostic change retains only allowlisted native rejection
+categories, bounded errno and allowlisted transport codes; process identities,
+proof-file names, request values and raw causes remain private. Do not substitute
+a guessed process-race repair for evidence of the actual rejection. Both current
+check roots remain outside the successor window, respectively as
+`superseded_capture_diagnostics` and `artifact_error_process_registration`.
+The pending check window uses suffix `05`; it must not start before diagnosis
+and validation are complete.
+
+The bounded native diagnostic cases passed in
+`remediation-registration-diagnostic-contract-20261016-01`, native exit 0,
+22.208 s. The exact affected assembly row passed fresh cache-off execution in
+`remediation-registration-appserver-diagnosis-20261016-01`, native exit 0,
+8.439 s. That isolated pass does not repair or explain the failed registration.
+Public target discovery confirms `test-fast` includes both affected capture
+rows and requires no services. It is the next smaller batch context for this
+investigation. The public performance explainer rejected the failed warm root
+because the assembly row result is absent; no duration or resource attribution
+is invented for that unit.
+
+The native diagnostic slice's finalizer passed in
+`remediation-registration-diagnostic-finalize-20261016-01`, native exit 0,
+21.934 s; retained maintenance was skipped because `RESULTS_DIR` was unset.
+Broader harness validation passed in
+`remediation-registration-diagnostic-harness-20261016-01`, native exit 0,
+53.751 s, and Markdown lint passed in
+`remediation-registration-diagnostic-markdown-20261016-01`, native exit 0,
+10.650 s. The next frozen provider is `test-fast`; its observations must stop
+for diagnosis on any failure, not continue as a retry policy.

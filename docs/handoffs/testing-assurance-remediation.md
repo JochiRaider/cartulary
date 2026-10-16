@@ -72,6 +72,13 @@ exercised. The failed and superseded check roots remain excluded from cost
 qualification. The finalizer's seven-observation window is collected, with
 portfolio qualification still pending. Exact outcomes are in the cost review.
 
+At `f338b0c35`, the cold check again passed all 799 work units. The full warm
+context passed the repaired Auth search row but failed a separate application-
+assembly capture before row-result publication. The diagnostic identifies
+`process_registration`; native rejection/transport classification is being
+validated before a focused batch reproduction. Cost collection and actual
+retained maintenance remain open; the failed warm root cannot satisfy either.
+
 ## Workstream status
 
 | Finding | Owner | Status | Exit evidence |
