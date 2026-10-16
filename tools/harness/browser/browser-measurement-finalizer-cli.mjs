@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
+  canonicalJSONString,
+  readRetainedArtifactBytes,
   secureWriteFile,
   validateSchemaSync,
 } from "../contract/index.mjs";
@@ -70,14 +72,7 @@ function contained(base, relative) {
 
 function readArtifact(base, relative, schemaID) {
   const file = contained(base, relative);
-  if (!existsSync(file)) {
-    throw new Error(`measurement artifact is missing: ${relative}`);
-  }
-  const stat = lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 8 * 1024 * 1024) {
-    throw new Error(`measurement artifact exceeds its bounded JSON contract: ${relative}`);
-  }
-  const bytes = readFileSync(file);
+  const bytes = readRetainedArtifactBytes(base, relative, 8 * 1024 * 1024);
   const artifact = JSON.parse(bytes.toString("utf8"));
   validateSchemaSync(schemaID, artifact);
   rejectSensitiveKeys(artifact, schemaID);
@@ -139,18 +134,16 @@ async function main() {
     currentUnitEventSource(base),
     { group_id: options.group, stage_id: options.stage },
   );
-  if (!existsSync(contained(base, groupResultRelative))) {
-    if (schedulerEvidence.dependency_skipped) return;
-    throw new Error(`measurement artifact is missing: ${groupResultRelative}`);
+  let group;
+  try {
+    group = readArtifact(base, groupResultRelative, "cartulary.browser_group_result.v7");
+  } catch (error) {
+    if (error.code === "ENOENT" && schedulerEvidence.dependency_skipped) return;
+    throw error;
   }
   if (schedulerEvidence.dependency_skipped) {
     throw new Error("measurement group result exists for a dependency-skipped scheduler unit");
   }
-  const group = readArtifact(
-    base,
-    groupResultRelative,
-    "cartulary.browser_group_result.v7",
-  );
   if (
     group.artifact.target_id !== options.target ||
     group.artifact.stage_id !== options.stage ||
@@ -193,6 +186,9 @@ async function main() {
   );
   const builderUnitID = `fixture_snapshot:default:${profileID}:${snapshotKey}`;
   if (
+    canonicalJSONString(build.artifact.object_snapshot) !== canonicalJSONString(lease.artifact.object_snapshot) ||
+    build.artifact.object_snapshot?.object_count !== profile.object_population.object_count ||
+    build.artifact.object_snapshot?.total_bytes !== profile.object_population.total_bytes ||
     build.artifact.state !== "sealed" ||
     build.artifact.fixture_profile_id !== profileID ||
     build.artifact.snapshot_key !== snapshotKey ||
@@ -276,16 +272,15 @@ async function main() {
     rollup: {
       predicate_id: observation.predicate_id,
       sample_count: observation.measured_samples,
-      p50_ms: observation.p50_ms,
-      p95_ms: observation.p95_ms,
+      statistics: observation.statistics,
       threshold_ms: observation.threshold_ms,
       outcome: observation.outcome,
     },
     qualification_outcome:
       observation.outcome === "passed"
         ? "qualified"
-        : observation.outcome === "threshold_failed"
-          ? "threshold_failed"
+        : ["threshold_failed", "predicate_failed"].includes(observation.outcome)
+          ? observation.outcome
           : "environment_not_qualified",
   };
   validateSchemaSync(summary.schema_id, summary);

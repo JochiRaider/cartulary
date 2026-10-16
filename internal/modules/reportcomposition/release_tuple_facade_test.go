@@ -1,6 +1,7 @@
 package reportcomposition
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -39,6 +40,23 @@ func TestResolveReleaseTupleTxReasonMatrix(t *testing.T) {
 	if digest, err := CompositionDigest(resolved.CanonicalComposition); err != nil || digest != resolved.CompositionSHA256 {
 		t.Fatal("release tuple and created composition disagree", digest, err)
 	}
+	t.Run("retained bytes are revalidated independently of the stored digest column", func(t *testing.T) {
+		altered := bytes.Replace(fixture.canonical, []byte(`"template_version":"1"`), []byte(`"template_version":"2"`), 1)
+		if bytes.Equal(altered, fixture.canonical) {
+			t.Fatal("tamper fixture did not change bytes")
+		}
+		if _, err := tx.Exec(ctx, `UPDATE report_composition_versions SET canonical_composition_bytes=$1 WHERE composition_id=$2 AND composition_version=2`, altered, fixture.compositionID); err != nil {
+			t.Fatal(err)
+		}
+		_, err := ResolveReleaseTupleTx(ctx, tx, fixture.incidentID, "cartulary.report.default", "1", ReleaseTuple{CompositionID: fixture.compositionID, CompositionVersion: "v2", CompositionSHA256: fixture.digest})
+		var invalid *ReleaseTupleError
+		if !errors.As(err, &invalid) || invalid.ReasonCode != ReleaseTupleReasonDigestMismatch {
+			t.Fatalf("tampered retained source admitted: %v", err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE report_composition_versions SET canonical_composition_bytes=$1 WHERE composition_id=$2 AND composition_version=2`, fixture.canonical, fixture.compositionID); err != nil {
+			t.Fatal(err)
+		}
+	})
 
 	cases := []struct {
 		name            string
@@ -159,11 +177,31 @@ func TestBindReleaseTupleTxRecordsReleaseBoundVersion(t *testing.T) {
 		CompositionVersion: "v2",
 		CompositionSHA256:  fixture.digest,
 	}
+	if ValidateRetainedReleaseBindingTx(ctx, tx, releaseID, ReleaseScopeInternalDraft, &tuple) == nil {
+		t.Fatal("missing retained binding accepted")
+	}
+	if err := ValidateRetainedReleaseBindingTx(ctx, tx, releaseID, ReleaseScopeInternalDraft, nil); err != nil {
+		t.Fatal("absent optional binding rejected", err)
+	}
 	if err := BindReleaseTupleTx(ctx, tx, releaseID, tuple, ReleaseScopeInternalDraft, fixture.now); err != nil {
 		t.Fatalf("bind release tuple: %v", err)
 	}
 	if err := BindReleaseTupleTx(ctx, tx, releaseID, tuple, ReleaseScopeInternalDraft, fixture.now); err != nil {
 		t.Fatalf("rebind release tuple: %v", err)
+	}
+	if err := ValidateRetainedReleaseBindingTx(ctx, tx, releaseID, ReleaseScopeInternalDraft, &tuple); err != nil {
+		t.Fatal("valid retained binding rejected", err)
+	}
+	if ValidateRetainedReleaseBindingTx(ctx, tx, releaseID, ReleaseScopeInternalDraft, nil) == nil {
+		t.Fatal("unclaimed retained binding accepted")
+	}
+	if BindReleaseTupleTx(ctx, tx, releaseID, tuple, "external_release", fixture.now) == nil {
+		t.Fatal("conflicting scope ignored by duplicate insert")
+	}
+	changed := tuple
+	changed.CompositionSHA256 = strings.Repeat("0", 64)
+	if BindReleaseTupleTx(ctx, tx, releaseID, changed, ReleaseScopeInternalDraft, fixture.now) == nil {
+		t.Fatal("conflicting digest ignored by duplicate insert")
 	}
 	bound, err := releaseBoundVersionsTx(ctx, tx, fixture.compositionID)
 	if err != nil {
@@ -195,7 +233,7 @@ func seedReleaseTupleFixture(t testing.TB, ctx context.Context, db *pgtest.Rollb
 		CompositionID: compositionID, IncidentID: incidentID,
 		TemplateID: "cartulary.report.default", TemplateVersion: "1",
 		DeckOps: json.RawMessage(`[]`), DiagramDecls: json.RawMessage(`[]`),
-		AuthoredTexts: json.RawMessage("[{\"authored_text_id\":\"text\",\"text_role\":\"authored_text\",\"body\":\"R&D <review>\u2028\u2029\",\"disclosure_partition_ref\":\"internal\"}]"),
+		AuthoredTexts: json.RawMessage("[{\"authored_text_id\":\"text\",\"text_role\":\"authored_text\",\"body\":\"R&D <review>\u2028\u2029\",\"disclosure_partition_ref\":\"internal_only\"}]"),
 	}, 2)
 	if err != nil {
 		t.Fatal(err)
@@ -250,6 +288,8 @@ VALUES ($1, 2, $2, $3::jsonb, $4, $5, $6)
 
 func seedReportingReleaseForTuple(t testing.TB, ctx context.Context, db *pgtest.RollbackDB, fixture releaseTupleFixture) uuid.UUID {
 	t.Helper()
+	// Minimal relational fixture for the Composition binding facade. It is
+	// not a rendered release or evidence of Reporting artifact conformance.
 	jobID := uuid.New()
 	snapshotID := uuid.New()
 	releaseID := uuid.New()
@@ -257,17 +297,17 @@ func seedReportingReleaseForTuple(t testing.TB, ctx context.Context, db *pgtest.
 INSERT INTO jobs (
     job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id, submitted_at, updated_at, progress_completed, auth_policy, handler_name, job_kind, progress_unit_id
 )
-VALUES ($1, 'incident', $2, 'queued', true, $3, $4, $4, 0, 'incident_membership', 'snapshot_reporting.job_worker_v2', 'snapshot_reporting.snapshot_create_v2', 'snapshot_reporting.snapshot_create.materialization.v1')
+VALUES ($1, 'incident', $2, 'queued', true, $3, $4, $4, 0, 'incident_membership', 'snapshot_reporting.job_worker_v2', 'snapshot_reporting.snapshot_create_v4', 'snapshot_reporting.snapshot_create.materialization.v1')
 `, jobID, fixture.incidentID, fixture.userID, fixture.now); err != nil {
 		t.Fatalf("seed job: %v", err)
 	}
 	if _, err := db.Exec(ctx, `
 INSERT INTO reporting_snapshots (
     snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at, source_change_set_high_watermark,
-    source_boundary_json, derivation_version, export_model_sha256, export_model_json, create_job_id, created_at
+    source_boundary_json, derivation_version, source_capture_sha256, create_job_id, created_at
 )
 VALUES ($1, $2, $3, 'txn-snapshot', $4, 'cartulary.source_boundary.v1:test',
-        '{}'::jsonb, 'cartulary.reporting_derivation_profile.v2', $5, jsonb_build_object('schema_id','cartulary.reporting_snapshot_model.v1','snapshot_id',$1::uuid::text,'snapshot_model_id','snapm_' || repeat('c',64)), $6, $4)
+        '{}'::jsonb, 'cartulary.reporting_derivation_profile.v2', $5, $6, $4)
 `, snapshotID, fixture.incidentID, fixture.userID, fixture.now, strings.Repeat("c", 64), jobID); err != nil {
 		t.Fatalf("seed snapshot: %v", err)
 	}
@@ -277,14 +317,14 @@ INSERT INTO reporting_releases (
     snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256,
     template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
     output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
-    rendered_output, create_job_id, recipient_partition_refs, output_options, graph_projection_refs,
+    create_job_id, recipient_partition_refs, output_options, graph_projection_refs,
     render_admitted_at, created_at, updated_at
 )
 VALUES ($1, $2, $3, $4, 'txn-release', 'internal_draft', 'approved',
         $5, 'cartulary.source_boundary.v1:test', 'cartulary.reporting_derivation_profile.v2', $6,
         'cartulary.report.default', '1', 'cartulary.redaction.internal', '1', $7,
-        'slidev', 'text/html', $8, $9, '{}'::jsonb,
-        'rendered', $10, '[]'::jsonb, '{}'::jsonb, '[]'::jsonb,
+        'slidev', 'text/html', $8, $9, '{"schema_id":"cartulary.redaction_manifest.v5","container_decisions":[]}'::jsonb,
+        $10, '[]'::jsonb, '{}'::jsonb, '[]'::jsonb,
         $5, $5, $5)
 `, releaseID, fixture.incidentID, snapshotID, fixture.userID, fixture.now, strings.Repeat("c", 64), strings.Repeat("d", 64), strings.Repeat("e", 64), strings.Repeat("f", 64), jobID); err != nil {
 		t.Fatalf("seed release: %v", err)

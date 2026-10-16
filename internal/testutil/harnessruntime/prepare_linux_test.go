@@ -124,7 +124,7 @@ func TestRuntimePreparationParity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.UnitCount() < 1 || !strings.HasPrefix(p.GraphDigest(), "sha256:") {
+	if p.UnitCount() < 1 || !strings.HasPrefix(p.GraphDigest(), "sha256:") || len(p.facts.SourceInputs) == 0 {
 		t.Fatal("missing validated compiler identity")
 	}
 	selected := false

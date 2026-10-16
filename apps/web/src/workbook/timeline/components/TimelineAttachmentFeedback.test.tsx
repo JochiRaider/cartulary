@@ -22,6 +22,15 @@ const file = (
   workId: string,
   feedbackKind: TimelineFileSnapshot["feedbackKind"] = "needs_attention",
 ): TimelineFileSnapshot => ({
+  verification: {
+    phase: "idle",
+    blobId: null,
+    job: null,
+    pending: false,
+    failure: null,
+    canCancel: false,
+    cancelUncertain: false,
+  },
   workId,
   outcomeIdentity: `${workId}:1`,
   feedbackKind,
@@ -58,6 +67,7 @@ function fixture(initial: readonly TimelineFileSnapshot[] = []) {
   let admission: TimelineFileAdmissionNotice | null = null;
   const listeners = new Set<() => void>();
   const actions = {
+    cancelVerification: vi.fn(),
     confirmReview: vi.fn(),
     review: vi.fn(),
     resume: vi.fn(),
@@ -95,6 +105,62 @@ const region = () =>
 afterEach(cleanup);
 
 describe("Timeline attachment feedback", () => {
+  it("keeps active verification cancellation visible while details are collapsed without moving grid focus", () => {
+    const entry = file("verify", "in_progress");
+    const f = fixture([
+      {
+        ...entry,
+        verification: {
+          ...entry.verification,
+          phase: "observing",
+          canCancel: true,
+          pending: true,
+          job: {
+            job_id: "70000000-0000-4000-8000-000000000007",
+            status: "running",
+            status_route: "/api/v1/jobs/70000000-0000-4000-8000-000000000007",
+            scope: {
+              kind: "incident",
+              incident_id: "10000000-0000-4000-8000-000000000001",
+            },
+            cancelable: true,
+            submitted_by_user_id: "10000000-0000-4000-8000-000000000002",
+            submitted_at: "2026-04-05T00:00:00Z",
+            updated_at: "2026-04-05T00:00:01Z",
+            started_at: "2026-04-05T00:00:01Z",
+            finished_at: null,
+            retained_until: null,
+            progress: { completed: 0, total: 3 },
+            result_summary: null,
+            error_summary: null,
+          },
+        },
+      },
+    ]);
+    render(
+      <>
+        <input aria-label="Grid editor" />
+        <TimelineAttachmentFeedback owner={f.owner} fallbackRef={createRef()} />
+      </>,
+    );
+    const editor = screen.getByRole("textbox", { name: "Grid editor" });
+    editor.focus();
+    expect(trigger().getAttribute("aria-expanded")).toBe("false");
+    expect(
+      screen.getByRole("progressbar", { name: "File verification progress" }),
+    ).not.toBeNull();
+    expect(document.activeElement).toBe(editor);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Cancel verification" }),
+    );
+    expect(f.actions.cancelVerification).toHaveBeenCalledExactlyOnceWith(
+      entry.key,
+    );
+    fireEvent.click(trigger());
+    expect(
+      screen.getAllByRole("button", { name: "Cancel verification" }),
+    ).toHaveLength(1);
+  });
   it("keeps completed history collapsed and excludes it from unfinished counts without discarding receipts", () => {
     const f = fixture([
       file("one", "completed"),

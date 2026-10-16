@@ -1,60 +1,53 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-
-import { validateSchemaSync } from "../contract/index.mjs";
-import { loadTestCatalog, targetForCatalogRow } from "../test-catalog/index.mjs";
-import { validateCanonicalRun } from "./canonical-evidence.mjs";
+import { parseStrictJSON, readRetainedArtifactBytes, resolveRetainedArtifactIdentity, validateSchemaSync } from "../contract/index.mjs";
+import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
+import { buildSourceSnapshot, loadTestCatalog } from "../test-catalog/index.mjs";
+import { compileRetainedRun } from "../scheduler/work-graph/index.mjs";
+import { auditOwnerEvidence } from "./owner-evidence-audit.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
-
-function usage() {
-  throw new Error("usage: canonical-evidence-audit-cli.mjs --owner <owner-id> --evidence-roots-file <path>");
-}
-
+const usage = () => Object.assign(new Error("usage: canonical-evidence-audit-cli.mjs --owner <owner-id> --evidence-roots-file <path>"), { exit_code: 2 });
 function parseArgs(argv) {
   const options = { owner: "", manifest: "" };
   for (let index = 0; index < argv.length; index += 1) {
-    if (argv[index] === "--owner") options.owner = argv[++index] ?? "";
-    else if (argv[index] === "--evidence-roots-file") options.manifest = argv[++index] ?? "";
-    else usage();
+    const key = argv[index] === "--owner" ? "owner" : argv[index] === "--evidence-roots-file" ? "manifest" : null;
+    if (!key || options[key] || !argv[index + 1]) throw usage();
+    options[key] = argv[++index];
   }
-  if (!options.owner || !options.manifest) usage();
+  if (!options.owner || !options.manifest) throw usage();
   return options;
 }
-
+let output;
+const publish = (report) => {
+  validateSchemaSync(report.schema_id, report);
+  atomicLocalFile(output, `${JSON.stringify(report, null, 2)}\n`);
+};
 try {
   const options = parseArgs(process.argv.slice(2));
   const manifestFile = path.resolve(root, options.manifest);
-  const manifest = JSON.parse(readFileSync(manifestFile, "utf8"));
-  validateSchemaSync("cartulary.harness_evidence_root_manifest.v1", manifest);
-  if (manifest.owner_id !== options.owner) throw new Error("evidence manifest owner does not match OWNER");
+  const manifest = parseStrictJSON(readRetainedArtifactBytes(path.dirname(manifestFile), path.basename(manifestFile), 1024 * 1024).toString("utf8"));
+  const sourceDigest = buildSourceSnapshot(root).digest;
   const catalog = loadTestCatalog(root);
-  const taskSurface = JSON.parse(readFileSync(path.join(root, "tools/task_surface_owner.json"), "utf8"));
-  const targets = new Map(taskSurface.targets.filter((entry) => entry.command_id).map((entry) => [entry.command_id, entry.name]));
-  const required = new Map(catalog.rows.filter((row) => row.owner_id === options.owner).map((row) => [row.row_id, targetForCatalogRow(row, { commandTargetByID: targets })]));
-  if (required.size === 0) throw new Error(`unknown active owner ${options.owner}`);
-  const observed = new Set();
-  const entryTargets = new Set();
-  for (const entry of manifest.entries) {
-    if (entryTargets.has(entry.target)) throw new Error(`duplicate evidence target ${entry.target}`);
-    entryTargets.add(entry.target);
-    const runRoot = path.resolve(path.dirname(manifestFile), entry.run_root);
-    const run = await validateCanonicalRun(runRoot);
-    const targetSummary = run.targetSummaries.get(entry.target);
-    if (!targetSummary) throw new Error(`${runRoot} has no canonical projection for ${entry.target}`);
-    for (const rowID of required.keys()) {
-      if (!targetSummary.evidence_refs.includes(`rows/${rowID}.json`)) continue;
-      if (!existsSync(path.join(runRoot, "rows", `${rowID}.json`))) throw new Error(`${runRoot} is missing row evidence ${rowID}`);
-      if (observed.has(rowID)) throw new Error(`row ${rowID} appears in more than one evidence partition`);
-      observed.add(rowID);
-    }
-  }
-  const missing = [...required.keys()].filter((rowID) => !observed.has(rowID));
-  if (missing.length > 0) throw new Error(`owner evidence is incomplete: ${missing.join(",")}`);
-  process.stdout.write(`[EVIDENCE] status=pass owner=${options.owner} rows=${observed.size} partitions=${manifest.entries.length}\n`);
+  const surface = parseStrictJSON(readRetainedArtifactBytes(root, "tools/task_surface_owner.json", 4 * 1024 * 1024).toString("utf8"));
+  const identity = resolveRetainedArtifactIdentity("test-evidence-audit", {
+    ...process.env,
+    OWNER: options.owner,
+    EVIDENCE_ROOTS_FILE: options.manifest,
+    // The dispatcher deliberately removes Make inputs after translating them
+    // to argv. These two values were explicitly supplied to this CLI.
+    CARTULARY_MAKE_INPUT_SOURCES: "OWNER=cli EVIDENCE_ROOTS_FILE=cli",
+  });
+  output = path.join(identity.run_root, "test-evidence-audit/audit.json");
+  const report = await auditOwnerEvidence({ manifest, manifestFile, owner: options.owner, catalog, surface, sourceDigest, compileRun: (value) => compileRetainedRun(root, value) });
+  if (buildSourceSnapshot(root).digest !== sourceDigest) throw Object.assign(new Error("executable source changed during audit"), { exit_code: 11 });
+  publish(report);
+  process.stdout.write(`[EVIDENCE] status=pass owner=${options.owner} rows=${report.accepted.reduce((sum, entry) => sum + entry.row_ids.length, 0)} partitions=${report.accepted.length} unused=${report.unused_inputs.length} artifact=test-evidence-audit/audit.json\n`);
 } catch (error) {
+  if (output && error.auditReport) {
+    try { publish(error.auditReport); } catch (publicationError) { process.stderr.write(`audit result publication failed: ${publicationError.message}\n`); }
+  }
   process.stderr.write(`${error.message}\n`);
-  process.exitCode = 1;
+  process.exitCode = error.exit_code ?? 11;
 }

@@ -20,9 +20,9 @@ import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v7";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v8";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
-const runnerRegistrySchemaID = "cartulary.test_runner_registry.v2";
+const runnerRegistrySchemaID = "cartulary.test_runner_registry.v3";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
 const expectedRunners = Object.freeze({
   go: "go_exact_tests",
@@ -35,7 +35,7 @@ const expectedRunnerDefinitions = Object.freeze({
     runner: "go",
     selector_kind: "go_exact_tests",
     adapter_path: "tools/harness/execution/runners/go.mjs",
-    approved_roots: ["cmd", "internal", "tools/objectstoreprobe", "tools/testservices"],
+    approved_roots: ["cmd", "internal", "tools/contractgen", "tools/embedwebassets", "tools/objectstoreprobe", "tools/testservices"],
   },
   playwright: {
     runner: "playwright",
@@ -56,7 +56,7 @@ const expectedRunnerDefinitions = Object.freeze({
     selector_kind: "vitest_exact_titles",
     adapter_path: "tools/harness/execution/runners/vitest.mjs",
     approved_roots: ["apps/web", "packages"],
-    project_ids: ["browser-unit", "harness-node"],
+    project_ids: ["browser-unit", "harness-node", "renderer-node"],
   },
 });
 const expectedProfiles = Object.freeze({
@@ -72,6 +72,7 @@ const expectedProfiles = Object.freeze({
     "package_qualification",
     "performance_fixture_builder",
     "postgres_catalog_isolated",
+    "renderer_browser",
     "standard",
     "ui_review_browser",
     "ui_review_browser_pair",
@@ -127,7 +128,7 @@ function assertExactIDs(entries, expected, label) {
 function loadTopologyProfiles(root) {
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
   const topology = readStrictJSON(topologyPath);
-  validateSchemaSync("cartulary.execution_topology.v10", topology);
+  validateSchemaSync("cartulary.execution_topology.v11", topology);
   for (const [key, ids] of Object.entries(expectedProfiles)) {
     if (!Array.isArray(topology[key])) {
       throw new Error(`${topologyPath}.${key} must be an array`);
@@ -173,13 +174,10 @@ function loadTopologyProfiles(root) {
       }
     }
   }
-  assertSortedUnique(topology.go_targets.catalog_packages, `${topologyPath}.go_targets.catalog_packages`);
   return {
-    catalogPackages: topology.go_targets.catalog_packages,
     runtimeIDs: new Set(topology.runtime_profiles.map((entry) => entry.id)),
     resourceIDs: new Set(topology.resource_profiles.map((entry) => entry.id)),
     semantic: {
-      catalog_packages: topology.go_targets.catalog_packages,
       runtime_profiles: topology.runtime_profiles,
       resource_profiles: topology.resource_profiles,
       service_resource_minimums: topology.service_resource_minimums,
@@ -361,11 +359,36 @@ function validateRowSemantics({
   if (row.runner === "playwright" && row.fixture_capability !== "browser_stack") {
     throw new Error(`${label}.fixture_capability must be browser_stack for Playwright`);
   }
+  if (row.runner === "vitest" && row.selector.project_id === "renderer-node") {
+    if (row.runtime_profile_id !== "none" || row.fixture_capability !== "none" || row.service_dependencies.length !== 0) {
+      throw new Error(`${label} renderer-node must not acquire product services or fixtures`);
+    }
+    if (!new Set(["unit", "integration"]).has(row.evidence_class)) {
+      throw new Error(`${label} renderer-node requires an admitted unit or integration context`);
+    }
+    if (row.evidence_class === "integration" && (row.process_isolation !== "exclusive" || row.resource_profile_id !== "renderer_browser")) {
+      throw new Error(`${label} renderer-node integration requires exclusive process and renderer browser capacity`);
+    }
+  }
   if (row.fixture_capability === "managed_process" && row.runtime_profile_id === "none") {
     throw new Error(`${label}.fixture_capability managed_process requires a runtime profile`);
   }
   if (row.process_isolation !== undefined && !["go", "vitest"].includes(row.runner)) {
     throw new Error(`${label}.process_isolation is supported only for Go and Vitest rows`);
+  }
+  if (row.preparation_targets !== undefined) {
+    assertSortedUnique(row.preparation_targets, `${label}.preparation_targets`);
+    if (!["go", "vitest"].includes(row.runner)) {
+      throw new Error(`${label}.preparation_targets is supported only for Go and Vitest rows`);
+    }
+    if (row.runner === "go" && row.preparation_targets.includes("playwright-install") &&
+      (!row.preparation_targets.includes("frontend-install") || row.resource_profile_id !== "renderer_browser" || row.process_isolation !== "exclusive")) {
+      throw new Error(`${label} Go renderer preparation requires frontend installation, exclusive process and renderer browser capacity`);
+    }
+    if (row.preparation_targets.includes("build-report-renderer") &&
+      ((row.runner !== "go" && !(row.runner === "vitest" && row.selector.project_id === "renderer-node" && row.evidence_class === "integration")) || row.resource_profile_id !== "renderer_browser" || row.process_isolation !== "exclusive")) {
+      throw new Error(`${label} installed renderer preparation requires an exclusive admitted renderer browser context`);
+    }
   }
   if (row.process_isolation !== undefined && row.fixture_capability === "managed_process") {
     throw new Error(`${label}.process_isolation redundantly restates managed_process isolation`);
@@ -533,10 +556,10 @@ function readCatalogDefinition(root) {
     rowMigrations,
     test_catalog_digest: catalogSemanticDigest,
   };
-  return { catalog, runners: runners.byID, taskSurfaceCommandIDs, catalogPackages: profiles.catalogPackages };
+  return { catalog, runners: runners.byID, taskSurfaceCommandIDs };
 }
 
-function resolveSelectors(root, rows, { runners, taskSurfaceCommandIDs, catalogPackages }, complete = false) {
+function resolveSelectors(root, rows, { runners, taskSurfaceCommandIDs }, complete = false) {
   const resolveSelector = createRowSelectorResolver(root);
   const selectors = new Set();
   const overlaps = [];
@@ -547,8 +570,8 @@ function resolveSelectors(root, rows, { runners, taskSurfaceCommandIDs, catalogP
     }
   }
   if (overlaps.length) throw new Error(`${overlaps.length} overlapping catalog selections: ${overlaps.slice(0, 20).join("; ")}`);
-  if (complete) resolveSelector.assertGoPackageCoverage(catalogPackages, runners.get("go"), selectors);
-  return selectors.size;
+  if (complete) resolveSelector.assertSourceCoverage(runners, selectors);
+  return [...selectors].filter((selector) => !selector.startsWith("playwright-source:")).length;
 }
 
 // Metadata consumers do not acquire source-selector state. This view has no

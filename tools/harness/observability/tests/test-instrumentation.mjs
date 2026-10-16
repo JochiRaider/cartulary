@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -11,7 +13,7 @@ import { reduceCanonicalUnitIntervals } from "../../evidence-accounting/index.mj
 import { buildWorkGraph } from "../../scheduler/work-graph/model.mjs";
 import { resourceProjection } from "../resource-projection.mjs";
 import { readResourceObservations } from "../resource-reader.mjs";
-import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
+import { atomicLocalFile, readLocalChunks, readLocalFile } from "../../runtime/secure-local-files.mjs";
 import { otlpProjection } from "../otlp-projection.mjs";
 import { validateCanonicalRun } from "../canonical-evidence.mjs";
 import { performanceExplanation, loadRetainedObservability } from "../observability.mjs";
@@ -56,6 +58,23 @@ test("strict JSON preserves native values while rejecting non-interoperable and 
 });
 
 const digest = `sha256:${"a".repeat(64)}`;
+test("machine evidence rejects documentation paths before any filesystem access", async () => {
+  const original = new Map(["openSync", "existsSync", "readFileSync"].map((name) => [name, fs[name]]));
+  try {
+    for (const name of original.keys()) fs[name] = () => { throw new Error("unexpected filesystem access"); };
+    syncBuiltinESMExports();
+    // Hostile tokens only; no documentation fixture is created or inspected.
+    const forbiddenDirectory = "docs";
+    for (const file of [path.join("/unavailable", forbiddenDirectory, "evidence.json"), "/unavailable/README", "/unavailable/evidence.md", "/unavailable/evidence.markdown"]) {
+      assert.throws(() => readLocalFile(file), /documentation/u);
+      assert.throws(() => [...readLocalChunks(file, { maximum: 8 })], /documentation/u);
+      await assert.rejects(validateCanonicalRun(file), /documentation/u);
+    }
+  } finally {
+    for (const [name, originalMethod] of original) fs[name] = originalMethod;
+    syncBuiltinESMExports();
+  }
+});
 function temporary(t) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "cartulary-instrumentation-"));
   t.after(() => rmSync(dir, { recursive: true, force: true })); return dir;
@@ -246,6 +265,13 @@ test("retained validation reconstructs path and target fields and rejects tamper
     run_id: manifest.run_id, source_digest: digest, graph_digest: digest, policy_digest: digest, status: "complete", omitted_records: 0,
     omitted_refs: [], records, records_digest: executionRecordsDigest(records) }));
   await validateCanonicalRun(dir);
+  const forbiddenDirectory = "docs";
+  for (const reference of ["../escaped.json", path.join(forbiddenDirectory, "evidence.json"), "README", "notes.md"]) {
+    const poisoned = { ...summary, artifact_refs: [...summary.artifact_refs, reference] };
+    atomicLocalFile(path.join(dir, "run-summary.json"), JSON.stringify(poisoned), { replace: true });
+    await assert.rejects(validateCanonicalRun(dir), /normalized and relative|documentation/u);
+  }
+  atomicLocalFile(path.join(dir, "run-summary.json"), JSON.stringify(summary), { replace: true });
   const explained = await performanceExplanation(dir);
   assert.equal(explained.dependency_path_ms, 9);
   assert.equal(explained.invocation_path_queue_ms, 2);

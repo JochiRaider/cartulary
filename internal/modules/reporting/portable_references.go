@@ -3,7 +3,6 @@ package reporting
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"io"
@@ -28,7 +27,7 @@ func (PortableReferenceSource) ReferenceBindingsTx(ctx context.Context, tx pgx.T
 	if tx == nil || incident == uuid.Nil {
 		return nil, errors.New("reporting: invalid reference export")
 	}
-	rows, err := tx.Query(ctx, `SELECT snapshot_id,derivation_version,export_model_sha256,export_model_json FROM reporting_snapshots WHERE incident_id=$1 ORDER BY snapshot_id`, incident)
+	rows, err := tx.Query(ctx, `SELECT s.snapshot_id,s.derivation_version,s.source_capture_sha256,p.request_json->'source_capture' FROM reporting_snapshots s JOIN reporting_job_payloads p ON p.job_id=s.create_job_id WHERE s.incident_id=$1 ORDER BY s.snapshot_id`, incident)
 	if err != nil {
 		return nil, err
 	}
@@ -42,24 +41,9 @@ func (PortableReferenceSource) ReferenceBindingsTx(ctx context.Context, tx pgx.T
 		if err := rows.Scan(&id, &derivation, &digest, &raw); err != nil {
 			return nil, err
 		}
-		canonical, err := canonicalReportingBytes(raw)
-		if err != nil {
-			return nil, errors.New("reporting: malformed portable snapshot")
-		}
-		var model SnapshotModel
-		if err := json.Unmarshal(canonical, &model); err != nil {
-			return nil, err
-		}
-		encodedModel, err := canonicalJSON(model)
-		if err != nil || reportingObjectDigest(model.SchemaID, encodedModel) != digest {
-			return nil, errors.New("reporting: altered portable snapshot")
-		}
-		admitted, err := canonicalReportingBytes(encodedModel)
-		if err != nil || !bytes.Equal(admitted, canonical) {
-			return nil, errors.New("reporting: unknown portable snapshot members")
-		}
-		if derivation != DerivationVersion || model.DerivationVersion != derivation || validateSnapshotModelIdentity(model) != nil || model.SnapshotID != id.String() || model.IncidentID != incident.String() {
-			return nil, errors.New("reporting: invalid portable snapshot identity")
+		model, err := decodeSnapshotCapture(raw, digest)
+		if err != nil || derivation != DerivationVersion || model.DerivationVersion != derivation || model.SnapshotID != id.String() || model.IncidentID != incident.String() {
+			return nil, errors.New("reporting: invalid portable snapshot capture")
 		}
 		binding := model.ReferencePacks
 		data, err := canonicaljson.Marshal(binding)

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "package.protocol_ts",
   "rows": [
     {
@@ -148,6 +148,35 @@
           "@cartulary/protocol-ts family conformance requires complete incident paging and consistent continuation metadata"
         ],
         "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.protocol_ts.frontend_unit.source_entrypoints_test_ts_50c3a02e28",
+      "owner_id": "package.protocol_ts",
+      "family_id": "package.protocol_ts.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.protocol_ts.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/protocol-ts/src/entrypoints/entrypoints.test.ts",
+        "project_id": "browser-unit",
+        "titles": [
+          "Protocol-TS authored family entrypoints exposes only view-schema-specific registry access",
+          "Protocol-TS authored family entrypoints exposes stable typed registry singletons by owner",
+          "Protocol-TS authored family entrypoints keeps Network Flow projections and exact decoders in one family",
+          "Protocol-TS authored family entrypoints keeps collaboration decoding family-confined and payload-safe",
+          "Protocol-TS authored family entrypoints owns HTTP metadata, builders, types, and payload-safe decoders"
+        ]
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

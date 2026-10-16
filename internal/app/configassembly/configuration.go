@@ -80,6 +80,9 @@ func applicationCatalog() (config.Catalog, error) {
 	if err := registerReferencePackConfigurationContribution(builder); err != nil {
 		return config.Catalog{}, err
 	}
+	if err := registerReportingConfigurationContribution(builder); err != nil {
+		return config.Catalog{}, err
+	}
 	if err := registerRevisionsConfigurationContribution(builder); err != nil {
 		return config.Catalog{}, err
 	}

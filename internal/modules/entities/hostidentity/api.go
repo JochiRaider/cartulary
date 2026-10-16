@@ -27,6 +27,7 @@ type CreateRequest struct {
 	ClientTxnID string
 	Values      map[string]string
 	AliasAdds   map[string][]CollectionAction
+	PartyAdds   map[string][]CollectionAction
 }
 
 type HostRecord struct {
@@ -50,6 +51,8 @@ type HostRecord struct {
 	SuggestionOnlyAliases []AliasValue
 	AliasMutations        []AliasMutationValue
 	ReusableIdentifiers   []ReusableIdentifier
+	PartyAssignments      map[string][]PartyReference
+	partyMutations        []collectionMutation
 	RowVersion            int64
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
@@ -78,6 +81,8 @@ type IdentityRecord struct {
 	SuggestionOnlyAliases []AliasValue
 	AliasMutations        []AliasMutationValue
 	ReusableIdentifiers   []ReusableIdentifier
+	PartyAssignments      map[string][]PartyReference
+	partyMutations        []collectionMutation
 	RowVersion            int64
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
@@ -149,6 +154,7 @@ type MutationResult struct {
 }
 
 type CollectionAction struct {
+	PartyID        uuid.UUID
 	Op             string
 	RawText        string
 	NormalizedText string
@@ -200,6 +206,7 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 
 	request.Values = make(map[string]string)
 	request.AliasAdds = make(map[string][]CollectionAction)
+	request.PartyAdds = make(map[string][]CollectionAction)
 	for _, descriptor := range entityFields.descriptors(viewSchemaID) {
 		fieldKey := descriptor.fieldKey
 		field := descriptor.owner
@@ -211,6 +218,19 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 			return CreateRequest{}, invalidMutationPayload(fieldKey, "readonly_field")
 		}
 		if descriptor.patch == entityFieldPatchCollection {
+			if isPartyAssignmentField(fieldKey) {
+				actions, valid := decodePartyAssignmentActions(value)
+				if !valid {
+					return CreateRequest{}, invalidMutationPayload(fieldKey, "invalid_value")
+				}
+				for _, action := range actions {
+					if action.Op != "add_party_ref" {
+						return CreateRequest{}, invalidMutationPayload(fieldKey, "invalid_value")
+					}
+				}
+				request.PartyAdds[fieldKey] = actions
+				continue
+			}
 			actions, ok := decodeAliasActionPayload(viewSchemaID, fieldKey, value)
 			if !ok {
 				return CreateRequest{}, invalidMutationPayload(fieldKey, "invalid_value")
@@ -290,6 +310,9 @@ func CreateRequestHash(viewSchemaID string, request CreateRequest) []byte {
 		}
 		slices.Sort(values)
 		payload[key] = values
+	}
+	for field, actions := range request.PartyAdds {
+		payload[field] = canonicalCollectionActions(actions)
 	}
 	data, _ := json.Marshal(payload)
 	sum := sha256.Sum256(data)

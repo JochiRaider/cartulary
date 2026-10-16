@@ -70,7 +70,12 @@ function deployment(directory, name, url) {
     for (let i = 0; i < 120; i++) {
       const value = await request(`/api/v1/jobs/${admitted.job_id}`);
       if (["succeeded", "failed", "canceled"].includes(value.status)) {
-        assert.equal(value.status, want, `Job: ${value.error_summary?.code}/${value.error_summary?.details?.reason_code}`);
+        if (value.status !== want) {
+          const token = input => typeof input === "string" && /^[a-zA-Z0-9_.-]{1,160}$/.test(input) ? input : null;
+          const failure = {job_id:token(admitted.job_id),status:token(value.status),expected_status:want,code:token(value.error_summary?.code),reason_code:token(value.error_summary?.details?.reason_code),source_family_id:token(value.error_summary?.details?.source_family_id),invariant_id:token(value.error_summary?.details?.invariant_id)};
+          writeFileSync(path.join(artifacts,"unexpected-job-outcome.json"),JSON.stringify(failure,null,2));
+          assert.fail(`Job: ${failure.code}/${failure.reason_code}; family=${failure.source_family_id}; invariant=${failure.invariant_id}`);
+        }
         return value;
       }
       await delay(500);
@@ -114,9 +119,10 @@ const file = (name) => readFileSync(path.join(work, "reference-pack-incoming", n
 const upload = (stack, name, txn, status = 202) => stack.post("/api/v1/reference-packs/import", txn, {}, { status, upload: { bytes: file(name) } });
 const id = (value) => { assert.match(value, /^[a-zA-Z0-9_.-]+$/); return value; };
 
-// Enable the consumer owners in this disposable deployment explicitly.
+// Reporting is configured by the shipped package. Enable the additional
+// portability consumer in this disposable deployment explicitly.
 source.compose("stop", "app");
-writeFileSync(path.join(work, "config.toml"), readFileSync(path.join(work, "config.toml"), "utf8") + "\n[snapshot_reporting]\nclaimed = true\n[incident_portability]\nclaimed = true\n");
+writeFileSync(path.join(work, "config.toml"), readFileSync(path.join(work, "config.toml"), "utf8") + "\n[incident_portability]\nclaimed = true\n");
 source.compose("up", "-d", "--no-deps", "--force-recreate", "app");
 await source.ready();
 const actor = id(await login(source));
@@ -152,11 +158,13 @@ await source.action(2, "activate");
 const selected = selection(source);
 const incident = await source.post("/api/v1/incidents", "incident", { incident_key: "PACK-QUALIFICATION", title: "Package reference history" }, { status: 201 });
 const incidentID = id(incident.incident_id);
+const recipient = await source.post(`/api/v1/incidents/${incidentID}/views/cartulary.view.parties.v1/rows`, "report-recipient", {"party.display_name":"Qualification recipient", "party.party_kind":"organization", "party.primary_email":"recipient@example.test"}, {status:201});
+const recipientPartition = `party:${id(recipient.row.record_id)}`;
 writeFileSync(path.join(artifacts,"windows-wss.json"), JSON.stringify(windowsProbe(work,origin,{cookie:source.cookieHeader(),incident:incidentID}),null,2));
 completed("Windows authenticated HTTPS/WSS with isolated trust and origin rejection");
 const snapshotJob = await source.post("/api/v1/snapshots", "snapshot", { incident_id: incidentID }, { status: 202 });
-const snapshot = id((await source.job(snapshotJob)).result_summary.resource_refs.find((ref) => ref.type === "snapshot" || ref.kind === "snapshot").id);
-const bindingSQL = `SELECT export_model_json->'reference_packs' FROM reporting_snapshots WHERE snapshot_id='${snapshot}'`;
+const snapshot = id((await source.job(snapshotJob)).result_summary.resource_refs.find((ref) => ref.kind === "snapshot").id);
+const bindingSQL = `SELECT p.request_json->'source_capture'->'reference_packs' FROM reporting_snapshots s JOIN reporting_job_payloads p ON p.job_id=s.create_job_id WHERE s.snapshot_id='${snapshot}'`;
 const binding = source.sql(bindingSQL);
 assert.equal(JSON.parse(binding).pack_set_id, selected);
 completed("snapshot pins exact activated set");
@@ -186,15 +194,33 @@ for (const [name, reason] of [["rollback.tar", "metadata_rollback_detected"], ["
 }
 completed("admitted failures retain terminal audit without partial publication");
 
-for (const txn of ["render", "rerender"]) {
-  const admitted = await source.post("/api/v1/releases", txn, { snapshot_id: snapshot, template_id: "cartulary.report.default", template_version: "1", redaction_profile_id: "cartulary.redaction.internal", redaction_profile_version: "1", release_scope: "internal_draft", output_kind: "slidev" }, { status: 202 });
+// These are independent release admissions from the same historical snapshot,
+// not a replay of one render identity. External release exercises the worker's
+// determinism rerender; tokenized review exercises sensitive adjunct exclusion.
+const renderedReleases = [];
+function retainedPDF(stack, release) {
+  const rows = JSON.parse(stack.sql(`SELECT coalesce(json_agg(json_build_object('sha256',file_sha256,'actual_sha256',encode(sha256(inline_bytes),'hex'),'bytes',size_bytes,'actual_bytes',octet_length(inline_bytes),'magic',encode(substring(inline_bytes from 1 for 5),'hex'),'storage',storage_kind)), '[]'::json) FROM reporting_render_bundle_files WHERE release_id='${id(release)}' AND bundle_path='deck.pdf' AND role='rendered_pdf' AND media_type='application/pdf'`));
+  assert.equal(rows.length, 1, "release must retain exactly one PDF");
+  const value = rows[0];
+  assert.equal(value.storage, "database_inline");
+  assert.equal(value.magic, "255044462d");
+  assert.match(value.sha256, /^[0-9a-f]{64}$/);
+  assert.equal(value.actual_sha256, value.sha256);
+  assert.equal(value.actual_bytes, value.bytes);
+  assert.ok(value.bytes > 1024);
+  return {release_id: release, sha256: value.sha256, bytes: value.bytes};
+}
+for (const [txn, profile, scope] of [["render-review", "cartulary.redaction.tokenized_review", "internal_review"], ["render-external", "cartulary.redaction.external", "external_release"]]) {
+  const admitted = await source.post("/api/v1/releases", txn, { snapshot_id: snapshot, template_id: "cartulary.report.default", template_version: "4", redaction_profile_id: profile, redaction_profile_version: "5", release_scope: scope, output_kind: "slidev", recipient_partition_refs:scope === "external_release" ? [recipientPartition] : [] }, { status: 202 });
   const terminal = await source.job(admitted);
-  const release = id(terminal.result_summary.resource_refs.find((ref) => ref.type === "release" || ref.kind === "release").id);
+  const release = id(terminal.result_summary.resource_refs.find((ref) => ref.kind === "release").id);
   assert.deepEqual(JSON.parse(source.sql(`SELECT bundle_manifest_json->'reference_packs' FROM reporting_render_bundles WHERE release_id='${release}'`)), JSON.parse(binding));
+  renderedReleases.push(retainedPDF(source, release));
+  writeFileSync(path.join(artifacts, "rendered-releases.json"), JSON.stringify({snapshot_id:snapshot, reference_pack_set_id:selected, releases:renderedReleases}, null, 2));
 }
 const pinned = await source.action(2, "remove", { status: 409 });
 assert.equal(pinned.details.reason_code, "pinned");
-completed("historical report rerender and pin-protected removal");
+completed("production worker renders historical review and external PDFs with pin-protected removal");
 
 // A distinct disposable Compose project is the portability destination. It has
 // its own database, bucket, volumes, trust bootstrap and bootstrap administrator.
@@ -226,9 +252,18 @@ assert.equal(selection(destination), destinationBase, "portability transported s
 assert.equal(destination.sql("SELECT count(*) FROM reporting_snapshots"), "0", "portability fabricated native snapshots");
 const portableCatalog = JSON.parse(destination.sql("SELECT convert_from(content,'UTF8') FROM reporting_imported_artifact_files WHERE bundle_path='ext/snapshots/catalog.json'"));
 assert.equal(portableCatalog.snapshots.length, 1);
-const portableModelPath = portableCatalog.snapshots[0].export_model_path;
-assert.match(portableModelPath, /^[a-zA-Z0-9_./-]+$/);
-assert.deepEqual(JSON.parse(destination.sql(`SELECT convert_from(content,'UTF8')::json->'reference_packs' FROM reporting_imported_artifact_files WHERE bundle_path='${portableModelPath}'`)), JSON.parse(binding));
+assert.deepEqual(portableCatalog.releases.map(value => value.release_id).sort(), renderedReleases.map(value => value.release_id).sort());
+for (const rendered of renderedReleases) {
+  const portablePath = `ext/snapshots/releases/${id(rendered.release_id)}/files/deck.pdf`;
+  const retained = JSON.parse(destination.sql(`SELECT json_build_object('sha256',encode(sha256(content),'hex'),'bytes',octet_length(content)) FROM reporting_imported_artifact_files WHERE bundle_path='${portablePath}'`));
+  assert.deepEqual(retained, {sha256:rendered.sha256, bytes:rendered.bytes});
+}
+assert.equal(destination.sql("SELECT count(*) FROM reporting_imported_artifact_files WHERE bundle_path LIKE 'ext/snapshots/releases/%/files/internal/%'"), "0");
+assert.equal(portableCatalog.schema_id, "cartulary.reporting_portable_artifacts.v3");
+assert.equal(portableCatalog.snapshots[0].snapshot_id, snapshot);
+const portableCapturePath = portableCatalog.snapshots[0].source_capture_path;
+assert.equal(portableCapturePath, `ext/snapshots/${snapshot}/source-capture.json`);
+assert.deepEqual(JSON.parse(destination.sql(`SELECT convert_from(content,'UTF8')::json->'reference_packs' FROM reporting_imported_artifact_files WHERE bundle_path='${portableCapturePath}'`)), JSON.parse(binding));
 assert.equal(destination.sql("SELECT count(*) FROM reference_pack_candidates WHERE pack_key='enrichment.tor' AND pack_version='2' AND health='verified_available'"), "1");
 completed("destination-trusted portability preserves history without activation");
 
@@ -287,6 +322,7 @@ const restored=JSON.parse(recovered.operate(...restoreArgs));
 assert.equal(restored.result,"succeeded");
 assert.deepEqual(JSON.parse(recovered.operate(...restoreArgs)),restored,"exact terminal replay changed");
 assert.deepEqual(JSON.parse(recovered.sql(bindingSQL)),JSON.parse(binding));
+for (const rendered of renderedReleases) assert.deepEqual(retainedPDF(recovered, rendered.release_id), rendered);
 assert.equal(recovered.sql("SELECT root_version FROM reference_pack_repositories WHERE repository_id='package_smoke.repo'"),"2");
 assert.equal(recovered.sql("SELECT count(*) FROM backup_sets"),"0","restore fabricated backup freshness");
 const restoredExportHash=command("docker",["run","--rm","--label",`com.docker.compose.project=${project}destination`,"--entrypoint","sha256sum","-v",`${project}destination_cartulary-exports:/data:ro`,helperImage,`/data/${bundleRef}`]).split(" ")[0];
@@ -303,5 +339,5 @@ assert.equal((await fetch(destinationOrigin+"/api/v1/auth/session",{headers:{Coo
 await recovered.request("/api/v1/auth/login",{username:"admin@example.test",password:"ReplaceThisBootstrap1!",second_factor:{kind:"totp",assertion:{code:totp(retainedFactors.get(source))}}});
 assert.equal((await recovered.request("/api/v1/auth/session")).user_id,actor);
 writeFileSync(path.join(artifacts,"source-loss-windows.json"),JSON.stringify(windowsProbe(recoveredWork,destinationOrigin,{cookie:recovered.cookieHeader(),incident:incidentID}),null,2));
-writeFileSync(path.join(artifacts,"recovery.json"),JSON.stringify({backup_set_id:backup.backup_set_id,restore_result:restored.result,snapshot_id:snapshot,pack_set_id:selected,source_services_destroyed:true,source_configuration_removed:true,exact_retry:true,fresh_backup_gate:true,prior_session_rejected:true,fresh_mfa_session:true}));
+writeFileSync(path.join(artifacts,"recovery.json"),JSON.stringify({backup_set_id:backup.backup_set_id,restore_result:restored.result,snapshot_id:snapshot,pack_set_id:selected,rendered_releases:renderedReleases,source_services_destroyed:true,source_configuration_removed:true,exact_retry:true,fresh_backup_gate:true,prior_session_rejected:true,fresh_mfa_session:true}));
 completed("source-loss restore preserves historical trust, pins, exports, workbook and exact retry");

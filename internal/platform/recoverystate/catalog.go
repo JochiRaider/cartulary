@@ -19,8 +19,8 @@ const (
 	CatalogSchemaID      = "cartulary.recovery_state_catalog.v2"
 	PostgresUnitCodecID  = "cartulary.postgres_snapshot_unit.v1"
 
-	AuthoredTableCount  = 143
-	RequiredTableCount  = 111
+	AuthoredTableCount  = 146
+	RequiredTableCount  = 113
 	ContributionCount   = 30
 	ObjectFamilyCount   = 6
 	catalogFixturePath  = "contracts/recovery/fixtures/recovery-state-catalog.v2.json"

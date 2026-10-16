@@ -12,7 +12,7 @@ Migration 00053 rejects retained import Jobs that predate explicit human/local-o
 
 Migration 00052 also rejects retained content-rejection attempts that predate canonical validation summaries. The preflight reports `historical_validation_summaries` as a category count. A reason code cannot reconstruct the original findings, their count, or their primary issue. Preserve that database and its matching historical application before deliberately resetting disposable development data; the migration never manufactures diagnostic history.
 
-This procedure supports the validated pre-production Reference Pack cutover. The [implementation ledger](../handoffs/reference-pack-remediation.md) records the completed implementation, disposable reset rehearsal and passing final release gate. This document does not authorize a production reset or establish formal production conformance.
+This procedure describes the pre-production Reference Pack cutover. Current implementation and evidence status is tracked in the [remediation handoff](../handoffs/testing-assurance-remediation.md). This document does not authorize a production reset or establish completed validation or formal production conformance.
 
 ## Preserve the historical deployment
 
@@ -50,7 +50,7 @@ The development configuration starts with `reference_pack.claimed=false`; startu
 
 Fresh startup must establish the three current-release Base registries before readiness. Verify that old operator packs were not implicitly promoted, incident identities were not copied or rekeyed, and historical backup roots remain untouched. A subsequent unchanged startup must reuse immutable content, envelopes and provenance, and preserve configuration revision identity.
 
-The procedure has been rehearsed twice against an isolated disposable database, reaching migration 63 and verifying cleanup; exact results are in the ledger. No real deployment was migrated or reset. For each new rehearsal, retain the selected configuration identity, migration/preflight results, reset preview, explicit reset invocation and startup result. Restoration of new-format backups performs historical trust validation, index rebuilding, exact-set pin validation and required-content readiness checks. Those checks remain necessary for the actual backup being restored; a successful database reset is not restoration evidence.
+Earlier documentation reported two disposable rehearsals through migration 63, but the referenced ledger is unavailable in this checkout. Treat that statement as unverified historical context, not current cutover evidence. For each new rehearsal, retain the selected configuration identity, migration/preflight results, reset preview, explicit reset invocation and startup result. Restoration of new-format backups performs historical trust validation, index rebuilding, exact-set pin validation and required-content readiness checks. Those checks remain necessary for the actual backup being restored; a successful database reset is not restoration evidence.
 
 ## Operator import and unavailable Base content
 

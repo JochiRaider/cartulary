@@ -15,10 +15,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
-	portableArtifactSchema      = "cartulary.reporting_portable_artifacts.v1"
+	portableArtifactSchema      = "cartulary.reporting_portable_artifacts.v3"
 	portableArtifactCatalogPath = "ext/snapshots/catalog.json"
 	portableSnapshotLimit       = 1024
 	portableReleaseLimit        = 4096
@@ -26,9 +27,9 @@ const (
 )
 
 type portableSnapshot struct {
-	SnapshotID  string `json:"snapshot_id"`
-	ModelPath   string `json:"export_model_path"`
-	ModelSHA256 string `json:"export_model_sha256"`
+	SnapshotID    string `json:"snapshot_id"`
+	CapturePath   string `json:"source_capture_path"`
+	CaptureSHA256 string `json:"source_capture_sha256"`
 }
 type portableRelease struct {
 	ReleaseID      string `json:"release_id"`
@@ -36,17 +37,11 @@ type portableRelease struct {
 	ManifestPath   string `json:"manifest_path"`
 	ManifestSHA256 string `json:"manifest_sha256"`
 }
-type portableOmission struct {
-	ReleaseID string `json:"release_id"`
-	Path      string `json:"path"`
-	Reason    string `json:"reason"`
-}
 type portableArtifactCatalog struct {
-	SchemaID     string             `json:"schema_id"`
-	IncidentID   string             `json:"incident_id"`
-	Snapshots    []portableSnapshot `json:"snapshots"`
-	Releases     []portableRelease  `json:"releases"`
-	OmittedFiles []portableOmission `json:"omitted_files"`
+	SchemaID   string             `json:"schema_id"`
+	IncidentID string             `json:"incident_id"`
+	Snapshots  []portableSnapshot `json:"snapshots"`
+	Releases   []portableRelease  `json:"releases"`
 }
 
 type preparedArtifactImport struct {
@@ -58,9 +53,9 @@ type preparedArtifactImport struct {
 var portableDigestPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 func emptyPortableCatalog(incident uuid.UUID) portableArtifactCatalog {
-	return portableArtifactCatalog{SchemaID: portableArtifactSchema, IncidentID: incident.String(), Snapshots: []portableSnapshot{}, Releases: []portableRelease{}, OmittedFiles: []portableOmission{}}
+	return portableArtifactCatalog{SchemaID: portableArtifactSchema, IncidentID: incident.String(), Snapshots: []portableSnapshot{}, Releases: []portableRelease{}}
 }
-func portableModelPath(id string) string    { return "ext/snapshots/" + id + "/export-model.json" }
+func portableCapturePath(id string) string  { return "ext/snapshots/" + id + "/source-capture.json" }
 func portableManifestPath(id string) string { return "ext/snapshots/releases/" + id + "/manifest.json" }
 func portableReleasePath(id, member string) string {
 	return "ext/snapshots/releases/" + id + "/files/" + member
@@ -70,7 +65,7 @@ func canonicalUUID(value string) bool {
 	return err == nil && id != uuid.Nil && id.String() == value
 }
 func portableMemberPath(value string) bool {
-	if value == "" || len(value) > 512 || !utf8.ValidString(value) || strings.ContainsAny(value, "\\:\x00") || strings.HasPrefix(value, "/") || path.Clean(value) != value {
+	if value == "" || len(value) > 512 || !utf8.ValidString(value) || !norm.NFC.IsNormalString(value) || strings.ContainsAny(value, "\\:\x00") || strings.HasPrefix(value, "/") || path.Clean(value) != value {
 		return false
 	}
 	for _, part := range strings.Split(value, "/") {
@@ -96,7 +91,9 @@ func decodePortableObject[T any](raw []byte, digest string) (T, []byte, error) {
 	if err != nil {
 		return result, nil, artifactport.ErrInvalid
 	}
-	if err = json.Unmarshal(admitted, &result); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(admitted))
+	decoder.UseNumber()
+	if err = decoder.Decode(&result); err != nil {
 		return result, nil, artifactport.ErrInvalid
 	}
 	encoded, err := canonicalJSON(result)
@@ -123,13 +120,13 @@ func decodePortableCatalog(raw []byte, incident uuid.UUID) (portableArtifactCata
 		return c, artifactport.ErrInvalid
 	}
 	encoded, err := canonicaljson.Marshal(c)
-	if err != nil || !bytes.Equal(encoded, raw) || c.SchemaID != portableArtifactSchema || c.IncidentID != incident.String() || c.Snapshots == nil || c.Releases == nil || c.OmittedFiles == nil || len(c.Snapshots) > portableSnapshotLimit || len(c.Releases) > portableReleaseLimit || len(c.OmittedFiles) > portableReleaseLimit {
+	if err != nil || !bytes.Equal(encoded, raw) || c.SchemaID != portableArtifactSchema || c.IncidentID != incident.String() || c.Snapshots == nil || c.Releases == nil || len(c.Snapshots) > portableSnapshotLimit || len(c.Releases) > portableReleaseLimit {
 		return c, artifactport.ErrInvalid
 	}
 	previous := ""
 	snapshots := map[string]bool{}
 	for _, s := range c.Snapshots {
-		if !canonicalUUID(s.SnapshotID) || s.SnapshotID <= previous || s.ModelPath != portableModelPath(s.SnapshotID) || !portableDigestPattern.MatchString(s.ModelSHA256) {
+		if !canonicalUUID(s.SnapshotID) || s.SnapshotID <= previous || s.CapturePath != portableCapturePath(s.SnapshotID) || !portableDigestPattern.MatchString(s.CaptureSHA256) {
 			return c, artifactport.ErrInvalid
 		}
 		previous = s.SnapshotID
@@ -143,14 +140,6 @@ func decodePortableCatalog(raw []byte, incident uuid.UUID) (portableArtifactCata
 		}
 		previous = r.ReleaseID
 		releases[r.ReleaseID] = true
-	}
-	previous = ""
-	for _, o := range c.OmittedFiles {
-		order := o.ReleaseID + "\x00" + o.Path
-		if !releases[o.ReleaseID] || !portableMemberPath(o.Path) || o.Reason != "sensitive_reveal_map" || order <= previous {
-			return c, artifactport.ErrInvalid
-		}
-		previous = order
 	}
 	return c, nil
 }
@@ -190,19 +179,15 @@ func (PortableReferenceSource) PrepareArtifactImport(ctx context.Context, reques
 	used := map[string]bool{portableArtifactCatalogPath: true}
 	bindings := map[string]reference_data.SetBinding{}
 	for _, s := range c.Snapshots {
-		model, encoded, err := decodePortableObject[SnapshotModel](files[s.ModelPath], s.ModelSHA256)
-		if err != nil || !bytes.Equal(encoded, files[s.ModelPath]) || validateSnapshotModelIdentity(model) != nil || model.DerivationVersion != DerivationVersion || model.SnapshotID != s.SnapshotID || model.IncidentID != c.IncidentID {
+		model, encoded, err := decodePortableObject[snapshotCapture](files[s.CapturePath], s.CaptureSHA256)
+		if err != nil || !bytes.Equal(encoded, files[s.CapturePath]) || validateSnapshotCapture(model) != nil || model.DerivationVersion != DerivationVersion || model.SnapshotID != s.SnapshotID || model.IncidentID != c.IncidentID {
 			return nil, artifactport.ErrInvalid
 		}
 		if err := reference_data.ValidatePortableBinding(refs, model.ReferencePacks); err != nil {
 			return nil, artifactport.ErrInvalid
 		}
-		used[s.ModelPath] = true
+		used[s.CapturePath] = true
 		bindings[s.SnapshotID] = model.ReferencePacks
-	}
-	omissions := map[string]bool{}
-	for _, o := range c.OmittedFiles {
-		omissions[o.ReleaseID+"\x00"+o.Path] = true
 	}
 	for _, r := range c.Releases {
 		manifest, encoded, err := decodePortableObject[RenderBundleManifest](files[r.ManifestPath], r.ManifestSHA256)
@@ -217,37 +202,35 @@ func (PortableReferenceSource) PrepareArtifactImport(ctx context.Context, reques
 		used[r.ManifestPath] = true
 		previous := ""
 		primary := false
+		validationCount := 0
+		publicArtifacts := []RenderBundleFile{}
 		for _, f := range manifest.Files {
-			if !portableMemberPath(f.Path) || f.Path <= previous || f.SizeBytes < 0 || !portableDigestPattern.MatchString(f.SHA256) || f.Role == "" || f.MediaType == "" {
+			if !portableMemberPath(f.Path) || f.Path <= previous || f.SizeBytes < 0 || !portableDigestPattern.MatchString(f.SHA256) || !shareableBundleMember(f) {
 				return nil, artifactport.ErrInvalid
 			}
 			previous = f.Path
 			name := portableReleasePath(r.ReleaseID, f.Path)
-			omission := r.ReleaseID + "\x00" + f.Path
-			if f.Role == renderBundleRoleSensitiveRevealMap {
-				if !omissions[omission] {
-					return nil, artifactport.ErrInvalid
-				}
-				delete(omissions, omission)
-				if _, present := files[name]; present {
-					return nil, artifactport.ErrInvalid
-				}
-				continue
-			}
 			data, ok := files[name]
 			if !ok || int64(len(data)) != f.SizeBytes || hashHex(data) != f.SHA256 {
 				return nil, artifactport.ErrInvalid
 			}
 			used[name] = true
+			publicArtifacts = append(publicArtifacts, RenderBundleFile{RenderBundleManifestFile: f, Bytes: data})
+			if f.Role == renderBundleRoleValidationSummary {
+				validationCount++
+				if f.Path != "validation/summary.json" || validatePassedRenderSummary(data, manifest) != nil {
+					return nil, artifactport.ErrInvalid
+				}
+			}
 			if f.Path == manifest.PrimaryPath && f.MediaType == manifest.PrimaryMediaType {
 				primary = true
 			}
 		}
-		if !primary {
+		if !primary || validationCount != 1 || validatePublicRedactionArtifacts(manifest, publicArtifacts) != nil || validateBundleToolchain(manifest, publicArtifacts) != nil || validateBundleFilesSelfContained(publicArtifacts) != nil {
 			return nil, artifactport.ErrInvalid
 		}
 	}
-	if len(omissions) != 0 || len(used) != len(files) {
+	if len(used) != len(files) {
 		return nil, artifactport.ErrInvalid
 	}
 	for name, data := range files {

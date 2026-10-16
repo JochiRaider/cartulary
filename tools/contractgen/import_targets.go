@@ -1249,7 +1249,9 @@ export type ImportTargetFrontendProjection = {
   readonly targets: readonly ImportTargetFrontendRow[];
 };
 
-export const importTargetRegistry = ` + string(encoded) + ` as const satisfies ImportTargetFrontendProjection;
+` + typeScriptDeepFreezeSource + `const value = ` + string(encoded) + ` as const satisfies ImportTargetFrontendProjection;
+
+export const importTargetRegistry = deepFreeze(value);
 `
 	return stageGeneratedFile(
 		filepath.Join(root, "packages", "protocol-ts", "src", "generated", "import-target-registry.ts"),

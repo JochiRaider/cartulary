@@ -1,6 +1,6 @@
 {
   "schema_id": "cartulary.postgres_fixture_policy_registry.v2",
-  "catalog_schema_id": "cartulary.test_family_manifest.v7",
+  "catalog_schema_id": "cartulary.test_family_manifest.v8",
   "capability_policies": [
     {
       "capability": "postgres_dedicated",
@@ -28,6 +28,8 @@
     "module.assessments.store.assessment_support_refs_task_linked_record_ids_d_9c08a8f2f2",
     "module.assessments.store.compromise_assessments_append_incident_scoped_ho_f6cf5d55c6",
     "module.assessments.store.facade_transaction_participant_rollback_and_replay",
+    "module.auth.integration.slide_session_does_not_regress_persisted_timing_0a4df22db3",
+    "module.auth.integration.start_store_uses_rollback_dbfor_seeds_assertions_29c8a92930",
     "module.auth.store.one_route_matrix_proves_logout_password_change_t_728b4fb4df",
     "module.auth.store.the_real_login_handler_creates_the_sixth_session_b3a9603ee1",
     "module.auth.store.the_real_patch_route_rejects_missing_base_user_v_e16c180611",
@@ -58,6 +60,7 @@
     "module.indicators.store.indicators_persist_as_canonical_indicator_record_3998750e91",
     "module.indicators.target_resolution.role_failures_are_atomic",
     "module.indicators.transaction.indicator_repository_writes_roll_back_when_revis_c37659989d",
+    "module.links.integration.active_links_and_tags_views_v1_contract_eaf4aac3b7",
     "module.links.store.typed_links_and_tags_persist_as_structured_rows_8daeea1ad1",
     "module.networkflow.integration.extension_state_v4_v1_rejection",
     "module.networkflow.integration.graph_result_cleanup",
@@ -84,8 +87,11 @@
     "module.records.portability.envelope_invariants",
     "module.records.reporting.envelope_facts",
     "module.recovery.integration.atomic_typed_terminal_evidence_7a41f0d8c2",
+    "module.recovery.integration.restore_candidate_uses_object_store_backup_lates_c2cf211fbd",
+    "module.recovery.integration.restore_verification_atomic_completion_449dbe5d91",
     "module.recovery.store.durable_backup_set_creation_requires_artifact_ba_d68130215e",
     "module.recovery.store.incident_bearing_backup_capture_requires_an_encr_4c5363373e",
+    "module.reportcomposition.integration.resolve_release_tuple_tx_reason_matrix_ad31a02455",
     "module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2",
     "module.savedviews.integration.imported_saved_views_preserve_portable_owners_se_45009255f0",
     "module.savedviews.integration.saved_view_export_emits_the_exact_canonical_elev_fb78b01a43",

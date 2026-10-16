@@ -6,6 +6,7 @@ import { createIncidentMembershipAuditWorkflow } from "./createIncidentMembershi
 import { createIncidentMembershipManagementWorkflow } from "./createIncidentMembershipManagementWorkflow";
 import { createIncidentMetadataWorkflow } from "./createIncidentMetadataWorkflow";
 import { createNetworkFlowImportWorkflow } from "./createNetworkFlowImportWorkflow";
+import { createReportingWorkflow } from "./createReportingWorkflow";
 import { createWorkbookImportWorkflow } from "./createWorkbookImportWorkflow";
 import { createWorkbookPreferencesWorkflow } from "./createWorkbookPreferencesWorkflow";
 import { createWorkbookSavedViewsWorkflow } from "./createWorkbookSavedViewsWorkflow";
@@ -30,7 +31,8 @@ type WorkflowName =
   | "savedViews"
   | "preferences"
   | "workbookImport"
-  | "networkFlowImport";
+  | "networkFlowImport"
+  | "reporting";
 type Contribution = {
   synchronize: () => void;
   retire: () => void;
@@ -75,6 +77,7 @@ export function createAppWorkflows(options: () => AppWorkflowOptions) {
     preferences: createWorkbookPreferencesWorkflow(environment),
     workbookImport: createWorkbookImportWorkflow(environment),
     networkFlowImport: createNetworkFlowImportWorkflow(environment),
+    reporting: createReportingWorkflow(environment),
   } satisfies Record<WorkflowName, Contribution>;
   const contributions = Object.values(members);
   let synchronizing = false;

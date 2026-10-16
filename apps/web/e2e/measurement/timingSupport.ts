@@ -3,8 +3,11 @@ import { createHash } from "node:crypto";
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
   type CartularyAc043PredicateId,
+  type CartularyAc044PredicateId,
   cartularyAc043PerformanceContract,
+  cartularyAc044PerformanceContract,
   cartularyInteractiveP95MeasurementPolicy,
+  cartularyLargeGridFixture,
   dataTestIdSelector,
   draftCellTestId,
   gridFieldCellSelector,
@@ -43,7 +46,7 @@ export type MeasurementSample = {
 
 type CommittedRowSummaryMatch = { recordId: string; rowVersion: number };
 const workbookTimingMarkPrefix = "cartulary.workbook.";
-const fixtureProfileId = "ac043_large_grid_snapshot_v1";
+const fixtureProfileId = "timeline_large_grid_snapshot_v2";
 
 export function performancePredicate(predicateId: CartularyAc043PredicateId) {
   const predicate = cartularyAc043PerformanceContract.predicates.find(
@@ -57,7 +60,7 @@ export function performancePredicate(predicateId: CartularyAc043PredicateId) {
 
 export function ac043FixtureDigest() {
   return `sha256:${createHash("sha256")
-    .update(canonicalJSON(cartularyAc043PerformanceContract.fixture))
+    .update(canonicalJSON(cartularyLargeGridFixture))
     .digest("hex")}`;
 }
 
@@ -204,11 +207,26 @@ export async function attachMeasurementObservation(
   options: {
     failureReason?: string;
     fixtureDigest: string;
-    predicateId: CartularyAc043PredicateId;
+    predicateId: CartularyAc043PredicateId | CartularyAc044PredicateId;
     samples: MeasurementSample[];
   },
 ) {
-  const predicate = performancePredicate(options.predicateId);
+  const interaction = cartularyAc043PerformanceContract.predicates.find(
+    (candidate) => candidate.predicateId === options.predicateId,
+  );
+  const viewChange = cartularyAc044PerformanceContract.predicates.find(
+    (candidate) => candidate.predicate_id === options.predicateId,
+  );
+  const predicate =
+    interaction ??
+    (viewChange && {
+      predicateId: viewChange.predicate_id,
+      thresholdMs: viewChange.threshold_ms,
+    });
+  if (!predicate) throw new Error("Unknown interactive measurement predicate");
+  const criterionId = interaction
+    ? cartularyAc043PerformanceContract.criterionId
+    : cartularyAc044PerformanceContract.criterion_id;
   const measured = options.samples.slice(
     interactiveMeasurementSamplePolicy.warmupPasses,
   );
@@ -235,7 +253,7 @@ export async function attachMeasurementObservation(
     "browser_measurement_quiet";
   const outcome = !quietQualified
     ? "environment_not_qualified"
-    : !complete
+    : !complete || options.failureReason !== undefined
       ? "incomplete"
       : (p95 as number) <= predicate.thresholdMs
         ? "passed"
@@ -246,38 +264,39 @@ export async function attachMeasurementObservation(
   );
   const measuredSamples = Math.max(0, options.samples.length - warmupSamples);
   const observation = {
-    schema_id: "cartulary.frontend_measurement_observation.v2",
+    schema_id: "cartulary.frontend_measurement_observation.v4",
     fixture_profile_id: fixtureProfileId,
-    criterion_id: cartularyAc043PerformanceContract.criterionId,
+    criterion_id: criterionId,
     predicate_id: predicate.predicateId,
-    fixture_id: cartularyAc043PerformanceContract.fixture.fixtureId,
+    fixture_id: cartularyLargeGridFixture.fixtureId,
     fixture_digest: options.fixtureDigest,
-    measurement_policy_id:
-      cartularyAc043PerformanceContract.measurementPolicyId,
+    measurement_policy_id: cartularyInteractiveP95MeasurementPolicy.policyId,
     threshold_ms: predicate.thresholdMs,
     warmup_samples: warmupSamples,
     measured_samples: measuredSamples,
-    percentile: interactiveMeasurementSamplePolicy.percentile,
-    p50_ms: p50,
-    p95_ms: p95,
+    statistics: {
+      kind: "percentile" as const,
+      percentile: interactiveMeasurementSamplePolicy.percentile,
+      p50_ms: p50,
+      p95_ms: p95,
+    },
+    predicate_evidence: null,
     outcome,
     traffic: {
       counts: [
         {
           fact_id: "analyst_sessions",
-          value: cartularyAc043PerformanceContract.fixture.analystSessions,
+          value: cartularyLargeGridFixture.analystSessions,
         },
         {
           fact_id: "background_sessions",
-          value: cartularyAc043PerformanceContract.fixture.backgroundSessions,
+          value: cartularyLargeGridFixture.backgroundSessions,
         },
       ],
       rates: [
         {
           fact_id: "background_updates_per_second",
-          value:
-            cartularyAc043PerformanceContract.fixture
-              .backgroundUpdatesPerSecond,
+          value: cartularyLargeGridFixture.backgroundUpdatesPerSecond,
         },
       ],
       conditions: [
@@ -298,7 +317,7 @@ export async function attachMeasurementObservation(
       : { failure_reason: options.failureReason.slice(0, 512) }),
   };
   await testInfo.attach(
-    `cartulary.frontend_measurement_observation.v2.${predicate.predicateId}`,
+    `cartulary.frontend_measurement_observation.v4.${predicate.predicateId}`,
     {
       body: Buffer.from(`${JSON.stringify(observation)}\n`, "utf8"),
       contentType:
@@ -815,7 +834,7 @@ export function findCommittedRowSummaryInRoot(
   return null;
 }
 
-async function resetWorkbookClientTiming(page: Page) {
+export async function resetWorkbookClientTiming(page: Page) {
   await page.evaluate(() => {
     for (const entry of performance.getEntriesByType("mark")) {
       if (entry.name.startsWith("cartulary.workbook.")) {

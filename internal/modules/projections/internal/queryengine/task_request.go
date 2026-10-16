@@ -2,7 +2,6 @@ package queryengine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -23,7 +22,27 @@ func (*TaskReader) CollectTaskDerivedFactsTx(
 	incidentID uuid.UUID,
 ) ([]taskprojection.TaskDerivedFact, error) {
 	rows, err := tx.Query(ctx, `
-SELECT t.record_id, to_jsonb(t) - 'incident_id'
+SELECT t.record_id, jsonb_build_object(
+       'record_id', t.record_id,
+       'row_version', t.row_version,
+       'title', t.title,
+       'status', t.status,
+       'owner_user_id', t.owner_user_id,
+       'priority', t.priority,
+       'task_kind', t.task_kind,
+       'workstream', t.workstream,
+       'due_at', t.due_at,
+       'requester_party_text', t.requester_party_text,
+       'requester_party_id', t.requester_party_id,
+       'blocked_reason', t.blocked_reason,
+       'completed_at', t.completed_at,
+       'external_ticket_ref', t.external_ticket_ref,
+       'closure_summary', t.closure_summary,
+       'decision_record_id', t.decision_record_id,
+       'linked_record_count', t.linked_record_count,
+       'updated_at', t.updated_at,
+       'no_owner', t.no_owner
+   )
   FROM task_request_grid_projection t
   JOIN records r
     ON r.incident_id = t.incident_id
@@ -43,8 +62,8 @@ SELECT t.record_id, to_jsonb(t) - 'incident_id'
 		if err := rows.Scan(&fact.RecordID, &raw); err != nil {
 			return nil, fmt.Errorf("scan Task-request projection fact: %w", err)
 		}
-		fact.Value = map[string]any{}
-		if err := json.Unmarshal(raw, &fact.Value); err != nil {
+		fact.Value, err = decodeReportingFactObject(raw)
+		if err != nil {
 			return nil, fmt.Errorf("decode Task-request projection fact: %w", err)
 		}
 		facts = append(facts, fact)

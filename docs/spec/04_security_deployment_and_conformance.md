@@ -1168,10 +1168,102 @@ For the Snapshot and Reporting Extension Profile, Core 04 MUST provide the secur
 | Public Party display labels | Not permitted | A Party label is public only when Core source state marks it public-directory eligible and the selected redaction profile explicitly permits public Party labels. |
 | Superseded-record external release | Excluded | A superseded record appears in external release only when both template opt-in and redaction-profile permission are present. |
 | Recipient partition validation | Fail closed | `recipient_partition_refs[]` must resolve to snapshot Parties and exactly match the selected redaction profile's allowed `party:*` subset. |
-| Reveal-map access and retention | Sensitive release artifact | Reveal maps require release-artifact authorization and retention controls; they MUST NOT be exposed through ordinary workbook reads. |
+| Reveal-map access and retention | Sensitive internal artifact | Release and preview reveal maps require separate sensitive-artifact authorization and parent retention controls. They remain outside ordinary workbook reads, bundle manifests, downloads and incident-portability inventories; full deployment recovery retains and validates them. |
 | Render sandbox | Non-egress | Rendering must run inside a boundary that blocks non-loopback network egress, remote package resolution, undeclared filesystem reads, arbitrary environment access, and remote runtime assets. |
 
 These controls are release-time and render-time security boundaries. They MUST NOT alter live workbook row visibility, field visibility, evidence visibility, search results, saved views, or incident membership authorization.
+
+Reporting's generated-text categories MUST NOT act as alternative source
+security classifications. Source adapters admit only the four Core 01 source
+classes. Copying, formatting, token substitution or adding a generated label
+MUST NOT bypass source eligibility, required support or disclosure filtering.
+Composition-authored text uses its explicit permission and redaction rules;
+Reporting MUST NOT invent curation or supporting evidence for that text.
+Profiles: snapshot_reporting
+Verified by: AC-233
+
+**REQ-04-046b**
+The repository-controlled browser render profile MUST resolve fonts exclusively
+from its pinned local font set and font configuration. Theme defaults MUST NOT
+enable a remote font provider. The default families are `sans-serif`, `serif`,
+and `monospace`; their concrete font resolution MUST be bound by Reporting's
+`font_manifest_sha256`. A renderer MUST NOT rely on the host's undeclared fonts
+or substitute a remotely acquired font. The profile uses a 1280 by 720 CSS-pixel
+browser viewport and page canvas with device scale factor 1; increasing the
+number of pages MUST NOT increase the viewport dimensions. Source serialization
+continues to follow Reporting's closed headmatter contract. These environment
+controls MUST be applied before constructing the renderer's derived HTML and
+browser configuration, and the resulting configuration MUST be represented in
+the toolchain snapshot. Templates and release input MUST NOT override them.
+The process locale is `C.UTF-8`; the browser's corresponding fixed Unicode
+English locale is `en-US`, with UTC timezone and light color scheme. Browser
+arguments come from the installed `cartulary.reporting_browser_profile.v1` file
+with driver defaults disabled. The browser profile directory is exactly
+`/work/browser-profile` inside each private attempt. Arguments MUST NOT contain
+host working paths or driver-generated random profile paths. The ordered array,
+including the pipe transport and profile directory, is recorded without
+normalization or omitted arguments in the toolchain snapshot.
+Profiles: snapshot_reporting
+Verified by: AC-233
+
+**REQ-04-046c**
+The isolated Reporting runtime MUST be installed as a complete, content-bound
+file set. Installation admission MUST reject altered, missing, additional,
+linked, or filesystem-special files before rendering. It MUST NOT repair an
+installation from host libraries, fonts, package caches, or network sources.
+Build-time resolution uses the frozen dependency lock and integrity checks;
+package resolution is forbidden during rendering. Human documentation and
+package-manager workspace metadata are not runtime capabilities. The browser
+profile uses the Chromium headless-shell binary distributed by the pinned
+Playwright package; full Chromium is not an interchangeable installation.
+The outer namespace launcher MUST use the installed ELF interpreter and library
+closure even before the private root is mounted. The application package MUST
+carry exactly the selected installation and receipt, with runtime bytes owned
+by a principal that the application cannot write as. Host linker caches or
+inherited loader environment MUST NOT select the launcher's dependencies.
+Package qualification MUST exercise both installed PDF and SVG rendering in the
+exact application image under its deployed outer seccomp and LSM policy, with no
+additional host capabilities. A host-process test or successful server startup
+does not establish this qualification. Evidence MUST bind the image, installed
+runtime digest, outer security options, fresh-attempt output identities and
+cleanup outcome. Tooling outside the receipt-bound installation remains forbidden
+in the application image; this boundary does not prohibit the installed renderer's
+declared Node, browser or rendering-library dependencies.
+
+The Linux/amd64 application container MUST run as its unprivileged image user,
+drop all outer capabilities, enable `no-new-privileges`, and use the shipped
+`application-seccomp.v1.json` profile. The profile denies unknown calls and
+alternate architectures. Beyond ordinary application calls it admits only the
+pinned launcher's exact all-private-namespace `clone` flags, namespace filesystem
+construction, and the supervisor's `pidfd_getfd`.
+The kernel's namespace ownership and capability checks remain in force. It MUST
+NOT grant `CAP_SYS_ADMIN` or `CAP_SYS_PTRACE`, permit arbitrary namespace joins,
+or select an unconfined seccomp/LSM policy. `unshare` remains denied. `clone3` and
+`io_uring_setup` return `ENOSYS`; ring submission/registration, BPF, kernel keyrings, and unrelated
+socket families remain denied. After sandbox construction the inner irreversible
+policy rejects every namespace-creating `clone` flag, unknown high clone flags,
+`unshare` and `setns` before renderer code executes. It MUST NOT write namespace
+limits through the container's protected `/proc/sys` or remove that protection.
+The private device directory exposes only `null`, `zero`, `random`, `urandom`
+and descriptor links for existing process streams. It MUST NOT expose a host
+device tree, terminal/PTY devices or a `devpts` mount. Chromium's shared-memory
+files use the private attempt directory through the fixed browser profile.
+A deployment whose outer LSM policy prevents this construction remains unsupported until its
+explicit confined policy has passed the same package qualification.
+
+The native supervisor owns the exact launcher, stage command, environment,
+private working directory, and per-attempt loopback endpoint. The launcher is
+private to that boundary and MUST NOT load application credentials or ordinary
+server configuration. Child processes inherit irreversible network restrictions;
+alternate submission mechanisms, including `io_uring`, MUST NOT bypass socket
+mediation. The installed Node profile sets `UV_USE_IO_URING=0`. Because libuv can still
+probe ring availability, the kernel boundary MUST return `ENOSYS` for ring
+creation and reject ring submission and registration. No ring descriptor may
+be inherited by the renderer. Availability probing does not authorize a ring
+or count as an outbound network attempt.
+These controls, installed file identities, browser arguments, and environment
+value digests MUST be bound by the render toolchain evidence. A successful
+installation build alone does not establish sandbox or product conformance.
 Profiles: snapshot_reporting
 Verified by: AC-233
 
@@ -1370,7 +1462,7 @@ For timed or fixture-sensitive implementation criteria in this section:
 
 - `first useful viewport` means the first rendered visible row window for the active sort, filter, and grouping state with stable `record_id` binding and working keyboard navigation, even if off-screen rows continue loading.
 - `stable viewport` means the visible row window and result ordering match the final deterministic order for the active sort, filter, and grouping state and no further reorder occurs without new user or server input.
-- `metadata shell` means row fields and evidence metadata needed to inspect the selected record, including counts, filenames or media-type labels, attachment state, and preview handles, but excluding binary preview bytes or full blob download.
+- `metadata shell` means row fields and evidence metadata needed to inspect the selected record, including counts, Evidence titles or media-type labels, attachment state, and current preview eligibility, but excluding access-handle issuance, binary preview bytes or full blob download. Real preview access is qualified separately as specified below; an eligibility label does not establish possession of an access handle.
 
 **REQ-04-157**
 Timed and fixture-sensitive implementation conformance MUST use the following
@@ -1394,12 +1486,38 @@ Construction timing, batch counts, batch sizes, and other build diagnostics are
 non-semantic: they MUST NOT enter a contribution receipt, snapshot key, or
 semantic validation digest.
 
-`cartulary.perf.evidence_heavy.v1` contains 5,000 Timeline rows, 10,000 Evidence
-records, tens of gigabytes of binary evidence in object storage, and at least
-one Timeline row linked to 100 Evidence records. Throughput tests MAY stub blob
-bytes, but Evidence metadata, counts, attachment state, and preview handles MUST
-be real. These fixtures define product-supported shape and load independently
-of any Core 05 publication environment.
+`cartulary.perf.evidence_heavy.v2` uses seed `20260405`, exactly 5,000 Timeline
+rows and 10,000 available Evidence records, each associated with a distinct
+available object blob containing a complete deterministic 2 by 2 PNG of exactly
+2,097,152 bytes. A valid PNG ancillary text chunk supplies the synthetic payload
+mass. The physical population is 10,000 independently addressable objects and
+20,971,520,000 bytes; sparse files, shared object keys, fake size metadata and
+stubbed byte reads MUST NOT satisfy this fixture. The Evidence titles are
+`Performance Evidence NNNNN`, with a one-based five-digit ordinal. The Timeline
+row titled `Evidence inspector performance target` is linked to the first 100
+Evidence records in construction order; all other Timeline rows have no
+Evidence links. Normal owner mutation admission, collection-action limits,
+revisions and projections govern construction of that target and its links.
+
+One ordinary active incident editor performs the foreground workload, with
+ordinary authentication, authorization, cookie CSRF and object-access controls.
+No other analyst session or background mutation traffic is prescribed for this
+fixture. Fixture construction creates no authenticated sessions or preview
+handles. Before sealing, all construction-time collaboration intents MUST be
+sequenced through the Collaboration owner and retained with their exact replay
+events. Pending, stalled, quarantined or missing replay state rejects the fixture.
+Restored servers initialize their live tail at this construction high-water mark;
+construction mutations MUST NOT become background traffic during measurement.
+Before measurement, the foreground actor MUST successfully issue and
+redeem an ordinary preview handle for each of the 100 linked records, verify the
+complete PNG bytes against the expected size and hash, and discard every handle.
+No raw access handle, URL, object key, credential or binary payload belongs in
+retained measurement evidence. The immutable build and clone proofs establish
+the complete physical population independently of this preview-access check.
+The prior `cartulary.perf.evidence_heavy.v1` fixture is retired; its ambiguous
+binary workload and optional stubbing cannot qualify v2. These fixtures define
+product-supported shape and load independently of any Core 05 publication
+environment.
 Profiles: base
 Verified by: AC-043, AC-044, AC-045, AC-047
 
@@ -1408,29 +1526,438 @@ The current implementation profile owns the following closed
 `measurement_predicate_id` registry. Each predicate starts when the product
 event handler accepts the named user action, not when a test driver dispatches
 it. A visible stop state is satisfied only when it holds on two consecutive
-animation frames, the target intersects the clipped grid viewport, and the
-target remains rendered, visible, and anchored on the second frame.
+animation frames, the target intersects the clipped grid viewport (or the
+explicitly named owning viewport for a non-grid predicate), and the target
+remains rendered, visible, and anchored on the second frame.
 
 | `measurement_predicate_id` | Bound criterion or criteria | Start state and initiating action | Stop predicate | Fixture and sampling |
 | --- | --- | --- | --- | --- |
-| `perf.timeline_paste_20x5.v1` | `AC-003` | Timeline surface loaded with default sort, filter, and grouping state; target range visible; the paste commit is accepted. | 20 committed rows are visibly painted with mapped values in five writable columns and stable `record_id` plus integer `row_version` binding. | `cartulary.perf.large_grid.v1`; single observation |
-| `perf.presence_delta.rendered.v1` | `AC-008`, `AC-132` | Analyst A commits a workbook-surface, focused-row, or same-cell edit-state presence change. | Analyst B visibly renders the corresponding indicator from matching `sheet_ref`, `record_id`, and `field_key`. | `cartulary.perf.large_grid.v1`; single observation |
-| `perf.rollback_or_row_restore.rendered.v1` | `AC-011` | A reviewer confirms rollback or whole-row restore. | The visible row reflects the new attributed revision and history shows the new entry. | `cartulary.perf.large_grid.v1`; single observation |
-| `perf.job_progress.visible_with_cancel.v1` | `AC-016`, `AC-027`, `AC-030`, `AC-033`, `AC-046` | A user submits an owner-defined background action. | Visible progress and cancel affordances render while another grid row remains selectable and accepts text input without modal capture. | The criterion-bound Core 04 fixture; single observation |
+| `perf.timeline_paste_20x5.v2` | `AC-003` | Default Timeline sort, filter, grouping and density; inspector closed; blank-row insertion target visible; product accepts the TSV paste commit. | All 20 newly created records and all 100 mapped cells satisfy the visible two-frame predicate, with distinct stable `record_id` and positive integer `row_version` bindings. | `cartulary.perf.large_grid.v1`; single observation strictly below 2,000 ms |
+| `perf.timeline_presence_surface.rendered.v1` | `AC-008`, `AC-132` | Analyst A changes from the default Hosts surface to default Timeline; the presence coordinator accepts the new sheet reference. | Analyst B visibly renders A’s individual Timeline header presence glyph. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.timeline_presence_row.rendered.v1` | `AC-008`, `AC-132` | Analyst A accepts ArrowDown from the first committed Timeline summary cell to the second default row. | Analyst B visibly renders A’s focused presence glyph on that exact second record. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.timeline_presence_cell.rendered.v1` | `AC-008`, `AC-132` | Analyst A accepts edit mode in the first committed Timeline summary cell. | Analyst B visibly renders A’s editing glyph on that exact record and summary field. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.timeline_history_entry_rollback.rendered.v2` | `AC-011` | A reviewer confirms reversal of the prepared single-field history entry. | The restored target values and new attributed history entry satisfy the history workload below. | `cartulary.perf.large_grid.v1`; one observation strictly below 2,000 ms |
+| `perf.timeline_change_set_rollback.rendered.v2` | `AC-011` | A reviewer confirms reversal of the prepared two-field change set. | The restored target values and new attributed history entry satisfy the history workload below. | `cartulary.perf.large_grid.v1`; one observation strictly below 2,000 ms |
+| `perf.timeline_row_restore.rendered.v2` | `AC-011` | A reviewer confirms whole-row restore to the prepared prior revision. | The restored target values and new attributed history entry satisfy the history workload below. | `cartulary.perf.large_grid.v1`; one observation strictly below 2,000 ms |
+| `perf.import_csv_discovery.visible_with_cancel.v1` | `AC-027`, `AC-046` | The Import owner accepts the prepared CSV upload/discovery action below. | The exact admitted discovery Job has visible progress and an enabled cancel action while the target Timeline editor visibly accepts the prescribed text. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.import_xlsx_discovery.visible_with_cancel.v1` | `AC-027`, `AC-046` | The Import owner accepts the prepared XLSX upload/discovery action below. | Same job-progress and grid-interaction predicate, independently measured. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.import_csv_apply.visible_with_cancel.v1` | `AC-027`, `AC-046` | The Import owner accepts applying the single reviewed CSV unit below, before its mandatory current-session preflight. | The exact admitted apply Job has visible progress and an enabled cancel action while the target Timeline editor visibly accepts the prescribed text. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.import_xlsx_apply.visible_with_cancel.v1` | `AC-027`, `AC-046` | The Import owner accepts applying the single reviewed XLSX unit below, before its mandatory current-session preflight. | Same apply-job and grid-interaction predicate, independently measured. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.reporting_snapshot.visible_with_cancel.v1` | `AC-030`, `AC-046` | The Reporting owner accepts `Create snapshot` for the prepared incident, before dispatch. | The exact admitted snapshot Job has visible progress and an enabled cancel action while the target Timeline editor visibly accepts the prescribed text. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.reporting_render.visible_with_cancel.v1` | `AC-030`, `AC-046` | The Reporting owner accepts `Render internal report`, before verifying its prepared immutable snapshot. | The exact admitted report Job has visible progress and an enabled cancel action while the target Timeline editor visibly accepts the prescribed text. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.evidence_verification.visible_with_cancel.v1` | `AC-016`, `AC-046` | The Evidence owner accepts verification after the prepared single file finishes its ordinary transfer. | The admitted verification Job has visible progress and enabled cancellation while a different Timeline row accepts the prescribed text on two consecutive frames. | `cartulary.perf.evidence_heavy.v2`; one observation <=1,000 ms |
+| `perf.reference_pack_import.visible_with_cancel.v1` | `AC-033`, `AC-046` | The Reference Pack owner accepts the prepared bundle import below, before request capture or transmission. | The exact admitted Job has visible progress and enabled cancellation in deployment administration while the companion Timeline page accepts the prescribed edit. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.reference_pack_reverify.visible_with_cancel.v1` | `AC-033`, `AC-046` | The Reference Pack owner accepts reverify of the prepared version below, before its mandatory current-version preflight. | Same progress/cancel/edit predicate, independently measured for reverify. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
+| `perf.reference_pack_refresh.visible_with_cancel.v1` | `AC-033`, `AC-046` | The Reference Pack owner accepts refresh of the single prepared selected pack key below. | Same progress/cancel/edit predicate, independently measured for the exact refresh cohort. | `cartulary.perf.large_grid.v1`; one observation <=1,000 ms |
 | `perf.timeline_summary_selection_down.v1` | `AC-043` | `cartulary.view.timeline.v2` is loaded in its default state; an existing visible `timeline.activity_synopsis_text` cell is selected; keyboard targeting is on that cell; ArrowDown is accepted. | The next deterministic Timeline row is visibly selected and keyboard targeting follows the same field on that row. | `cartulary.perf.large_grid.v1`; p95 |
 | `perf.timeline_summary_focus_edit.v1` | `AC-043` | The same exact Timeline summary selection state holds; a single primary pointer click is accepted. | The editor for the same `record_id` and `field_key` is visibly active and focused with a collapsed caret at the rendered text end. | `cartulary.perf.large_grid.v1`; p95 |
 | `perf.typing_ack.v1` | `AC-043` | An existing committed Timeline row is in active edit mode for `timeline.activity_synopsis_text`; the same row remains selected; the editor is focused; the caret is collapsed at the rendered text end; there is no selection and IME composition is inactive; the literal ASCII character `x` is accepted. | The same editor visibly renders the prior text plus one trailing `x` and remains anchored to the same `record_id` and field. Saved/sync state, badges, DOM mutation, network completion, collaboration messages, or `row_version` changes do not satisfy this predicate. | `cartulary.perf.large_grid.v1`; p95 |
 | `perf.timeline_blank_row_create.v1` | `AC-043` | Timeline is loaded in its default state; a visible blank row receives its first qualifying non-empty summary input; automatic create admission is accepted. | The committed row is visibly painted with stable `record_id`, integer `row_version`, and the entered value in the target field. | `cartulary.perf.large_grid.v1`; p95 |
-| `perf.view_change.first_useful_viewport.v1` | `AC-044` | The active surface is loaded in its default state; a sort, filter, or grouping change is accepted. | The Core 04 first useful viewport is visible. | `cartulary.perf.large_grid.v1`; p95 |
-| `perf.view_change.stable_viewport.v1` | `AC-044` | The active surface is loaded in its default state; a sort, filter, or grouping change is accepted. | The Core 04 stable viewport is visible. | `cartulary.perf.large_grid.v1`; p95 |
-| `perf.evidence_inspector.metadata_shell.v1` | `AC-045` | A user opens the inspector on a Timeline row linked to 100 Evidence records. | The selected-row summary, total count, and first Evidence-list window are visible with label, attachment state, and preview-handle availability for every rendered item. | `cartulary.perf.evidence_heavy.v1`; p95 |
-| `perf.anchor_stability_under_live_updates.v1` | `AC-047` | The deterministic live-update trace begins while an analyst holds an edit anchored to one `record_id`. | The edit remains on that record throughout scrolling, sorting, filtering, grouping, and live updates, and viewport stabilization avoids a full-sheet rerender. | `cartulary.perf.large_grid.v1`; seeded pass/fail scenario |
+| `perf.timeline_sort.first_useful_viewport.v1` | `AC-044` | Default Timeline; the sort workload below is accepted. | The Core 04 first useful viewport is visible. | `cartulary.perf.large_grid.v1`; independent p95 |
+| `perf.timeline_sort.stable_viewport.v1` | `AC-044` | Default Timeline; the sort workload below is accepted. | The Core 04 stable viewport is visible. | `cartulary.perf.large_grid.v1`; independent p95 |
+| `perf.timeline_filter.first_useful_viewport.v1` | `AC-044` | Default Timeline; the filter workload below is accepted. | The Core 04 first useful viewport is visible. | `cartulary.perf.large_grid.v1`; independent p95 |
+| `perf.timeline_filter.stable_viewport.v1` | `AC-044` | Default Timeline; the filter workload below is accepted. | The Core 04 stable viewport is visible. | `cartulary.perf.large_grid.v1`; independent p95 |
+| `perf.timeline_group.first_useful_viewport.v1` | `AC-044` | Default Timeline; the group workload below is accepted. | The Core 04 first useful viewport is visible. | `cartulary.perf.large_grid.v1`; independent p95 |
+| `perf.timeline_group.stable_viewport.v1` | `AC-044` | Default Timeline; the group workload below is accepted. | The Core 04 stable viewport is visible. | `cartulary.perf.large_grid.v1`; independent p95 |
+| `perf.evidence_inspector.metadata_shell.v2` | `AC-045` | The inspector is closed on the selected 100-link target; the product accepts the ordinary inspector-open action. | The target summary, attached and linked counts of 100, and first five Evidence items satisfy the metadata-shell workload below on two consecutive frames in the clipped inspector viewport. | `cartulary.perf.evidence_heavy.v2`; p95 <=300 ms |
+| `perf.anchor_stability_under_live_updates.v2` | `AC-047` | The deterministic live-update trace begins while an analyst holds an edit anchored to one `record_id`. | The edit remains on that record throughout scrolling, sorting, filtering, grouping, and live updates, and viewport stabilization avoids a full-sheet rerender. | `cartulary.perf.large_grid.v1`; seeded pass/fail scenario |
+
+The Evidence verification contract carries the ordered criterion IDs
+`["AC-016", "AC-046"]`; its observation envelope uses `AC-016` as the canonical
+label. One qualifying observation supplies this shared timed obligation without
+duplicate execution. Other functional or timed mechanisms in either criterion
+retain their independent obligations.
+
+The Evidence verification predicate uses the exact evidence-heavy v2 population
+and ordinary single foreground editor described in REQ-04-157, including its
+complete preview-access preflight. In the default Timeline view, the lowest
+record identifier is the upload source and the next-lowest identifier is the
+distinct grid-edit target. Both rows are visible before the action; the target's
+`timeline.analyst_text` is empty. The inspector is closed, attachment details are
+collapsed, density is default, and the viewport is 1920 by 1080 CSS pixels at
+device scale factor 1.
+
+One file, `verification-workload.png`, contains the same complete 2,097,152-byte
+PNG as the fixture's available objects. The ordinary row-local file paste sends
+one newly admitted slot and its single-use authenticated transfer. A synthesized
+File clipboard event is permitted and MUST be identified as such. This is not
+platform-clipboard interoperability evidence. Timing starts at the product's
+acceptance of background verification after transfer, before its one fresh
+`verify` dispatch. Slot admission and transfer are prerequisite work, not a
+substitute start or stop timestamp. The source's transaction identity, one
+verification admission, exact Job ID and new blob ID MUST remain bound.
+
+After verification starts, a pointer selects the distinct target's analyst cell
+and the keyboard inserts ASCII `x` without committing it. Stop requires the
+exact queued or running Job, visible nonempty progress, enabled cancellation,
+and the focused target editor containing `x`, with its original stable record
+ID and integer row version, on two consecutive animation frames. One fresh
+observation must be at or below 1,000 ms. No warm-up, action replay, synthetic
+worker delay, response hold, altered object size, post-start scroll or viewport
+change may qualify. Cleanup discards the draft and observes the Job's terminal
+state; a cancellation that loses to completed verification is recorded as such
+and does not retroactively invalidate a qualifying visible affordance.
+
+The three Reference Pack predicates replace the generic
+`perf.job_progress.visible_with_cancel.v1` identity; historical generic evidence
+does not qualify them. Each has one fresh observation, no warm-up and no action
+retry. They carry ordered criterion IDs `["AC-033", "AC-046"]`, with `AC-033`
+as the observation envelope's canonical label. This shared timed obligation does
+not replace independent checks of cancellation effects, authorization, trust,
+activation, exact replay, or omitted and empty refresh cohorts.
+
+Use the large-grid population and its 24 authenticated background sessions and
+prescribed traffic. The foreground actor has ordinary incident editor membership
+and explicit deployment-administrator authority for Reference Pack operations.
+There are exactly 25 authenticated sessions; two pages sharing the foreground
+session do not count as another session. Prepare default Timeline in one page
+and `/deployment-administration` with Reference Packs selected in a companion
+same-origin page. The separate administration surface remains authoritative;
+this workload adds no workbook tab or all-incident query. Both viewports are
+1920 by 1080 CSS pixels at device scale factor 1, with default density. Prepare
+the lowest-ID Timeline record's empty `timeline.analyst_text` cell wholly visible
+and exclude the first query page from background updates.
+
+The exact input is the host registry from shipped Base release
+`base-2026-10-02.1`, content profile `cartulary.reference_pack.type_registry.host.v1`
+version `1`, release sequence `1`, with payload aggregate SHA-256
+`afaae18a960bf0d7f75365494966403333706ee4b7f680ca789c5cad8a237b8f`.
+Preserve its one entry, notice bytes and payload bytes. The operator manifest
+sets `pack_version` to `browser-1`, `trust_repository_id` to
+`browser.fixture.repo`, and `source_as_of` to its existing `built_at`; other
+manifest content is unchanged. Use the deterministic disposable browser trust
+keys, the ordinary TUF 1.0.35 offline bundle, canonical JSON metadata, sorted
+ustar members with zero timestamps, and one `application/x-tar` file named
+`Reference-pack.tar`. Timestamp, snapshot and targets metadata expire 7, 14 and
+30 days after the bundle preparation day's UTC midnight; the trusted root expires
+365 days after its own bootstrap preparation day's UTC midnight. Capture one
+preparation instant per bundle, so its role expirations share one date even
+across midnight. All role metadata versions are `1`. Record the bundle preparation
+date and digest, and require ordinary trust freshness. The disposable deployment explicitly claims
+Reference Pack and a trusted clock. These fixture keys never become deployment
+defaults or production trust roots.
+
+Import starts with this operator version absent and uses `staged_only`.
+Reverify and refresh each start with that exact version already successfully
+imported, available, inactive, not disabled, and with no pending work. Their
+preparation import is outside timing and must succeed. Refresh selects exactly
+`["type_registry.host"]`; built-ins, other versions and empty cohorts cannot
+substitute for the operator version. Retain one exact fresh action/dispatch/Job
+binding for the measured operation; the preparation Job is not a matching Job.
+
+After the measured action is accepted, pointer selection and keyboard input
+place an uncommitted ASCII `x` in the prepared Timeline editor. Completion
+requires the exact queued or running cancelable Job's nonempty progress and
+enabled cancel control in administration, together with the focused, visible
+Timeline editor, original record ID and integer row version. Both documents
+must satisfy these conditions on two successive animation frames in each
+document. The observer may read the same-origin companion document, but must
+await animation frames from both documents, preserve both document identities
+and scroll/viewport geometry, and measure from the administration page's
+product acceptance mark in its unchanged monotonic clock. A second page is not
+permission to stitch unrelated historical states together. Navigation, resizing,
+post-start scrolling, response holds, synthetic worker delays, security bypasses,
+action retries or terminal Job cards cannot qualify. Cleanup discards the draft,
+observes successful Job completion and logs out the ordinary sessions. A Job
+that completes before the predicate is observed supplies no qualifying sample.
+
+The three Timeline presence predicates bind jointly to `AC-008` and `AC-132`.
+The typed presence contract v2 carries the exact ordered `criterion_ids` array
+`["AC-008", "AC-132"]`; individual observation envelopes use its first entry
+as the canonical label. One complete three-predicate set supplies the timed
+portion of either or both criteria without duplicate execution. This does not
+establish AC-132's other surface, saved-view identity or functional obligations.
+The workload and predicate identities are unchanged; the retired single-criterion
+contract shape is not a current reader input.
+
+The CSV and XLSX discovery workloads each use one ordinary incident editor and
+the large-grid fixture's 24 authenticated background sessions and prescribed
+traffic. Geometry is 1920 by 1080 CSS pixels, device scale factor 1, default
+density. The default Timeline and its first committed record in record-ID order are
+prepared before timing. The first query page is excluded from background
+updates. The Import Assistant is open as a non-modal workbook surface; the
+target Analyst (`timeline.analyst_text`) cell, initially null in the fixture,
+is wholly visible beside it. File selection,
+local fixture construction and any initial column revelation precede timing.
+
+Each input contains one header row with the exact two strings `Activity Synopsis`
+and `Unmapped source note`, followed by 20,000 rows. For `i=1..20000`, the values
+are `Background import NNNNN` and `Source note NNNNN`, where `NNNNN` is the
+five-digit decimal ordinal. CSV uses UTF-8 without BOM, comma separators, LF
+line endings and one final LF, without extra quoting. XLSX is one ordinary
+unprotected workbook with one visible worksheet named `Timeline`; its A and B
+cells contain those exact strings as inline strings. It has no formulas,
+tables, defined names, external relationships, styles, macros or hidden rows.
+Normal package/workbook relationships and required content-type metadata remain
+present. The workload uses the real Import admission and discovery path; it
+does not pre-create a session, select units, apply rows or substitute responses.
+
+Timing starts once, when the Import controller accepts `Upload and discover`
+after its ordinary authority, file and pending-work checks, before request
+capture or transmission. During the measured interval, the analyst selects the
+prepared Timeline cell, enters edit mode and appends the single ASCII character
+`x` to its initially empty editor without committing. Completion requires that exact
+record/field editor and text, the admitted incident-scoped discovery Job's
+progress, and its enabled cancel control to remain rendered and visible across
+two consecutive frames. The Job must be queued or running and cancelable on
+both frames; a pending upload, disconnected fake percent, another Job, terminal
+card or disabled cancel button cannot satisfy the predicate. The grid draft is
+discarded after observation. Cancellation and terminal cleanup use normal owner
+operations after timing, with outcomes retained separately.
+
+There is one observation per format, no warm-up and no product-action retry.
+There is no response hold, artificial worker delay, synthetic Job, security
+bypass, resizing or post-start scroll used to obtain a passing result. A Job
+that completes before a qualifying state supplies no qualifying progress/cancel
+observation; it is not retried or relabeled. Evidence binds the exact format,
+row/cell counts, fixture, selected Job and target record/field without retaining
+raw file content, cell text, credentials or transport payloads. The two new
+predicate identities distinguish these exact workloads from the former generic
+unqualified Import claim. They do not close apply, processing, Reporting,
+Reference Pack mechanisms; projection maintenance follows REQ-01-353 and AC-472.
+
+The two apply workloads use the same exact files, geometry, target editor,
+large-grid fixture, foreground role, background sessions and traffic. Ordinary
+upload and discovery complete before timing. The operator reviews the one
+discovered unit, selects `cartulary.view.timeline.v2`, maps column ordinal 1
+(`Activity Synopsis`) to `timeline.activity_synopsis_text`, leaves column ordinal
+2 unmapped, approves that mapping and selects exactly that unit. Preparation
+verifies the 20,000 data rows, exact persisted selection and enabled Apply
+control. The apply control and Job progress area must fit in the prepared
+visible support surface; preparation may scroll before measurement.
+
+Timing starts when the Import owner accepts that Apply activation after its
+local authority/readiness checks, before the required current-session read,
+selection comparison, request capture or dispatch. It includes those preflight
+reads and fails qualification if they reject or change the reviewed selection.
+Exactly one transaction identity binds acceptance, one fresh apply dispatch and
+the admitted Job. The stop predicate is the same two-frame concurrent grid-edit
+predicate above, but requires the apply Job, not the prior discovery Job.
+Apply must execute through its ordinary source parsing, mapping, transaction,
+authorization and projection path. No pre-applied data, response hold, synthetic
+worker delay, action replay, post-start scrolling or rendering modification may
+qualify the observation. Exactly one observation is required independently for
+CSV and XLSX. Cleanup records cancellation and committed outcomes separately;
+showing an enabled cancel affordance does not establish that cancellation beat
+completion or rolled back previously committed units.
+
+
+The anchor-stability v2 workload uses the first unlinked record in the first
+page of the default Timeline order, with that whole page excluded from background
+updates. The large-grid fixture and all 25 authenticated sessions remain active.
+Geometry is 1920 by 1080 CSS pixels, device scale factor 1, default density and
+inspector closed. Preparation sets the target's Analyst field to `anchor-first`
+through the ordinary patch route, retaining its returned initial version. Other
+fixture Analyst fields remain empty. This keeps the target in the first sorted
+window, so the later held query contains its actual pre-commit version rather
+than merely omitting an offscreen target. The analyst enters
+`AC047 anchored draft` in Activity Synopsis,
+scrolls the editor out of view and back, and submits one ordinary commit. The
+driver holds that real PATCH before server dispatch while the analyst sorts by
+Analyst ascending, filters `timeline.has_evidence=false`, and groups
+by capture state. The driver scrolls back to the edited synopsis column before
+observing the commit; either an anchored retained editor or its display cell can
+show the synopsis. Query-control column revelation and editor presentation do
+not count as missing content. The ordinary mutation response must independently
+confirm the target identity, new version and committed synopsis. All pending state remains bound to the original record.
+
+A separate ordinary row creation triggers a full query. The driver captures its
+real pre-commit response, permits the held PATCH to complete, and then delivers
+the stale response. No response payload, authorization, storage or product
+rendering is replaced. A subsequent ordinary patch to the target's Data Source
+sets `AC047 newer source` while preserving the accepted synopsis. The trace
+retains the ordered checkpoints `draft_open`, `scroll_away`, `scroll_return`,
+`pending_commit`, `sort_accepted`, `filter_accepted`, `group_accepted`,
+`commit_accepted`, `stale_refresh_released`, `live_update_applied`, and
+`final_stable`. Each checkpoint spans at least two observed animation frames.
+
+An animation-frame observer checks editor/record binding, draft preservation,
+and monotonically nondecreasing mounted record versions throughout the trace.
+The saved target must advance exactly one version for each of its two commits,
+retain the accepted synopsis, and expose the newer source. No frame may mount
+the full fixture population. Replacing a bounded virtualized viewport when
+changing grouping is permitted; the observer follows the current semantic grid
+and records replacement counts without requiring one private DOM instance.
+These concrete
+checks establish the trace's virtualization and remount boundary; they do not
+claim to measure every internal React render. There is no elapsed-time threshold,
+warm-up, percentile or action retry. The former unspecialized v1 identity is
+retired; evidence for it does not establish this workload.
+
+The three Timeline history workloads use the first committed record in the
+fixture's default Timeline order, with the first page excluded from background
+updates. The foreground user has the ordinary incident `reviewer` role; the
+other 24 authenticated sessions retain the prescribed updates and presence.
+Geometry is 1920 by 1080 CSS pixels, device scale factor 1, default density and
+query state, with History open for the target row. Preparation commits
+`timeline.analyst_text = history-before` and
+`timeline.device_object_text = device-before` together through the ordinary
+patch route, retaining that revision. A subsequent patch changes analyst to
+`history-mistake`; change-set and row-restore workloads also change device to
+`device-mistake` in the same patch. The single-entry workload reverses the latter
+patch's one eligible field entry; the change-set workload reverses its complete
+change set; row restore selects the retained prior revision. Returned opaque
+history selectors and advertised action eligibility are required; selectors
+MUST NOT be inferred from visible text or storage identity.
+
+Each history measurement starts when the history action owner accepts one
+reviewer confirmation, before coordination, revalidation or dispatch. It stops
+only when both target cells visibly show the prepared prior values, the same
+record has a new positive integer row version, and History visibly shows a new
+entry attributed to that reviewer with its committed timestamp and matching
+revision. Row cells must intersect the clipped grid viewport; the history
+entry's summary, actor and timestamp must intersect the clipped inspector
+viewport. The same nodes, identities, values and version must qualify on two
+consecutive animation frames. Initial history references cannot satisfy the
+new-entry predicate. All preparation, including target visibility and action
+preview and focus on the confirmation control, completes before measurement.
+The driver sends one ordinary Enter keypress and MUST NOT navigate, reload,
+scroll either pane, resize, or retry the action during measurement. The grid
+scroll position and viewport geometry remain fixed. Normal product-managed
+inspector focus reveal and layout clamping are included in elapsed time, as
+required by design §7.3; they do not satisfy the predicate until all required
+history attribution is actually visible with the restored cells on both frames. Each predicate has one
+observation and no warm-up. Post-measurement ordinary history/query reads must
+confirm the new change set, exact actor attribution and restored field values;
+request completion alone does not satisfy the visible stop predicate. These
+three v2 identities replace `perf.rollback_or_row_restore.rendered.v1` and the
+three earlier Timeline history v1 identities, whose observer incorrectly treated
+product-managed inspector reveal as driver scrolling. Prior v1 evidence is not
+accepted by the current workload. These measurements do
+not establish timing for unrelated relationship or cross-record rollback
+workloads.
+
+The three Timeline presence workloads use two distinct authenticated browser
+contexts in one Chromium process at 1920 by 1080 CSS pixels and device scale
+factor 1. Analyst B occupies one of the 24 prescribed background sessions and
+continues its prescribed non-target updates while rendering the default
+Timeline workbook. The other 23 background sessions retain authenticated
+presence clients. No 26th session is created. The first two target rows are the
+first two records in the fixture's default order; the first page is excluded
+from background updates. Inspector, authored query overrides, and active edits
+are absent during preparation. Each predicate is independent, with no warm-up,
+one accepted action and no retry. Header presence after a surface change must
+identify A individually; a total count or overflow badge alone is insufficient.
+Row and cell indicators must remain bound to the matching record and field.
+The target indicator must be absent before the action and visible and anchored
+on two consecutive animation frames after it. All 24 remote analysts must be
+present on the expected surface before preparation completes (23 on B's
+Timeline while A is on Hosts for the surface-change case).
+
+Cross-context timing uses the same browser execution's monotonic clock:
+`performance.timeOrigin + startTime` at A's product acceptance mark, and
+`performance.timeOrigin + performance.now()` at B's second qualifying frame.
+Both time origins must remain unchanged throughout the operation. Independent
+browser processes, `Date.now()`, driver clocks, WebSocket receipt, and network
+completion cannot substitute for these marks. Evidence retains only elapsed
+time, opaque actor/target bindings, and the bounded proof of two-frame visibility;
+it does not retain absolute clock values or display names. These exact
+predicates retire the ambiguous `perf.presence_delta.rendered.v1` identity;
+other surfaces or editing families require their own applicability review.
+
+The AC-003 workload is UTF-8 `text/plain` TSV, with exactly 20 rows of five
+nonempty cells, TAB cell separators, LF row separators, no trailing LF, and no
+header. For ordinal `i` from 1 through 20, `NN` is its two-digit decimal form;
+the five values are `2026-04-05`, `analyst-NN`, `stage-NN`, `device-NN`, and
+`192.0.2.i`. The fields, in order, are `timeline.date_entered_text`,
+`timeline.analyst_text`, `timeline.mitre_stage_text`,
+`timeline.device_object_text`, and `timeline.ip_address_text`. The browser
+viewport is 1920 by 1080 CSS pixels at device scale factor 1. Fixture, geometry,
+ordinary authentication, and the prescribed background traffic MUST qualify
+before the action. Existing records MUST NOT satisfy the new-record predicate.
+The driver MUST NOT resize, scroll through result targets, change density, or
+alter rendering during measurement. Completion requires every target cell to
+intersect the clipped viewport on both consecutive frames. The action has one
+attempt and one observation; equality to 2,000 ms fails. Evidence records TSV
+format and whether delivery used a synthesized event or a platform clipboard;
+neither posture establishes interoperability with a named spreadsheet
+application. Retired `perf.timeline_paste_20x5.v1` evidence is not v2 evidence.
+
+The AC-045 v2 viewport is 1920 by 1080 CSS pixels at device scale factor 1,
+with default density, Timeline sort and grouping. Before timing, the analyst
+uses the ordinary `timeline.has_evidence` equality filter with value `true`
+and selects its sole committed result, `Evidence inspector performance target`. This
+filter remains unchanged during the workload; filtering and initial data load
+are preparation, not inspector-open timing. The inspector's Evidence section
+is the active section. The ordinary workbook inspector toggle reopens the same
+selected subject and retained Evidence section. A row-menu command with an
+explicit Details destination does not satisfy this prepared start state.
+Every measured action begins with the inspector closed,
+no metadata request in flight, and no retained metadata window from the previous
+open. Reopening MUST initiate the ordinary bounded metadata read. The page
+remains mounted for one discarded warm-up and exactly 100 measured close/open
+operations under REQ-04-159. Browser trace, video and automatic screenshot
+capture are disabled for this workload so private preview capabilities and
+object bodies cannot become retained diagnostics.
+
+The visible stop state requires the selected target's exact summary and stable
+record/version binding, attached and linked counts of 100, and exactly the first
+five linked Evidence records in canonical order. Each item must display its exact
+title, `available` lifecycle, associated available-file state and enabled preview
+affordance, bound to that Evidence record and its positive integer row version.
+The independently obtained expected bindings must match on both frames. All
+required content must intersect the clipped inspector viewport and remain
+anchored on the second frame. Grid-viewport intersection cannot substitute for
+inspector visibility. A single visible item, a count alone, a loading state,
+request completion or one animation frame does not satisfy this predicate.
+
+Opening the inspector MUST NOT automatically mint or redeem access handles.
+The preview preflight in REQ-04-157 establishes that the ordinary access path
+works; the measured stop state establishes current metadata and eligibility,
+not a retained capability. No product-action retry, test retry, response stub,
+metadata cache substitution, viewport resize, scroll, section change or density
+change may manufacture completion during a measured interval. Closing between
+samples and waiting for the closed state are preparation. Evidence binds every
+operation to its accepted product mark, fresh metadata request, selected target,
+five item bindings, two-frame proof and viewport, with zero access-handle
+requests during the measured action. This revised action/stop contract retires
+`perf.evidence_inspector.metadata_shell.v1`; old observations cannot be relabeled.
 
 One `measurement_predicate_id` MUST NOT denote interchangeable editor,
 field, or harness realizations. A changed anchor, editor family, action, or stop
 predicate requires a new ID. The retired generic IDs
 `perf.selection_change.v1` and `perf.focus_change.v1` MUST NOT satisfy current
 implementation conformance.
+The AC-044 implementation workload consists of six independent predicate
+observations: sort, filter and group, each measured for first useful and stable
+viewport completion. Each observation uses one discarded warm-up and 100
+measured operations under REQ-04-159. Each operation starts from the default
+Timeline query with no authored filter or group and no authored sort override.
+The viewport is 1920 by 1080 CSS pixels at device scale factor 1, with default
+density and the inspector closed. The three accepted actions are:
+
+- Sort `timeline.activity_synopsis_text` ascending, using its header control.
+- Apply `timeline.capture_state` equality to `rough`, retaining the default
+  sort. This is a nonselective filter over the fixture's 20,000 persisted rows;
+  the accepted filter state must change even though the expected row set does
+  not. This workload does not establish selective-filter or other-operator
+  performance.
+- Group by `timeline.activity_time_pair_state`, retaining the default sort and
+  filters. In this fixture all rows have the `disabled` value; its expanded
+  group header and the visible committed member rows must be rendered.
+
+Every visible committed row must match its expected record identity and a
+positive integer row version. The expected order is derived independently from
+the sealed fixture: synopsis order for sort, and the default record-ID
+tie-break order for filter and group because all fixture activity timestamps
+are equal. Qualification requires a filled visible row window, rather than a
+single matching row. First useful completion also requires a usable grid
+keyboard entry point. Stable completion additionally requires the final
+expected visible ordering, with no subsequent reorder before another accepted
+user action or server input. Traffic excludes the default and destination
+first-page target rows. The foreground page remains mounted after the discarded
+warm-up. Ordinary query controls restore the default state between samples,
+and the default committed viewport must be ready before the next operation.
+Resetting the query between samples is preparation;
+retrying the measured action or changing geometry/scroll during measurement is
+not permitted.
+
+These exact workload identities retire the ambiguous
+`perf.view_change.first_useful_viewport.v1` and
+`perf.view_change.stable_viewport.v1` identities. Historical observations cannot
+be relabeled. This workload establishes Timeline evidence only; other surfaces
+must retain independent applicability and assurance dispositions, and must not
+inherit its measured results.
 Profiles: base
 Verified by: AC-003, AC-008, AC-011, AC-016, AC-027, AC-030, AC-033, AC-043, AC-044, AC-045, AC-046, AC-047, AC-132
 
@@ -1576,7 +2103,7 @@ Definition of Done:
   - Verifies: REQ-03-001..REQ-03-003, REQ-03-111..REQ-03-115
 
 The timed or fixture-sensitive criteria below define observable implementation outcomes only. Claim-bearing benchmark-publication policy is owned by Core 05.
-- **AC-003**: Pasting a 20-row by 5-column block from Excel into the Timeline sheet creates rows and maps visible columns in under 2 seconds.
+- **AC-003**: Pasting the exact 20-row by 5-column TSV workload in REQ-04-158 into the Timeline blank-row insertion target creates 20 new records and visibly maps all 100 cells in strictly under 2 seconds, under `perf.timeline_paste_20x5.v2`.
   - Verifies: REQ-01-015..REQ-01-017, REQ-03-145..REQ-03-152, REQ-03-221..REQ-03-222
 - **AC-004**: Pasting an image from the clipboard or dragging a screenshot onto a selected row attaches evidence in no more than two user actions and does not navigate away from the grid.
   - Verifies: REQ-01-015..REQ-01-017, REQ-03-116..REQ-03-119
@@ -1710,7 +2237,7 @@ The timed or fixture-sensitive criteria below define observable implementation o
   - Verifies: REQ-00-013, REQ-01-015..REQ-01-017, REQ-03-223..REQ-03-224
 - **AC-045**: In an evidence-heavy incident where a Timeline row is linked to 100 evidence records, opening the inspector shows a metadata shell at or below 300 ms p95; binary preview bytes MAY continue progressively after the inspector opens.
   - Verifies: REQ-00-013, REQ-01-015..REQ-01-017, REQ-01-355..REQ-01-366, REQ-03-242..REQ-03-246
-- **AC-046**: Imports, evidence processing, projection rebuilds, snapshot generation, report generation, and reference-pack refresh remain background jobs, show progress and cancellation within 1 second of job start, and do not block grid editing or row creation.
+- **AC-046**: Admitted interactive imports, Evidence processing, snapshot generation, report generation, and Reference Pack refresh remain background jobs, show progress and cancellation within 1 second under their exact REQ-04-158 predicates, and do not block grid editing or row creation. Bulk projection rebuild follows Core 01 REQ-01-353: restore-owned maintenance is validated through AC-472 and its operator progress/cancellation contract, while import-owned rebuild remains part of the import Job. No separate interactive projection-rebuild surface or browser timing claim is required or admitted by this criterion.
   - Verifies: REQ-00-013, REQ-01-004..REQ-01-014, REQ-01-018, REQ-01-248..REQ-01-249, REQ-01-342..REQ-01-348,
     REQ-01-351..REQ-01-353, REQ-01-369, REQ-01-452..REQ-01-454
 - **AC-047**: Under representative live-update traffic within the supported large-grid operating envelope, scrolling, sorting, filtering, grouping, stale full-query refreshes, invalidation-triggered refreshes, and live updates never retarget pending edits away from the selected `record_id`, never visibly roll a locally accepted row back to an older `row_version`, and viewport stabilization does not require a full-sheet rerender.
@@ -2449,7 +2976,7 @@ it MUST create none of those effects even though it uses `POST`.
 - **AC-032**: Snapshot-derived outputs preserve stable identifiers and ordering consistent with the canonical derivation layer.
   - Verifies: REQ-01-342..REQ-01-348, REQ-01-351..REQ-01-353, REQ-01-367..REQ-01-368, REQ-01-370..REQ-01-373,
     REQ-02-139..REQ-02-146
-- **AC-056**: Rendering from the same `snapshot_id`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, `template_id`, `template_version`, `redaction_profile_id`, and `redaction_profile_version` produces the same `export_model_sha256` and deterministic export ordering.
+- **AC-056**: Re-rendering the same admitted release recipe and independently sealed preparation reproduces the same canonical export model, `export_model_sha256`, and deterministic export ordering. The binding includes the original release identity and admission instant, immutable snapshot capture, exact Reference Pack set, template and redaction policy, Composition tuple, graph inputs, and output options. Independently admitted releases are distinct identities; equality of snapshot and selector strings alone does not imply equality of their model digests.
   - Verifies: REQ-01-370..REQ-01-373, REQ-02-139..REQ-02-146
 - **AC-057**: Rendering for a chosen `release_scope` fails closed if the selected redaction profile is invalid or post-redaction validation rejects the rendered export-model fields or blocks, and the rendered artifact includes a `redaction_manifest` keyed by stable export-model path and rule identifier.
   - Verifies: REQ-01-370..REQ-01-373, REQ-01-377..REQ-01-380, REQ-01-385..REQ-01-393, REQ-02-139..REQ-02-146,
@@ -2484,9 +3011,9 @@ it MUST create none of those effects even though it uses `POST`.
     REQ-04-044..REQ-04-047
 
 
-- **AC-266**: `POST /api/v1/snapshots` accepts a JSON object with required `incident_id` and required `client_txn_id`; omitting `source_change_set_high_watermark` resolves snapshot materialization to the current committed incident head at job admission as the exact Core 02 REQ-02-143b `cartulary.source_boundary.v1:<sha256>` token; zero, one, many, and equal-timestamp change-set cases produce the specified member order, null behavior, lowercase UUIDs, UTC RFC3339Nano timestamps, `created_at DESC, change_set_id DESC` selection, exact bytes without whitespace or newline, and SHA-256 token; incident version, change-set selection, and materialization share one repeatable-read snapshot; explicit `null` fails with `400 error.code='invalid_snapshot_request'` and `reason_code='field_not_nullable'`; a supplied boundary outside the exact committed source-boundary vocabulary for that incident fails with `409 error.code='snapshot_source_boundary_conflict'`; older incident-version-only tokens are rejected rather than translated; omission and explicit transmission of the same resolved committed boundary compare equal for idempotency and replay; exact replay uses the originally committed canonical bytes and boundary rather than a later incident head; the route returns `202` with the common job resource; on success the terminal job summary uses `result_summary.code='snapshot_created'` and exactly one `resource_refs[]` item `{ kind='snapshot', id=<snapshot_id>, route='/api/v1/snapshots/{snapshot_id}' }`; and `GET /api/v1/snapshots/{snapshot_id}` rejects pagination members and returns exactly `snapshot_id`, `incident_id`, `created_by_user_id`, `created_at`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, and `export_model_sha256`, with the resolved `source_change_set_high_watermark` always serialized and no inlined template, redaction-profile, release-state, approval, redaction-manifest, or rendered-byte fields.
+- **AC-266**: `POST /api/v1/snapshots` accepts a JSON object with required `incident_id` and required `client_txn_id`; omitting `source_change_set_high_watermark` resolves snapshot materialization to the current committed incident head in the worker capture transaction as the exact Core 02 REQ-02-143b `cartulary.source_boundary.v1:<sha256>` token; zero, one, many, and equal-timestamp change-set cases produce the specified member order, null behavior, lowercase UUIDs, UTC RFC3339Nano timestamps, `created_at DESC, change_set_id DESC` selection, exact bytes without whitespace or newline, and SHA-256 token; incident version, change-set selection, and materialization share one repeatable-read snapshot; explicit `null` fails with `400 error.code='invalid_snapshot_request'` and `reason_code='field_not_nullable'`; a supplied boundary outside the exact committed source-boundary vocabulary for that incident fails with `409 error.code='snapshot_source_boundary_conflict'`; older incident-version-only tokens are rejected rather than translated; omission and an explicit boundary are distinct idempotency requests; exact replay returns the original Job; admission retains the request and exact Reference Pack pin without incident-sized capture; cancellation and execution fencing prevent partial snapshot publication; exact replay uses the originally committed canonical bytes and boundary rather than a later incident head; the route returns `202` with the common job resource; on success the terminal job summary uses `result_summary.code='snapshot_created'` and exactly one `resource_refs[]` item `{ kind='snapshot', id=<snapshot_id>, route='/api/v1/snapshots/{snapshot_id}' }`; and `GET /api/v1/snapshots/{snapshot_id}` rejects pagination members and returns exactly `snapshot_id`, `incident_id`, `created_by_user_id`, `created_at`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, and `source_capture_sha256`, with the resolved `source_change_set_high_watermark` always serialized and no inlined template, redaction-profile, release-state, approval, redaction-manifest, or rendered-byte fields.
   - Verifies: REQ-01-033, REQ-01-466..REQ-01-477, REQ-02-143b
-- **AC-267**: `POST /api/v1/releases` requires exact `snapshot_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `output_kind`, and `client_txn_id`; render admission resolves `redaction_profile_sha256` and `render_admitted_at` exactly once and binds both into release provenance; the only allowed `output_kind` values are `slidev` and `mermaid`; omitting `release_scope`, `recipient_partition_refs[]`, `output_options`, `graph_projection_refs[]`, and composition tuple fields materializes the declared defaults; explicit `null` fails except for all-null composition tuple members; the only allowed `release_scope` values are `internal_draft`, `internal_review`, and `external_release`; non-empty recipient partitions are valid only for `external_release`; `graph_projection_refs[]` sorts by `graph_view_id`; composition tuple members are all-null or all non-null and reject `latest`; omission and explicit defaults compare equal for idempotency and replay; requests using `latest`, `current`, or missing version selectors fail closed with `400 error.code='invalid_release_request'`; render starts as a `202` common job rather than a blocking route; and on success the terminal job summary uses `result_summary.code='release_created'` and exactly one `resource_refs[]` item `{ kind='release', id=<release_id>, route='/api/v1/releases/{release_id}' }`, with the durable `release resource` always serializing the materialized release tuple fields.
+- **AC-267**: `POST /api/v1/releases` requires exact `snapshot_id`, `template_id`, `template_version`, `output_kind`, and `client_txn_id`; both redaction-profile selector members are required for external releases and may be omitted together only for internal scopes, which materialize the exact current internal profile; partial, null or empty selector tuples reject; render admission fixes `render_admitted_at` and retains the immutable recipe and authored policy, while cancelable preparation seals the materialized `redaction_profile_sha256` and export model before rendering; successful release provenance binds those original values, and failure before preparation never fabricates a release or model digest; the only allowed `output_kind` values are `slidev` and `mermaid`; omitting `release_scope`, `recipient_partition_refs[]`, `output_options`, `graph_projection_refs[]`, and composition tuple fields materializes the declared defaults; explicit `null` fails except for all-null composition tuple members; the only allowed `release_scope` values are `internal_draft`, `internal_review`, and `external_release`; non-empty recipient partitions are valid only for `external_release`; `graph_projection_refs[]` sorts by `graph_view_id`; composition tuple members are all-null or all non-null and reject `latest`; omission and explicit defaults compare equal for idempotency and replay; requests using `latest`, `current`, or missing required version selectors fail closed with `400 error.code='invalid_release_request'`; render starts as a `202` common job rather than a blocking route; and on success the terminal job summary uses `result_summary.code='release_created'` and exactly one `resource_refs[]` item `{ kind='release', id=<release_id>, route='/api/v1/releases/{release_id}' }`, with the durable `release resource` always serializing the materialized release tuple fields.
   - Verifies: REQ-01-466..REQ-01-470, REQ-01-476..REQ-01-477
 - **AC-268**: `GET /api/v1/releases/{release_id}` returns exactly the durable `release resource` members including `recipient_partition_refs`, `output_options`, `graph_projection_refs`, `composition_id`, `composition_version`, `composition_sha256`, `render_admitted_at`, `redaction_profile_sha256`, `output_media_type`, `redaction_manifest_sha256`, and `render_failed_reason_code`; nullable timestamps, invalidation reason, render failure reason, and all-null composition tuple members serialize as JSON `null` when unset; output and manifest fields are non-null except on `render_failed` releases; rendered release resources use only current-profile closed-vocabulary `output_kind`, current-profile closed-vocabulary `release_scope`, and only `pending_approval`, `approved`, `invalidated`, `published`, and `render_failed` as `release_state`; `internal_draft` candidates become `approved` immediately on successful render; `approve`, `publish`, and `invalidate` each require `client_txn_id`, reject pagination members, and enforce their declared legal state transitions without introducing `queued`, `running`, or `rendering` into `release_state`; `publish` and `invalidate` additionally require current incident `admin` role; and the durable release resource never inlines approval records, full redaction manifests, rendered bytes, or worker-phase status.
   - Verifies: REQ-01-467..REQ-01-470, REQ-01-374..REQ-01-376, REQ-01-476, REQ-01-478, REQ-04-031..REQ-04-035
@@ -2501,7 +3028,7 @@ it MUST create none of those effects even though it uses `POST`.
 
 ### 9.4 Reference Pack Extension Profile criteria
 
-- **AC-033**: Reference-pack import, verification, and refresh run without blocking grid editing, and the UI shows progress and cancellation within 1 second of job start.
+- **AC-033**: Reference-pack import, verification, and refresh run without blocking grid editing. Their exact REQ-04-158 predicates require visible progress, enabled cancellation and concurrent Timeline editing within 1 second of product acceptance of each prepared action, using the separate deployment-administration surface.
   - Verifies: REQ-01-399, REQ-01-407..REQ-01-413, REQ-01-452..REQ-01-454, REQ-04-040..REQ-04-043
 - **AC-034**: Absent, disabled, failed, or missing optional reference packs degrade only the affected overlay labels, enrichment semantics, non-canonical analytical widgets, or snapshot/report derivations; timeline capture, entity resolution, evidence attachment, and core editing continue to function; and optional pack state does not create or remove current-profile workbook `view_schema` surfaces.
   - Verifies: REQ-01-282..REQ-01-284, REQ-01-399, REQ-01-419..REQ-01-422
@@ -2727,7 +3254,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
   - Verifies: REQ-01-243..REQ-01-247, REQ-02-186..REQ-02-201, REQ-03-116..REQ-03-120
 - **AC-103**: If an evidence record has no linked blob, preview and download handle issuance fail with `409 error.code='evidence_access_unavailable'` and `error.details.reason_code='no_visible_blob'`. If the linked blob is in `upload_state='pending'`, `upload_state='failed'`, or is missing, issuance fails with the exact `reason_code` `blob_pending`, `blob_failed`, or `blob_missing`. If the evidence or blob state is quarantined or inconsistent, issuance fails with the exact `reason_code` `evidence_quarantined` or `evidence_inconsistent`. While any of those conditions remains true, the row MUST NOT surface as `evidence.lifecycle_state='available'` or `released`, and ordinary preview and download remain blocked until repaired or re-finalized.
   - Verifies: REQ-01-243..REQ-01-247, REQ-02-186..REQ-02-201, REQ-03-116..REQ-03-119, REQ-03-121..REQ-03-128
-- **AC-154**: A declared-size mismatch causes explicit finalization to fail immediately, transitions the slot to `upload_state='failed'` with `terminal_reason='declared_size_mismatch'`, and creates no attached evidence; an expected-hash mismatch does the same with `terminal_reason='expected_sha256_mismatch'`. These terminal mismatches do not consume the ordinary retry budget. For other explicit finalization failures, a pending blob slot allows 3 failed attempts; the 4th such failed attempt transitions the slot to `upload_state='failed'` with `terminal_reason='finalize_retry_exhausted'`; only those non-terminal failed explicit finalization attempts count toward this total, and an idempotent replay after already-committed success does not consume retry budget.
+- **AC-154**: Background verification detects declared-size or expected-hash mismatch, fails the Job, and transitions the unassociated pending blob to `failed` with the exact `declared_size_mismatch` or `expected_sha256_mismatch` terminal reason. No record association is created. Unavailable bytes, cancellation, and timeout publish no successful proof; finalization without a successful lease-bound proof returns `blob_pending` with no row, custody, or association effect. Repeated finalization calls cannot consume an attempt counter or change that result. Exact verification admission replay returns the original Job; only an explicit new request can admit a further verification Job.
   - Verifies: REQ-01-243..REQ-01-247, REQ-02-186..REQ-02-204, REQ-03-116..REQ-03-126
 - **AC-155**: Pending-blob timeout handling runs at least every 15 minutes; by no later than `pending_expires_at + 15 minutes`, an unfinalized slot is failed; and for any failed unattached slot, including timeout, retry exhaustion, or terminal size/hash mismatch, orphaned bytes are deleted within 1 hour of terminal failure and failed unattached slot metadata remains queryable for at least 7 days before automatic hard deletion. Service-backed fixtures prove batches bounded to 100, `SKIP LOCKED` multi-instance exclusion, restart recovery after a 5-minute lease expires, deletion outside the claim transaction under a 1-minute timeout, idempotent typed not-found completion, retry delays of 1, 5, and then repeated 15 minutes without exhaustion, claim-token and current-state completion guards, rejection of attachment/lifecycle/import/restore races, exact 45-minute eligibility, and 7-day metadata retention. A partial deployment with no private dispatcher performs no deletion. Application-lifecycle fixtures prove the private `evidence.failed_unattached_blob_cleanup.v1` dispatcher starts only after serving readiness, performs one immediate post-readiness sweep and then one sweep every 15 minutes, tolerates concurrent application instances through the durable claim boundary, stops cleanly, uses only typed object-store purpose `evidence_cleanup`, and creates no public or common Jobs surface. Telemetry conformance proves the cleanup counter, duration, overdue count, and oldest-eligible-age metrics use only closed operation/result/error-class attributes and that metrics or logs expose no incident, record, blob, object-key, filename, hash, capability, or raw-error value.
   - Verifies: REQ-01-243..REQ-01-247, REQ-02-186..REQ-02-204, REQ-03-116..REQ-03-126
@@ -3047,7 +3574,7 @@ These matrices are normative for AC-108 and AC-110. Only rows whose `profiles` a
 - **AC-129**: Long-running operations started through the public interface return `202 Accepted` with a `job_id`; `GET /api/v1/jobs/{job_id}` exposes progress and terminal result or error summary; the incident-scoped WebSocket stream authenticates with the same session contract and emits presence, `record_changed`, and `job_progress` events without broadcasting client-local drafts or grouping UI state; and when a terminal polled job resource or terminal `job_progress` message includes `result_summary.resource_refs[]`, the client treats those refs as a compact navigation summary, renders known current-profile kinds as non-modal result chips or links on the current surface, degrades unknown kinds to message-only rendering without breaking job rendering, and does not auto-follow `route` or change the active workbook surface, selection, or scroll position.
   - Verifies: REQ-00-014, REQ-01-018..REQ-01-019, REQ-01-248..REQ-01-277, REQ-01-452..REQ-01-454,
     REQ-03-092..REQ-03-098
-- **AC-257**: A long-running operation started through the public interface returns `202 Accepted` with the canonical job resource in the common success envelope; `data.status` is `queued` or `running`; `data.status_route` is `/api/v1/jobs/{job_id}` for that resource; `scope.kind` is either `incident` or `deployment`; only `queued`, `running`, `cancel_requested`, `succeeded`, `failed`, and `canceled` appear as public job states; queued work commits `running` before any handler invocation; no queued job transitions directly to a terminal state; expired `running` and `cancel_requested` leases recover without public-state regression; terminal states are immutable; and polling `GET /api/v1/jobs/{job_id}` never observes a public state transition outside the legal state machine. Incident-scoped streams emit `job_progress` only for committed public-resource changes to incident-scoped jobs, and deployment-scoped jobs do not appear on incident-scoped streams. A deployment with every optional profile unclaimed retains one complete recognized-definition catalog, activates a quiescent job-dequeue component with an empty runtime selection, starts no profile handler, and remains Base Profile conformant. The immutable production attempt-operation timeout is 10 seconds and is independently test-injectable from the 10-second lease-renewal cadence. When graceful runner shutdown and a renewal tick or handler outcome are simultaneously ready before a terminal commit, shutdown wins, still-owned executions are conditionally released concurrently within handler concurrency and the earlier of the operation timeout or caller deadline, no release result increases failure count or sets a retry delay, and successful close waits for handler drain; the same renewal or handler error without runner shutdown retains its ordinary failure behavior. One or more release timeouts or operational failures make close unsuccessful with deterministic slot-ordered diagnostics containing only the operation stage, job kind, bounded attempt-slot ordinal, and closed reason; job and attempt identifiers, raw database errors, payloads, and incident content remain absent.
+- **AC-257**: A long-running operation started through the public interface returns `202 Accepted` with the canonical job resource in the common success envelope; `data.status` is `queued` or `running`; `data.status_route` is `/api/v1/jobs/{job_id}` for that resource; `scope.kind` is either `incident` or `deployment`; only `queued`, `running`, `cancel_requested`, `succeeded`, `failed`, and `canceled` appear as public job states; queued work commits `running` before any handler invocation; no queued job transitions directly to a terminal state; expired `running` and `cancel_requested` leases recover without public-state regression; terminal states are immutable; and polling `GET /api/v1/jobs/{job_id}` never observes a public state transition outside the legal state machine. Incident-scoped streams emit `job_progress` only for committed public-resource changes to incident-scoped jobs, and deployment-scoped jobs do not appear on incident-scoped streams. A deployment with every optional profile unclaimed retains one complete recognized-definition catalog, activates the Base Profile Evidence verification worker and job-dequeue component, starts no optional-profile handler, and remains Base Profile conformant. Optional claims do not disable the required Base Profile verification path. The immutable production attempt-operation timeout is 10 seconds and is independently test-injectable from the 10-second lease-renewal cadence. When graceful runner shutdown and a renewal tick or handler outcome are simultaneously ready before a terminal commit, shutdown wins, still-owned executions are conditionally released concurrently within handler concurrency and the earlier of the operation timeout or caller deadline, no release result increases failure count or sets a retry delay, and successful close waits for handler drain; the same renewal or handler error without runner shutdown retains its ordinary failure behavior. One or more release timeouts or operational failures make close unsuccessful with deterministic slot-ordered diagnostics containing only the operation stage, job kind, bounded attempt-slot ordinal, and closed reason; job and attempt identifiers, raw database errors, payloads, and incident content remain absent.
   - Verifies: REQ-01-248..REQ-01-249, REQ-01-268, REQ-04-023
 - **AC-258**: Over the authoritative job row, `GET /api/v1/jobs/{job_id}`, and replayed or live `job_progress` messages, `progress` is always an object with non-negative integer `completed` and `total` equal to either a positive integer or `null`; `completed` never decreases for one job; an unknown total may become known once, and a known total never clears or decreases; an exact repeated update is a mutation-free and event-free success; rejected progress is mutation-free and event-free; concurrent stale progress never overwrites newer progress; when `total` is known, `completed <= total`; when `total = null`, the client renders indeterminate progress rather than a fake percent; and when `status='succeeded'` with known `total`, the terminal row, resource, and event have `completed == total`.
   - Verifies: REQ-01-249, REQ-01-268, REQ-01-453
@@ -4613,3 +5140,42 @@ Reference Pack configuration uses the closed `reference_packs` namespace; its cl
 A claimed profile requires `reference_packs.trust_bootstrap_path`, an absolute canonical path to a regular non-symlink file containing at most 8,388,608 bytes. Read and admit the complete canonical `cartulary.reference_pack_trust_bootstrap.v1` object before workers start. Install roots only for previously unseen repository IDs. Existing IDs require exact bootstrap bytes in retained root history; changing the configuration file cannot rotate, replace, or roll back retained trust. Sequential authenticated root updates own advancement. Configuration diagnostics MUST NOT echo paths or trust-file contents.
 
 Verification freshness uses one captured UTC verification-start instant, including an entire refresh cohort. Expiry equality is expired. The monotonic execution budget includes verification, indexing, publication-lock waiting and commit classification. Queue time is excluded. Proven commit is authoritative; proven absence classifies cancellation or timeout; indeterminate mutation follows Extensions' fatal integrity boundary. Process-local monotonic timestamps MUST NOT be persisted.
+
+### Reporting job-progress workload — proposed coordinated companion
+
+The two Reporting predicates above are independent single observations. Use the
+existing `cartulary.perf.large_grid.v1` population and seed, 1920×1080 CSS pixels,
+device scale factor 1, default Timeline view/density and inspector closed. Open
+`Snapshots and reports` in the ordinary nonmodal incident drawer. The foreground
+actor is an editor; all ordinary session, CSRF, profile and membership checks
+remain enabled. Twenty-four authenticated background analysts produce the
+prescribed traffic, with the complete first 100 default Timeline records excluded.
+Before acceptance, qualify all 25 sessions, traffic and target/control geometry.
+
+For snapshot generation, accept exactly one ordinary `Create snapshot` request
+for this incident, omitting the source watermark so admission resolves and freezes
+it once. For report generation, first create and finish one snapshot of the
+prepared fixture through that same ordinary UI before starting background traffic.
+Accept one `Render internal report` for that exact snapshot, built-in template
+`cartulary.report.default@4`, output kind `slidev`, `internal_draft`, and both
+redaction fields omitted so admission binds the current internal profile. Do not
+request graphs, composition, external recipients, PNG or PPTX. Preparation is
+outside the measured interval; the supporting snapshot read after accepting the
+render action remains inside it.
+
+The grid target is the first default Timeline record's initially empty
+`timeline.analyst_text` cell. After Enter accepts the Reporting action, one pointer
+click selects/opens that cell, End establishes its text-end caret and the literal
+`x` enters an uncommitted draft. Stop only when the exact fresh queued/running Job,
+nonempty progress text, enabled cancellation button, and focused editable target
+with `x`, stable record ID and positive integer row version are visibly present
+across two consecutive animation frames. Require one start, one fresh dispatch,
+one admission, and matching captured transaction/job identity. No action replay,
+scrolling, resizing, stale/reused job, hidden/covered control, changed row binding,
+or terminal Job substitutes for this predicate. Each elapsed interval must be
+<=1,000 ms; retain missing, contaminated and over-threshold observations as such.
+
+Discard the grid draft and request cancellation of still-active measured work
+through the ordinary UI after observation. Retain terminal outcomes and harness
+cleanup. This does not measure completion of rendering, publish a benchmark, or
+change the backend cancellation/commit rules.

@@ -5,19 +5,21 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	reportingjson "github.com/JochiRaider/cartulary/internal/modules/reporting/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/diagramcontract"
 	strictjson "github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 )
 
 var (
 	compositionVersionPattern = regexp.MustCompile(`^v([1-9][0-9]*)$`)
-	generatedTargetPattern    = regexp.MustCompile(`^(vx|ed|slide|chunk|split|svg|dom|rf|mermaid)[_-]`)
 )
 
 func canonicalJSON(value any) ([]byte, error) {
@@ -57,6 +59,9 @@ func canonicalComposition(record ResourceRecord, compositionVersion int64) (json
 		"deck_ops":                     rawJSONValue(record.DeckOps),
 		"diagram_decls":                rawJSONValue(record.DiagramDecls),
 		"authored_texts":               rawJSONValue(record.AuthoredTexts),
+	}
+	if err := materializeCompositionBody(base); err != nil {
+		return nil, "", err
 	}
 	digestBytes, err := canonicalJSON(base)
 	if err != nil {
@@ -160,6 +165,9 @@ func previewSource(resource ResourceRecord, version *VersionRecord, request Prev
 		"diagram_decls":                rawJSONValue(diagramDecls),
 		"authored_texts":               rawJSONValue(authoredTexts),
 	}
+	if err := materializeCompositionBody(base); err != nil {
+		return nil, "", nil, nil, err
+	}
 	digestBytes, err := canonicalJSON(base)
 	if err != nil {
 		return nil, "", nil, nil, err
@@ -173,44 +181,26 @@ func previewSource(resource ResourceRecord, version *VersionRecord, request Prev
 	return json.RawMessage(canonicalBytes), digest, draftVersion, compositionSHAPtr, nil
 }
 
-func validateDraft(deckOps json.RawMessage, diagramDecls json.RawMessage, authoredTexts json.RawMessage, version *VersionRecord) map[string]any {
-	issues := []map[string]any{}
+func validateDraft(deckOps json.RawMessage, diagramDecls json.RawMessage, authoredTexts json.RawMessage) map[string]any {
 	authoredRoles := map[string]string{}
 	diagramIDs := map[string]struct{}{}
-	issues = append(issues, validateAuthoredTexts(authoredTexts, authoredRoles)...)
-	issues = append(issues, validateDiagramDecls(diagramDecls, diagramIDs)...)
-	issues = append(issues, validateCompositionOps(deckOps, authoredRoles, diagramIDs)...)
-	if version != nil {
-		if digest, err := CompositionDigest(version.CanonicalComposition); err != nil || digest != version.CompositionSHA256 {
-			issues = append(issues, issue("composition_digest_mismatch", map[string]any{
-				"composition_id":      version.CompositionID.String(),
-				"composition_version": formatCompositionVersion(version.CompositionVersion),
-			}))
-		}
-	}
-	stage := any(nil)
-	if len(issues) > 0 {
-		stage = "schema_validation"
-	}
-	if version != nil && len(issues) > 0 && issues[0]["code"] == "composition_digest_mismatch" {
-		stage = "canonical_digest_validation"
-	}
+	findings := validateAuthoredTexts(authoredTexts, authoredRoles)
+	findings = append(findings, validateDiagramDecls(diagramDecls, diagramIDs)...)
+	findings = append(findings, validateCompositionOps(deckOps, authoredRoles, diagramIDs)...)
+	issues, stage := orderedCompositionFindings(findings)
 	return map[string]any{
-		"valid":               len(issues) == 0,
-		"stage":               stage,
-		"issues":              issues,
-		"composition_id":      nil,
-		"composition_version": nil,
-		"composition_sha256":  nil,
+		"validation_scope": "local_authoring", "valid": len(issues) == 0,
+		"stage": stage, "issues": issues,
+		"composition_id": nil, "composition_version": nil, "composition_sha256": nil,
 	}
 }
 
-func validateCompositionOps(raw json.RawMessage, authoredRoles map[string]string, diagramIDs map[string]struct{}) []map[string]any {
+func validateCompositionOps(raw json.RawMessage, authoredRoles map[string]string, diagramIDs map[string]struct{}) []compositionFinding {
 	items, issues := decodeObjectArray(raw, "deck_ops")
 	if len(issues) > 0 {
-		return issues
+		return attributeCompositionFindings(issues, 0, -1)
 	}
-	issues = append(issues, duplicateIDIssuesFromItems(items, "op_id", "composition_op_id")...)
+	issues = append(issues, duplicateIDIssuesFromItems(items, "op_id", "composition_op_id", 0)...)
 	payloadRules := map[string][]string{
 		"exclude_section":         {"section_anchor"},
 		"reorder_sections":        {"section_anchors"},
@@ -229,14 +219,15 @@ func validateCompositionOps(raw json.RawMessage, authoredRoles map[string]string
 		"set_speaker_notes":     "speaker_notes",
 		"insert_authored_block": "authored_text",
 	}
-	for _, item := range items {
+	for index, item := range items {
+		issue := compositionIssueAt(0, index)
 		if !objectHasOnly(item, "op_id", "op_kind", "on_unresolved", "payload") {
 			issues = append(issues, issue("composition_schema_invalid", map[string]any{"field": "deck_ops"}))
 			continue
 		}
 		opID, _ := item["op_id"].(string)
 		opKind, ok := item["op_kind"].(string)
-		if opID == "" || !ok || opKind == "" {
+		if !validCompositionIdentifier(opID) || !ok || opKind == "" {
 			issues = append(issues, issue("composition_schema_invalid", map[string]any{"composition_op_id": opID}))
 			continue
 		}
@@ -292,7 +283,11 @@ func validateCompositionOps(raw json.RawMessage, authoredRoles map[string]string
 				}
 			case "label_overrides":
 				if labelIssues := validateLabelOverrides(value, opID); len(labelIssues) > 0 {
-					issues = append(issues, labelIssues...)
+					issues = append(issues, attributeCompositionFindings(labelIssues, 0, index)...)
+				}
+			case "layout_id":
+				if !validCompositionIdentifier(value) {
+					issues = append(issues, issue("composition_schema_invalid", map[string]any{"composition_op_id": opID, "field": key}))
 				}
 			}
 		}
@@ -309,13 +304,14 @@ func validateCompositionOps(raw json.RawMessage, authoredRoles map[string]string
 	return issues
 }
 
-func validateAuthoredTexts(raw json.RawMessage, roles map[string]string) []map[string]any {
+func validateAuthoredTexts(raw json.RawMessage, roles map[string]string) []compositionFinding {
 	items, issues := decodeObjectArray(raw, "authored_texts")
 	if len(issues) > 0 {
-		return issues
+		return attributeCompositionFindings(issues, 2, -1)
 	}
-	issues = append(issues, duplicateIDIssuesFromItems(items, "authored_text_id", "authored_text_id")...)
-	for _, item := range items {
+	issues = append(issues, duplicateIDIssuesFromItems(items, "authored_text_id", "authored_text_id", 2)...)
+	for index, item := range items {
+		issue := compositionIssueAt(2, index)
 		if !objectHasOnly(item, "authored_text_id", "text_role", "body", "disclosure_partition_ref") {
 			issues = append(issues, issue("composition_schema_invalid", map[string]any{"field": "authored_texts"}))
 			continue
@@ -324,7 +320,7 @@ func validateAuthoredTexts(raw json.RawMessage, roles map[string]string) []map[s
 		role, _ := item["text_role"].(string)
 		body, bodyOK := item["body"].(string)
 		partition, _ := item["disclosure_partition_ref"].(string)
-		if id == "" || !bodyOK || partition == "" || partition == "blocked" || !validTextRole(role) {
+		if !validCompositionIdentifier(id) || !bodyOK || !validAuthoredDisclosurePartition(partition) || !validTextRole(role) {
 			issues = append(issues, issue("composition_schema_invalid", map[string]any{"authored_text_id": id}))
 			continue
 		}
@@ -336,27 +332,55 @@ func validateAuthoredTexts(raw json.RawMessage, roles map[string]string) []map[s
 	return issues
 }
 
-func validateDiagramDecls(raw json.RawMessage, ids map[string]struct{}) []map[string]any {
+// Authoring validates the Reporting-owned grammar, not Party existence or
+// recipient eligibility. Those require the independently frozen render input.
+func validAuthoredDisclosurePartition(ref string) bool {
+	if ref == "public" || ref == "internal_only" {
+		return true
+	}
+	segment, ok := strings.CutPrefix(ref, "party:")
+	if !ok || !utf8.ValidString(segment) || utf8.RuneCountInString(segment) < 1 || utf8.RuneCountInString(segment) > 128 {
+		return false
+	}
+	for _, r := range segment {
+		if unicode.IsSpace(r) || unicode.IsControl(r) || strings.ContainsRune(":/\\#", r) {
+			return false
+		}
+	}
+	return true
+}
+
+func validateDiagramDecls(raw json.RawMessage, ids map[string]struct{}) []compositionFinding {
 	items, issues := decodeObjectArray(raw, "diagram_decls")
 	if len(issues) > 0 {
-		return issues
+		return attributeCompositionFindings(issues, 1, -1)
 	}
-	issues = append(issues, duplicateIDIssuesFromItems(items, "decl_id", "diagram_id")...)
-	for _, item := range items {
+	issues = append(issues, duplicateIDIssuesFromItems(items, "decl_id", "diagram_id", 1)...)
+	for index, item := range items {
+		issue := compositionIssueAt(1, index)
 		if !objectHasOnly(item, "decl_id", "replaces_decl_id", "diagram_kind", "diagram_source_kind", "source_graph_view_id", "selection_rule", "label_overrides", "layout_mode", "layout") {
 			issues = append(issues, issue("composition_schema_invalid", map[string]any{"field": "diagram_decls"}))
 			continue
 		}
 		id, _ := item["decl_id"].(string)
-		if id == "" {
+		if !validCompositionIdentifier(id) {
 			issues = append(issues, issue("composition_schema_invalid", map[string]any{"diagram_id": id}))
 			continue
 		}
 		ids[id] = struct{}{}
+		if !objectHasRequired(item, "diagram_kind", "diagram_source_kind", "selection_rule") {
+			issues = append(issues, issue("composition_schema_invalid", map[string]any{"diagram_id": id}))
+		}
+		if _, present := item["source_graph_view_id"]; !present {
+			issues = append(issues, issue("composition_schema_invalid", map[string]any{"diagram_id": id, "field": "source_graph_view_id"}))
+		}
+		if replacement, present := item["replaces_decl_id"]; present && replacement != nil && replacement != id {
+			issues = append(issues, issue("composition_replacement_target_missing", map[string]any{"diagram_id": id}))
+		}
 		sourceKind, _ := item["diagram_source_kind"].(string)
 		sourceGraph, graphIsString := item["source_graph_view_id"].(string)
 		if sourceKind == "graph" {
-			if !graphIsString || sourceGraph == "" {
+			if !graphIsString || !validCompositionIdentifier(sourceGraph) {
 				issues = append(issues, issue("composition_schema_invalid", map[string]any{"diagram_id": id, "field": "source_graph_view_id"}))
 			}
 		} else if sourceKind == "timeline" {
@@ -372,12 +396,24 @@ func validateDiagramDecls(raw json.RawMessage, ids map[string]struct{}) []map[st
 		if selectionRule, ok := item["selection_rule"].(map[string]any); !ok || hasRawGeneratedSource(selectionRule) {
 			issues = append(issues, issue("raw_generated_source_invalid", map[string]any{"diagram_id": id, "field": "selection_rule"}))
 		}
+		var selection diagramcontract.SelectionRule
+		selectionBytes, selectionErr := canonicalJSON(item["selection_rule"])
+		if selectionErr != nil || json.Unmarshal(selectionBytes, &selection) != nil || !selection.CompatibleSource(sourceKind) {
+			issues = append(issues, issue("composition_schema_invalid", map[string]any{"diagram_id": id, "field": "selection_rule"}))
+		}
+		if item["diagram_kind"] != "flowchart" && item["diagram_kind"] != "sequence" {
+			issues = append(issues, issue("composition_schema_invalid", map[string]any{"diagram_id": id, "field": "diagram_kind"}))
+		}
 		if labelOverrides, ok := item["label_overrides"]; ok {
-			issues = append(issues, validateLabelOverrides(labelOverrides, id)...)
+			issues = append(issues, attributeCompositionFindings(validateLabelOverrides(labelOverrides, id), 1, index)...)
 		}
 		layoutMode := "auto"
-		if value, ok := item["layout_mode"].(string); ok && value != "" {
-			layoutMode = value
+		if value, present := item["layout_mode"]; present {
+			var ok bool
+			layoutMode, ok = value.(string)
+			if !ok {
+				layoutMode = ""
+			}
 		}
 		switch layoutMode {
 		case "auto":
@@ -393,7 +429,7 @@ func validateDiagramDecls(raw json.RawMessage, ids map[string]struct{}) []map[st
 				issues = append(issues, issue("diagram_layout_invalid", map[string]any{"diagram_id": id, "layout_mode": layoutMode}))
 				continue
 			}
-			issues = append(issues, validateDiagramLayout(id, layout)...)
+			issues = append(issues, attributeCompositionFindings(validateDiagramLayout(id, layout), 1, index)...)
 		default:
 			issues = append(issues, issue("composition_schema_invalid", map[string]any{"diagram_id": id, "field": "layout_mode"}))
 		}
@@ -401,10 +437,10 @@ func validateDiagramDecls(raw json.RawMessage, ids map[string]struct{}) []map[st
 	return issues
 }
 
-func validateDiagramLayout(diagramID string, layout map[string]any) []map[string]any {
-	issues := []map[string]any{}
+func validateDiagramLayout(diagramID string, layout map[string]any) []compositionFinding {
+	issues := []compositionFinding{}
 	if !objectHasOnly(layout, "schema_id", "coordinate_space", "node_positions", "edge_routes") || layout["schema_id"] != "composition_diagram_layout.v1" {
-		return []map[string]any{issue("diagram_layout_invalid", map[string]any{"diagram_id": diagramID})}
+		return []compositionFinding{issue("diagram_layout_invalid", map[string]any{"diagram_id": diagramID})}
 	}
 	space, ok := layout["coordinate_space"].(map[string]any)
 	if !ok || !objectHasOnly(space, "unit", "origin", "width", "height") || space["unit"] != "css_px" || space["origin"] != "top_left" {
@@ -420,22 +456,23 @@ func validateDiagramLayout(diagramID string, layout map[string]any) []map[string
 	return issues
 }
 
-func validateNodePositions(diagramID string, raw any, maxWidth int64, maxHeight int64) []map[string]any {
+func validateNodePositions(diagramID string, raw any, maxWidth int64, maxHeight int64) []compositionFinding {
 	items, ok := raw.([]any)
 	if !ok {
-		return []map[string]any{issue("diagram_layout_invalid", map[string]any{"diagram_id": diagramID, "field": "node_positions"})}
+		return []compositionFinding{compositionIssueAt(3, -1)("diagram_layout_invalid", map[string]any{"diagram_id": diagramID, "field": "node_positions"})}
 	}
-	issues := []map[string]any{}
+	issues := []compositionFinding{}
 	seen := map[string]struct{}{}
 	var previous string
-	for _, rawItem := range items {
+	for index, rawItem := range items {
+		issue := compositionIssueAt(3, index)
 		item, ok := rawItem.(map[string]any)
 		if !ok || !objectHasOnly(item, "target_ref", "x", "y", "width", "height") {
 			issues = append(issues, issue("diagram_layout_invalid", map[string]any{"diagram_id": diagramID, "field": "node_positions"}))
 			continue
 		}
 		target, _ := item["target_ref"].(string)
-		if target == "" || isGeneratedTarget(target) {
+		if target == "" {
 			issues = append(issues, issue("diagram_layout_unknown_target", map[string]any{"diagram_id": diagramID, "target_ref": target}))
 		}
 		if previous != "" && target < previous {
@@ -457,22 +494,23 @@ func validateNodePositions(diagramID string, raw any, maxWidth int64, maxHeight 
 	return issues
 }
 
-func validateEdgeRoutes(diagramID string, raw any, maxWidth int64, maxHeight int64) []map[string]any {
+func validateEdgeRoutes(diagramID string, raw any, maxWidth int64, maxHeight int64) []compositionFinding {
 	items, ok := raw.([]any)
 	if !ok {
-		return []map[string]any{issue("diagram_layout_invalid", map[string]any{"diagram_id": diagramID, "field": "edge_routes"})}
+		return []compositionFinding{compositionIssueAt(4, -1)("diagram_layout_invalid", map[string]any{"diagram_id": diagramID, "field": "edge_routes"})}
 	}
-	issues := []map[string]any{}
+	issues := []compositionFinding{}
 	seen := map[string]struct{}{}
 	var previous string
-	for _, rawItem := range items {
+	for index, rawItem := range items {
+		issue := compositionIssueAt(4, index)
 		item, ok := rawItem.(map[string]any)
 		if !ok || !objectHasOnly(item, "target_ref", "route_kind", "waypoints") || item["route_kind"] != "polyline" {
 			issues = append(issues, issue("diagram_layout_invalid", map[string]any{"diagram_id": diagramID, "field": "edge_routes"}))
 			continue
 		}
 		target, _ := item["target_ref"].(string)
-		if target == "" || isGeneratedTarget(target) {
+		if target == "" {
 			issues = append(issues, issue("diagram_layout_unknown_target", map[string]any{"diagram_id": diagramID, "target_ref": target}))
 		}
 		if previous != "" && target < previous {
@@ -501,13 +539,36 @@ func validateEdgeRoutes(diagramID string, raw any, maxWidth int64, maxHeight int
 }
 
 func validationSummaryForResource(record ResourceRecord) map[string]any {
-	summary := validateDraft(record.DeckOps, record.DiagramDecls, record.AuthoredTexts, nil)
+	summary := validateDraft(record.DeckOps, record.DiagramDecls, record.AuthoredTexts)
 	summary["composition_id"] = record.CompositionID.String()
 	return summary
 }
 
-func validationSummaryForVersion(version VersionRecord) map[string]any {
-	summary := validateDraft(nil, nil, nil, &version)
+func validationSummaryForVersion(record ResourceRecord, version VersionRecord) map[string]any {
+	source, err := decodeBoundRenderSource(version.CanonicalComposition, func(source RenderSource) string {
+		if code := compositionResourceBinding(record, source); code != "" {
+			return code
+		}
+		if source.CompositionID != version.CompositionID.String() || source.CompositionVersion == nil || *source.CompositionVersion != formatCompositionVersion(version.CompositionVersion) {
+			return "composition_id_mismatch"
+		}
+		return ""
+	})
+	summary := map[string]any{"validation_scope": "local_authoring", "valid": true, "stage": nil, "issues": []map[string]any{}}
+	code := ""
+	if err != nil {
+		var invalid *RenderSourceError
+		if errors.As(err, &invalid) {
+			code = invalid.ReasonCode
+		} else {
+			code = "composition_schema_invalid"
+		}
+	} else if source.CompositionSHA256 == nil || *source.CompositionSHA256 != version.CompositionSHA256 {
+		code = "composition_digest_mismatch"
+	}
+	if code != "" {
+		summary = invalidInlineSummary(ResourceRecord{CompositionID: version.CompositionID}, code)
+	}
 	summary["composition_id"] = version.CompositionID.String()
 	summary["composition_version"] = formatCompositionVersion(version.CompositionVersion)
 	summary["composition_sha256"] = version.CompositionSHA256
@@ -519,22 +580,23 @@ func summaryValid(summary map[string]any) bool {
 	return valid
 }
 
-func duplicateIDIssuesFromItems(items []map[string]any, idField string, detailKey string) []map[string]any {
+func duplicateIDIssuesFromItems(items []map[string]any, idField string, detailKey string, sourceArray int) []compositionFinding {
 	seen := map[string]struct{}{}
-	for _, item := range items {
+	for index, item := range items {
+		issue := compositionIssueAt(sourceArray, index)
 		id, ok := item[idField].(string)
 		if !ok || id == "" {
-			return []map[string]any{issue("composition_schema_invalid", map[string]any{"field": idField})}
+			return []compositionFinding{issue("composition_schema_invalid", map[string]any{"field": idField})}
 		}
 		if _, ok := seen[id]; ok {
-			return []map[string]any{issue("composition_duplicate_id", map[string]any{detailKey: id})}
+			return []compositionFinding{issue("composition_duplicate_id", map[string]any{detailKey: id})}
 		}
 		seen[id] = struct{}{}
 	}
 	return nil
 }
 
-func decodeObjectArray(raw json.RawMessage, field string) ([]map[string]any, []map[string]any) {
+func decodeObjectArray(raw json.RawMessage, field string) ([]map[string]any, []compositionFinding) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
@@ -542,7 +604,7 @@ func decodeObjectArray(raw json.RawMessage, field string) ([]map[string]any, []m
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	if err := decoder.Decode(&items); err != nil {
-		return nil, []map[string]any{issue("composition_schema_invalid", map[string]any{"field": field})}
+		return nil, []compositionFinding{issue("composition_schema_invalid", map[string]any{"field": field})}
 	}
 	return items, nil
 }
@@ -642,18 +704,45 @@ func validateAnchorObject(value any) string {
 		if !objectHasOnly(anchor, "anchor_kind", "template_section_decl_id", "expansion_key") || !objectHasRequired(anchor, "anchor_kind", "template_section_decl_id") {
 			return "composition_schema_invalid"
 		}
+		if !validCompositionIdentifier(anchor["template_section_decl_id"]) {
+			return "composition_schema_invalid"
+		}
+		key, present := anchor["expansion_key"]
+		if !present {
+			return "composition_schema_invalid"
+		}
+		if key != nil {
+			if value, ok := key.(string); !ok || value == "" {
+				return "composition_schema_invalid"
+			}
+		}
 	case "record_anchor":
 		if !objectHasOnly(anchor, "anchor_kind", "record_id") || !objectHasRequired(anchor, "anchor_kind", "record_id") {
+			return "composition_schema_invalid"
+		}
+		if !validCompositionIdentifier(anchor["record_id"]) {
 			return "composition_schema_invalid"
 		}
 	case "block_anchor":
 		if !objectHasOnly(anchor, "anchor_kind", "section_anchor", "block_kind", "record_anchor") || !objectHasRequired(anchor, "anchor_kind", "section_anchor", "block_kind") {
 			return "composition_schema_invalid"
 		}
+		if !validCompositionIdentifier(anchor["block_kind"]) {
+			return "composition_schema_invalid"
+		}
+		if _, present := anchor["record_anchor"]; !present {
+			return "composition_schema_invalid"
+		}
+		if section, ok := anchor["section_anchor"].(map[string]any); !ok || section["anchor_kind"] != "section_anchor" {
+			return "composition_schema_invalid"
+		}
 		if code := validateAnchorObject(anchor["section_anchor"]); code != "" {
 			return code
 		}
 		if recordAnchor, ok := anchor["record_anchor"]; ok && recordAnchor != nil {
+			if record, ok := recordAnchor.(map[string]any); !ok || record["anchor_kind"] != "record_anchor" {
+				return "composition_schema_invalid"
+			}
 			if code := validateAnchorObject(recordAnchor); code != "" {
 				return code
 			}
@@ -662,21 +751,21 @@ func validateAnchorObject(value any) string {
 		if !objectHasOnly(anchor, "anchor_kind", "decl_id") || !objectHasRequired(anchor, "anchor_kind", "decl_id") {
 			return "composition_schema_invalid"
 		}
+		if !validCompositionIdentifier(anchor["decl_id"]) {
+			return "composition_schema_invalid"
+		}
 	default:
 		return "composition_schema_invalid"
-	}
-	if containsGeneratedTarget(anchor) {
-		return "composition_anchor_invalid"
 	}
 	return ""
 }
 
-func validateLabelOverrides(raw any, ownerID string) []map[string]any {
+func validateLabelOverrides(raw any, ownerID string) []compositionFinding {
 	items, ok := raw.([]any)
 	if !ok {
-		return []map[string]any{issue("composition_schema_invalid", map[string]any{"diagram_id": ownerID, "field": "label_overrides"})}
+		return []compositionFinding{issue("composition_schema_invalid", map[string]any{"diagram_id": ownerID, "field": "label_overrides"})}
 	}
-	issues := []map[string]any{}
+	issues := []compositionFinding{}
 	seen := map[string]struct{}{}
 	for _, rawItem := range items {
 		item, ok := rawItem.(map[string]any)
@@ -694,7 +783,7 @@ func validateLabelOverrides(raw any, ownerID string) []map[string]any {
 			issues = append(issues, issue("diagram_label_override_invalid", map[string]any{"diagram_id": ownerID}))
 		}
 		ref, _ := target["ref"].(string)
-		if ref == "" || isGeneratedTarget(ref) {
+		if ref == "" {
 			issues = append(issues, issue("diagram_selection_missing_ref", map[string]any{"diagram_id": ownerID, "target_ref": ref}))
 		}
 		canonical, _ := canonicalJSON(target)
@@ -724,35 +813,9 @@ func hasRawGeneratedSource(value any) bool {
 				return true
 			}
 		}
-	case string:
-		lower := strings.ToLower(typed)
-		return strings.Contains(lower, "mermaid") || strings.Contains(lower, "<script") || strings.Contains(lower, "graph td") || strings.Contains(lower, "flowchart ")
+
 	}
 	return false
-}
-
-func containsGeneratedTarget(value any) bool {
-	switch typed := value.(type) {
-	case map[string]any:
-		for _, child := range typed {
-			if containsGeneratedTarget(child) {
-				return true
-			}
-		}
-	case []any:
-		for _, child := range typed {
-			if containsGeneratedTarget(child) {
-				return true
-			}
-		}
-	case string:
-		return isGeneratedTarget(typed)
-	}
-	return false
-}
-
-func isGeneratedTarget(value string) bool {
-	return generatedTargetPattern.MatchString(value) || strings.Contains(value, "reactflow") || strings.Contains(value, "mermaid")
 }
 
 func int64Value(value any) (int64, bool) {
@@ -771,15 +834,6 @@ func int64Value(value any) (int64, bool) {
 		return parsed, err == nil
 	default:
 		return 0, false
-	}
-}
-
-func issue(code string, details map[string]any) map[string]any {
-	return map[string]any{
-		"severity":     "error",
-		"code":         code,
-		"message_key":  "report_composition." + code,
-		"safe_details": details,
 	}
 }
 

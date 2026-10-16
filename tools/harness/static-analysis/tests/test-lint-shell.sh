@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 SCRIPT="${ROOT_DIR}/tools/harness/static-analysis/shellcheck.sh"
+NODE_BIN="${NODE_BIN:-$(command -v node)}"
 cleanup_paths=()
 
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
@@ -152,11 +153,23 @@ printf '%s\n' 'echo protocol generated' >"$inventory_repo/packages/protocol-ts/s
 printf '%s\n' 'echo dist' >"$inventory_repo/apps/web/dist/skip.sh"
 printf '%s\n' 'echo build' >"$inventory_repo/build/skip.sh"
 printf '%s\n' 'echo report' >"$inventory_repo/reports/skip.sh"
+# Human material must be excluded before even probing these broken links.
+restricted_relative="$("$NODE_BIN" -p 'require(process.argv[1]).restricted_roots[0]' "$ROOT_DIR/tools/executable_input_policy.json")"
+mkdir -p "$inventory_repo/$restricted_relative"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 99' >"$inventory_repo/$restricted_relative/unowned.sh"
+ln -s /unreachable-documentation-sentinel "$inventory_repo/README"
+ln -s /unreachable-documentation-sentinel "$inventory_repo/notes.Md"
 track_all "$inventory_repo"
 
 fake_shellcheck="$(make_fake_shellcheck "$inventory_repo")"
 args_log="$inventory_repo/shellcheck-args.log"
+# Source discovery must use the declared runtime even when ambient Node is wrong.
+mkdir -p "$inventory_repo/tmp/host-tools"
+printf '%s\n' '#!/bin/sh' 'exit 99' >"$inventory_repo/tmp/host-tools/node"
+chmod +x "$inventory_repo/tmp/host-tools/node"
 inventory_output="$(
+  PATH="$inventory_repo/tmp/host-tools:$PATH" \
+  NODE_BIN="$NODE_BIN" \
   CARTULARY_SHELLCHECK_ROOT="$inventory_repo" \
   CARTULARY_STEP_ARTIFACT_DIR="" \
   SHELLCHECK_BIN="$fake_shellcheck" \

@@ -1,6 +1,6 @@
 import { type ComponentProps, useMemo } from "react";
 import { WorkbookSurfaceLayout } from "../layout/WorkbookSurfaceLayout";
-import { useWorkbookBrowsingRegistry } from "./WorkbookQueryBrowsingContext";
+import { useWorkbookQueryPresentation } from "./WorkbookQueryBrowsingContext";
 import { WorkbookQueryBrowsingControls } from "./WorkbookQueryBrowsingControls";
 
 type LayoutProps = ComponentProps<typeof WorkbookSurfaceLayout>;
@@ -9,15 +9,21 @@ type LayoutProps = ComponentProps<typeof WorkbookSurfaceLayout>;
 export function WorkbookQuerySurfaceLayout(
   props: Omit<
     LayoutProps,
-    "presentationBinding" | "queryControls" | "workAreaOnly"
+    | "presentationBinding"
+    | "queryControls"
+    | "workAreaOnly"
+    | "queryObservation"
   >,
 ) {
-  const browsing = useWorkbookBrowsingRegistry();
+  const browsing = useWorkbookQueryPresentation();
   const { viewSchemaId } = props;
+  const query = browsing.find(viewSchemaId)?.getSnapshot();
   const presentationBinding = useMemo<
     NonNullable<LayoutProps["presentationBinding"]>
   >(
     () => ({
+      bind: (token) =>
+        browsing.bindPresentation(viewSchemaId, token, false, () => {}),
       update: (token, ready, detach) =>
         browsing.updatePresentation(viewSchemaId, token, ready, detach),
       unbind: (token) => browsing.unbindPresentation(viewSchemaId, token),
@@ -28,6 +34,13 @@ export function WorkbookQuerySurfaceLayout(
     <WorkbookSurfaceLayout
       {...props}
       presentationBinding={presentationBinding}
+      queryObservation={{
+        acceptedRevision: query?.resultRevision ?? 0,
+        filterCount: query?.authored?.filters.length ?? 0,
+        sortCount: query?.authored?.sort.length ?? 0,
+        groupField: query?.authored?.groupBy ?? "",
+        pending: query?.pending !== null || !query?.accepted,
+      }}
       queryControls={
         <WorkbookQueryBrowsingControls viewSchemaId={viewSchemaId} />
       }

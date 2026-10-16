@@ -222,6 +222,28 @@ export type RecordRollbackTarget =
   RecordRollbackHistoryEntryTarget | RecordRollbackChangeSetTarget | RecordRollbackRowRestoreTarget;
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReleaseCreateRequest".
+ */
+export type ReleaseCreateRequest = {
+  [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "CompositionVersion".
+ */
+export type CompositionVersion = string;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReleaseOutputKind".
+ */
+export type ReleaseOutputKind = "slidev" | "mermaid";
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReleaseScope".
+ */
+export type ReleaseScope = "internal_draft" | "internal_review" | "external_release";
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ResolveRecordSameFieldConflictResponseBody".
  */
 export type ResolveRecordSameFieldConflictResponseBody = ViewMutationEnvelope | RecordConflictClearEnvelope;
@@ -800,7 +822,10 @@ export interface HostCreateRequest {
   "host.host_state"?: string;
   "host.hostname"?: string;
   "host.location"?: string;
+  "host.observer_party_ids"?: CollectionActionsV1;
   "host.os_platform"?: string;
+  "host.responsible_party_ids"?: CollectionActionsV1;
+  "host.subject_party_ids"?: CollectionActionsV1;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
@@ -814,10 +839,13 @@ export interface IdentityCreateRequest {
   "identity.email"?: string;
   "identity.identity_state"?: string;
   "identity.mfa_state"?: string;
+  "identity.observer_party_ids"?: CollectionActionsV1;
   "identity.privilege_level"?: string;
   "identity.reset_status"?: string;
+  "identity.responsible_party_ids"?: CollectionActionsV1;
   "identity.sam_account_name"?: string;
   "identity.sid"?: string;
+  "identity.subject_party_ids"?: CollectionActionsV1;
   "identity.upn"?: string;
 }
 /**
@@ -1342,6 +1370,67 @@ export interface EvidenceHandleData {
  * via the `definition` "EvidenceHandleIssueRequest".
  */
 export type EvidenceHandleIssueRequest = Record<string, never>;
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidenceMetadataEnvelope".
+ */
+export interface EvidenceMetadataEnvelope {
+  data: EvidenceMetadataData;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidenceMetadataData".
+ */
+export interface EvidenceMetadataData {
+  incident_id: string;
+  /**
+   * @minItems 1
+   * @maxItems 100
+   */
+  items: [EvidenceMetadataItem, ...EvidenceMetadataItem[]];
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidenceMetadataItem".
+ */
+export interface EvidenceMetadataItem {
+  has_blob: boolean;
+  lifecycle_state: "requested" | "pending_receipt" | "received" | "available" | "quarantined" | "released";
+  preview_eligibility: EvidencePreviewEligibility;
+  record_id: string;
+  row_version: number;
+  title: string | null;
+  upload_state: null | "pending" | "available" | "failed" | "quarantined";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidencePreviewEligibility".
+ */
+export interface EvidencePreviewEligibility {
+  eligible: boolean;
+  reason_code:
+    | null
+    | "no_visible_blob"
+    | "blob_pending"
+    | "blob_failed"
+    | "blob_missing"
+    | "evidence_quarantined"
+    | "evidence_inconsistent"
+    | "unsupported_preview"
+    | "preview_payload_too_large";
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "EvidenceMetadataRequest".
+ */
+export interface EvidenceMetadataRequest {
+  /**
+   * @minItems 1
+   * @maxItems 100
+   */
+  record_ids: [string, ...string[]];
+}
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ExtensionDiscoveryEnvelope".
@@ -2227,6 +2316,13 @@ export interface ObjectBlobCreateRequest {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ObjectBlobVerifyRequest".
+ */
+export interface ObjectBlobVerifyRequest {
+  client_txn_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "PasswordChangeEnvelope".
  */
 export interface PasswordChangeEnvelope {
@@ -2631,6 +2727,80 @@ export interface ReferencePackVersionEnvelope {
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReleaseEnvelope".
+ */
+export interface ReleaseEnvelope {
+  data: ReleaseResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReleaseResource".
+ */
+export interface ReleaseResource {
+  approved_at: string | null;
+  composition_id: string | null;
+  composition_sha256: string | null;
+  composition_version: CompositionVersion | null;
+  created_at: string;
+  created_by_user_id: string;
+  derivation_version: string;
+  export_model_sha256: string;
+  graph_projection_refs: SourceProjectionRef[];
+  incident_id: string;
+  invalidated_at: string | null;
+  invalidation_reason: string | null;
+  output_kind: ReleaseOutputKind;
+  output_media_type: string | null;
+  output_options: ReleaseOutputOptions;
+  output_sha256: string | null;
+  published_at: string | null;
+  recipient_partition_refs: string[];
+  redaction_manifest_sha256: string | null;
+  redaction_profile_id: string;
+  redaction_profile_sha256: string;
+  redaction_profile_version: string;
+  release_id: string;
+  release_scope: ReleaseScope;
+  release_state: "pending_approval" | "approved" | "invalidated" | "published" | "render_failed";
+  render_admitted_at: string;
+  render_failed_reason_code: string | null;
+  snapshot_at: string;
+  snapshot_id: string;
+  source_change_set_high_watermark: string;
+  template_id: string;
+  template_version: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SourceProjectionRef".
+ */
+export interface SourceProjectionRef {
+  canonical_output_sha256: string;
+  graph_view_id: string;
+  normalized_configuration_sha256: string;
+  normalized_source_sha256: string;
+  projection_result_id: string;
+  projection_schema_id: "graph_projection.v2";
+  projection_version: string;
+  source_owner_id: "network_flow_activity";
+  source_snapshot_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "ReleaseOutputOptions".
+ */
+export interface ReleaseOutputOptions {
+  pdf?: boolean;
+  png?: boolean;
+  pptx?: boolean;
+  rendered_diagrams?: boolean;
+  schema_id?: "cartulary.reporting_render_request_options.v1";
+  source_only?: boolean;
+  svg?: boolean;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
  * via the `definition` "ViewMutationEnvelope".
  */
 export interface ViewMutationEnvelope {
@@ -2898,6 +3068,37 @@ export interface SessionRevocationResource {
   revoked_at: string;
   sessions_revoked: true;
   user_id: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SnapshotCreateRequest".
+ */
+export interface SnapshotCreateRequest {
+  client_txn_id: string;
+  incident_id: string;
+  source_change_set_high_watermark?: string;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SnapshotEnvelope".
+ */
+export interface SnapshotEnvelope {
+  data: SnapshotResource;
+  meta: EnvelopeMeta;
+}
+/**
+ * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema
+ * via the `definition` "SnapshotResource".
+ */
+export interface SnapshotResource {
+  created_at: string;
+  created_by_user_id: string;
+  derivation_version: string;
+  incident_id: string;
+  snapshot_at: string;
+  snapshot_id: string;
+  source_capture_sha256: string;
+  source_change_set_high_watermark: string;
 }
 /**
  * This interface was referenced by `HttpsContractsCartularyLocalGeneratedCoreHttpV1`'s JSON-Schema

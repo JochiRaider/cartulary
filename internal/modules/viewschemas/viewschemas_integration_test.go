@@ -105,7 +105,7 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 		)
 		errBody := httptestx.RequireErrorEnvelope(t, replay, http.StatusBadRequest, "invalid_pagination_request")
 		details := errBody["error"].(map[string]any)["details"].(map[string]any)
-		if details["reason_code"] != "invalid_cursor_token" {
+		if details["reason_code"] != "cursor_query_mismatch" {
 			t.Fatalf("unexpected cursor replay reason: %#v", details)
 		}
 	})
@@ -208,7 +208,7 @@ func requirePublicResource(t testing.TB, resource map[string]any) {
 		t.Fatalf("unexpected technical fields for %s: %#v", resource["view_schema_id"], resource["technical_fields"])
 	}
 	requireInspectorConfig(t, resource)
-	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "canonical_source_filter", "read_model", "create_writable", "writable"} {
+	for _, forbidden := range []string{"write_target", "write_action", "base_projection", "canonical_source_filter", "read_model", "writable"} {
 		if containsKey(resource, forbidden) {
 			t.Fatalf("public resource %s leaked %s: %#v", resource["view_schema_id"], forbidden, resource)
 		}
@@ -219,6 +219,9 @@ func requirePublicResource(t testing.TB, resource map[string]any) {
 	}
 	for _, field := range fields {
 		entry := field.(map[string]any)
+		if _, ok := entry["create_writable"].(bool); !ok {
+			t.Fatalf("field entry for %s lacks public create capability: %#v", resource["view_schema_id"], entry)
+		}
 		for _, key := range []string{"field_key", "label", "default_hidden", "sortable", "header_sort_field_key", "filter_ops", "groupable", "read_kind", "write_kind", "grid_editable", "conflict_resolution_class", "entity_binding_mode", "string_contract_id", "direct_scalar_contract_id", "direct_reference_contract_id", "clearable", "enum_values"} {
 			if _, exists := entry[key]; !exists {
 				t.Fatalf("field entry for %s missing %s: %#v", resource["view_schema_id"], key, entry)
@@ -275,10 +278,12 @@ func requireInspectorConfig(t testing.TB, resource map[string]any) {
 	allowedRoutes := map[string]struct{}{
 		"panel_read": {}, "view_row_create": {}, "record_patch": {}, "record_action": {},
 		"entity_mention_action": {}, "evidence_access": {}, "surface_pivot": {},
+		"indicator_observations": {}, "indicator_lifecycle": {}, "note_associations": {},
 	}
 	allowedConditions := map[string]struct{}{
 		"no_row_selected": {}, "incident_closed": {}, "authorization_lost": {}, "row_version_changed": {},
 		"record_deleted": {}, "record_merged": {}, "evidence_preview_unavailable": {}, "merge_target_unavailable": {},
+		"record_not_deleted": {}, "rollback_target_unavailable": {}, "party_text_unavailable": {}, "pivot_target_unavailable": {},
 	}
 	featureKeys := map[string]struct{}{}
 	for _, groupValue := range groups {

@@ -129,6 +129,35 @@ export function useTimelineGridAnchorController({
   ) => void;
   readonly updateWorkbookFocusAnchor: (anchor: null) => void;
 }) {
+  const captureCreatedPasteReveal = useCallback(
+    (fieldKey: string) => {
+      const handle = gridHandleRef.current;
+      const scroll = handle?.getScrollElement();
+      const focused = document.activeElement;
+      const top = scroll?.scrollTop;
+      const left = scroll?.scrollLeft;
+      return (recordId: string) => {
+        const current = gridHandleRef.current;
+        if (
+          !current ||
+          current.getScrollElement() !== scroll ||
+          !scroll ||
+          !focused ||
+          !scroll.contains(focused) ||
+          document.activeElement !== focused ||
+          scroll.scrollTop !== top ||
+          scroll.scrollLeft !== left
+        )
+          return;
+        current.scrollToAnchor({
+          surface: { kind: "view_schema", viewSchemaId: timelineViewSchemaId },
+          rowIdentity: { kind: "core_record", recordId },
+          fieldKey,
+        });
+      };
+    },
+    [gridHandleRef],
+  );
   const restoreTimelineFocusAnchor = useCallback(
     async (
       anchor: GridCellAnchor | WorkbookContinuityAnchor,
@@ -242,6 +271,16 @@ export function useTimelineGridAnchorController({
     ],
   );
 
+  const resolveTimelineDraftPasteTargetResolution = useCallback(
+    (fieldKey: string, input: GridClipboardInput) => {
+      const draft = rowsRef.current.find((row) => row.recordId === null);
+      return draft
+        ? resolveTimelinePasteTargetResolution(draft.key, fieldKey, input)
+        : null;
+    },
+    [resolveTimelinePasteTargetResolution, rowsRef],
+  );
+
   const navigateTimelineFocusAnchor = useCallback(
     (current: GridCellAnchor, intent: GridNavigationIntent) => {
       const nextAnchor =
@@ -342,10 +381,12 @@ export function useTimelineGridAnchorController({
   );
   return {
     prepareTimelineCollectionNavigation,
+    captureCreatedPasteReveal,
     navigateTimelineDraftFocus,
     currentTimelineAnchorFor,
     navigateTimelineFocusAnchor,
     resolveTimelinePasteTargetResolution,
+    resolveTimelineDraftPasteTargetResolution,
     restoreTimelineFocusAnchor,
   };
 }

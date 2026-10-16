@@ -7,11 +7,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesscollect"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessdiag"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessreview"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
@@ -23,6 +25,23 @@ func run() int {
 		return 2
 	}
 	switch os.Args[1] {
+	case "recover":
+		if len(os.Args) != 2 {
+			return 2
+		}
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+		root, err := os.Getwd()
+		if err != nil {
+			return 2
+		}
+		environment := map[string]string{}
+		for _, entry := range os.Environ() {
+			if key, value, ok := strings.Cut(entry, "="); ok {
+				environment[key] = value
+			}
+		}
+		return harnessfixtures.RecoverRun(ctx, root, environment, os.Stdout)
 	case "graph":
 		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer stop()

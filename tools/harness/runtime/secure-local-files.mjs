@@ -1,33 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, fstatSync, fsyncSync, linkSync, mkdirSync, openSync, readSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, fsyncSync, linkSync, openSync, readSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-// Anchor each traversal in an open directory. O_NOFOLLOW on just the final file
-// is insufficient when a caller can replace an intermediate path with a link.
-export function openDirectory(directory, { create = false, privateLeaf = false } = {}) {
-  const absolute = path.resolve(directory);
-  let descriptor = openSync(path.parse(absolute).root, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
-  try {
-    const parts = absolute.split(path.sep).filter(Boolean);
-    for (const [index, part] of parts.entries()) {
-      const anchored = `/proc/self/fd/${descriptor}/${part}`;
-      let next;
-      try { next = openSync(anchored, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW); }
-      catch (error) {
-        if (!create || error.code !== "ENOENT") throw error;
-        try { mkdirSync(anchored, { mode: 0o700 }); } catch (error) { if (error.code !== "EEXIST") throw error; }
-        // A concurrent creator must pass the same no-follow directory open.
-        next = openSync(anchored, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
-      }
-      closeSync(descriptor); descriptor = next;
-      if (index === parts.length - 1 && privateLeaf) {
-        const info = fstatSync(descriptor);
-        if (info.uid !== process.getuid() || (info.mode & 0o777) !== 0o700) throw new Error("unsafe local directory");
-      }
-    }
-    return descriptor;
-  } catch (error) { closeSync(descriptor); throw error; }
-}
+import { assertMachineEvidencePath, openDirectory } from "../contract/index.mjs";
+export { openDirectory };
+
 export function privateDirectory(directory) {
   const descriptor = openDirectory(directory, { create: true, privateLeaf: true }); closeSync(descriptor);
   return directory;
@@ -68,6 +45,7 @@ export function removePrivateTree(directory) {
   finally { if (leaf !== undefined) closeSync(leaf); if (parent !== undefined) closeSync(parent); }
 }
 export function readLocalFile(file, { maximum = 65536, privateFile = true, allowReplacement = false } = {}) {
+  assertMachineEvidencePath(file);
   const parent = openDirectory(path.dirname(file));
   let descriptor;
   try {
@@ -91,6 +69,7 @@ export function readLocalFile(file, { maximum = 65536, privateFile = true, allow
   } finally { if (descriptor !== undefined) closeSync(descriptor); closeSync(parent); }
 }
 export function* readLocalChunks(file, { maximum, privateFile = true, chunkBytes = 65536 }) {
+  assertMachineEvidencePath(file);
   const parent = openDirectory(path.dirname(file)); let descriptor;
   try {
     descriptor = openSync(`/proc/self/fd/${parent}/${path.basename(file)}`, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);

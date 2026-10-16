@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	evidenceflow "github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/flowtest"
 	"io"
 	"net/http"
 	"os"
@@ -797,6 +798,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ap
 	}, csrfOptions(login)...)
 	blobData := requireSuccessEnvelope(t, blobResp, http.StatusCreated)["data"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, blobData["upload_target"].(map[string]any), payload, login)
+	evidenceflow.VerifyUploadedBlob(t, http.DefaultClient, harness.Server.HTTP.URL, login.SessionCookie, login.CSRFCookie, blobData["object_blob_id"].(string), "txn-rp-degrade-"+suffix+"-verify")
 	attachResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],
 		"base_row_version": evidenceVersion,

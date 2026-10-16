@@ -29,28 +29,32 @@ func CollectFactsTx(
 	if err != nil {
 		return exportprovider.ProviderOutput{}, err
 	}
-	fields := make([]exportprovider.FieldFact, 0, len(tasks)+len(decisions))
+	fields := make([]exportprovider.BoundField, 0, len(tasks)+len(decisions))
 	for _, task := range tasks {
 		recordID := task.RecordID.String()
-		fields = append(fields, exportprovider.FieldFact{
-			SchemaID:     exportprovider.FieldFactSchemaID,
-			Path:         "/task_requests/" + recordID,
-			ContentClass: "working_material",
-			SourceFamily: "task_request",
-			Value:        task.Value,
-			SupportRefs:  exportprovider.CloneStrings(supportRefs[recordID]),
-		})
+		fields = append(fields, exportprovider.BoundField{
+			RecordID: recordID, RecordType: "task_request",
+			FieldFact: exportprovider.FieldFact{
+				SchemaID:     exportprovider.FieldFactSchemaID,
+				Path:         "/task_requests/" + recordID,
+				ContentClass: "working_material",
+				SourceFamily: "task_request",
+				Value:        task.Value,
+				SupportRefs:  exportprovider.CloneStrings(supportRefs[recordID]),
+			}})
 	}
 	for _, decision := range decisions {
 		recordID := decision.RecordID.String()
-		fields = append(fields, exportprovider.FieldFact{
-			SchemaID:     exportprovider.FieldFactSchemaID,
-			Path:         "/decisions/" + recordID,
-			ContentClass: "working_material",
-			SourceFamily: "decision",
-			Value:        decision.Value,
-			SupportRefs:  exportprovider.CloneStrings(supportRefs[recordID]),
-		})
+		fields = append(fields, exportprovider.BoundField{
+			RecordID: recordID, RecordType: "decision",
+			FieldFact: exportprovider.FieldFact{
+				SchemaID:     exportprovider.FieldFactSchemaID,
+				Path:         "/decisions/" + recordID,
+				ContentClass: "working_material",
+				SourceFamily: "decision",
+				Value:        decision.Value,
+				SupportRefs:  exportprovider.CloneStrings(supportRefs[recordID]),
+			}})
 	}
-	return exportprovider.NewProviderOutput("tasksdecisions", fields)
+	return exportprovider.NewProviderOutput("tasksdecisions", fields, nil)
 }

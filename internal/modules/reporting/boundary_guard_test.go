@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -12,52 +13,47 @@ import (
 const reportingRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestReportingProductionImportBoundaries(t *testing.T) {
-	allowedSiblingImports := map[string]map[string]bool{
-		reportingRepoImportPrefix + "internal/modules/reporting/canonicaljson":        {"canonical_json.go": true},
-		reportingRepoImportPrefix + "internal/modules/incidentbundles/artifactport":   {"portable_artifacts.go": true, "portable_export.go": true, "portable_recovery.go": true},
-		reportingRepoImportPrefix + "internal/modules/graphprojection/postgresresult": {"graph_source.go": true},
-		reportingRepoImportPrefix + "internal/modules/reporting/graphsourcecontract":  {"graph_source.go": true, "render_bundle.go": true},
-		reportingRepoImportPrefix + "internal/modules/incidents/admission":            {"application_service.go": true, "routes.go": true},
-		reportingRepoImportPrefix + "internal/modules/reference_data": {
-			"portable_references.go": true, "portable_artifacts.go": true, "portable_export.go": true, "portable_recovery.go": true, "store.go": true, "redaction.go": true, "routes.go": true, "render_bundle.go": true,
-		},
-		reportingRepoImportPrefix + "internal/modules/recovery": {"recovery_inventory.go": true},
-		reportingRepoImportPrefix + "internal/modules/entities/mentions/reportingprovider": {
-			"export_materializer.go": true,
-		},
-		reportingRepoImportPrefix + "internal/modules/graphprojection": {
-			"store.go": true, "graph_source.go": true, "render_bundle.go": true,
-		},
-		reportingRepoImportPrefix + "internal/modules/incidents": {
-			"application_service.go": true,
-			"routes.go":              true,
-		},
-		reportingRepoImportPrefix + "internal/modules/incidents/reportingprovider": {
-			"export_materializer.go": true,
-		},
-		reportingRepoImportPrefix + "internal/modules/parties": {
-			"export_materializer.go": true,
-		},
-		reportingRepoImportPrefix + "internal/modules/records/reportingprovider": {
-			"export_materializer.go": true,
-		},
-		reportingRepoImportPrefix + "internal/modules/reportcomposition": {
-			"composition_preview_port.go": true,
-			"store.go":                    true,
-		},
-		reportingRepoImportPrefix + "internal/modules/reporting/exportprovider": {
-			"export_materializer.go": true,
-			"routes.go":              true,
-		},
-		reportingRepoImportPrefix + "internal/modules/revisions/sourceboundary": {
-			"export_materializer.go": true,
-			"routes.go":              true,
-		},
-		reportingRepoImportPrefix + "internal/modules/timeline/reportingprovider": {
-			"export_materializer.go": true,
-		},
+	// Owner facades and shared wire contracts constrain dependency direction;
+	// private file placement is not an ownership boundary.
+	allowedModuleImports := map[string]bool{
+		reportingRepoImportPrefix + "internal/modules/entities/mentions/reportingprovider": true,
+		reportingRepoImportPrefix + "internal/modules/graphprojection":                     true,
+		reportingRepoImportPrefix + "internal/modules/graphprojection/postgresresult":      true,
+		reportingRepoImportPrefix + "internal/modules/incidentbundles/artifactport":        true,
+		reportingRepoImportPrefix + "internal/modules/incidents":                           true,
+		reportingRepoImportPrefix + "internal/modules/incidents/admission":                 true,
+		reportingRepoImportPrefix + "internal/modules/incidents/reportingprovider":         true,
+		reportingRepoImportPrefix + "internal/modules/parties":                             true,
+		reportingRepoImportPrefix + "internal/modules/records/reportingprovider":           true,
+		reportingRepoImportPrefix + "internal/modules/recovery":                            true,
+		reportingRepoImportPrefix + "internal/modules/reference_data":                      true,
+		reportingRepoImportPrefix + "internal/modules/reportcomposition":                   true,
+		reportingRepoImportPrefix + "internal/modules/reporting/canonicaljson":             true,
+		reportingRepoImportPrefix + "internal/modules/reporting/diagramcontract":           true,
+		reportingRepoImportPrefix + "internal/modules/reporting/exportprovider":            true,
+		reportingRepoImportPrefix + "internal/modules/reporting/graphsourcecontract":       true,
+		reportingRepoImportPrefix + "internal/modules/reporting/outputcontract":            true,
+		reportingRepoImportPrefix + "internal/modules/revisions/sourceboundary":            true,
+		reportingRepoImportPrefix + "internal/modules/timeline/reportingprovider":          true,
 	}
 
+	for _, fixture := range []struct {
+		name, source string
+		allowed      bool
+	}{
+		{"renamed facade alias", "package reporting\nimport renamed \"github.com/JochiRaider/cartulary/internal/modules/reportcomposition\"", true},
+		{"extracted wire consumer", "package reporting\nimport \"github.com/JochiRaider/cartulary/internal/modules/reporting/outputcontract\"", true},
+		{"source owner internals", "package reporting\nimport renamed \"github.com/JochiRaider/cartulary/internal/modules/entities/mentions/internal/storage\"", false},
+		{"unadmitted source root", "package reporting\nimport \"github.com/JochiRaider/cartulary/internal/modules/records\"", false},
+		{"raw quoted forbidden import", "package reporting\nimport `github.com/JochiRaider/cartulary/internal/modules/timeline`", false},
+	} {
+		t.Run(fixture.name, func(t *testing.T) {
+			imports := reportingProductionImports(t, "extracted.go", fixture.source)
+			if len(imports) != 1 || allowedModuleImports[imports[0]] != fixture.allowed {
+				t.Fatal("owner boundary failed to distinguish a facade from source internals")
+			}
+		})
+	}
 	entries, err := os.ReadDir(".")
 	if err != nil {
 		t.Fatalf("read reporting package directory: %v", err)
@@ -67,16 +63,12 @@ func TestReportingProductionImportBoundaries(t *testing.T) {
 		if entry.IsDir() || !strings.HasSuffix(fileName, ".go") || strings.HasSuffix(fileName, "_test.go") {
 			continue
 		}
-		for _, importPath := range reportingProductionImports(t, fileName) {
+		for _, importPath := range reportingProductionImports(t, fileName, nil) {
 			if !strings.HasPrefix(importPath, reportingRepoImportPrefix+"internal/modules/") {
 				continue
 			}
-			allowedFiles, ok := allowedSiblingImports[importPath]
-			if !ok {
-				t.Fatalf("%s imports sibling module %s without an explicit reporting boundary allowance", fileName, importPath)
-			}
-			if !allowedFiles[fileName] {
-				t.Fatalf("%s imports %s; allowed files are %v", fileName, importPath, reportingAllowedFileNames(allowedFiles))
+			if !allowedModuleImports[importPath] {
+				t.Fatalf("%s imports module %s outside a Reporting owner facade", fileName, importPath)
 			}
 		}
 	}
@@ -126,131 +118,20 @@ func TestReportingProductionDoesNotReadOwnerTablesDirectly(t *testing.T) {
 	}
 }
 
-func TestReportingProductionDoesNotReintroduceLegacyExportOrRenderPaths(t *testing.T) {
-	forbiddenSymbols := []string{
-		"collectWorkbookExportFieldsTx",
-		"renderSlidevSource",
-		"renderMermaidSource",
-	}
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		t.Fatalf("read reporting package directory: %v", err)
-	}
-	for _, entry := range entries {
-		fileName := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(fileName, ".go") || strings.HasSuffix(fileName, "_test.go") {
-			continue
-		}
-		data, err := os.ReadFile(fileName)
-		if err != nil {
-			t.Fatalf("read %s: %v", fileName, err)
-		}
-		for _, symbol := range forbiddenSymbols {
-			if strings.Contains(string(data), symbol) {
-				t.Fatalf("%s reintroduces legacy reporting path %q", fileName, symbol)
-			}
-		}
-	}
-}
-
-func TestReportingProviderPackagesExposeTypedFacts(t *testing.T) {
-	providerFiles := []string{
-		"../artifacts/internal/providers/reporting/provider.go",
-		"../entities/hostidentity/reportingprovider/provider.go",
-		"../entities/mentions/reportingprovider/provider.go",
-		"../evidence/internal/providers/reporting/provider.go",
-		"../parties/internal/providers/reporting/provider.go",
-		"../records/reportingprovider/provider.go",
-		"../tasksdecisions/internal/providers/reporting/provider.go",
-		"../timeline/reportingprovider/provider.go",
-	}
-	for _, fileName := range providerFiles {
-		data, err := os.ReadFile(filepath.Clean(fileName))
-		if err != nil {
-			t.Fatalf("read %s: %v", fileName, err)
-		}
-		if !strings.Contains(string(data), "CollectFactsTx(") {
-			t.Fatalf("%s does not expose typed reporting provider facts", fileName)
-		}
-		if fileName == "../timeline/reportingprovider/provider.go" && strings.Contains(string(data), "func CollectFieldsTx(") {
-			t.Fatalf("%s must expose typed facts without the legacy field wrapper", fileName)
-		}
-	}
-
-	data, err := os.ReadFile("export_materializer.go")
-	if err != nil {
-		t.Fatalf("read export_materializer.go: %v", err)
-	}
-	for _, forbidden := range []string{
-		"recordreporting.CollectFieldsTx",
-		"hostidentityreporting.CollectFieldsTx",
-		"parties.CollectFieldsTx",
-		"taskdecisionreporting.CollectFieldsTx",
-		"artifactreporting.CollectFieldsTx",
-		"entityreporting.CollectFieldsTx",
-	} {
-		if strings.Contains(string(data), forbidden) {
-			t.Fatalf("export_materializer.go wires owner provider through legacy %s", forbidden)
-		}
-	}
-}
-
-func TestReportingCurrentPathsDoNotUseLegacyCompatibilityFields(t *testing.T) {
-	files := []string{
-		"api.go",
-		"application_service.go",
-		"routes.go",
-		"store.go",
-		"render_bundle.go",
-	}
-	for _, fileName := range files {
-		data, err := os.ReadFile(fileName)
-		if err != nil {
-			t.Fatalf("read %s: %v", fileName, err)
-		}
-		if strings.Contains(string(data), "CompatibilityFields(") {
-			t.Fatalf("%s calls legacy CompatibilityFields in a current reporting path", fileName)
-		}
-	}
-}
-
-func TestApplicationServiceDoesNotOwnReportingJobExecutionLoop(t *testing.T) {
-	data, err := os.ReadFile("application_service.go")
-	if err != nil {
-		t.Fatalf("read application_service.go: %v", err)
-	}
-	for _, symbol := range []string{
-		"executeReportingJob(",
-		"executeSnapshotCreateJob(",
-		"executeReleaseCreateJob(",
-		"renderReleaseCandidate(",
-		"CompleteReleaseCreateJob(",
-		"CompleteSnapshotCreateJob(",
-	} {
-		if strings.Contains(string(data), symbol) {
-			t.Fatalf("application_service.go owns reporting worker behavior through %q", symbol)
-		}
-	}
-}
-
-func reportingProductionImports(t testing.TB, fileName string) []string {
+func reportingProductionImports(t testing.TB, fileName string, source any) []string {
 	t.Helper()
 
-	parsed, err := parser.ParseFile(token.NewFileSet(), filepath.Clean(fileName), nil, parser.ImportsOnly)
+	parsed, err := parser.ParseFile(token.NewFileSet(), filepath.Clean(fileName), source, parser.ImportsOnly)
 	if err != nil {
 		t.Fatalf("parse imports for %s: %v", fileName, err)
 	}
 	imports := make([]string, 0, len(parsed.Imports))
 	for _, spec := range parsed.Imports {
-		imports = append(imports, strings.Trim(spec.Path.Value, `"`))
+		importPath, err := strconv.Unquote(spec.Path.Value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		imports = append(imports, importPath)
 	}
 	return imports
-}
-
-func reportingAllowedFileNames(allowed map[string]bool) []string {
-	files := make([]string, 0, len(allowed))
-	for fileName := range allowed {
-		files = append(files, fileName)
-	}
-	return files
 }

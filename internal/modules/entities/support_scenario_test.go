@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	evidenceflow "github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/flowtest"
 	"io"
 	"net/http"
 	"strings"
@@ -358,7 +359,9 @@ func (s *SupportScenario) seedUploadedObjectBlob(t *testing.T, label string) str
 		body, _ := io.ReadAll(putResp.Body)
 		t.Fatalf("upload support object %s status %d: %s", label, putResp.StatusCode, string(body))
 	}
-	return data["object_blob_id"].(string)
+	objectBlobID := data["object_blob_id"].(string)
+	evidenceflow.VerifyUploadedBlob(t, http.DefaultClient, s.harness.Server.HTTP.URL, s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie, objectBlobID, supportTxn(s.label+"-verify-"+label, s.routeKey))
+	return objectBlobID
 }
 
 func (s *SupportScenario) attachSeededBlob(t *testing.T, objectBlobID string) {

@@ -104,6 +104,7 @@ describe("support workbook helpers", () => {
 
     expect(items).toEqual([
       {
+        entityMentionId: null,
         itemRef: "mention-host-auto",
         entityType: "host",
         itemKind: "resolved_ref" as const,
@@ -118,6 +119,7 @@ describe("support workbook helpers", () => {
         matchedAliasText: "VPN Gateway",
       },
       {
+        entityMentionId: null,
         itemRef: "mention-host-manual",
         entityType: "host",
         itemKind: "resolved_ref" as const,
@@ -262,6 +264,7 @@ describe("support workbook helpers", () => {
         rowRecordId: "20000000-0000-4000-8000-000000000601",
         fieldKey: "timeline.host_refs",
         entityType: "host",
+        entityMentionId: "host-mention-public",
         itemRef: "mention-host-auto",
         rawText: " vpn   gateway ",
         resolvedRecordId: "20000000-0000-4000-8000-000000000602",
@@ -274,7 +277,7 @@ describe("support workbook helpers", () => {
           recordId: "20000000-0000-4000-8000-000000000601",
           fieldKey: "timeline.host_refs",
           itemRef: "mention-host-auto",
-          entityMentionId: null,
+          entityMentionId: "host-mention-public",
           targetEntityRecordId: "20000000-0000-4000-8000-000000000602",
         },
         sourceKind: "entity_mention",
@@ -289,6 +292,7 @@ describe("support workbook helpers", () => {
         rowRecordId: "20000000-0000-4000-8000-000000000601",
         fieldKey: "timeline.identity_refs",
         entityType: "identity",
+        entityMentionId: "identity-mention-public",
         itemRef: "mention-identity-manual",
         rawText: "alex.analyst@example.test",
         resolvedRecordId: "20000000-0000-4000-8000-000000000604",
@@ -301,7 +305,7 @@ describe("support workbook helpers", () => {
           recordId: "20000000-0000-4000-8000-000000000601",
           fieldKey: "timeline.identity_refs",
           itemRef: "mention-identity-manual",
-          entityMentionId: null,
+          entityMentionId: "identity-mention-public",
           targetEntityRecordId: "20000000-0000-4000-8000-000000000604",
         },
         sourceKind: "entity_mention",
@@ -316,11 +320,12 @@ describe("support workbook helpers", () => {
         rowRecordId: "20000000-0000-4000-8000-000000000601",
         fieldKey: "timeline.host_refs",
         entityType: "host",
+        entityMentionId: "dismissed-host-public",
         itemRef: "mention-host-dismissed",
         rawText: "WS-023",
         resolvedRecordId: null,
         mentionRowVersion: 23,
-        resolutionMethod: "explicit_resolve_route",
+        resolutionMethod: null,
         autoResolved: false,
         status: "dismissed",
         chipState: "dismissed",
@@ -328,12 +333,12 @@ describe("support workbook helpers", () => {
           recordId: "20000000-0000-4000-8000-000000000601",
           fieldKey: "timeline.host_refs",
           itemRef: "mention-host-dismissed",
-          entityMentionId: null,
+          entityMentionId: "dismissed-host-public",
           targetEntityRecordId: null,
         },
         sourceKind: "entity_mention",
         isActiveRelationshipValue: false,
-        priorTargetEntityRecordId: "20000000-0000-4000-8000-000000000603",
+        priorTargetEntityRecordId: null,
         displayText: "WS-023",
         provenance: null,
         confidence: null,
@@ -1778,6 +1783,12 @@ function installTimelineInspectGeometry(
     recordId,
     "timeline.activity_synopsis_text",
   );
+  const grid = timelineGridScrollport();
+  // Mock both used CSS size and viewport bounds so the fixture has unit scale.
+  grid.style.width = `${options.containerWidth}px`;
+  grid.style.height = `${options.containerHeight}px`;
+  grid.style.boxSizing = "border-box";
+  grid.style.border = "0";
   const original = HTMLElement.prototype.getBoundingClientRect;
 
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(

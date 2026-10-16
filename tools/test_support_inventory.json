@@ -20,6 +20,15 @@
       "rationale": "Auth bootstrap, flow, route, and store helpers for auth-owned tests."
     },
     {
+      "path": "internal/modules/collaboration/testsupport",
+      "owner": "collaboration",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Collaboration-owned fixture publication finalization through ordinary durable sequencing; no service-starting entrypoint."
+    },
+    {
       "path": "internal/modules/entities/hostidentity/testsupport",
       "owner": "entities.hostidentity",
       "posture": "owner_local",
@@ -36,6 +45,15 @@
       "support_scan": "included",
       "service_starting": false,
       "rationale": "Entity record, alias, mention, stable-ID, and assertion helpers without service-starting entrypoints."
+    },
+    {
+      "path": "internal/modules/evidence/testsupport",
+      "owner": "evidence",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Evidence-owned deterministic binary fixture payloads and construction support without service-starting entrypoints."
     },
     {
       "path": "internal/modules/incidents/testsupport",

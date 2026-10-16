@@ -430,7 +430,6 @@ func (f *MutationFacade) Patch(ctx context.Context, command PatchCommand) (Mutat
 		meta.IncidentID,
 		command.RecordID,
 		sourcePatchChanges(request.changes),
-		command.Now.UTC(),
 	)
 	if err != nil {
 		return MutationResult{}, err

@@ -51,6 +51,18 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 		"role":          "viewer",
 	})
 
+	emptyList := httptestx.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
+		nil,
+		httptestx.WithCookies(viewerSession),
+	)
+	emptyBody := httptestx.RequireSuccessEnvelope(t, emptyList, http.StatusOK)
+	if views := emptyBody["data"].(map[string]any)["saved_views"].([]any); len(views) != 0 {
+		t.Fatalf("fresh incident must list no saved views, got %#v", views)
+	}
+
 	createResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,

@@ -14,6 +14,25 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
+// Physical snapshot construction and restoration have the same bounded
+// administrative budget. Neither deadline is a product measurement threshold.
+const populatedObjectFixtureTimeout = 15 * time.Minute
+
+func browserFixturePreparationTimeout(env map[string]string) (time.Duration, error) {
+	id := strings.TrimSpace(env["CARTULARY_FIXTURE_PROFILE_ID"])
+	if id == "" {
+		return templateStartupTimeout, nil
+	}
+	profile, err := performancefixturelifecycle.ResolveProfile(id)
+	if err != nil {
+		return 0, err
+	}
+	if profile.ObjectPopulation.ObjectCount > 0 {
+		return populatedObjectFixtureTimeout, nil
+	}
+	return templateStartupTimeout, nil
+}
+
 func runBuildPerformanceFixture(args []string, env map[string]string) int {
 	parsed, profile, err := parsePerformanceFixtureBuildArgs(args)
 	if err != nil {
@@ -38,7 +57,7 @@ func runBuildPerformanceFixture(args []string, env map[string]string) int {
 		fmt.Fprintf(os.Stderr, "resolve performance fixture diagnostics root: %v\n", err)
 		return 1
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), populatedObjectFixtureTimeout)
 	defer cancel()
 	startedAt := time.Now()
 	artifact, err := performancefixturelifecycle.Build(ctx, env, profile, parsed, appfixture.NewProduction)
@@ -110,6 +129,7 @@ func preparePerformanceWebE2EFixture(ctx context.Context, env map[string]string)
 		PredicateID: prepared.PredicateID, CloneLeaseID: prepared.CloneLeaseID,
 		CloneOrdinal: prepared.CloneOrdinal, RuntimeBundlePath: prepared.RuntimeBundlePath,
 		RuntimeBundleRoot: prepared.RuntimeBundleRoot,
+		ObjectSnapshot:    prepared.ObjectSnapshot,
 	}, nil
 }
 
@@ -138,8 +158,8 @@ func cleanupPreparedWebE2EFixture(ctx context.Context, deps dependencies, env ma
 	return cleanupPerformanceFixtureLease(ctx, deps, cleanupEnv, metadata)
 }
 
-func writeFailedPerformanceFixtureCloneArtifact(env map[string]string, failureCode string) error {
-	return performancefixturelifecycle.FailedLease(env, failureCode)
+func writeFailedPerformanceFixtureCloneArtifact(env map[string]string, failureCode string, preparationErr error) error {
+	return performancefixturelifecycle.FailedLease(env, failureCode, preparationErr)
 }
 
 func revokePerformanceFixtureSessions(ctx context.Context, env map[string]string, databaseName string) error {
@@ -157,5 +177,6 @@ func lifecycleMetadata(metadata webE2EMetadata) performancefixturelifecycle.Leas
 		BuilderUnitID: metadata.BuilderUnitID, RowID: metadata.RowID,
 		PredicateID: metadata.PredicateID, CloneLeaseID: metadata.CloneLeaseID,
 		CloneOrdinal: metadata.CloneOrdinal, RuntimeBundleRoot: metadata.RuntimeBundleRoot,
+		ObjectSnapshot: metadata.ObjectSnapshot,
 	}
 }

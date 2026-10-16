@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { clientTxnID } from "./browserApi";
 import {
   type ClientTransactionCrypto,
   createClientTransactionId,
@@ -8,6 +9,35 @@ const uuidV4Pattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
 describe("createClientTransactionId", () => {
+  it("keeps the browser mutation facade bound to secure entropy and fails closed without it", () => {
+    const randomUUID = vi
+      .fn()
+      .mockReturnValueOnce("123e4567-e89b-42d3-a456-426614174000")
+      .mockReturnValueOnce("123e4567-e89b-42d3-a456-426614174001");
+    const insecure = () => {
+      throw new Error("insecure entropy used");
+    };
+    const clock = vi.spyOn(Date, "now").mockImplementation(insecure);
+    const random = vi.spyOn(Math, "random").mockImplementation(insecure);
+    vi.stubGlobal("crypto", { randomUUID, getRandomValues: vi.fn(insecure) });
+    try {
+      expect(clientTxnID(" action ")).toBe(
+        "action-123e4567-e89b-42d3-a456-426614174000",
+      );
+      expect(clientTxnID("action")).toBe(
+        "action-123e4567-e89b-42d3-a456-426614174001",
+      );
+      expect(randomUUID).toHaveBeenCalledTimes(2);
+      vi.stubGlobal("crypto", undefined);
+      expect(() => clientTxnID("action")).toThrow(
+        "Secure random identifiers are unavailable",
+      );
+    } finally {
+      clock.mockRestore();
+      random.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
   it("retains the prefix and uses the platform UUID generator", () => {
     const randomUUID = vi.fn(() => "123e4567-e89b-42d3-a456-426614174000");
     const provider = {

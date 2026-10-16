@@ -311,6 +311,28 @@
           "browser_session_group": "browser-e2e-webserver-backed-default"
         },
         {
+          "name": "functional-support-default-entity-party-assignments",
+          "target": "browser-e2e-webserver-backed",
+          "kind": "duration_balanced_specs",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_functional",
+          "workers": "default",
+          "runtime_profile_id": "default",
+          "selected_row_ids": [
+            "module.entities.browser.host_and_identity_party_assignments_use_ordinary_950c32b8ce"
+          ],
+          "specs": [
+            "apps/web/e2e/entity-party-assignments.spec.ts"
+          ],
+          "resource_profile_id": "browser_functional",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-webserver-backed-default"
+        },
+        {
           "name": "functional-support-default-evidence-integration",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -358,12 +380,14 @@
             "module.evidence.browser.file_row_targeting",
             "module.evidence.browser.file_stage_recovery",
             "module.evidence.browser.linked_authority_fence_1ac7e5b680",
+            "module.evidence.browser.linked_metadata_window",
             "module.evidence.browser.linked_preview_recovery_6065aad8d8",
             "module.evidence.browser.requested_evidence_can_be_tracked_before_the_blo_6a619b85fd",
             "module.evidence.browser.sheet_handle_recovery_80d353a1f0",
             "module.evidence.browser.space_discovery_deadline_dcc019ff11",
             "module.evidence.browser.timeline_linked_blocked_preview_87b7079b89",
             "module.evidence.browser.timeline_linked_text_review_3f18dc6414",
+            "module.evidence.browser.verification_cancellation_race",
             "module.timeline.browser.timeline_manage_tags_makes_relationships_current_3cb930689d"
           ],
           "specs": [
@@ -467,6 +491,7 @@
             "module.revisions.browser.invokes_a_server_supplied_row_restore_action_fro_99dd1b9c66",
             "module.revisions.browser.opens_row_history_from_the_selected_timeline_wor_c86aac9897",
             "module.revisions.browser.soft_deletes_and_restores_a_timeline_row_from_wo_e482d20c32",
+            "module.revisions.browser.source_history_spec_ts_45f9ef2541",
             "module.revisions.browser.uses_a_server_supplied_history_entry_ref_from_ro_109056553a"
           ],
           "specs": [
@@ -1120,6 +1145,7 @@
             "module.workbook.browser.live_workbook_timeline_grid_accepts_a_representa_20a3b81a1a",
             "module.workbook.browser.live_workbook_timeline_grid_presents_grouped_sam_bf278fe67c",
             "module.workbook.browser.public_registry_discovery_exposes_exactly_the_fo_e62f2b8ba8",
+            "module.workbook.browser.source_sentinel_spec_ts_38af00ea72",
             "module.workbook.browser.the_browser_visible_view_schema_registry_and_wor_f9e3b8c070",
             "module.workbook.browser.the_browser_workbook_opens_communications_log_ha_e14517982d",
             "module.workbook.browser.verify_task_requests_decisions_parties_communica_ea39a44f80"
@@ -2490,6 +2516,144 @@
       ],
       "groups": [
         {
+          "name": "measurement-measurement-evidence-inspector-module.timeline.measurement.evidence_inspector_v2",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.evidence_inspector_v2"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/evidence-inspector.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.evidence_inspector_v2",
+          "fixture_profile_id": "evidence_heavy_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-evidence-verification-module.evidence.measurement.verification_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.measurement.verification_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/evidence-verification.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.evidence.measurement.verification_progress",
+          "fixture_profile_id": "evidence_heavy_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-reference-pack-progress-module.reference_data.measurement.import_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.reference_data.measurement.import_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reference-pack-progress.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.reference_data.measurement.import_progress",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-reference-pack-progress-module.reference_data.measurement.refresh_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.reference_data.measurement.refresh_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reference-pack-progress.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.reference_data.measurement.refresh_progress",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-reference-pack-progress-module.reference_data.measurement.reverify_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.reference_data.measurement.reverify_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reference-pack-progress.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.reference_data.measurement.reverify_progress",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-anchor-trace-module.timeline.measurement.ac047_anchor_trace",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac047_anchor_trace"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-anchor-trace.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.ac047_anchor_trace",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
@@ -2510,7 +2674,7 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
         },
         {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
@@ -2533,7 +2697,7 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
         },
         {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
@@ -2556,7 +2720,7 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
         },
         {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
@@ -2579,7 +2743,402 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-history-module.revisions.measurement.change_set",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.revisions.measurement.change_set"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-history.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.revisions.measurement.change_set",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-history-module.revisions.measurement.history_entry",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.revisions.measurement.history_entry"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-history.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.revisions.measurement.history_entry",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-history-module.revisions.measurement.row_restore",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.revisions.measurement.row_restore"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-history.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.revisions.measurement.row_restore",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-paste-module.timeline.measurement.paste_20x5_v2",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.paste_20x5_v2"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-paste.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.paste_20x5_v2",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-presence-module.collaboration.measurement.presence_cell",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.measurement.presence_cell"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-presence.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.collaboration.measurement.presence_cell",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-presence-module.collaboration.measurement.presence_row",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.measurement.presence_row"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-presence.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.collaboration.measurement.presence_row",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-presence-module.collaboration.measurement.presence_surface",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.measurement.presence_surface"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-presence.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.collaboration.measurement.presence_surface",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_filter_first_useful_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_filter_first_useful_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.ac044_filter_first_useful_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_filter_stable_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_filter_stable_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.ac044_filter_stable_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_group_first_useful_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_group_first_useful_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.ac044_group_first_useful_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_group_stable_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_group_stable_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.ac044_group_stable_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_sort_first_useful_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_sort_first_useful_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.ac044_sort_first_useful_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_sort_stable_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_sort_stable_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-measurement-default-module.timeline.measurement.ac044_sort_stable_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-apply-module.imports.measurement.csv_apply",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.csv_apply",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.csv_apply"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-apply.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-apply-module.imports.measurement.xlsx_apply",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.xlsx_apply",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.xlsx_apply"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-apply.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-discovery-module.imports.measurement.csv_discovery",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.csv_discovery",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.csv_discovery"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-discovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-discovery-module.imports.measurement.xlsx_discovery",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.xlsx_discovery",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.xlsx_discovery"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-discovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
         },
         {
           "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
@@ -2649,6 +3208,54 @@
             "object_store",
             "postgres"
           ]
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-reporting-progress-module.reporting.measurement.render_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.reporting.measurement.render_progress",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.reporting.measurement.render_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reporting-progress.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-reporting-progress-module.reporting.measurement.snapshot_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.reporting.measurement.snapshot_progress",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.reporting.measurement.snapshot_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reporting-progress.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1"
         },
         {
           "name": "measurement-network-flow-claimed-network-flow-navigation-module.networkflow.measurement.exploration_graph_dom_ceiling",
@@ -2745,7 +3352,8 @@
             "module.workbook.accessibility.inspector_entity_ordinary_edit_reveal_c435d77f80",
             "module.workbook.accessibility.inspector_evidence_reference_shortcut_reveal_afdc31949c",
             "module.workbook.accessibility.inspector_timeline_ordinary_edit_reveal_f4bd40fdfb",
-            "module.workbook.accessibility.reference_picker"
+            "module.workbook.accessibility.reference_picker",
+            "module.workbook.accessibility.source_workbook_inspector_edit_spec_ts_34633fc46b"
           ],
           "specs": [
             "apps/web/e2e/workbook-inspector-edit.spec.ts"
@@ -2773,6 +3381,7 @@
             "module.entities.accessibility.mention_arrow_navigation_reveals_focused_inspect_524ff6af49",
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.file_recovery",
+            "module.evidence.accessibility.verification_progress",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.independent_discovery_continuity",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
@@ -3904,6 +4513,144 @@
       ],
       "groups": [
         {
+          "name": "measurement-measurement-evidence-inspector-module.timeline.measurement.evidence_inspector_v2",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.evidence_inspector_v2"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/evidence-inspector.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.evidence_inspector_v2",
+          "fixture_profile_id": "evidence_heavy_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-evidence-verification-module.evidence.measurement.verification_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.measurement.verification_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/evidence-verification.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.evidence.measurement.verification_progress",
+          "fixture_profile_id": "evidence_heavy_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-reference-pack-progress-module.reference_data.measurement.import_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.reference_data.measurement.import_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reference-pack-progress.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.reference_data.measurement.import_progress",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-reference-pack-progress-module.reference_data.measurement.refresh_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.reference_data.measurement.refresh_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reference-pack-progress.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.reference_data.measurement.refresh_progress",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-reference-pack-progress-module.reference_data.measurement.reverify_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.reference_data.measurement.reverify_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reference-pack-progress.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.reference_data.measurement.reverify_progress",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-anchor-trace-module.timeline.measurement.ac047_anchor_trace",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac047_anchor_trace"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-anchor-trace.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.ac047_anchor_trace",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
@@ -3924,7 +4671,7 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
         },
         {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
@@ -3947,7 +4694,7 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
         },
         {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
@@ -3970,7 +4717,7 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
         },
         {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
@@ -3993,7 +4740,402 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-history-module.revisions.measurement.change_set",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.revisions.measurement.change_set"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-history.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.revisions.measurement.change_set",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-history-module.revisions.measurement.history_entry",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.revisions.measurement.history_entry"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-history.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.revisions.measurement.history_entry",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-history-module.revisions.measurement.row_restore",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.revisions.measurement.row_restore"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-history.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.revisions.measurement.row_restore",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-paste-module.timeline.measurement.paste_20x5_v2",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.paste_20x5_v2"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-paste.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.paste_20x5_v2",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-presence-module.collaboration.measurement.presence_cell",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.measurement.presence_cell"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-presence.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.collaboration.measurement.presence_cell",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-presence-module.collaboration.measurement.presence_row",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.measurement.presence_row"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-presence.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.collaboration.measurement.presence_row",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-presence-module.collaboration.measurement.presence_surface",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.measurement.presence_surface"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-presence.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.collaboration.measurement.presence_surface",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_filter_first_useful_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_filter_first_useful_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.ac044_filter_first_useful_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_filter_stable_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_filter_stable_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.ac044_filter_stable_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_group_first_useful_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_group_first_useful_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.ac044_group_first_useful_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_group_stable_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_group_stable_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.ac044_group_stable_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_sort_first_useful_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_sort_first_useful_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.ac044_sort_first_useful_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_sort_stable_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_sort_stable_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-resettable-default-module.timeline.measurement.ac044_sort_stable_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-apply-module.imports.measurement.csv_apply",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.csv_apply",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.csv_apply"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-apply.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-apply-module.imports.measurement.xlsx_apply",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.xlsx_apply",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.xlsx_apply"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-apply.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-discovery-module.imports.measurement.csv_discovery",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.csv_discovery",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.csv_discovery"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-discovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-discovery-module.imports.measurement.xlsx_discovery",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.xlsx_discovery",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.xlsx_discovery"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-discovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
         },
         {
           "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
@@ -4063,6 +5205,54 @@
             "object_store",
             "postgres"
           ]
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-reporting-progress-module.reporting.measurement.render_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.reporting.measurement.render_progress",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.reporting.measurement.render_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reporting-progress.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-reporting-progress-module.reporting.measurement.snapshot_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.reporting.measurement.snapshot_progress",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.reporting.measurement.snapshot_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reporting-progress.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1"
         },
         {
           "name": "measurement-network-flow-claimed-network-flow-navigation-module.networkflow.measurement.exploration_graph_dom_ceiling",
@@ -5462,6 +6652,144 @@
           ]
         },
         {
+          "name": "measurement-measurement-evidence-inspector-module.timeline.measurement.evidence_inspector_v2",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.evidence_inspector_v2"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/evidence-inspector.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.evidence_inspector_v2",
+          "fixture_profile_id": "evidence_heavy_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-evidence-verification-module.evidence.measurement.verification_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.evidence.measurement.verification_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/evidence-verification.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.evidence.measurement.verification_progress",
+          "fixture_profile_id": "evidence_heavy_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-reference-pack-progress-module.reference_data.measurement.import_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.reference_data.measurement.import_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reference-pack-progress.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.reference_data.measurement.import_progress",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-reference-pack-progress-module.reference_data.measurement.refresh_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.reference_data.measurement.refresh_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reference-pack-progress.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.reference_data.measurement.refresh_progress",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-reference-pack-progress-module.reference_data.measurement.reverify_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.reference_data.measurement.reverify_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reference-pack-progress.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.reference_data.measurement.reverify_progress",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-anchor-trace-module.timeline.measurement.ac047_anchor_trace",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac047_anchor_trace"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-anchor-trace.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.ac047_anchor_trace",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
           "target": "browser-e2e-measurement",
           "kind": "measurement",
@@ -5482,7 +6810,7 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-default-module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
         },
         {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
@@ -5505,7 +6833,7 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-default-module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
         },
         {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
@@ -5528,7 +6856,7 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-default-module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
         },
         {
           "name": "measurement-measurement-timeline-grid-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
@@ -5551,7 +6879,402 @@
             "postgres"
           ],
           "browser_session_group": "browser-e2e-default-module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
-          "fixture_profile_id": "ac043_large_grid_snapshot_v1"
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-history-module.revisions.measurement.change_set",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.revisions.measurement.change_set"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-history.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.revisions.measurement.change_set",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-history-module.revisions.measurement.history_entry",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.revisions.measurement.history_entry"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-history.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.revisions.measurement.history_entry",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-history-module.revisions.measurement.row_restore",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.revisions.measurement.row_restore"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-history.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.revisions.measurement.row_restore",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-paste-module.timeline.measurement.paste_20x5_v2",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.paste_20x5_v2"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-paste.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.paste_20x5_v2",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-presence-module.collaboration.measurement.presence_cell",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.measurement.presence_cell"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-presence.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.collaboration.measurement.presence_cell",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-presence-module.collaboration.measurement.presence_row",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.measurement.presence_row"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-presence.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.collaboration.measurement.presence_row",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-presence-module.collaboration.measurement.presence_surface",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.collaboration.measurement.presence_surface"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-presence.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.collaboration.measurement.presence_surface",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_filter_first_useful_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_filter_first_useful_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.ac044_filter_first_useful_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_filter_stable_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_filter_stable_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.ac044_filter_stable_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_group_first_useful_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_group_first_useful_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.ac044_group_first_useful_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_group_stable_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_group_stable_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.ac044_group_stable_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_sort_first_useful_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_sort_first_useful_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.ac044_sort_first_useful_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-measurement-timeline-view-change-module.timeline.measurement.ac044_sort_stable_viewport",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "selected_row_ids": [
+            "module.timeline.measurement.ac044_sort_stable_viewport"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/timeline-view-change.spec.ts"
+          ],
+          "runtime_profile_id": "default",
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "browser_session_group": "browser-e2e-default-module.timeline.measurement.ac044_sort_stable_viewport",
+          "fixture_profile_id": "timeline_large_grid_snapshot_v2"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-apply-module.imports.measurement.csv_apply",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.csv_apply",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.csv_apply"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-apply.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-apply-module.imports.measurement.xlsx_apply",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.xlsx_apply",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.xlsx_apply"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-apply.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-discovery-module.imports.measurement.csv_discovery",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.csv_discovery",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.csv_discovery"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-discovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-import-discovery-module.imports.measurement.xlsx_discovery",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.imports.measurement.xlsx_discovery",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.imports.measurement.xlsx_discovery"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/import-discovery.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_import_snapshot_v1"
         },
         {
           "name": "measurement-network-flow-claimed-measurement-network-flow-grid-module.networkflow.measurement.measure_bounded_dom_growth_and_semantic_reachabi_297b6a7322",
@@ -5621,6 +7344,54 @@
             "object_store",
             "postgres"
           ]
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-reporting-progress-module.reporting.measurement.render_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.reporting.measurement.render_progress",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.reporting.measurement.render_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reporting-progress.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1"
+        },
+        {
+          "name": "measurement-network-flow-claimed-measurement-reporting-progress-module.reporting.measurement.snapshot_progress",
+          "target": "browser-e2e-measurement",
+          "kind": "measurement",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_measurement",
+          "workers": "1",
+          "runtime_profile_id": "network_flow_claimed",
+          "browser_session_group": "browser-measurement-network-flow-claimed-module.reporting.measurement.snapshot_progress",
+          "browser_session_isolation_reason": "claimed Network Flow measurement evidence requires immutable startup-only extension configuration",
+          "selected_row_ids": [
+            "module.reporting.measurement.snapshot_progress"
+          ],
+          "specs": [
+            "apps/web/e2e/measurement/reporting-progress.spec.ts"
+          ],
+          "resource_profile_id": "browser_measurement_quiet",
+          "service_requirement": "test-services",
+          "service_dependencies": [
+            "object_store",
+            "postgres"
+          ],
+          "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1"
         },
         {
           "name": "measurement-network-flow-claimed-network-flow-navigation-module.networkflow.measurement.exploration_graph_dom_ceiling",
@@ -5702,7 +7473,8 @@
             "module.workbook.accessibility.inspector_entity_ordinary_edit_reveal_c435d77f80",
             "module.workbook.accessibility.inspector_evidence_reference_shortcut_reveal_afdc31949c",
             "module.workbook.accessibility.inspector_timeline_ordinary_edit_reveal_f4bd40fdfb",
-            "module.workbook.accessibility.reference_picker"
+            "module.workbook.accessibility.reference_picker",
+            "module.workbook.accessibility.source_workbook_inspector_edit_spec_ts_34633fc46b"
           ],
           "specs": [
             "apps/web/e2e/workbook-inspector-edit.spec.ts"
@@ -5729,6 +7501,7 @@
             "module.entities.accessibility.mention_arrow_navigation_reveals_focused_inspect_524ff6af49",
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.file_recovery",
+            "module.evidence.accessibility.verification_progress",
             "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.independent_discovery_continuity",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",

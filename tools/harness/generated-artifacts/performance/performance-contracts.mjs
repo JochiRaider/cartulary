@@ -12,7 +12,7 @@ import {
   snapshotKeyEnvelope,
 } from "../../performance-fixture/index.mjs";
 
-const performanceSchemaID = "cartulary.performance_interaction_contract.v1";
+const performanceSchemaID = "cartulary.performance_interaction_contract.v2";
 const policySchemaID = "cartulary.measurement_policy.v1";
 const generatorID = "cartulary.performance_contract_generation.v1";
 
@@ -37,9 +37,44 @@ function loadJSON(file, schemaID) {
   return { bytes, value };
 }
 
-export function loadPerformanceContracts(performancePath, policyPath) {
+export function validateViewChangeCapabilities(contract, viewSchema) {
+  const fields = new Map(viewSchema.fields.map(field => [field.field_key, field]));
+  const {sort, filter, group} = contract.workloads;
+  if (contract.view_schema_id !== viewSchema.view_schema_id ||
+    !fields.get(sort.field_key)?.sortable ||
+    !fields.get(filter.field_key)?.filter_ops.includes(filter.operator) ||
+    !fields.get(group.field_key)?.groupable ||
+    !fields.get(group.field_key)?.enum_values?.includes(group.value)) {
+    throw new Error("view-change workload exceeds its admitted view capabilities");
+  }
+}
+
+export function loadPerformanceContracts({ performancePath, policyPath, pastePath, fixturePath, viewChangePath, viewSchemaPath, presencePath, historyPath, anchorPath, importDiscoveryPath, importApplyPath, reportingProgressPath, evidenceVerificationPath, evidenceInspectorPath, referencePackProgressPath }) {
+  const evidenceVerification = loadJSON(evidenceVerificationPath, "cartulary.performance_evidence_verification_contract.v1");
+  const evidenceInspector = loadJSON(evidenceInspectorPath, "cartulary.performance_evidence_inspector_contract.v1");
+  if (evidenceVerification.value.fixture_contract_id !== evidenceInspector.value.contract_id || evidenceVerification.value.workload.object_bytes !== evidenceInspector.value.fixture.object_bytes || evidenceVerification.value.workload.preview_preflight_records !== evidenceInspector.value.fixture.linked_evidence_count) throw new Error("Evidence verification fixture binding differs from its owner");
+  const referencePackProgress = loadJSON(referencePackProgressPath, "cartulary.performance_reference_pack_progress_contract.v1");
+  const reportingProgress = loadJSON(reportingProgressPath, "cartulary.performance_reporting_progress_contract.v1");
+  const importDiscovery = loadJSON(importDiscoveryPath, "cartulary.performance_import_discovery_contract.v1");
+  const importApply = loadJSON(importApplyPath, "cartulary.performance_import_apply_contract.v1");
   const performance = loadJSON(performancePath, performanceSchemaID);
   const policy = loadJSON(policyPath, policySchemaID);
+  const presence = loadJSON(presencePath, "cartulary.performance_presence_contract.v2");
+  const anchor = loadJSON(anchorPath, "cartulary.performance_anchor_trace_contract.v1");
+  const history = loadJSON(historyPath, "cartulary.performance_history_contract.v2");
+  const paste = loadJSON(pastePath, "cartulary.performance_paste_contract.v1");
+  const viewSchema = loadJSON(viewSchemaPath, "cartulary.view_schema_source.v1");
+  const viewChange = loadJSON(viewChangePath, "cartulary.performance_view_change_contract.v1");
+  validateViewChangeCapabilities(viewChange.value, viewSchema.value);
+  const fixture = loadJSON(fixturePath, "cartulary.performance_large_grid_contract.v1");
+  if (referencePackProgress.value.fixture_contract_id !== fixture.value.contract_id) throw new Error("Reference Pack progress fixture reference differs from the shared owner");
+  if (reportingProgress.value.fixture_contract_id !== fixture.value.contract_id) throw new Error("Reporting progress fixture reference differs from the shared owner");
+  if (importApply.value.fixture_contract_id !== fixture.value.contract_id) {
+    throw new Error("Import apply fixture reference does not match the shared large-grid owner");
+  }
+  if (importDiscovery.value.fixture_contract_id !== fixture.value.contract_id || anchor.value.fixture_contract_id !== fixture.value.contract_id || history.value.fixture_contract_id !== fixture.value.contract_id || presence.value.fixture_contract_id !== fixture.value.contract_id || viewChange.value.fixture_contract_id !== fixture.value.contract_id || viewChange.value.measurement_policy_id !== policy.value.policy_id || paste.value.fixture_contract_id !== fixture.value.contract_id || performance.value.fixture_contract_id !== fixture.value.contract_id) {
+    throw new Error("performance fixture reference does not match the shared large-grid owner");
+  }
   if (performance.value.measurement_policy_id !== policy.value.policy_id) {
     throw new Error(
       `${performancePath}.measurement_policy_id does not match ${policyPath}.policy_id`,
@@ -55,33 +90,58 @@ export function loadPerformanceContracts(performancePath, policyPath) {
     inputSha256: createHash("sha256")
       .update(performance.bytes)
       .update(policy.bytes)
+      .update(paste.bytes)
+      .update(fixture.bytes)
+      .update(viewChange.bytes)
+      .update(viewSchema.bytes)
+      .update(presence.bytes)
+      .update(history.bytes)
+      .update(anchor.bytes)
+      .update(importDiscovery.bytes)
+      .update(importApply.bytes)
+      .update(referencePackProgress.bytes)
+      .update(reportingProgress.bytes)
+      .update(evidenceVerification.bytes)
+      .update(evidenceInspector.bytes)
       .digest("hex"),
     performance: performance.value,
+    viewChange: viewChange.value,
+    presence: presence.value,
+    history: history.value,
+    anchor: anchor.value,
+    importDiscovery: importDiscovery.value,
+    importApply: importApply.value,
+    referencePackProgress: referencePackProgress.value,
+    reportingProgress: reportingProgress.value,
+    evidenceVerification: evidenceVerification.value,
+    paste: paste.value,
+    fixture: fixture.value,
     policy: policy.value,
   };
 }
 
 export function renderPerformanceContractsTypeScript(document) {
-  const fixture = document.performance.fixture;
+  const fixture = document.fixture.fixture;
+  const sharedFixture = {
+    fixtureId: fixture.fixture_id,
+    seed: fixture.seed,
+    timelineRows: fixture.timeline_rows,
+    hostRows: fixture.host_rows,
+    identityRows: fixture.identity_rows,
+    tagAssignments: fixture.tag_assignments,
+    mentionAssignments: fixture.mention_assignments,
+    linkAssignments: fixture.link_assignments,
+    analystSessions: fixture.analyst_sessions,
+    backgroundSessions: fixture.background_sessions,
+    backgroundUpdateIntervalMs: fixture.background_update_interval_ms,
+    backgroundUpdatesPerSecond: fixture.background_updates_per_second,
+    trafficTraceId: fixture.traffic_trace_id,
+  };
   const performance = {
     contractId: document.performance.contract_id,
     criterionId: document.performance.criterion_id,
     measurementPolicyId: document.performance.measurement_policy_id,
-    fixture: {
-      fixtureId: fixture.fixture_id,
-      seed: fixture.seed,
-      timelineRows: fixture.timeline_rows,
-      hostRows: fixture.host_rows,
-      identityRows: fixture.identity_rows,
-      tagAssignments: fixture.tag_assignments,
-      mentionAssignments: fixture.mention_assignments,
-      linkAssignments: fixture.link_assignments,
-      analystSessions: fixture.analyst_sessions,
-      backgroundSessions: fixture.background_sessions,
-      backgroundUpdateIntervalMs: fixture.background_update_interval_ms,
-      backgroundUpdatesPerSecond: fixture.background_updates_per_second,
-      trafficTraceId: fixture.traffic_trace_id,
-    },
+    fixtureContractId: document.performance.fixture_contract_id,
     predicates: document.performance.predicates.map((predicate) => ({
       predicateId: predicate.predicate_id,
       viewSchemaId: predicate.view_schema_id,
@@ -110,8 +170,28 @@ export function renderPerformanceContractsTypeScript(document) {
     `// Input SHA-256: ${document.inputSha256}`,
     "",
     `export const cartularyAc043PerformanceContract = ${JSON.stringify(performance, null, 2)} as const;`,
+    `export const cartularyLargeGridFixture = ${JSON.stringify(sharedFixture, null, 2)} as const;`,
     "",
     `export const cartularyInteractiveP95MeasurementPolicy = ${JSON.stringify(policy, null, 2)} as const;`,
+    "",
+    `export const cartularyAc003PerformanceContract = ${JSON.stringify(document.paste, null, 2)} as const;`,
+    "",
+    `export const cartularyPresencePerformanceContract = ${JSON.stringify(document.presence, null, 2)} as const;`,
+    'export type CartularyPresencePredicateId = (typeof cartularyPresencePerformanceContract.predicates)[number]["predicate_id"];',
+    `export const cartularyAnchorTraceContract = ${JSON.stringify(document.anchor, null, 2)} as const;`,
+    `export const cartularyImportDiscoveryPerformanceContract = ${JSON.stringify(document.importDiscovery, null, 2)} as const;`,
+    'export type CartularyImportDiscoveryPredicateId = (typeof cartularyImportDiscoveryPerformanceContract.predicates)[number]["predicate_id"];',
+    `export const cartularyEvidenceVerificationContract = ${JSON.stringify(document.evidenceVerification, null, 2)} as const;`,
+    `export const cartularyReferencePackProgressContract = ${JSON.stringify(document.referencePackProgress, null, 2)} as const;`,
+    'export type CartularyReferencePackProgressPredicateId = (typeof cartularyReferencePackProgressContract.predicates)[number]["predicate_id"];',
+    `export const cartularyReportingProgressContract = ${JSON.stringify(document.reportingProgress, null, 2)} as const;`,
+    'export type CartularyReportingProgressPredicateId = (typeof cartularyReportingProgressContract.predicates)[number]["predicate_id"];',
+    `export const cartularyImportApplyPerformanceContract = ${JSON.stringify(document.importApply, null, 2)} as const;`,
+    'export type CartularyImportApplyPredicateId = (typeof cartularyImportApplyPerformanceContract.predicates)[number]["predicate_id"];',
+    `export const cartularyHistoryPerformanceContract = ${JSON.stringify(document.history, null, 2)} as const;`,
+    'export type CartularyHistoryPredicateId = (typeof cartularyHistoryPerformanceContract.predicates)[number]["predicate_id"];',
+    `export const cartularyAc044PerformanceContract = ${JSON.stringify(document.viewChange, null, 2)} as const;`,
+    "export type CartularyAc044PredicateId = (typeof cartularyAc044PerformanceContract.predicates)[number][\"predicate_id\"];",
     "",
     "export type CartularyAc043Predicate = (typeof cartularyAc043PerformanceContract.predicates)[number];",
     "export type CartularyAc043PredicateId = CartularyAc043Predicate[\"predicateId\"];",
@@ -121,10 +201,13 @@ export function renderPerformanceContractsTypeScript(document) {
 
 export function loadPerformanceFixtureProfiles(root) {
   const loaded = loadPerformanceFixtureSnapshotRegistry(root);
-  return [...loaded.profiles.values()]
-    .sort((left, right) =>
-      compareUnicodeCodePoints(left.fixture_profile_id, right.fixture_profile_id),
-    );
+  return orderedFixtureProfiles(loaded.profiles.values());
+}
+
+function orderedFixtureProfiles(profiles) {
+  return [...profiles].sort((left, right) =>
+    compareUnicodeCodePoints(left.fixture_profile_id, right.fixture_profile_id),
+  );
 }
 
 function descriptorProjection(profile) {
@@ -142,13 +225,14 @@ function descriptorProjection(profile) {
     contributions: profile.contributions,
     semantic_expectations: profile.semantic_expectations,
     runtime_credential_sets: profile.runtime_credential_sets,
+    object_population: profile.object_population,
     artifact_policy: profile.artifact_policy,
     redaction_policy: profile.redaction_policy,
   };
 }
 
 export function renderPerformanceFixtureProfilesGo(profiles) {
-  const catalog = profiles.map(descriptorProjection);
+  const catalog = orderedFixtureProfiles(profiles).map(descriptorProjection);
   return [
     `// Code generated by ${generatorID}; DO NOT EDIT.`,
     "",
@@ -201,6 +285,11 @@ export function renderPerformanceFixtureProfilesGo(profiles) {
     '\tAccountCount int `json:"account_count"`',
     "}",
     "",
+    "type ObjectPopulation struct {",
+    '\tObjectCount int `json:"object_count"`',
+    '\tTotalBytes int64 `json:"total_bytes"`',
+    "}",
+    "",
     "type ArtifactPolicy struct {",
     '\tSnapshotKeySchemaID string `json:"snapshot_key_schema_id"`',
     '\tBuildSchemaID string `json:"build_schema_id"`',
@@ -228,6 +317,7 @@ export function renderPerformanceFixtureProfilesGo(profiles) {
     '\tSemanticExpectations SemanticExpectations `json:"semantic_expectations"`',
     '\tRuntimeCredentialSets []RuntimeCredentialSet `json:"runtime_credential_sets"`',
     '\tArtifactPolicy ArtifactPolicy `json:"artifact_policy"`',
+    '\tObjectPopulation ObjectPopulation `json:"object_population"`',
     '\tRedactionPolicy RedactionPolicy `json:"redaction_policy"`',
     "}",
     "",
@@ -256,7 +346,7 @@ export function renderPerformanceFixtureProfilesGo(profiles) {
 export function renderPerformanceFixtureKeyVectors(profiles) {
   const migrationDigest = "e".repeat(64);
   const sourceContractDigest = "f".repeat(64);
-  const vectors = profiles.map((profile) => {
+  const vectors = orderedFixtureProfiles(profiles).map((profile) => {
     const vectorProfile = {
       ...profile,
       source_contract_digest: sourceContractDigest,

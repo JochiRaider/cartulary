@@ -6,24 +6,28 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/app/workbookassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
+	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	referencefixture "github.com/JochiRaider/cartulary/internal/modules/reference_data/testsupport"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 )
 
 type Owners struct {
-	Entities    *hostidentity.Store
-	Timeline    *timeline.PerformanceFixtureContribution
-	Projections *projectionassembly.Runtime
+	Evidence          *evidence.PerformanceFixtureContribution
+	Entities          *hostidentity.Store
+	Timeline          *timeline.PerformanceFixtureContribution
+	TimelineMutations *timeline.Facade
+	Projections       *projectionassembly.Runtime
 }
 
 // NewOwners composes owner mutation and query facades for a harness-owned
 // database through the same revision, projection, and conflict boundaries as
 // production application assembly, without starting HTTP transport.
-func NewOwners(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCodec) (*Owners, error) {
+func NewOwners(pool postgres.DB, objects objectstore.TypedStore, conflictTokens conflicttokens.ConflictTokenCodec) (*Owners, error) {
 	intents := collaborationsupport.NewRecordChangedAppender()
 	contributions, err := revisionassembly.CurrentProviderContributions(referencefixture.IndicatorRegistry{})
 	if err != nil {
@@ -39,12 +43,11 @@ func NewOwners(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCode
 	}
 	appender := revisionRuntime.Appender()
 	conflictFields := revisionRuntime.ConflictFieldResolver()
-	evidenceOwner := appsupport.NewEvidenceOwnerRuntime(
+	evidenceOwner := appsupport.NewEvidenceSourceRuntime(
 		pool,
 		conflictTokens,
 		appender,
 		intents,
-		appsupport.UnavailableEvidenceObjectStore(),
 		conflictFields,
 		workbookassembly.NewConflictIdempotencyPort(pool),
 		projectionRuntime,
@@ -75,8 +78,10 @@ func NewOwners(pool postgres.DB, conflictTokens conflicttokens.ConflictTokenCode
 		return nil, err
 	}
 	return &Owners{
-		Entities:    entityStore,
-		Timeline:    timelineBundle.PerformanceFixture,
-		Projections: projectionRuntime,
+		Evidence:          evidence.NewPerformanceFixtureContribution(pool, objects, evidenceOwner),
+		Entities:          entityStore,
+		Timeline:          timelineBundle.PerformanceFixture,
+		TimelineMutations: timelineBundle.Facade,
+		Projections:       projectionRuntime,
 	}, nil
 }

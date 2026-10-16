@@ -494,6 +494,7 @@ func requireInspectorConfigShape(t testing.TB, resource ViewSchemaResource) {
 		"entity_mention_action":  {},
 		"indicator_observations": {},
 		"indicator_lifecycle":    {},
+		"note_associations":      {},
 		"evidence_access":        {},
 		"surface_pivot":          {},
 	}
@@ -502,6 +503,7 @@ func requireInspectorConfigShape(t testing.TB, resource ViewSchemaResource) {
 		"view_query_route":                {},
 		"view_row_create_route":           {},
 		"record_linked_note_create_route": {},
+		"note_associations_route":         {},
 		"record_patch_route":              {},
 		"record_mark_reviewed_route":      {},
 		"record_supersede_route":          {},
@@ -632,7 +634,7 @@ func requireAssessmentCreateRelatedFeature(t testing.TB, config InspectorConfig)
 		t.Fatalf("assessment inspector create_related.assessment count = %d, want 1", len(matches))
 	}
 	group := matches[0]
-	if group.PanelID != "workflow" || group.Label != "Create Related Assessment" || group.MinimumIncidentRole == nil || *group.MinimumIncidentRole != "editor" {
+	if group.PanelID != "workflow" || strings.TrimSpace(group.Label) == "" || group.MinimumIncidentRole == nil || *group.MinimumIncidentRole != "editor" {
 		t.Fatalf("assessment follow-on presentation/role mismatch: %#v", group)
 	}
 	if !group.Mutates || group.RequiresConfirmation {

@@ -9,6 +9,76 @@ import { createContractTestContext } from "./contract-test-context.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
+test("renderer context rejects missing browser capacity and unrelated service fixtures before selection", () => {
+  const read = fs.readFileSync;
+  const manifestPath = path.join(root, "tools/test_families/module.reporting.json");
+  let mutation = {};
+  fs.readFileSync = (file, ...args) => {
+    const value = read(file, ...args);
+    if (String(file) !== manifestPath) return value;
+    const manifest = JSON.parse(value);
+    const row = manifest.rows.find((entry) => entry.row_id === "module.reporting.integration.renderer_slidev");
+    Object.assign(row, mutation);
+    return JSON.stringify(manifest);
+  };
+  syncBuiltinESMExports();
+  try {
+    for (const entry of [
+      { resource_profile_id: "standard" },
+      { process_isolation: undefined },
+      { runtime_profile_id: "default" },
+      { evidence_class: "security" },
+      { evidence_class: "unit" },
+    ]) {
+      mutation = entry;
+      assert.throws(() => createContractTestContext(root).catalogMetadata, /renderer-node|installed renderer preparation/u);
+    }
+    mutation = {};
+    assert.ok(createContractTestContext(root).catalogMetadata.rows.some((row) => row.row_id === "module.reporting.integration.renderer_slidev" && row.preparation_targets.includes("build-report-renderer")));
+  } finally {
+    fs.readFileSync = read;
+    syncBuiltinESMExports();
+  }
+});
+
+test("catalog preparation is closed and Go browser preparation requires owned capacity", () => {
+  const read = fs.readFileSync;
+  const manifestPath = path.join(root, "tools/test_families/module.reporting.json");
+  let mutation = {};
+  let schemaID;
+  fs.readFileSync = (file, ...args) => {
+    const value = read(file, ...args);
+    if (String(file) !== manifestPath) return value;
+    const manifest = JSON.parse(value);
+    if (schemaID) manifest.schema_id = schemaID;
+    const row = manifest.rows.find((entry) => entry.row_id === "module.reporting.integration.renderer_stage_boundary");
+    Object.assign(row, mutation);
+    return JSON.stringify(manifest);
+  };
+  syncBuiltinESMExports();
+  try {
+    for (const entry of [
+      { preparation_targets: ["arbitrary-command"] },
+      { preparation_targets: ["frontend-install", "frontend-install"] },
+      { preparation_targets: ["playwright-install", "frontend-install"] },
+      { preparation_targets: ["playwright-install"] },
+      { preparation_targets: ["build-report-renderer"], resource_profile_id: "standard" },
+      { preparation_targets: ["build-report-renderer"], process_isolation: undefined },
+      { resource_profile_id: "standard" },
+      { process_isolation: undefined },
+    ]) {
+      mutation = entry;
+      assert.throws(() => createContractTestContext(root).catalogMetadata);
+    }
+    mutation = {};
+    schemaID = "cartulary.test_family_manifest.v7";
+    assert.throws(() => createContractTestContext(root).catalogMetadata);
+  } finally {
+    fs.readFileSync = read;
+    syncBuiltinESMExports();
+  }
+});
+
 test("metadata fixtures preserve current catalog facts without acquiring source selectors", () => {
   const read = fs.readFileSync;
   const ownerPath = path.join(root, "tools/test_catalog_owner.json");
@@ -66,7 +136,7 @@ test("catalog package closure rejects a silently removed helper test", () => {
   };
   syncBuiltinESMExports();
   try {
-    assert.throws(() => loadTestCatalog(root), /TestLoadFixture is not cataloged exactly once/u);
+    assert.throws(() => loadTestCatalog(root), /go:.\/internal\/testutil\/configtest:TestLoadFixture/u);
   } finally {
     fs.readFileSync = read;
     syncBuiltinESMExports();

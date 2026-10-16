@@ -14,12 +14,14 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 type PreparedFixture struct {
+	ObjectSnapshot        *ObjectSnapshotSummary
 	DatabaseName          string
 	DSN                   string
 	Bucket                string
@@ -40,6 +42,7 @@ type PreparedFixture struct {
 }
 
 type LeaseMetadata struct {
+	ObjectSnapshot    *ObjectSnapshotSummary
 	DatabaseName      string
 	Bucket            string
 	FixtureProfileID  string
@@ -51,6 +54,14 @@ type LeaseMetadata struct {
 	CloneOrdinal      int
 	RuntimeBundleRoot string
 }
+
+type preparationFailure struct {
+	cause   error
+	cleanup []CleanupResult
+}
+
+func (failure *preparationFailure) Error() string { return failure.cause.Error() }
+func (failure *preparationFailure) Unwrap() error { return failure.cause }
 
 type CleanupPorts struct {
 	CleanupSessions func(context.Context, map[string]string, string) error
@@ -65,10 +76,18 @@ func Prepare(ctx context.Context, env map[string]string) (PreparedFixture, error
 	if err != nil {
 		return PreparedFixture{}, err
 	}
-	return prepareWithProfile(ctx, env, profile)
+	build, err := readBuildArtifact(env, profile)
+	if err != nil {
+		return PreparedFixture{}, err
+	}
+	return prepareWithProfile(ctx, env, profile, build)
 }
 
-func prepareWithProfile(ctx context.Context, env map[string]string, profile performancefixtureprofile.Profile) (PreparedFixture, error) {
+func prepareWithProfile(ctx context.Context, env map[string]string, profile performancefixtureprofile.Profile, build BuildArtifact) (_ PreparedFixture, retErr error) {
+	if err := validatePreparedBuild(env, profile, build); err != nil {
+		return PreparedFixture{}, err
+	}
+
 	key := strings.TrimSpace(env["CARTULARY_FIXTURE_SNAPSHOT_KEY"])
 	builderID := strings.TrimSpace(env["CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID"])
 	rowID := strings.TrimSpace(env["CARTULARY_FIXTURE_ROW_ID"])
@@ -92,46 +111,75 @@ func prepareWithProfile(ctx context.Context, env map[string]string, profile perf
 	if err := cloneDatabase(ctx, adminDSN, templateName, cloneName); err != nil {
 		return PreparedFixture{}, err
 	}
+	// All allocations remain owned here until complete restoration admits the
+	// consumer. Cancellation cannot suppress cleanup of a partial destination.
+	var s3Harness *s3test.Harness
+	var bucket, destinationRoot string
+	defer func() {
+		if retErr == nil {
+			return
+		}
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		bucketOutcome, credentialOutcome := "not_acquired", "not_acquired"
+		if destinationRoot != "" {
+			err := fixture.RemoveRuntimeBundle(destinationRoot)
+			credentialOutcome = cleanupOutcome(err)
+			retErr = errors.Join(retErr, err)
+		}
+		if bucket != "" {
+			err := s3Harness.CleanupBucket(cleanupCtx, bucket)
+			bucketOutcome = cleanupOutcome(err)
+			retErr = errors.Join(retErr, err)
+		}
+		databaseErr := dropDatabase(cleanupCtx, adminDSN, cloneName)
+		retErr = &preparationFailure{cause: errors.Join(retErr, databaseErr), cleanup: cleanupResults(bucketOutcome, credentialOutcome, cleanupOutcome(databaseErr), "not_acquired", "not_acquired")}
+	}()
 	dsn, err := replaceDatabaseInDSN(adminDSN, cloneName)
 	if err != nil {
-		_ = dropDatabase(context.Background(), adminDSN, cloneName)
 		return PreparedFixture{}, err
 	}
-	s3Harness, err := s3test.StartShared(ctx)
+	s3Harness, err = s3test.StartShared(ctx)
 	if err != nil {
-		_ = dropDatabase(context.Background(), adminDSN, cloneName)
 		return PreparedFixture{}, fmt.Errorf("attach suite object-store: %w", err)
 	}
-	bucket, err := s3Harness.BootstrapBucket(ctx, "web-e2e")
+	bucket, err = s3Harness.BootstrapBucket(ctx, "web-e2e")
 	if err != nil {
-		_ = dropDatabase(context.Background(), adminDSN, cloneName)
 		return PreparedFixture{}, err
 	}
-	templateRuntimeRoot, err := templateRuntimeRoot(env, key)
+	templateRoot, err := templateRuntimeRoot(env, key)
 	if err != nil {
-		_ = dropDatabase(context.Background(), adminDSN, cloneName)
-		_ = s3Harness.CleanupBucket(context.Background(), bucket)
 		return PreparedFixture{}, err
 	}
-	destinationRoot, err := cloneRuntimeRoot(env, leaseID)
+	objects, err := objectstore.Setup(ctx, objectstore.Settings{
+		BindingKind: "managed_service", Endpoint: s3Harness.Endpoint,
+		AccessKey: s3Harness.AccessKey, SecretKey: s3Harness.SecretKey,
+		Secure: s3Harness.Secure, Bucket: bucket, RootCertificatePath: s3Harness.RootCertificatePath(),
+	}, objectstore.Instrumentation{})
 	if err != nil {
-		_ = dropDatabase(context.Background(), adminDSN, cloneName)
-		_ = s3Harness.CleanupBucket(context.Background(), bucket)
 		return PreparedFixture{}, err
 	}
-	if err := os.MkdirAll(filepath.Dir(destinationRoot), 0o700); err != nil {
-		_ = dropDatabase(context.Background(), adminDSN, cloneName)
-		_ = s3Harness.CleanupBucket(context.Background(), bucket)
+	restoreErr := restoreObjectSnapshot(ctx, templateRoot, key, *build.ObjectSnapshot, objects)
+	closeErr := objects.Close()
+	if err := errors.Join(restoreErr, closeErr); err != nil {
 		return PreparedFixture{}, err
 	}
-	bundlePath, err := fixture.CopyRuntimeBundle(profile, filepath.Join(templateRuntimeRoot, fixture.RuntimeBundleName), destinationRoot)
+	candidateRoot, err := cloneRuntimeRoot(env, leaseID)
 	if err != nil {
-		_ = dropDatabase(context.Background(), adminDSN, cloneName)
-		_ = s3Harness.CleanupBucket(context.Background(), bucket)
 		return PreparedFixture{}, err
 	}
+	if err := os.MkdirAll(filepath.Dir(candidateRoot), 0o700); err != nil {
+		return PreparedFixture{}, err
+	}
+	bundlePath, err := fixture.CopyRuntimeBundle(profile, filepath.Join(templateRoot, fixture.RuntimeBundleName), candidateRoot)
+	if err != nil {
+		return PreparedFixture{}, err
+	}
+	destinationRoot = candidateRoot
+	proof := *build.ObjectSnapshot
 	return PreparedFixture{
 		DatabaseName:          cloneName,
+		ObjectSnapshot:        &proof,
 		DSN:                   dsn,
 		Bucket:                bucket,
 		S3Endpoint:            s3Harness.Endpoint,
@@ -170,6 +218,7 @@ func cleanupLeaseWithProfile(ctx context.Context, env map[string]string, profile
 	processClean := env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] == "1"
 	artifact := leaseArtifact{
 		SchemaID:          profile.ArtifactPolicy.LeaseSchemaID,
+		ObjectSnapshot:    metadata.ObjectSnapshot,
 		FixtureProfileID:  profile.FixtureProfileID,
 		SnapshotKey:       metadata.SnapshotKey,
 		BuilderUnitID:     metadata.BuilderUnitID,

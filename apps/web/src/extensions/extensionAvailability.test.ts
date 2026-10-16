@@ -152,6 +152,12 @@ describe("extension availability lifecycle", () => {
         workspace_keys: ["network_analysis"],
         capability_ids: [],
       }),
+      expect.objectContaining({
+        profile_id: "snapshot_reporting",
+        supported_contract_majors: [1],
+        workspace_keys: [],
+        capability_ids: [],
+      }),
     ]);
     expect(
       decodeClientExtensionSupportRegistry({

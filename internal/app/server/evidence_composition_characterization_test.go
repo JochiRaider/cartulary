@@ -3,48 +3,35 @@ package server
 import (
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/timelineassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 	runtimeType := reflect.TypeOf(Runtime{})
-	wantFields := map[string]struct{}{
-		"handler":                      {},
-		"stagedJanitor":                {},
-		"referenceCollector":           {},
-		"jobRunner":                    {},
-		"collaborationRuntime":         {},
-		"evidenceCleanupDispatcher":    {},
-		"networkFlowCleanupDispatcher": {},
-		"processLease":                 {},
-		"servingLease":                 {},
-		"lifecycle":                    {},
-		"publication":                  {},
-		"publicHTTP":                   {},
-		"shutdownDrainTimeout":         {},
-		"reconciliationTimeout":        {},
-		"stagedObjectSweepPeriod":      {},
-		"closeOnce":                    {},
-		"publicationOnce":              {},
-		"cleanups":                     {},
-		"stagedJanitorContext":         {},
+	forbidden := []reflect.Type{
+		reflect.TypeOf((*evidence.OwnerRuntime)(nil)), reflect.TypeOf((*evidence.SourceRuntime)(nil)),
+		reflect.TypeOf((*postgres.DB)(nil)).Elem(), reflect.TypeOf((*objectstore.TypedStore)(nil)).Elem(),
 	}
-	if runtimeType.NumField() != len(wantFields) {
-		t.Fatalf("server Runtime field count = %d, want %d", runtimeType.NumField(), len(wantFields))
+	if violations := runtimeFieldBoundaryViolations(runtimeType, forbidden...); len(violations) != 0 {
+		t.Fatalf("server retains exposed storage or construction capabilities: %v", violations)
 	}
-	for index := 0; index < runtimeType.NumField(); index++ {
-		field := runtimeType.Field(index)
-		if field.IsExported() {
-			t.Fatalf("server Runtime field %q must remain private", field.Name)
-		}
-		if _, present := wantFields[field.Name]; !present {
-			t.Fatalf("server Runtime retains construction-only field %q", field.Name)
+	// Renaming or extracting private lifecycle state is harmless; exposing state
+	// or retaining a generic persistence/construction capability is not.
+	if got := runtimeFieldBoundaryViolations(reflect.TypeOf(struct {
+		renamed   int
+		extracted struct{ state bool }
+	}{}), forbidden...); len(got) != 0 {
+		t.Fatal("private implementation extraction rejected", got)
+	}
+	for _, candidate := range []any{struct{ Exposed int }{}, struct{ db postgres.DB }{}, struct{ owner *evidence.OwnerRuntime }{}} {
+		if got := runtimeFieldBoundaryViolations(reflect.TypeOf(candidate), forbidden...); len(got) == 0 {
+			t.Fatal("prohibited runtime capability escaped", reflect.TypeOf(candidate))
 		}
 	}
 	wantMethods := map[string]struct{}{
@@ -61,12 +48,6 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 			t.Fatalf("server Runtime is missing lifecycle method %q", methodName)
 		}
 	}
-	if _, exposed := runtimeType.FieldByName("EvidenceStore"); exposed {
-		t.Fatal("server Runtime unexpectedly exposes a production Evidence store")
-	}
-	if _, retained := runtimeType.FieldByName("evidenceOwner"); retained {
-		t.Fatal("server Runtime retains the construction-only Evidence owner")
-	}
 
 	timelineBundleType := reflect.TypeOf(timelineassembly.Bundle{})
 	if _, exposed := timelineBundleType.FieldByName("EvidenceStore"); exposed {
@@ -80,32 +61,39 @@ func TestEvidenceComposition_ServerOwnsNarrowRuntime(t *testing.T) {
 		t.Fatalf("Timeline performance fixture contribution type = %s, want %s", got, want)
 	}
 	ownerType := reflect.TypeOf(evidence.OwnerRuntime{})
-	wantOwnerFields := map[string]reflect.Type{
-		"postgres":     reflect.TypeOf((*postgres.DB)(nil)).Elem(),
-		"objectStore":  reflect.TypeOf((*objectstore.TypedStore)(nil)).Elem(),
-		"now":          reflect.TypeOf((func() time.Time)(nil)),
-		"routes":       nil,
-		"workbook":     reflect.TypeOf((*evidence.MutationContribution)(nil)).Elem(),
-		"attachments":  reflect.TypeOf((*evidence.TimelineAttachmentContribution)(nil)).Elem(),
-		"importCreate": reflect.TypeOf((*ownerfacade.ImportOwnerCreateFacade)(nil)).Elem(),
-		"cleanup":      reflect.TypeOf((*evidence.CleanupDispatcher)(nil)),
+	if violations := runtimeFieldBoundaryViolations(ownerType); len(violations) != 0 {
+		t.Fatalf("Evidence owner runtime exposes private state: %v", violations)
 	}
-	if ownerType.NumField() != len(wantOwnerFields) {
-		t.Fatalf("Evidence owner runtime field count = %d, want %d", ownerType.NumField(), len(wantOwnerFields))
+	wantOwnerMethods := map[string]reflect.Type{
+		"RouteRegistrar":                 reflect.TypeOf((httpapi.RouteRegistrar)(nil)),
+		"MutationContribution":           reflect.TypeOf((*evidence.MutationContribution)(nil)).Elem(),
+		"TimelineAttachmentContribution": reflect.TypeOf((*evidence.TimelineAttachmentContribution)(nil)).Elem(),
+		"ImportCreateFacade":             reflect.TypeOf((*ownerfacade.ImportOwnerCreateFacade)(nil)).Elem(),
+		"CleanupDispatcher":              reflect.TypeOf((*evidence.CleanupDispatcher)(nil)),
 	}
-	for fieldName, wantType := range wantOwnerFields {
-		field, present := ownerType.FieldByName(fieldName)
-		if !present {
-			t.Fatalf("Evidence owner runtime is missing narrow capability %q", fieldName)
-		}
-		if field.IsExported() {
-			t.Fatalf("Evidence owner runtime field %q must remain private", fieldName)
-		}
-		if wantType == nil && field.Type.Kind() != reflect.Interface {
-			t.Fatalf("Evidence owner runtime field %q type = %v, want private interface", fieldName, field.Type)
-		}
-		if wantType != nil && field.Type != wantType {
-			t.Fatalf("Evidence owner runtime field %q type = %v, want %v", fieldName, field.Type, wantType)
+	ownerPointer := reflect.PointerTo(ownerType)
+	if ownerPointer.NumMethod() != len(wantOwnerMethods) {
+		t.Fatal("Evidence owner public capability set changed")
+	}
+	for name, want := range wantOwnerMethods {
+		method, ok := ownerPointer.MethodByName(name)
+		if !ok || method.Type.NumOut() != 1 || method.Type.Out(0) != want {
+			t.Fatalf("Evidence owner capability %s no longer exposes its narrow interface", name)
 		}
 	}
+}
+
+func runtimeFieldBoundaryViolations(runtime reflect.Type, forbidden ...reflect.Type) []string {
+	var violations []string
+	for index := 0; index < runtime.NumField(); index++ {
+		field := runtime.Field(index)
+		invalid := field.IsExported()
+		for _, capability := range forbidden {
+			invalid = invalid || field.Type == capability
+		}
+		if invalid {
+			violations = append(violations, field.Name)
+		}
+	}
+	return violations
 }

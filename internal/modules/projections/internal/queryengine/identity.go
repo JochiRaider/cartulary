@@ -2,7 +2,6 @@ package queryengine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -97,7 +96,21 @@ func (reader *IdentityReader) CollectIdentityDerivedFactsTx(
 	incidentID uuid.UUID,
 ) ([]entityports.DerivedFact, error) {
 	rows, err := tx.Query(ctx, `
-SELECT i.record_id, to_jsonb(i) - 'incident_id'
+SELECT i.record_id, jsonb_build_object(
+       'record_id', i.record_id,
+       'row_version', i.row_version,
+       'display_name', i.display_name,
+       'upn', i.upn,
+       'email', i.email,
+       'sam_account_name', i.sam_account_name,
+       'identity_state', i.identity_state,
+       'linked_event_count', i.linked_event_count,
+       'evidence_count', i.evidence_count,
+       'privilege_level', i.privilege_level,
+       'mfa_state', i.mfa_state,
+       'reset_status', i.reset_status,
+       'edited_at', i.edited_at
+   )
   FROM identity_grid_projection i
   JOIN records r
     ON r.incident_id = i.incident_id
@@ -120,8 +133,8 @@ SELECT i.record_id, to_jsonb(i) - 'incident_id'
 		if err := rows.Scan(&recordID, &raw); err != nil {
 			return nil, fmt.Errorf("scan identity projection fact: %w", err)
 		}
-		value := map[string]any{}
-		if err := json.Unmarshal(raw, &value); err != nil {
+		value, err := decodeReportingFactObject(raw)
+		if err != nil {
 			return nil, fmt.Errorf("decode identity projection fact: %w", err)
 		}
 		facts = append(facts, entityports.DerivedFact{

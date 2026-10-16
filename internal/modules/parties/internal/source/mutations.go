@@ -3,7 +3,6 @@ package source
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -26,13 +25,12 @@ func InsertPartyTx(
 	recordID uuid.UUID,
 	incidentID uuid.UUID,
 	params CreateParams,
-	now time.Time,
 ) error {
 	_, err := tx.Exec(ctx, `
 INSERT INTO parties (
     record_id, incident_id, display_name, party_kind, organization_name, role_title,
-    primary_email, timezone_name, external_ref, notes, created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)
+    primary_email, timezone_name, external_ref, notes
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `, recordID, incidentID,
 		textValue(params.Values, "party.display_name"),
 		textValue(params.Values, "party.party_kind"),
@@ -41,8 +39,7 @@ INSERT INTO parties (
 		nullableTextValue(params.Values, "party.primary_email"),
 		nullableTextValue(params.Values, "party.timezone_name"),
 		nullableTextValue(params.Values, "party.external_ref"),
-		nullableTextValue(params.Values, "party.notes"),
-		now)
+		nullableTextValue(params.Values, "party.notes"))
 	err = adaptActiveKeyClaimError(err, fieldKeysForClaims(params.Values))
 	if err != nil {
 		return fmt.Errorf("insert party: %w", err)
@@ -102,7 +99,6 @@ func ApplyPatchTx(
 	incidentID uuid.UUID,
 	recordID uuid.UUID,
 	changes []PatchChange,
-	now time.Time,
 ) (bool, error) {
 	loadedIncidentID, current, err := LoadPartyValuesForUpdateTx(ctx, tx, recordID)
 	if err != nil {
@@ -133,8 +129,7 @@ UPDATE parties
        primary_email = $7,
        timezone_name = $8,
        external_ref = $9,
-       notes = $10,
-       updated_at = $11
+       notes = $10
  WHERE incident_id = $1
    AND record_id = $2
 `, incidentID, recordID,
@@ -146,7 +141,6 @@ UPDATE parties
 		nullableTextValue(proposed, "party.timezone_name"),
 		nullableTextValue(proposed, "party.external_ref"),
 		nullableTextValue(proposed, "party.notes"),
-		now,
 	)
 	err = adaptActiveKeyClaimError(err, fieldKeysForClaims(proposed))
 	if err != nil {

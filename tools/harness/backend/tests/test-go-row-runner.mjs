@@ -8,7 +8,8 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import {
   WorkGraphCompiler,
 } from "../../scheduler/work-graph/index.mjs";
-import { adaptGoInvocation, adaptGoInvocationFile } from "../../execution/runners/go.mjs";
+import { adaptGoInvocation, adaptGoInvocationFile, buildGoInvocations } from "../../execution/runners/go.mjs";
+import { goRunnerBuildContext } from "../../test-catalog/index.mjs";
 
 const invocation = {
   rows: [{ row_id: "row-a", selectors: ["TestA"] }],
@@ -166,6 +167,27 @@ assert.equal(malformed[0].failure_reason, "scheduler_accounting_error");
 assert.equal(malformed[0].exit_code, 11);
 
 const root = path.resolve(import.meta.dirname, "../../../..");
+const buildContext = goRunnerBuildContext(root);
+const [ordinaryInvocation] = buildGoInvocations([
+  { row_id: "fixture", selector: { package: "./internal/fixture", tests: ["TestActive"] } },
+], 2, "pinned-go", buildContext);
+const contaminatedHost = {
+  GOOS: "windows", GOARCH: "arm64", GOAMD64: "v3", CGO_ENABLED: "1",
+  GOFLAGS: "-tags=private -race -overlay=/external/source.json", GOENV: "/external/goenv",
+  GOEXPERIMENT: "jsonv2", GOTOOLCHAIN: "auto", GOWORK: "/external/go.work", GO111MODULE: "off",
+};
+const childEnvironment = { ...contaminatedHost, ...ordinaryInvocation.environment };
+assert.deepEqual(childEnvironment, buildContext.environment);
+assert.equal(childEnvironment.CGO_ENABLED, "0");
+assert.equal(childEnvironment.GOFLAGS, "");
+assert.equal(childEnvironment.GOENV, "off");
+assert.equal(childEnvironment.GOWORK, "off");
+assert.equal(childEnvironment.GOEXPERIMENT, "");
+assert.equal(childEnvironment.GOOS, buildContext.goos);
+assert.equal(childEnvironment.GOARCH, buildContext.goarch);
+assert.ok(buildContext.tags.has(`${childEnvironment.GOARCH}.${childEnvironment.GOAMD64}`));
+assert.ok(!buildContext.tags.has("cgo") && !buildContext.tags.has("race"));
+assert.deepEqual(ordinaryInvocation.args, ["test", "-json", "-count=1", "-p=2", "-run", "^(?:TestActive)$", "./internal/fixture"]);
 const graph = new WorkGraphCompiler(root).compile({ kind: "target", target: "backend-unit" });
 const goUnits = graph.units.filter((unit) => unit.unit_id.startsWith("go:"));
 assert.ok(goUnits.length > 0);

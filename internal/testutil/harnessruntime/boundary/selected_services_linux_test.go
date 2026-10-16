@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -71,6 +72,24 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 			run := filepath.Join(results, selection.id)
 			if err != nil || code != 0 || summary["status"] != "pass" {
 				t.Fatalf("installed selected graph: exit=%d error=%v retained=%s", code, err, run)
+			}
+			budget, err := strconv.Atoi(env["CARTULARY_UNIT_CPU_TOKENS"])
+			if err != nil || budget < 1 || env["CARTULARY_HOST_ADMISSION_LEASE"] == "" {
+				t.Fatal("selected lifecycle test requires its actual parent CPU reservation")
+			}
+			var retained struct {
+				Graph struct {
+					Units []struct {
+						ID     string         `json:"unit_id"`
+						Claims map[string]int `json:"resource_claims"`
+					} `json:"units"`
+				} `json:"graph"`
+			}
+			readSelectedBoundaryJSON(t, filepath.Join(run, "execution-context.json"), &retained)
+			for _, unit := range retained.Graph.Units {
+				if strings.HasPrefix(unit.ID, "go:") && unit.Claims["cpu"] > budget {
+					t.Fatal("child Go execution exceeds its enclosing worker budget")
+				}
 			}
 			for _, row := range selection.rows {
 				var result struct {

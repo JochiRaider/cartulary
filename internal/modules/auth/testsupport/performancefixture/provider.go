@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 )
 
-type CreateBackgroundAnalystRequest struct {
+type CreateFixtureAnalystRequest struct {
 	DisplayName       string
 	Email             string
 	InitialPassword   string
@@ -24,28 +25,29 @@ type Account struct {
 }
 
 type Application interface {
-	CreateBackgroundAnalyst(context.Context, CreateBackgroundAnalystRequest) (Account, error)
+	CreateFixtureAnalyst(context.Context, CreateFixtureAnalystRequest) (Account, error)
 }
 
 type Provider struct {
-	application     Application
-	credentialSetID string
-	descriptor      fixture.Descriptor
+	application       Application
+	credentialSetID   string
+	displayNamePrefix string
+	descriptor        fixture.Descriptor
 }
 
-func New(application Application, descriptor fixture.Descriptor, credentialSetID string) (*Provider, error) {
+func New(application Application, descriptor fixture.Descriptor, credentialSetID string, displayNamePrefix string) (*Provider, error) {
 	if application == nil {
 		return nil, errors.New("auth performance fixture application is required")
 	}
 	if descriptor.ExpectedCounts["accounts"] < 1 || descriptor.ExpectedCounts["sessions"] != 0 {
 		return nil, errors.New("auth performance fixture descriptor is incompatible")
 	}
-	if credentialSetID == "" {
+	if credentialSetID == "" || strings.TrimSpace(displayNamePrefix) == "" {
 		return nil, errors.New("auth performance fixture credential set identity is required")
 	}
 	descriptor.Dependencies = slices.Clone(descriptor.Dependencies)
 	descriptor.ExpectedCounts = maps.Clone(descriptor.ExpectedCounts)
-	return &Provider{application: application, credentialSetID: credentialSetID, descriptor: descriptor}, nil
+	return &Provider{application: application, credentialSetID: credentialSetID, displayNamePrefix: displayNamePrefix, descriptor: descriptor}, nil
 }
 
 func (p *Provider) Descriptor() fixture.Descriptor {
@@ -59,12 +61,12 @@ func (p *Provider) Apply(ctx context.Context, state *fixture.BuildState) (fixtur
 	wantAccounts := p.descriptor.ExpectedCounts["accounts"]
 	credentials, ok := state.RuntimeBundle.Credentials(p.credentialSetID)
 	if !ok || len(credentials) != wantAccounts {
-		return fixture.Receipt{}, fmt.Errorf("auth performance fixture requires %d background credentials, got %d", wantAccounts, len(credentials))
+		return fixture.Receipt{}, fmt.Errorf("auth performance fixture requires %d fixture credentials, got %d", wantAccounts, len(credentials))
 	}
-	state.BackgroundUserIDs = make([]string, 0, len(credentials))
+	state.PrincipalUserIDs = make([]string, 0, len(credentials))
 	for index, credential := range credentials {
-		account, err := p.application.CreateBackgroundAnalyst(ctx, CreateBackgroundAnalystRequest{
-			DisplayName:       fmt.Sprintf("Performance Background Analyst %02d", index+1),
+		account, err := p.application.CreateFixtureAnalyst(ctx, CreateFixtureAnalystRequest{
+			DisplayName:       fmt.Sprintf("%s %02d", p.displayNamePrefix, index+1),
 			Email:             credential.Principal,
 			InitialPassword:   credential.Secret,
 			IsDeploymentAdmin: false,
@@ -72,12 +74,12 @@ func (p *Provider) Apply(ctx context.Context, state *fixture.BuildState) (fixtur
 			Active:            true,
 		})
 		if err != nil {
-			return fixture.Receipt{}, fmt.Errorf("create background analyst %d: %w", index+1, err)
+			return fixture.Receipt{}, fmt.Errorf("create fixture analyst %d: %w", index+1, err)
 		}
 		if account.UserID == "" {
-			return fixture.Receipt{}, fmt.Errorf("create background analyst %d returned an empty user identity", index+1)
+			return fixture.Receipt{}, fmt.Errorf("create fixture analyst %d returned an empty user identity", index+1)
 		}
-		state.BackgroundUserIDs = append(state.BackgroundUserIDs, account.UserID)
+		state.PrincipalUserIDs = append(state.PrincipalUserIDs, account.UserID)
 	}
 	return fixture.Receipt{
 		ContributionID: p.descriptor.ContributionID,

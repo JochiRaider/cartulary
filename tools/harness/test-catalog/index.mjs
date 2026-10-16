@@ -19,5 +19,6 @@ export {
 } from "./target-routing.mjs";
 export { buildSourceSnapshot, executableProvenance } from "./source-snapshot.mjs";
 export { requiredServicesForFixture, assertFixtureServiceDependencies } from "./service-dependencies.mjs";
-export { restrictedExecutableInputRoots, validateExecutableInputPolicy } from "./restricted-input-boundary.mjs";
-export { resolveVitestTitles } from "./selector-resolution.mjs";
+export { executableInputPathspec, executableRepositoryPaths, inspectExecutableRepositoryPath, restrictedExecutableInputRoots, validateExecutableInputPolicy } from "./restricted-input-boundary.mjs";
+export { resolveVitestTitles, resolvePlaywrightSelection } from "./selector-resolution.mjs";
+export { goRunnerBuildContext } from "./go-build-context.mjs";

@@ -4,6 +4,18 @@
   "target_version": "2.0.0",
   "changes": [
     {
+      "fingerprint": "20e7bef9a20d61f6e4868456f4e7ef80cf34928ebb706b1086647a30fee60fc8",
+      "classification": "additive",
+      "owner_id": "module.reporting",
+      "rationale": "Project the coordinated Core internal_passthrough request default: explicit profile members form a complete pair and external releases always require that pair. Null, partial and empty values are not defaulted; retained payloads still require complete admission identities."
+    },
+    {
+      "fingerprint": "e6292230ef25b7c87e9f545e6dd18526147c4b9c89e74b5369d1dacc277fbc6c",
+      "classification": "breaking",
+      "owner_id": "module.reporting",
+      "rationale": "Replace unconditional required profile fields with the conditional pair contract under Reporting REQ-RPT-028a and its Core companion amendment. Internal draft/review requests may omit both members and normalize to cartulary.redaction.internal@2 before snapshot-bound profile admission; no legacy payload reader is added."
+    },
+    {
       "fingerprint": "7abda1d53f9decece22c8f5ab2efa632e290325bb39c9258934088af059b7d2b",
       "classification": "breaking",
       "owner_id": "module.workbook",
@@ -2396,6 +2408,162 @@
       "classification": "additive",
       "owner_id": "module.workbook",
       "rationale": "Adopted bounded locator: read-only standardized view location, disjoint non-disclosing outcomes and ordinary query cursors; source write contracts are unchanged."
+    },
+    {
+      "fingerprint": "61de687759b02e37b0f9131e6a367a034c0e89f7e971e24d0ea76c57010e1d50",
+      "classification": "additive",
+      "owner_id": "module.evidence",
+      "rationale": "Bind every explicit Evidence metadata window to its incident and exact ordered item set."
+    },
+    {
+      "fingerprint": "d4b3d89c458c7a83f41681c33a167c7e4106790b851ed6e685a703c33cd903e7",
+      "classification": "additive",
+      "owner_id": "module.evidence",
+      "rationale": "Expose bounded Evidence metadata through the existing success envelope."
+    },
+    {
+      "fingerprint": "8ae91dea55821214c49871db5fd9e00d3803bd924eecad4b60deae7f87c5c310",
+      "classification": "additive",
+      "owner_id": "module.evidence",
+      "rationale": "Expose current Evidence version, nullable title, lifecycle and attachment metadata without storage keys or handle tokens."
+    },
+    {
+      "fingerprint": "88d6bba916d3c07ffa01f1f4bad041adf50389addcc4efae211471cf7a262c37",
+      "classification": "additive",
+      "owner_id": "module.evidence",
+      "rationale": "Admit an explicit bounded nonempty unique Evidence identity selection; no ambient inventory traversal."
+    },
+    {
+      "fingerprint": "8163cd3d4c0b58ec8965dd9bb644359e0a6ddd7bf632d89d219aade56c6b3c70",
+      "classification": "additive",
+      "owner_id": "module.evidence",
+      "rationale": "Keep metadata preview eligibility distinct from object availability and fresh handle authorization."
+    },
+    {
+      "fingerprint": "79ecc8ead127913798d1fb4fa8ea7867e954e7cfb29fbcdd8f69bd0ac81bcce3",
+      "classification": "additive",
+      "owner_id": "module.evidence",
+      "rationale": "Add the Core 01 REQ-01-328a incident-member metadata query with ordinary session and CSRF admission, no handle issuance and no product mutation."
+    },
+    {
+      "fingerprint": "942da20ef0bfed334f3412db330c5b56ae88ccf4730b160641c4707546773b75",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Expose the three typed Party assignment collections for each entity family through ordinary entity creation and exact-match upsert. Entity seeds remain required; only same-incident live Party additions are admitted."
+    },
+    {
+      "fingerprint": "a661a754c6a5764e17f88b97433f100439593eeb2856725a38cd2bbd9bf55e98",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Expose the three typed Party assignment collections for each entity family through ordinary entity creation and exact-match upsert. Entity seeds remain required; only same-incident live Party additions are admitted."
+    },
+    {
+      "fingerprint": "864176a17bbb3032d1ad4b78eba17124bb8b3ee477e98228c3e60e4f1f201083",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Expose the three typed Party assignment collections for each entity family through ordinary entity creation and exact-match upsert. Entity seeds remain required; only same-incident live Party additions are admitted."
+    },
+    {
+      "fingerprint": "c6e670131efa2f7ea52fd3223a82d0d9299bb67725dfde3f85df61007064038e",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Expose the three typed Party assignment collections for each entity family through ordinary entity creation and exact-match upsert. Entity seeds remain required; only same-incident live Party additions are admitted."
+    },
+    {
+      "fingerprint": "29952f09b238c4ae3d22162c14bc0b61d0f60ae30f047e277560d17a3063cab4",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Expose the three typed Party assignment collections for each entity family through ordinary entity creation and exact-match upsert. Entity seeds remain required; only same-incident live Party additions are admitted."
+    },
+    {
+      "fingerprint": "4d6b1189199870afb9cda8e32374c0f54c893884381941d0e5e078fa14a88b2e",
+      "classification": "additive",
+      "owner_id": "module.entities",
+      "rationale": "Expose the three typed Party assignment collections for each entity family through ordinary entity creation and exact-match upsert. Entity seeds remain required; only same-incident live Party additions are admitted."
+    },
+    {
+      "fingerprint": "dd96e82c0ebd13b35357ab5f26cf86cc9f538220aec6c3b4a61f005cce3221c3",
+      "classification": "breaking",
+      "owner_id": "module.reporting",
+      "rationale": "Coordinated pre-production source-capture cutover: Core 01 REQ-01-477 exposes source_capture_sha256 for the immutable owner facts. Render projections are derived separately; the retired snapshot export_model_sha256 member would falsely describe those bytes. No legacy resource reader or alias is retained."
+    },
+    {
+      "fingerprint": "a4580d6db8e61c2a4bed21bb5ebae589e7271728a2de34020b9253b668bb6669",
+      "classification": "additive",
+      "owner_id": "module.reporting",
+      "rationale": "Coordinated pre-production source-capture cutover: Core 01 REQ-01-477 exposes source_capture_sha256 for the immutable owner facts. Render projections are derived separately; the retired snapshot export_model_sha256 member would falsely describe those bytes. No legacy resource reader or alias is retained."
+    },
+    {
+      "fingerprint": "275a5bcabebf79484e254f63afb442d1906f5f0e98d945c907c4bf38602b3210",
+      "classification": "breaking",
+      "owner_id": "module.reporting",
+      "rationale": "Coordinated pre-production source-capture cutover: Core 01 REQ-01-477 exposes source_capture_sha256 for the immutable owner facts. Render projections are derived separately; the retired snapshot export_model_sha256 member would falsely describe those bytes. No legacy resource reader or alias is retained."
+    },
+    {
+      "fingerprint": "817b1f297948b66481994db3803955576a409f74f2e3c5cf7e7b9e808495052e",
+      "classification": "additive",
+      "owner_id": "module.evidence",
+      "rationale": "Core 01 REQ-01-452a adds explicit cancelable stored-object verification before atomic Evidence finalization. The pre-production client must await this Job; neither finalization route hashes object bytes."
+    },
+    {
+      "fingerprint": "9995ce752405ace79de35a89782a080f98a0c17f7893cc50c3895cb2aa235b16",
+      "classification": "additive",
+      "owner_id": "module.evidence",
+      "rationale": "Core 01 REQ-01-452a adds explicit cancelable stored-object verification before atomic Evidence finalization. The pre-production client must await this Job; neither finalization route hashes object bytes."
+    },
+    {
+      "fingerprint": "79d3c68966553285221a41295283835617a7310d2c2201acfc91fc178e3bfbe4",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Cut over to explicit local-authoring validation v2 under coordinated Composition 1.3. Retire ignored validation_context and ambiguous v1 summary contracts; require validation_scope=local_authoring. Exact snapshot, template, redaction, graph and release-context admission remain mandatory in Reporting preview/release jobs. No legacy reader or compatibility fallback."
+    },
+    {
+      "fingerprint": "9451fb55b6d1285ad1351af0c574cf51a3c350f4d2bddc8a8b1cfd58558a2b02",
+      "classification": "additive",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Cut over to explicit local-authoring validation v2 under coordinated Composition 1.3. Retire ignored validation_context and ambiguous v1 summary contracts; require validation_scope=local_authoring. Exact snapshot, template, redaction, graph and release-context admission remain mandatory in Reporting preview/release jobs. No legacy reader or compatibility fallback."
+    },
+    {
+      "fingerprint": "e62daacaa33e3bf088a3d37b4927259a2cf122ef78637bbb3d1fae368410a100",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Cut over to explicit local-authoring validation v2 under coordinated Composition 1.3. Retire ignored validation_context and ambiguous v1 summary contracts; require validation_scope=local_authoring. Exact snapshot, template, redaction, graph and release-context admission remain mandatory in Reporting preview/release jobs. No legacy reader or compatibility fallback."
+    },
+    {
+      "fingerprint": "6ec8bbf79feabb14e157febdda9405e5e3be207d41bc5b0b7eb526fb6e32c1aa",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Cut over to explicit local-authoring validation v2 under coordinated Composition 1.3. Retire ignored validation_context and ambiguous v1 summary contracts; require validation_scope=local_authoring. Exact snapshot, template, redaction, graph and release-context admission remain mandatory in Reporting preview/release jobs. No legacy reader or compatibility fallback."
+    },
+    {
+      "fingerprint": "1a65130e399fd48abcd6a1f820ad2d3780fe530c963a98942557a55fb387ce49",
+      "classification": "additive",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Cut over to explicit local-authoring validation v2 under coordinated Composition 1.3. Retire ignored validation_context and ambiguous v1 summary contracts; require validation_scope=local_authoring. Exact snapshot, template, redaction, graph and release-context admission remain mandatory in Reporting preview/release jobs. No legacy reader or compatibility fallback."
+    },
+    {
+      "fingerprint": "3ac5301e2f18c3b929edbb776d9e2359079006f85f1f579414d05f77021b567d",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Cut over to explicit local-authoring validation v2 under coordinated Composition 1.3. Retire ignored validation_context and ambiguous v1 summary contracts; require validation_scope=local_authoring. Exact snapshot, template, redaction, graph and release-context admission remain mandatory in Reporting preview/release jobs. No legacy reader or compatibility fallback."
+    },
+    {
+      "fingerprint": "2552a8e0f2322f8409422a2eff2693845b9fd8c2a6b31d892a4f1e52aae5b7e8",
+      "classification": "additive",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Cut over to explicit local-authoring validation v2 under coordinated Composition 1.3. Retire ignored validation_context and ambiguous v1 summary contracts; require validation_scope=local_authoring. Exact snapshot, template, redaction, graph and release-context admission remain mandatory in Reporting preview/release jobs. No legacy reader or compatibility fallback."
+    },
+    {
+      "fingerprint": "747c0438500bc20d39967290e081f0098f357fdf334ce1bf2cb2053b119dbfda",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Cut over to explicit local-authoring validation v2 under coordinated Composition 1.3. Retire ignored validation_context and ambiguous v1 summary contracts; require validation_scope=local_authoring. Exact snapshot, template, redaction, graph and release-context admission remain mandatory in Reporting preview/release jobs. No legacy reader or compatibility fallback."
+    },
+    {
+      "fingerprint": "d366fc0e3eca6f20d1450feaeaacdf61ed7542c88556b188030e0d9ca4733041",
+      "classification": "breaking",
+      "owner_id": "module.reportcomposition",
+      "rationale": "Cut over to explicit local-authoring validation v2 under coordinated Composition 1.3. Retire ignored validation_context and ambiguous v1 summary contracts; require validation_scope=local_authoring. Exact snapshot, template, redaction, graph and release-context admission remain mandatory in Reporting preview/release jobs. No legacy reader or compatibility fallback."
     }
   ]
 }

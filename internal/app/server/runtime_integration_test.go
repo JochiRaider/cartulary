@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -115,7 +117,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 		t.Fatalf("acquire restore admission fixture: %v", err)
 	}
 	defer restoreAdmission.Close()
-	if blockedRuntime, err := NewRuntime(ctx, cfg, Options{Postgres: admittedPool, ObjectStore: store}); err == nil {
+	if blockedRuntime, err := NewRuntime(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}); err == nil {
 		blockedRuntime.Close()
 		t.Fatal("server runtime started while restore held the exclusive serving lease")
 	} else if !errors.Is(err, processlease.ErrRecoveryServingLeaseActive) {
@@ -125,7 +127,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 		t.Fatalf("release restore admission fixture: %v", err)
 	}
 
-	first, err := NewRuntime(ctx, cfg, Options{Postgres: admittedPool, ObjectStore: store})
+	first, err := NewRuntime(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store})
 	if err != nil {
 		t.Fatalf("start first single-active runtime: %v", err)
 	}
@@ -143,7 +145,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	}
 
 	counters, dependencies := installStartupCounters()
-	if second, secondErr := newRuntimeWithTestDependencies(ctx, cfg, Options{Postgres: admittedPool, ObjectStore: store}, dependencies); secondErr == nil {
+	if second, secondErr := newRuntimeWithTestDependencies(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}, dependencies); secondErr == nil {
 		second.Close()
 		first.Close()
 		t.Fatal("overlapping application runtime acquired the deployment-global lease")
@@ -173,7 +175,7 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	}
 	first.Close()
 
-	later, err := NewRuntime(ctx, cfg, Options{Postgres: admittedPool, ObjectStore: store})
+	later, err := NewRuntime(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store})
 	if err != nil {
 		t.Fatalf("orderly release did not permit later acquisition: %v", err)
 	}
@@ -205,8 +207,9 @@ func TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration(t *testi
 	var jobTransactions *jobs.TransactionService
 	networkFlowCleanupComposed := false
 	runtime, err := NewRuntime(ctx, cfg, Options{
-		Postgres:    admittedPool,
-		ObjectStore: store,
+		ReportingRuntime: reportingfixture.Runtime{},
+		Postgres:         admittedPool,
+		ObjectStore:      store,
 		ObserveJobs: func(_ *jobs.Manager, transactions *jobs.TransactionService, _ *jobs.Runner, _ *pgxpool.Pool) {
 			jobTransactions = transactions
 		},
@@ -293,7 +296,7 @@ func TestCollaborationDispatcherStartupLossUsesWebSocketLifecycle_Integration(t 
 		collaborationRuntime, err = newCollaborationRuntime(options)
 		return collaborationRuntime, err
 	}
-	runtime, err := newRuntimeWithTestDependencies(ctx, cfg, Options{Postgres: admittedPool, ObjectStore: store}, dependencies)
+	runtime, err := newRuntimeWithTestDependencies(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}, dependencies)
 	if err != nil {
 		t.Fatalf("compose dispatcher-loss runtime: %v", err)
 	}
@@ -349,7 +352,7 @@ func TestFirstAdminBootstrap_Integration(t *testing.T) {
 			"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", fixtures.Path("bootstrap-admin", "canonical.json"),
 		)), env)
 
-		runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
+		runtime, err := NewRuntime(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env})
 		if err != nil {
 			t.Fatalf("start runtime with canonical bootstrap manifest: %v", err)
 		}
@@ -444,7 +447,7 @@ EXECUTE FUNCTION bootstrap_fail_bootstrap_audit();
 		)), env)
 
 		counters, dependencies := installStartupCounters()
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
 		requireBootstrapReason(t, err, "bootstrap_persist_failed")
 		counters.RequireNotStarted(t)
 
@@ -591,7 +594,7 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 			cfg := BindPostgres(t, RuntimeConfigWithOverlays(t, overlays), env)
 
 			counters, dependencies := installStartupCounters()
-			_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
+			_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
 			configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", tc.goldenFile})
 			counters.RequireNotStarted(t)
 
@@ -617,7 +620,7 @@ func TestBootstrapFailures_Integration(t *testing.T) {
 
 		env := IntegrationEnv(testDB.Env(), s3Harness.Env(bucket))
 		cfg := BindPostgres(t, RuntimeConfig(t), env)
-		if _, err := NewRuntime(context.Background(), cfg, Options{Env: env, Postgres: admittedPool}); err == nil {
+		if _, err := NewRuntime(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env, Postgres: admittedPool}); err == nil {
 			t.Fatal("expected missing bootstrap manifest to fail startup")
 		}
 		if err := pool.Ping(context.Background()); err != nil {
@@ -669,7 +672,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 					"CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH", packRoot,
 				)), env)
 
-				runtime, err := NewRuntime(context.Background(), cfg, Options{Env: env})
+				runtime, err := NewRuntime(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env})
 				if err != nil {
 					t.Fatalf("start runtime with existing deployment admin: %v", err)
 				}
@@ -710,7 +713,7 @@ func TestBootstrapSkipAndRecovery_Integration(t *testing.T) {
 		)), env)
 
 		counters, dependencies := installStartupCounters()
-		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{Env: env}, dependencies)
+		_, err := newRuntimeWithTestDependencies(context.Background(), cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Env: env}, dependencies)
 		configtest.RequireDiagnosticsMatchGolden(t, err, []string{"bootstrap", "diagnostics", "bootstrap_recovery_not_supported.json"})
 		counters.RequireNotStarted(t)
 

@@ -1,9 +1,9 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "web.networkflow",
   "rows": [
     {
-      "row_id": "web.networkflow.boundary_support.networkflowboundarypolicy_suite_6f1f265586",
+      "row_id": "web.networkflow.boundary_support.semantic_contract_boundaries",
       "owner_id": "web.networkflow",
       "family_id": "web.networkflow.boundary_support",
       "collaborator_ids": [],
@@ -14,10 +14,8 @@
       "selector": {
         "file": "apps/web/src/networkFlow/networkFlowBoundaryPolicy.test.ts",
         "titles": [
-          "Network Flow frontend boundary policy keeps runtime schema compilation and projection adapter input out of the browser",
-          "Network Flow frontend boundary policy keeps the grid vendor and raw coordinate handles outside Network Flow consumers",
+          "Network Flow frontend boundary policy checks contract references and browser evidence APIs independently of helper names",
           "Network Flow frontend boundary policy rejects legacy light-theme variable fallbacks in Network Flow source",
-          "Network Flow frontend boundary policy rejects synthetic markup in authoritative Network Flow browser evidence",
           "Network Flow frontend boundary policy uses only authored Cartulary design-token variables in Network Flow source"
         ],
         "project_id": "browser-unit"

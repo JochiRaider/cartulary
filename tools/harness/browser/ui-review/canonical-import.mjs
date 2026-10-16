@@ -72,7 +72,7 @@ export async function importCanonical(request) {
     const root = inputPath(request.run_root);
     const manifest = readJSON(containedFile(root, "run-manifest.json"), "cartulary.harness_run_manifest.v2").value;
     if (manifest.run_id !== path.basename(root)) throw new ReviewFailure("invalid_artifact");
-    const target = readJSON(containedFile(root, "browser-e2e-visual/browser-target-result.json"), "cartulary.browser_target_result.v4").value;
+    const target = readJSON(containedFile(root, "browser-e2e-visual/browser-target-result.json"), "cartulary.browser_target_result.v6").value;
     if (target.target_id !== "browser-e2e-visual") throw new ReviewFailure("invalid_artifact");
     const reference = one((target.artifacts ?? []).filter((entry) => entry.kind === "frontend_visual_reconciliation_v3"));
     const reconciliation = readJSON(containedFile(root, reference.ref), "cartulary.frontend_visual_reconciliation.v3", reference.sha256);

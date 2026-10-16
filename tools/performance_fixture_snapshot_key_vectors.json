@@ -2,17 +2,56 @@
   "schema_id": "cartulary.performance_fixture_snapshot_key_vectors.v1",
   "vectors": [
     {
-      "name": "ac043_large_grid_snapshot_v1",
+      "name": "evidence_heavy_snapshot_v2",
       "input": {
         "schema_id": "cartulary.performance_fixture_snapshot_key.v2",
-        "fixture_profile_id": "ac043_large_grid_snapshot_v1",
+        "fixture_profile_id": "evidence_heavy_snapshot_v2",
+        "migration_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "source_contract_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "fixture_version": "cartulary.perf.evidence_heavy.v2",
+        "seed": 20260405
+      },
+      "canonical_json": "{\"fixture_profile_id\":\"evidence_heavy_snapshot_v2\",\"fixture_version\":\"cartulary.perf.evidence_heavy.v2\",\"migration_digest\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"schema_id\":\"cartulary.performance_fixture_snapshot_key.v2\",\"seed\":20260405,\"source_contract_digest\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}",
+      "snapshot_key": "87435de81f40cc80c4872617c6c7ae80677a1b1d6918a6c76968e9073b3ecbd0"
+    },
+    {
+      "name": "timeline_large_grid_import_snapshot_v1",
+      "input": {
+        "schema_id": "cartulary.performance_fixture_snapshot_key.v2",
+        "fixture_profile_id": "timeline_large_grid_import_snapshot_v1",
         "migration_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "source_contract_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         "fixture_version": "cartulary.perf.large_grid.v1",
         "seed": 20260405
       },
-      "canonical_json": "{\"fixture_profile_id\":\"ac043_large_grid_snapshot_v1\",\"fixture_version\":\"cartulary.perf.large_grid.v1\",\"migration_digest\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"schema_id\":\"cartulary.performance_fixture_snapshot_key.v2\",\"seed\":20260405,\"source_contract_digest\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}",
-      "snapshot_key": "c97d89b33a9b474902c2e9d3c35253a4d3411b6abd3121f3db151878effe6755"
+      "canonical_json": "{\"fixture_profile_id\":\"timeline_large_grid_import_snapshot_v1\",\"fixture_version\":\"cartulary.perf.large_grid.v1\",\"migration_digest\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"schema_id\":\"cartulary.performance_fixture_snapshot_key.v2\",\"seed\":20260405,\"source_contract_digest\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}",
+      "snapshot_key": "abc668f5e83daf8666020ac1bfdb58c8e1ddc919b14aaf71c9b530b0c855ccc1"
+    },
+    {
+      "name": "timeline_large_grid_reporting_snapshot_v1",
+      "input": {
+        "schema_id": "cartulary.performance_fixture_snapshot_key.v2",
+        "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1",
+        "migration_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "source_contract_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "fixture_version": "cartulary.perf.large_grid.v1",
+        "seed": 20260405
+      },
+      "canonical_json": "{\"fixture_profile_id\":\"timeline_large_grid_reporting_snapshot_v1\",\"fixture_version\":\"cartulary.perf.large_grid.v1\",\"migration_digest\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"schema_id\":\"cartulary.performance_fixture_snapshot_key.v2\",\"seed\":20260405,\"source_contract_digest\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}",
+      "snapshot_key": "ebcb5d7621a3a9d3b49139c77aea091f5ae99a6a52c72aa2f7bea9057afc421f"
+    },
+    {
+      "name": "timeline_large_grid_snapshot_v2",
+      "input": {
+        "schema_id": "cartulary.performance_fixture_snapshot_key.v2",
+        "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+        "migration_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "source_contract_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "fixture_version": "cartulary.perf.large_grid.v1",
+        "seed": 20260405
+      },
+      "canonical_json": "{\"fixture_profile_id\":\"timeline_large_grid_snapshot_v2\",\"fixture_version\":\"cartulary.perf.large_grid.v1\",\"migration_digest\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\",\"schema_id\":\"cartulary.performance_fixture_snapshot_key.v2\",\"seed\":20260405,\"source_contract_digest\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}",
+      "snapshot_key": "357a7c55d7a0ad684d7c7a064c5b6bb2e111b947c0569dbb921a83d56680e633"
     }
   ]
 }

@@ -14,7 +14,7 @@ import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
 import { createViewRow, patchRecord, queryViewRows } from "../workbook/query";
-import { createAndUploadObjectBlob } from "./uploads";
+import { createAndUploadObjectBlob, verifyUploadedObjectBlob } from "./uploads";
 
 export type EvidenceUploadOptions = {
   body: Buffer;
@@ -87,6 +87,11 @@ export async function createUploadedEvidenceFixture(
     filename: options.filename,
     incidentId,
   });
+  await verifyUploadedObjectBlob(
+    page,
+    blob.object_blob_id,
+    uniqueTxn("verify-evidence-fixture"),
+  );
 
   const attachBody = {
     base_row_version: row.row_version,

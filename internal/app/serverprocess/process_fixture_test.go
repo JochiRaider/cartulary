@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -53,6 +54,7 @@ func newProcessEnv(t testing.TB, options processEnvOptions) map[string]string {
 	if _, ok := env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"]; !ok {
 		env["CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH"] = fixtures.Path("reference-packs", "trust-bootstrap.json")
 	}
+	env["CARTULARY__SNAPSHOT_REPORTING__RUNTIME_RECEIPT_PATH"] = filepath.Clean(fixtures.Path("../../..", "build/report-renderer/installation.json"))
 	mergeProcessEnv(env, options.Overrides)
 	configtest.BindPostgresEnvToDatabaseRoot(t, env["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], env, postgres.PurposeRuntime)
 	return env

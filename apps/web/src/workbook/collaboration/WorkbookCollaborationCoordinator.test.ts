@@ -908,8 +908,21 @@ describe("WorkbookCollaborationCoordinator", () => {
 
   it("invalidates editing cleanup across cell and sheet changes", async () => {
     const fixture = projectionFixture();
+    const mark = vi.spyOn(performance, "mark");
     const oldEdit = fixture.projection.beginEditingPresence("row-a", "summary");
+    expect(mark).toHaveBeenLastCalledWith(
+      "cartulary.workbook.presence_change_accepted",
+      {
+        detail: {
+          sheetRef: { kind: "view_schema", id: "cartulary.view.timeline.v2" },
+          recordId: "row-a",
+          fieldKey: "summary",
+          mode: "editing",
+        },
+      },
+    );
     fixture.projection.publishFocusedCell("row-a", "summary");
+    expect(mark).toHaveBeenCalledTimes(1);
     await fixture.timing.advanceBy(150);
     expect(fixture.session.publishPresence).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -926,6 +939,17 @@ describe("WorkbookCollaborationCoordinator", () => {
     );
     const release = fixture.projection.beginEditingPresence("row-b", "details");
     fixture.projection.setActiveSheet({ kind: "saved_view", id: "saved" });
+    expect(mark).toHaveBeenLastCalledWith(
+      "cartulary.workbook.presence_change_accepted",
+      {
+        detail: {
+          sheetRef: { kind: "saved_view", id: "saved" },
+          recordId: null,
+          fieldKey: null,
+          mode: "viewing",
+        },
+      },
+    );
     release();
     await fixture.timing.advanceBy(150);
     expect(fixture.session.publishPresence).toHaveBeenLastCalledWith({
@@ -933,6 +957,7 @@ describe("WorkbookCollaborationCoordinator", () => {
       sheet_ref: { kind: "saved_view", id: "saved" },
     });
     fixture.projection.dispose();
+    mark.mockRestore();
   });
   it("keeps base and saved-view presence exact, keyed, sorted, and self-free", () => {
     const fixture = projectionFixture();

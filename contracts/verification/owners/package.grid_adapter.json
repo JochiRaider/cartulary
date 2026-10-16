@@ -18,6 +18,14 @@
         "playwright",
         "vitest"
       ]
+    },
+    {
+      "verification_id": "package.grid_adapter.verification.draft_clipboard_insertion",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "vitest"
+      ]
     }
   ]
 }

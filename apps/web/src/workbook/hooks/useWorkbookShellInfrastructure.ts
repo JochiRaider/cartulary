@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import type { ExtensionAvailabilityController } from "../../extensions/extensionAvailability";
 import type { AttachWorkflow } from "../../shared/workflowAttachment";
 import { createWorkbookClipboardPasteAdapter } from "../adapters/createWorkbookClipboardPasteAdapter";
+import { createWorkbookEvidenceMetadataAdapter } from "../adapters/createWorkbookEvidenceMetadataAdapter";
 import { createWorkbookIncidentAdapter } from "../adapters/createWorkbookIncidentAdapter";
 import { createWorkbookRecordLocatorAdapter } from "../adapters/createWorkbookRecordLocatorAdapter";
 import { createWorkbookReferenceMemberReader } from "../adapters/createWorkbookReferenceMemberReader";
@@ -115,6 +116,15 @@ export function useWorkbookShellInfrastructure({
       }),
     [apiBase, incidentId, viewQuery],
   );
+  const evidenceMetadata = useMemo(
+    () =>
+      createWorkbookEvidenceMetadataAdapter({
+        apiBase,
+        incidentId,
+        readScope: () => viewQuery.readScope?.() ?? null,
+      }),
+    [apiBase, incidentId, viewQuery],
+  );
   const workbookRuntime = useWorkbookShellRuntime({
     incidentId,
     onAuthorityUncertain,
@@ -137,6 +147,7 @@ export function useWorkbookShellInfrastructure({
     timelineMentions,
     viewQuery,
     recordLocator,
+    evidenceMetadata,
     workbookRuntime,
   };
 }

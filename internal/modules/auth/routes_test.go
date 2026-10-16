@@ -15,24 +15,27 @@ func TestEnterpriseRouteRegistrationRequiresExactAdmission_Unit(t *testing.T) {
 	if err := RegisterRoutes()(baseMux, httpapi.DependencySet{}); err != nil {
 		t.Fatal(err)
 	}
-	assertRoutePattern(t, baseMux, "/api/v1/auth/login", "/api/v1/auth/login")
-	assertRoutePattern(t, baseMux, "/api/v1/auth/providers", "")
-	assertRoutePattern(t, baseMux, "/api/v1/auth/oidc/provider/begin", "")
-	assertRoutePattern(t, baseMux, "/api/v1/auth/saml/provider/begin", "")
+	assertRoutePattern(t, baseMux, http.MethodPost, "/api/v1/auth/login", "POST /api/v1/auth/login")
+	assertRoutePattern(t, baseMux, http.MethodGet, "/api/v1/auth/providers", "")
+	assertRoutePattern(t, baseMux, http.MethodPost, "/api/v1/auth/providers/provider/begin", "")
+	assertRoutePattern(t, baseMux, http.MethodGet, "/api/v1/auth/oidc/provider/callback", "")
+	assertRoutePattern(t, baseMux, http.MethodPost, "/api/v1/auth/saml/provider/acs", "")
 
 	enterpriseMux := http.NewServeMux()
 	if err := RegisterEnterpriseRoutes()(enterpriseMux, httpapi.DependencySet{}); err != nil {
 		t.Fatal(err)
 	}
-	assertRoutePattern(t, enterpriseMux, "/api/v1/auth/providers", "/api/v1/auth/providers")
-	assertRoutePattern(t, enterpriseMux, "/api/v1/auth/oidc/provider/begin", "/api/v1/auth/oidc/")
-	assertRoutePattern(t, enterpriseMux, "/api/v1/auth/saml/provider/begin", "/api/v1/auth/saml/")
+	assertRoutePattern(t, enterpriseMux, http.MethodGet, "/api/v1/auth/providers", "GET /api/v1/auth/providers")
+	assertRoutePattern(t, enterpriseMux, http.MethodPost, "/api/v1/auth/providers/provider/begin", "POST /api/v1/auth/providers/{provider_key}/begin")
+	assertRoutePattern(t, enterpriseMux, http.MethodGet, "/api/v1/auth/oidc/provider/callback", "GET /api/v1/auth/oidc/{provider_key}/callback")
+	assertRoutePattern(t, enterpriseMux, http.MethodPost, "/api/v1/auth/saml/provider/acs", "POST /api/v1/auth/saml/{provider_key}/acs")
+
 }
 
 func TestEnterpriseAuthBindingsUseNarrowRouteAdmission_Unit(t *testing.T) {
 	t.Parallel()
 
-	request, err := http.NewRequest(http.MethodGet, "/api/v1/users/10000000-0000-0000-0000-000000000001/auth-bindings", nil)
+	request, err := http.NewRequest(http.MethodPost, "/api/v1/users/10000000-0000-0000-0000-000000000001/auth-bindings", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,9 +60,9 @@ func TestEnterpriseAuthBindingsUseNarrowRouteAdmission_Unit(t *testing.T) {
 	}
 }
 
-func assertRoutePattern(t testing.TB, mux *http.ServeMux, path string, want string) {
+func assertRoutePattern(t testing.TB, mux *http.ServeMux, method string, path string, want string) {
 	t.Helper()
-	request, err := http.NewRequest(http.MethodGet, path, nil)
+	request, err := http.NewRequest(method, path, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

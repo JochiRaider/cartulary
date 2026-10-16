@@ -169,14 +169,9 @@ if (mode !== 'missing') writeFileSync(process.env.CARTULARY_VITEST_CAPTURE_FILE,
   // Use the real invocation builder and a fresh worker for each same-file
   // selection. A suffix-sharing unselected case must never execute.
   mkdirSync(groupedFixture, { recursive: true, mode: 0o700 });
-  const groupedFile = path.join(groupedFixture, "selection.test.ts");
+  const groupedFile = path.join(root, "apps/web/src/testing/fixtures/vitestSelectionTestSupport.ts");
   const groupedConfig = path.join(groupedFixture, "vite.config.mjs");
-  writeFileSync(groupedConfig, `export default ${JSON.stringify({ root: groupedFixture, test: { name: "harness-node", include: ["*.test.ts"], environment: "node" } })};`);
-  writeFileSync(groupedFile, `import { test, describe, expect } from ${JSON.stringify(api)};
-let count = 0;
-describe('scope', () => { test('one', () => { expect(count++).toBe(0); }); test('two', () => { expect(count++).toBe(1); }); });
-test('prefix scope one', () => { throw new Error('unselected suffix collision executed'); });
-`);
+  writeFileSync(groupedConfig, `export default ${JSON.stringify({ root: path.dirname(groupedFile), test: { name: "harness-node", include: ["vitestSelectionTestSupport.ts"], environment: "node" } })};`);
   const selectedRows = ["one", "two"].map((title) => ({ row_id: `fixture.${title}`, runner: "vitest", fixture_capability: "none",
     selector: { file: path.relative(root, groupedFile), project_id: "harness-node", titles: [title] } }));
   for (const attempt of ["first", "second"]) {

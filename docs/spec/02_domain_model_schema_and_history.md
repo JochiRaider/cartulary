@@ -1626,6 +1626,63 @@ These fields are source-state facts only. Core 02 MUST NOT define report redacti
 Profiles: snapshot_reporting
 Verified by: AC-233
 
+**REQ-02-143a.1 — Timeline ordering facts at the snapshot boundary**
+For the Snapshot and Reporting Extension Profile, the Timeline owner MUST supply one typed ordering fact per selected Timeline source record, in the same transaction as its source fields. It contains the explicit record ID, immutable `records.created_at`, `activity_sort_ts`, `activity_parse_state`, `activity_precision_rank`, `date_entered_sort_key`, and `time_bucket`. Missing, duplicate, foreign, or invalid facts fail snapshot materialization; consumers MUST NOT synthesize them from record selectors, snapshot capture time, mutable projections, or viewer settings.
+
+The owner attempts the existing explicit-UTC Activity UTC forms first, then the existing explicit-offset Activity Local forms. A successful interpretation produces UTC, `parsed`, `parsed_time`, and precision rank `5` for minute input or `6` for second input. Fractional seconds use a decimal point and one through six digits; precision beyond microseconds is unresolved, never rounded or truncated. Source text is preserved. Ordering timestamps and immutable creation time serialize with exactly six fractional digits. Empty or absent activity inputs produce `missing`. If neither input resolves, classify the first nonempty input: a valid local wall-clock minute/second value without an offset is `ambiguous`; a valid year, year-month, date, or date plus hour is `incomplete`; other values are `unparseable`. All unresolved cases have null activity timestamp, precision rank `0`, and `unresolved_time`. No timezone or missing component is inferred.
+
+The date-entered key is an exact valid ISO date or the UTC date of a supported explicit UTC/offset date-time; otherwise it is null. These rules define Reporting-facing source facts only and do not change live workbook sorting or editing. Reporting owns row ordering, template selection, display formatting, and redaction of source time text; raw source text MUST NOT be duplicated into an ungoverned display channel.
+Profiles: snapshot_reporting
+Verified by: AC-233
+
+**REQ-02-143a.2 — Assignment source ownership and version identity**
+Host and Identity party assignments use Links-owned `references_record`
+collections. Their exact field keys are `host.subject_party_ids`,
+`host.responsible_party_ids`, `host.observer_party_ids`, and the corresponding
+`identity.*` keys. The field prefix MUST match the source record type, and the
+destination MUST be a live Party in the same incident. The three suffixes map
+only to `subject_party`, `responsible_party`, and `observer_party`, respectively.
+Generic references and other Party collections do not imply an assignment.
+The Host/Identity owner coordinates authorized writes, parent record versioning,
+history and publication; Links owns collection identity, uniqueness and retained
+source facts. Reporting neither writes assignments nor interprets arbitrary link
+labels as assignments.
+
+The active assignment projection MUST read the existing active-link relation
+and its endpoint types in the same snapshot transaction as source records.
+`assignment_id` is the exact link identity; incident, subject, Party, provenance,
+creator and creation time come from that source row. The current projection
+contains active assignments only, with `assignment_state='active'`,
+`source_ref=null`, `superseded_by_assignment_id=null`, and `deleted_at=null`.
+Null source reference means this source relation has no separate source-reference
+object; a storage selector MUST NOT be invented as provenance. Deleted links or
+deleted endpoints do not contribute active facts. Invalid endpoint types,
+unavailable identities, unsupported provenance and duplicate active assignments
+fail the source projection rather than disappearing from it.
+
+An assignment's `row_version` is an opaque source-state token, not a revision
+counter or a claim about unseen history. It is `rpa_` followed by lowercase
+SHA-256 hexadecimal over the UTF-8 prefix
+`cartulary.record_party_assignment_state.v1` followed by LF and the RFC 8785
+canonical JSON of the complete Table 12-A projection excluding `row_version`.
+All other members, including explicit nulls, participate; UUIDs use canonical
+lowercase text and `created_at` uses UTC with exactly six fractional digits.
+No BOM or trailing LF is added to that JSON. Identical projected source state
+has the same token; changed projected state has a different token. Consumers
+MUST compare tokens for equality only and MUST NOT infer ordering or historical
+mutation counts. A later projection shape or token algorithm requires a new
+version identity.
+
+The Party owner's current `party_partition_segment` is its immutable canonical
+lowercase UUID `record_id`. Public-directory eligibility is false when the
+source does not explicitly store an affirmative eligibility decision. Neither
+a display label, email address, user identity, nor recipient request establishes
+eligibility. These values MUST be exposed as typed source facts and frozen with
+the snapshot; they MUST NOT be recovered from mutable current records during
+release rendering or from rendered display values.
+Profiles: snapshot_reporting
+Verified by: AC-233
+
 **REQ-02-143b**
 Core 02 owns the exact current-profile source-boundary object identified by
 `cartulary.source_boundary.v1`. Its UTF-8 bytes MUST be a whitespace-free JSON object
@@ -1649,10 +1706,17 @@ the lowercase hexadecimal SHA-256 digest over exactly those object bytes, prefix
 `cartulary.source_boundary.v1:`. The hash input MUST NOT include the schema identifier,
 prefix, a byte-order mark, whitespace, or a trailing newline. Exact replay MUST retain
 the originally committed object bytes and token instead of resolving current state.
+
+Retained relational JSON storage may change whitespace or member order. Its
+reader MUST validate the complete closed value through the source-boundary
+owner before recovering the exact ordered bytes above. Unknown, duplicate,
+omitted, nullability-invalid or noncanonical UUID/timestamp values are invalid;
+the token MUST agree with the recovered producer bytes. This is storage
+validation, not permission to repair source values or resolve a new boundary.
 Profiles: snapshot_reporting
 Verified by: AC-266
 
-The current canonical derivation id is `cartulary.reporting_derivation_profile.v2`, which materializes `cartulary.reporting_export_model.v2` under the Reporting NLSpec. It covers incident metadata plus active base-profile workbook/reporting surfaces needed for reports: record envelopes, Timeline, hosts, identities, parties, evidence metadata, task requests, decisions, notes, findings and hypotheses, coordination artifacts, active record links, tags, entity mentions, support refs, disclosure-partition refs, and the structural sections, blocks, records, relationships, timeline events, subjects, diagrams, assets, support index, and validation summary required by Reporting. The model MUST retain its exact Reference Pack set ID, digest and immutable provenance captured at snapshot admission. The coordinated pre-release cutover rejects retired derivation and export-model representations without assigning guessed historical bindings or retaining a legacy reader. The public `source_change_set_high_watermark` value is the opaque token owned by REQ-02-143b. The canonical export model MUST exclude raw blob bytes, blob hashes, storage references, mutable history, deployment auth or admin state, job records, and idempotency records.
+The current canonical derivation id is `cartulary.reporting_derivation_profile.v2`, which materializes `cartulary.reporting_export_model.v7` under the Reporting NLSpec. It covers incident metadata plus active base-profile workbook/reporting surfaces needed for reports: record envelopes, Timeline, hosts, identities, parties, evidence metadata, task requests, decisions, notes, findings and hypotheses, coordination artifacts, active record links, tags, entity mentions, support refs, disclosure-partition refs, and the structural sections, blocks, records, relationships, timeline events, subjects, diagrams, assets, support index, and validation summary required by Reporting. The model MUST retain its exact Reference Pack set ID, digest and immutable provenance captured at snapshot admission. The coordinated pre-release cutover rejects retired derivation and export-model representations without assigning guessed historical bindings or retaining a legacy reader. The public `source_change_set_high_watermark` value is the opaque token owned by REQ-02-143b. The canonical export model MUST exclude raw blob bytes, blob hashes, storage references, mutable history, deployment auth or admin state, job records, and idempotency records.
 
 **REQ-02-144**
 When recipient-specific reporting is implemented, each exportable field or block MUST also be able to carry zero or more stable incident-local `disclosure_partition_refs[]`. Each `disclosure_partition_ref` names an export-only withholding boundary such as an affected party or other approved recipient partition. `disclosure_partition_refs[]` MUST be stored as snapshot or export metadata only. They MUST NOT change live workspace authorization.
@@ -2049,7 +2113,6 @@ The implementation MUST store authoritative blob-slot create-contract fields and
 - observed size,
 - observed SHA-256,
 - upload state,
-- `finalize_attempt_count`,
 - `terminal_reason`,
 - `failed_at`,
 - `cleanup_due_at`,
@@ -2136,7 +2199,7 @@ Initial or later entry to `released` without the documented
 
 ### 13.2 Blob-upload lifecycle machine
 
-The authoritative machine condition is determined by persisted `object_blobs.upload_state` together with `terminal_reason`, `failed_at`, `target_expires_at`, `pending_expires_at`, `finalize_attempt_count`, `cleanup_due_at`, and `cleaned_up_at`.
+The authoritative machine condition is determined by persisted `object_blobs.upload_state` together with `terminal_reason`, `failed_at`, `target_expires_at`, `pending_expires_at`, `cleanup_due_at`, and `cleaned_up_at`.
 
 The machine states mean:
 
@@ -2207,7 +2270,7 @@ Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313
 
 **REQ-02-194**
-Explicit finalization MUST compare observed bytes against the accepted create contract. If observed size differs from declared `byte_size`, finalization MUST fail immediately, the slot MUST transition to `upload_state='failed'`, `terminal_reason` MUST be `declared_size_mismatch`, and `failed_at` MUST be recorded. If expected SHA-256 is present and differs from observed SHA-256, finalization MUST fail immediately, the slot MUST transition to `upload_state='failed'`, `terminal_reason` MUST be `expected_sha256_mismatch`, and `failed_at` MUST be recorded. These mismatch failures are terminal on first detection and MUST NOT consume or extend the ordinary finalization retry budget. A mismatch between observed content type and advisory `content_type_hint` alone MUST update observed metadata and preview policy and MUST NOT by itself fail the slot. Filename mismatch alone MUST NOT be a finalization failure in the base profile. For other explicit failed finalization attempts on a pending blob slot, the implementation MUST track `finalize_attempt_count`. Only unsuccessful explicit finalization attempts count toward this total; an idempotent replay after already-committed success MUST NOT consume retry budget. A pending blob slot MUST allow 3 non-terminal failed explicit finalization attempts. On the 4th such failed attempt, it MUST transition to `upload_state='failed'`, persist `terminal_reason='finalize_retry_exhausted'`, and record `failed_at`. Later retry then requires a fresh blob slot.
+Background verification (Core 01 REQ-01-452a) MUST compare stored bytes against the accepted create contract. A size mismatch fails the Job and the blob immediately with `terminal_reason=declared_size_mismatch`; an expected SHA-256 mismatch does the same with `terminal_reason=expected_sha256_mismatch`. Record creation and attach consume only the retained successful observation bound to the completed lease. Missing verification returns `blob_pending` without changing the blob or record. Object-store unavailability, cancellation, and timeout establish no integrity verdict and leave an otherwise eligible slot pending for an explicit new verification Job. No finalization-attempt counter or retry-exhaustion transition is retained. The existing pending expiry and cleanup deadlines remain. Content-type hints and filenames remain advisory.
 Profiles: base
 Verified by: AC-015, AC-016, AC-053, AC-100, AC-102, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313
 
@@ -2583,9 +2646,21 @@ The current snapshot-schema registry is exact:
 | `host` | `cartulary.revisions.snapshot.host.v1` | Entities |
 | `identity` | `cartulary.revisions.snapshot.identity.v1` | Entities |
 | `indicator` | `cartulary.revisions.snapshot.indicator.v1` | Indicators |
-| `party` | `cartulary.revisions.snapshot.party.v1` | Parties |
+| `party` | `cartulary.revisions.snapshot.party.v2` | Parties |
 | `task_request` | `cartulary.revisions.snapshot.task_request.v1` | Tasks/Decisions |
 | `timeline_event` | `cartulary.revisions.snapshot.timeline_event.v1` | Timeline |
+
+For Party snapshots, the Records envelope is the sole authority for creation
+and update timestamps, row version, actors and deletion state. The v2 `source`
+object contains exactly `record_id`, `incident_id`, `display_name`, `party_kind`,
+`organization_name`, `role_title`, `primary_email`, `timezone_name`, `external_ref`
+and `notes`; it contains no duplicate clocks. Party projection and Reporting
+timestamp fields derive from the same Records envelope. Incident portability
+retains this envelope and the independent ten-field Party source without
+fabricating source timestamps at import. Retained Party v1 snapshots are not
+reinterpreted as v2. The pre-production cutover MUST reject incompatible Party
+state before migration or source mutation; rollback requires a matching
+application/data backup or fresh initialization.
 
 The `snapshot_schema_id` MUST match the envelope record type and the exact
 source-owner validator admitted at application startup. Unknown, missing,

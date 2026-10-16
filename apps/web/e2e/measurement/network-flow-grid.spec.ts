@@ -8,7 +8,7 @@ import {
 } from "@cartulary/ui-contracts";
 import type { Locator, Page } from "@playwright/test";
 
-import { expect, test } from "../fixtures";
+import { expect, test } from "./fixtures";
 
 type FixtureSurface = {
   readonly buttonLabel: string;

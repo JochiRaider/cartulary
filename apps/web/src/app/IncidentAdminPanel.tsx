@@ -166,6 +166,10 @@ export function IncidentAdminPanel({
 }
 
 const incidentControlsSectionMeta = {
+  "snapshot-reports": {
+    title: "Snapshots and reports",
+    description: "Create snapshots and internal report drafts.",
+  },
   "import-assistant": {
     title: "Import workbook",
     description:

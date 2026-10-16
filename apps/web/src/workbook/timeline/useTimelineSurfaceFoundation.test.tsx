@@ -3,6 +3,7 @@ import { useState } from "react";
 import { expect, it } from "vitest";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import type { WorkbookPendingMutationPort } from "../ports/WorkbookPendingMutationPort";
+import { WorkbookQueryBrowsingProvider } from "../query/WorkbookQueryBrowsingContext";
 import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { useTimelineSurfaceFoundation } from "./composition/useTimelineSurfaceFoundation";
 import type { TimelineWorkbookSurfaceRuntime } from "./models/timelineWorkbookSurfaceRuntime";
@@ -37,6 +38,7 @@ it("useTimelineSurfaceFoundation owns stable adapter row query and pending found
         apiBase,
         clipboardPaste: {
           paste: () => null,
+          observeReceipt: () => () => {},
         },
         incidentId: "incident-1",
         mutationCommands,
@@ -44,7 +46,10 @@ it("useTimelineSurfaceFoundation owns stable adapter row query and pending found
         query: { setState, state },
       });
     },
-    { initialProps: { apiBase: undefined as string | undefined } },
+    {
+      initialProps: { apiBase: undefined as string | undefined },
+      wrapper: WorkbookQueryBrowsingProvider,
+    },
   );
   const initialRecordActionPort = result.current.ports.recordActions;
   const initialPendingRefs = result.current.refs.pendingSaves;

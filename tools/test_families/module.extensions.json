@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.extensions",
   "rows": [
     {
@@ -146,6 +146,32 @@
       "evidence_class": "integration",
       "runtime_profile_id": "default",
       "resource_profile_id": "io_heavy",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.extensions.integration.extension_coordination_state_and_staged_objects_5a1db013c5",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.extensions.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/extensionstore",
+        "tests": [
+          "TestExtensionCoordinationStateAndStagedObjects_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
@@ -771,6 +797,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.extensions.unit.cross_owner_descriptors_uses_current_machine_con_a4d6a2c187",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.extensions.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/extensionassembly",
+        "tests": [
+          "TestCrossOwnerDescriptorsUsesCurrentMachineContract"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.extensions.unit.inactive_configuration_catalog",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.unit",
@@ -866,6 +916,30 @@
         "package": "./internal/modules/extensions",
         "tests": [
           "TestNetworkFlowV7StateJobsAndReportingProjection_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.extensions.unit.publication_catalog_exact_profile_contribution_s_15f926e0bd",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.extensions.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/extensionassembly",
+        "tests": [
+          "TestPublicationCatalog_ExactProfileContributionSet_Unit"
         ]
       },
       "evidence_class": "unit",

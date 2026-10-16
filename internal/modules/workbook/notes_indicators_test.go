@@ -336,7 +336,7 @@ func TestWorkbookHotProjectionTablesRebuild_Integration(t *testing.T) {
 	appender := revisionComposition.Runtime.Appender()
 	timelineBundle, projections := newWorkbookTimelineComposition(t, harness.DB, appender, revisionComposition.Runtime.ConflictFieldResolver(), revisionComposition.RecordChanges)
 	workbookStore, _ := newCatalogBackedWorkbookCatalog(t, harness.DB, timelineBundle, projections, appender, revisionComposition.RecordChanges)
-	projectionRebuilder := projections.RevisionRebuilder()
+	projectionRebuilder := projections.ImportRebuilder()
 	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "i902-hot-projections@example.test", "I902 Hot Projections", "I902HotProjection1!", false, false, true)
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-i-9-02-hot-incident", "IR-I902-HOT", "Workbook inspector workbook-interaction hot projections")
 
@@ -397,7 +397,7 @@ SELECT count(*)
 	if err != nil {
 		t.Fatalf("begin projection rebuild transaction: %v", err)
 	}
-	if err := projectionRebuilder.RebuildIncidentTx(ctx, tx, incident.ID); err != nil {
+	if err := projectionRebuilder.RebuildImportedIncidentTx(ctx, tx, incident.ID); err != nil {
 		_ = tx.Rollback(ctx)
 		t.Fatalf("rebuild incident projections: %v", err)
 	}
@@ -550,12 +550,11 @@ func newCatalogBackedWorkbookCatalog(
 	t.Helper()
 	conflictTokens := workbookTestConflictTokens()
 	conflictFields := revisionsupport.MustConflictFieldResolver(t)
-	evidenceOwner := appsupport.NewEvidenceOwnerRuntime(
+	evidenceOwner := appsupport.NewEvidenceSourceRuntime(
 		pool,
 		conflictTokens,
 		appender,
 		intents,
-		appsupport.UnavailableEvidenceObjectStore(),
 		conflictFields,
 		workbookassembly.NewConflictIdempotencyPort(pool),
 		projections,
@@ -679,7 +678,7 @@ func newWorkbookTimelineComposition(
 		t.Fatalf("compose projection runtime: %v", err)
 	}
 	conflictTokens := workbookTestConflictTokens()
-	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+	evidenceOwner := appsupport.NewEvidenceSourceRuntimeForTimeline(
 		pool,
 		conflictTokens,
 		appender,

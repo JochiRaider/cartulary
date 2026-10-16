@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_presence_contract.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "contract_id",
+    "criterion_ids",
+    "fixture_contract_id",
+    "measurement_policy_id",
+    "warmup_passes",
+    "measured_samples",
+    "product_retries",
+    "threshold_ms",
+    "threshold_comparison",
+    "view_schema_id",
+    "field_key",
+    "viewport",
+    "start_mark",
+    "predicates"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.performance_presence_contract.v2"
+    },
+    "contract_id": {
+      "const": "cartulary.performance.presence.v2"
+    },
+    "fixture_contract_id": {
+      "const": "cartulary.performance.large_grid.v1"
+    },
+    "measurement_policy_id": {
+      "const": "cartulary.measurement.single_observation.v1"
+    },
+    "warmup_passes": {
+      "const": 0
+    },
+    "measured_samples": {
+      "const": 1
+    },
+    "product_retries": {
+      "const": 0
+    },
+    "threshold_ms": {
+      "const": 1000
+    },
+    "threshold_comparison": {
+      "const": "lte"
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "field_key": {
+      "const": "timeline.activity_synopsis_text"
+    },
+    "viewport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "device_scale_factor"
+      ],
+      "properties": {
+        "width": {
+          "const": 1920
+        },
+        "height": {
+          "const": 1080
+        },
+        "device_scale_factor": {
+          "const": 1
+        }
+      }
+    },
+    "start_mark": {
+      "const": "cartulary.workbook.presence_change_accepted"
+    },
+    "predicates": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "kind"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_presence_surface.rendered.v1"
+            },
+            "kind": {
+              "const": "surface"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "kind"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_presence_row.rendered.v1"
+            },
+            "kind": {
+              "const": "row"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "kind"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_presence_cell.rendered.v1"
+            },
+            "kind": {
+              "const": "cell"
+            }
+          }
+        }
+      ],
+      "items": false
+    },
+    "criterion_ids": {
+      "const": [
+        "AC-008",
+        "AC-132"
+      ]
+    }
+  }
+}

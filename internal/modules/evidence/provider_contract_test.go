@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records/subtypepresence"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
@@ -79,6 +80,7 @@ func TestModuleEvidenceProviderContributionClosure(t *testing.T) {
 			"object_blobs",
 			"evidence_access_handles",
 			"evidence_object_upload_leases",
+			"evidence_blob_verifications",
 			"evidence_blob_cleanup_claims",
 		}
 		gotTables := make([]string, 0, len(contribution.Tables))
@@ -207,6 +209,7 @@ func TestEvidenceOwnerRuntimeRejectsIncompleteDependencies(t *testing.T) {
 
 	codec := conflicttokens.ConflictTokenCodec{}
 	valid := OwnerRuntimeDependencies{
+		JobTransactions: &jobs.TransactionService{}, JobManager: &jobs.Manager{}, JobRunner: constructionVerificationRunner{},
 		Postgres:        constructionDB{},
 		ConflictTokens:  &codec,
 		Revisions:       &revisions.Appender{},
@@ -227,6 +230,9 @@ func TestEvidenceOwnerRuntimeRejectsIncompleteDependencies(t *testing.T) {
 		name   string
 		mutate func(*OwnerRuntimeDependencies)
 	}{
+		{name: "job transactions", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.JobTransactions = nil }},
+		{name: "job manager", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.JobManager = nil }},
+		{name: "job runner", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.JobRunner = nil }},
 		{name: "postgres", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Postgres = nil }},
 		{name: "conflict tokens", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.ConflictTokens = nil }},
 		{name: "revisions", mutate: func(dependencies *OwnerRuntimeDependencies) { dependencies.Revisions = nil }},
@@ -361,3 +367,8 @@ type constructionRecordEnvelopes struct{ RecordEnvelopeCapability }
 
 type constructionLifecycleIdempotency struct{ LifecycleIdempotencyCapability }
 type constructionRevisions struct{ RevisionCapability }
+
+type constructionVerificationRunner struct{}
+
+func (constructionVerificationRunner) RegisterHandler(string, jobs.HandlerFunc) error { return nil }
+func (constructionVerificationRunner) Notify(uuid.UUID)                               {}

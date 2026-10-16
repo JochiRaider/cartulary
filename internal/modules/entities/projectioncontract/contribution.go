@@ -136,6 +136,9 @@ func identitySurfaceIntent() providercontract.SurfaceIntent {
 			"identity.mfa_state",
 			"identity.reset_status",
 			"identity.edited_at",
+			"identity.subject_party_ids",
+			"identity.responsible_party_ids",
+			"identity.observer_party_ids",
 		},
 	}
 }
@@ -159,6 +162,9 @@ func hostSurfaceIntent() providercontract.SurfaceIntent {
 			"host.criticality",
 			"host.containment_status",
 			"host.edited_at",
+			"host.subject_party_ids",
+			"host.responsible_party_ids",
+			"host.observer_party_ids",
 		},
 	}
 }

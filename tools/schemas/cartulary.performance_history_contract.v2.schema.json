@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_history_contract.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "contract_id",
+    "criterion_id",
+    "fixture_contract_id",
+    "measurement_policy_id",
+    "warmup_passes",
+    "measured_samples",
+    "product_retries",
+    "threshold_ms",
+    "threshold_comparison",
+    "view_schema_id",
+    "viewport",
+    "start_mark",
+    "predicates",
+    "workload"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.performance_history_contract.v2"
+    },
+    "contract_id": {
+      "const": "cartulary.performance.history.v2"
+    },
+    "criterion_id": {
+      "const": "AC-011"
+    },
+    "fixture_contract_id": {
+      "const": "cartulary.performance.large_grid.v1"
+    },
+    "measurement_policy_id": {
+      "const": "cartulary.measurement.single_observation.v1"
+    },
+    "warmup_passes": {
+      "const": 0
+    },
+    "measured_samples": {
+      "const": 1
+    },
+    "product_retries": {
+      "const": 0
+    },
+    "threshold_ms": {
+      "const": 2000
+    },
+    "threshold_comparison": {
+      "const": "lt"
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "viewport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "device_scale_factor"
+      ],
+      "properties": {
+        "width": {
+          "const": 1920
+        },
+        "height": {
+          "const": 1080
+        },
+        "device_scale_factor": {
+          "const": 1
+        }
+      }
+    },
+    "start_mark": {
+      "const": "cartulary.workbook.history_action_accepted"
+    },
+    "predicates": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "kind"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_history_entry_rollback.rendered.v2"
+            },
+            "kind": {
+              "const": "history_entry"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "kind"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_change_set_rollback.rendered.v2"
+            },
+            "kind": {
+              "const": "change_set"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "kind"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_row_restore.rendered.v2"
+            },
+            "kind": {
+              "const": "row_restore"
+            }
+          }
+        }
+      ],
+      "items": false
+    },
+    "workload": {
+      "const": {
+        "foreground_role": "reviewer",
+        "fields": [
+          {
+            "field_key": "timeline.analyst_text",
+            "before": "history-before",
+            "mistake": "history-mistake"
+          },
+          {
+            "field_key": "timeline.device_object_text",
+            "before": "device-before",
+            "mistake": "device-mistake"
+          }
+        ],
+        "action_driver": "keyboard_enter",
+        "inspector_scroll_policy": "product_managed"
+      }
+    }
+  }
+}

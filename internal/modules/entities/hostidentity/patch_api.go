@@ -91,7 +91,7 @@ func PatchRequestHash(request PatchRequest) []byte {
 	for _, change := range request.Changes {
 		entry := map[string]any{"field_key": change.FieldKey}
 		if change.CollectionActions != nil {
-			entry["action_payload"] = canonicalAliasActions(change.CollectionActions)
+			entry["action_payload"] = canonicalCollectionActions(change.CollectionActions)
 		} else {
 			entry["value"] = canonicalPatchValue(change.Value)
 		}
@@ -141,7 +141,13 @@ func decodeEntityPatchChange(viewSchemaID string, raw json.RawMessage) (PatchCha
 		if descriptor.patch != entityFieldPatchCollection {
 			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
-		actions, ok := decodeAliasPatchActionPayload(viewSchemaID, fieldKey, object["action_payload"])
+		var actions []CollectionAction
+		var ok bool
+		if isPartyAssignmentField(fieldKey) {
+			actions, ok = decodePartyAssignmentActions(object["action_payload"])
+		} else {
+			actions, ok = decodeAliasPatchActionPayload(viewSchemaID, fieldKey, object["action_payload"])
+		}
 		if !ok {
 			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
@@ -208,12 +214,14 @@ func decodeAliasPatchActionPayload(viewSchemaID string, fieldKey string, value j
 	return actions, true
 }
 
-func canonicalAliasActions(actions []CollectionAction) map[string]any {
+func canonicalCollectionActions(actions []CollectionAction) map[string]any {
 	values := make([]map[string]any, 0, len(actions))
 	for _, action := range actions {
 		value := map[string]any{"op": action.Op}
 		if action.Op == "add_alias" {
 			value["alias_text"] = action.NormalizedText
+		} else if action.Op == "add_party_ref" {
+			value["party_id"] = action.PartyID.String()
 		} else {
 			value["item_ref"] = action.ItemRef
 		}

@@ -3,6 +3,7 @@ package configassembly
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
@@ -22,6 +23,7 @@ type Deployment struct {
 	EnterpriseAuthentication enterpriseauth.Configuration
 	NetworkFlowActivity      networkflow.Configuration
 	ReferencePacks           reference_data.Configuration
+	Reporting                reporting.Configuration
 	Revisions                conflicts.Configuration
 	Timeouts                 config.TimeoutConfig
 	Intervals                config.IntervalConfig
@@ -55,6 +57,10 @@ func deploymentFromSnapshot(snapshot config.Snapshot) (Deployment, error) {
 		return Deployment{}, err
 	}
 	deployment.ReferencePacks, err = config.Value(snapshot, referencePackConfigurationKey)
+	if err != nil {
+		return Deployment{}, err
+	}
+	deployment.Reporting, err = config.Value(snapshot, reportingConfigurationKey)
 	if err != nil {
 		return Deployment{}, err
 	}

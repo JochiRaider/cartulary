@@ -136,6 +136,9 @@ func validateLinkCollectionPolicy(fieldKey string, linkType LinkType) error {
 	if linkType.String() == "" {
 		return collectionValidationError(fieldKey)
 	}
+	if IsPartyAssignmentField(fieldKey) && linkType != LinkTypeReferencesRecord {
+		return collectionValidationError(fieldKey)
+	}
 	return nil
 }
 

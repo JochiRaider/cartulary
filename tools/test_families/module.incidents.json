@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.incidents",
   "rows": [
     {
@@ -1399,6 +1399,33 @@
       ]
     },
     {
+      "row_id": "module.incidents.integration.incident_list_search_status_and_cursor_scope_80dd540eb3",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentListSearchStatusAndCursorScope"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.incidents.integration.live_membership_patch_to_the_current_role_return_7a14cba87a",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.integration",
@@ -1958,6 +1985,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.incidents.unit.admitted_mutation_hashes_match_compatibility_dig_6c66c494bf",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestAdmittedMutationHashesMatchCompatibilityDigests_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.incidents.unit.application_constructor_guards_i2",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.unit",
@@ -2196,6 +2247,31 @@
         "package": "./internal/modules/incidents/httpapi",
         "tests": [
           "TestIncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStable_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidents.unit.incident_request_string_contracts_9d044fc800",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents/httpapi",
+        "tests": [
+          "TestIncidentListQueryUsesCoreListQueryErrors",
+          "TestIncidentRequestStringContracts"
         ]
       },
       "evidence_class": "unit",

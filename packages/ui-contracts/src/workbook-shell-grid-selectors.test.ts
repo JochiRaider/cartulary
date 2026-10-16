@@ -412,10 +412,15 @@ describe("@cartulary/ui-contracts workbook shell and grid selectors", () => {
       inspectorDefaultWidthCssPx: 420,
       inspectorEffectiveMaxWidthCssPx: 560,
       inspectorMinWidthCssPx: 360,
+      inspectorOverlayWidthCssPx: 560,
       narrowMinWidthCssPx: 1024,
     });
     expect(workbookLayoutMetrics(1024).inspectorEffectiveMaxWidthCssPx).toBe(
-      460.8,
+      360,
+    );
+    // Preserve the 720px grid remainder before reaching the fixed width cap.
+    expect(workbookLayoutMetrics(1152).inspectorEffectiveMaxWidthCssPx).toBe(
+      432,
     );
     expect(workbookLayoutMetrics(768).inspectorEffectiveMaxWidthCssPx).toBe(
       360,

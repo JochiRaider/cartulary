@@ -19,6 +19,14 @@
       "evidence_kinds": [
         "go_test"
       ]
+    },
+    {
+      "verification_id": "module.auth.verification.source_contracts",
+      "behavior_class": "security",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

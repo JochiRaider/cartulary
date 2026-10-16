@@ -51,7 +51,7 @@ func assertProductionSurface(t *testing.T) {
 		"method Module.ReportingGraphSource":                                   false,
 		"method Module.TransactionCapabilities":                                false,
 		"method PortabilityStateBinding.RetainedAuthoritativeStatePresentTx":   false,
-		"method ReportingGraphSource.ReadAndRenewLeasedResult":                 false,
+		"method ReportingGraphSource.ReadAndRenewLeasedResultTx":               false,
 		"method ReportingGraphSource.ReleaseJobLeases":                         false,
 		"method ReportingGraphSource.ReleaseJobLeasesTx":                       false,
 		"method ReportingGraphSource.SourceOwnerID":                            false,

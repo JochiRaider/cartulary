@@ -798,9 +798,25 @@
       "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "table_name": "reporting_preview_reveal_maps",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "logical_ref": "postgres/reporting_preview_reveal_maps",
+      "row_count": 0,
+      "plaintext_bytes": 0,
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
       "table_name": "reporting_release_approvals",
       "codec_id": "cartulary.postgres_snapshot_unit.v1",
       "logical_ref": "postgres/reporting_release_approvals",
+      "row_count": 0,
+      "plaintext_bytes": 0,
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "table_name": "reporting_release_reveal_maps",
+      "codec_id": "cartulary.postgres_snapshot_unit.v1",
+      "logical_ref": "postgres/reporting_release_reveal_maps",
       "row_count": 0,
       "plaintext_bytes": 0,
       "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"

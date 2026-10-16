@@ -2,7 +2,7 @@ package appsupport
 
 import (
 	"context"
-	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/jobassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"testing"
@@ -32,15 +32,15 @@ func OpenObjectStore(ctx context.Context, cfg configassembly.Deployment, env map
 	return objectstore.Setup(ctx, settings, configassembly.ObjectStoreInstrumentation(cfg))
 }
 
-// RecognizedExtensionJobDefinitions uses the production composition and typed
+// RecognizedJobDefinitions uses the production composition and typed
 // package registry for service-backed owner tests.
-func RecognizedExtensionJobDefinitions(t testing.TB) []jobs.Definition {
+func RecognizedJobDefinitions(t testing.TB) []jobs.Definition {
 	t.Helper()
 	coordinator, err := extensions.NewGeneratedCoordinator()
 	if err != nil {
 		t.Fatal(err)
 	}
-	definitions, err := extensionassembly.RecognizedJobDefinitions(coordinator.JobKindContracts(), coordinator.WorkerRuntimeContracts())
+	definitions, err := jobassembly.RecognizedDefinitions(coordinator.JobKindContracts(), coordinator.WorkerRuntimeContracts())
 	if err != nil {
 		t.Fatal(err)
 	}

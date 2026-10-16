@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/importassembly"
 	"github.com/JochiRaider/cartulary/internal/app/incidentportabilityassembly"
 	"github.com/JochiRaider/cartulary/internal/app/indicatorassembly"
+	"github.com/JochiRaider/cartulary/internal/app/jobassembly"
 	"github.com/JochiRaider/cartulary/internal/app/projectionassembly"
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/app/reportingassembly"
@@ -89,6 +91,8 @@ type networkFlowComposition interface {
 type referenceDataComposition interface{ WrapDatabase(postgres.DB) postgres.DB }
 
 type Options struct {
+	ReportingRuntime          reporting.RenderRuntime
+	ReportingTemplatePacks    *reporting.TemplatePackRegistry
 	ReferenceDataComposition  referenceDataComposition
 	NetworkFlowComposition    networkFlowComposition
 	Env                       map[string]string
@@ -491,6 +495,18 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("project Snapshot/Reporting application plan: routes and participant admission disagree")
 	}
+	var reportRenderer *reporting.Renderer
+	if snapshotReportingRoutesAdmitted {
+		if options.ReportingRuntime != nil {
+			reportRenderer, err = reporting.NewRenderer(options.ReportingRuntime)
+		} else {
+			reportRenderer, err = reporting.NewInstalledRenderer(filepath.Dir(normalizedCfg.Reporting.RuntimeReceiptPath), normalizedCfg.Roots.TemporaryWork.Path)
+		}
+		if err != nil {
+			runtime.Close()
+			return nil, config.NewDiagnosticsError(config.Diagnostic{Path: "snapshot_reporting.runtime_receipt_path", ReasonCode: "reporting_runtime_unavailable", Message: "Reporting runtime installation admission failed."})
+		}
+	}
 	publication, err := preparePublicationOrchestrator(runtime.lifecycle, extensionPlan)
 	if err != nil {
 		runtime.Close()
@@ -514,7 +530,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		_ = telemetryRuntime.Shutdown(shutdownCtx)
 	})
 
-	recognizedJobDefinitions, err := extensionassembly.RecognizedJobDefinitions(extensionCoordinator.JobKindContracts(), extensionCoordinator.WorkerRuntimeContracts())
+	recognizedJobDefinitions, err := jobassembly.RecognizedDefinitions(extensionCoordinator.JobKindContracts(), extensionCoordinator.WorkerRuntimeContracts())
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose recognized extension job definitions: %w", err)
@@ -604,6 +620,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 				return nil, viewErr
 			}
 			admissionViews[reference_data.ProfileID] = view
+		}
+		if snapshotReportingRoutesAdmitted {
+			view, viewErr := extensionCoordinator.ConfigurationView(reporting.ProfileID, []extensions.ProfileConfigurationValue{{Key: "snapshot_reporting.runtime_receipt_path", Source: "explicit", Value: map[string]any{"kind": "regular_file_ref", "key": "snapshot_reporting.runtime_receipt_path"}}})
+			if viewErr != nil {
+				runtime.Close()
+				return nil, viewErr
+			}
+			admissionViews[reporting.ProfileID] = view
 		}
 		if admissionErr := stateRuntime.ValidateClaimAdmission(ctx, extensionCoordinator, resolvedClaims, "preflight", admissionViews, admissionAlgorithms); admissionErr != nil {
 			runtime.Close()
@@ -807,7 +831,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	jobProgressIntents := newCollaborationJobProgressTranslator(collaborationRuntime.JobProgress())
 	extensionResourceChangeIntents := newCollaborationExtensionResourceChangeTranslator(collaborationRuntime.ExtensionResourceChanges())
 	jobOwnerPorts := extensionassembly.JobOwnerTransactionAdapters{}
-	extensionJobDefinitions, err := extensionassembly.JobDefinitions(publicationCatalog)
+	extensionJobDefinitions, err := jobassembly.SelectedDefinitions(publicationCatalog)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose extension job definitions: %w", err)
@@ -817,7 +841,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs catalog: %w", err)
 	}
-	workerRuntimeContracts, err := extensionassembly.WorkerRuntimeContracts(publicationCatalog)
+	workerRuntimeContracts, err := jobassembly.WorkerContracts(publicationCatalog)
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Jobs worker runtime contracts: %w", err)
@@ -926,6 +950,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	})
 	var extensionJobFinalizer *extensionstore.OwnerFinalizer
 	var networkFlowJobFinalizer *extensionstore.OwnerFinalizer
+	var reportingJobFinalizer *extensionstore.OwnerFinalizer
 	if extensionStateStore != nil {
 		extensionJobFinalizer, err = extensionstore.NewOwnerFinalizer(
 			extensionStateStore,
@@ -947,6 +972,14 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		if err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("compose saved graph receipt finalizer: %w", err)
+		}
+		reportingJobFinalizer, err = extensionstore.NewOwnerFinalizer(
+			extensionStateStore, jobTransactions, extensionassembly.ReportingReceiptReconciler{}, now,
+			func(error) { runtime.lifecycle.Fatal("indeterminate_database_commit") },
+		)
+		if err != nil {
+			runtime.Close()
+			return nil, fmt.Errorf("compose Reporting receipt finalizer: %w", err)
 		}
 
 	}
@@ -1018,6 +1051,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		return nil, fmt.Errorf("compose Evidence mutation dependencies: %w", err)
 	}
 	evidenceOwner, err := evidence.NewOwnerRuntime(evidence.OwnerRuntimeDependencies{
+		JobTransactions: jobTransactions, JobManager: jobManager, JobRunner: jobRunner,
 		Postgres:        postgresHandle,
 		ConflictTokens:  &workbookConflictTokens,
 		Revisions:       revisionRuntime.Appender(),
@@ -1080,7 +1114,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		postgresHandle,
 		registryTransactions,
 		incidentbundles.ImportedAttributionResolver(),
-		projectionRuntime.RevisionRebuilder(),
+		projectionRuntime.RevisionRows(),
 		projectionRuntime.RevisionLiveRecords(),
 		now,
 		recordChanges,
@@ -1155,6 +1189,28 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	if err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("compose Incident Portability reference retention: %w", err)
+	}
+	referenceRetention, err := reference_data.NewRetention(referenceDatabase, rootReferencePackStorage, now, referenceIntegrity)
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose Reference Pack retention: %w", err)
+	}
+	if err := reporting.ValidateRetainedSnapshotModels(ctx, postgresPool, referenceRetention); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("validate retained reporting snapshots: %w", err)
+	}
+	if err := reporting.ValidateRetainedReleases(ctx, postgresPool, referenceRetention); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("validate retained reporting releases: %w", err)
+	}
+	if err := reporting.ValidateRetainedPreviews(ctx, postgresPool, referenceRetention); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("validate retained Reporting previews: %w", err)
+	}
+
+	if err := reporting.ValidateRetainedSensitiveArtifacts(ctx, postgresPool); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("validate retained reporting sensitive artifacts: %w", err)
 	}
 	if err := reporting.ValidateRetainedArtifacts(ctx, postgresPool, incidentReferences); err != nil {
 		runtime.Close()
@@ -1354,14 +1410,19 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		runtime.Close()
 		return nil, err
 	}
-	referenceRetention, err := reference_data.NewRetention(referenceDatabase, rootReferencePackStorage, now, referenceIntegrity)
-	if err != nil {
-		runtime.Close()
-		return nil, fmt.Errorf("compose Reference Pack retention: %w", err)
+	templatePacks := options.ReportingTemplatePacks
+	if templatePacks == nil {
+		templatePacks, err = reporting.NewTemplatePackRegistry()
+		if err != nil {
+			runtime.Close()
+			return nil, err
+		}
 	}
 	reportingRouteOptions := reporting.WithJobs(reporting.RouteOptions{
+		Renderer:            reportRenderer,
+		TemplatePacks:       templatePacks,
 		ReferencePacks:      referenceRetention,
-		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(extensionJobFinalizer),
+		JobSuccessFinalizer: extensionassembly.NewReportingJobSuccessFinalizer(reportingJobFinalizer),
 		RenderExportInvoker: renderExportInvoker,
 		SourceBoundary:      sourceboundary.NewResolver(),
 		SupportRefProvider:  linksReporting,
@@ -1379,7 +1440,7 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 	reportingRoutes := reporting.RegisterRoutes(reportingRouteOptions)
 	var compositionPreviewJobs reportcomposition.PreviewJobPort
 	if snapshotReportingRoutesAdmitted {
-		compositionPreviewJobs, err = reporting.NewCompositionPreviewJobPort(runtime.jobRunner, jobTransactions)
+		compositionPreviewJobs, err = reporting.NewCompositionPreviewJobPort(runtime.jobRunner, jobTransactions, referenceRetention, templatePacks, reportingRouteOptions.GraphSourceProviders...)
 		if err != nil {
 			runtime.Close()
 			return nil, fmt.Errorf("compose Report Composition preview job port: %w", err)

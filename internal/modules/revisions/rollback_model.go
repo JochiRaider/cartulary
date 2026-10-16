@@ -59,6 +59,7 @@ type rollbackPlan struct {
 	Target            rollbackMutationTarget
 	Targets           []rollbackMutationTarget
 	Companion         []rollbackMutationTarget
+	ProjectionRecords []uuid.UUID
 	Affected          []uuid.UUID
 	Addressed         uuid.UUID
 	RecordType        string

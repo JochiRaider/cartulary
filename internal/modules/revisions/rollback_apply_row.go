@@ -42,7 +42,7 @@ func (a rollbackTransactionalApplier) applyRowRestorePlanTx(ctx context.Context,
 	if err := a.restoreRollbackSourceTx(ctx, tx, targetKind, record.RecordType, record.RecordID, actor.UUID(), now, nextRowVersion, plan.RestoreSnapshot); err != nil {
 		return rollbackApplyResult{}, err
 	}
-	if err := a.publication.rebuildProjectionsTx(ctx, tx, record.IncidentID); err != nil {
+	if err := a.publication.refreshProjectionsTx(ctx, tx, record.IncidentID, plan.ProjectionRecords); err != nil {
 		return rollbackApplyResult{}, err
 	}
 	afterSnapshot, err := a.publication.captureRecordSnapshotTx(ctx, tx, record.RecordID)
@@ -199,7 +199,7 @@ func (a rollbackTransactionalApplier) applyRowBackedRollbackTx(ctx context.Conte
 	if err := a.restoreRollbackSourceTx(ctx, tx, target.TargetKind, recordType, targetRecordID, actor.UUID(), now, nextRowVersion, target.BeforeValue); err != nil {
 		return RollbackRecordChange{}, err
 	}
-	if err := a.publication.rebuildProjectionsTx(ctx, tx, targetRecord.IncidentID); err != nil {
+	if err := a.publication.refreshProjectionsTx(ctx, tx, targetRecord.IncidentID, plan.ProjectionRecords); err != nil {
 		return RollbackRecordChange{}, err
 	}
 	afterSnapshot, err := a.publication.captureRecordSnapshotTx(ctx, tx, targetRecordID)

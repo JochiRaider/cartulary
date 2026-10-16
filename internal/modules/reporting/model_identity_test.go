@@ -10,10 +10,11 @@ import (
 // Expected IDs were calculated independently with Python's JSON serializer and
 // SHA-256 over literal ASCII tuples. No expected output calls the Go encoder.
 func TestReportingAdmittedModelIdentityAndTime(t *testing.T) {
+	t.Run("lifecycle isolation", testReportingRenderIsolation)
 	at := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
-	snapshot, _, err := BuildSnapshotModel(IncidentMetadataSnapshot{ID: "00000000-0000-0000-0000-000000000401", Title: "Frozen", Status: "active", Version: 1}, fixtureSnapshotID, at, "boundary", []ExportField{
-		{Path: "/hosts/host-1", SourceFamily: "host", ContentClass: ContentClassSourceEvidence, Value: "Host"},
-	})
+	snapshot, _, err := BuildSnapshotModel(IncidentMetadataSnapshot{ID: "00000000-0000-0000-0000-000000000401", Title: "Frozen", Status: "active", Version: 1}, fixtureSnapshotID, at, "boundary", fixtureSnapshotSource([]ExportField{
+		{SourceRecordID: "host-1", SourceRecordType: "host", Path: "/hosts/host-1", SourceFamily: "host", ContentClass: ContentClassSourceEvidence, Value: "Host"},
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,8 +39,22 @@ func TestReportingAdmittedModelIdentityAndTime(t *testing.T) {
 	if err := validateRenderModelIdentity(model); err != nil {
 		t.Fatal(err)
 	}
-	token, _, err := deriveDisplayToken(model.RenderIdentity, "host:host-1")
-	if err != nil || token != "tok_04cb064b54cb5881e9f48bb070eb297a8dd5bc28abaadd85a0ef853ac75044fb" {
+	for _, change := range []func(*ExportModel){
+		func(m *ExportModel) { m.SchemaID = "cartulary.reporting_export_model.v2" },
+		func(m *ExportModel) { m.SchemaID = "cartulary.reporting_export_model.v3" },
+		func(m *ExportModel) { m.SchemaID = "cartulary.reporting_export_model.v4" },
+		func(m *ExportModel) { m.SourceIndex = nil },
+		func(m *ExportModel) { m.PresentationTexts = nil },
+		func(m *ExportModel) { m.PresentationTexts = []ReportingPresentationText{{AuthoredTextID: "injected"}} },
+	} {
+		candidate := model
+		change(&candidate)
+		if validateRenderModelIdentity(candidate) == nil {
+			t.Fatal("retired or prepopulated presentation model admitted")
+		}
+	}
+	token, err := model.RenderIdentity.generatedID("token", "tok_", map[string]any{"stable_subject_ref": "subject:host:record:host-1"})
+	if err != nil || token != "tok_cbe2964b46d497a6a6fb3b588f0eab8e50154db6a50457179e7d0f353b7953c1" {
 		t.Fatal("token identity", token, err)
 	}
 	deckID, err := model.RenderIdentity.generatedID("deck", "deck_", map[string]any{"template_id": "cartulary.report.default", "template_version": "1", "export_model_id": model.ExportModelID})
@@ -71,6 +86,18 @@ func TestReportingAdmittedModelIdentityAndTime(t *testing.T) {
 	}
 	if len(snapshot.Records) == 0 {
 		t.Fatal("fixture has no record")
+	}
+	for _, mutate := range []func(*ReportingRecordSummary){
+		func(r *ReportingRecordSummary) { r.SourceRecordRef.SourceRecordID = "different" },
+		func(r *ReportingRecordSummary) { r.SourceRecordRef.SourceFamily = "incident_metadata" },
+		func(r *ReportingRecordSummary) { r.RecordType = "" },
+	} {
+		candidate := snapshot
+		candidate.Records = append([]ReportingRecordSummary(nil), snapshot.Records...)
+		mutate(&candidate.Records[0])
+		if _, _, err := bindRenderModel(candidate, fixtureRenderIdentity(), ReleaseScopeInternalReview, nil); err == nil {
+			t.Fatal("invalid or fabricated source record identity admitted")
+		}
 	}
 	snapshot.Records[0].SourceRecordRef.SourceSnapshotID = ""
 	if _, _, err := bindRenderModel(snapshot, fixtureRenderIdentity(), ReleaseScopeInternalReview, nil); err == nil {

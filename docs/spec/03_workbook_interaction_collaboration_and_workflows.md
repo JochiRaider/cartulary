@@ -1498,9 +1498,35 @@ Profiles: base, snapshot_reporting, incident_portability
 Verified by: AC-424
 
 **REQ-03-287a**
-For the Snapshot and Reporting Extension Profile, Core 03 owns only workbook-surface interaction with source-state fields and extension-route affordances. It MAY expose ordinary workbook or inspector controls for Core-owned party assignment source state and MAY link to snapshot, release, report-composition, validation, or preview routes allowed by Core 01 and Core 04. It MUST NOT define report export-model derivation, render bytes, redaction outcomes, composition operation effects, diagram layout semantics, authored-text substitution, release approval, or report-builder schema conformance. Those behaviors remain owned by the Reporting Subsystem NLSpec, Report Composition NLSpec, Core 01, and Core 04.
+For the Snapshot and Reporting Extension Profile, Core 03 owns only workbook-surface interaction with source-state fields and extension-route affordances. It MUST expose ordinary inspector controls for the six Core-owned Host/Identity party assignment collections, using the ordinary Party picker, retained drafts, current row version, and entity mutation authority. The controls MUST remain readable when editing is unavailable and MUST apply the existing lifecycle and conflict behavior. It MAY link to snapshot, release, report-composition, validation, or preview routes allowed by Core 01 and Core 04. It MUST NOT define report export-model derivation, render bytes, redaction outcomes, composition operation effects, diagram layout semantics, authored-text substitution, release approval, or report-builder schema conformance. Those behaviors remain owned by the Reporting Subsystem NLSpec, Report Composition NLSpec, Core 01, and Core 04.
 Profiles: snapshot_reporting
 Verified by: AC-233
+
+**REQ-03-287b — proposed coordinated Reporting companion**
+When the Snapshot and Reporting Extension Profile is claimed and its exact contract
+major and snapshot/release route families are supported by the client, the workbook
+MUST expose `Snapshots and reports` in its nonmodal incident controls. Editors,
+reviewers and admins MAY create an immutable snapshot, then request a Slidev
+internal draft using the current built-in default template and admission-resolved
+internal redaction. The UI MUST identify the output as an internal draft; it MUST
+NOT imply approval, publication or a download endpoint. Existing server role,
+profile and incident authorization applies, including to closed incidents.
+
+The presentation MUST show progress and cancellation for the exact admitted common
+Job while the grid remains usable. A successful snapshot result MUST bind the
+exact snapshot ID and incident before report admission. A successful render MUST
+bind the exact release ID. Contradictory scope, result identity, route, terminal
+state or regressing observation MUST fail closed. The UI MUST capture command and
+cancellation transaction identities before dispatch. Uncertain outcomes require
+explicit replay of the same request; no automatic retry or new transaction is
+permitted. Drawer detachment or uncertain authority pauses observation without
+canceling server work. Returning restores review and requires explicit refresh or
+recovery. Account/incident replacement or definitive profile/access loss retires
+protected state. Current role loss denies new commands and cancellation while
+preserving permitted read review. Reads have an independent bounded observation;
+a stalled status read MUST NOT block an explicit cancellation action.
+Profiles: snapshot_reporting
+Verified by: AC-030, AC-046
 
 **REQ-03-288**
 When an in-flight or queued workbook source-state mutation receives `incident_closed` from HTTP replay or the collaboration stream terminates with `error.payload.code = incident_closed`, the client MUST treat the condition as terminal for that queued source-state work, not as a retryable transport outage. Queued or unsent source-state mutations for the closed incident MUST become non-authoritative rejected drafts that MAY remain locally visible and copyable, but they MUST NOT be auto-replayed while the incident is closed and MUST NOT auto-replay after a later successful reopen. After reopen, committing any retained draft requires a fresh user action that dispatches a new current-profile mutation request subject to ordinary authorization, lifecycle, version, and conflict checks.
@@ -1889,7 +1915,7 @@ Profiles: base
 Verified by: AC-004, AC-102, AC-103, AC-128, AC-154, AC-155, AC-231, AC-521, AC-524
 
 **REQ-03-117**
-When exposed over the public HTTP surface, slot creation MUST use `POST /api/v1/object-blobs`. In the base profile, the returned `upload_target.href` MUST be an opaque same-origin `PUT /api/v1/object-uploads/{upload_token}` capability; clients MUST treat it as an opaque URL, MUST honor returned upload target `method` and `headers`, and MUST NOT parse, replace, persist, or infer bucket names, storage keys, presigned-object-store query parameters, or object-store hostnames from it. Existing-record finalization MUST use `POST /api/v1/evidence-records/{record_id}/attach-blob`. New-record finalization MUST use `POST /api/v1/incidents/{incident_id}/views/cartulary.view.evidence.v1/rows` with optional non-null `evidence.initial_object_blob_id`; no Evidence-specific row-create route is permitted. The client MUST treat returned `accepted_contract` as the server-approved upload contract and MUST NOT reconstruct that contract from stale local state after an uncertain network boundary. When finalization targets an existing evidence record, the client MUST send `object_blob_id`, `base_row_version`, and `client_txn_id`, MUST treat the action as record-scoped optimistic finalization rather than as a blind blob mutation, and, if it cannot tell whether attach succeeded, MUST replay the same normalized attach request with the same `client_txn_id`. When finalization creates a new row, an uncertain response MUST be retried with the same normalized generic row-create request and `client_txn_id`; a definitive `client_txn_conflict` requires the ordinary retry-with-new-ID workflow rather than silently changing the blob or field set under the old key.
+When exposed over the public HTTP surface, slot creation MUST use `POST /api/v1/object-blobs`. In the base profile, the returned `upload_target.href` MUST be an opaque same-origin `PUT /api/v1/object-uploads/{upload_token}` capability; clients MUST treat it as an opaque URL, MUST honor returned upload target `method` and `headers`, and MUST NOT parse, replace, persist, or infer bucket names, storage keys, presigned-object-store query parameters, or object-store hostnames from it. After transfer, the client MUST admit `POST /api/v1/object-blobs/{object_blob_id}/verify` and observe its Common Job; only successful verification permits finalization. Existing-record finalization MUST use `POST /api/v1/evidence-records/{record_id}/attach-blob`. New-record finalization MUST use `POST /api/v1/incidents/{incident_id}/views/cartulary.view.evidence.v1/rows` with optional non-null `evidence.initial_object_blob_id`; no Evidence-specific row-create route is permitted. The client MUST treat returned `accepted_contract` as the server-approved upload contract and MUST NOT reconstruct that contract from stale local state after an uncertain network boundary. When finalization targets an existing evidence record, the client MUST send `object_blob_id`, `base_row_version`, and `client_txn_id`, MUST treat the action as record-scoped optimistic finalization rather than as a blind blob mutation, and, if it cannot tell whether attach succeeded, MUST replay the same normalized attach request with the same `client_txn_id`. When finalization creates a new row, an uncertain response MUST be retried with the same normalized generic row-create request and `client_txn_id`; a definitive `client_txn_conflict` requires the ordinary retry-with-new-ID workflow rather than silently changing the blob or field set under the old key.
 
 A successful selected-row evidence attachment or screenshot-only Timeline create MUST keep the active Timeline workbook surface mounted. The refreshed Timeline row MUST render through ordinary workbook mutation application, replay, or refresh behavior, including projection-backed evidence fields such as `timeline.evidence_count` and `timeline.has_evidence`; clients MUST NOT satisfy this workflow by navigating away from the workbook surface or by replacing it with an evidence-only surface.
 Profiles: base
@@ -2011,7 +2037,7 @@ Profiles: base
 Verified by: AC-015, AC-016, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313
 
 **REQ-03-124**
-The implementation MUST allow 3 failed explicit finalization attempts per pending blob slot for non-terminal explicit finalization failures. Size or expected-hash mismatch is terminal on first detection and MUST NOT consume or extend this retry budget. Only other unsuccessful explicit finalization attempts count toward the limit, and an idempotent replay after already-committed success MUST NOT consume retry budget. On the 4th such failed finalization attempt, the slot MUST transition to `upload_state='failed'` with `terminal_reason='finalize_retry_exhausted'`. Later retry then requires a fresh blob slot.
+The client MUST complete the background verification Job in Core 01 REQ-01-452a before finalization. An uncertain verification admission MUST replay the same captured request and client transaction ID. A definitive failed or canceled Job requires an explicit new verification action; it MUST NOT automatically retry to success. Missing verification is effect-free `blob_pending`; it does not exhaust a finalization retry budget. Terminal byte-size or expected-hash mismatch requires a fresh blob slot. The nonmodal progress surface MUST expose the admitted Job and cancellation while retaining grid editability. Active verification progress and cancellation MUST remain visible when attachment recovery details are collapsed and the inspector is closed; opening those surfaces MUST NOT be a prerequisite. A local cancellation intent MUST prevent automatic finalization even when the worker has already succeeded before cancellation reaches the server. A later explicit Resume may consume that successful verification.
 Profiles: base
 Verified by: AC-015, AC-016, AC-103, AC-107, AC-108, AC-109, AC-110, AC-111, AC-128, AC-154, AC-155, AC-231, AC-313
 
@@ -2318,6 +2344,19 @@ falling back, changing selection, or submitting a mutation. Active editors keep
 native caret/selection clipboard behavior; Evidence file/image routing takes
 precedence over grid text handling where its owner applies.
 
+The Timeline blank row MUST expose a recordless table-insertion cell distinct
+from its native editor. Escape in an empty blank-row scalar editor focuses that
+cell; Enter from the insertion cell returns to the native editor. A nonempty
+draft retains its existing Escape behavior. Table paste at the insertion cell
+creates one new record for each decoded row, using the current visible writable
+column order or the admitted header mapping. It MUST NOT overwrite existing
+records, fabricate a record identity, or join a committed-cell range. Scalar
+text at this target prompts the user to enter the editor and makes no mutation.
+Grouping, read-only state, lost access, stale target mappings, and unavailable
+creation authority prohibit insertion. Active editors continue to use native
+paste, including multiline text. This insertion path shares the ordinary
+clipboard batch admission, authorization, conflict and evidence boundaries.
+
 Cartulary grid copy MUST offer `text/html` and a usable `text/plain` fallback
 using owner-approved copy presentation only. The HTML table marker is
 `data-cartulary-clipboard="1"`; its scalar/table intent is
@@ -2420,6 +2459,15 @@ resend a write, or repeat an acknowledged command. An explicit user action MAY
 resume bounded observation or recover the original captured request under its
 owner's replay contract. Observation following a newly admitted explicit action
 may continue under the existing bounded job contract.
+
+An in-time canonical Job response to the first submission of an explicit Import
+action supplies the initial observation for its progress and cancellation
+affordance. A replayed or late acknowledgement supplies identity only until a
+current Job read succeeds. An explicit cancellation MUST read the current Job
+and verify monotonicity, current eligibility and cancelability before sending
+the captured cancel request; admission never guarantees that cancellation will
+win a completion race. This does not apply to narrow owner admission references,
+which contain no execution facts.
 
 Write-role reduction or incident closure MUST retain permitted copyable drafts
 and receipts while prohibiting disallowed writes. Confirmed incident-access
@@ -3445,15 +3493,27 @@ Verified by: AC-013, AC-014, AC-044, AC-047, AC-124, AC-184, AC-185, AC-231, AC-
 **REQ-03-224**
 Sorting and filtering MUST apply to underlying rows before grouping is computed. Clearing a user sort override MUST return the surface to schema default sort only, represented by omitted `sort` on `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/query` and by canonical persisted `query_json.sort=[]` when the state is saved in a saved view. Clearing grouping MUST persist omitted `query_json.group_by`; the client MUST NOT persist JSON `null` for that state. When the server returns canonicalized `meta.query`, the client MUST treat that canonical query contract as authoritative for rendered filter chips, restored saved-view state, and cursor continuation. For workbook surface queries triggered by sort, filter, group, surface, cursor, or refresh state, the client MUST render only the latest applicable query result for the active incident, surface, and query identity. Older in-flight query results and query errors that have been superseded by a newer applicable query MUST NOT replace rendered rows, clear rendered rows, change visible query errors, or drive access-loss handling. Even when a query result is still latest for the active query identity, it MUST NOT overwrite a locally accepted newer committed row for the same `record_id`; if a full query response is older than the client's accepted row-version high-water mark for any returned row, the client MUST preserve the newer local committed row state and refresh through the same HTTP query route to recover canonical sort, filter, and grouping placement. The client MUST NOT preserve caller-entered order for set-like `values[]`, MUST NOT preserve case-only variants of `prefix.value` as authoritative state, and MUST NOT re-tokenize `full_text` independently of the server contract.
 
-A bounded latest query result MAY omit a locally created committed row that
-falls outside its returned window. For the same incident, surface, and query
-identity, the client MUST retain the most recent locally created committed row
-as a presentation pin when that row is absent from a refresh result. The next
-local create replaces the pin, and an incident, surface, or query-identity
-change clears it. This pin MUST preserve the accepted committed row through its
-stable visible paint without turning earlier local creates into an unbounded
-client-side result union or carrying a row across filter, sort, or grouping
-changes.
+A bounded latest query result MAY omit locally created committed rows that
+fall outside its returned window. For the same incident, surface, and query
+identity, the client MUST retain the most recent local creation operation's
+committed rows as one bounded presentation block immediately before the blank
+row. A single create pins one row; a paste pins only its newly created rows,
+in receipt order. Updated existing rows MUST NOT become creation pins. This
+temporary presentation block is an explicit exception to canonical query
+placement; it does not change the query or server ordering. Rows already in the
+query result MUST appear only once and retain their newest accepted versions.
+The next local creation operation replaces the block; incident, surface, query
+identity, or access changes clear it. A late response to an earlier gesture
+MUST NOT replace a newer creation block or publish into a changed scope.
+
+After accepted paste creation, the client MUST reveal the end of the created
+block while preserving input focus, so a block that fits the viewport is
+visible together. This presentation effect MUST be cancelled if the user has
+moved focus or scrolled since the gesture, changed scope, or lost access. It
+MUST NOT retry the mutation, alter density, resize the viewport, open the
+inspector, or traverse result rows to manufacture a timing observation. The
+pin preserves accepted records through stable paint without accumulating
+earlier creates into an unbounded client-side result union.
 Profiles: base
 Verified by: AC-013, AC-014, AC-043, AC-044, AC-047, AC-124, AC-184, AC-185, AC-231, AC-360, AC-363
 
@@ -3763,6 +3823,27 @@ Verified by: AC-006, AC-020, AC-023, AC-072, AC-073, AC-074, AC-075, AC-186, AC-
 The inspector is the enrichment surface. It MUST NOT be required for the common path of timeline row creation and editing.
 Profiles: base
 Verified by: AC-006, AC-020, AC-023, AC-072, AC-073, AC-074, AC-075, AC-186, AC-187, AC-209, AC-210, AC-231
+
+**REQ-03-248a — Linked Evidence metadata window**
+The Timeline Evidence inspector MUST present the total number of live linked
+Evidence records separately from the attached-file count. It MUST preserve
+the source-backed collection order and expose a five-record window with
+keyboard-operable Previous and Next controls when more records exist. Opening
+on a new source observation starts at the first window. Each window MUST read
+current metadata through REQ-01-328a and show the Evidence label, lifecycle,
+attachment state and preview eligibility without minting handles. A metadata
+read failure MUST leave the grid usable and provide an explicit local retry;
+no automatic retry or optimistic access eligibility is permitted. Loading,
+failure and unavailable metadata MUST keep file-access actions disabled.
+
+Source, window, session or incident changes MUST invalidate pending metadata
+and prevent late responses from rendering or restoring access controls. The
+inspector's metadata lifetime does not cancel or replace independently owned
+attachment operations. Actual preview and download remain explicit actions
+through the existing handle admission and redemption contracts. A negative
+preview-only eligibility result MUST NOT hide an otherwise eligible download.
+Profiles: base
+Verified by: AC-045, AC-097, AC-231
 
 **REQ-03-284**
 When a compact Timeline relationship cell cannot show every active relationship item inline, the compact overflow indicator MUST be keyboard and pointer reachable and MUST provide a same-surface path to inspect the hidden relationship items in the row's Relationships inspector context. The compact overflow indicator MUST NOT become relationship authority; authoritative relationship and mention state remains the source-backed collection value and inspector actions defined by Core 01 and Core 02.

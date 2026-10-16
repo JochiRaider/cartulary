@@ -1,8 +1,9 @@
 import { parseStrictJSON } from "../contract/strict-json.mjs";
 import { closeSync, constants, createReadStream, fstatSync, openSync, readSync } from "node:fs";
 import { createInterface } from "node:readline";
+import path from "node:path";
 
-import { maximumPhasesPerUnit, validateSchemaSync } from "../contract/index.mjs";
+import { assertMachineEvidencePath, maximumPhasesPerUnit, openDirectory, validateSchemaSync } from "../contract/index.mjs";
 
 const defaultCanonicalEventLineLimit = 1024 * 1024;
 const terminalEventNames = new Set(["completed", "failed", "skipped", "cancelled"]);
@@ -26,17 +27,25 @@ export async function* readCanonicalUnitEvents(file, options = {}) {
   }
   const prefix = options.prefix;
   if (prefix !== undefined) validateSchemaSync("cartulary.harness_unit_event_prefix.v1", prefix);
+  assertMachineEvidencePath(file);
   let descriptor;
+  let parent;
   try {
-    descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+    parent = openDirectory(path.dirname(file));
+    descriptor = openSync(`/proc/self/fd/${parent}/${path.basename(file)}`, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch (error) {
     if (error.code === "ENOENT") throw new Error(`${file} is required canonical event evidence`);
     throw error;
+  } finally {
+    if (parent !== undefined) closeSync(parent);
   }
   let input;
+  let stat;
   try {
-    const stat = fstatSync(descriptor, { bigint: true });
-    if (!stat.isFile()) throw new Error(`${file} must be a non-symlink regular canonical event file`);
+    stat = fstatSync(descriptor, { bigint: true });
+    if (!stat.isFile() || stat.nlink !== 1n) throw new Error(`${file} must be an unaliased non-symlink regular canonical event file`);
+    if (stat.size === 0n) throw new Error(`${file} is empty`);
+    if (stat.size > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("canonical event file exceeds addressable size");
     if (prefix !== undefined) {
       if (prefix.file !== file || stat.dev.toString() !== prefix.device || stat.ino.toString() !== prefix.inode ||
           stat.size < BigInt(prefix.byte_length) || stat.uid !== BigInt(process.getuid()) ||
@@ -48,7 +57,7 @@ export async function* readCanonicalUnitEvents(file, options = {}) {
         throw new Error("canonical event prefix must end at a complete record boundary");
       }
     }
-    input = createReadStream(file, { fd: descriptor, encoding: "utf8", ...(prefix === undefined ? {} : { start: 0, end: prefix.byte_length - 1 }) });
+    input = createReadStream(file, { fd: descriptor, autoClose: false, encoding: "utf8", start: 0, end: prefix === undefined ? Number(stat.size) - 1 : prefix.byte_length - 1 });
   } catch (error) {
     closeSync(descriptor);
     throw error;
@@ -99,10 +108,16 @@ export async function* readCanonicalUnitEvents(file, options = {}) {
     if (prefix !== undefined && previousSeq !== prefix.last_seq) {
       throw new Error("canonical event prefix final sequence does not match");
     }
+    if (prefix === undefined) {
+      const after = fstatSync(descriptor, { bigint: true });
+      if (after.size !== stat.size || after.mtimeNs !== stat.mtimeNs || after.ctimeNs !== stat.ctimeNs || after.nlink !== 1n) {
+        throw new Error("canonical event evidence changed during read");
+      }
+    }
   } finally {
     signal?.removeEventListener("abort", onAbort);
     lines.close();
-    input.destroy();
+    await new Promise((resolve, reject) => input.close((error) => error ? reject(error) : resolve()));
   }
 }
 
@@ -114,7 +129,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
   const openWaits = new Map();
   const closedWaits = new Map();
   const admitted = new Set();
-  const cacheHits = new Set();
+  const cacheOutcomes = new Map();
   const registrations = new Map();
   const phases = new Map();
   const phaseIDs = new Set();
@@ -145,7 +160,8 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
     if (event.event === "queued") {
       if (registrations.has(event.unit_id)) throw new Error("duplicate unit registration");
       registrations.set(event.unit_id, { unit_id: event.unit_id, kind: event.unit_kind,
-        row_ids: event.row_ids, needs: event.needs, resource_claims: event.resource_claims });
+        row_ids: event.row_ids, needs: event.needs, resource_claims: event.resource_claims,
+        service_dependencies: event.service_dependencies });
     }
     if (event.event === "phase_started") {
       const count = (phaseCounts.get(event.unit_id) ?? 0) + 1;
@@ -230,11 +246,19 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
       admitted.add(event.unit_id);
       admissions.set(event.unit_id, { time: event.monotonic_ms, seq: event.seq });
     }
-    if (event.event === "cache_hit") { cacheHits.add(event.unit_id); cache.hit += 1; }
-    if (event.event === "cache_miss") cache.miss += 1;
-    if (event.event === "cache_bypass") cache.bypass += 1;
+    if (["cache_hit", "cache_miss", "cache_bypass"].includes(event.event)) {
+      if (cacheOutcomes.has(event.unit_id) || starts.has(event.unit_id) || terminals.has(event.unit_id)) {
+        throw new Error(`${file} has duplicate or late cache outcome for ${event.unit_id}`);
+      }
+      const outcome = event.event.slice("cache_".length);
+      cacheOutcomes.set(event.unit_id, outcome);
+      cache[outcome] += 1;
+    }
     if (event.event === "fixture_acquired") fixtureAcquired.set(event.unit_id, event.monotonic_ms);
     if (event.event === "started") {
+      if (cacheOutcomes.get(event.unit_id) === "hit") {
+        throw new Error(`${file} starts cached unit ${event.unit_id}`);
+      }
       if (!admitted.has(event.unit_id)) {
         throw new Error(`${file} starts ${event.unit_id} before admission`);
       }
@@ -248,7 +272,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
       if (
         !new Set(["skipped", "cancelled"]).has(event.event) &&
         !starts.has(event.unit_id) &&
-        !cacheHits.has(event.unit_id)
+        cacheOutcomes.get(event.unit_id) !== "hit"
       ) {
         throw new Error(`${file} terminal event for ${event.unit_id} occurs before start`);
       }
@@ -261,9 +285,12 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
       if (terminals.has(event.unit_id)) {
         throw new Error(`${file} has duplicate terminal event for ${event.unit_id}`);
       }
-      terminals.set(event.unit_id, Object.fromEntries([
-        "unit_id", "event", "status", "seq", "monotonic_ms", "failure_class", "failure_reason", "cache_status",
-      ].filter((key) => Object.hasOwn(event, key)).map((key) => [key, event[key]])));
+      terminals.set(event.unit_id, {
+        ...Object.fromEntries([
+          "unit_id", "event", "status", "seq", "monotonic_ms", "failure_class", "failure_reason",
+        ].filter((key) => Object.hasOwn(event, key)).map((key) => [key, event[key]])),
+        cache_status: cacheOutcomes.get(event.unit_id) ?? null,
+      });
     }
   }
   if (openWaits.size > 0) {

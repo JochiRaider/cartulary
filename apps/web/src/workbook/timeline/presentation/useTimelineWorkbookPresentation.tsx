@@ -437,6 +437,12 @@ export function useTimelineWorkbookPresentation({
   );
   const handleActiveCellChange = useCallback(
     (anchor: GridCellAnchor | null) => {
+      mutation.commands.presence.publishFocusedPresence(
+        anchor?.rowIdentity.kind === "core_record"
+          ? anchor.rowIdentity.recordId
+          : null,
+        anchor?.fieldKey ?? null,
+      );
       updateTimelineSurfaceFocusAnchor(
         anchor?.rowIdentity.kind === "core_record"
           ? anchor.rowIdentity.recordId
@@ -444,7 +450,10 @@ export function useTimelineWorkbookPresentation({
         anchor?.fieldKey ?? "",
       );
     },
-    [updateTimelineSurfaceFocusAnchor],
+    [
+      updateTimelineSurfaceFocusAnchor,
+      mutation.commands.presence.publishFocusedPresence,
+    ],
   );
   const handleInspectorToggle = useCallback(() => {
     setIsInspectorOpen(true);

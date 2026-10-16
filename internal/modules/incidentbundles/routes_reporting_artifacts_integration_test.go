@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/app/server"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
@@ -19,21 +20,31 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
 )
 
 func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
-	source := startIsolatedIncidentBundleServer(t, runtime, "reporting-artifact-source")
+	pack := reportingfixture.TemplatePresentationPack()
+	templates, err := reporting.NewTemplatePackRegistry(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := startIsolatedIncidentBundleServerConfigured(t, runtime, "reporting-artifact-source", nil, func(options *server.Options) { options.ReportingTemplatePacks = templates })
 	target := startIsolatedIncidentBundleServer(t, runtime, "reporting-artifact-target")
-	admin, actorID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, source.Server.HTTP.URL)
 	destination, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, target.Server.HTTP.URL)
 	incident := scenariotest.CreateIncident(t, source.Server, admin, map[string]any{"client_txn_id": "artifact-incident", "incident_key": "ARTIFACT-ROUNDTRIP", "title": "Original immutable title", "current_phase": "analysis"})
 	incidentID := incident["incident_id"].(string)
-	party := uuid.New()
-	if _, err := source.DB.Exec(`INSERT INTO records(record_id,incident_id,record_type,created_by_user_id,updated_by_user_id) VALUES($1,$2,'party',$3,$3)`, party, incidentID, actorID); err != nil {
+	partyResponse := httptestx.DoJSON(t, http.MethodPost, source.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.parties.v1/rows", map[string]any{
+		"client_txn_id": "artifact-party", "party.display_name": "Historical subject", "party.party_kind": "person", "party.organization_name": "Example", "party.primary_email": "source@example.test",
+	}, httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value))
+	httptestx.RequireSuccessEnvelope(t, partyResponse, http.StatusCreated)
+	var retainedSourceKeys int
+	if err := source.DB.QueryRow(`SELECT count(*) FROM record_revisions rev CROSS JOIN LATERAL jsonb_object_keys(rev.after_json->'source') member WHERE rev.record_id IN (SELECT record_id FROM records WHERE incident_id=$1 AND record_type='party')`, incidentID).Scan(&retainedSourceKeys); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := source.DB.Exec(`INSERT INTO parties(record_id,incident_id,display_name,party_kind,organization_name,primary_email) VALUES($1,$2,'Historical subject','person','Example','source@example.test')`, party, incidentID); err != nil {
-		t.Fatal(err)
+	if retainedSourceKeys != 10 {
+		t.Fatal("Party history must contain only source-owned facts")
 	}
 	jobResource := func(route string, body map[string]any) string {
 		t.Helper()
@@ -43,7 +54,7 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 		return terminal["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
 	}
 	snapshot := jobResource("/api/v1/snapshots", map[string]any{"incident_id": incidentID, "client_txn_id": "artifact-snapshot"})
-	release := jobResource("/api/v1/releases", map[string]any{"snapshot_id": snapshot, "client_txn_id": "artifact-release", "template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion, "redaction_profile_id": reporting.TokenizedRedactionProfileID, "redaction_profile_version": "1", "release_scope": reporting.ReleaseScopeInternalReview, "output_kind": reporting.OutputKindSlidev})
+	release := jobResource("/api/v1/releases", map[string]any{"snapshot_id": snapshot, "client_txn_id": "artifact-release", "template_id": pack.Manifest.TemplateID, "template_version": pack.Manifest.TemplateVersion, "redaction_profile_id": reporting.TokenizedRedactionProfileID, "redaction_profile_version": reporting.DefaultRedactionProfileVersion, "release_scope": reporting.ReleaseScopeInternalReview, "output_kind": reporting.OutputKindSlidev})
 	scenariotest.PatchIncident(t, source.Server, admin, incidentID, map[string]any{"base_incident_version": 1, "current_phase": "containment"})
 	export := func(h *appsupport.ServerHarness, actor flowtest.LoginResult, txn string, include bool) []byte {
 		t.Helper()
@@ -69,36 +80,51 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	}
 	original := export(source, admin, "artifact-export", true)
 	files := zipMemberMap(t, original)
+	imagePath := "ext/snapshots/releases/" + release + "/files/" + pack.Manifest.Assets[0].BundlePath
+	if !bytes.Equal(files[imagePath], pack.Files[0].Bytes) {
+		t.Fatal("export did not preserve frozen image bytes")
+	}
+	for _, asset := range pack.Manifest.Assets {
+		for _, file := range pack.Files {
+			if file.SourcePath == asset.SourcePath && !bytes.Equal(files["ext/snapshots/releases/"+release+"/files/"+asset.BundlePath], file.Bytes) {
+				t.Fatal("export did not preserve frozen theme and font bytes")
+			}
+		}
+	}
 	const catalogPath = "ext/snapshots/catalog.json"
 	var catalog struct {
 		Snapshots []struct {
 			ID   string `json:"snapshot_id"`
-			Path string `json:"export_model_path"`
+			Path string `json:"source_capture_path"`
 		} `json:"snapshots"`
 		Releases []struct {
 			ID string `json:"release_id"`
 		} `json:"releases"`
-		Omitted []struct {
-			Release string `json:"release_id"`
-			Path    string `json:"path"`
-			Reason  string `json:"reason"`
-		} `json:"omitted_files"`
 	}
 	if err := json.Unmarshal(files[catalogPath], &catalog); err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog.Snapshots) != 1 || catalog.Snapshots[0].ID != snapshot || len(catalog.Releases) != 1 || catalog.Releases[0].ID != release || len(catalog.Omitted) != 1 || catalog.Omitted[0].Reason != "sensitive_reveal_map" {
+	if len(catalog.Snapshots) != 1 || catalog.Snapshots[0].ID != snapshot || len(catalog.Releases) != 1 || catalog.Releases[0].ID != release {
 		t.Fatal("incomplete artifact catalog", catalog)
+	}
+	if bytes.Contains(files[catalogPath], []byte("omitted_files")) || !bytes.Contains(files[catalogPath], []byte("cartulary.reporting_portable_artifacts.v3")) {
+		t.Fatal("retired catalog structure exported")
+	}
+	for name, data := range files {
+		if strings.HasPrefix(name, "ext/snapshots/releases/") && (strings.Contains(name, "internal/") || bytes.Contains(data, []byte("sensitive_reveal_map"))) {
+			t.Fatal("sensitive adjunct entered portable release evidence")
+		}
 	}
 	modelPath := catalog.Snapshots[0].Path
 	if !bytes.Contains(files[modelPath], []byte("analysis")) || bytes.Contains(files[modelPath], []byte("containment")) {
 		t.Fatal("snapshot was rematerialized from live state")
 	}
-	sensitivePath := "ext/snapshots/releases/" + release + "/files/" + catalog.Omitted[0].Path
+	sensitivePath := "ext/snapshots/releases/" + release + "/files/" + "internal/reveal-map.json"
 	if _, present := files[sensitivePath]; present {
 		t.Fatal("reveal map leaked")
 	}
 	invalid := map[string][]byte{
+		"altered-image":   replaceStructuredBundleMember(t, original, imagePath, []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>invalid</script></svg>`)),
 		"altered-model":   replaceStructuredBundleMember(t, original, modelPath, append(append([]byte{}, files[modelPath]...), byte(' '))),
 		"undeclared-file": replaceStructuredBundleMember(t, original, "ext/snapshots/undeclared.json", []byte(`{}`)),
 		"sensitive-file":  replaceStructuredBundleMember(t, original, sensitivePath, []byte(`{"secret":"must-not-enter-import"}`)),
@@ -107,7 +133,7 @@ func testReportingArtifactRoundTrip(t *testing.T, runtime *appsupport.Runtime) {
 	if err := json.Unmarshal(files[catalogPath], &altered); err != nil {
 		t.Fatal(err)
 	}
-	altered["snapshots"].([]any)[0].(map[string]any)["export_model_sha256"] = strings.Repeat("0", 64)
+	altered["snapshots"].([]any)[0].(map[string]any)["source_capture_sha256"] = strings.Repeat("0", 64)
 	badCatalog, err := canonicaljson.Marshal(altered)
 	if err != nil {
 		t.Fatal(err)

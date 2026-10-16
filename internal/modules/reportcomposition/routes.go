@@ -307,7 +307,7 @@ func (s *Service) handleValidate(w http.ResponseWriter, r *http.Request) {
 			s.writeReadError(w, r, err, "composition_version_not_found")
 			return
 		}
-		summary = validationSummaryForVersion(version)
+		summary = validationSummaryForVersion(record, version)
 	case SourceKindInline:
 		summary = validateInlineComposition(record, *request.InlineComposition)
 	default:
@@ -440,6 +440,10 @@ func (s *Service) writeStoreError(w http.ResponseWriter, r *http.Request, err er
 		writeAPIError(w, r, validationCodeError(http.StatusConflict, "conflict", "composition_version_bound"))
 		return true
 	}
+	if errors.Is(err, ErrPreviewInputRejected) {
+		writeAPIError(w, r, validationCodeError(http.StatusBadRequest, "invalid_request", "composition_preview_input_invalid"))
+		return true
+	}
 	var validationErr *validationStoreError
 	if errors.As(err, &validationErr) {
 		if validationErr.Summary != nil {
@@ -484,47 +488,35 @@ func parsePathCompositionVersion(w http.ResponseWriter, r *http.Request) (int64,
 }
 
 func validateInlineComposition(record ResourceRecord, raw json.RawMessage) map[string]any {
-	decoded, err := decodeCompositionObject(raw)
+	source, err := decodeBoundRenderSource(raw, func(source RenderSource) string {
+		return compositionResourceBinding(record, source)
+	})
 	if err != nil {
+		var sourceErr *RenderSourceError
+		if errors.As(err, &sourceErr) {
+			return invalidInlineSummary(record, sourceErr.ReasonCode)
+		}
 		return invalidInlineSummary(record, "composition_schema_invalid")
 	}
-	if decoded["incident_id"] != record.IncidentID.String() {
-		return invalidInlineSummary(record, "composition_incident_mismatch")
-	}
-	if decoded["composition_id"] != record.CompositionID.String() {
-		return invalidInlineSummary(record, "composition_id_mismatch")
-	}
-	if decoded["template_id"] != record.TemplateID || decoded["template_version"] != record.TemplateVersion {
-		return invalidInlineSummary(record, "composition_template_mismatch")
-	}
-	sha, _ := decoded["composition_sha256"].(string)
-	digest, err := CompositionDigest(raw)
-	if err != nil || digest != sha {
-		return invalidInlineSummary(record, "composition_digest_mismatch")
-	}
 	summary := map[string]any{
+		"validation_scope":    "local_authoring",
 		"valid":               true,
 		"stage":               nil,
 		"issues":              []map[string]any{},
 		"composition_id":      record.CompositionID.String(),
-		"composition_version": decoded["composition_version"],
-		"composition_sha256":  sha,
+		"composition_version": *source.CompositionVersion,
+		"composition_sha256":  *source.CompositionSHA256,
 	}
 	return summary
 }
 
 func invalidInlineSummary(record ResourceRecord, code string) map[string]any {
-	stage := "schema_validation"
-	if code == "composition_digest_mismatch" {
-		stage = "canonical_digest_validation"
-	}
-	if code == "composition_incident_mismatch" || code == "composition_id_mismatch" || code == "composition_template_mismatch" {
-		stage = "resource_binding_validation"
-	}
+	stage := compositionStages[compositionFindingStage(code)]
 	return map[string]any{
+		"validation_scope":    "local_authoring",
 		"valid":               false,
 		"stage":               stage,
-		"issues":              []map[string]any{issue(code, map[string]any{"composition_id": record.CompositionID.String()})},
+		"issues":              []map[string]any{issue(code, map[string]any{"composition_id": record.CompositionID.String()}).public()},
 		"composition_id":      record.CompositionID.String(),
 		"composition_version": nil,
 		"composition_sha256":  nil,

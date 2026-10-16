@@ -100,6 +100,7 @@ export function useTimelineInspectorStateComposition({
       const nextOpen = typeof next === "function" ? next(isOpen) : next;
       if (!nextOpen) elementRegistry.cancelPendingFocus();
       if (nextOpen && !isOpen) {
+        performance.mark("cartulary.workbook.timeline_inspector_open_accepted");
         inspectorContinuityTokenRef.current = continuity.capture();
       } else if (!nextOpen && isOpen) {
         inspectorContinuityTokenRef.current = continuity.capture(

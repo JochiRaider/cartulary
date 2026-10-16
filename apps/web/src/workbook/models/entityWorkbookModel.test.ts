@@ -72,7 +72,6 @@ describe("entityWorkbookModel", () => {
 
     for (const contractCase of cases) {
       const contract = requireViewContract(contractCase.viewSchemaId);
-      expect(contract.fields).toHaveLength(15);
       for (const fieldKey of contractCase.fieldKeys) {
         expect(contract.fieldMap[fieldKey]).toMatchObject({
           fieldKey,

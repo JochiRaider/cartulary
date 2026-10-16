@@ -134,18 +134,21 @@ func (q *Queries) CreateRenderFailedReportingRelease(ctx context.Context, arg Cr
 
 const createReportingJobPayload = `-- name: CreateReportingJobPayload :exec
 INSERT INTO reporting_job_payloads (
-    job_id, job_kind, incident_id, actor_user_id, request_json, created_at, updated_at
+    job_id, job_kind, incident_id, actor_user_id, request_json, created_at, updated_at, admitted_profile_sha256, admitted_graph_sources_sha256, admitted_template_manifest_sha256
 )
-VALUES ($1, $2, $3, $4, $5, $6, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9)
 `
 
 type CreateReportingJobPayloadParams struct {
-	JobID       pgtype.UUID        `json:"job_id"`
-	JobKind     string             `json:"job_kind"`
-	IncidentID  pgtype.UUID        `json:"incident_id"`
-	ActorUserID pgtype.UUID        `json:"actor_user_id"`
-	RequestJson []byte             `json:"request_json"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	JobID                          pgtype.UUID        `json:"job_id"`
+	JobKind                        string             `json:"job_kind"`
+	IncidentID                     pgtype.UUID        `json:"incident_id"`
+	ActorUserID                    pgtype.UUID        `json:"actor_user_id"`
+	RequestJson                    []byte             `json:"request_json"`
+	CreatedAt                      pgtype.Timestamptz `json:"created_at"`
+	AdmittedProfileSha256          pgtype.Text        `json:"admitted_profile_sha256"`
+	AdmittedGraphSourcesSha256     pgtype.Text        `json:"admitted_graph_sources_sha256"`
+	AdmittedTemplateManifestSha256 pgtype.Text        `json:"admitted_template_manifest_sha256"`
 }
 
 func (q *Queries) CreateReportingJobPayload(ctx context.Context, arg CreateReportingJobPayloadParams) error {
@@ -156,6 +159,9 @@ func (q *Queries) CreateReportingJobPayload(ctx context.Context, arg CreateRepor
 		arg.ActorUserID,
 		arg.RequestJson,
 		arg.CreatedAt,
+		arg.AdmittedProfileSha256,
+		arg.AdmittedGraphSourcesSha256,
+		arg.AdmittedTemplateManifestSha256,
 	)
 	return err
 }
@@ -294,13 +300,11 @@ func (q *Queries) CreateReportingRelease(ctx context.Context, arg CreateReportin
 const createReportingSnapshot = `-- name: CreateReportingSnapshot :one
 INSERT INTO reporting_snapshots (
     snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
-    source_change_set_high_watermark, derivation_version, export_model_sha256,
-    source_boundary_json, export_model_json, create_job_id, created_at
+    source_change_set_high_watermark, derivation_version, source_capture_sha256,
+    source_boundary_json, create_job_id, created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $5)
-RETURNING snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
-          source_change_set_high_watermark, derivation_version, export_model_sha256,
-          source_boundary_json, export_model_json, create_job_id, created_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $5)
+RETURNING snapshot_id
 `
 
 type CreateReportingSnapshotParams struct {
@@ -311,28 +315,12 @@ type CreateReportingSnapshotParams struct {
 	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
 	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
 	DerivationVersion            string             `json:"derivation_version"`
-	ExportModelSha256            string             `json:"export_model_sha256"`
+	SourceCaptureSha256          string             `json:"source_capture_sha256"`
 	SourceBoundaryJson           []byte             `json:"source_boundary_json"`
-	ExportModelJson              []byte             `json:"export_model_json"`
 	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
 }
 
-type CreateReportingSnapshotRow struct {
-	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
-	IncidentID                   pgtype.UUID        `json:"incident_id"`
-	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
-	ClientTxnID                  string             `json:"client_txn_id"`
-	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
-	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
-	DerivationVersion            string             `json:"derivation_version"`
-	ExportModelSha256            string             `json:"export_model_sha256"`
-	SourceBoundaryJson           []byte             `json:"source_boundary_json"`
-	ExportModelJson              []byte             `json:"export_model_json"`
-	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
-	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) CreateReportingSnapshot(ctx context.Context, arg CreateReportingSnapshotParams) (CreateReportingSnapshotRow, error) {
+func (q *Queries) CreateReportingSnapshot(ctx context.Context, arg CreateReportingSnapshotParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, createReportingSnapshot,
 		arg.SnapshotID,
 		arg.IncidentID,
@@ -341,38 +329,37 @@ func (q *Queries) CreateReportingSnapshot(ctx context.Context, arg CreateReporti
 		arg.SnapshotAt,
 		arg.SourceChangeSetHighWatermark,
 		arg.DerivationVersion,
-		arg.ExportModelSha256,
+		arg.SourceCaptureSha256,
 		arg.SourceBoundaryJson,
-		arg.ExportModelJson,
 		arg.CreateJobID,
 	)
-	var i CreateReportingSnapshotRow
-	err := row.Scan(
-		&i.SnapshotID,
-		&i.IncidentID,
-		&i.CreatedByUserID,
-		&i.ClientTxnID,
-		&i.SnapshotAt,
-		&i.SourceChangeSetHighWatermark,
-		&i.DerivationVersion,
-		&i.ExportModelSha256,
-		&i.SourceBoundaryJson,
-		&i.ExportModelJson,
-		&i.CreateJobID,
-		&i.CreatedAt,
-	)
-	return i, err
+	var snapshot_id pgtype.UUID
+	err := row.Scan(&snapshot_id)
+	return snapshot_id, err
 }
 
 const getReportingJobPayload = `-- name: GetReportingJobPayload :one
-SELECT job_id, job_kind, incident_id, actor_user_id, request_json, created_at, updated_at
+SELECT job_id, job_kind, incident_id, actor_user_id, request_json, created_at, updated_at, admitted_profile_sha256, admitted_graph_sources_sha256, admitted_template_manifest_sha256
   FROM reporting_job_payloads
  WHERE job_id = $1
 `
 
-func (q *Queries) GetReportingJobPayload(ctx context.Context, jobID pgtype.UUID) (ReportingJobPayload, error) {
+type GetReportingJobPayloadRow struct {
+	JobID                          pgtype.UUID        `json:"job_id"`
+	JobKind                        string             `json:"job_kind"`
+	IncidentID                     pgtype.UUID        `json:"incident_id"`
+	ActorUserID                    pgtype.UUID        `json:"actor_user_id"`
+	RequestJson                    []byte             `json:"request_json"`
+	CreatedAt                      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                      pgtype.Timestamptz `json:"updated_at"`
+	AdmittedProfileSha256          pgtype.Text        `json:"admitted_profile_sha256"`
+	AdmittedGraphSourcesSha256     pgtype.Text        `json:"admitted_graph_sources_sha256"`
+	AdmittedTemplateManifestSha256 pgtype.Text        `json:"admitted_template_manifest_sha256"`
+}
+
+func (q *Queries) GetReportingJobPayload(ctx context.Context, jobID pgtype.UUID) (GetReportingJobPayloadRow, error) {
 	row := q.db.QueryRow(ctx, getReportingJobPayload, jobID)
-	var i ReportingJobPayload
+	var i GetReportingJobPayloadRow
 	err := row.Scan(
 		&i.JobID,
 		&i.JobKind,
@@ -381,6 +368,9 @@ func (q *Queries) GetReportingJobPayload(ctx context.Context, jobID pgtype.UUID)
 		&i.RequestJson,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AdmittedProfileSha256,
+		&i.AdmittedGraphSourcesSha256,
+		&i.AdmittedTemplateManifestSha256,
 	)
 	return i, err
 }
@@ -537,11 +527,11 @@ func (q *Queries) GetReportingReleaseForUpdate(ctx context.Context, releaseID pg
 }
 
 const getReportingSnapshot = `-- name: GetReportingSnapshot :one
-SELECT snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
-       source_change_set_high_watermark, derivation_version, export_model_sha256,
-       source_boundary_json, export_model_json, create_job_id, created_at
-  FROM reporting_snapshots
- WHERE snapshot_id = $1
+SELECT s.snapshot_id, s.incident_id, s.created_by_user_id, s.client_txn_id, s.snapshot_at,
+       s.source_change_set_high_watermark, s.derivation_version, s.source_capture_sha256,
+       s.source_boundary_json, (p.request_json->'source_capture')::jsonb AS source_capture_json, s.create_job_id, s.created_at
+  FROM reporting_snapshots s JOIN reporting_job_payloads p ON p.job_id=s.create_job_id
+ WHERE s.snapshot_id = $1
 `
 
 type GetReportingSnapshotRow struct {
@@ -552,9 +542,9 @@ type GetReportingSnapshotRow struct {
 	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
 	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
 	DerivationVersion            string             `json:"derivation_version"`
-	ExportModelSha256            string             `json:"export_model_sha256"`
+	SourceCaptureSha256          string             `json:"source_capture_sha256"`
 	SourceBoundaryJson           []byte             `json:"source_boundary_json"`
-	ExportModelJson              []byte             `json:"export_model_json"`
+	SourceCaptureJson            []byte             `json:"source_capture_json"`
 	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
 	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
 }
@@ -570,52 +560,9 @@ func (q *Queries) GetReportingSnapshot(ctx context.Context, snapshotID pgtype.UU
 		&i.SnapshotAt,
 		&i.SourceChangeSetHighWatermark,
 		&i.DerivationVersion,
-		&i.ExportModelSha256,
+		&i.SourceCaptureSha256,
 		&i.SourceBoundaryJson,
-		&i.ExportModelJson,
-		&i.CreateJobID,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getReportingSnapshotByCreateJob = `-- name: GetReportingSnapshotByCreateJob :one
-SELECT snapshot_id, incident_id, created_by_user_id, client_txn_id, snapshot_at,
-       source_change_set_high_watermark, derivation_version, export_model_sha256,
-       source_boundary_json, export_model_json, create_job_id, created_at
-  FROM reporting_snapshots
- WHERE create_job_id = $1
-`
-
-type GetReportingSnapshotByCreateJobRow struct {
-	SnapshotID                   pgtype.UUID        `json:"snapshot_id"`
-	IncidentID                   pgtype.UUID        `json:"incident_id"`
-	CreatedByUserID              pgtype.UUID        `json:"created_by_user_id"`
-	ClientTxnID                  string             `json:"client_txn_id"`
-	SnapshotAt                   pgtype.Timestamptz `json:"snapshot_at"`
-	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
-	DerivationVersion            string             `json:"derivation_version"`
-	ExportModelSha256            string             `json:"export_model_sha256"`
-	SourceBoundaryJson           []byte             `json:"source_boundary_json"`
-	ExportModelJson              []byte             `json:"export_model_json"`
-	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
-	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
-}
-
-func (q *Queries) GetReportingSnapshotByCreateJob(ctx context.Context, createJobID pgtype.UUID) (GetReportingSnapshotByCreateJobRow, error) {
-	row := q.db.QueryRow(ctx, getReportingSnapshotByCreateJob, createJobID)
-	var i GetReportingSnapshotByCreateJobRow
-	err := row.Scan(
-		&i.SnapshotID,
-		&i.IncidentID,
-		&i.CreatedByUserID,
-		&i.ClientTxnID,
-		&i.SnapshotAt,
-		&i.SourceChangeSetHighWatermark,
-		&i.DerivationVersion,
-		&i.ExportModelSha256,
-		&i.SourceBoundaryJson,
-		&i.ExportModelJson,
+		&i.SourceCaptureJson,
 		&i.CreateJobID,
 		&i.CreatedAt,
 	)

@@ -70,6 +70,7 @@ export function renderTaskSurfaceMakeRuntime(manifest) {
     "unexport $(TASK_SURFACE_LITERAL_INPUT_NAMES)",
     "task_surface_shell_quote_raw = '$(subst ','\"'\"',$(value $(1)))'",
     "TASK_SURFACE_LITERAL_INPUT_ENV = $(foreach name,$(TASK_SURFACE_LITERAL_INPUT_NAMES),$(name)=$(call task_surface_shell_quote_raw,$(name)))",
+    "TASK_SURFACE_ARGV_ENV = $(foreach name,$(1),$(name)=$(call task_surface_shell_quote_raw,$(name)))",
     "task_surface_input_source = $(if $(findstring command line,$(origin $(1))),cli,$(if $(findstring environment,$(origin $(1))),env,$(if $(filter undefined,$(origin $(1))),unset,file)))",
     "TASK_SURFACE_INPUT_SOURCES = $(foreach name,$(1),$(name)=$(call task_surface_input_source,$(name)))",
     "TASK_SURFACE_COMMAND_LINE_INPUT_NAMES = $(filter-out GNUMAKEFLAGS MAKEFLAGS MFLAGS MAKEOVERRIDES,$(foreach name,$(.VARIABLES),$(if $(findstring command line,$(origin $(name))),$(name))))",
@@ -78,6 +79,7 @@ export function renderTaskSurfaceMakeRuntime(manifest) {
     'TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="$(CARTULARY_MACHINE_CACHE_DIR)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)"',
     'TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
     'TASK_SURFACE_GO_ENV = GO="$(GO)" $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)"',
+    'TASK_SURFACE_GRAPH_RUNTIME = MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" "$(HARNESS_RUNTIME_BIN)" graph',
     'TASK_SURFACE_NODE_READINESS = if [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi',
     'RUN_MAKE_PREREQUISITES = if $(1); then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(2); fi',
     'TASK_SURFACE_PREREQUISITES_NEEDED = [ "$${CARTULARY_HARNESS_SKIP_PREREQUISITES:-0}" != "1" ]',
@@ -276,7 +278,7 @@ function renderMakeRecipe(recipe, manifest) {
     ];
   }
   if (recipe.type === "work_graph") {
-    const forwarded = runtimeForwardedInputEnvEntries(entry);
+    const forwarded = runtimeForwardedInputEnvEntries(entry, { includeArgv: true });
     const selectionArgs =
       recipe.selection === "owner"
         ? `--selection owner --target ${recipe.target} --owner "$(OWNER)" $(if $(strip $(ROWS)),--rows "$(ROWS)",)${recipe.service_backed_only === true ? " --service-backed-only" : ""}`
@@ -286,7 +288,7 @@ function renderMakeRecipe(recipe, manifest) {
       ...header,
       ...publicPrelude,
       ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_MACHINE_STATE_ENV) ${forwarded.join(" ")} MAKE="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" "$(HARNESS_RUNTIME_BIN)" graph ${selectionArgs}`,
+      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_MACHINE_STATE_ENV) ${forwarded.join(" ")} $(TASK_SURFACE_GRAPH_RUNTIME) ${selectionArgs}`,
     ];
   }
   if (recipe.type === "step_command") {
@@ -343,13 +345,12 @@ function renderMakeRecipe(recipe, manifest) {
       "endif"];
   }
   if (recipe.type === "node_tool" || recipe.type === "owner_command") {
-    const env = uniqueValues([
+    const names = uniqueValues([
       ...inputEntriesForTarget(entry),
       ...makeNodeToolResultDirMakeEnvVars(recipe.target),
       ...makeNodeToolRuntimeEnvVars(recipe.target),
-    ])
-      .map((name) => `${name}="${makeVariableValue(name)}"`)
-      .join(" ");
+    ]);
+    const env = inputEnvironmentEntries(names, new Map((entry?.input_contract?.inputs ?? []).map((input) => [input.name, input]))).join(" ");
     return [
       ...prefix,
       ...header,
@@ -477,6 +478,7 @@ function publicMakeInputNames(manifest) {
 
 function requiresLiteralMakeTransport(input) {
   if (input?.name?.startsWith("UI_")) return true;
+  if (input?.child_forwarding === "argv") return true;
   return (
     input?.binding === "make_variable" &&
     input?.required === true &&
@@ -535,24 +537,29 @@ function runtimeForwardedInputNames(entry = null) {
   );
 }
 
-function runtimeForwardedInputEnvEntries(entry = null) {
+function runtimeForwardedInputEnvEntries(entry = null, { includeArgv = false } = {}) {
   const inputMap = new Map(
     (entry?.input_contract?.inputs ?? []).map((input) => [input.name, input]),
   );
-  const names = [...runtimeForwardedInputNames(entry)].sort((left, right) =>
+  const names = [...new Set([...runtimeForwardedInputNames(entry), ...(includeArgv
+    ? (entry?.input_contract?.inputs ?? []).filter((input) => input.child_forwarding === "argv").map((input) => input.name) : [])])].sort((left, right) =>
     left.localeCompare(right),
   );
   return [
-    ...names.map((name) =>
-      requiresLiteralMakeTransport(inputMap.get(name))
-        ? `${name}=$(call task_surface_shell_quote_raw,${name})`
-        : `${name}="$(${name})"`,
-    ),
+    ...inputEnvironmentEntries(names, inputMap),
     ...(names.length > 0
       ? [
           `CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,${names.join(" ")})"`,
         ]
       : []),
+  ];
+}
+
+function inputEnvironmentEntries(names, inputMap) {
+  const literal = names.filter((name) => requiresLiteralMakeTransport(inputMap.get(name)));
+  return [
+    ...(literal.length ? [`$(call TASK_SURFACE_ARGV_ENV,${literal.join(" ")})`] : []),
+    ...names.filter((name) => !literal.includes(name)).map((name) => `${name}="${makeVariableValue(name)}"`),
   ];
 }
 
@@ -604,11 +611,11 @@ function renderStepCommandRecipe(recipe, entry = null, manifest = null) {
   const args = (recipe.args ?? []).map(normalizeInternalMakeReferences).join(" ");
   const argsSuffix = args ? ` ${args}` : "";
   const command = (recipe.command ?? []).map(normalizeInternalMakeReferences).join(" ");
+  const runnerEnv = [
+    ...forwardedEnv,
+    ...literalHarnessInputEnvEntries(entry),
+  ];
   if (recipe.mode === "run_step") {
-    const runnerEnv = [
-      ...forwardedEnv,
-      ...literalHarnessInputEnvEntries(entry),
-    ];
     if (recipe.success_summary === true) {
       runnerEnv.push("CARTULARY_SUPPRESS_CHILD_SUCCESS=1");
     }
@@ -633,8 +640,9 @@ function renderStepCommandRecipe(recipe, entry = null, manifest = null) {
     if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v5") {
       const childPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
       const testTarget = `CARTULARY_TEST_TARGET="$\${CARTULARY_TEST_TARGET:-${recipe.target}}"`;
+      const runnerPrefix = runnerEnv.length > 0 ? `${runnerEnv.join(" ")} ` : "";
       return [
-        `\t$(Q)${testTarget} $(RUN_STEP_SCRIPT) "${recipe.target}" -- ${childPrefix}${command}${argsSuffix}`,
+        `\t$(Q)${runnerPrefix}${testTarget} $(RUN_STEP_SCRIPT) "${recipe.target}" -- ${childPrefix}${command}${argsSuffix}`,
       ];
     }
     return [`\t$(Q)${envPrefix}${command}${argsSuffix}`];

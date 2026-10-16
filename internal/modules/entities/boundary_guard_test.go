@@ -132,6 +132,7 @@ const (
 var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition{
 	".": entitiesExportInventory(`
 		IncidentBundleSubtypeContribution NewIncidentBundleSourcePort RecoveryStateContribution
+		ProjectionDependencies ProjectionDependencies.ProjectionDependentsTx
 		ReferencedHostRegistryEntriesTx RegisterRoutes RevisionProviderContribution RouteOptions
 	`),
 	"candidates": entitiesExportInventory(`Candidate Position Request Page PageReader Reader NewReader Reader.Page`),
@@ -146,7 +147,7 @@ var entitiesExportDispositions = map[string]map[string]entitiesExportDisposition
 		DecodeWorkbookConflictResolveRequest EligibleAlias
 		ErrHostIdentityRecordNotFound ErrInvalidAliasReference ErrInvalidCreateRequest ErrNoEffectivePatchChange
 		ActiveIdentifierTransitionConflict ExactMatchConflictError ExactMatchConflictError.Error
-		HostRecord IdentityRecord ImportDependencies MergeCapability
+		HostRecord IdentityRecord ImportDependencies MergeCapability PartyReference
 		MergeCapability.HostCanonicalNormalized MergeCapability.HostExactMatchPrecedence MergeCapability.HostRevisionConflictFacts MergeCapability.IdentityCanonicalNormalized
 		MergeCapability.IdentityExactMatchPrecedence MergeCapability.IdentityRevisionConflictFacts MergeCapability.LoadHostTx MergeCapability.LoadIdentityTx MergeCapability.PrepareIdentifierClaimsTx MergeCapability.SyncAliasesTx
 		MergeCapability.SyncPreservedIdentifierTx MergeCapability.UpdateHostTx MergeCapability.UpdateIdentityTx MutationResult

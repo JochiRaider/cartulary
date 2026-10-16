@@ -69,7 +69,7 @@ func TestRecoveryStateCatalogClassifiesEveryAuthoredUnitAndRejectsDrift_Unit(t *
 	if catalog.DigestSHA256() == "" {
 		t.Fatal("catalog digest is empty")
 	}
-	if got, want := catalog.DigestSHA256(), "75eb3c368cc34bced58d829bf0fe07d858464968f3cef62b9256d6f880e83e71"; got != want {
+	if got, want := catalog.DigestSHA256(), "c433c2f2ab403e4a734b57ab73737ab8ee49c015e9d0bc57dff67fba73951068"; got != want {
 		t.Fatalf("current catalog digest = %s, want compatibility identity %s", got, want)
 	}
 	if want := graphrestore.CurrentRestoreImplementationBinding().Binding.RecoveryStateCatalogSHA256; catalog.DigestSHA256() != want {

@@ -1992,7 +1992,7 @@ func timelineFacadeWithCollaboratorMutation(t testing.TB, harness *scenariotest.
 
 	projections := mustBuildProjectionRuntime(t, harness.Pool)
 	conflictTokens := conflicttest.NewCodec("timeline")
-	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+	evidenceOwner := appsupport.NewEvidenceSourceRuntimeForTimeline(
 		harness.Pool,
 		conflictTokens,
 		harness.Revisions.Appender(),

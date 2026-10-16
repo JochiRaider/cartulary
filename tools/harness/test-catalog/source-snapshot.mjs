@@ -4,7 +4,7 @@ import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, readlin
 import path from "node:path";
 
 import { canonicalJSONString } from "../contract/index.mjs";
-import { restrictedExecutableInputRoots } from "./restricted-input-boundary.mjs";
+import { executableInputPathspec, inspectExecutableRepositoryPath, restrictedExecutableInputRoots } from "./restricted-input-boundary.mjs";
 
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -72,22 +72,14 @@ function isDocumentationOnlyPath(relativePath, restrictedRoots) {
 function repositoryPaths(root, restrictedRoots) {
   return execFileSync(
     "git",
-    ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+    ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", ...executableInputPathspec(restrictedRoots)],
     { cwd: root, encoding: "utf8", maxBuffer: 128 * 1024 * 1024 },
   )
     .split("\0")
     .filter(Boolean)
     .map(validateRepositoryPath)
     .filter((relativePath) => !isDocumentationOnlyPath(relativePath, restrictedRoots))
-    .filter((relativePath) => {
-      try {
-        lstatSync(path.join(root, relativePath));
-        return true;
-      } catch (error) {
-        if (error?.code === "ENOENT") return false;
-        throw error;
-      }
-    })
+    .filter((relativePath) => inspectExecutableRepositoryPath(root, relativePath) !== null)
     .sort(asciiCompare);
 }
 
@@ -101,8 +93,9 @@ export function buildSourceSnapshot(root, options = {}) {
   }
   const buffer = Buffer.allocUnsafe(64 * 1024);
   const entries = paths.map((relativePath) => {
-    const absolutePath = path.join(resolvedRoot, relativePath);
-    const stat = lstatSync(absolutePath);
+    const admitted = inspectExecutableRepositoryPath(resolvedRoot, relativePath);
+    if (!admitted) throw new Error("source snapshot input disappeared during admission");
+    const { absolute: absolutePath, stat } = admitted;
     if (stat.isSymbolicLink()) {
       return {
         path: relativePath,
@@ -133,9 +126,7 @@ export function buildSourceSnapshot(root, options = {}) {
 // Provenance follows the same executable boundary as the source digest. Git's
 // pathspec excludes documentation before worktree status inspection.
 export function executableProvenance(root) {
-  const exclusions = restrictedExecutableInputRoots(root).map((entry) => `:(top,exclude)${entry}`);
-  for (const pattern of ["*.md", "*.markdown", "README", "README.*", "**/README", "**/README.*"]) exclusions.push(`:(exclude,icase)${pattern}`);
   const source_commit = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
-  const status = execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all", "--", ".", ...exclusions], { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
+  const status = execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all", "--", ...executableInputPathspec(restrictedExecutableInputRoots(root))], { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 });
   return { source_commit, source_state: status === "" ? "clean" : "dirty" };
 }

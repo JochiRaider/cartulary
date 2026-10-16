@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reference_pack_progress_measurement_proof.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "job_id",
+    "job_status",
+    "record_id",
+    "row_version",
+    "view_schema_id",
+    "field_key",
+    "cancel_enabled",
+    "grid_edit_accepted",
+    "draft_uncommitted",
+    "consecutive_frames",
+    "binding_stable",
+    "geometry_unchanged",
+    "scroll_unchanged",
+    "action_count",
+    "viewport_width",
+    "viewport_height",
+    "device_scale_factor",
+    "job_purpose",
+    "pack_key",
+    "pack_version",
+    "payload_sha256",
+    "bundle_sha256",
+    "bundle_bytes",
+    "bundle_preparation_date",
+    "grid_location",
+    "companion_consecutive_frames",
+    "same_foreground_session",
+    "ordinary_security"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reference_pack_progress_measurement_proof.v1"
+    },
+    "kind": {
+      "const": "reference_pack_progress"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "job_status": {
+      "enum": [
+        "queued",
+        "running"
+      ]
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "row_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "field_key": {
+      "const": "timeline.analyst_text"
+    },
+    "cancel_enabled": {
+      "const": true
+    },
+    "grid_edit_accepted": {
+      "const": true
+    },
+    "draft_uncommitted": {
+      "const": true
+    },
+    "consecutive_frames": {
+      "const": 2
+    },
+    "binding_stable": {
+      "const": true
+    },
+    "geometry_unchanged": {
+      "const": true
+    },
+    "scroll_unchanged": {
+      "const": true
+    },
+    "action_count": {
+      "const": 1
+    },
+    "viewport_width": {
+      "const": 1920
+    },
+    "viewport_height": {
+      "const": 1080
+    },
+    "device_scale_factor": {
+      "const": 1
+    },
+    "job_purpose": {
+      "enum": [
+        "import",
+        "reverify",
+        "refresh"
+      ]
+    },
+    "pack_key": {
+      "const": "type_registry.host"
+    },
+    "pack_version": {
+      "const": "browser-1"
+    },
+    "payload_sha256": {
+      "const": "afaae18a960bf0d7f75365494966403333706ee4b7f680ca789c5cad8a237b8f"
+    },
+    "bundle_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "bundle_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "bundle_preparation_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "grid_location": {
+      "const": "opener"
+    },
+    "companion_consecutive_frames": {
+      "const": 2
+    },
+    "same_foreground_session": {
+      "const": true
+    },
+    "ordinary_security": {
+      "const": true
+    }
+  }
+}

@@ -88,24 +88,6 @@ UPDATE object_blobs
 	return nil
 }
 
-func recordNonTerminalFinalizeFailureTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID, now time.Time) (bool, error) {
-	schedule := evidencepolicy.ScheduleFailure(now)
-	var uploadState string
-	err := tx.QueryRow(ctx, `
-UPDATE object_blobs
-   SET finalize_attempt_count = finalize_attempt_count + 1,
-       upload_state = CASE WHEN finalize_attempt_count + 1 >= $4 THEN 'failed' ELSE upload_state END,
-       terminal_reason = CASE WHEN finalize_attempt_count + 1 >= $4 THEN 'finalize_retry_exhausted' ELSE terminal_reason END,
-       failed_at = CASE WHEN finalize_attempt_count + 1 >= $4 THEN $2 ELSE failed_at END,
-       cleanup_due_at = CASE WHEN finalize_attempt_count + 1 >= $4 THEN $3 ELSE cleanup_due_at END,
-       updated_at = $2
- WHERE object_blob_id = $1
-   AND upload_state = 'pending'
- RETURNING upload_state
-`, objectBlobID, schedule.FailedAt, schedule.CleanupDueAt, evidencepolicy.TerminalFinalizeAttempt).Scan(&uploadState)
-	return uploadState == "failed", err
-}
-
 func markBlobAvailableTx(ctx context.Context, tx pgx.Tx, objectBlobID uuid.UUID, observed *observedObject, now time.Time) error {
 	tag, err := tx.Exec(ctx, `
 UPDATE object_blobs

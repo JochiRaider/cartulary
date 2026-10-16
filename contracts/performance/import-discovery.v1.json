@@ -1,0 +1,50 @@
+{
+  "schema_id": "cartulary.performance_import_discovery_contract.v1",
+  "contract_id": "cartulary.performance.import_discovery.v1",
+  "criterion_id": "AC-027",
+  "fixture_contract_id": "cartulary.performance.large_grid.v1",
+  "fixture_profile_id": "timeline_large_grid_import_snapshot_v1",
+  "measurement_policy_id": "cartulary.measurement.single_observation.v1",
+  "warmup_passes": 0,
+  "measured_samples": 1,
+  "product_retries": 0,
+  "threshold_ms": 1000,
+  "threshold_comparison": "lte",
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "device_scale_factor": 1
+  },
+  "start_mark": "cartulary.workbook.import_discovery_accepted",
+  "admission_mark": "cartulary.workbook.import_discovery_admitted",
+  "predicates": [
+    {
+      "predicate_id": "perf.import_csv_discovery.visible_with_cancel.v1",
+      "kind": "csv"
+    },
+    {
+      "predicate_id": "perf.import_xlsx_discovery.visible_with_cancel.v1",
+      "kind": "xlsx"
+    }
+  ],
+  "workload": {
+    "foreground_role": "editor",
+    "data_rows": 20000,
+    "columns": 2,
+    "headers": [
+      "Activity Synopsis",
+      "Unmapped source note"
+    ],
+    "first_column_prefix": "Background import ",
+    "second_column_prefix": "Source note ",
+    "ordinal_width": 5,
+    "worksheet": "Timeline",
+    "field_key": "timeline.analyst_text",
+    "draft_suffix": "x",
+    "action_driver": "keyboard_enter",
+    "grid_driver": "pointer_select_keyboard_edit",
+    "discovery_only": true
+  },
+  "dispatch_mark": "cartulary.workbook.import_discovery_dispatched"
+}

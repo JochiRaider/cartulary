@@ -29,6 +29,7 @@ import {
   referencePackCommandLabel,
   referencePackEligible,
   referencePackIdentity,
+  referencePackJobPurpose,
   referencePackListStatus,
   referencePackProblemText,
   terminalReferencePackJobStates,
@@ -499,6 +500,10 @@ export function ReferencePackAdminPanel({
                   <li key={id} style={sectionStyle}>
                     <section
                       aria-label={referencePackCommandLabel(job.command)}
+                      data-job-id={id}
+                      data-job-purpose={referencePackJobPurpose(job.command)}
+                      data-job-status={job.snapshot.status}
+                      data-job-cancelable={job.snapshot.cancelable}
                     >
                       <h4 style={subtitleStyle}>
                         {referencePackCommandLabel(job.command)}
@@ -520,7 +525,7 @@ export function ReferencePackAdminPanel({
                               max: job.snapshot.progress.total,
                             })}
                       />
-                      <span>
+                      <span data-job-progress="true">
                         {" "}
                         {job.snapshot.progress.completed}
                         {job.snapshot.progress.total === null
@@ -577,6 +582,7 @@ export function ReferencePackAdminPanel({
                           type="button"
                           style={buttonStyle}
                           data-testid={referencePackCancelButtonTestId()}
+                          data-job-cancel="true"
                           aria-disabled={
                             !available ||
                             ["checking", "submitting", "uncertain"].includes(

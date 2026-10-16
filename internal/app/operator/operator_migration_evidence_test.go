@@ -3,7 +3,6 @@ package operator
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -131,6 +131,11 @@ func captureMigrationEvidenceUnit(t *testing.T) migrationEvidenceUnitCapture {
 
 func captureMigrationEvidenceUnitAtManifest(t *testing.T, manifestPath string) migrationEvidenceUnitCapture {
 	t.Helper()
+	return captureMigrationEvidenceUnitWithSource(t, manifestPath, dbmigrations.Source)
+}
+
+func captureMigrationEvidenceUnitWithSource(t *testing.T, manifestPath string, source func() (*database_migrations.Source, error)) migrationEvidenceUnitCapture {
+	t.Helper()
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	t.Setenv("CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN", migrationEvidenceFixtureDSN)
@@ -139,7 +144,7 @@ func captureMigrationEvidenceUnitAtManifest(t *testing.T, manifestPath string) m
 	runner := operatorRunner{
 		migrationEvidence: migrationEvidenceExecutor{
 			transport: operatorTransport{stdout: &stdout, stderr: &stderr},
-			source:    dbmigrations.Source,
+			source:    source,
 			loadConfig: func(path string) (configassembly.Loaded, error) {
 				if path != "/etc/cartulary/config.toml" {
 					t.Fatalf("unexpected source config path: %q", path)
@@ -213,11 +218,22 @@ func runMigrationEvidenceCaptureTransport(t *testing.T) {
 }
 
 func runMigrationEvidenceCaptureV2GoldenDigest(t *testing.T) {
-	capture := captureMigrationEvidenceUnit(t)
-	digest := sha256.Sum256([]byte(capture.stdout))
-	const wantDigest = "cb238992aaa9456d50f6cc46435584cab2f73f3fc303a30cdde50680d7c10aad"
-	if got := fmt.Sprintf("%x", digest); got != wantDigest {
-		t.Fatalf("v2 migration evidence digest = %s, want %s", got, wantDigest)
+	// Freeze the transport vector independently of the growing production catalog.
+	// Production source/manifest completeness is checked by the other subtests.
+	const sql = "-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n"
+	const manifest = `{"schema_id":"cartulary.migration_history_manifest.v1","migration_root":"db/migrations","immutable_through_version":1,"entries":[{"version":1,"filename":"00001_fixture.sql","sha256":"0ff0c7582e520452d3d905c2c5233fd9800f3cca64e60210e66d395314a637d7","historical_phase_shaped":false}]}` + "\n"
+	manifestPath := filepath.Join(t.TempDir(), "manifest.json")
+	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	capture := captureMigrationEvidenceUnitWithSource(t, manifestPath, func() (*database_migrations.Source, error) {
+		return database_migrations.BuildCanonicalEmbedded(fstest.MapFS{
+			"00001_fixture.sql": &fstest.MapFile{Data: []byte(sql)},
+		}, ".")
+	})
+	const want = `{"schema_id":"cartulary.migration_history_evidence.v2","collected_at":"2026-04-17T12:00:00Z","evidence_only":true,"rewrite_authorized":false,"database_binding":{"binding_kind":"managed_service","service_ref":"postgres-primary"},"manifest":{"schema_id":"cartulary.migration_history_manifest.v1","sha256":"5770d913567932ec4fd6f58a443e6abcbf6ee3cc092f46cfca6be7c5e68b450c","migration_root":"db/migrations","immutable_through_version":1,"expected_min_version":1,"expected_max_version":1,"expected_version_count":1},"source_audit":[{"version":1,"filename":"00001_fixture.sql","sha256":"0ff0c7582e520452d3d905c2c5233fd9800f3cca64e60210e66d395314a637d7","has_goose_up":true,"has_goose_down":true,"phase_shaped_name":false,"immutability_class":"protected","manifest_filename":"00001_fixture.sql","manifest_sha256":"0ff0c7582e520452d3d905c2c5233fd9800f3cca64e60210e66d395314a637d7","manifest_hash_matches":true}],"goose_ledger":{"metadata_present":true,"row_count":1,"current_effective_applied_version":1,"latest_effective_states":[{"version":1,"is_applied":true,"tstamp":"2026-04-17T12:00:00Z"}]},"findings":[{"severity":"info","reason_code":"protected_boundary_applied","version":1,"detail":"database has applied the immutable historical migration boundary; rewrite/rebaseline remains blocked without owner approval"}]}` + "\n"
+	if capture.stdout != want {
+		t.Fatalf("v2 migration evidence bytes differ\ngot: %s\nwant: %s", capture.stdout, want)
 	}
 }
 

@@ -54,7 +54,7 @@ class WorkbookQueryBrowsingRegistry {
     { token: symbol; ready: boolean; detach: () => void }
   >();
 
-  updatePresentation(
+  bindPresentation(
     view: string,
     token: symbol,
     ready: boolean,
@@ -63,6 +63,17 @@ class WorkbookQueryBrowsingRegistry {
     const previous = this.presentations.get(view);
     this.presentations.set(view, { token, ready, detach });
     if (previous?.ready !== ready || previous.token !== token) this.publish();
+  }
+  updatePresentation(
+    view: string,
+    token: symbol,
+    ready: boolean,
+    detach: () => void,
+  ) {
+    const current = this.presentations.get(view);
+    if (current?.token !== token) return;
+    this.presentations.set(view, { token, ready, detach });
+    if (current.ready !== ready) this.publish();
   }
   detachPresentation(view: string) {
     this.presentations.get(view)?.detach();

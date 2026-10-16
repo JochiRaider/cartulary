@@ -77,6 +77,33 @@ func TestArtifactAdmissionDefaultsAndProjectionIsolation_Unit(t *testing.T) {
 	}
 }
 
+func TestReportingConfigurationProjection_Unit(t *testing.T) {
+	const key = "CARTULARY__SNAPSHOT_REPORTING__RUNTIME_RECEIPT_PATH"
+	const path = "/fixture/report-renderer/installation.json"
+	loaded, err := loadProjection(t, map[string]string{key: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value := loaded.Deployment().Reporting; !value.Claimed || value.RuntimeReceiptPath != path {
+		t.Fatal("Reporting claim or receipt projection lost")
+	}
+	copy := loaded.Deployment()
+	copy.Reporting.RuntimeReceiptPath = "/changed/installation.json"
+	if loaded.Deployment().Reporting.RuntimeReceiptPath != path {
+		t.Fatal("Reporting configuration is mutable")
+	}
+	for _, value := range []string{"", "relative/installation.json", "/fixture/../installation.json", "/fixture//installation.json", "/fixture/other.json", "/installation.json"} {
+		if _, err := loadProjection(t, map[string]string{key: value}); err == nil {
+			t.Fatalf("admitted invalid receipt %q", value)
+		}
+	}
+	_, err = loadProjection(t, map[string]string{key: path, "CARTULARY__SNAPSHOT_REPORTING__CLAIMED": "false"})
+	diagnostics, ok := config.DiagnosticsFromError(err)
+	if !ok || len(diagnostics) != 1 || diagnostics[0].ReasonCode != "extension_config_without_claim" || strings.Contains(err.Error(), path) {
+		t.Fatalf("inactive receipt diagnostic: %v", err)
+	}
+}
+
 func TestEnterpriseAuthenticationConfigurationProjection_Unit(t *testing.T) {
 	t.Run("claimed configuration is owner-validated before preflight", func(t *testing.T) {
 		_, err := loadProjection(t, map[string]string{

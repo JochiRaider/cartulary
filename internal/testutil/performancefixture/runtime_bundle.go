@@ -166,9 +166,9 @@ func ValidateReceiptRedaction(result Result, state *BuildState) error {
 			}
 		}
 	}
-	for _, userID := range state.BackgroundUserIDs {
+	for _, userID := range state.PrincipalUserIDs {
 		if userID != "" && strings.Contains(text, userID) {
-			return errors.New("performance fixture semantic receipt contains a background user identifier")
+			return errors.New("performance fixture semantic receipt contains a fixture principal identifier")
 		}
 	}
 	if state.IncidentID != "" && strings.Contains(text, state.IncidentID) {

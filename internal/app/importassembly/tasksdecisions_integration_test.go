@@ -202,7 +202,7 @@ func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsI
 		t.Fatalf("compose Projections: %v", err)
 	}
 	conflictTokens := conflicttest.NewCodec("tasks-decisions-import")
-	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+	evidenceOwner := appsupport.NewEvidenceSourceRuntimeForTimeline(
 		storeHarness.DB,
 		conflictTokens,
 		appender,

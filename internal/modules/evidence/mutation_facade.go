@@ -10,7 +10,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionports"
 	conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts"
-	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -31,7 +30,6 @@ type mutationFacade struct {
 	keepSaved         conflicttokens.IdempotencyPort
 	collaboration     collaboration.RecordChangedAppender
 	mutations         evidenceSourceMutationKernel
-	objects           objectstore.TypedStore
 }
 
 type createRequest struct {
@@ -134,7 +132,6 @@ func newMutationFacade(
 	pool postgres.DB,
 	conflictTokens conflicttokens.ConflictTokenCodec,
 	sourceMutations *sourceMutationService,
-	objects objectstore.TypedStore,
 	dependencies MutationDependencies,
 ) (*mutationFacade, error) {
 	switch {
@@ -142,8 +139,6 @@ func newMutationFacade(
 		return nil, fmt.Errorf("compose Evidence workbook facade: Postgres is required")
 	case sourceMutations == nil:
 		return nil, fmt.Errorf("compose Evidence workbook facade: source mutations are required")
-	case isNilMutationCapability(objects):
-		return nil, fmt.Errorf("compose Evidence workbook facade: object store is required")
 	}
 	if err := dependencies.validate(); err != nil {
 		return nil, err
@@ -164,7 +159,6 @@ func newMutationFacade(
 		conflictSnapshots: newEvidenceConflictSnapshotProjector(),
 		keepSaved:         dependencies.KeepSavedIdempotency,
 		collaboration:     dependencies.Collaboration,
-		objects:           objects,
 		mutations:         sourceMutations.mutations,
 	}, nil
 }

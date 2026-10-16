@@ -35,6 +35,14 @@
         "static_check"
       ],
       "public_target": "test-evidence-audit"
+    },
+    {
+      "verification_id": "harness.evidence_accounting.verification.source_contracts",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

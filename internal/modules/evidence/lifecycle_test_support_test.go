@@ -452,7 +452,7 @@ func structuredTableText(t testing.TB, harness *appsupport.ServerHarness, tables
 	t.Helper()
 	var builder strings.Builder
 	for _, table := range tables {
-		query := fmt.Sprintf(`SELECT COALESCE(string_agg(to_jsonb(t)::text, E'\n'), '') FROM %s AS t`, quoteIdent(table))
+		query := fmt.Sprintf(`SELECT COALESCE(string_agg(to_jsonb(t)::text, E'\n' ORDER BY to_jsonb(t)::text), '') FROM %s AS t`, quoteIdent(table))
 		var text string
 		if err := harness.DB.QueryRowContext(context.Background(), query).Scan(&text); err != nil {
 			t.Fatalf("dump structured table %s: %v", table, err)
@@ -513,6 +513,7 @@ func attachUploadedBlobWithHints(t *testing.T, harness *appsupport.ServerHarness
 	}, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, uploadContentType, login)
+	verifyUploadedBlob(t, harness, login, createData["object_blob_id"], createTxn+"-verify", "succeeded")
 	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,

@@ -13,6 +13,7 @@ import {
 } from "@testing-library/react";
 import { type ChangeEvent, createRef, useMemo, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { decodeGridClipboard } from "./clipboardCodec";
 import {
   assertGridRows,
   type GridCellStateInput,
@@ -750,6 +751,109 @@ describe("grid-adapter", () => {
     }
   });
 
+  it("separates recordless table insertion from native draft clipboard editing", () => {
+    for (const { Grid, name } of semanticContractBindings) {
+      const onDraftPaste = vi.fn(() => true);
+      const onPaste = vi.fn();
+      const onError = vi.fn();
+      const insertionColumns: readonly GridColumn<HarnessRow>[] = [
+        {
+          fieldKey: "label",
+          label: "Label",
+          contractWritable: true,
+          renderCell: ({ row }) => row.label,
+          renderDraftCell: () => (
+            <input
+              aria-label={`Insertion ${name}`}
+              onPaste={(event) => event.stopPropagation()}
+            />
+          ),
+          editor: {
+            commit: async () => ({ kind: "accepted" }),
+            initialDraftValue: (row) => row.label,
+            renderEditor: () => <input aria-label={`Committed ${name}`} />,
+          },
+        },
+        {
+          fieldKey: "state",
+          label: "State",
+          renderCell: ({ row }) => row.state,
+        },
+      ];
+      const props = {
+        columns: insertionColumns,
+        surface: testSurface,
+        dataRows: [
+          {
+            kind: "data" as const,
+            data: { label: "Existing", state: "open" },
+            rowIdentity: {
+              kind: "core_record" as const,
+              recordId: "existing-1",
+            },
+            mutationIdentity: {
+              kind: "core_row_version" as const,
+              baseRowVersion: 3,
+            },
+          },
+        ],
+        draftRow: { kind: "draft" as const, data: { label: "", state: "" } },
+        clipboardPaste: {
+          decode: decodeGridClipboard,
+          onPaste,
+          onDraftPaste,
+          onError,
+        },
+        allowPasteCreateRows: true,
+      };
+      const view = render(<Grid {...props} />);
+      const editor = screen.getByLabelText(`Insertion ${name}`);
+      const cell = editor.closest<HTMLElement>('[role="gridcell"]');
+      if (!cell) throw new Error("Missing insertion cell");
+      const paste = (element: HTMLElement, value: string) =>
+        fireEvent.paste(element, {
+          clipboardData: { types: ["text/plain"], getData: () => value },
+        });
+      editor.focus();
+      expect(paste(editor, "First\nSecond")).toBe(true);
+      expect(onDraftPaste).not.toHaveBeenCalled();
+      fireEvent.keyDown(editor, { key: "Escape" });
+      expect(document.activeElement).toBe(cell);
+      expect(paste(cell, "First\nSecond")).toBe(false);
+      expect(onDraftPaste).toHaveBeenCalledExactlyOnceWith({
+        fieldKey: "label",
+        input: expect.objectContaining({
+          kind: "table",
+          values: [["First"], ["Second"]],
+        }),
+        targetResolution: {
+          columns: ["label"],
+          rowTargets: [
+            { kind: "create", createIndex: 0, surface: testSurface },
+            { kind: "create", createIndex: 1, surface: testSurface },
+          ],
+        },
+      });
+      expect(onPaste).not.toHaveBeenCalled();
+      expect(screen.getByText("Existing")).toBeTruthy();
+      onDraftPaste.mockClear();
+      paste(cell, "First\tRead only");
+      expect(onError).toHaveBeenCalled();
+      paste(cell, "Scalar");
+      expect(onDraftPaste).not.toHaveBeenCalled();
+      fireEvent.keyDown(cell, { key: "Enter" });
+      expect(document.activeElement).toBe(editor);
+      fireEvent.input(editor, { target: { value: "Retained draft" } });
+      fireEvent.keyDown(editor, { key: "Escape" });
+      expect(document.activeElement).toBe(editor);
+      view.rerender(<Grid {...props} allowPasteCreateRows={false} />);
+      paste(cell, "First\nSecond");
+      expect(onDraftPaste).not.toHaveBeenCalled();
+      view.unmount();
+      cleanup();
+    }
+  });
+
   it("runs active-cell, navigation, range, copy, paste, fill, and handle behavior through both semantic bindings", async () => {
     for (const { Grid, name } of semanticContractBindings) {
       const handle = createRef<GridHandle>();
@@ -1449,7 +1553,12 @@ describe("grid-adapter", () => {
         screen.getByText("You no longer have access to this workbook."),
       ).toBeTruthy();
       expect(screen.queryByText("Closed, read-only")).toBeNull();
-      expect(screen.queryByRole("button")).toBeNull();
+      // The retained inert grid may still contain disabled column headers.
+      // Permission loss must remove actionable controls and record content.
+      expect(screen.queryByRole("button", { name: "Add row" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+      expect(screen.queryByTestId(`operational-row-${name}`)).toBeNull();
+      expect(screen.queryByTestId(`operational-draft-${name}`)).toBeNull();
 
       view.rerender(
         <Grid

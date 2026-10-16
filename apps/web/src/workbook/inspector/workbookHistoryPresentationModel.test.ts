@@ -22,6 +22,12 @@ describe("workbook history presentation model", () => {
     };
 
     expect(workbookHistoryEventPresentation(item)).toMatchObject({
+      binding: {
+        actorId: item.actor_user_id,
+        changeSetId: "change-set-1",
+        operation: "patch",
+        revision: 4,
+      },
       committedAt: "2026-08-30T20:00:00Z",
       key: "history-1",
       operation: "Updated",

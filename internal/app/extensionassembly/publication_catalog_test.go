@@ -71,9 +71,9 @@ func TestPublicationCatalog_ExactGeneratedSets_Unit(t *testing.T) {
 		"reference_pack.import_v2":                        "reference_pack.lifecycle_worker_v2",
 		"reference_pack.reverify_v2":                      "reference_pack.lifecycle_worker_v2",
 		"reference_pack.refresh_v2":                       "reference_pack.lifecycle_worker_v2",
-		"snapshot_reporting.snapshot_create_v2":           "snapshot_reporting.job_worker_v2",
-		"snapshot_reporting.release_create_v2":            "snapshot_reporting.job_worker_v2",
-		"snapshot_reporting.composition_preview_v2":       "snapshot_reporting.job_worker_v2",
+		"snapshot_reporting.snapshot_create_v4":           "snapshot_reporting.job_worker_v2",
+		"snapshot_reporting.release_create_v4":            "snapshot_reporting.job_worker_v2",
+		"snapshot_reporting.composition_preview_v4":       "snapshot_reporting.job_worker_v2",
 		"network_flow_activity.graph_view_materialize_v1": "network_flow_activity.graph_view_worker_v1",
 	}
 	if !reflect.DeepEqual(gotJobWorkers, wantJobWorkers) {

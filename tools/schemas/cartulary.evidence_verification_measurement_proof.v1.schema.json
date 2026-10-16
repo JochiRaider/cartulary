@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.evidence_verification_measurement_proof.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "job_id",
+    "job_status",
+    "record_id",
+    "row_version",
+    "view_schema_id",
+    "field_key",
+    "cancel_enabled",
+    "grid_edit_accepted",
+    "draft_uncommitted",
+    "consecutive_frames",
+    "binding_stable",
+    "geometry_unchanged",
+    "scroll_unchanged",
+    "action_count",
+    "viewport_width",
+    "viewport_height",
+    "device_scale_factor",
+    "job_purpose",
+    "object_blob_id",
+    "source_record_id",
+    "clipboard_driver",
+    "uploaded_bytes",
+    "preview_preflight_records",
+    "inspector_open",
+    "attachment_details_expanded"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.evidence_verification_measurement_proof.v1"
+    },
+    "kind": {
+      "const": "evidence_verification"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "job_status": {
+      "enum": [
+        "queued",
+        "running"
+      ]
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "row_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "field_key": {
+      "const": "timeline.analyst_text"
+    },
+    "cancel_enabled": {
+      "const": true
+    },
+    "grid_edit_accepted": {
+      "const": true
+    },
+    "draft_uncommitted": {
+      "const": true
+    },
+    "consecutive_frames": {
+      "const": 2
+    },
+    "binding_stable": {
+      "const": true
+    },
+    "geometry_unchanged": {
+      "const": true
+    },
+    "scroll_unchanged": {
+      "const": true
+    },
+    "action_count": {
+      "const": 1
+    },
+    "viewport_width": {
+      "const": 1920
+    },
+    "viewport_height": {
+      "const": 1080
+    },
+    "device_scale_factor": {
+      "const": 1
+    },
+    "job_purpose": {
+      "const": "evidence_verification"
+    },
+    "object_blob_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "source_record_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "clipboard_driver": {
+      "const": "synthesized_file_event"
+    },
+    "uploaded_bytes": {
+      "const": 2097152
+    },
+    "preview_preflight_records": {
+      "const": 100
+    },
+    "inspector_open": {
+      "const": false
+    },
+    "attachment_details_expanded": {
+      "const": false
+    }
+  }
+}

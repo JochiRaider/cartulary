@@ -406,6 +406,79 @@ export function planSemanticPasteTargets<Row>(
     gridRowIdentitiesEqual(identity, current.rowIdentity),
   );
   if (startColumnIndex < 0 || startRowIndex < 0) return null;
+  const targetColumns = pasteTargetColumns(model, current.fieldKey, dimensions);
+  if (targetColumns === null) return null;
+
+  const rowTargets: GridPasteRowTarget[] = [];
+  let createIndex = 0;
+  for (let offset = 0; offset < dimensions.rowCount; offset += 1) {
+    const rowIdentity = model.rowIdentities[startRowIndex + offset];
+    if (rowIdentity === undefined) {
+      if (!model.allowCreateRows) return null;
+      rowTargets.push({
+        createIndex,
+        kind: "create",
+        surface: current.surface,
+      });
+      createIndex += 1;
+      continue;
+    }
+    const row = model.dataRows.find((candidate) =>
+      gridRowIdentitiesEqual(candidate.rowIdentity, rowIdentity),
+    );
+    if (
+      row === undefined ||
+      row.rowIdentity.kind !== "core_record" ||
+      row.mutationIdentity === undefined
+    )
+      return null;
+    rowTargets.push({
+      kind: "record",
+      mutationIdentity: row.mutationIdentity,
+      rowIdentity: row.rowIdentity,
+      surface: current.surface,
+    });
+  }
+  return { columns: targetColumns, rowTargets };
+}
+
+export function planDraftPasteTargets<Row>(
+  model: GridSemanticPresentationModel<Row>,
+  fieldKey: string,
+  dimensions: GridClipboardDimensions,
+): GridPasteTargetResolution | null {
+  const surface = model.surface;
+  if (
+    !model.allowCreateRows ||
+    model.grouping !== null ||
+    surface.kind !== "view_schema" ||
+    !Number.isInteger(dimensions.rowCount) ||
+    dimensions.rowCount < 1
+  )
+    return null;
+  const columns = pasteTargetColumns(model, fieldKey, dimensions);
+  if (columns === null) return null;
+  return {
+    columns,
+    rowTargets: Array.from(
+      { length: dimensions.rowCount },
+      (_, createIndex) => ({ kind: "create", createIndex, surface }),
+    ),
+  };
+}
+
+function pasteTargetColumns<Row>(
+  model: GridSemanticPresentationModel<Row>,
+  fieldKey: string,
+  dimensions: GridClipboardDimensions,
+): readonly string[] | null {
+  const startColumnIndex = model.fieldKeys.indexOf(fieldKey);
+  if (
+    startColumnIndex < 0 ||
+    !Number.isInteger(dimensions.columnCount) ||
+    dimensions.columnCount < 1
+  )
+    return null;
   const targetColumns =
     dimensions.fieldKeys ??
     model.fieldKeys.slice(
@@ -429,38 +502,7 @@ export function planSemanticPasteTargets<Row>(
     return null;
   }
 
-  const rowTargets: GridPasteRowTarget[] = [];
-  let createIndex = 0;
-  for (let offset = 0; offset < dimensions.rowCount; offset += 1) {
-    const rowIdentity = model.rowIdentities[startRowIndex + offset];
-    if (rowIdentity === undefined) {
-      if (!model.allowCreateRows) return null;
-      rowTargets.push({
-        createIndex,
-        kind: "create",
-        surface: current.surface,
-      });
-      createIndex += 1;
-      continue;
-    }
-    const row = model.dataRows.find((candidate) =>
-      gridRowIdentitiesEqual(candidate.rowIdentity, rowIdentity),
-    );
-    if (
-      row === undefined ||
-      row.rowIdentity.kind !== "core_record" ||
-      row.mutationIdentity === undefined
-    ) {
-      return null;
-    }
-    rowTargets.push({
-      kind: "record",
-      mutationIdentity: row.mutationIdentity,
-      rowIdentity: row.rowIdentity,
-      surface: current.surface,
-    });
-  }
-  return { columns: targetColumns, rowTargets };
+  return targetColumns;
 }
 
 export function resolveVisibleGridCellRange<Row>({

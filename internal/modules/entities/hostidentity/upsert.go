@@ -110,6 +110,10 @@ func (s *mutationCore) applyHostUpsertTx(ctx context.Context, tx pgx.Tx, actor a
 			return HostRecord{}, nil, "", 0, err
 		}
 		record.AliasMutations = aliasResult.Added
+		record.partyMutations, err = applyPartyAssignmentAddsTx(ctx, tx, incidentID, record.RecordID, input.PartyAdds, actor.ID, now)
+		if err != nil {
+			return HostRecord{}, nil, "", 0, err
+		}
 		if err := hydrateHostRecordTx(ctx, tx, &record); err != nil {
 			return HostRecord{}, nil, "", 0, err
 		}
@@ -172,7 +176,12 @@ func (s *mutationCore) applyHostUpsertTx(ctx context.Context, tx pgx.Tx, actor a
 		return HostRecord{}, nil, "", 0, err
 	}
 
-	if fieldChanged || identifierChanged || aliasChanged {
+	partyMutations, err := applyPartyAssignmentAddsTx(ctx, tx, incidentID, current.RecordID, input.PartyAdds, actor.ID, now)
+	if err != nil {
+		return HostRecord{}, nil, "", 0, err
+	}
+	next.partyMutations = partyMutations
+	if fieldChanged || identifierChanged || aliasChanged || len(partyMutations) > 0 {
 		next.RowVersion, err = s.advanceEntityBatchVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC(), versions)
 		if err != nil {
 			return HostRecord{}, nil, "", 0, err
@@ -243,6 +252,10 @@ func (s *mutationCore) applyIdentityUpsertTx(ctx context.Context, tx pgx.Tx, act
 			return IdentityRecord{}, nil, "", 0, err
 		}
 		record.AliasMutations = aliasResult.Added
+		record.partyMutations, err = applyPartyAssignmentAddsTx(ctx, tx, incidentID, record.RecordID, input.PartyAdds, actor.ID, now)
+		if err != nil {
+			return IdentityRecord{}, nil, "", 0, err
+		}
 		if err := hydrateIdentityRecordTx(ctx, tx, &record); err != nil {
 			return IdentityRecord{}, nil, "", 0, err
 		}
@@ -305,7 +318,12 @@ func (s *mutationCore) applyIdentityUpsertTx(ctx context.Context, tx pgx.Tx, act
 		return IdentityRecord{}, nil, "", 0, err
 	}
 
-	if fieldChanged || identifierChanged || aliasChanged {
+	partyMutations, err := applyPartyAssignmentAddsTx(ctx, tx, incidentID, current.RecordID, input.PartyAdds, actor.ID, now)
+	if err != nil {
+		return IdentityRecord{}, nil, "", 0, err
+	}
+	next.partyMutations = partyMutations
+	if fieldChanged || identifierChanged || aliasChanged || len(partyMutations) > 0 {
 		next.RowVersion, err = s.advanceEntityBatchVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC(), versions)
 		if err != nil {
 			return IdentityRecord{}, nil, "", 0, err

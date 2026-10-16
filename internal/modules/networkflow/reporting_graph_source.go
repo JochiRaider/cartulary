@@ -99,11 +99,11 @@ func (source *ReportingGraphSource) ValidateAndLeaseResultTx(ctx context.Context
 	})
 }
 
-func (source *ReportingGraphSource) ReadAndRenewLeasedResult(ctx context.Context, jobID uuid.UUID, binding graphprojection.ResultBindingV2, observedAt, leasedUntil time.Time) (graphsourcecontract.Result, error) {
-	if source == nil || source.db == nil || jobID == uuid.Nil || binding.SourceOwnerID != ProfileID {
+func (source *ReportingGraphSource) ReadAndRenewLeasedResultTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, binding graphprojection.ResultBindingV2, observedAt, leasedUntil time.Time) (graphsourcecontract.Result, error) {
+	if source == nil || tx == nil || jobID == uuid.Nil || binding.SourceOwnerID != ProfileID {
 		return graphsourcecontract.Result{}, graphprojection.ErrResultV2BindingMismatch
 	}
-	reader, err := postgresresult.NewReader(source.db)
+	reader, err := postgresresult.NewReader(tx)
 	if err != nil {
 		return graphsourcecontract.Result{}, err
 	}
@@ -114,7 +114,7 @@ func (source *ReportingGraphSource) ReadAndRenewLeasedResult(ctx context.Context
 	if err != nil {
 		return graphsourcecontract.Result{}, err
 	}
-	writer, err := postgresresult.NewLeaseWriter(source.db)
+	writer, err := postgresresult.NewLeaseWriter(tx)
 	if err != nil {
 		return graphsourcecontract.Result{}, err
 	}

@@ -15,6 +15,7 @@ import {
   workbookInspectorToggleTestId,
   workbookQueryEntryTestId,
 } from "@cartulary/ui-contracts";
+import { requireViewContract } from "@cartulary/view-contracts";
 import {
   cleanup,
   fireEvent,
@@ -32,6 +33,7 @@ import { deferred, requireJSONBodyAt } from "../testing/fetchMockTestSupport";
 import {
   errorEnvelope,
   timelineRow as fullTimelineRow,
+  fullWorkbookViewRow,
   successEnvelope,
 } from "../testing/timelineWorkbookTestSupport";
 import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
@@ -1147,10 +1149,16 @@ describe("Assessment workbook surface", () => {
 function hostRow(options: { displayName?: string; recordId?: string } = {}) {
   const recordId = options.recordId ?? "00000000-0000-4000-8000-000000000101";
   const displayName = options.displayName ?? "Assessment Host";
+  const base = fullWorkbookViewRow(
+    requireViewContract(hostsViewSchemaId),
+    recordId,
+    1,
+    {},
+  );
   return {
-    record_id: recordId,
-    row_version: 1,
+    ...base,
     cells: {
+      ...base.cells,
       "host.display_name": { value: displayName },
       "host.hostname": { value: `${recordId}.example.test` },
       "host.aad_device_id": { value: null },

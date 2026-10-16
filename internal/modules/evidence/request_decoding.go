@@ -67,7 +67,6 @@ var blobCreateServerManagedFields = map[string]struct{}{
 	"finalized_at":             {},
 	"terminal_reason":          {},
 	"failed_at":                {},
-	"finalize_attempt_count":   {},
 	"cleanup_due_at":           {},
 	"cleaned_up_at":            {},
 	"created_at":               {},

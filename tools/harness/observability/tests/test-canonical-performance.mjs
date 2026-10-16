@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { writeCanonicalFixture } from "./retained-fixture.mjs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
 import { semanticJSONSHA256 } from "../../contract/index.mjs";
 import {
   assertBaselineClosure,
+  buildFromManifest,
   compareQualifiedBaselines,
   median,
   nearestRankP90,
@@ -18,6 +22,11 @@ const root = path.resolve(import.meta.dirname, "../../../..");
 const surface = JSON.parse(readFileSync(path.join(root, "tools/task_surface_owner.json"), "utf8"));
 const roster = performanceRoster(surface);
 assert.deepEqual([...roster.keys()], surface.observability_policy.required_targets, "measurement must cover the authored public-target roster");
+for (const target of ["test-evidence-audit", "benchmark-claim-check", "scheduler-event-order-drift", "scheduler-summary-timing-drift"]) {
+  assert.equal(roster.has(target), false, "caller-selected evidence is not a fixed performance workload");
+  assert.ok(surface.observability_policy.out_of_scope_targets.some((entry) => entry.target === target && entry.reason));
+}
+assert.equal(surface.observability_policy.measurement_profiles.some((profile) => Object.hasOwn(profile.canonical_inputs, "EVIDENCE_ROOTS_FILE")), false);
 assert.deepEqual(
   [...roster.entries()].filter(([, policy]) => policy.gate === "required_improvement").map(([target]) => target),
   [
@@ -69,6 +78,21 @@ const evidenceFixture = {
   }],
 };
 validateSchemaSync(evidenceFixture.schema_id, evidenceFixture);
+
+const evidenceDirectory = mkdtempSync(path.join(os.tmpdir(), "cartulary-performance-paths-"));
+try {
+  const file = path.join(evidenceDirectory, "manifest.json");
+  writeFileSync(file, JSON.stringify(evidenceFixture));
+  symlinkSync(file, path.join(evidenceDirectory, "alias.json"));
+  await assert.rejects(buildFromManifest(root, path.join(evidenceDirectory, "alias.json"), surface), /ELOOP/u);
+  const forbiddenDirectory = "docs";
+  await assert.rejects(buildFromManifest(root, path.join(evidenceDirectory, forbiddenDirectory, "manifest.json"), surface), /documentation/u);
+  const outside = path.join(evidenceDirectory, "outside"); mkdirSync(outside);
+  symlinkSync(outside, path.join(evidenceDirectory, "cold"));
+  await assert.rejects(buildFromManifest(root, file, surface), /ENOTDIR|ELOOP/u);
+  writeFileSync(file, '{"mode":"baseline","mode":"comparison"}');
+  await assert.rejects(buildFromManifest(root, file, surface), /duplicate/iu);
+} finally { rmSync(evidenceDirectory, { recursive: true, force: true }); }
 
 function qualifiedBaseline({ candidate = false } = {}) {
   const targets = [...roster.entries()].map(([target, policy]) => {
@@ -145,6 +169,18 @@ assertBaselineClosure(candidate, surface);
 const comparison = compareQualifiedBaselines(reference, candidate, surface);
 assert.deepEqual(comparison.failures, []);
 assert.equal(comparison.rows.length, roster.size);
+const reused = structuredClone(candidate);
+reused.targets[0].sample_roots[0] = reference.targets[0].cold_root;
+assert.throws(() => compareQualifiedBaselines(reference, reused, surface), /reuse an observation/u);
+const forgedPolicy = structuredClone(reference);
+forgedPolicy.targets[0].gate = forgedPolicy.targets[0].gate === "no_regression" ? "required_improvement" : "no_regression";
+assert.throws(() => assertBaselineClosure(forgedPolicy, surface), /reviewed measurement policy/u);
+const duplicate = structuredClone(reference);
+duplicate.targets[0].warmup_root = duplicate.targets[0].cold_root;
+assert.throws(() => assertBaselineClosure(duplicate, surface), /repeats an observation/u);
+const fiveUnstable = structuredClone(reference);
+fiveUnstable.targets[0].samples_ms = [1, 20, 40, 60, 80];
+assert.throws(() => assertBaselineClosure(fiveUnstable, surface), /requires a sixth observation/u);
 
 const regressed = structuredClone(candidate);
 const row = regressed.targets.find((entry) => entry.gate === "no_regression");
@@ -153,3 +189,111 @@ row.p50_ms = 200;
 row.p90_ms = 200;
 regressed.public_entrypoint_portfolio.total_p50_ms = regressed.targets.reduce((sum, entry) => sum + entry.p50_ms, 0);
 assert.ok(compareQualifiedBaselines(reference, regressed, surface).failures.includes(row.target));
+
+
+// Complete retained fixtures exercise admission independently of current source
+// reconstruction. Each mutation preserves unrelated bindings where necessary.
+const hash = (value) => `sha256:${semanticJSONSHA256(value)}`;
+const byteHash = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+const portfolioDirectory = mkdtempSync(path.join(os.tmpdir(), "cartulary-performance-context-"));
+try {
+  const write = (file, value) => writeFileSync(file, JSON.stringify(value));
+  const policyBytes = readFileSync(path.join(root, "tools/harness_instrumentation_policy.json"), "utf8");
+  const inputs = [
+    { path: "tools/harness_instrumentation_policy.json", kind: "file", mode: "0644", byte_digest: byteHash(policyBytes) },
+    { path: "tools/toolchain_pins.json", kind: "file", mode: "0644", byte_digest: byteHash("toolchain fixture") },
+  ];
+  const roots = ["cold", "warmup", "m1", "m2", "m3", "m4", "m5"];
+  for (const [index, name] of roots.entries()) {
+    const dir = path.join(portfolioDirectory, name);
+    const { manifest, summary } = writeCanonicalFixture(dir);
+    const unit = { unit_id: "a", owner_id: "harness.evidence_accounting", kind: "runner",
+      command: { executable: "true", args: [], environment: {} }, needs: [], resource_claims: { cpu: 1, process: 1 },
+      shared_locks: [], exclusive_locks: [], fixture_lease: "none", service_dependencies: [], cache_policy: "none", timeout_ms: 1000,
+      current_run_evidence_outputs: [], reusable_artifact_outputs: [], failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" }, estimated_work_ms: 10 };
+    unit.semantic_digest = hash(unit);
+    const graph = { schema_id: "cartulary.harness_work_graph.v5", selector: "fixture", units: [unit], graph_digest: hash({ units: [unit] }) };
+    delete manifest.capability_snapshot.snapshot_digest;
+    manifest.capability_snapshot.snapshot_digest = hash(manifest.capability_snapshot);
+    Object.assign(manifest, { declared_inputs: { OWNER: "module.auth", PLAYWRIGHT_WORKERS: "3", VITEST_MAX_WORKERS: "4" }, source_state: "clean", cache_mode: index === 0 ? "cold" : "normal",
+      started_at: new Date(Date.UTC(2026, 9, 16, 0, 0, index)).toISOString(), source_digest: hash({ schema_id: "cartulary.source_snapshot_digest.v2", entries: inputs }),
+      toolchain_digest: inputs[1].byte_digest, system_digest: manifest.capability_snapshot.snapshot_digest, graph_digest: graph.graph_digest,
+      instrumentation: { mode: "off", policy_digest: hash(JSON.parse(policyBytes)) } });
+    const context = { schema_id: "cartulary.harness_execution_context.v1", manifest_digest: hash(manifest), graph,
+      projections: { "test-slice": { command_id: manifest.command_id, unit_ids: ["a"] } }, source_inputs: inputs,
+      host_profile: { platform: "linux", architecture: "x64", kernel_release: "fixture", cpu_models: ["fixture CPU"] }, instrumentation_policy_bytes: policyBytes };
+    summary.artifact_refs.push("execution-context.json", "cleanup-results.json");
+    write(path.join(dir, "run-manifest.json"), manifest);
+    write(path.join(dir, "run-summary.json"), summary);
+    write(path.join(dir, "execution-context.json"), context);
+    write(path.join(dir, "cleanup-results.json"), { schema_id: "cartulary.harness_cleanup_results.v1", run_id: name, results: [] });
+    write(path.join(dir, "retained-secret-scan.json"), { schema_id: "cartulary.harness_retained_secret_scan.v1", status: "pass", scanned_files: 12, policy_digest: manifest.instrumentation.policy_digest });
+    const targetFile = path.join(dir, "target-summaries/test-slice.json"), target = JSON.parse(readFileSync(targetFile));
+    target.workload_digest = hash({ target: "test-slice", evidence_outputs: [] });
+    write(targetFile, target);
+  }
+  const focusedSurface = structuredClone(surface);
+  focusedSurface.observability_policy.required_targets = ["test-slice"];
+  const evidenceFile = path.join(portfolioDirectory, "evidence.json");
+  write(evidenceFile, { schema_id: "cartulary.harness_performance_evidence_roots.v3", mode: "baseline",
+    reference_windows: [{ window_id: "fixture", provider_target: "test-slice", cold_root: "cold", warmup_root: "warmup", measured_roots: roots.slice(2) }],
+    reference_bindings: [{ target: "test-slice", window_id: "fixture", timing_source: "canonical_unit_interval_union" }] });
+  const valid = await buildFromManifest(root, evidenceFile, focusedSurface);
+  assert.equal(valid.reference.targets[0].p50_ms, 7);
+  const evidence = readFileSync(evidenceFile);
+  try {
+    const invalid = JSON.parse(evidence);
+    invalid.reference_bindings[0].timing_source = "public_invocation_envelope";
+    write(evidenceFile, invalid);
+    await assert.rejects(buildFromManifest(root, evidenceFile, focusedSurface), /graph duration is not public invocation duration/u);
+  } finally { writeFileSync(evidenceFile, evidence); }
+  const originalInputs = roots.map((name) => {
+    const mf = path.join(portfolioDirectory, name, "run-manifest.json"), cf = path.join(portfolioDirectory, name, "execution-context.json");
+    return { mf, cf, mb: readFileSync(mf), cb: readFileSync(cf) };
+  });
+  try {
+    for (const { mf, cf, mb, cb } of originalInputs) {
+      const manifest = JSON.parse(mb), context = JSON.parse(cb);
+      manifest.declared_inputs.VITEST_MAX_WORKERS = "5";
+      context.manifest_digest = hash(manifest);
+      write(mf, manifest); write(cf, context);
+    }
+    await assert.rejects(buildFromManifest(root, evidenceFile, focusedSurface), /non-canonical inputs VITEST_MAX_WORKERS/u);
+  } finally {
+    for (const { mf, cf, mb, cb } of originalInputs) { writeFileSync(mf, mb); writeFileSync(cf, cb); }
+  }
+  const tamper = async (name, file, mutate, expected) => {
+    const target = path.join(portfolioDirectory, "cold", file), bytes = readFileSync(target);
+    try { const value = JSON.parse(bytes); mutate(value); write(target, value);
+      await assert.rejects(buildFromManifest(root, evidenceFile, focusedSurface), expected, name);
+    } finally { writeFileSync(target, bytes); }
+  };
+  await tamper("unit semantics", "execution-context.json", (x) => { x.graph.units[0].command.executable = "false"; }, /graph.*binding/u);
+  await tamper("source preimage", "execution-context.json", (x) => { x.source_inputs[0].mode = "0755"; }, /source snapshot/u);
+  await tamper("policy bytes", "execution-context.json", (x) => { x.instrumentation_policy_bytes += " "; }, /instrumentation bytes/u);
+  await tamper("workload", "target-summaries/test-slice.json", (x) => { x.workload_digest = `sha256:${"f".repeat(64)}`; }, /target workload/u);
+  await tamper("timing redistribution", "run-summary.json", (x) => { x.timing_accounting.setup_ms++; x.timing_accounting.execution_ms--; }, /timing accounting/u);
+  await tamper("host substitution", "execution-context.json", (x) => { x.host_profile.cpu_models = ["different CPU"]; }, /host profiles/u);
+  await tamper("missing context reference", "run-summary.json", (x) => { x.artifact_refs = x.artifact_refs.filter((v) => v !== "execution-context.json"); }, /omits execution-context/u);
+  await tamper("unknown context", "execution-context.json", (x) => { x.private_bindings = {}; }, /schema|additional/u);
+  await tamper("cleanup failure", "cleanup-results.json", (x) => { x.results = [{ sequence: 1, operation: "runtime_close", unit_id: null, fixture_lease_id: null, outcome: "blocked", failure_class: null, failure_reason: null, failures: [], artifact_refs: [] }]; }, /cleanup is incomplete/u);
+  await tamper("failed retained scan", "retained-secret-scan.json", (x) => { x.status = "fail"; }, /schema|constant/u);
+  for (const [name, mutate, expected] of [
+    ["dirty source", (x) => { x.source_state = "dirty"; }, /dirty_source/u],
+    ["toolchain substitution", (x) => { x.toolchain_digest = `sha256:${"f".repeat(64)}`; }, /toolchain.*binding/u],
+    ["capacity substitution", (x) => { x.system_digest = `sha256:${"f".repeat(64)}`; }, /system capacity/u],
+    ["reused observation", (x) => { x.run_id = "warmup"; }, /identity do not close/u],
+    ["out of order", (x) => { x.started_at = "2027-01-01T00:00:00.000Z"; }, /overlapping or out of order/u],
+  ]) {
+    const mf = path.join(portfolioDirectory, "cold/run-manifest.json"), cf = path.join(portfolioDirectory, "cold/execution-context.json");
+    const mb = readFileSync(mf), cb = readFileSync(cf);
+    try { const m = JSON.parse(mb), c = JSON.parse(cb); mutate(m); c.manifest_digest = hash(m); write(mf, m); write(cf, c);
+      await assert.rejects(buildFromManifest(root, evidenceFile, focusedSurface), expected, name);
+    } finally { writeFileSync(mf, mb); writeFileSync(cf, cb); }
+  }
+} finally { rmSync(portfolioDirectory, { recursive: true, force: true }); }
+const unstable = qualifiedBaseline();
+const unstableRow = unstable.targets[0];
+unstableRow.samples_ms = [1, 20, 40, 60, 80, 100];
+unstableRow.sample_roots.push("sixth"); unstableRow.sample_count = 6;
+assert.throws(() => assertBaselineClosure(unstable, surface), /unstable after six/u);

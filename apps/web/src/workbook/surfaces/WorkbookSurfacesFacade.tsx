@@ -9,6 +9,7 @@ import { EntityWorkbookSurface } from "../components/EntityWorkbookSurface";
 import { ContractWorkbookSurface } from "../components/GenericWorkbookSurface";
 import type { WorkbookConflictActivation } from "../components/WorkbookStatusStrip";
 import type { WorkbookViewBarWorkingSetBinding } from "../components/WorkbookViewBar";
+import type { WorkbookEvidenceMetadataPort } from "../evidence/WorkbookEvidenceMetadataPort";
 import type { WorkbookSurfaceLayoutOwner } from "../layout/useWorkbookLayoutFacade";
 import type { EntityRow } from "../models/entityWorkbookModel";
 import type { WorkbookGridEntryFocusOwner } from "../models/workbookGridEntryFocus";
@@ -28,6 +29,7 @@ import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime
 import { TimelineWorkbook } from "../timeline/components/TimelineWorkbook";
 
 export type WorkbookSurfacesFacadeProps = {
+  readonly evidenceMetadata: WorkbookEvidenceMetadataPort;
   readonly navigation: WorkbookNavigationActions;
   readonly collaboration: {
     readonly projection: WorkbookCollaborationCoordinator;
@@ -102,6 +104,7 @@ export type WorkbookSurfacesFacadeProps = {
 };
 
 export function WorkbookSurfacesFacade({
+  evidenceMetadata,
   navigation,
   collaboration,
   continuity,
@@ -169,6 +172,7 @@ export function WorkbookSurfacesFacade({
           clipboardPaste: mutations.clipboardPaste,
           mutationCommands: mutationCommands.timeline,
           evidenceAccess: mutationCommands.evidence,
+          evidenceMetadata,
           incident: {
             id: incidentId,
             apiBase,

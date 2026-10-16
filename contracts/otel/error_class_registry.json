@@ -5,7 +5,7 @@
   "public_error_classes": [
     {
       "error_class": "request_invalid",
-      "error_codes": ["invalid_view_query", "invalid_saved_view_read_request", "invalid_pagination_request", "invalid_list_query", "invalid_mutation_payload", "invalid_evidence_handle_request", "invalid_blob_create_request", "invalid_incident_create", "invalid_incident_patch", "invalid_incident_lifecycle_request", "invalid_rollback_request", "invalid_auth_request", "invalid_enterprise_auth_request", "invalid_import_request", "invalid_snapshot_request", "invalid_release_request", "invalid_reference_pack_request", "invalid_incident_bundle_request", "invalid_startup_request"]
+      "error_codes": ["invalid_view_query", "invalid_saved_view_read_request", "invalid_pagination_request", "invalid_list_query", "invalid_mutation_payload", "invalid_evidence_handle_request", "invalid_evidence_metadata_request", "invalid_blob_create_request", "invalid_incident_create", "invalid_incident_patch", "invalid_incident_lifecycle_request", "invalid_rollback_request", "invalid_auth_request", "invalid_enterprise_auth_request", "invalid_import_request", "invalid_snapshot_request", "invalid_release_request", "invalid_reference_pack_request", "invalid_incident_bundle_request", "invalid_startup_request"]
     },
     {
       "error_class": "authentication",
@@ -41,7 +41,7 @@
     },
     {
       "error_class": "policy_rejected",
-      "error_codes": ["blob_create_rejected", "evidence_attach_rejected", "import_source_unsupported", "import_source_rejected", "release_render_failed", "reference_pack_verification_failed", "incident_bundle_export_rejected", "incident_bundle_import_rejected"]
+      "error_codes": ["blob_create_rejected", "evidence_attach_rejected", "import_source_unsupported", "import_source_rejected", "release_render_failed", "reference_pack_verification_failed", "evidence_blob_verification_failed", "incident_bundle_export_rejected", "incident_bundle_import_rejected"]
     },
     {
       "error_class": "dependency_unavailable",

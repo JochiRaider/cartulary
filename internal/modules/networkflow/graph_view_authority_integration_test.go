@@ -196,7 +196,7 @@ func (f *authorityGraphFinalizer) mutate(ctx context.Context, mutate GraphViewJo
 
 func assertSavedGraphNotificationAfterCommit(t *testing.T, harness *appsupport.ServerHarness, incidentID, actorID uuid.UUID, semantic json.RawMessage) {
 	t.Helper()
-	definitions := appsupport.RecognizedExtensionJobDefinitions(t)
+	definitions := appsupport.RecognizedJobDefinitions(t)
 	catalog, err := jobs.NewCatalog(definitions)
 	if err != nil {
 		t.Fatal(err)

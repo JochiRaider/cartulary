@@ -100,8 +100,8 @@ func TestEntityFieldRegistryMatchesOwnerProjection_Unit(t *testing.T) {
 				t.Fatalf("missing public owner projection %s", tc.viewSchemaID)
 			}
 			descriptors := entityFields.descriptors(tc.viewSchemaID)
-			if len(descriptors) != 15 || len(schema.Fields()) != 15 || len(resource.Fields) != 15 {
-				t.Fatalf("%s closure counts descriptors=%d owner=%d public=%d, want 15 each", tc.viewSchemaID, len(descriptors), len(schema.Fields()), len(resource.Fields))
+			if len(descriptors) != 18 || len(schema.Fields()) != 18 || len(resource.Fields) != 18 {
+				t.Fatalf("%s closure counts descriptors=%d owner=%d public=%d, want 18 each", tc.viewSchemaID, len(descriptors), len(schema.Fields()), len(resource.Fields))
 			}
 
 			ownerFields := schema.Fields()
@@ -138,16 +138,16 @@ func TestEntityFieldRegistryMatchesOwnerProjection_Unit(t *testing.T) {
 			slices.Sort(patchable)
 			slices.Sort(nonpatchable)
 			slices.Sort(createOnly)
-			if len(patchable) != 8 || len(nonpatchable) != 7 || !slices.Equal(createOnly, tc.createOnly) {
+			if len(patchable) != 11 || len(nonpatchable) != 7 || !slices.Equal(createOnly, tc.createOnly) {
 				t.Fatalf("%s partition patchable=%#v nonpatchable=%#v create_only=%#v", tc.viewSchemaID, patchable, nonpatchable, createOnly)
 			}
-			if patchStrategies[entityFieldPatchDirect] != 7 || patchStrategies[entityFieldPatchCollection] != 1 || patchStrategies[entityFieldPatchNone] != 7 {
-				t.Fatalf("%s patch strategies = %#v, want direct=7 collection=1 none=7", tc.viewSchemaID, patchStrategies)
+			if patchStrategies[entityFieldPatchDirect] != 7 || patchStrategies[entityFieldPatchCollection] != 4 || patchStrategies[entityFieldPatchNone] != 7 {
+				t.Fatalf("%s patch strategies = %#v, want direct=7 collection=4 none=7", tc.viewSchemaID, patchStrategies)
 			}
 
 			cells := tc.row["cells"].(map[string]any)
 			groupValues := tc.row["group_values"].(map[string]any)
-			if len(cells) != 15 || len(groupValues) != len(schema.GroupingFields()) {
+			if len(cells) != 18 || len(groupValues) != len(schema.GroupingFields()) {
 				t.Fatalf("%s row closure cells=%d groups=%d", tc.viewSchemaID, len(cells), len(groupValues))
 			}
 			for key, field := range ownerFields {
@@ -161,6 +161,17 @@ func TestEntityFieldRegistryMatchesOwnerProjection_Unit(t *testing.T) {
 				}
 				if grouped && !reflect.DeepEqual(groupValues[key], cell.(map[string]any)["value"]) {
 					t.Fatalf("field %s grouping value diverged from its cell", key)
+				}
+			}
+			// Preserve the pre-existing scalar/alias characterization independently
+			// from the new collection wire assertions.
+			for key, cell := range cells {
+				if isPartyAssignmentField(key) {
+					want := collectionValue(false, []map[string]any{})
+					if !reflect.DeepEqual(cell.(map[string]any)["value"], want) {
+						t.Fatalf("%s empty assignment collection = %#v", key, cell)
+					}
+					delete(cells, key)
 				}
 			}
 			payload, err := json.Marshal(tc.row)
@@ -189,7 +200,7 @@ func TestEntityFieldRegistryMatchesOwnerProjection_Unit(t *testing.T) {
 			{
 				name:        "omission",
 				descriptors: append([]entityFieldDescriptor(nil), base[:len(base)-1]...),
-				wantError:   "cartulary.view.identities.v1 descriptor count 14 does not match owner field count 15",
+				wantError:   "cartulary.view.identities.v1 descriptor count 17 does not match owner field count 18",
 			},
 			{
 				name: "unknown",

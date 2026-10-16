@@ -35,9 +35,20 @@ func (adapter reportingJobSuccessFinalizer) FinalizeReportingJobFailure(
 	ctx context.Context,
 	request reporting.JobFailureFinalization,
 ) (jobs.Resource, error) {
-	return adapter.finalizer.FinalizeFailure(ctx, extensionstore.JobFailureFinalizationRequest{
+	finalize := adapter.finalizer.FinalizeFailure
+	if request.TimedOut {
+		finalize = adapter.finalizer.FinalizeTimeout
+	}
+	return finalize(ctx, extensionstore.JobFailureFinalizationRequest{
 		Execution:  request.Execution,
 		Completion: request.Completion,
 		Mutate:     extensionstore.OwnerMutation(request.Mutate),
+	})
+}
+
+func (adapter reportingJobSuccessFinalizer) FinalizeReportingJobCancellation(ctx context.Context, request reporting.JobCancellationFinalization) (jobs.Resource, error) {
+	return adapter.finalizer.FinalizeCancellation(ctx, extensionstore.JobCancellationFinalizationRequest{
+		Execution: request.Execution, Completion: request.Completion,
+		Mutate: extensionstore.OwnerMutation(request.Mutate),
 	})
 }

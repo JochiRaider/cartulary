@@ -352,7 +352,7 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 		}
 	}
 	if networkFlow == nil || networkFlow["claimable"] != true || networkFlow["contract_major"] != float64(7) {
-		t.Fatalf("Network Flow browser descriptor is not claimable major 5: %#v", networkFlow)
+		t.Fatalf("Network Flow browser descriptor is not claimable major 7: %#v", networkFlow)
 	}
 	requireJSONStrings(t, networkFlow["workspace_keys"], []string{"network_analysis"}, "Network Flow workspace keys")
 	requireJSONStrings(t, networkFlow["capability_ids"], []string{}, "Network Flow capabilities")
@@ -362,8 +362,8 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 		t.Fatalf("client build class = %v; want standard", supportSource["client_build_class"])
 	}
 	rows := supportSource["rows"].([]any)
-	if len(rows) != 2 {
-		t.Fatalf("client support rows = %d; want 2", len(rows))
+	if len(rows) != 3 {
+		t.Fatalf("client support rows = %d; want Import, Network Flow and Reporting", len(rows))
 	}
 	rowsByProfile := map[string]map[string]any{}
 	for _, rawRow := range rows {
@@ -388,6 +388,13 @@ func TestExtensionBC015BrowserAvailability_Integration(t *testing.T) {
 	requireJSONStrings(t, row["capability_ids"], []string{}, "client support capabilities")
 	requireJSONStrings(t, row["public_schema_ids"], []string{}, "client support public schemas")
 
+	reportingRow := rowsByProfile["snapshot_reporting"]
+	if reportingRow == nil || reportingRow["contract_major"] != float64(1) || reportingRow["client_asset_set_id"] != "snapshot_reporting.standard.v1" {
+		t.Fatalf("client support row does not select Reporting major 1: %#v", reportingRow)
+	}
+	requireJSONStrings(t, reportingRow["workspace_keys"], []string{}, "Reporting client support workspaces")
+	requireJSONStrings(t, reportingRow["capability_ids"], []string{}, "Reporting client support capabilities")
+	requireJSONStrings(t, reportingRow["public_schema_ids"], []string{}, "Reporting client support public schemas")
 	assetSchema := readGeneratedExtensionObject(t, "contracts/extensions/generated/schemas/cartulary.client_asset_set_manifest.v1.schema.json")
 	if assetSchema["$id"] != "cartulary.client_asset_set_manifest.v1" {
 		t.Fatalf("client asset manifest schema identity = %v", assetSchema["$id"])
@@ -653,7 +660,7 @@ func waitForLeaseState(t *testing.T, lease *processlease.Lease, want processleas
 func TestExtensionBehaviorRouting_Static(t *testing.T) {
 	root := extensionsRepoRoot(t)
 	manifest := readExtensionsFamilyManifest(t, root)
-	if manifest.SchemaID != "cartulary.test_family_manifest.v7" || manifest.OwnerID != "module.extensions" {
+	if manifest.SchemaID != "cartulary.test_family_manifest.v8" || manifest.OwnerID != "module.extensions" {
 		t.Fatalf("unexpected Extensions family identity %q/%q", manifest.SchemaID, manifest.OwnerID)
 	}
 
@@ -805,9 +812,9 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 	}
 	requireExactStrings(t, networkFlowV7Projection.VerificationIDs, []string{extensionsBehaviorVerification}, "Network Flow v7 projection verification_ids")
 	requireExactStrings(t, networkFlowV7Projection.Selector.Tests, []string{"TestNetworkFlowV7StateJobsAndReportingProjection_Unit"}, "Network Flow v7 projection selector.tests")
-	if got, want := len(rows), len(extensionBoundaryExpectations)+5+len(coordinatorRows)+len(characterizationRows)+len(jobRows); got != want {
-		t.Fatalf("Extensions manifest has %d rows; want exactly %d", got, want)
-	}
+	// These assertions protect the named owner boundaries. Catalog discovery
+	// separately enforces complete, non-overlapping selection; additional owner
+	// tests must not require maintaining a second inventory here.
 	requireResolvedClaimSetIdentity(t)
 }
 

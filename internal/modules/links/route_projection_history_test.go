@@ -41,7 +41,7 @@ func TestTypedLinksAndTags_Unit(t *testing.T) {
 		t.Fatalf("compose Projections: %v", err)
 	}
 	conflictTokens := conflicttest.NewCodec("timeline")
-	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+	evidenceOwner := appsupport.NewEvidenceSourceRuntimeForTimeline(
 		harness.DB,
 		conflictTokens,
 		revisionComposition.Runtime.Appender(),

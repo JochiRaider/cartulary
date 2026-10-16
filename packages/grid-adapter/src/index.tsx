@@ -43,6 +43,7 @@ export type {
   GridDataState,
   GridDataStateAction,
   GridDensity,
+  GridDraftPasteIntent,
   GridDraftRow,
   GridEditCommitOutcome,
   GridEditorAdapter,

@@ -564,7 +564,7 @@
           "derivation_version": {
             "type": "string"
           },
-          "export_model_sha256": {
+          "source_capture_sha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
           }
@@ -577,12 +577,46 @@
           "snapshot_at",
           "source_change_set_high_watermark",
           "derivation_version",
-          "export_model_sha256"
+          "source_capture_sha256"
         ]
       },
       "ReleaseCreateRequest": {
         "type": "object",
         "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "anyOf": [
+                {
+                  "required": [
+                    "redaction_profile_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "redaction_profile_version"
+                  ]
+                },
+                {
+                  "required": [
+                    "release_scope"
+                  ],
+                  "properties": {
+                    "release_scope": {
+                      "const": "external_release"
+                    }
+                  }
+                }
+              ]
+            },
+            "then": {
+              "required": [
+                "redaction_profile_id",
+                "redaction_profile_version"
+              ]
+            }
+          }
+        ],
         "properties": {
           "snapshot_id": {
             "type": "string",
@@ -656,8 +690,6 @@
           "client_txn_id",
           "template_id",
           "template_version",
-          "redaction_profile_id",
-          "redaction_profile_version",
           "output_kind"
         ]
       },

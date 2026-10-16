@@ -17,12 +17,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
-type AssemblerFactory func(postgres.DB, authn.UserRecord, string, performancefixtureprofile.Profile) (*fixture.Assembler, error)
+type AssemblerFactory func(postgres.DB, objectstore.Store, authn.UserRecord, string, performancefixtureprofile.Profile) (*fixture.Assembler, error)
 
 func Build(
 	ctx context.Context,
@@ -56,6 +57,9 @@ func Build(
 	}
 	if err := os.MkdirAll(filepath.Dir(runtimeRoot), 0o700); err != nil {
 		return BuildArtifact{}, fmt.Errorf("create performance fixture runtime parent: %w", err)
+	}
+	if err := checkObjectSnapshotCapacity(filepath.Dir(runtimeRoot), profile.ObjectPopulation.TotalBytes); err != nil {
+		return BuildArtifact{}, withBuildFailureStage("setup", err)
 	}
 	if err := cloneDatabase(ctx, adminDSN, migratedTemplate, templateName); err != nil {
 		return BuildArtifact{}, err
@@ -104,17 +108,23 @@ func Build(
 		closePool()
 		return BuildArtifact{}, fmt.Errorf("resolve performance fixture actor: %w", err)
 	}
-	assembler, err := newAssembler(pool, actor, args.SnapshotKey, profile)
-	if err != nil {
-		closePool()
-		return BuildArtifact{}, err
-	}
 	bundle, err := fixture.GenerateRuntimeBundle(profile, args.SnapshotKey)
 	if err != nil {
 		closePool()
 		return BuildArtifact{}, err
 	}
 	if _, err := fixture.WriteRuntimeBundle(profile, runtimeRoot, bundle); err != nil {
+		closePool()
+		return BuildArtifact{}, err
+	}
+	objects, err := objectstore.NewFilesystemStore(filepath.Join(runtimeRoot, objectSnapshotDirectory))
+	if err != nil {
+		closePool()
+		return BuildArtifact{}, err
+	}
+	defer objects.Close()
+	assembler, err := newAssembler(pool, objects, actor, args.SnapshotKey, profile)
+	if err != nil {
 		closePool()
 		return BuildArtifact{}, err
 	}
@@ -130,6 +140,19 @@ func Build(
 		return BuildArtifact{}, err
 	}
 	if err := fixture.ValidateReceiptRedaction(result, state); err != nil {
+		closePool()
+		return BuildArtifact{}, withBuildFailureStage("finalization", err)
+	}
+	objectSnapshot, err := sealObjectSnapshot(ctx, runtimeRoot, args.SnapshotKey, objects)
+	if err != nil {
+		closePool()
+		return BuildArtifact{}, withBuildFailureStage("finalization", err)
+	}
+	if objectSnapshot.ObjectCount != profile.ObjectPopulation.ObjectCount || objectSnapshot.TotalBytes != profile.ObjectPopulation.TotalBytes {
+		closePool()
+		return BuildArtifact{}, withBuildFailureStage("finalization", errors.New("performance fixture object population differs from its admitted profile"))
+	}
+	if err := objects.Close(); err != nil {
 		closePool()
 		return BuildArtifact{}, withBuildFailureStage("finalization", err)
 	}
@@ -153,6 +176,7 @@ func Build(
 		BuilderUnitID:            args.BuilderUnitID,
 		BuildOrdinal:             1,
 		State:                    "sealed",
+		ObjectSnapshot:           &objectSnapshot,
 		ContributionReceipts:     projectBuildReceipts(result.Receipts),
 		SemanticValidationDigest: result.SemanticValidationDigest,
 		Validation:               projectBuildValidation(profile, result.Validation),

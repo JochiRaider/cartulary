@@ -4,7 +4,9 @@ import type {
   EvidenceLifecycleViewModel,
   EvidenceRecordLifecycleState,
 } from "../models/evidenceLifecycleViewModel";
+import { buildEvidenceLifecycleViewModel } from "../models/evidenceLifecycleViewModel";
 import type { WorkbookOperationFailure } from "../mutations/workbookOperationOutcome";
+import type { EvidenceMetadata } from "./WorkbookEvidenceMetadataPort";
 
 export type EvidenceOperationKind = "preview" | "download" | "attach";
 export type EvidenceOperationState =
@@ -133,7 +135,7 @@ function transientAccessFailure(failure: WorkbookOperationFailure): boolean {
   );
 }
 
-export function evidenceAccessActionAvailability(
+function evidenceAccessActionAvailability(
   operation: EvidenceOperationState | null,
   lifecycleEligible: boolean,
 ): {
@@ -284,6 +286,30 @@ export function evidenceOperationFeedback(
     message,
     tone: "danger",
     announcement,
+  };
+}
+
+export function buildEvidenceMetadataPresentation(
+  metadata: EvidenceMetadata,
+  operation: EvidenceOperationState | null = null,
+): EvidenceAccessPresentation {
+  const result = buildEvidenceAccessPresentation(
+    buildEvidenceLifecycleViewModel({
+      evidenceLifecycleState: metadata.lifecycleState,
+      objectBlobUploadState: metadata.uploadState,
+    }),
+    operation,
+  );
+  const reason = metadata.previewEligibility.reasonCode;
+  const downloadEligible =
+    metadata.previewEligibility.eligible ||
+    reason === "unsupported_preview" ||
+    reason === "preview_payload_too_large";
+  return {
+    ...result,
+    ...(operation === null && reason !== null ? accessBlockers[reason] : {}),
+    canPreview: result.canPreview && metadata.previewEligibility.eligible,
+    canDownload: result.canDownload && metadata.hasBlob && downloadEligible,
   };
 }
 

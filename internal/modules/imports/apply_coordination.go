@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -25,20 +26,30 @@ func (s *service) applyUnit(
 	actor authn.UserRecord,
 	start applyStartResult,
 	unitID uuid.UUID,
-) (unitApplyOutcome, error) {
+) (outcome unitApplyOutcome, retErr error) {
 	if existing, err := s.store.getUnitOutcome(ctx, start.ImportSessionID, unitID); err == nil {
 		return existing, nil
 	} else if !errors.Is(err, errNotFound) {
 		return unitApplyOutcome{}, err
 	}
+	ctx, cancelWork := context.WithCancelCause(ctx)
+	defer cancelWork(nil)
+	defer func() {
+		if cause := context.Cause(ctx); cause != nil && retErr != nil && !errors.Is(retErr, errUnitCommitIndeterminate) {
+			retErr = cause
+		}
+	}()
+	stopObservation := s.observeApplyCancellation(ctx, cancelWork, execution)
+	defer stopObservation()
 	tx, err := s.applyTransactions.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return unitApplyOutcome{}, fmt.Errorf("begin import apply unit transaction: %w", err)
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err := s.store.ensureApplyJobRunnableTx(ctx, tx, execution); err != nil {
-		return unitApplyOutcome{}, err
-	}
+	defer func() {
+		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(rollbackCtx)
+	}()
 	unit, err := s.store.lockApplyUnitTx(ctx, tx, start, unitID)
 	if err != nil {
 		if existing, findErr := findUnitOutcome(ctx, tx, start.ImportSessionID, unitID); findErr == nil {
@@ -61,7 +72,7 @@ func (s *service) applyUnit(
 	); err != nil {
 		return unitApplyOutcome{}, err
 	}
-	currentActor, err := s.authStore.GetUserByIDForUpdateTx(ctx, tx, actor.ID)
+	currentActor, err := s.authStore.GetUserByID(ctx, actor.ID)
 	if err != nil || !currentActor.IsActive {
 		return unitApplyOutcome{}, errImportActorUnauthorized
 	}
@@ -84,10 +95,23 @@ func (s *service) applyUnit(
 		}
 		commit, err = s.applyGenericOwnerUnitTx(ctx, tx, currentActor, start, unit, target)
 	}
+	stopObservation()
+	if cause := context.Cause(ctx); cause != nil {
+		return unitApplyOutcome{}, cause
+	}
 	if err != nil {
 		return unitApplyOutcome{}, err
 	}
-	outcome, err := s.store.insertAppliedUnitOutcomeTx(
+	// The transition lock is a short commit barrier. Holding it during owner
+	// work would prevent cancellation and lease renewal for a large unit.
+	if err := s.store.ensureApplyJobRunnableTx(ctx, tx, execution); err != nil {
+		return unitApplyOutcome{}, err
+	}
+	currentActor, err = s.authStore.GetUserByIDForUpdateTx(ctx, tx, actor.ID)
+	if err != nil || !currentActor.IsActive {
+		return unitApplyOutcome{}, errImportActorUnauthorized
+	}
+	outcome, err = s.store.insertAppliedUnitOutcomeTx(
 		ctx,
 		tx,
 		start,

@@ -118,6 +118,7 @@ func TestObjectUploadAttachWorkbookProjection_Integration(t *testing.T) {
 		t.Fatalf("create returned non-opaque same-origin upload target: %#v", uploadTarget)
 	}
 	putObject(t, harness.Server.HTTP.URL, href, payload, "text/plain", login)
+	verifyUploadedBlob(t, harness, login, createData["object_blob_id"], "verify-uploaded-object", "succeeded")
 
 	attachBody := map[string]any{
 		"object_blob_id":   createData["object_blob_id"],

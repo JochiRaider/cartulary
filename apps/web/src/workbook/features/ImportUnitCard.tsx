@@ -58,7 +58,11 @@ export function ImportUnitCard({
       state.session?.session_status ?? "",
     );
   return (
-    <section aria-label={`Import unit ${index + 1}`} style={importSectionStyle}>
+    <section
+      aria-label={`Import unit ${index + 1}`}
+      data-import-unit-status={unit.unit_status}
+      style={importSectionStyle}
+    >
       <h3 style={{ margin: 0 }}>
         Unit {index + 1}:{" "}
         {typeof unit.locator.sheet_name === "string"

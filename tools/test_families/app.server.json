@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "app.server",
   "rows": [
     {
@@ -58,6 +58,32 @@
         "package": "./internal/app/server",
         "tests": [
           "TestAllOptionalProfilesUnclaimedPublishesQuiescentJobs_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "app.server.integration.collaboration_dispatcher_startup_loss_uses_web_s_834db67d15",
+      "owner_id": "app.server",
+      "family_id": "app.server.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestCollaborationDispatcherStartupLossUsesWebSocketLifecycle_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -759,6 +785,30 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "app.server.unit.build_collaboration_publication_catalog_joins_in_b6b966ea6e",
+      "owner_id": "app.server",
+      "family_id": "app.server.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "app.server.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/server",
+        "tests": [
+          "TestBuildCollaborationPublicationCatalogJoinsIndependentAuthorities"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
       "service_dependencies": []
     },
     {

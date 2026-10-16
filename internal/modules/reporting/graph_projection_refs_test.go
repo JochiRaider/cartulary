@@ -26,7 +26,7 @@ func (provider *fakeGraphSourceProvider) ValidateAndLeaseResultTx(context.Contex
 	return graphprojection.ResultLeaseV2{}, provider.err
 }
 
-func (provider *fakeGraphSourceProvider) ReadAndRenewLeasedResult(context.Context, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphsourcecontract.Result, error) {
+func (provider *fakeGraphSourceProvider) ReadAndRenewLeasedResultTx(context.Context, pgx.Tx, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphsourcecontract.Result, error) {
 	return provider.result, provider.err
 }
 
@@ -37,6 +37,7 @@ func (*fakeGraphSourceProvider) ReleaseJobLeasesTx(context.Context, pgx.Tx, uuid
 func (*fakeGraphSourceProvider) ReleaseJobLeases(context.Context, uuid.UUID) error { return nil }
 
 func TestGraphSourceRegistryReadsExactResultAndOwnsReasonMapping(t *testing.T) {
+	t.Run("frozen source retention", testFrozenGraphSources)
 	ref := testSourceProjectionRef("gv_valid", "gpr_valid")
 	result := graphprojection.CompletedResultV2{Binding: ref.binding()}
 	registry, err := NewGraphSourceRegistry(&fakeGraphSourceProvider{ownerID: ref.SourceOwnerID, result: graphsourcecontract.Result{
@@ -45,7 +46,7 @@ func TestGraphSourceRegistryReadsExactResultAndOwnsReasonMapping(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new graph source registry: %v", err)
 	}
-	resolved, err := registry.ReadAndRenew(context.Background(), uuid.New(), []sourceProjectionRef{ref}, time.Now().UTC())
+	resolved, err := registry.ReadAndRenewTx(context.Background(), borrowedReportingTx{}, uuid.New(), []sourceProjectionRef{ref}, time.Now().UTC())
 	if err != nil {
 		t.Fatalf("read exact leased result: %v", err)
 	}
@@ -76,6 +77,11 @@ func TestGraphSourceRegistryReadsExactResultAndOwnsReasonMapping(t *testing.T) {
 }
 
 func TestGraphSourceRegistryRejectsDuplicateAndUnknownOwners(t *testing.T) {
+	for _, owner := range []string{"", " owner", "owner\n", "owner/child", "owner#child", "owner\\child", "https://owner", string([]byte{0xff})} {
+		if _, err := NewGraphSourceRegistry(&fakeGraphSourceProvider{ownerID: owner}); err == nil {
+			t.Fatal("invalid source owner identity accepted")
+		}
+	}
 	provider := &fakeGraphSourceProvider{ownerID: "network_flow_activity"}
 	if _, err := NewGraphSourceRegistry(provider, provider); err == nil {
 		t.Fatal("duplicate source owner provider must fail")
@@ -86,7 +92,7 @@ func TestGraphSourceRegistryRejectsDuplicateAndUnknownOwners(t *testing.T) {
 	}
 	ref := testSourceProjectionRef("gv_valid", "gpr_valid")
 	ref.SourceOwnerID = "unknown"
-	_, err = registry.ReadAndRenew(context.Background(), uuid.New(), []sourceProjectionRef{ref}, time.Now().UTC())
+	_, err = registry.ReadAndRenewTx(context.Background(), borrowedReportingTx{}, uuid.New(), []sourceProjectionRef{ref}, time.Now().UTC())
 	var renderErr *renderValidationError
 	if !errors.As(err, &renderErr) || renderErr.ReasonCode != "graph_projection_not_bound" {
 		t.Fatalf("unknown owner error = %#v", err)

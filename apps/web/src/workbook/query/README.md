@@ -72,6 +72,11 @@ so grid-handle refresh does not produce a React query-state render loop. Mounted
 presentation, grid eligibility and inspector readiness remain distinct. Ordinary
 entry-focus behavior stays with its existing surface owner.
 
+Presentation ownership is acquired once when a surface commits its mount.
+Subsequent readiness and detachment updates are accepted only from that token;
+an older still-mounted surface cannot reclaim ownership by rendering again.
+Cleanup also checks the token, so retiring an old surface preserves its successor.
+
 The incident collaboration coordinator keeps a stable invalidation binding while
 sheet readers change. Initial authorization recovery has its own effect; neither
 reference-broker replacement nor a sheet query restarts that authority loop.

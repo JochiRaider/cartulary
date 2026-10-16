@@ -413,6 +413,15 @@
       "tier": "clean",
       "state": "legacy",
       "producers": []
+    },
+    {
+      "id": "report_renderer",
+      "path": "build/report-renderer",
+      "tier": "clean",
+      "state": "current",
+      "producers": [
+        "build-report-renderer"
+      ]
     }
   ]
 }

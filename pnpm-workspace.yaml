@@ -3,3 +3,5 @@ packages:
   - packages/*
 storeDir: .pnpm-store
 confirmModulesPurge: false
+patchedDependencies:
+  mermaid@12.2.0: packages/report-renderer/patches/mermaid@12.2.0.patch

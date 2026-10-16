@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.recovery",
   "rows": [
     {
@@ -181,6 +181,32 @@
       ]
     },
     {
+      "row_id": "module.recovery.integration.restore_candidate_uses_object_store_backup_lates_c2cf211fbd",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestRestoreCandidateUsesObjectStoreBackupLatestTieBreakers"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.recovery.integration.restore_readiness_selects_the_latest_retained_su_e71d710085",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.integration",
@@ -232,6 +258,32 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.recovery.integration.restore_verification_atomic_completion_449dbe5d91",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestRestoreVerificationAtomicCompletion"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
       "minimum_tier": "standard",
       "service_dependencies": [
         "postgres"
@@ -683,6 +735,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.recovery.unit.object_store_snapshot_carries_restorable_bytes_3d67535266",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestObjectStoreSnapshotCarriesRestorableBytes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.recovery.unit.owner_registered_workbook_probe_and_v2_artifact_a881cb6053",
       "owner_id": "module.recovery",
       "family_id": "module.recovery.unit",
@@ -701,6 +777,30 @@
           "TestRestoreVerificationArtifactV2CanonicalFixture_Unit",
           "TestRestoreVerificationIncidentSelectionIsLexicographicAndSingleShot",
           "TestRestoreVerificationWorkbookProbe"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.recovery.unit.recovery_generation_selection_drives_verificatio_2a8734f884",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestRecoveryGenerationSelectionDrivesVerificationBasisAndCadence_Unit"
         ]
       },
       "evidence_class": "unit",
@@ -786,6 +886,32 @@
         "tests": [
           "TestRecoveryCurrentEncryptionPolicy_Unit",
           "TestStreamingBackupArtifactEnvelopeV2FailsClosedAndBoundsMemory_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.recovery.unit.support_object_store_backup_object_store_backup_445727db3c",
+      "owner_id": "module.recovery",
+      "family_id": "module.recovery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.recovery.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/recovery",
+        "tests": [
+          "TestSupportObjectStoreBackup_CaptureSeaweedFSS3BackupArtifactsFromObjectStore",
+          "TestSupportObjectStoreBackup_DuplicateArtifactKeysRejected",
+          "TestSupportObjectStoreBackup_ObjectStoreBackupManifestCanonicalAndSummaryRedacted"
         ]
       },
       "evidence_class": "unit",

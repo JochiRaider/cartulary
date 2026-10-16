@@ -17,9 +17,9 @@
     "restore_operation_id": "recovery-operation-v4-0001",
     "backup_set_id": "00000000-0000-0000-0000-000000000203",
     "consistency_point_at": "2026-08-16T11:00:00Z",
-    "recovery_state_catalog_sha256": "75eb3c368cc34bced58d829bf0fe07d858464968f3cef62b9256d6f880e83e71",
+    "recovery_state_catalog_sha256": "c433c2f2ab403e4a734b57ab73737ab8ee49c015e9d0bc57dff67fba73951068",
     "source_registry_sha256": "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634",
-    "implementation_binding_sha256": "1006d1df55a273762d1986adcf541bac8b027e7a11894cf58f741deb12303afe",
+    "implementation_binding_sha256": "ad87fb5eb04cafebcf02fca27fc9b3df10e504d497ab63d2b1c1bd005b1d8953",
     "postcondition_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
     "participant_result": {
       "schema_id": "cartulary.graph_projection_restore_rebuild_result.v4",
@@ -28,7 +28,7 @@
       "status": "succeeded",
       "readiness_outcome": "ready",
       "algorithm_id": "graphprojection.restore_rebuild.v4",
-      "implementation_binding_sha256": "1006d1df55a273762d1986adcf541bac8b027e7a11894cf58f741deb12303afe",
+      "implementation_binding_sha256": "ad87fb5eb04cafebcf02fca27fc9b3df10e504d497ab63d2b1c1bd005b1d8953",
       "source_registry_sha256": "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634",
       "cleared_table_ids": [
         "graph_projection_result_edges",

@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_paste_contract.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "contract_id",
+    "criterion_id",
+    "predicate_id",
+    "fixture_contract_id",
+    "measurement_policy_id",
+    "warmup_passes",
+    "measured_samples",
+    "product_retries",
+    "threshold_ms",
+    "threshold_comparison",
+    "view_schema_id",
+    "start_mark",
+    "stop_mark",
+    "clipboard_format",
+    "clipboard_mime",
+    "viewport_width",
+    "viewport_height",
+    "device_scale_factor",
+    "field_keys",
+    "rows"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.performance_paste_contract.v1"
+    },
+    "contract_id": {
+      "const": "cartulary.performance.ac003.v2"
+    },
+    "criterion_id": {
+      "const": "AC-003"
+    },
+    "predicate_id": {
+      "const": "perf.timeline_paste_20x5.v2"
+    },
+    "fixture_contract_id": {
+      "const": "cartulary.performance.large_grid.v1"
+    },
+    "measurement_policy_id": {
+      "const": "cartulary.measurement.single_observation.v1"
+    },
+    "warmup_passes": {
+      "const": 0
+    },
+    "measured_samples": {
+      "const": 1
+    },
+    "product_retries": {
+      "const": 0
+    },
+    "threshold_ms": {
+      "const": 2000
+    },
+    "threshold_comparison": {
+      "const": "lt"
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "start_mark": {
+      "const": "cartulary.workbook.timeline_paste_accepted"
+    },
+    "stop_mark": {
+      "const": "cartulary.workbook.timeline_paste_visible_paint"
+    },
+    "clipboard_format": {
+      "const": "tsv"
+    },
+    "clipboard_mime": {
+      "const": "text/plain"
+    },
+    "viewport_width": {
+      "const": 1920
+    },
+    "viewport_height": {
+      "const": 1080
+    },
+    "device_scale_factor": {
+      "const": 1
+    },
+    "field_keys": {
+      "const": [
+        "timeline.date_entered_text",
+        "timeline.analyst_text",
+        "timeline.mitre_stage_text",
+        "timeline.device_object_text",
+        "timeline.ip_address_text"
+      ]
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {
+        "type": "array",
+        "minItems": 5,
+        "maxItems": 5,
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

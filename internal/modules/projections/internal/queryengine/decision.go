@@ -2,7 +2,6 @@ package queryengine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -23,7 +22,20 @@ func (*DecisionReader) CollectDecisionDerivedFactsTx(
 	incidentID uuid.UUID,
 ) ([]decisionprojection.DecisionDerivedFact, error) {
 	rows, err := tx.Query(ctx, `
-SELECT d.record_id, to_jsonb(d) - 'incident_id'
+SELECT d.record_id, jsonb_build_object(
+       'record_id', d.record_id,
+       'row_version', d.row_version,
+       'summary', d.summary,
+       'status', d.status,
+       'owner_user_id', d.owner_user_id,
+       'decision_type', d.decision_type,
+       'decided_at', d.decided_at,
+       'rationale', d.rationale,
+       'affected_record_count', d.affected_record_count,
+       'supersedes_record_id', d.supersedes_record_id,
+       'updated_at', d.updated_at,
+       'is_superseded', d.is_superseded
+   )
   FROM decision_grid_projection d
   JOIN records r
     ON r.incident_id = d.incident_id
@@ -43,8 +55,8 @@ SELECT d.record_id, to_jsonb(d) - 'incident_id'
 		if err := rows.Scan(&fact.RecordID, &raw); err != nil {
 			return nil, fmt.Errorf("scan Decision projection fact: %w", err)
 		}
-		fact.Value = map[string]any{}
-		if err := json.Unmarshal(raw, &fact.Value); err != nil {
+		fact.Value, err = decodeReportingFactObject(raw)
+		if err != nil {
 			return nil, fmt.Errorf("decode Decision projection fact: %w", err)
 		}
 		facts = append(facts, fact)

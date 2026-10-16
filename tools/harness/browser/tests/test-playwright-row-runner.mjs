@@ -5,6 +5,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
+import { resolvePlaywrightPackages } from "../../readiness/playwright-packages.mjs";
 import { validateSchemaSync } from "../../contract/index.mjs";
 
 import {
@@ -12,6 +14,7 @@ import {
 } from "../../contract/failure-taxonomy.mjs";
 import {
   adaptPlaywrightReport,
+  playwrightTestList,
   playwrightGroupExitCode,
 } from "../../execution/runners/playwright.mjs";
 
@@ -20,7 +23,7 @@ const file = "apps/web/e2e/keyboard.spec.ts";
 function row(rowID, ...titles) {
   return {
     row_id: rowID,
-    selector: { file, titles },
+    selector: { file, titles, project_id: "chromium" },
   };
 }
 
@@ -30,6 +33,7 @@ function spec(title, status, duration = 7) {
     title,
     tests: [
       {
+        projectName: "chromium",
         results: [{ duration, status }],
       },
     ],
@@ -48,6 +52,7 @@ function adapt(singleRow, playwrightReport, processStatus = 0, processSignal = n
     playwrightReport,
     processStatus,
     processSignal,
+    singleRow.selector.titles.map(title => ({ row_id: singleRow.row_id, file, project_id: "chromium", title_path: [title] })),
   )[0];
 }
 
@@ -385,5 +390,56 @@ test("browser target finalization preserves typed row failures and cleanup prece
       });
       assert.equal(result.status, expected, `${id}: ${result.stderr}`);
     }
+  } finally { rmSync(scratch, { recursive: true, force: true }); }
+});
+
+
+test("Playwright selection and accounting bind exact project, file and suite path", () => {
+  const selected = row("harness.browser.unit.identity", "same");
+  const selection = [{ row_id: selected.row_id, file, project_id: "chromium", title_path: ["outer", "same"] }];
+  assert.equal(playwrightTestList(selection), "[chromium] › keyboard.spec.ts › outer › same\n");
+  const value = { suites: [{ file, suites: [{ title: "outer", specs: [spec("same", "passed")] }] }] };
+  const run = input => adaptPlaywrightReport([selected], input, 0, null, selection)[0];
+  assert.equal(run(value).terminal_state, "passed");
+  for (const mutate of [
+    input => { input.suites[0].suites[0].title = "another"; },
+    input => { input.suites[0].suites[0].specs[0].tests[0].projectName = "other"; },
+    input => { input.suites[0].suites[0].specs[0].file = "apps/web/e2e/other.spec.ts"; },
+    input => { input.suites[0].suites[0].specs.push(spec("same suffix", "passed")); },
+    input => { input.suites[0].suites.push({ title: "other", specs: [spec("same", "passed")] }); },
+  ]) {
+    const invalid = structuredClone(value); mutate(invalid);
+    assert.equal(run(invalid).failure_reason, "scheduler_accounting_error");
+  }
+  assert.throws(() => adaptPlaywrightReport([selected], value), /resolved selection/u);
+  assert.throws(() => playwrightTestList([{ ...selection[0], title_path: ["bad\nname"] }]), /test-list/u);
+});
+
+
+test("pinned Playwright test-list executes only an exact nested tagged identity", () => {
+  const scratch = mkdtempSync(path.join(os.tmpdir(), "cartulary-playwright-selection-"));
+  try {
+    const root = path.resolve(import.meta.dirname, "../../../..");
+    const packages = resolvePlaywrightPackages(root);
+    const testModule = pathToFileURL(path.join(packages.playwrightPath, "test.mjs")).href;
+    writeFileSync(path.join(scratch, "selection.spec.mjs"), `
+      import { test } from ${JSON.stringify(testModule)};
+      test("target", () => { throw new Error("unselected root test executed"); });
+      test.describe("outer", () => {
+        test("target", { tag: "@fast" }, () => {});
+        test("target suffix", () => { throw new Error("unselected suffix test executed"); });
+      });
+    `);
+    writeFileSync(path.join(scratch, "config.mjs"), `export default ${JSON.stringify({ testDir: scratch, projects: [{ name: "chromium" }], retries: 0, workers: 1 })};`);
+    const selected = { row_id: "fixture.selection", selector: { file: "apps/web/e2e/selection.spec.mjs", project_id: "chromium", titles: ["outer target"] } };
+    const selection = [{ row_id: selected.row_id, project_id: "chromium", file: selected.selector.file, title_path: ["outer", "target"] }];
+    const selectionFile = path.join(scratch, "selection.txt");
+    writeFileSync(selectionFile, playwrightTestList(selection));
+    const child = spawnSync(process.execPath, [path.join(packages.playwrightPath, "cli.js"), "test", "--config", path.join(scratch, "config.mjs"), "--test-list", selectionFile, "--reporter=json"], { cwd: scratch, encoding: "utf8", timeout: 30000, maxBuffer: 2 * 1024 * 1024 });
+    assert.equal(child.status, 0, child.stderr);
+    const result = JSON.parse(child.stdout);
+    assert.equal(result.stats.expected, 1);
+    assert.equal(result.stats.unexpected, 0);
+    assert.equal(adaptPlaywrightReport([selected], result, child.status, child.signal, selection)[0].terminal_state, "passed");
   } finally { rmSync(scratch, { recursive: true, force: true }); }
 });

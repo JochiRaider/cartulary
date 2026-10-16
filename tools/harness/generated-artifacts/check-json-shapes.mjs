@@ -1138,6 +1138,7 @@ function validateContractFamilyRegistryShape(file) {
     "reporting",
     "reference-pack-fixtures",
     "cryptography",
+    "jobs",
   ];
   if (activeIDsByOrder.filter(Boolean).join("\n") !== expectedActiveIDs.join("\n")) {
     throw new Error(

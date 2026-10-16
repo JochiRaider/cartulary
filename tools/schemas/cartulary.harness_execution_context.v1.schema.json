@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_execution_context.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "manifest_digest",
+    "graph",
+    "projections",
+    "source_inputs",
+    "host_profile",
+    "instrumentation_policy_bytes"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_execution_context.v1"
+    },
+    "manifest_digest": {
+      "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest"
+    },
+    "graph": {
+      "$ref": "cartulary.harness_work_graph.v5"
+    },
+    "projections": {
+      "type": "object",
+      "maxProperties": 16384,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "command_id",
+          "unit_ids"
+        ],
+        "properties": {
+          "command_id": {
+            "$ref": "cartulary.harness_execution_defs.v1#/$defs/id"
+          },
+          "unit_ids": {
+            "type": "array",
+            "maxItems": 16384,
+            "items": {
+              "$ref": "cartulary.harness_execution_defs.v1#/$defs/id"
+            }
+          }
+        }
+      }
+    },
+    "source_inputs": {
+      "type": "array",
+      "maxItems": 131072,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "kind",
+          "mode",
+          "byte_digest"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "kind": {
+            "enum": [
+              "file",
+              "symlink"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "pattern": "^[0-7]{4}$"
+          },
+          "byte_digest": {
+            "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest"
+          }
+        }
+      }
+    },
+    "host_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "architecture",
+        "kernel_release",
+        "cpu_models"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "kernel_release": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "cpu_models": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    "instrumentation_policy_bytes": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 1048576
+    }
+  }
+}

@@ -3,6 +3,14 @@
   "owner_id": "module.imports",
   "verifications": [
     {
+      "verification_id": "module.imports.verification.apply_paint_qualification",
+      "behavior_class": "product",
+      "profile": "extension.import",
+      "evidence_kinds": [
+        "vitest"
+      ]
+    },
+    {
       "verification_id": "module.imports.verification.architecture_boundary",
       "behavior_class": "architecture",
       "profile": "base",
@@ -20,6 +28,54 @@
         "go_test",
         "playwright",
         "vitest"
+      ]
+    },
+    {
+      "verification_id": "module.imports.verification.csv_apply_measurement",
+      "behavior_class": "product",
+      "profile": "extension.import",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.imports.verification.csv_discovery_measurement",
+      "behavior_class": "product",
+      "profile": "extension.import",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.imports.verification.discovery_paint_qualification",
+      "behavior_class": "product",
+      "profile": "extension.import",
+      "evidence_kinds": [
+        "vitest"
+      ]
+    },
+    {
+      "verification_id": "module.imports.verification.source_contracts",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "module.imports.verification.xlsx_apply_measurement",
+      "behavior_class": "product",
+      "profile": "extension.import",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.imports.verification.xlsx_discovery_measurement",
+      "behavior_class": "product",
+      "profile": "extension.import",
+      "evidence_kinds": [
+        "playwright"
       ]
     }
   ]

@@ -18,6 +18,13 @@ export type ReferencePackAuthority = {
 export const terminalReferencePackJobStates = new Set<
   ReferencePackJobResource["status"]
 >(["succeeded", "failed", "canceled"]);
+export function referencePackJobPurpose(command: ReferencePackCommand) {
+  if (command.kind === "import") return "reference_pack_import";
+  if (command.kind === "reverify") return "reference_pack_reverify";
+  if (command.kind === "refresh_all" || command.kind === "refresh_selected")
+    return "reference_pack_refresh";
+  return null;
+}
 export const defaultReferencePackPaging: ReferencePackPaging = {
   limit: 100,
   has_more: false,

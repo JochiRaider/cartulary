@@ -1,3 +1,4 @@
+import type { CommonJobResource } from "../../../services/commonJobContract";
 import type {
   WorkbookProtocolAttachBlobReceipt,
   WorkbookProtocolBlobSlotReceipt,
@@ -6,7 +7,7 @@ import type {
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
 
-export type EvidenceFileStage = "slot" | "attach" | "create";
+export type EvidenceFileStage = "slot" | "verify" | "attach" | "create";
 export type EvidenceFileReceipt =
   | WorkbookProtocolAttachBlobReceipt
   | WorkbookProtocolCreateViewRowReceipt;
@@ -47,6 +48,21 @@ export interface EvidenceFileTransport {
     attempt: EvidenceFileAttempt,
     signal: AbortSignal,
   ): Promise<EvidenceFileOutcome<WorkbookProtocolBlobSlotReceipt>>;
+  verify(
+    attempt: EvidenceFileAttempt,
+    signal: AbortSignal,
+  ): Promise<EvidenceFileOutcome<CommonJobResource>>;
+  readVerification(
+    attempt: EvidenceFileAttempt,
+    jobId: string,
+    signal: AbortSignal,
+  ): Promise<EvidenceFileOutcome<CommonJobResource>>;
+  cancelVerification(
+    attempt: EvidenceFileAttempt,
+    jobId: string,
+    clientTxnId: string,
+    signal: AbortSignal,
+  ): Promise<EvidenceFileOutcome<CommonJobResource>>;
   finalize(
     attempt: EvidenceFileAttempt,
     signal: AbortSignal,

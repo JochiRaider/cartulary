@@ -361,9 +361,9 @@ UPDATE hosts
 		blockingRecordID := uuid.New()
 		envelopetest.SeedRecordEnvelope(t, harness.DB, incidentID, actorID, blockingRecordID, "party")
 		mustExec(t, harness.DB, `
-INSERT INTO parties (record_id, incident_id, display_name, party_kind, primary_email, updated_at)
-VALUES ($1, $2, 'Party Rollback Blocker', 'person', 'party-rollback-old@example.test', $3)
-`, blockingRecordID, incidentID, time.Now().UTC())
+INSERT INTO parties (record_id, incident_id, display_name, party_kind, primary_email)
+VALUES ($1, $2, 'Party Rollback Blocker', 'person', 'party-rollback-old@example.test')
+`, blockingRecordID, incidentID)
 
 		before := StateCounts(t, harness.DB, recordID)
 		response := rollbackRecord(t, harness, login, recordID, map[string]any{
@@ -1027,10 +1027,10 @@ func seedRollbackPartyPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, acto
 	t.Helper()
 	recordID := uuid.New()
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "party")
-	mustExec(t, db, `INSERT INTO parties (record_id, incident_id, display_name, party_kind, updated_at) VALUES ($1, $2, $3, 'person', $4)`, recordID, incidentID, afterName, time.Now().UTC())
+	mustExec(t, db, `INSERT INTO parties (record_id, incident_id, display_name, party_kind) VALUES ($1, $2, $3, 'person')`, recordID, incidentID, afterName)
 	advanceRecordFixture(t, db, recordID, 2)
-	before := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v1", 1, map[string]any{"display_name": beforeName, "party_kind": "person"})
-	after := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v1", 2, map[string]any{"display_name": afterName, "party_kind": "person"})
+	before := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v2", 1, map[string]any{"display_name": beforeName, "party_kind": "person"})
+	after := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v2", 2, map[string]any{"display_name": afterName, "party_kind": "person"})
 	seedRollbackMutationWithRef(t, db, incidentID, actorID, recordID, changeSetID, 1, "record", recordID.String(), "patch", before, after, "href-party-rollback")
 	return recordID
 }
@@ -1040,16 +1040,16 @@ func seedRollbackPartyClaimPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID,
 	recordID := uuid.New()
 	envelopetest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "party")
 	mustExec(t, db, `
-INSERT INTO parties (record_id, incident_id, display_name, party_kind, primary_email, updated_at)
-VALUES ($1, $2, 'Party Claim Rollback', 'person', $3, $4)
-`, recordID, incidentID, afterEmail, time.Now().UTC())
+INSERT INTO parties (record_id, incident_id, display_name, party_kind, primary_email)
+VALUES ($1, $2, 'Party Claim Rollback', 'person', $3)
+`, recordID, incidentID, afterEmail)
 	advanceRecordFixture(t, db, recordID, 2)
-	before := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v1", 1, map[string]any{
+	before := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v2", 1, map[string]any{
 		"display_name":  "Party Claim Rollback",
 		"party_kind":    "person",
 		"primary_email": beforeEmail,
 	})
-	after := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v1", 2, map[string]any{
+	after := canonicalRowSnapshot(recordID, incidentID, "party", "cartulary.revisions.snapshot.party.v2", 2, map[string]any{
 		"display_name":  "Party Claim Rollback",
 		"party_kind":    "person",
 		"primary_email": afterEmail,

@@ -321,9 +321,9 @@ describe("Timeline query row identity integration", () => {
       />,
     );
     await waitForVisibleGridRowRecordIds(container, [
-      "20000000-0000-4000-8000-000000000703",
       "20000000-0000-4000-8000-000000000701",
       "20000000-0000-4000-8000-000000000702",
+      "20000000-0000-4000-8000-000000000703",
     ]);
     expect(
       screen.getByTestId(

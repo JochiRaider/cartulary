@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "package.ui",
   "rows": [
     {
@@ -67,6 +67,31 @@
           "Cartulary design token exports renders CSS variables without unresolved object values"
         ],
         "project_id": "browser-unit"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.ui.boundary_support.source_design_tokens_test_ts_f46aeb7346",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.shared_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/design-tokens.test.ts",
+        "project_id": "browser-unit",
+        "titles": [
+          "Cartulary design token exports builds typed references to authored design-token variables"
+        ]
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -181,6 +206,31 @@
           "@cartulary/ui-contracts selector core validates view_schema_id selectors against the generated registry"
         ],
         "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.ui.frontend_unit.source_workbook_shell_grid_selectors_test_ts_577f5e45a4",
+      "owner_id": "package.ui",
+      "family_id": "package.ui.frontend_unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.ui.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/ui-contracts/src/workbook-shell-grid-selectors.test.ts",
+        "project_id": "browser-unit",
+        "titles": [
+          "@cartulary/ui-contracts workbook shell and grid selectors parses fixed and viewport-relative layout metrics from generated tokens"
+        ]
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

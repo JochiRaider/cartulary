@@ -9,6 +9,14 @@
       "evidence_kinds": [
         "go_test"
       ]
+    },
+    {
+      "verification_id": "module.reportcomposition.verification.source_contracts",
+      "behavior_class": "product",
+      "profile": "extension.snapshot_reporting",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

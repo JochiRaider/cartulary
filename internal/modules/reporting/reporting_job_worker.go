@@ -2,9 +2,7 @@ package reporting
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,25 +12,25 @@ import (
 )
 
 const (
-	defaultReportingJobTimeout             = 2 * time.Minute
-	reportingJobTerminalTransitionTimeout  = 5 * time.Second
-	reportingJobTimeoutCode                = "reporting_job_timeout"
-	reportingJobWorkerContextCanceledCode  = "reporting_job_context_canceled"
-	reportingJobUnknownKindCode            = "internal_error"
-	reportingJobInternalErrorCode          = "internal_error"
-	reportingJobKindSnapshotCreate         = "snapshot_create"
-	reportingJobKindReleaseCreate          = "release_create"
-	reportingJobKindCompositionPreview     = "composition_preview"
-	reportingJobRenderFailedCode           = "release_render_failed"
-	reportingJobRenderFailedMessage        = "Release render failed."
-	reportingJobSnapshotCreatedCode        = "snapshot_created"
-	reportingJobSnapshotCreatedMessage     = "Snapshot created."
-	reportingJobReleaseCreatedCode         = "release_created"
-	reportingJobReleaseCreatedMessage      = "Release rendered."
-	reportingJobPreviewCreatedCode         = "composition_preview_rendered"
-	reportingJobPreviewCreatedMessage      = "Composition preview rendered."
-	reportingJobTimeoutMessage             = "Reporting job timed out."
-	reportingJobWorkerContextCanceledError = "reporting job worker context canceled"
+	// Backstop for dispatch/payload loading. Render attempts additionally use
+	// their operative manifest-owned total, which may be shorter.
+	defaultReportingJobTimeout            = 30 * time.Minute
+	reportingJobTerminalTransitionTimeout = 5 * time.Second
+	reportingJobTimeoutCode               = "reporting_job_timeout"
+	reportingJobUnknownKindCode           = "internal_error"
+	reportingJobInternalErrorCode         = "internal_error"
+	reportingJobKindSnapshotCreate        = "snapshot_create"
+	reportingJobKindReleaseCreate         = "release_create"
+	reportingJobKindCompositionPreview    = "composition_preview"
+	reportingJobRenderFailedCode          = "release_render_failed"
+	reportingJobRenderFailedMessage       = "Release render failed."
+	reportingJobSnapshotCreatedCode       = "snapshot_created"
+	reportingJobSnapshotCreatedMessage    = "Snapshot created."
+	reportingJobReleaseCreatedCode        = "release_created"
+	reportingJobReleaseCreatedMessage     = "Release rendered."
+	reportingJobPreviewCreatedCode        = "composition_preview_rendered"
+	reportingJobPreviewCreatedMessage     = "Composition preview rendered."
+	reportingJobTimeoutMessage            = "Reporting job timed out."
 )
 
 type reportingJobRunner interface {
@@ -44,54 +42,45 @@ type reportingJobAdmission interface {
 	CreateQueuedTx(context.Context, pgx.Tx, jobs.EnqueueParams, time.Time) (jobs.Resource, error)
 }
 
+type reportingJobTransactions interface {
+	reportingJobAdmission
+	ValidateExecutionTx(context.Context, pgx.Tx, jobs.Execution) error
+}
+
 type reportingJobStore interface {
-	ReportingJobKind(context.Context, uuid.UUID) (string, error)
-	CompleteSnapshotCreateJobTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) error
-	ReleasePayloadForJob(context.Context, uuid.UUID) (releaseCreateJobPayload, error)
-	CompositionPreviewPayloadForJob(context.Context, uuid.UUID) (compositionPreviewJobPayload, error)
-	CompleteReleaseRenderFailedJobTx(context.Context, pgx.Tx, uuid.UUID, RedactionProfile, string, string, time.Time) (uuid.UUID, error)
-	CompleteReleaseCreateJobTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, RenderedRelease, time.Time) error
-	CompleteCompositionPreviewJobTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, RenderedRelease, time.Time) error
+	PrepareSnapshotJob(context.Context, jobs.Execution) error
+	SnapshotCandidateForJob(context.Context, jobs.Execution) (SnapshotCandidate, error)
+	ReportingJobKind(context.Context, jobs.Execution) (string, error)
+	CompleteSnapshotCreateJobTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, SnapshotCandidate) error
+	ReleasePayloadForJob(context.Context, jobs.Execution) (releaseCreateJobPayload, error)
+	CompositionPreviewPayloadForJob(context.Context, jobs.Execution) (compositionPreviewJobPayload, error)
+	CompleteRenderFailureJobTx(context.Context, pgx.Tx, uuid.UUID, RenderFailure, time.Time) (*uuid.UUID, error)
+	PrepareRenderCandidate(context.Context, jobs.Execution, renderInput, RenderedRelease) (RenderCandidate, error)
+	CompleteReleaseCreateJobTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, RenderCandidate, time.Time) error
+	CompleteCompositionPreviewJobTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, RenderCandidate, time.Time) error
 }
 
 type reportingJobManager interface {
 	Get(context.Context, uuid.UUID) (jobs.Resource, error)
 	ObserveExecution(context.Context, jobs.Execution) (jobs.Resource, error)
 	UpdateProgress(context.Context, jobs.Execution, jobs.Progress, *string) (jobs.Resource, error)
-	CompleteFailed(context.Context, jobs.Execution, jobs.FailureCompletion) (jobs.Resource, error)
-	CompleteCanceled(context.Context, jobs.Execution, jobs.CancellationCompletion) (jobs.Resource, error)
 }
 
-type releaseCandidateRenderer interface {
-	Render(context.Context, releaseCreateJobPayload) (RenderedRelease, string, error)
-}
-
-type defaultReleaseCandidateRenderer struct{}
-
-func (defaultReleaseCandidateRenderer) Render(ctx context.Context, payload releaseCreateJobPayload) (RenderedRelease, string, error) {
-	if err := ctx.Err(); err != nil {
-		return RenderedRelease{}, "", err
-	}
-	rendered, reasonCode, err := renderReleaseCandidate(payload.Request, payload.TemplateContract, payload.ExportModel, payload.ExportModelSHA256, payload.ResolvedGraphResults...)
-	if err != nil {
-		return rendered, reasonCode, err
-	}
-	if err := ctx.Err(); err != nil {
-		return RenderedRelease{}, "", err
-	}
-	return rendered, reasonCode, nil
+type candidateRenderer interface {
+	Render(context.Context, renderInput) (RenderedRelease, string, error)
 }
 
 type reportingJobWorker struct {
-	store           reportingJobStore
-	jobManager      reportingJobManager
-	renderer        releaseCandidateRenderer
-	jobFinalizer    JobSuccessFinalizer
-	renderExport    RenderExportInvoker
-	graphSources    *GraphSourceRegistry
-	now             func() time.Time
-	timeout         time.Duration
-	terminalTimeout time.Duration
+	store                  reportingJobStore
+	jobManager             reportingJobManager
+	renderer               candidateRenderer
+	jobFinalizer           JobSuccessFinalizer
+	renderExport           RenderExportInvoker
+	graphSources           *GraphSourceRegistry
+	now                    func() time.Time
+	timeout                time.Duration
+	terminalTimeout        time.Duration
+	renderObservationTicks func() (<-chan time.Time, func())
 }
 
 func newReportingJobWorker(
@@ -100,6 +89,7 @@ func newReportingJobWorker(
 	jobFinalizer JobSuccessFinalizer,
 	renderExport RenderExportInvoker,
 	graphSources *GraphSourceRegistry,
+	renderer candidateRenderer,
 	now func() time.Time,
 ) *reportingJobWorker {
 	if now == nil {
@@ -111,16 +101,16 @@ func newReportingJobWorker(
 		jobFinalizer:    jobFinalizer,
 		renderExport:    renderExport,
 		graphSources:    graphSources,
-		renderer:        defaultReleaseCandidateRenderer{},
+		renderer:        renderer,
 		now:             now,
 		timeout:         defaultReportingJobTimeout,
 		terminalTimeout: reportingJobTerminalTransitionTimeout,
 	}
 }
 
-func (w *reportingJobWorker) Run(parentCtx context.Context, execution jobs.Execution) {
+func (w *reportingJobWorker) Handle(parentCtx context.Context, execution jobs.Execution) error {
 	if w == nil || w.store == nil || w.jobManager == nil || w.renderer == nil || w.jobFinalizer == nil || w.renderExport == nil {
-		return
+		return errors.New("reporting: incomplete worker dependencies")
 	}
 	if parentCtx == nil {
 		parentCtx = context.Background()
@@ -131,85 +121,115 @@ func (w *reportingJobWorker) Run(parentCtx context.Context, execution jobs.Execu
 	}
 	runCtx, cancel := context.WithTimeout(parentCtx, timeout)
 	defer cancel()
-	w.execute(runCtx, parentCtx, execution)
+	return w.execute(runCtx, parentCtx, execution)
 }
 
-func (w *reportingJobWorker) Handle(ctx context.Context, execution jobs.Execution) error {
-	w.Run(ctx, execution)
-	return nil
-}
-
-func (w *reportingJobWorker) execute(ctx context.Context, parentCtx context.Context, execution jobs.Execution) {
-	jobID := execution.JobID()
-	if _, err := w.jobManager.ObserveExecution(ctx, execution); err != nil {
-		return
+func (w *reportingJobWorker) execute(ctx context.Context, parentCtx context.Context, execution jobs.Execution) error {
+	progress := jobs.Progress{Completed: 0, Total: intPtr(1)}
+	if stop, err := w.stopIfInterrupted(ctx, parentCtx, execution, progress); stop || err != nil {
+		return err
 	}
-	kind, err := w.store.ReportingJobKind(ctx, jobID)
+	if _, err := w.jobManager.UpdateProgress(ctx, execution, progress, nil); err != nil {
+		return err
+	}
+	kind, err := w.store.ReportingJobKind(ctx, execution)
 	if err != nil {
-		if w.completeContextFailure(ctx, parentCtx, execution, jobs.Progress{Completed: 0, Total: intPtr(1)}) {
-			return
-		}
-		w.failReportingJob(parentCtx, execution, reportingJobInternalErrorCode, err, false, jobs.Progress{Completed: 0, Total: intPtr(1)})
-		return
+		return w.failOrObserveContext(ctx, parentCtx, execution, reportingJobInternalErrorCode, err, progress)
 	}
 	switch kind {
 	case reportingJobKindSnapshotCreate:
-		w.executeSnapshotCreateJob(ctx, parentCtx, execution)
+		return w.executeSnapshotCreateJob(ctx, parentCtx, execution)
 	case reportingJobKindReleaseCreate:
-		w.executeReleaseCreateJob(ctx, parentCtx, execution)
+		return w.executeReleaseCreateJob(ctx, parentCtx, execution)
 	case reportingJobKindCompositionPreview:
-		w.executeCompositionPreviewJob(ctx, parentCtx, execution)
+		return w.executeCompositionPreviewJob(ctx, parentCtx, execution)
 	default:
-		w.failReportingJob(parentCtx, execution, reportingJobUnknownKindCode, fmt.Errorf("unknown reporting job kind %q", kind), false, jobs.Progress{Completed: 0, Total: intPtr(1)})
+		return w.failReportingJob(parentCtx, execution, reportingJobUnknownKindCode, nil, false, progress)
 	}
 }
 
-func (w *reportingJobWorker) executeCompositionPreviewJob(ctx context.Context, parentCtx context.Context, execution jobs.Execution) {
+func (w *reportingJobWorker) executeCompositionPreviewJob(ctx context.Context, parentCtx context.Context, execution jobs.Execution) error {
+	started := time.Now()
 	jobID := execution.JobID()
 	total := 1
 	progress := jobs.Progress{Completed: 0, Total: &total}
-	if !w.prepareClaimedReportingJob(ctx, parentCtx, execution, total) {
-		return
+	var payload compositionPreviewJobPayload
+	workErr, controlErr := w.whileExecutionCurrent(ctx, execution, func(work context.Context) error {
+		var err error
+		payload, err = w.store.CompositionPreviewPayloadForJob(work, execution)
+		return err
+	})
+	if controlErr != nil {
+		return w.stopForRenderPreparationControl(ctx, parentCtx, execution, progress, controlErr)
 	}
-	if w.cancelReportingJobIfRequested(ctx, parentCtx, execution, total) || w.completeContextFailure(ctx, parentCtx, execution, progress) {
-		return
-	}
-	payload, err := w.store.CompositionPreviewPayloadForJob(ctx, jobID)
+	err := workErr
 	if err != nil {
-		if w.completeContextFailure(ctx, parentCtx, execution, progress) {
-			return
+		return w.finishRenderFailure(parentCtx, execution, err)
+	}
+	limits, err := resolveRenderLimits(payload.TemplateContract.DeclaredLimits)
+	if err != nil {
+		return w.finishRenderFailure(parentCtx, execution, err)
+	}
+	ctx, cancelAttempt := withRenderDeadlineFrom(ctx, started, limits.timeout("total_attempt"), "release_state", "timeout.total_attempt")
+	defer cancelAttempt()
+	workErr, controlErr = w.whileExecutionCurrent(ctx, execution, func(work context.Context) error {
+		var err error
+		payload.renderInput, err = w.invokeRenderExport(work, payload.renderInput)
+		return err
+	})
+	if controlErr != nil {
+		return w.stopForRenderPreparationControl(ctx, parentCtx, execution, progress, controlErr)
+	}
+	if workErr != nil {
+		return w.finishRenderFailure(parentCtx, execution, workErr)
+	}
+	renderResult, controlErr := w.renderWhileCurrent(ctx, execution, payload.renderInput)
+	if controlErr != nil {
+		if parentCtx.Err() == nil && errors.Is(controlErr, context.DeadlineExceeded) {
+			if renderResult.err != nil {
+				return w.finishRenderFailure(parentCtx, execution, errors.Join(renderResult.err, controlErr))
+			}
+			return w.finishRenderFailure(parentCtx, execution, classifyRenderContextError(ctx, controlErr))
 		}
-		w.failReportingJob(parentCtx, execution, reportingJobInternalErrorCode, err, false, progress)
-		return
-	}
-	payload.Release.ResolvedGraphResults, err = w.readGraphResults(ctx, jobID, payload.Release.GraphProjectionRefs)
-	if err != nil {
-		w.failReportingJob(parentCtx, execution, reportingJobRenderFailedCode, err, false, progress)
-		return
-	}
-	payload.Release, err = w.invokeRenderExport(ctx, payload.Release)
-	if err != nil {
-		if w.completeContextFailure(ctx, parentCtx, execution, progress) {
-			return
+		if errors.Is(controlErr, jobs.ErrCancellationRequested) {
+			return w.finishRenderAbort(parentCtx, execution, errors.Join(context.Canceled, renderResult.err), true)
 		}
-		w.failReportingJob(parentCtx, execution, reportingJobRenderFailedCode, err, false, progress)
-		return
+		return w.stopForRenderPreparationControl(ctx, parentCtx, execution, progress, controlErr)
 	}
-	rendered, reasonCode, err := w.renderer.Render(ctx, payload.Release)
-	if w.completeContextFailure(ctx, parentCtx, execution, progress) {
-		return
+	if parentCtx.Err() != nil {
+		return parentCtx.Err()
 	}
-	if err != nil {
-		w.failReportingJob(parentCtx, execution, reportingJobRenderFailedCode,
-			fmt.Errorf("%s: %w", reasonCode, err), false, progress)
-		return
+	if renderResult.reason == "partial_output_cleanup_failed" && renderResult.err != nil {
+		return w.finishRenderFailure(parentCtx, execution, renderResult.err)
 	}
-	if w.cancelReportingJobIfRequested(ctx, parentCtx, execution, total) || w.completeContextFailure(ctx, parentCtx, execution, progress) {
-		return
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return w.finishRenderFailure(parentCtx, execution, classifyRenderContextError(ctx, ctx.Err()))
 	}
-	ctxTerminal, cancel := w.terminalContext(parentCtx)
-	defer cancel()
-	_, _ = w.jobFinalizer.FinalizeReportingJobSuccess(ctxTerminal, JobSuccessFinalization{
+	observationCtx, finishObservation := w.terminalContext(parentCtx)
+	stop, observationErr := w.stopIfInterrupted(observationCtx, parentCtx, execution, progress)
+	finishObservation()
+	if stop || observationErr != nil {
+		return observationErr
+	}
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return w.finishRenderFailure(parentCtx, execution, classifyRenderContextError(ctx, ctx.Err()))
+	}
+	if renderResult.err != nil {
+		return w.finishRenderFailure(parentCtx, execution, renderResult.err)
+	}
+	var candidate RenderCandidate
+	workErr, controlErr = w.whileExecutionCurrent(ctx, execution, func(work context.Context) error {
+		var err error
+		candidate, err = w.store.PrepareRenderCandidate(work, execution, payload.renderInput, renderResult.rendered)
+		return err
+	})
+	if controlErr != nil {
+		return w.stopForRenderPreparationControl(ctx, parentCtx, execution, progress, controlErr)
+	}
+	if workErr != nil {
+		return w.finishRenderFailure(parentCtx, execution, workErr)
+	}
+	_, err = w.jobFinalizer.FinalizeReportingJobSuccess(ctx, JobSuccessFinalization{
 		Execution: execution,
 		Completion: jobs.SuccessCompletion{
 			Progress: jobs.Progress{Completed: 1, Total: &total},
@@ -226,7 +246,7 @@ func (w *reportingJobWorker) executeCompositionPreviewJob(ctx context.Context, p
 				tx,
 				jobID,
 				payload.PreviewAttemptID,
-				rendered,
+				candidate,
 				w.now().UTC(),
 			); err != nil {
 				return err
@@ -234,22 +254,45 @@ func (w *reportingJobWorker) executeCompositionPreviewJob(ctx context.Context, p
 			return w.graphSources.ReleaseJobLeasesTx(ctx, tx, jobID)
 		},
 	})
+	if errors.Is(err, jobs.ErrCancellationRequested) {
+		return w.completeCanceled(parentCtx, execution, progress)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return w.finishRenderFailure(parentCtx, execution, classifyRenderContextError(ctx, err))
+	}
+	return err
 }
 
-func (w *reportingJobWorker) executeSnapshotCreateJob(ctx context.Context, parentCtx context.Context, execution jobs.Execution) {
+func (w *reportingJobWorker) executeSnapshotCreateJob(ctx context.Context, parentCtx context.Context, execution jobs.Execution) error {
 	jobID := execution.JobID()
 	total := 1
-	progress := jobs.Progress{Completed: 0, Total: &total}
-	if !w.prepareClaimedReportingJob(ctx, parentCtx, execution, total) {
-		return
+	if stop, err := w.stopIfInterrupted(ctx, parentCtx, execution, jobs.Progress{Completed: 0, Total: &total}); stop || err != nil {
+		return err
 	}
-	if w.cancelReportingJobIfRequested(ctx, parentCtx, execution, total) || w.completeContextFailure(ctx, parentCtx, execution, progress) {
-		return
+	var candidate SnapshotCandidate
+	workErr, controlErr := w.whileExecutionCurrent(ctx, execution, func(work context.Context) error {
+		if err := w.store.PrepareSnapshotJob(work, execution); err != nil {
+			return err
+		}
+		var err error
+		candidate, err = w.store.SnapshotCandidateForJob(work, execution)
+		return err
+	})
+	if controlErr != nil {
+		return w.stopForRenderControl(ctx, parentCtx, execution, jobs.Progress{Completed: 0, Total: &total}, controlErr)
+	}
+	if workErr != nil {
+		code := reportingJobInternalErrorCode
+		var conflict *SnapshotBoundaryConflictError
+		if errors.As(workErr, &conflict) {
+			code = "snapshot_source_boundary_conflict"
+		}
+		return w.failOrObserveContext(ctx, parentCtx, execution, code, workErr, jobs.Progress{Completed: 0, Total: &total})
 	}
 	snapshotID := reportingResourceID(jobID, "snapshot")
 	ctxTerminal, cancel := w.terminalContext(parentCtx)
 	defer cancel()
-	_, _ = w.jobFinalizer.FinalizeReportingJobSuccess(ctxTerminal, JobSuccessFinalization{
+	_, err := w.jobFinalizer.FinalizeReportingJobSuccess(ctxTerminal, JobSuccessFinalization{
 		Execution: execution,
 		Completion: jobs.SuccessCompletion{
 			Progress: jobs.Progress{Completed: 1, Total: &total},
@@ -265,81 +308,101 @@ func (w *reportingJobWorker) executeSnapshotCreateJob(ctx context.Context, paren
 		},
 		FinalCommitID: SnapshotCreateOperationKind + ":" + jobID.String(),
 		Mutate: func(ctx context.Context, tx pgx.Tx) error {
-			return w.store.CompleteSnapshotCreateJobTx(ctx, tx, jobID, snapshotID)
+			return w.store.CompleteSnapshotCreateJobTx(ctx, tx, jobID, snapshotID, candidate)
 		},
 	})
+	return err
 }
 
-func (w *reportingJobWorker) executeReleaseCreateJob(ctx context.Context, parentCtx context.Context, execution jobs.Execution) {
+func (w *reportingJobWorker) executeReleaseCreateJob(ctx context.Context, parentCtx context.Context, execution jobs.Execution) error {
+	started := time.Now()
 	jobID := execution.JobID()
 	total := 1
 	progress := jobs.Progress{Completed: 0, Total: &total}
-	if !w.prepareClaimedReportingJob(ctx, parentCtx, execution, total) {
-		return
+	var payload releaseCreateJobPayload
+	workErr, controlErr := w.whileExecutionCurrent(ctx, execution, func(work context.Context) error {
+		var err error
+		payload, err = w.store.ReleasePayloadForJob(work, execution)
+		return err
+	})
+	if controlErr != nil {
+		return w.stopForRenderPreparationControl(ctx, parentCtx, execution, progress, controlErr)
 	}
-	if w.cancelReportingJobIfRequested(ctx, parentCtx, execution, total) || w.completeContextFailure(ctx, parentCtx, execution, progress) {
-		return
-	}
-	payload, err := w.store.ReleasePayloadForJob(ctx, jobID)
+	err := workErr
 	if err != nil {
-		if w.completeContextFailure(ctx, parentCtx, execution, progress) {
-			return
+		return w.finishRenderFailure(parentCtx, execution, err)
+	}
+	limits, err := resolveRenderLimits(payload.TemplateContract.DeclaredLimits)
+	if err != nil {
+		return w.finishRenderFailure(parentCtx, execution, err)
+	}
+	ctx, cancelAttempt := withRenderDeadlineFrom(ctx, started, limits.timeout("total_attempt"), "release_state", "timeout.total_attempt")
+	defer cancelAttempt()
+	workErr, controlErr = w.whileExecutionCurrent(ctx, execution, func(work context.Context) error {
+		var err error
+		payload.renderInput, err = w.invokeRenderExport(work, payload.renderInput)
+		return err
+	})
+	if controlErr != nil {
+		return w.stopForRenderPreparationControl(ctx, parentCtx, execution, progress, controlErr)
+	}
+	if workErr != nil {
+		return w.finishRenderFailure(parentCtx, execution, workErr)
+	}
+	renderResult, controlErr := w.renderWhileCurrent(ctx, execution, payload.renderInput)
+	if controlErr != nil {
+		if parentCtx.Err() == nil && errors.Is(controlErr, context.DeadlineExceeded) {
+			if renderResult.err != nil {
+				return w.finishRenderFailure(parentCtx, execution, errors.Join(renderResult.err, controlErr))
+			}
+			return w.finishRenderFailure(parentCtx, execution, classifyRenderContextError(ctx, controlErr))
 		}
-		w.failReportingJob(parentCtx, execution, reportingJobInternalErrorCode, err, false, progress)
-		return
-	}
-	payload.ResolvedGraphResults, err = w.readGraphResults(ctx, jobID, payload.GraphProjectionRefs)
-	if err != nil {
-		w.failReportingJob(parentCtx, execution, reportingJobRenderFailedCode, err, false, progress)
-		return
-	}
-	payload, err = w.invokeRenderExport(ctx, payload)
-	if err != nil {
-		if w.completeContextFailure(ctx, parentCtx, execution, progress) {
-			return
+		if errors.Is(controlErr, jobs.ErrCancellationRequested) {
+			return w.finishRenderAbort(parentCtx, execution, errors.Join(context.Canceled, renderResult.err), true)
 		}
-		w.failReportingJob(parentCtx, execution, reportingJobRenderFailedCode, err, false, progress)
-		return
+		return w.stopForRenderPreparationControl(ctx, parentCtx, execution, progress, controlErr)
 	}
-	rendered, reasonCode, renderErr := w.renderer.Render(ctx, payload)
-	if w.completeContextFailure(ctx, parentCtx, execution, progress) {
-		return
+	rendered, reasonCode, renderErr := renderResult.rendered, renderResult.reason, renderResult.err
+	if parentCtx.Err() != nil {
+		return parentCtx.Err()
+	}
+	if renderErr != nil && reasonCode == "partial_output_cleanup_failed" {
+		return w.finishRenderFailure(parentCtx, execution, renderErr)
+	}
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return w.finishRenderFailure(parentCtx, execution, classifyRenderContextError(ctx, ctx.Err()))
+	}
+	// Observe with a bounded control context, not the expiring work context.
+	// Finalization still validates the opaque execution under the Jobs row lock.
+	observationCtx, finishObservation := w.terminalContext(parentCtx)
+	stop, observationErr := w.stopIfInterrupted(observationCtx, parentCtx, execution, progress)
+	finishObservation()
+	if stop || observationErr != nil {
+		return observationErr
+	}
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return w.finishRenderFailure(parentCtx, execution, classifyRenderContextError(ctx, ctx.Err()))
 	}
 	if renderErr != nil {
-		ctxTerminal, cancel := w.terminalContext(parentCtx)
-		defer cancel()
-		var releaseID uuid.UUID
-		details := map[string]any{"reason_code": reasonCode}
-		_, _ = w.jobFinalizer.FinalizeReportingJobFailure(ctxTerminal, JobFailureFinalization{
-			Execution: execution,
-			Completion: jobs.FailureCompletion{
-				Progress: jobs.Progress{Completed: 1, Total: &total},
-				ErrorSummary: jobs.ErrorSummary{
-					Code:      reportingJobRenderFailedCode,
-					Message:   reportingJobRenderFailedMessage,
-					Retryable: false,
-					Details:   details,
-				},
-			},
-			Mutate: func(ctx context.Context, tx pgx.Tx) error {
-				var err error
-				releaseID, err = w.store.CompleteReleaseRenderFailedJobTx(ctx, tx, jobID, rendered.Profile, rendered.ProfileSHA256, reasonCode, w.now().UTC())
-				if err == nil {
-					details["release_id"] = releaseID.String()
-					err = w.graphSources.ReleaseJobLeasesTx(ctx, tx, jobID)
-				}
-				return err
-			},
-		})
-		return
+		return w.finishRenderFailure(parentCtx, execution, renderErr)
 	}
-	if w.cancelReportingJobIfRequested(ctx, parentCtx, execution, total) || w.completeContextFailure(ctx, parentCtx, execution, progress) {
-		return
+	var candidate RenderCandidate
+	workErr, controlErr = w.whileExecutionCurrent(ctx, execution, func(work context.Context) error {
+		var err error
+		candidate, err = w.store.PrepareRenderCandidate(work, execution, payload.renderInput, rendered)
+		return err
+	})
+	if controlErr != nil {
+		return w.stopForRenderPreparationControl(ctx, parentCtx, execution, progress, controlErr)
+	}
+	if workErr != nil {
+		return w.finishRenderFailure(parentCtx, execution, workErr)
 	}
 	releaseID := reportingResourceID(jobID, "release")
-	ctxTerminal, cancel := w.terminalContext(parentCtx)
-	defer cancel()
-	_, _ = w.jobFinalizer.FinalizeReportingJobSuccess(ctxTerminal, JobSuccessFinalization{
+	// Publication is work inside the total-attempt deadline. The finalizer's
+	// independent commit proof may confirm an already committed success; an
+	// indeterminate acknowledgement must never become a second terminal write.
+	_, err = w.jobFinalizer.FinalizeReportingJobSuccess(ctx, JobSuccessFinalization{
 		Execution: execution,
 		Completion: jobs.SuccessCompletion{
 			Progress: jobs.Progress{Completed: 1, Total: &total},
@@ -355,30 +418,96 @@ func (w *reportingJobWorker) executeReleaseCreateJob(ctx context.Context, parent
 		},
 		FinalCommitID: ReleaseCreateOperationKind + ":" + jobID.String(),
 		Mutate: func(ctx context.Context, tx pgx.Tx) error {
-			if err := w.store.CompleteReleaseCreateJobTx(ctx, tx, jobID, releaseID, rendered, w.now().UTC()); err != nil {
+			if err := w.store.CompleteReleaseCreateJobTx(ctx, tx, jobID, releaseID, candidate, w.now().UTC()); err != nil {
 				return err
 			}
 			return w.graphSources.ReleaseJobLeasesTx(ctx, tx, jobID)
 		},
 	})
+	if errors.Is(err, jobs.ErrCancellationRequested) {
+		return w.completeCanceled(parentCtx, execution, progress)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return w.finishRenderFailure(parentCtx, execution, classifyRenderContextError(ctx, err))
+	}
+	return err
 }
 
-func (w *reportingJobWorker) invokeRenderExport(ctx context.Context, payload releaseCreateJobPayload) (releaseCreateJobPayload, error) {
-	_, redactionSHA, err := ResolveRedactionProfile(
-		payload.RedactionProfileID,
-		payload.RedactionProfileVersion,
-		payload.RecipientPartitionRefs,
-	)
-	if err != nil {
-		return releaseCreateJobPayload{}, err
+func (w *reportingJobWorker) finishRenderFailure(parentCtx context.Context, execution jobs.Execution, cause error) error {
+	if errors.Is(cause, jobs.ErrCancellationRequested) {
+		return w.finishRenderAbort(parentCtx, execution, context.Canceled, true)
 	}
+	return w.finishRenderAbort(parentCtx, execution, cause, false)
+}
+
+func (w *reportingJobWorker) finishRenderAbort(parentCtx context.Context, execution jobs.Execution, cause error, canceled bool) error {
+	if err := parentCtx.Err(); err != nil {
+		return err
+	}
+	if errors.Is(cause, jobs.ErrExecutionLost) {
+		return cause
+	}
+	failure := renderFailureDetails(cause)
+	if err := validateRenderFailure(failure); err != nil {
+		return err
+	}
+	jobID, total := execution.JobID(), 1
+	ctxTerminal, cancel := w.terminalContext(parentCtx)
+	defer cancel()
+	details := map[string]any{"reason_code": failure.ReasonCode}
+	mutate := func(ctx context.Context, tx pgx.Tx) error {
+		releaseID, err := w.store.CompleteRenderFailureJobTx(ctx, tx, jobID, failure, w.now().UTC())
+		if err != nil {
+			return err
+		}
+		if releaseID != nil {
+			details["release_id"] = releaseID.String()
+		}
+		return w.graphSources.ReleaseJobLeasesTx(ctx, tx, jobID)
+	}
+	if canceled {
+		_, err := w.jobFinalizer.FinalizeReportingJobCancellation(ctxTerminal, JobCancellationFinalization{
+			Execution: execution, Completion: jobs.CancellationCompletion{Progress: jobs.Progress{Completed: 1, Total: &total}}, Mutate: mutate,
+		})
+		return err
+	}
+	_, err := w.jobFinalizer.FinalizeReportingJobFailure(ctxTerminal, JobFailureFinalization{
+		Execution: execution,
+		TimedOut:  failure.ReasonCode == "render_timeout" || errors.Is(cause, context.DeadlineExceeded),
+		Completion: jobs.FailureCompletion{
+			Progress:     jobs.Progress{Completed: 1, Total: &total},
+			ErrorSummary: jobs.ErrorSummary{Code: renderFailureJobCode(failure.ReasonCode), Message: reportingJobRenderFailedMessage, Retryable: false, Details: details},
+		},
+		Mutate: mutate,
+	})
+	if errors.Is(err, jobs.ErrCancellationRequested) {
+		cancelCause := error(context.Canceled)
+		if failure.ReasonCode == "partial_output_cleanup_failed" {
+			cancelCause = cause
+		}
+		return w.finishRenderAbort(parentCtx, execution, cancelCause, true)
+	}
+	return err
+}
+
+func (w *reportingJobWorker) invokeRenderExport(ctx context.Context, payload renderInput) (renderInput, error) {
+	limits, err := resolveRenderLimits(payload.TemplateContract.DeclaredLimits)
+	if err != nil {
+		return renderInput{}, err
+	}
+	ctx, cancel := withRenderDeadline(ctx, limits.timeout("export_model_materialization"), "export_model_materialization", "timeout.export_model_materialization")
+	defer cancel()
+	if err := validateFrozenRenderProfile(payload); err != nil {
+		return renderInput{}, renderFailureAt(err, "redaction", "redaction_manifest_invalid", "redaction_profile_invalid")
+	}
+	redactionSHA := payload.RedactionProfileSHA256
 	authorizationView, err := canonicalJSON(map[string]any{
 		"actor_user_id": payload.ActorUserID,
 		"incident_id":   payload.IncidentID,
 		"snapshot_id":   payload.SnapshotID,
 	})
 	if err != nil {
-		return releaseCreateJobPayload{}, err
+		return renderInput{}, err
 	}
 	invocation := RenderExportInvocation{
 		Context: RenderExportContext{
@@ -392,120 +521,131 @@ func (w *reportingJobWorker) invokeRenderExport(ctx context.Context, payload rel
 			SnapshotRef:             "snapshot:" + payload.SnapshotID,
 			AuthorizationViewSHA256: hashHex(authorizationView),
 			RedactionProfileSHA256:  redactionSHA,
-			TimeoutSeconds:          renderExportTimeoutSeconds(w.timeout),
+			TimeoutSeconds:          renderExportTimeoutSeconds(limits.timeout("export_model_materialization")),
 		},
 		ImmutableModel:    payload.ExportModel,
 		ImmutableModelSHA: payload.ExportModelSHA256,
 	}
-	result, err := w.renderExport.Invoke(ctx, invocation)
+	participantModel, err := copyReportingModel(invocation.ImmutableModel)
 	if err != nil {
-		return releaseCreateJobPayload{}, err
+		return renderInput{}, err
+	}
+	participantInvocation := invocation
+	participantInvocation.ImmutableModel = participantModel
+	result, err := w.renderExport.Invoke(ctx, participantInvocation)
+	if ctx.Err() != nil {
+		return renderInput{}, classifyRenderContextError(ctx, ctx.Err())
+	}
+	if err != nil {
+		return renderInput{}, renderFailureAt(err, "export_model_materialization", "export_model_invalid", "invalid_type")
 	}
 	model, digest, err := AdmitRenderExportResult(invocation, result)
 	if err != nil {
-		return releaseCreateJobPayload{}, err
+		return renderInput{}, renderFailureAt(err, "export_model_materialization", "export_model_invalid", "invalid_type")
 	}
 	payload.ExportModel = model
 	payload.ExportModelSHA256 = digest
 	return payload, nil
 }
 
-func (w *reportingJobWorker) readGraphResults(ctx context.Context, jobID uuid.UUID, raw json.RawMessage) ([]resolvedGraphResult, error) {
-	refs, err := decodeSourceProjectionRefs(raw)
-	if err != nil {
-		return nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_bound")
-	}
-	return w.graphSources.ReadAndRenew(ctx, jobID, refs, w.now().UTC())
-}
-
 func reportingResourceID(jobID uuid.UUID, kind string) uuid.UUID {
 	return uuid.NewSHA1(jobID, []byte("snapshot_reporting:"+kind))
 }
 
-func (w *reportingJobWorker) prepareClaimedReportingJob(ctx context.Context, parentCtx context.Context, execution jobs.Execution, total int) bool {
+// Every checkpoint observes the live execution before continuing. Observation
+// failure is an error, never permission to render or finalize.
+func (w *reportingJobWorker) stopIfInterrupted(ctx, parentCtx context.Context, execution jobs.Execution, progress jobs.Progress) (bool, error) {
+	if stop, err := w.stopForContext(ctx, parentCtx, execution, progress); stop {
+		return true, err
+	}
 	resource, err := w.jobManager.ObserveExecution(ctx, execution)
 	if err != nil {
-		w.completeContextFailure(ctx, parentCtx, execution, jobs.Progress{Completed: 0, Total: &total})
-		return false
+		return true, err
 	}
 	switch resource.Status {
-	case jobs.StatusSucceeded, jobs.StatusFailed, jobs.StatusCanceled:
-		return false
 	case jobs.StatusRunning:
-		_, err := w.jobManager.UpdateProgress(ctx, execution, jobs.Progress{Completed: 0, Total: &total}, nil)
-		return err == nil
+		return false, nil
 	case jobs.StatusCancelRequested:
-		w.completeCanceled(parentCtx, execution, jobs.Progress{Completed: 0, Total: &total})
-		return false
+		return true, w.completeCanceled(parentCtx, execution, progress)
+	case jobs.StatusSucceeded, jobs.StatusFailed, jobs.StatusCanceled:
+		return true, nil
+	default:
+		return true, jobs.ErrInvalidTransition
 	}
-	return false
 }
 
-func (w *reportingJobWorker) cancelReportingJobIfRequested(ctx context.Context, parentCtx context.Context, execution jobs.Execution, total int) bool {
-	resource, err := w.jobManager.ObserveExecution(ctx, execution)
-	if err != nil {
-		w.completeContextFailure(ctx, parentCtx, execution, jobs.Progress{Completed: 0, Total: &total})
-		return false
+func (w *reportingJobWorker) stopForContext(ctx, parentCtx context.Context, execution jobs.Execution, progress jobs.Progress) (bool, error) {
+	// Runner shutdown owns conditional release. Do not replace it with a new
+	// failed Job or retry policy in this handler.
+	if err := parentCtx.Err(); err != nil {
+		return true, err
 	}
-	if resource.Status != jobs.StatusCancelRequested {
-		return false
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return true, w.failReportingJob(parentCtx, execution, reportingJobTimeoutCode, ctx.Err(), true, progress)
 	}
-	w.completeCanceled(parentCtx, execution, jobs.Progress{Completed: 0, Total: &total})
-	return true
+	if err := ctx.Err(); err != nil {
+		return true, err
+	}
+	return false, nil
 }
 
-func (w *reportingJobWorker) completeContextFailure(runCtx context.Context, terminalCtx context.Context, execution jobs.Execution, progress jobs.Progress) bool {
-	err := runCtx.Err()
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		w.failReportingJob(terminalCtx, execution, reportingJobTimeoutCode, err, true, progress)
-		return true
-	case errors.Is(err, context.Canceled):
-		w.failReportingJob(terminalCtx, execution, reportingJobWorkerContextCanceledCode, errors.New(reportingJobWorkerContextCanceledError), true, progress)
-		return true
+func (w *reportingJobWorker) failOrObserveContext(ctx, parentCtx context.Context, execution jobs.Execution, code string, cause error, progress jobs.Progress) error {
+	if stop, err := w.stopForContext(ctx, parentCtx, execution, progress); stop {
+		return err
 	}
-	return false
+	if errors.Is(cause, jobs.ErrExecutionLost) {
+		return cause
+	}
+	if errors.Is(cause, jobs.ErrCancellationRequested) {
+		return w.completeCanceled(parentCtx, execution, progress)
+	}
+	var renderError *renderValidationError
+	if errors.As(cause, &renderError) {
+		return w.finishRenderFailure(parentCtx, execution, cause)
+	}
+	return w.failReportingJob(parentCtx, execution, code, cause, false, progress)
 }
 
-func (w *reportingJobWorker) failReportingJob(ctx context.Context, execution jobs.Execution, code string, err error, retryable bool, progress jobs.Progress) {
+func (w *reportingJobWorker) failReportingJob(ctx context.Context, execution jobs.Execution, code string, err error, retryable bool, progress jobs.Progress) error {
 	if errors.Is(err, ErrRequiredReferencePackUnavailable) {
 		code = "required_reference_pack_unavailable"
-		err = ErrRequiredReferencePackUnavailable
 		retryable = false
 	}
 
-	if err == nil {
-		err = errors.New(code)
-	}
-	message := err.Error()
-	if code == reportingJobTimeoutCode {
+	// Raw persistence/participant errors can contain paths, SQL or source data.
+	// Only closed owner summaries cross the public Jobs boundary.
+	message := "Reporting job failed."
+	switch code {
+	case reportingJobTimeoutCode:
 		message = reportingJobTimeoutMessage
+	case reportingJobRenderFailedCode:
+		message = reportingJobRenderFailedMessage
+	case "required_reference_pack_unavailable":
+		message = "A required reference pack is unavailable."
 	}
 	ctxTerminal, cancel := w.terminalContext(ctx)
 	defer cancel()
-	_, completionErr := w.jobManager.CompleteFailed(ctxTerminal, execution, jobs.FailureCompletion{
-		Progress: progress,
-		ErrorSummary: jobs.ErrorSummary{
-			Code:      code,
-			Message:   message,
-			Retryable: retryable,
-			Details:   map[string]any{},
+	_, completionErr := w.jobFinalizer.FinalizeReportingJobFailure(ctxTerminal, JobFailureFinalization{
+		Execution: execution,
+		TimedOut:  code == reportingJobTimeoutCode,
+		Completion: jobs.FailureCompletion{
+			Progress: progress,
+			ErrorSummary: jobs.ErrorSummary{
+				Code: code, Message: message, Retryable: retryable, Details: snapshotFailureDetails(err),
+			},
+		},
+		Mutate: func(ctx context.Context, tx pgx.Tx) error {
+			return w.graphSources.ReleaseJobLeasesTx(ctx, tx, execution.JobID())
 		},
 	})
-	if completionErr == nil {
-		_ = w.graphSources.ReleaseJobLeases(ctxTerminal, execution.JobID())
+	if errors.Is(completionErr, jobs.ErrCancellationRequested) {
+		return w.completeCanceled(ctx, execution, progress)
 	}
+	return completionErr
 }
 
-func (w *reportingJobWorker) completeCanceled(ctx context.Context, execution jobs.Execution, progress jobs.Progress) {
-	ctxTerminal, cancel := w.terminalContext(ctx)
-	defer cancel()
-	_, completionErr := w.jobManager.CompleteCanceled(ctxTerminal, execution, jobs.CancellationCompletion{
-		Progress: progress,
-	})
-	if completionErr == nil {
-		_ = w.graphSources.ReleaseJobLeases(ctxTerminal, execution.JobID())
-	}
+func (w *reportingJobWorker) completeCanceled(ctx context.Context, execution jobs.Execution, _ jobs.Progress) error {
+	return w.finishRenderAbort(ctx, execution, context.Canceled, true)
 }
 
 func (w *reportingJobWorker) terminalContext(ctx context.Context) (context.Context, context.CancelFunc) {

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.presence_measurement_proof.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "presence_kind",
+    "actor_user_id",
+    "view_schema_id",
+    "record_id",
+    "row_version",
+    "field_key",
+    "consecutive_frames",
+    "clock_domain",
+    "origins_unchanged",
+    "initially_absent",
+    "binding_stable",
+    "action_count",
+    "viewport_width",
+    "viewport_height",
+    "device_scale_factor"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.presence_measurement_proof.v1"
+    },
+    "kind": {
+      "const": "timeline_presence"
+    },
+    "presence_kind": {
+      "enum": [
+        "surface",
+        "row",
+        "cell"
+      ]
+    },
+    "actor_user_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "record_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "row_version": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "field_key": {
+      "enum": [
+        null,
+        "timeline.activity_synopsis_text"
+      ]
+    },
+    "consecutive_frames": {
+      "const": 2
+    },
+    "clock_domain": {
+      "const": "browser_monotonic_time_origin"
+    },
+    "origins_unchanged": {
+      "const": true
+    },
+    "initially_absent": {
+      "const": true
+    },
+    "binding_stable": {
+      "const": true
+    },
+    "action_count": {
+      "const": 1
+    },
+    "viewport_width": {
+      "const": 1920
+    },
+    "viewport_height": {
+      "const": 1080
+    },
+    "device_scale_factor": {
+      "const": 1
+    }
+  }
+}

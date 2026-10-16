@@ -77,6 +77,9 @@ func (provider LinksProvider) CollectSupportRefsTx(
 	}
 	result := map[string][]string{}
 	for _, fact := range facts.RecordLinks {
+		if fact.FieldKey != nil && links.IsPartyAssignmentField(*fact.FieldKey) {
+			continue
+		}
 		switch fact.LinkType {
 		case links.LinkTypeSupportedBy, links.LinkTypeReferencesRecord, links.LinkTypeAttachedEvidence:
 		default:
@@ -136,52 +139,67 @@ func (provider LinksProvider) CollectFactsTx(
 	if err != nil {
 		return exportprovider.ProviderOutput{}, err
 	}
-	fields := make([]exportprovider.FieldFact, 0, len(facts.RecordLinks)+len(facts.RecordTags))
+	fields := make([]exportprovider.BoundField, 0, len(facts.RecordLinks)+len(facts.RecordTags))
 	for _, fact := range facts.RecordLinks {
-		fields = append(fields, exportprovider.FieldFact{
-			SchemaID:     exportprovider.FieldFactSchemaID,
-			Path:         "/relationships/" + fact.RecordLinkID.String(),
-			ContentClass: "derived_analytic",
-			SourceFamily: "record_link",
-			Value: map[string]any{
-				"record_link_id":     fact.RecordLinkID.String(),
-				"src_record_id":      fact.SrcRecordID.String(),
-				"dst_record_id":      fact.DstRecordID.String(),
-				"link_type":          fact.LinkType,
-				"field_key":          nullableString(fact.FieldKey),
-				"provenance":         fact.Provenance,
-				"confidence":         nullableJSONNumber(fact.Confidence),
-				"owner_user_id":      fact.OwnerUserID.String(),
-				"created_by_user_id": fact.CreatedByUserID.String(),
-				"decided_at":         postgresJSONTimestamp(fact.DecidedAt),
-				"created_at":         postgresJSONTimestamp(fact.CreatedAt),
-				"deleted_at":         nil,
-				"deleted_by_user_id": nil,
-			},
-			SupportRefs: exportprovider.CloneStrings(supportRefs[fact.RecordLinkID.String()]),
-		})
+		fields = append(fields, exportprovider.BoundField{
+			RecordID: fact.RecordLinkID.String(), RecordType: "record_link",
+			FieldFact: exportprovider.FieldFact{
+				SchemaID:     exportprovider.FieldFactSchemaID,
+				Path:         "/relationships/" + fact.RecordLinkID.String(),
+				ContentClass: "derived_analytic",
+				SourceFamily: "record_link",
+				Value: map[string]any{
+					"record_link_id":     fact.RecordLinkID.String(),
+					"src_record_id":      fact.SrcRecordID.String(),
+					"dst_record_id":      fact.DstRecordID.String(),
+					"link_type":          fact.LinkType,
+					"field_key":          nullableString(fact.FieldKey),
+					"provenance":         fact.Provenance,
+					"confidence":         nullableJSONNumber(fact.Confidence),
+					"owner_user_id":      fact.OwnerUserID.String(),
+					"created_by_user_id": fact.CreatedByUserID.String(),
+					"decided_at":         postgresJSONTimestamp(fact.DecidedAt),
+					"created_at":         postgresJSONTimestamp(fact.CreatedAt),
+					"deleted_at":         nil,
+					"deleted_by_user_id": nil,
+				},
+				SupportRefs: exportprovider.CloneStrings(supportRefs[fact.RecordLinkID.String()]),
+			}})
 	}
 	for _, fact := range facts.RecordTags {
-		fields = append(fields, exportprovider.FieldFact{
-			SchemaID:     exportprovider.FieldFactSchemaID,
-			Path:         "/tags/" + fact.RecordTagID.String(),
-			ContentClass: "derived_analytic",
-			SourceFamily: "record_tag",
-			Value: map[string]any{
-				"record_tag_id":       fact.RecordTagID.String(),
-				"record_id":           fact.RecordID.String(),
-				"tag_name":            fact.TagName,
-				"normalized_tag_name": fact.NormalizedTagName,
-				"created_by_user_id":  fact.CreatedByUserID.String(),
-				"created_at":          postgresJSONTimestamp(fact.CreatedAt),
-				"updated_at":          postgresJSONTimestamp(fact.UpdatedAt),
-				"deleted_at":          nil,
-				"deleted_by_user_id":  nil,
-			},
-			SupportRefs: exportprovider.CloneStrings(supportRefs[fact.RecordTagID.String()]),
-		})
+		fields = append(fields, exportprovider.BoundField{
+			RecordID: fact.RecordTagID.String(), RecordType: "record_tag",
+			FieldFact: exportprovider.FieldFact{
+				SchemaID:     exportprovider.FieldFactSchemaID,
+				Path:         "/tags/" + fact.RecordTagID.String(),
+				ContentClass: "derived_analytic",
+				SourceFamily: "record_tag",
+				Value: map[string]any{
+					"record_tag_id":       fact.RecordTagID.String(),
+					"record_id":           fact.RecordID.String(),
+					"tag_name":            fact.TagName,
+					"normalized_tag_name": fact.NormalizedTagName,
+					"created_by_user_id":  fact.CreatedByUserID.String(),
+					"created_at":          postgresJSONTimestamp(fact.CreatedAt),
+					"updated_at":          postgresJSONTimestamp(fact.UpdatedAt),
+					"deleted_at":          nil,
+					"deleted_by_user_id":  nil,
+				},
+				SupportRefs: exportprovider.CloneStrings(supportRefs[fact.RecordTagID.String()]),
+			}})
 	}
-	return exportprovider.NewProviderOutput(provider.ProviderKey(), fields)
+	output, err := exportprovider.NewProviderOutput(provider.ProviderKey(), fields, nil)
+	if err != nil {
+		return exportprovider.ProviderOutput{}, err
+	}
+	output.SourceFacts.Assignments, err = provider.reader.LoadPartyAssignmentsTx(ctx, tx, incidentID)
+	if err != nil {
+		return exportprovider.ProviderOutput{}, err
+	}
+	if err := output.Validate(); err != nil {
+		return exportprovider.ProviderOutput{}, err
+	}
+	return output, nil
 }
 
 func nullableString(value *string) any {

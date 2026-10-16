@@ -75,8 +75,11 @@ function fixture(count = 405) {
 describe("Workbook query browsing", () => {
   it("replays a located window through its ordinary cursor and refreshes from the beginning", async () => {
     const { browser, query, read } = fixture();
+    expect(browser.getSnapshot().resultRevision).toBe(0);
     await read();
+    expect(browser.getSnapshot().resultRevision).toBe(1);
     await browser.activate("more", read);
+    expect(browser.getSnapshot().resultRevision).toBe(2);
     const received = await query({
       ...input(),
       cursorToken: " opaque +/100= ",
@@ -85,10 +88,12 @@ describe("Workbook query browsing", () => {
     const located = received.value;
     const previous = browser.getSnapshot().accepted;
     expect(browser.adoptNavigation(located)).toBe(true);
+    expect(browser.getSnapshot().resultRevision).toBe(2);
     expect(browser.getSnapshot().accepted).toBe(previous);
     expect(browser.getSnapshot().pending).toBe("replace");
     query.mockClear();
     await read(); // The source owner consumes the staged observation without another read.
+    expect(browser.getSnapshot().resultRevision).toBe(3);
     expect(query).not.toHaveBeenCalled();
     expect(browser.getSnapshot().hasEarlier).toBe(false);
     expect(browser.getSnapshot().accepted?.rows[0]?.record_id).toBe(

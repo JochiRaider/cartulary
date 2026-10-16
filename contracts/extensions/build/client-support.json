@@ -19,6 +19,14 @@
       "capability_ids": [],
       "public_schema_ids": [],
       "client_asset_set_id": "network_flow_activity.standard.v7"
+    },
+    {
+      "profile_id": "snapshot_reporting",
+      "contract_major": 1,
+      "workspace_keys": [],
+      "capability_ids": [],
+      "public_schema_ids": [],
+      "client_asset_set_id": "snapshot_reporting.standard.v1"
     }
   ]
 }

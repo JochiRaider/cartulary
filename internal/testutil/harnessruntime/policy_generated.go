@@ -37,7 +37,7 @@ case "standup-reference-pack-smoke": return "cartulary.harness.command.standup_r
 case "standup-operational-recovery-smoke": return "cartulary.harness.command.standup_operational_recovery_smoke.v2"
 case "agent-finalize": return "cartulary.harness.command.agent_finalize.v2"
 case "test-evidence-audit": return "cartulary.harness.command.test_evidence_audit.v3"
-case "benchmark-claim-check": return "cartulary.harness.command.benchmark_claim_check.v2"
+case "benchmark-claim-check": return "cartulary.harness.command.benchmark_claim_check.v3"
 case "task-surface-report": return "cartulary.harness.command.task_surface_report.v1"
 case "task-guide": return "cartulary.harness.command.task_guide.v2"
 case "author-test-row-id": return "cartulary.harness.command.author_test_row_id.v1"
@@ -147,7 +147,11 @@ case "harness-boundary-contract": return "cartulary.harness.command.harness_boun
 case "harness-scheduler-contract": return "cartulary.harness.command.harness_scheduler_contract.v1"
 case "harness-local-session-contract": return "cartulary.harness.command.harness_local_session_contract.v1"
 case "harness-playwright-adapter-contract": return "cartulary.harness.command.harness_playwright_adapter_contract.v1"
-case "harness-observation-contract": return "cartulary.harness.command.harness_observation_contract.v1" }; return "" }
+case "harness-observation-contract": return "cartulary.harness.command.harness_observation_contract.v1"
+case "harness-browser-preparation-contract": return "cartulary.harness.command.harness_browser_preparation_contract.v1"
+case "harness-benchmark-claim-contract": return "cartulary.harness.command.harness_benchmark_claim_contract.v1"
+case "build-report-renderer": return "cartulary.harness.command.build_report_renderer.v1"
+case "test-run-recover": return "cartulary.harness.command.test_run_recover.v1" }; return "" }
 const maximumPhasesPerUnit = 128
 var failureClasses = []string{"product","security","config","infra","harness","artifact","timing","interrupted","unknown"}
 var failureReasons = []string{"usage_error","configuration_error","preflight_error","service_start_error","service_readiness_timeout","fixture_error","resource_conflict","test_assertion_failure","security_finding","child_target_failure","tool_diagnostic_failure","scheduler_accounting_error","test_accounting_unmapped","artifact_error","cleanup_error","duration_baseline_drift","timeout_failure","cancelled_or_interrupted","unknown_failure"}

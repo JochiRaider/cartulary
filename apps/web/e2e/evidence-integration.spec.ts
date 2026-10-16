@@ -31,6 +31,7 @@ import {
   chooseEvidenceFile,
   createAndUploadObjectBlob,
   resolveObjectUploadTarget,
+  verifyUploadedObjectBlob,
 } from "./support/evidence/uploads";
 import { createIncident } from "./support/incidents/fixtures";
 import {
@@ -845,6 +846,11 @@ async function createUploadedEvidence(
     filename: options.filename,
     incidentId,
   });
+  await verifyUploadedObjectBlob(
+    page,
+    blob.object_blob_id,
+    uniqueTxn("verify-evidence-fixture"),
+  );
 
   const attach = await page.request.post(
     `${apiBase}/api/v1/evidence-records/${row.record_id}/attach-blob`,

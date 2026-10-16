@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.networkflow",
   "rows": [
     {
@@ -1073,6 +1073,33 @@
       ]
     },
     {
+      "row_id": "module.networkflow.integration.network_flow_routes_remain_unclaimed_by_default_e8dabf0ee1",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowRoutesRemainUnclaimedByDefault"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.networkflow.integration.pagination_recovery",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.integration",
@@ -1820,6 +1847,30 @@
         "package": "./internal/modules/networkflow",
         "tests": [
           "TestImportOwnerErrorTranslationUsesClosedRegisteredUnion"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.networkflow.unit.network_flow_import_facade_publishes_complete_bi_cae079f700",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetworkFlowImportFacadePublishesCompleteBinding"
         ]
       },
       "evidence_class": "unit",
@@ -2709,6 +2760,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.networkflow.unit.timestamp_profile_exact_grammar_precision_and_zo_2f4a52432b",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestNetFlowSystemUptimeTimestampAndMappingOrdinals",
+          "TestTimestampProfileClosedJSONVariantsRejectNullMissingAndCrossVariantMembers",
+          "TestTimestampProfileExactGrammarPrecisionAndZoneTransitions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.networkflow.unit.transaction_lifecycle",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.unit",
@@ -2723,6 +2800,30 @@
         "package": "./internal/modules/networkflow",
         "tests": [
           "TestTransactionLifecycle"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.networkflow.unit.unicode17_text_canonicalization_3de608c3dc",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.networkflow.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/networkflow",
+        "tests": [
+          "TestUnicode17TextCanonicalization"
         ]
       },
       "evidence_class": "unit",

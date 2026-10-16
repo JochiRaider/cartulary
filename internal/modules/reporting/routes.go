@@ -2,7 +2,6 @@ package reporting
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -31,6 +30,8 @@ type SourceBoundaryResolver interface {
 }
 
 type RouteOptions struct {
+	Renderer             *Renderer
+	TemplatePacks        *TemplatePackRegistry
 	ReferencePacks       reference_data.Retention
 	JobSuccessFinalizer  JobSuccessFinalizer
 	RenderExportInvoker  RenderExportInvoker
@@ -38,12 +39,12 @@ type RouteOptions struct {
 	SupportRefProvider   exportprovider.SupportReferenceProvider
 	GraphSourceProviders []GraphSourceProvider
 	SourceBoundary       SourceBoundaryResolver
-	jobAdmission         reportingJobAdmission
+	jobAdmission         reportingJobTransactions
 	jobOperations        reportingJobManager
 	jobRunner            reportingJobRunner
 }
 
-func WithJobs(options RouteOptions, admission reportingJobAdmission, operations reportingJobManager, runner reportingJobRunner) RouteOptions {
+func WithJobs(options RouteOptions, admission reportingJobTransactions, operations reportingJobManager, runner reportingJobRunner) RouteOptions {
 	options.jobAdmission = admission
 	options.jobOperations = operations
 	options.jobRunner = runner
@@ -91,7 +92,14 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 	if err != nil {
 		return nil, fmt.Errorf("compose Reporting graph source registry: %w", err)
 	}
+	if options.TemplatePacks == nil {
+		options.TemplatePacks, err = NewTemplatePackRegistry()
+		if err != nil {
+			return nil, err
+		}
+	}
 	store := newStore(deps.Postgres, options.jobAdmission, exportMaterializer, graphSources, options.ReferencePacks)
+	store.templatePacks = options.TemplatePacks
 	app, err := NewApplicationService(
 		store,
 		admission.NewChecker(deps.PostgresHandle()),
@@ -100,6 +108,7 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		options.JobSuccessFinalizer,
 		options.RenderExportInvoker,
 		graphSources,
+		options.Renderer,
 		now,
 	)
 	if err != nil {
@@ -317,62 +326,6 @@ func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
-}
-
-func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContract, model ExportModel, exportModelSHA string, graphResults ...resolvedGraphResult) (RenderedRelease, string, error) {
-	profile, profileSHA, err := ResolveRedactionProfile(request.RedactionProfileID, request.RedactionProfileVersion, request.RecipientPartitionRefs)
-	if errors.Is(err, ErrInvalidRedactionProfile) {
-		return RenderedRelease{}, "invalid_redaction_profile", err
-	}
-	if err != nil {
-		return RenderedRelease{}, "invalid_redaction_profile", err
-	}
-	partial := RenderedRelease{Profile: profile, ProfileSHA256: profileSHA}
-	redaction, err := RedactExportModel(model, profile, profileSHA, exportModelSHA, request.ReleaseScope, request.RecipientPartitionRefs)
-	if errors.Is(err, ErrInvalidRedactionProfile) {
-		return partial, "invalid_redaction_profile", err
-	}
-	if errors.Is(err, ErrRedactionValidation) {
-		return partial, "post_redaction_validation_failed", err
-	}
-	if err != nil {
-		return partial, "post_redaction_validation_failed", err
-	}
-	partial.Redaction = redaction
-	bundle, err := renderReportBundle(contract, request.OutputKind, redaction.Model, redaction.ManifestSHA256, request.ReleaseScope, request.OutputOptions, request.GraphProjectionRefs, request.CompositionJSON, RedactionBundleArtifacts{
-		RedactionManifestJSON: redaction.ManifestJSON,
-		ProfileViewJSON:       redaction.ProfileViewJSON,
-		TokenManifestJSON:     redaction.TokenManifestJSON,
-		TokenManifestSHA256:   redaction.TokenManifestSHA256,
-		RevealMapJSON:         redaction.RevealMapJSON,
-	}, graphResults...)
-	if errors.Is(err, ErrUndeclaredTemplateBinding) {
-		return partial, "undeclared_template_binding", err
-	}
-	if errors.Is(err, ErrMissingRequiredField) {
-		return partial, "missing_required_field", err
-	}
-	var validationErr *renderValidationError
-	if errors.As(err, &validationErr) {
-		return partial, validationErr.ReasonCode, err
-	}
-	if err != nil {
-		return partial, "template_render_failed", err
-	}
-	manifestJSON, err := canonicalJSON(redaction.Manifest)
-	if err != nil {
-		return partial, "manifest_encoding_failed", err
-	}
-	return RenderedRelease{
-		Profile:                 profile,
-		ProfileSHA256:           profileSHA,
-		Redaction:               redaction,
-		OutputMediaType:         bundle.PrimaryMedia,
-		OutputSHA256:            bundle.ManifestSHA256,
-		RenderBundle:            bundle,
-		RedactionManifestSHA256: redaction.ManifestSHA256,
-		RedactionManifestJSON:   manifestJSON,
-	}, "", nil
 }
 
 func snapshotVisibilityError(apiErr *httpapi.APIError) *httpapi.APIError {

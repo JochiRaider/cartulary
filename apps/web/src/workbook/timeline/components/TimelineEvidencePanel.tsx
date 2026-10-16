@@ -11,18 +11,23 @@ import {
   useSyncExternalStore,
 } from "react";
 import {
-  evidenceAccessActionAvailability,
+  buildEvidenceMetadataPresentation,
   evidenceOperationFeedback,
 } from "../../evidence/evidenceAccessPresentation";
 import {
   EvidenceHandleButtons,
+  evidenceButtonStyle,
   evidenceMessageStyle,
 } from "../../features/evidence/EvidenceAccessActions";
 import { TimelineFileContext } from "../../features/evidence/EvidenceAttachmentContext";
 import { EvidenceAttachmentEntry } from "../../features/evidence/EvidenceAttachmentEntry";
 import type { TimelineFileSnapshot } from "../../features/evidence/WorkbookTimelineFileOwner";
+import type { useTimelineEvidenceMetadata } from "../hooks/useTimelineEvidenceMetadata";
 import type { useTimelineLinkedEvidenceReview } from "../hooks/useTimelineLinkedEvidenceReview";
-import { readTimelineEvidenceLinks } from "../models/timelineEvidenceLinks";
+import {
+  readTimelineEvidenceLinks,
+  timelineEvidenceLinkKey,
+} from "../models/timelineEvidenceLinks";
 import { TimelineAttachmentDetails } from "./TimelineAttachmentFeedback";
 
 const noFileSubscription = () => () => {};
@@ -39,13 +44,17 @@ type TimelineEvidenceCountDisplay = {
   readonly stateKey: string;
 };
 
+export type TimelineEvidenceReview = ReturnType<
+  typeof useTimelineLinkedEvidenceReview
+> & {
+  readonly metadata: ReturnType<typeof useTimelineEvidenceMetadata>;
+};
+
 type TimelineEvidencePanelProps = {
   readonly countDisplay: TimelineEvidenceCountDisplay;
   readonly elementRef?: RefCallback<HTMLElement> | undefined;
   readonly row: WorkbookRow;
-  readonly review?:
-    | ReturnType<typeof useTimelineLinkedEvidenceReview>
-    | undefined;
+  readonly review?: TimelineEvidenceReview | undefined;
   readonly registerList?:
     | ((recordId: string, element: HTMLElement | null) => void)
     | undefined;
@@ -83,6 +92,10 @@ export function TimelineEvidencePanel({
     (owner ? null : "File attachment is unavailable.");
   const source = captureTimelineFileSource(row);
   const links = readTimelineEvidenceLinks(row);
+  const metadata =
+    review?.metadata.sourceKey === timelineEvidenceLinkKey(row)
+      ? review.metadata
+      : null;
   const attach = (files: readonly File[]) => {
     if (!owner || owner.attachmentDisabledReason() !== null) return;
     onFilesSelected(source, files);
@@ -109,61 +122,131 @@ export function TimelineEvidencePanel({
         </p>
       </section>
       {links.kind === "available" ? (
-        <ul
-          aria-label="Linked Evidence"
-          tabIndex={-1}
-          ref={(element) => registerList?.(recordId, element)}
-          style={{
-            listStyle: "none",
-            margin: 0,
-            padding: 0,
-            display: "grid",
-            gap: "var(--ct-spacing-sm)",
-          }}
-        >
-          {links.items.map((link) => {
-            const state =
-              review?.access.operations[link.evidenceRecordId]?.state;
-            const feedback = state ? evidenceOperationFeedback(state) : null;
-            const availability = evidenceAccessActionAvailability(
-              state ?? null,
-              true,
-            );
-            return (
-              <li
-                key={link.itemRef}
-                style={{ minInlineSize: 0, overflowWrap: "anywhere" }}
+        <>
+          <p style={bodyStyle}>Linked evidence: {links.items.length}</p>
+          {metadata?.kind === "loading" ? (
+            <p role="status" style={bodyStyle}>
+              Loading evidence information…
+            </p>
+          ) : null}
+          {metadata?.kind === "failed" ? (
+            <p role="alert" style={bodyStyle}>
+              Evidence information is unavailable.{" "}
+              <button
+                type="button"
+                style={evidenceButtonStyle}
+                onClick={metadata.retry}
               >
-                <p style={bodyStyle}>{link.title}</p>
-                <EvidenceHandleButtons
-                  canRead={!!review && !review.access.accessLost}
-                  canPreview={availability.canPreview}
-                  canDownload={availability.canDownload}
-                  retryKind={availability.retryKind}
-                  busyKind={availability.busyKind}
-                  context="inspector"
-                  labelSuffix={link.title}
-                  recordId={link.evidenceRecordId}
-                  onIssue={(kind, invoker) => {
-                    if (review) void review.issue(row, link, kind, invoker);
-                  }}
-                />
-                {feedback ? (
-                  <p
-                    role={
-                      state?.kind === "rejected" || state?.kind === "deadline"
-                        ? "alert"
-                        : "status"
-                    }
-                    style={evidenceMessageStyle}
-                  >
-                    {feedback.message}
-                  </p>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+                Retry evidence information
+              </button>
+            </p>
+          ) : null}
+          <ul
+            aria-label="Linked Evidence"
+            tabIndex={-1}
+            ref={(element) => registerList?.(recordId, element)}
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              display: "grid",
+              gap: "var(--ct-spacing-sm)",
+            }}
+          >
+            {(metadata?.links ?? []).map((link) => {
+              const state =
+                review?.access.operations[link.evidenceRecordId]?.state;
+              const feedback = state ? evidenceOperationFeedback(state) : null;
+              const item =
+                metadata?.kind === "ready"
+                  ? metadata.items.find(
+                      (item) => item.recordId === link.evidenceRecordId,
+                    )
+                  : undefined;
+              const availability = item
+                ? buildEvidenceMetadataPresentation(item, state ?? null)
+                : null;
+              const title = item?.title ?? link.title;
+              return (
+                <li
+                  key={link.itemRef}
+                  data-evidence-record-id={link.evidenceRecordId}
+                  data-evidence-row-version={item?.rowVersion}
+                  data-evidence-metadata-state={
+                    item ? "ready" : (metadata?.kind ?? "unavailable")
+                  }
+                  style={{ minInlineSize: 0, overflowWrap: "anywhere" }}
+                >
+                  <p style={bodyStyle}>{title}</p>
+                  {availability ? (
+                    <p style={bodyStyle}>
+                      {availability.lifecycleLabel} · {availability.uploadLabel}
+                      {!availability.canPreview
+                        ? ` · ${availability.message}`
+                        : ""}
+                    </p>
+                  ) : null}
+                  <EvidenceHandleButtons
+                    canRead={!!review && !review.access.accessLost && !!item}
+                    canPreview={availability?.canPreview ?? false}
+                    canDownload={availability?.canDownload ?? false}
+                    retryKind={availability?.retryKind ?? null}
+                    busyKind={availability?.busyKind ?? null}
+                    context="inspector"
+                    labelSuffix={title}
+                    recordId={link.evidenceRecordId}
+                    onIssue={(kind, invoker) => {
+                      if (review) void review.issue(row, link, kind, invoker);
+                    }}
+                  />
+                  {feedback ? (
+                    <p
+                      role={
+                        state?.kind === "rejected" || state?.kind === "deadline"
+                          ? "alert"
+                          : "status"
+                      }
+                      style={evidenceMessageStyle}
+                    >
+                      {feedback.message}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+          {metadata && metadata.total > metadata.links.length ? (
+            <nav
+              aria-label="Linked Evidence pages"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--ct-spacing-sm)",
+              }}
+            >
+              <button
+                type="button"
+                style={evidenceButtonStyle}
+                disabled={!metadata.previous}
+                onClick={() => metadata.previous?.()}
+              >
+                Previous evidence
+              </button>
+              <span style={bodyStyle}>
+                {metadata.start + 1}–{metadata.start + metadata.links.length} of{" "}
+                {metadata.total}
+              </span>
+              <button
+                type="button"
+                style={evidenceButtonStyle}
+                disabled={!metadata.next}
+                onClick={() => metadata.next?.()}
+              >
+                Next evidence
+              </button>
+            </nav>
+          ) : null}
+        </>
       ) : (
         <p
           tabIndex={-1}

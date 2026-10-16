@@ -22,6 +22,7 @@ recreated. Session-observation supersession remains with the session owner.
 | File | Responsibility |
 | --- | --- |
 | [evidenceFileOperation.ts](evidenceFileOperation.ts) | Single-file admission, captured upload/finalization attempts and full receipt contracts. |
+| [EvidenceBlobVerification.ts](EvidenceBlobVerification.ts) | Retains verification admission, observes the Common Job, and preserves exact cancellation and recovery identity. |
 | [EvidenceUploadSession.ts](EvidenceUploadSession.ts) | Retains the File and validated slot; confines the opaque session-bound target to one transfer. |
 | [EvidenceFileFinalization.ts](EvidenceFileFinalization.ts) | Retains immutable finalization attempts and accepted receipts independently of presentation. |
 | [WorkbookEvidenceAttachmentOwner.ts](WorkbookEvidenceAttachmentOwner.ts) | Existing-Evidence attachment, source review, exact recovery and read reconciliation. |

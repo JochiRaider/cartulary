@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.artifacts",
   "rows": [
     {
@@ -458,6 +458,79 @@
         "tests": [
           "TestArtifactSourceCatalogRuntimeRejectsDrift",
           "TestArtifactSurfaceContractMatrix"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.artifacts.unit.artifact_import_contribution_rejects_missing_dep_312e585529",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactImportContributionRejectsMissingDependencies"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.artifacts.unit.artifact_mutation_outcome_compatibility_82334fa0da",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/workbookassembly",
+        "tests": [
+          "TestArtifactMutationOutcomeCompatibility"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.artifacts.unit.catalog_rejects_generated_owner_fact_drift_b3fa4d91e0",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts/internal/sourcecatalog",
+        "tests": [
+          "TestCatalogLookupsAreIndexedAndDefensive",
+          "TestCatalogRejectsGeneratedOwnerFactDrift"
         ]
       },
       "evidence_class": "unit",

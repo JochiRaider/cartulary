@@ -29,10 +29,11 @@ func NewApplicationService(
 	jobFinalizer JobSuccessFinalizer,
 	renderExportInvoker RenderExportInvoker,
 	graphSources *GraphSourceRegistry,
+	renderer *Renderer,
 	now func() time.Time,
 ) (*ApplicationService, error) {
-	if store == nil || jobManager == nil || jobRunner == nil || jobFinalizer == nil || renderExportInvoker == nil {
-		return nil, errors.New("reporting application service requires store, jobs, runner, finalizer, and admitted render participant")
+	if store == nil || jobManager == nil || jobRunner == nil || jobFinalizer == nil || renderExportInvoker == nil || renderer == nil {
+		return nil, errors.New("reporting application service requires store, jobs, runner, finalizer, admitted render participant, and renderer")
 	}
 	service := &ApplicationService{
 		store:          store,
@@ -40,7 +41,7 @@ func NewApplicationService(
 		jobNotifier:    jobRunner,
 		now:            now,
 	}
-	worker := newReportingJobWorker(store, jobManager, jobFinalizer, renderExportInvoker, graphSources, now)
+	worker := newReportingJobWorker(store, jobManager, jobFinalizer, renderExportInvoker, graphSources, renderer, now)
 	if err := jobRunner.RegisterHandler(JobWorkerKind, worker.Handle); err != nil {
 		return nil, err
 	}
@@ -85,7 +86,7 @@ func (s *ApplicationService) GetSnapshot(ctx context.Context, actorUserID uuid.U
 }
 
 func (s *ApplicationService) CreateRelease(ctx context.Context, actorUserID uuid.UUID, request CreateReleaseRequest) (jobs.Resource, *httpapi.APIError) {
-	snapshot, model, err := s.store.GetSnapshotForRender(ctx, request.SnapshotID)
+	_, incidentID, err := s.store.GetSnapshot(ctx, request.SnapshotID)
 	if errors.Is(err, ErrNotFound) {
 		return jobs.Resource{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}}
 	}
@@ -96,20 +97,18 @@ func (s *ApplicationService) CreateRelease(ctx context.Context, actorUserID uuid
 	if err != nil {
 		return jobs.Resource{}, internalAPIError(err)
 	}
-	if _, apiErr := s.requireIncidentRole(ctx, snapshot.IncidentID, actorUserID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
+	if _, apiErr := s.requireIncidentRole(ctx, incidentID, actorUserID, admission.RolesEditorReviewerAdmin, "editor|reviewer|admin"); apiErr != nil {
 		return jobs.Resource{}, snapshotVisibilityError(apiErr)
 	}
-	templateContract, apiErr := validateCreateReleaseRequestSemantics(request)
+	templatePack, apiErr := validateCreateReleaseRequestSemantics(request, s.store.templatePacks)
 	if apiErr != nil {
-		return jobs.Resource{}, apiErr
-	}
-	if apiErr := validateCreateReleaseRecipientPartitions(request, model); apiErr != nil {
 		return jobs.Resource{}, apiErr
 	}
 	result, err := s.store.CreateRelease(ctx, CreateReleaseParams{
 		ActorUserID:      actorUserID,
 		Request:          request,
-		TemplateContract: templateContract,
+		TemplateContract: templatePack.Manifest,
+		TemplateFiles:    templatePack.Files,
 		Now:              s.now(),
 	})
 	if errors.Is(err, authn.ErrClientTxnConflict) {

@@ -317,6 +317,120 @@
         },
         "security": []
       }
+    },
+    "/api/v1/incidents/{incident_id}/evidence-metadata": {
+      "post": {
+        "tags": [
+          "evidence"
+        ],
+        "operationId": "queryEvidenceMetadata",
+        "summary": "Read a bounded selected Evidence metadata window without issuing handles.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceMetadataRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ordered current metadata for the selected Evidence records",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceMetadataEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/object-blobs/{object_blob_id}/verify": {
+      "post": {
+        "tags": [
+          "evidence"
+        ],
+        "operationId": "verifyObjectBlob",
+        "summary": "Verify one completed upload in a cancelable background Job before atomic finalization.",
+        "parameters": [
+          {
+            "name": "object_blob_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ObjectBlobVerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Verification Job accepted or replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Blob state or transaction conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfCookie": [],
+            "csrfHeader": []
+          },
+          {
+            "bearerSession": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -654,6 +768,166 @@
         "required": [
           "data",
           "meta"
+        ]
+      },
+      "EvidenceMetadataRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        },
+        "required": [
+          "record_ids"
+        ]
+      },
+      "EvidencePreviewEligibility": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "eligible": {
+            "type": "boolean"
+          },
+          "reason_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              null,
+              "no_visible_blob",
+              "blob_pending",
+              "blob_failed",
+              "blob_missing",
+              "evidence_quarantined",
+              "evidence_inconsistent",
+              "unsupported_preview",
+              "preview_payload_too_large"
+            ]
+          }
+        },
+        "required": [
+          "eligible",
+          "reason_code"
+        ]
+      },
+      "EvidenceMetadataItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lifecycle_state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "pending_receipt",
+              "received",
+              "available",
+              "quarantined",
+              "released"
+            ]
+          },
+          "has_blob": {
+            "type": "boolean"
+          },
+          "upload_state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              null,
+              "pending",
+              "available",
+              "failed",
+              "quarantined"
+            ]
+          },
+          "preview_eligibility": {
+            "$ref": "#/components/schemas/EvidencePreviewEligibility"
+          }
+        },
+        "required": [
+          "record_id",
+          "row_version",
+          "title",
+          "lifecycle_state",
+          "has_blob",
+          "upload_state",
+          "preview_eligibility"
+        ]
+      },
+      "EvidenceMetadataData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/EvidenceMetadataItem"
+            }
+          }
+        },
+        "required": [
+          "incident_id",
+          "items"
+        ]
+      },
+      "EvidenceMetadataEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/EvidenceMetadataData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ObjectBlobVerifyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "client_txn_id"
         ]
       }
     }

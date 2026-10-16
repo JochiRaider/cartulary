@@ -1,4 +1,4 @@
-import {mkdirSync, readFileSync, writeFileSync} from "node:fs";
+import {chmodSync, mkdirSync, readFileSync, writeFileSync} from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import {spawnSync} from "node:child_process";
@@ -22,6 +22,9 @@ try {
  verifyArchive(go,env);
  if (operation === "prepare") {
   goOutput(go,["build","-buildvcs=false","-o",client,"./tools/credentialassessment"],env);
+  // The read-only bind executes as the packaged application's nonroot user.
+  // Keep the private workspace sealed; expose only this credential-free binary.
+  chmodSync(client,0o555);
   save("capacity-client.crypto.json",buildReceipt(go,client,env));
  } else {
   if (!/^[a-f0-9]{64}$/.test(appID || "") || !/^https:\/\/127\.0\.0\.1:[0-9]+$/.test(origin || "")) throw new Error("invalid measured application identity");

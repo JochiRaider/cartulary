@@ -1815,6 +1815,15 @@
           },
           "host.containment_status": {
             "type": "string"
+          },
+          "host.subject_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "host.responsible_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "host.observer_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
           }
         },
         "required": [
@@ -1860,6 +1869,15 @@
           },
           "identity.reset_status": {
             "type": "string"
+          },
+          "identity.subject_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "identity.responsible_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          },
+          "identity.observer_party_ids": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
           }
         },
         "required": [

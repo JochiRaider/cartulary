@@ -1,16 +1,19 @@
+import { cartularyEvidenceVerificationContract as timing } from "@cartulary/ui-contracts";
 import {
   evidenceViewSchemaId,
   requireViewContract,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import { waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { CommonJobResource } from "../../../services/commonJobContract";
 import { deferred } from "../../../testing/fetchMockTestSupport";
 import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { createEvidenceFileTransport } from "../../adapters/createEvidenceFileTransport";
 import { createTimelineFileLinkTransport } from "../../adapters/createTimelineFileLinkTransport";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { WorkbookAuthoringReadPort } from "../../ports/WorkbookAuthoringReadPort";
+import { EvidenceBlobVerification } from "./EvidenceBlobVerification";
 import { EvidenceFileFinalization } from "./EvidenceFileFinalization";
 import { EvidenceUploadSession } from "./EvidenceUploadSession";
 import {
@@ -31,6 +34,44 @@ const authority: WorkbookMutationAuthority = {
   role: "editor",
   closed: false,
 };
+
+function verificationJob(
+  status: CommonJobResource["status"] = "succeeded",
+): CommonJobResource {
+  const terminal = ["succeeded", "failed", "canceled"].includes(status);
+  return {
+    job_id: "70000000-0000-4000-8000-000000000007",
+    scope: { kind: "incident", incident_id: incidentId },
+    status_route: "/api/v1/jobs/70000000-0000-4000-8000-000000000007",
+    status,
+    cancelable: !terminal && status !== "cancel_requested",
+    submitted_by_user_id: authority.actorId,
+    submitted_at: "2026-04-05T00:00:00Z",
+    updated_at: terminal ? "2026-04-05T00:00:02Z" : "2026-04-05T00:00:01Z",
+    started_at: "2026-04-05T00:00:01Z",
+    finished_at: terminal ? "2026-04-05T00:00:02Z" : null,
+    retained_until: terminal ? "2026-04-12T00:00:02Z" : null,
+    progress: { completed: status === "succeeded" ? 3 : 0, total: 3 },
+    result_summary:
+      status === "succeeded"
+        ? {
+            code: "evidence_blob_verified",
+            message: "Uploaded evidence verified.",
+          }
+        : status === "canceled"
+          ? { code: "job_canceled", message: "Job canceled." }
+          : null,
+    error_summary:
+      status === "failed"
+        ? {
+            code: "evidence_blob_verification_failed",
+            message: "Verification failed.",
+            retryable: true,
+            details: { reason_code: "object_store_unavailable" },
+          }
+        : null,
+  };
+}
 
 function fixture(associated = false) {
   let seq = 0;
@@ -103,6 +144,16 @@ function fixture(associated = false) {
   };
   const transport = {
     ...createEvidenceFileTransport(undefined),
+    verify: vi.fn<EvidenceFileTransport["verify"]>(async () => ({
+      kind: "accepted",
+      receipt: verificationJob(),
+    })),
+    readVerification: vi.fn<EvidenceFileTransport["readVerification"]>(
+      async () => ({ kind: "accepted", receipt: verificationJob() }),
+    ),
+    cancelVerification: vi.fn<EvidenceFileTransport["cancelVerification"]>(
+      async () => ({ kind: "accepted", receipt: verificationJob("canceled") }),
+    ),
     slot: vi.fn<EvidenceFileTransport["slot"]>(async () => ({
       kind: "accepted",
       receipt: slot,
@@ -164,7 +215,133 @@ function fixture(associated = false) {
   };
 }
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe("retained Evidence file recovery", () => {
+  it("requires verified stored bytes before finalization and preserves uncertain admission identity", async () => {
+    const mark = vi.fn();
+    vi.stubGlobal("performance", {
+      now: performance.now.bind(performance),
+      mark,
+    });
+    const f = fixture();
+    f.transport.verify.mockResolvedValueOnce({ kind: "uncertain" });
+    const upload = new EvidenceUploadSession(
+      f.file,
+      f.transport,
+      f.ids,
+      vi.fn(),
+      vi.fn(),
+    );
+    expect(await upload.prepare(authority)).toBe(false);
+    expect(upload.isFinalizable).toBe(false);
+    expect(f.transport.finalize).not.toHaveBeenCalled();
+    expect(await upload.prepare(authority, true)).toBe(true);
+    expect(f.transport.verify.mock.calls[1]?.[0]).toBe(
+      f.transport.verify.mock.calls[0]?.[0],
+    );
+    expect(f.transport.transfer).toHaveBeenCalledTimes(1);
+    expect(upload.isFinalizable).toBe(true);
+    const attempt = f.transport.verify.mock.calls[0]?.[0];
+    expect(
+      mark.mock.calls.filter(([name]) => name === timing.start_mark),
+    ).toEqual([
+      [
+        timing.start_mark,
+        { detail: { transactionId: attempt?.clientTxnId, blobId } },
+      ],
+    ]);
+    expect(
+      mark.mock.calls.filter(([name]) => name === timing.dispatch_mark),
+    ).toEqual(
+      [false, true].map((replay) => [
+        timing.dispatch_mark,
+        { detail: { transactionId: attempt?.clientTxnId, blobId, replay } },
+      ]),
+    );
+    expect(
+      mark.mock.calls.filter(([name]) => name === timing.admission_mark),
+    ).toEqual([
+      [
+        timing.admission_mark,
+        {
+          detail: {
+            transactionId: attempt?.clientTxnId,
+            blobId,
+            jobId: verificationJob().job_id,
+          },
+        },
+      ],
+    ]);
+  });
+  it("retains cancellation identity and ignores a stale running read after cancellation", async () => {
+    const f = fixture();
+    const read =
+      deferred<
+        Awaited<ReturnType<EvidenceFileTransport["readVerification"]>>
+      >();
+    f.transport.verify.mockResolvedValue({
+      kind: "accepted",
+      receipt: verificationJob("running"),
+    });
+    f.transport.readVerification.mockImplementation(() => read.promise);
+    f.transport.cancelVerification.mockResolvedValueOnce({ kind: "uncertain" });
+    const verification = new EvidenceBlobVerification(
+      f.transport,
+      f.ids,
+      vi.fn(),
+      vi.fn(),
+    );
+    const observing = verification.verify(authority, blobId, false);
+    await waitFor(() =>
+      expect(f.transport.readVerification).toHaveBeenCalledTimes(1),
+    );
+    await verification.cancel();
+    expect(verification.state.cancelUncertain).toBe(true);
+    await verification.cancel();
+    expect(f.transport.cancelVerification.mock.calls[1]?.[2]).toBe(
+      f.transport.cancelVerification.mock.calls[0]?.[2],
+    );
+    read.resolve({ kind: "accepted", receipt: verificationJob("running") });
+    expect(await observing).toBe(false);
+    expect(verification.state.phase).toBe("canceled");
+    expect(f.transport.finalize).not.toHaveBeenCalled();
+  });
+  it("requires an explicit new verification after a failed Job and fences observation on retirement", async () => {
+    const f = fixture();
+    f.transport.verify.mockResolvedValueOnce({
+      kind: "accepted",
+      receipt: verificationJob("failed"),
+    });
+    const verification = new EvidenceBlobVerification(
+      f.transport,
+      f.ids,
+      vi.fn(),
+      vi.fn(),
+    );
+    expect(await verification.verify(authority, blobId, false)).toBe(false);
+    expect(await verification.verify(authority, blobId, false)).toBe(false);
+    expect(f.transport.verify).toHaveBeenCalledTimes(1);
+    expect(await verification.verify(authority, blobId, true)).toBe(true);
+    expect(f.transport.verify.mock.calls[1]?.[0].clientTxnId).not.toBe(
+      f.transport.verify.mock.calls[0]?.[0].clientTxnId,
+    );
+    const pending =
+      deferred<Awaited<ReturnType<EvidenceFileTransport["verify"]>>>();
+    f.transport.verify.mockImplementation(() => pending.promise);
+    const abandoned = new EvidenceBlobVerification(
+      f.transport,
+      f.ids,
+      vi.fn(),
+      vi.fn(),
+    );
+    const result = abandoned.verify(authority, blobId, false);
+    abandoned.retire();
+    pending.resolve({ kind: "accepted", receipt: verificationJob() });
+    expect(await result).toBe(false);
+    expect(abandoned.state.job).toBe(null);
+  });
+
   it("projects Timeline completion refresh debt and new work identities without changing retained receipts", async () => {
     const f = fixture();
     const linked = {
@@ -382,7 +559,7 @@ describe("retained Evidence file recovery", () => {
     expect(f.transport.slot.mock.calls[0]?.[0]).toBe(
       f.transport.slot.mock.calls[1]?.[0],
     );
-    expect(upload.isFinalizable).toBe(true);
+    expect(upload.isFinalizable).toBe(false);
     expect(await upload.prepare(authority)).toBe(false);
     expect(f.transport.transfer).toHaveBeenCalledTimes(1);
     expect(f.transport.transfer.mock.calls[0]?.[1]).toBe(f.file);

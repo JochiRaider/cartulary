@@ -95,9 +95,19 @@ export function useTimelineRowMutationCoordinator({
   selectedRowIdRef.current = selectedRowId;
   const conflictQueueRef = useRef<Record<string, LocalConflictState>>({});
   const createdRowPresentationRef = useRef<{
-    recordId: string | null;
+    recordIds: readonly string[];
     scopeKey: string;
-  }>({ recordId: null, scopeKey: createdRowPresentationScopeKey });
+  }>({ recordIds: [], scopeKey: createdRowPresentationScopeKey });
+  const presentationScopeRef = useRef(createdRowPresentationScopeKey);
+  const createdPresentationGeneration = useRef(0);
+  if (presentationScopeRef.current !== createdRowPresentationScopeKey) {
+    presentationScopeRef.current = createdRowPresentationScopeKey;
+    createdRowPresentationRef.current = {
+      recordIds: [],
+      scopeKey: createdRowPresentationScopeKey,
+    };
+    createdPresentationGeneration.current++;
+  }
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -211,8 +221,9 @@ export function useTimelineRowMutationCoordinator({
         setSelectedRowId(effects.selectionUpdate.recordId);
       }
       if (effects.createdRecordId !== null) {
+        createdPresentationGeneration.current++;
         createdRowPresentationRef.current = {
-          recordId: effects.createdRecordId,
+          recordIds: [effects.createdRecordId],
           scopeKey: createdRowPresentationScopeKey,
         };
       }
@@ -355,17 +366,40 @@ export function useTimelineRowMutationCoordinator({
     ],
   );
 
-  const currentCreatedRowPresentationRecordId = useCallback(
+  const currentCreatedRowPresentationRecordIds = useCallback(
     () =>
       createdRowPresentationRef.current.scopeKey ===
       createdRowPresentationScopeKey
-        ? createdRowPresentationRef.current.recordId
-        : null,
+        ? createdRowPresentationRef.current.recordIds
+        : [],
     [createdRowPresentationScopeKey],
   );
 
+  // Capture at the gesture, so a response cannot pin rows into a newer query.
+  // The retained batch owner applies committed rows independently of this
+  // ephemeral presentation obligation.
+  const captureCreatedBatchPresentation = useCallback(() => {
+    const scopeKey = createdRowPresentationScopeKey;
+    const generation = ++createdPresentationGeneration.current;
+    return (recordIds: readonly string[]) => {
+      if (
+        !mountedRef.current ||
+        presentationScopeRef.current !== scopeKey ||
+        generation !== createdPresentationGeneration.current ||
+        recordIds.length === 0
+      )
+        return false;
+      createdRowPresentationRef.current = {
+        recordIds: [...new Set(recordIds)],
+        scopeKey,
+      };
+      return true;
+    };
+  }, [createdRowPresentationScopeKey]);
+
   return {
     commands: {
+      captureCreatedBatchPresentation,
       acceptCommittedTimelineRow,
       acceptCommittedTimelineRows,
       acceptTimelineActionResult,
@@ -392,7 +426,7 @@ export function useTimelineRowMutationCoordinator({
       collaborationAdmission,
       queryAdmission: {
         beginLoad,
-        currentCreatedRowPresentationRecordId,
+        currentCreatedRowPresentationRecordIds,
         currentCommittedTimelineRow,
         currentMutationEpoch,
         hasLoadedRows,

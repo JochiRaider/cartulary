@@ -22,11 +22,11 @@ func TestReportingContributionCharacterization_Unit(t *testing.T) {
 	reader := &reportingCharacterizationReader{
 		tasks: []taskprojection.TaskDerivedFact{{
 			RecordID: taskID,
-			Value:    map[string]any{"task.status": "open"},
+			Value:    map[string]any{"status": "open"},
 		}},
 		decisions: []taskprojection.DecisionDerivedFact{{
 			RecordID: decisionID,
-			Value:    map[string]any{"decision.status": "approved"},
+			Value:    map[string]any{"status": "approved"},
 		}},
 	}
 	contribution, err := NewReportingContribution(reader)

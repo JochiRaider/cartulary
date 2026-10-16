@@ -109,7 +109,7 @@ func TestRollbackDecompositionBoundaries_Unit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read rollback applier %s: %v", path, err)
 		}
-		for _, token := range []string{".appender.", "a.rebuildProjectionsTx("} {
+		for _, token := range []string{".appender.", "a.refreshProjectionsTx("} {
 			if strings.Contains(string(apply), token) {
 				t.Fatalf("rollback applier %s bypasses publication seam with %q", path, token)
 			}

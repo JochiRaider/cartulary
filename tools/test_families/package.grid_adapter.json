@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "package.grid_adapter",
   "rows": [
     {
@@ -841,6 +841,31 @@
       "service_dependencies": []
     },
     {
+      "row_id": "package.grid_adapter.regression.draft_clipboard_insertion",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.draft_clipboard_insertion"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/index.test.tsx",
+        "titles": [
+          "grid-adapter separates recordless table insertion from native draft clipboard editing"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "package.grid_adapter.regression.frozen_column_placement",
       "owner_id": "package.grid_adapter",
       "family_id": "package.grid_adapter.regression",
@@ -1153,6 +1178,32 @@
           "semantic focus requests waits for registration and acknowledges only the declared primary control"
         ],
         "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "package.grid_adapter.regression.source_index_test_tsx_acaaa93e3d",
+      "owner_id": "package.grid_adapter",
+      "family_id": "package.grid_adapter.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "package.grid_adapter.verification.adapter_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/grid-adapter/src/index.test.tsx",
+        "project_id": "browser-unit",
+        "titles": [
+          "grid-adapter applies the same closed operational-state retention and composition policy in production and test support",
+          "grid-adapter keeps test-support draft focus and committed measurement semantic"
+        ]
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",

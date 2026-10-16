@@ -466,6 +466,19 @@ export class WorkbookRecordHistoryOwner {
       reviewFailure: false,
     });
     this.bindings.set(id, binding);
+    if (
+      intent.pending.kind === "rollback" &&
+      typeof performance?.mark === "function"
+    ) {
+      performance.mark("cartulary.workbook.history_action_accepted", {
+        detail: {
+          recordId: intent.subject.recordId,
+          rowVersion: intent.pending.rowVersion,
+          action: intent.pending.action,
+          viewSchemaId: intent.subject.viewSchemaId,
+        },
+      });
+    }
     this.publish();
     return attempt;
   }

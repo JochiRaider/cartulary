@@ -3,7 +3,8 @@ import type { OrdinaryCreateContribution } from "../ordinary/ordinaryCreateContr
 import { prepareOrdinaryCreateFields } from "../ordinary/prepareOrdinaryCreateFields";
 export const entityOrdinaryCreate: OrdinaryCreateContribution = {
   views: ["cartulary.view.hosts.v1", "cartulary.view.identities.v1"],
-  referenceViews: () => [],
+  referenceViews: (field) =>
+    field.fieldKey.endsWith("_party_ids") ? ["cartulary.view.parties.v1"] : [],
   prepare: (contract, values, id) =>
     prepareOrdinaryCreateFields(contract, values, id, {
       scalar: (_field, raw) => {

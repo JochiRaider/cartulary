@@ -1,0 +1,21 @@
+{
+  "name": "@cartulary/report-renderer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.15.0"
+  },
+  "dependencies": {
+    "@slidev/cli": "53.0.0",
+    "@slidev/theme-default": "0.25.0",
+    "markdown-it": "14.3.2",
+    "mermaid": "12.2.0",
+    "pdf-lib": "1.17.1",
+    "playwright-chromium": "1.63.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.0",
+    "vitest": "4.1.4"
+  }
+}

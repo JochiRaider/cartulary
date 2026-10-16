@@ -13,11 +13,46 @@
       ]
     },
     {
+      "verification_id": "module.reference_data.verification.import_progress_measurement",
+      "behavior_class": "product",
+      "profile": "extension.reference_pack",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
       "verification_id": "module.reference_data.verification.incident_portability_refs",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["artifact_audit", "go_test"],
+      "evidence_kinds": [
+        "artifact_audit",
+        "go_test"
+      ],
       "public_target": "test-fast"
+    },
+    {
+      "verification_id": "module.reference_data.verification.refresh_progress_measurement",
+      "behavior_class": "product",
+      "profile": "extension.reference_pack",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.reference_data.verification.reverify_progress_measurement",
+      "behavior_class": "product",
+      "profile": "extension.reference_pack",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.reference_data.verification.source_contracts",
+      "behavior_class": "product",
+      "profile": "extension.reference_pack",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

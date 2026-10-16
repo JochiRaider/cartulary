@@ -525,6 +525,12 @@ Design contract. Each density mode MUST define its row rhythm through `rowHeight
 
 Design contract. Grid-mode cell editors MUST fill the whole grid cell. The grid cell owns the outer cell box and border; text input, textarea, select, collection input, and read-only focus-anchor controls inside the cell MUST use the active density metrics, fill the available inline and block size, and MUST NOT add fixed inner minimum heights or grid-mode padding that creates dead space between the control and the cell boundary. Inspector-mode editors and non-grid detail editors MAY keep form-style padding and multiline height independent from grid density.
 
+Design contract. The recordless Timeline insertion cell defined by Core 03
+REQ-03-147 MUST show the shared focus ring when focused and announce its
+table-paste and Enter-to-edit actions. Its native editor keeps the same density
+and geometry. The insertion cell does not add a sequential tab stop, a fake
+record selection, or a separate row-height mode.
+
 Design contract. Workbook grids use fixed-height rows and the same virtualized interaction posture at every result size. Variable-height rows are valid only in inspector sections, preview areas, or non-grid detail regions. Omission of variable-height grid rows is conformant.
 
 ### 3.10 Iconography profile
@@ -2751,7 +2757,7 @@ Non-goal. The items in this table are intentionally outside this revision. Omiss
 | Dedicated high-contrast theme | Not supported as a separate theme. | Omission is conformant; required `dark_graphite` accessibility criteria still apply. |
 | Account profile fields beyond display name | Not supported. | No editable email/login identifier, locale, time-zone, notification, theme, global default incident, global `home_sheet_ref`, custom density, or row-height controls. |
 | Mobile/touch-specific design | Not supported. | Below-minimum inline-size behavior follows §7.4 and does not claim design conformance. |
-| Report/export visual design | Not owned by this design contract. | Snapshot/reporting UI requires a separate design artifact or future section. |
+| Report/export artifact design and full builder | Not owned by this design contract. | The limited job-control companion in §16.5 does not define rendered artifact design or a report builder. |
 | External visual reference board | Non-authoritative. | Inspiration only; it cannot override token, state, or surface contracts. |
 | All-surfaces-as-primary-tabs shell | Rejected for this revision. | Required system views remain in footer `More views`; built-in footer tabs remain primary at base viewport. |
 | Command-palette-only system-view access | Rejected for this revision. | Required system views MUST be reachable from the shell. |
@@ -2767,7 +2773,7 @@ Non-goal. Future-profile candidates MUST NOT be claimed as current behavior from
 | Light theme | Complete token registry, contrast matrix, visual fixtures, switching persistence, and fallback behavior. |
 | Dedicated high-contrast theme | Complete token registry, forced-color behavior, assistive-technology fixture set, and contrast criteria. |
 | Mobile/touch profile | Breakpoints, gestures, target sizes, keyboard alternatives, inspector behavior, and fixtures. |
-| Snapshot/reporting UI | Release states, redaction state, approval artifacts, rendered-output status, and fixture rules. |
+| Full reporting and composition UI | External release review, approval artifacts, artifact browsing, builder and fixture rules beyond §16.5. |
 | Expanded icon package authority | Exact package, license posture, semantic icon ID registry, and fixture coverage. |
 
 ### 16.4 Blocking design decisions
@@ -2918,3 +2924,28 @@ Document adoption MUST NOT substitute for those downstream results.
 | `D-AC-084` | §11 and §12.7 | Relationship and Evidence state matrix | Summaries retain source identity, selected controls are local, and accepted information, access and attachment/recovery remain distinct. | Partial reads imply absence, collapsed work disappears, or counts imply access. |
 | `D-AC-085` | §12.4 and §12.7 | History and Workflow action review | Attribution, UTC time and complete semantic units are readable; actions retain canonical identity/order and explicit local scope; saved subject and creation mode differ. | Text-derived eligibility, incomplete History, duplicate dispatch or ambiguous operation scope. |
 | `D-AC-086` | §6.2, §12.1–12.7 and §15 | Shared role and visual review | Complete typography/component roles reach migrated forms; first-viewport Details, attached editing and retained-work captures use the production renderer. | Competing styles, unsupported token literals, inaccessible state or missing first-viewport evidence. |
+
+### 16.5 Proposed Reporting job-control companion
+
+This candidate accompanies Core 03 REQ-03-287b and coordinated Reporting adoption.
+Use the existing nonmodal incident drawer, compact graphite tokens and ordinary
+keyboard buttons. `Snapshots and reports` is a conditional incident-control item;
+it appears only with current supported claimed snapshot and release route families.
+The drawer offers `Create snapshot` followed by `Render internal report` after a
+verified snapshot. Internal-draft scope is visible before admission. It offers no
+external-release or approval action.
+
+Show queued/running/cancellation-requested and terminal Job states as text,
+completed/total steps (or an explicit unknown total), `Refresh job status`, and
+`Cancel job`. Pending admission, unavailable authority, uncertain request, paused
+observation, denied role and failure have distinct accessible feedback. Exact
+request and cancellation recovery are explicit actions. Use one polite status
+announcement per state transition and one alert for a new failure. Opening or
+closing this drawer preserves grid edits and the existing drawer focus contract;
+progress must not capture focus or use a modal overlay. Snapshot and release IDs
+are copyable output identity, never navigation invented from an artifact role.
+
+Validation covers current role/profile gating, drawer/session lifetime, exact
+request replay, canceled and failed jobs, keyboard access, ordinary grid editing
+while progress is visible, and the Core 04 timing predicate. Full builder, release
+approval and rendered-artifact design remain separate work.

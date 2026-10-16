@@ -37,7 +37,7 @@ type collectionFieldPatchApplier func(
 	[]CollectionAction,
 	uuid.UUID,
 	time.Time,
-) ([]AliasAppliedMutation, error)
+) ([]collectionMutation, error)
 
 type entityFieldDescriptor struct {
 	viewSchemaID string
@@ -236,7 +236,7 @@ func (registry entityFieldRegistry) applyHostPatch(
 	now time.Time,
 	record *HostRecord,
 	change PatchChange,
-) (bool, []AliasAppliedMutation, error) {
+) (bool, []collectionMutation, error) {
 	descriptor, ok := registry.lookup(entitycontract.HostsViewSchemaID, change.FieldKey)
 	if !ok {
 		return false, nil, ErrNoEffectivePatchChange
@@ -268,7 +268,7 @@ func (registry entityFieldRegistry) applyIdentityPatch(
 	now time.Time,
 	record *IdentityRecord,
 	change PatchChange,
-) (bool, []AliasAppliedMutation, error) {
+) (bool, []collectionMutation, error) {
 	descriptor, ok := registry.lookup(entitycontract.IdentitiesViewSchemaID, change.FieldKey)
 	if !ok {
 		return false, nil, ErrNoEffectivePatchChange
@@ -293,8 +293,21 @@ func (registry entityFieldRegistry) applyIdentityPatch(
 
 func entityFieldDescriptors() []entityFieldDescriptor {
 	aliasPatch := func(entityType string) collectionFieldPatchApplier {
-		return func(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actions []CollectionAction, actorID uuid.UUID, now time.Time) ([]AliasAppliedMutation, error) {
-			return applyEntityAliasActionsTx(ctx, tx, incidentID, recordID, entityType, actions, actorID, now)
+		return func(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actions []CollectionAction, actorID uuid.UUID, now time.Time) ([]collectionMutation, error) {
+			applied, err := applyEntityAliasActionsTx(ctx, tx, incidentID, recordID, entityType, actions, actorID, now)
+			if err != nil {
+				return nil, err
+			}
+			result := make([]collectionMutation, 0, len(applied))
+			for _, m := range applied {
+				result = append(result, collectionMutation{targetKind: "entity_alias", targetID: m.TargetID, operationKind: m.OperationKind, beforeValue: m.BeforeValue, afterValue: m.AfterValue})
+			}
+			return result, nil
+		}
+	}
+	partyAssignmentPatch := func(field string) collectionFieldPatchApplier {
+		return func(ctx context.Context, tx pgx.Tx, incidentID, recordID uuid.UUID, actions []CollectionAction, actorID uuid.UUID, now time.Time) ([]collectionMutation, error) {
+			return applyPartyAssignmentActionsTx(ctx, tx, incidentID, recordID, field, actions, actorID, now)
 		}
 	}
 	return []entityFieldDescriptor{
@@ -317,6 +330,15 @@ func entityFieldDescriptors() []entityFieldDescriptor {
 		hostField("host.criticality", entityFieldPatchDirect, func(record HostRecord) any { return derefString(record.Criticality) }, patchOptionalHostString(func(record *HostRecord) **string { return &record.Criticality })),
 		hostField("host.containment_status", entityFieldPatchDirect, func(record HostRecord) any { return derefString(record.ContainmentStatus) }, patchOptionalHostString(func(record *HostRecord) **string { return &record.ContainmentStatus })),
 		hostField("host.edited_at", entityFieldPatchNone, func(record HostRecord) any { return formatTimestamp(record.UpdatedAt) }, nil),
+		hostCollectionField("host.subject_party_ids", func(record HostRecord) any {
+			return partyAssignmentCollectionValue(record.PartyAssignments["host.subject_party_ids"])
+		}, partyAssignmentPatch("host.subject_party_ids")),
+		hostCollectionField("host.responsible_party_ids", func(record HostRecord) any {
+			return partyAssignmentCollectionValue(record.PartyAssignments["host.responsible_party_ids"])
+		}, partyAssignmentPatch("host.responsible_party_ids")),
+		hostCollectionField("host.observer_party_ids", func(record HostRecord) any {
+			return partyAssignmentCollectionValue(record.PartyAssignments["host.observer_party_ids"])
+		}, partyAssignmentPatch("host.observer_party_ids")),
 
 		identityField("identity.display_name", entityFieldPatchDirect, func(record IdentityRecord) any { return record.DisplayName }, patchRequiredIdentityString(func(record *IdentityRecord) *string { return &record.DisplayName })),
 		identityField("identity.aad_object_id", entityFieldPatchNone, func(record IdentityRecord) any { return derefString(record.AADObjectID) }, nil),
@@ -337,6 +359,15 @@ func entityFieldDescriptors() []entityFieldDescriptor {
 		identityField("identity.mfa_state", entityFieldPatchDirect, func(record IdentityRecord) any { return derefString(record.MFAState) }, patchOptionalIdentityString(func(record *IdentityRecord) **string { return &record.MFAState })),
 		identityField("identity.reset_status", entityFieldPatchDirect, func(record IdentityRecord) any { return derefString(record.ResetStatus) }, patchOptionalIdentityString(func(record *IdentityRecord) **string { return &record.ResetStatus })),
 		identityField("identity.edited_at", entityFieldPatchNone, func(record IdentityRecord) any { return formatTimestamp(record.UpdatedAt) }, nil),
+		identityCollectionField("identity.subject_party_ids", func(record IdentityRecord) any {
+			return partyAssignmentCollectionValue(record.PartyAssignments["identity.subject_party_ids"])
+		}, partyAssignmentPatch("identity.subject_party_ids")),
+		identityCollectionField("identity.responsible_party_ids", func(record IdentityRecord) any {
+			return partyAssignmentCollectionValue(record.PartyAssignments["identity.responsible_party_ids"])
+		}, partyAssignmentPatch("identity.responsible_party_ids")),
+		identityCollectionField("identity.observer_party_ids", func(record IdentityRecord) any {
+			return partyAssignmentCollectionValue(record.PartyAssignments["identity.observer_party_ids"])
+		}, partyAssignmentPatch("identity.observer_party_ids")),
 	}
 }
 

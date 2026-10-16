@@ -13,7 +13,10 @@ import {
   workbookQuietCommandStyle,
   workbookTypography,
 } from "../../components/workbookFormStyles";
-import { EvidenceFileRecovery } from "../../features/evidence/EvidenceFileRecovery";
+import {
+  EvidenceFileRecovery,
+  EvidenceVerificationProgress,
+} from "../../features/evidence/EvidenceFileRecovery";
 import type {
   TimelineFileSnapshot,
   WorkbookTimelineFileOwner,
@@ -101,6 +104,7 @@ export function TimelineAttachmentDetails({
         onConfirmReview={() => owner.confirmReview(entry.key)}
         onReview={() => void owner.review(entry.key)}
         onResume={() => void owner.resume(entry.key)}
+        onCancelVerification={() => void owner.cancelVerification(entry.key)}
         onFreshSlot={() => owner.freshSlot(entry.key)}
         onNewId={() => owner.newRequestId(entry.key)}
         onDiscard={() => owner.discard(entry.key)}
@@ -286,6 +290,29 @@ export function TimelineAttachmentFeedback({
                   progress, {completed} completed
                 </span>
               </button>
+              {!open
+                ? files
+                    .filter(
+                      (entry) =>
+                        ![
+                          "idle",
+                          "verified",
+                          "failed",
+                          "canceled",
+                          "rejected",
+                        ].includes(entry.verification.phase),
+                    )
+                    .map((entry) => (
+                      <EvidenceVerificationProgress
+                        key={entry.workId}
+                        filename={entry.filename}
+                        verification={entry.verification}
+                        onCancel={() =>
+                          void owner.cancelVerification(entry.key)
+                        }
+                      />
+                    ))
+                : null}
               <div id={detailsId} hidden={!open} style={{ flexShrink: 0 }}>
                 {open ? (
                   <TimelineAttachmentDetails

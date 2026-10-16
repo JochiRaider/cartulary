@@ -4288,6 +4288,122 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.evidence-blob-verifications.evidence-blob-verifications-blob-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_verifications.evidence_blob_verifications_blob_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-verifications",
+        "table.public.object-blobs"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-verifications.evidence-blob-verifications-content-type-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_verifications.evidence_blob_verifications_content_type_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-verifications"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-verifications.evidence-blob-verifications-lease-fkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_verifications.evidence_blob_verifications_lease_fkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-verifications",
+        "table.public.evidence-object-upload-leases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-verifications.evidence-blob-verifications-pkey",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_verifications.evidence_blob_verifications_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-verifications"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-verifications.evidence-blob-verifications-sha256-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_verifications.evidence_blob_verifications_sha256_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-verifications"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.evidence-blob-verifications.evidence-blob-verifications-size-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.evidence_blob_verifications.evidence_blob_verifications_size_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-verifications"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.evidence-custody-events.evidence-custody-events-actor-user-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.evidence_custody_events.evidence_custody_events_actor_user_id_fkey",
@@ -12247,25 +12363,6 @@
       "approval": null
     },
     {
-      "object_id": "constraint.public.object-blobs.object-blobs-finalize-attempt-count-check",
-      "object_kind": "constraint",
-      "qualified_name": "public.object_blobs.object_blobs_finalize_attempt_count_check",
-      "management_class": "cartulary_authored",
-      "source_owner": "evidence",
-      "migration_version": 17,
-      "migration_file": "00017_evidence.sql",
-      "dependency_object_ids": [
-        "table.public.object-blobs"
-      ],
-      "runtime_access_class": "not_applicable",
-      "recovery_access_class": "not_applicable",
-      "extension_profile_id": null,
-      "recovery_classification": "not_applicable",
-      "sqlc_input": false,
-      "foreign_key_index_status": "not_applicable",
-      "approval": null
-    },
-    {
       "object_id": "constraint.public.object-blobs.object-blobs-incident-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.object_blobs.object_blobs_incident_id_fkey",
@@ -12348,8 +12445,8 @@
       "qualified_name": "public.object_blobs.object_blobs_terminal_reason_check",
       "management_class": "cartulary_authored",
       "source_owner": "evidence",
-      "migration_version": 17,
-      "migration_file": "00017_evidence.sql",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
       "dependency_object_ids": [
         "table.public.object-blobs"
       ],
@@ -17942,6 +18039,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.reporting-composition-preview-output-files.reporting-preview-public-members-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_composition_preview_output_files.reporting_preview_public_members_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-composition-preview-output-files"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.reporting-composition-preview-outputs.reporting-composition-preview-outputs-attempt-fk",
       "object_kind": "constraint",
       "qualified_name": "public.reporting_composition_preview_outputs.reporting_composition_preview_outputs_attempt_fk",
@@ -18096,6 +18212,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.reporting-composition-preview-outputs.reporting-preview-redaction-manifest-v5-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_composition_preview_outputs.reporting_preview_redaction_manifest_v5_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 88,
+      "migration_file": "00088_reporting_container_redaction.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-composition-preview-outputs"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.reporting-imported-artifact-files.reporting-imported-artifact-bytes-ck",
       "object_kind": "constraint",
       "qualified_name": "public.reporting_imported_artifact_files.reporting_imported_artifact_bytes_ck",
@@ -18231,6 +18366,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.reporting-job-payloads.reporting-graph-input-v1-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_job_payloads.reporting_graph_input_v1_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 81,
+      "migration_file": "00081_reporting_retained_graph_sources.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-job-payloads"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.reporting-job-payloads.reporting-job-payloads-actor-user-id-fkey",
       "object_kind": "constraint",
       "qualified_name": "public.reporting_job_payloads.reporting_job_payloads_actor_user_id_fkey",
@@ -18296,8 +18450,8 @@
       "qualified_name": "public.reporting_job_payloads.reporting_job_payloads_job_kind_check",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 23,
-      "migration_file": "00023_reporting.sql",
+      "migration_version": 71,
+      "migration_file": "00071_reporting_preview_admission.sql",
       "dependency_object_ids": [
         "table.public.reporting-job-payloads"
       ],
@@ -18319,6 +18473,159 @@
       "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-job-payloads"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-job-payloads.reporting-render-failure-summary-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_job_payloads.reporting_render_failure_summary_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 74,
+      "migration_file": "00074_reporting_failure_diagnostics.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-job-payloads"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-job-payloads.reporting-render-recipe-v1-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_job_payloads.reporting_render_recipe_v1_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 94,
+      "migration_file": "00094_reporting_render_recipe.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-job-payloads"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-job-payloads.reporting-snapshot-admission-v1-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_job_payloads.reporting_snapshot_admission_v1_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 92,
+      "migration_file": "00092_reporting_snapshot_job_admission.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-job-payloads"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-job-payloads.reporting-template-manifest-admission-v1-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_job_payloads.reporting_template_manifest_admission_v1_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 89,
+      "migration_file": "00089_reporting_template_pack_admission.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-job-payloads"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-preview-reveal-maps.reporting-preview-reveal-maps-bytes-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_preview_reveal_maps.reporting_preview_reveal_maps_bytes_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-preview-reveal-maps"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-preview-reveal-maps.reporting-preview-reveal-maps-digest-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_preview_reveal_maps.reporting_preview_reveal_maps_digest_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-preview-reveal-maps"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-preview-reveal-maps.reporting-preview-reveal-maps-parent-fk",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_preview_reveal_maps.reporting_preview_reveal_maps_parent_fk",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-composition-preview-outputs",
+        "table.public.reporting-preview-reveal-maps"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-preview-reveal-maps.reporting-preview-reveal-maps-pk",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_preview_reveal_maps.reporting_preview_reveal_maps_pk",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-preview-reveal-maps"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
@@ -18423,6 +18730,102 @@
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-release-reveal-maps.reporting-release-reveal-maps-bytes-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_release_reveal_maps.reporting_release_reveal_maps_bytes_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-release-reveal-maps"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-release-reveal-maps.reporting-release-reveal-maps-digest-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_release_reveal_maps.reporting_release_reveal_maps_digest_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-release-reveal-maps"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-release-reveal-maps.reporting-release-reveal-maps-parent-fk",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_release_reveal_maps.reporting_release_reveal_maps_parent_fk",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-release-reveal-maps",
+        "table.public.reporting-render-bundles"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "covered",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-release-reveal-maps.reporting-release-reveal-maps-pk",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_release_reveal_maps.reporting_release_reveal_maps_pk",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-release-reveal-maps"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-releases.reporting-redaction-manifest-v5-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_releases.reporting_redaction_manifest_v5_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 88,
+      "migration_file": "00088_reporting_container_redaction.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-releases"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
       "approval": null
     },
     {
@@ -18658,6 +19061,25 @@
       "approval": null
     },
     {
+      "object_id": "constraint.public.reporting-render-bundle-files.reporting-bundle-public-members-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_render_bundle_files.reporting_bundle_public_members_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-render-bundle-files"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "constraint.public.reporting-render-bundle-files.reporting-render-bundle-files-bundle-path-check",
       "object_kind": "constraint",
       "qualified_name": "public.reporting_render_bundle_files.reporting_render_bundle_files_bundle_path_check",
@@ -18830,19 +19252,19 @@
       "approval": null
     },
     {
-      "object_id": "constraint.public.reporting-render-bundles.reporting-render-bundles-bundle-manifest-json-check",
+      "object_id": "constraint.public.reporting-render-bundles.reporting-bundle-model-identity-v3-ck",
       "object_kind": "constraint",
-      "qualified_name": "public.reporting_render_bundles.reporting_render_bundles_bundle_manifest_json_check",
+      "qualified_name": "public.reporting_render_bundles.reporting_bundle_model_identity_v3_ck",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 47,
-      "migration_file": "00047_reporting_reference_pack_binding.sql",
+      "migration_version": 87,
+      "migration_file": "00087_reporting_bundle_model_identity.sql",
       "dependency_object_ids": [
         "table.public.reporting-render-bundles"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
-      "extension_profile_id": "snapshot_reporting",
+      "extension_profile_id": null,
       "recovery_classification": "not_applicable",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
@@ -18945,13 +19367,32 @@
       "approval": null
     },
     {
-      "object_id": "constraint.public.reporting-snapshots.reporting-snapshot-identity-v1-ck",
+      "object_id": "constraint.public.reporting-render-bundles.reporting-structured-redaction-v1-ck",
       "object_kind": "constraint",
-      "qualified_name": "public.reporting_snapshots.reporting_snapshot_identity_v1_ck",
+      "qualified_name": "public.reporting_render_bundles.reporting_structured_redaction_v1_ck",
       "management_class": "cartulary_authored",
       "source_owner": "reporting",
-      "migration_version": 63,
-      "migration_file": "00063_reporting_admitted_model_identity.sql",
+      "migration_version": 91,
+      "migration_file": "00091_reporting_structured_redaction.sql",
+      "dependency_object_ids": [
+        "table.public.reporting-render-bundles"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "constraint.public.reporting-snapshots.reporting-snapshot-capture-v1-ck",
+      "object_kind": "constraint",
+      "qualified_name": "public.reporting_snapshots.reporting_snapshot_capture_v1_ck",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 93,
+      "migration_file": "00093_reporting_snapshot_source_capture.sql",
       "dependency_object_ids": [
         "table.public.reporting-snapshots"
       ],
@@ -23033,6 +23474,45 @@
       "dependency_object_ids": [
         "constraint.public.evidence-blob-cleanup-claims.evidence-blob-cleanup-claims-pkey",
         "table.public.evidence-blob-cleanup-claims"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-blob-verifications-lease-fk-idx",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_blob_verifications_lease_fk_idx",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
+      "dependency_object_ids": [
+        "table.public.evidence-blob-verifications"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": null,
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.evidence-blob-verifications-pkey",
+      "object_kind": "index",
+      "qualified_name": "public.evidence_blob_verifications_pkey",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
+      "dependency_object_ids": [
+        "constraint.public.evidence-blob-verifications.evidence-blob-verifications-pkey",
+        "table.public.evidence-blob-verifications"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
@@ -28516,6 +28996,26 @@
       "approval": null
     },
     {
+      "object_id": "index.public.reporting-preview-reveal-maps-pk",
+      "object_kind": "index",
+      "qualified_name": "public.reporting_preview_reveal_maps_pk",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "constraint.public.reporting-preview-reveal-maps.reporting-preview-reveal-maps-pk",
+        "table.public.reporting-preview-reveal-maps"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "index.public.reporting-release-approvals-actor-user-id-fk-idx",
       "object_kind": "index",
       "qualified_name": "public.reporting_release_approvals_actor_user_id_fk_idx",
@@ -28584,6 +29084,26 @@
       "migration_file": "00023_reporting.sql",
       "dependency_object_ids": [
         "table.public.reporting-release-approvals"
+      ],
+      "runtime_access_class": "not_applicable",
+      "recovery_access_class": "not_applicable",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "index.public.reporting-release-reveal-maps-pk",
+      "object_kind": "index",
+      "qualified_name": "public.reporting_release_reveal_maps_pk",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [
+        "constraint.public.reporting-release-reveal-maps.reporting-release-reveal-maps-pk",
+        "table.public.reporting-release-reveal-maps"
       ],
       "runtime_access_class": "not_applicable",
       "recovery_access_class": "not_applicable",
@@ -31364,8 +31884,8 @@
       "qualified_name": "public.evidence_reject_cleanup_claimed_blob_update",
       "management_class": "cartulary_authored",
       "source_owner": "evidence",
-      "migration_version": 31,
-      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
       "dependency_object_ids": [],
       "runtime_access_class": "routine_private",
       "recovery_access_class": "routine_private",
@@ -32323,6 +32843,23 @@
       "recovery_access_class": "table_restore",
       "extension_profile_id": null,
       "recovery_classification": "not_applicable",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "table.public.evidence-blob-verifications",
+      "object_kind": "table",
+      "qualified_name": "public.evidence_blob_verifications",
+      "management_class": "cartulary_authored",
+      "source_owner": "evidence",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "table_read_write",
+      "recovery_access_class": "table_restore",
+      "extension_profile_id": null,
+      "recovery_classification": "excluded_security_state",
       "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
       "approval": null
@@ -33909,6 +34446,23 @@
       "approval": null
     },
     {
+      "object_id": "table.public.reporting-preview-reveal-maps",
+      "object_kind": "table",
+      "qualified_name": "public.reporting_preview_reveal_maps",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "table_append_only",
+      "recovery_access_class": "table_restore",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "authoritative_required",
+      "sqlc_input": false,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
       "object_id": "table.public.reporting-release-approvals",
       "object_kind": "table",
       "qualified_name": "public.reporting_release_approvals",
@@ -33922,6 +34476,23 @@
       "extension_profile_id": "snapshot_reporting",
       "recovery_classification": "authoritative_required",
       "sqlc_input": true,
+      "foreign_key_index_status": "not_applicable",
+      "approval": null
+    },
+    {
+      "object_id": "table.public.reporting-release-reveal-maps",
+      "object_kind": "table",
+      "qualified_name": "public.reporting_release_reveal_maps",
+      "management_class": "cartulary_authored",
+      "source_owner": "reporting",
+      "migration_version": 69,
+      "migration_file": "00069_reporting_sensitive_artifacts.sql",
+      "dependency_object_ids": [],
+      "runtime_access_class": "table_append_only",
+      "recovery_access_class": "table_restore",
+      "extension_profile_id": "snapshot_reporting",
+      "recovery_classification": "authoritative_required",
+      "sqlc_input": false,
       "foreign_key_index_status": "not_applicable",
       "approval": null
     },
@@ -34600,8 +35171,8 @@
       "qualified_name": "public.object_blobs.evidence_reject_cleanup_claimed_blob_update",
       "management_class": "cartulary_authored",
       "source_owner": "evidence",
-      "migration_version": 31,
-      "migration_file": "00031_evidence_blob_cleanup_claims.sql",
+      "migration_version": 95,
+      "migration_file": "00095_evidence_blob_verification.sql",
       "dependency_object_ids": [
         "table.public.object-blobs"
       ],

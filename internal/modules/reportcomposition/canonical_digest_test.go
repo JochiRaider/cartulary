@@ -56,7 +56,27 @@ func TestCompositionCanonicalDigests_Unit(t *testing.T) {
 			t.Fatal("inline validation accepted altered identity")
 		}
 	}
-	version := &VersionRecord{CanonicalComposition: data, CompositionSHA256: sha, CompositionVersion: 1}
+	version := &VersionRecord{CompositionID: record.CompositionID, CanonicalComposition: data, CompositionSHA256: sha, CompositionVersion: 1}
+	if !summaryValid(validationSummaryForVersion(record, *version)) {
+		t.Fatal("valid retained version rejected")
+	}
+	for _, change := range []func(*VersionRecord){
+		func(v *VersionRecord) { v.CompositionID = uuid.New() },
+		func(v *VersionRecord) { v.CompositionVersion++ },
+		func(v *VersionRecord) { v.CompositionSHA256 = strings.Repeat("0", 64) },
+		func(v *VersionRecord) {
+			object, _ := decodeCompositionObject(v.CanonicalComposition)
+			object["deck_ops"] = []any{map[string]any{"op_id": "bad", "op_kind": "raw_markdown", "on_unresolved": "fail", "payload": map[string]any{}}}
+			v.CanonicalComposition = resealRenderSource(t, object, "composition_sha256")
+			v.CompositionSHA256, _ = CompositionDigest(v.CanonicalComposition)
+		},
+	} {
+		altered := *version
+		change(&altered)
+		if summaryValid(validationSummaryForVersion(record, altered)) {
+			t.Fatal("retained version validation accepted changed identity or a rehashed invalid body")
+		}
+	}
 	for _, kind := range []string{"draft", "version"} {
 		var selected *VersionRecord
 		if kind == "version" {

@@ -126,7 +126,7 @@ SELECT
     p.timezone_name,
     p.external_ref,
     p.notes,
-    p.updated_at
+    r.updated_at
   FROM parties p
   JOIN records r
     ON r.incident_id = p.incident_id

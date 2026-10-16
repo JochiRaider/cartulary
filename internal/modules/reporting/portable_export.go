@@ -62,13 +62,13 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 	}
 	snapshots := map[string]reference_data.SetBinding{}
 	for _, s := range catalog.Snapshots {
-		model, _, err := decodePortableObject[SnapshotModel](retained[s.ModelPath], s.ModelSHA256)
+		model, _, err := decodePortableObject[snapshotCapture](retained[s.CapturePath], s.CaptureSHA256)
 		if err != nil {
 			return err
 		}
 		snapshots[s.SnapshotID] = model.ReferencePacks
 	}
-	rows, err := tx.Query(ctx, `SELECT snapshot_id,export_model_sha256,export_model_json FROM reporting_snapshots WHERE incident_id=$1 ORDER BY snapshot_id`, incident)
+	rows, err := tx.Query(ctx, `SELECT s.snapshot_id,s.source_capture_sha256,p.request_json->'source_capture' FROM reporting_snapshots s JOIN reporting_job_payloads p ON p.job_id=s.create_job_id WHERE s.incident_id=$1 ORDER BY s.snapshot_id`, incident)
 	if err != nil {
 		return err
 	}
@@ -80,8 +80,8 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 			rows.Close()
 			return err
 		}
-		model, data, err := decodePortableObject[SnapshotModel](raw, digest)
-		if err != nil || validateSnapshotModelIdentity(model) != nil || model.DerivationVersion != DerivationVersion || model.SnapshotID != id.String() || model.IncidentID != incident.String() {
+		model, data, err := decodePortableObject[snapshotCapture](raw, digest)
+		if err != nil || validateSnapshotCapture(model) != nil || model.DerivationVersion != DerivationVersion || model.SnapshotID != id.String() || model.IncidentID != incident.String() {
 			rows.Close()
 			return artifactport.ErrInvalid
 		}
@@ -93,13 +93,13 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 			rows.Close()
 			return artifactport.ErrInvalid
 		}
-		name := portableModelPath(id.String())
+		name := portableCapturePath(id.String())
 		if err := write(ctx, name, int64(len(data)), bytes.NewReader(data)); err != nil {
 			rows.Close()
 			return err
 		}
 		snapshots[id.String()] = model.ReferencePacks
-		catalog.Snapshots = append(catalog.Snapshots, portableSnapshot{SnapshotID: id.String(), ModelPath: name, ModelSHA256: digest})
+		catalog.Snapshots = append(catalog.Snapshots, portableSnapshot{SnapshotID: id.String(), CapturePath: name, CaptureSHA256: digest})
 	}
 	err = rows.Err()
 	rows.Close()
@@ -154,8 +154,9 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 		descriptor, manifest := release.descriptor, release.manifest
 		previous := ""
 		primary := false
+		publicArtifacts := []RenderBundleFile{}
 		for _, f := range manifest.Files {
-			if !portableMemberPath(f.Path) || f.Path <= previous || f.SizeBytes < 0 || !portableDigestPattern.MatchString(f.SHA256) || f.Role == "" || f.MediaType == "" {
+			if !portableMemberPath(f.Path) || f.Path <= previous || f.SizeBytes < 0 || !portableDigestPattern.MatchString(f.SHA256) || !shareableBundleMember(f) {
 				return artifactport.ErrInvalid
 			}
 			previous = f.Path
@@ -163,16 +164,12 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 			var data []byte
 			var object *string
 			var size int64
-			err := tx.QueryRow(ctx, `SELECT storage_kind,CASE WHEN $3 THEN inline_bytes ELSE NULL END,object_ref,file_sha256,size_bytes,role,media_type FROM reporting_render_bundle_files WHERE release_id=$1 AND bundle_path=$2`, descriptor.ReleaseID, f.Path, f.Role != renderBundleRoleSensitiveRevealMap).Scan(&kind, &data, &object, &digest, &size, &role, &media)
+			err := tx.QueryRow(ctx, `SELECT storage_kind,inline_bytes,object_ref,file_sha256,size_bytes,role,media_type FROM reporting_render_bundle_files WHERE release_id=$1 AND bundle_path=$2`, descriptor.ReleaseID, f.Path).Scan(&kind, &data, &object, &digest, &size, &role, &media)
 			if err != nil {
 				return err
 			}
 			if digest != f.SHA256 || size != f.SizeBytes || role != f.Role || media != f.MediaType {
 				return artifactport.ErrInvalid
-			}
-			if f.Role == renderBundleRoleSensitiveRevealMap {
-				catalog.OmittedFiles = append(catalog.OmittedFiles, portableOmission{ReleaseID: descriptor.ReleaseID, Path: f.Path, Reason: "sensitive_reveal_map"})
-				continue
 			}
 			var reader io.ReadCloser
 			switch kind {
@@ -198,7 +195,17 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 				return artifactport.ErrInvalid
 			}
 			h := sha256.New()
-			err = write(ctx, portableReleasePath(descriptor.ReleaseID, f.Path), size, io.TeeReader(io.LimitReader(reader, size+1), h))
+			var evidence bytes.Buffer
+			stream := io.TeeReader(io.LimitReader(reader, size+1), h)
+			capture := f.Role == renderBundleRoleRedactionManifest || f.Role == renderBundleRoleRedactionProfileView || f.Role == renderBundleRoleTokenManifest || f.Role == renderBundleRoleLocalAsset
+			if f.Role == renderBundleRoleLocalAsset && size > 50<<20 {
+				_ = reader.Close()
+				return artifactport.ErrInvalid
+			}
+			if capture {
+				stream = io.TeeReader(stream, &evidence)
+			}
+			err = write(ctx, portableReleasePath(descriptor.ReleaseID, f.Path), size, stream)
 			closeErr := reader.Close()
 			if err != nil {
 				return err
@@ -209,11 +216,14 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 			if hex.EncodeToString(h.Sum(nil)) != digest {
 				return artifactport.ErrInvalid
 			}
+			if capture {
+				publicArtifacts = append(publicArtifacts, RenderBundleFile{RenderBundleManifestFile: f, Bytes: evidence.Bytes()})
+			}
 			if f.Path == manifest.PrimaryPath && f.MediaType == manifest.PrimaryMediaType {
 				primary = true
 			}
 		}
-		if !primary {
+		if !primary || validatePublicRedactionArtifacts(manifest, publicArtifacts) != nil || validateBundleFilesSelfContained(publicArtifacts) != nil {
 			return artifactport.ErrInvalid
 		}
 		var count int
@@ -230,9 +240,6 @@ func (source PortableReferenceSource) ExportArtifactsTx(ctx context.Context, tx 
 	}
 	slices.SortFunc(catalog.Snapshots, func(a, b portableSnapshot) int { return strings.Compare(a.SnapshotID, b.SnapshotID) })
 	slices.SortFunc(catalog.Releases, func(a, b portableRelease) int { return strings.Compare(a.ReleaseID, b.ReleaseID) })
-	slices.SortFunc(catalog.OmittedFiles, func(a, b portableOmission) int {
-		return strings.Compare(a.ReleaseID+"\x00"+a.Path, b.ReleaseID+"\x00"+b.Path)
-	})
 	data, err := canonicaljson.Marshal(catalog)
 	if err != nil {
 		return err

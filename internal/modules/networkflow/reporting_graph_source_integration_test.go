@@ -12,6 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection/postgresresult"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
 	"github.com/JochiRaider/cartulary/internal/testutil/revisionsupport"
 )
 
@@ -72,7 +73,22 @@ func TestReportingGraphSourceValidatesLeasesReadsAndReleasesExactResult_Integrat
 		t.Fatalf("commit release admission transaction: %v", err)
 	}
 
-	loaded, err := source.ReadAndRenewLeasedResult(ctx, jobID, result.Binding, now.Add(time.Minute), now.Add(6*time.Minute))
+	readResult := func(ctx context.Context, job uuid.UUID, binding graphprojection.ResultBindingV2, observed, until time.Time) (graphsourcecontract.Result, error) {
+		tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			return graphsourcecontract.Result{}, err
+		}
+		defer tx.Rollback(ctx)
+		result, err := source.ReadAndRenewLeasedResultTx(ctx, tx, job, binding, observed, until)
+		if err != nil {
+			return graphsourcecontract.Result{}, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return graphsourcecontract.Result{}, err
+		}
+		return result, nil
+	}
+	loaded, err := readResult(ctx, jobID, result.Binding, now.Add(time.Minute), now.Add(6*time.Minute))
 	if err != nil {
 		t.Fatalf("read and renew leased result: %v", err)
 	}
@@ -89,23 +105,23 @@ func TestReportingGraphSourceValidatesLeasesReadsAndReleasesExactResult_Integrat
 			t.Fatal(err)
 		}
 		lease.LeaseID = storedID
-		if _, err := source.ReadAndRenewLeasedResult(ctx, jobID, result.Binding, now.Add(2*time.Minute), now.Add(3*time.Minute)); err != nil {
+		if _, err := readResult(ctx, jobID, result.Binding, now.Add(2*time.Minute), now.Add(3*time.Minute)); err != nil {
 			t.Fatalf("stored identity / shorter expiry: %v", err)
 		}
-		if _, err := source.ReadAndRenewLeasedResult(ctx, jobID, result.Binding, now.Add(3*time.Minute), now.Add(4*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
+		if _, err := readResult(ctx, jobID, result.Binding, now.Add(3*time.Minute), now.Add(4*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
 			t.Fatalf("expiry equality: %v", err)
 		}
 		wrong := result.Binding
 		wrong.NormalizedSourceSHA256 = testSHA4
-		if _, err := source.ReadAndRenewLeasedResult(ctx, jobID, wrong, now.Add(2*time.Minute), now.Add(8*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2BindingMismatch) {
+		if _, err := readResult(ctx, jobID, wrong, now.Add(2*time.Minute), now.Add(8*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2BindingMismatch) {
 			t.Fatalf("wrong exact binding: %v", err)
 		}
 		var expires time.Time
-		if err := harness.DB.QueryRow(ctx, `SELECT leased_until FROM graph_projection_result_leases WHERE lease_id = $1`, storedID).Scan(&expires); err != nil || !expires.Equal(now.Add(8*time.Minute)) {
-			t.Fatalf("successful renewal must survive failed read: %v %v", expires, err)
+		if err := harness.DB.QueryRow(ctx, `SELECT leased_until FROM graph_projection_result_leases WHERE lease_id = $1`, storedID).Scan(&expires); err != nil || !expires.Equal(now.Add(3*time.Minute)) {
+			t.Fatalf("failed result read must roll back renewal: %v %v", expires, err)
 		}
 		for _, wrongJob := range []uuid.UUID{uuid.Nil, uuid.New()} {
-			if content, err := source.ReadAndRenewLeasedResult(ctx, wrongJob, result.Binding, now.Add(2*time.Minute), now.Add(9*time.Minute)); err == nil || len(content.Projection.Vertices) != 0 {
+			if content, err := readResult(ctx, wrongJob, result.Binding, now.Add(2*time.Minute), now.Add(9*time.Minute)); err == nil || len(content.Projection.Vertices) != 0 {
 				t.Fatalf("wrong job disclosed content: %#v %v", content, err)
 			}
 		}
@@ -182,7 +198,7 @@ func TestReportingGraphSourceValidatesLeasesReadsAndReleasesExactResult_Integrat
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatalf("commit lease release: %v", err)
 	}
-	if _, err := source.ReadAndRenewLeasedResult(ctx, jobID, result.Binding, now.Add(2*time.Minute), now.Add(7*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
+	if _, err := readResult(ctx, jobID, result.Binding, now.Add(2*time.Minute), now.Add(7*time.Minute)); !errors.Is(err, graphprojection.ErrResultV2LeaseNotFound) {
 		t.Fatalf("released lease read error = %v", err)
 	}
 }

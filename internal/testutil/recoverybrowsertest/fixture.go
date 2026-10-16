@@ -676,6 +676,7 @@ func stringAt(value map[string]any, path ...string) (string, error) {
 
 func targetConfig(root string, origin string, runtimeEnv map[string]string) (configassembly.Loaded, error) {
 	env := map[string]string{
+		"CARTULARY__SNAPSHOT_REPORTING__RUNTIME_RECEIPT_PATH":         filepath.Clean(fixtures.Path("../../..", "build/report-renderer/installation.json")),
 		"CARTULARY__APPLICATION__PUBLIC_ORIGIN":                       origin,
 		"CARTULARY__ROOTS__DATABASE_STORAGE__PATH":                    filepath.Join(root, "database-storage"),
 		"CARTULARY__ROOTS__OBJECT_STORAGE__PATH":                      filepath.Join(root, "object-storage"),

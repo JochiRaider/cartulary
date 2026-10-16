@@ -17,6 +17,14 @@
       "evidence_kinds": [
         "go_test"
       ]
+    },
+    {
+      "verification_id": "platform.viewschema.verification.source_contracts",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

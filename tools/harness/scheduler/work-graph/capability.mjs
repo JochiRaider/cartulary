@@ -66,6 +66,19 @@ export function cpuCapacityWithSafetyMargin(cpuTokens, policy) {
   );
 }
 
+// This bounds worker planning inside an admitted parent without rewriting the
+// physical host snapshot. Native admission independently validates the lease.
+export function availableGoWorkerBudget(cpuTokens, environment) {
+  if (!Number.isSafeInteger(cpuTokens) || cpuTokens < 1) throw new Error("invalid Go CPU budget");
+  if (environment.CARTULARY_HOST_ADMISSION_LEASE === undefined) return cpuTokens;
+  const inherited = environment.CARTULARY_UNIT_CPU_TOKENS;
+  if (!environment.CARTULARY_HOST_ADMISSION_LEASE || typeof inherited !== "string" ||
+      !/^[1-9][0-9]*$/u.test(inherited) || !Number.isSafeInteger(Number(inherited))) {
+    throw new Error("invalid inherited Go CPU budget");
+  }
+  return Math.min(cpuTokens, Number(inherited));
+}
+
 function automaticCapacities({ registry, cpuTokens, detectedMemory, detectedProcessLimit }) {
   const policies = registry.capacity_policies;
   const processBound = cpuTokens * policies.process_slots.cpu_multiplier;

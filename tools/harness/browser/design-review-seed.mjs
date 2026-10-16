@@ -117,6 +117,15 @@ async function seedWithBrowser({ root, environment, privateDirectory, runRoot, p
         registerSecret(upload.href);
         const response = await context.request.fetch(new URL(upload.href, apiOrigin).href, { method: "PUT", timeout: 30000, maxRedirects: 0, data: bytes, headers: { ...upload.headers, Cookie: [...cookies].map(([key, value]) => `${key}=${value}`).join("; "), "X-CSRF-Token": cookies.get("cartulary_csrf") } });
         if (!response.ok()) throw new Error(`Investigation upload failed: HTTP ${response.status()}`);
+        let verification = await call("verifyObjectBlob", { client_txn_id: txn() }, { object_blob_id: blob.object_blob_id });
+        const verificationDeadline = Date.now() + 10_000;
+        while (verification.status !== "succeeded") {
+          if (["failed", "canceled"].includes(verification.status)) throw new Error("Investigation evidence verification failed");
+          if (Date.now() >= verificationDeadline) throw new Error("Investigation evidence verification observation expired");
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          verification = await call("getJob", undefined, { job_id: verification.job_id });
+        }
+        if (verification.result_summary?.code !== "evidence_blob_verified") throw new Error("Unexpected investigation evidence verification outcome");
         const attached = await call("attachBlobToEvidenceRecord", { client_txn_id: txn(), base_row_version: row.row_version, object_blob_id: blob.object_blob_id }, { record_id: row.record_id });
         return (await call("patchRecord", { client_txn_id: txn(), view_schema_id: view("evidence"), base_row_version: attached.row.row_version, changes: [{ field_key: "evidence.lifecycle_state", value: "available" }] }, { record_id: row.record_id })).row;
       },

@@ -1,7 +1,6 @@
 package reporting
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -16,6 +15,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/outputcontract"
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -35,28 +36,28 @@ const (
 	RenderExportAlgorithmID               = "snapshot_reporting.render_export_v1"
 	RenderExportOrderingAlgorithmID       = "materialize_reporting_export_model_v2"
 	JobWorkerKind                         = "snapshot_reporting.job_worker_v2"
-	SnapshotCreateJobKind                 = "snapshot_reporting.snapshot_create_v2"
+	SnapshotCreateJobKind                 = "snapshot_reporting.snapshot_create_v4"
 	SnapshotCreateOperationKind           = "snapshot_reporting.snapshot_create"
-	ReleaseCreateJobKind                  = "snapshot_reporting.release_create_v2"
+	ReleaseCreateJobKind                  = "snapshot_reporting.release_create_v4"
 	ReleaseCreateOperationKind            = "snapshot_reporting.release_create"
-	CompositionPreviewJobKind             = "snapshot_reporting.composition_preview_v2"
+	CompositionPreviewJobKind             = "snapshot_reporting.composition_preview_v4"
 	CompositionPreviewOperationKind       = "snapshot_reporting.composition_preview"
 
 	DerivationVersion   = "cartulary.reporting_derivation_profile.v2"
-	ExportModelSchemaID = "cartulary.reporting_export_model.v2"
+	ExportModelSchemaID = "cartulary.reporting_export_model.v7"
 
-	OutputOptionsSchemaID     = "cartulary.reporting_render_request_options.v1"
+	OutputOptionsSchemaID     = outputcontract.SchemaID
 	SourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 
 	DefaultTemplateID      = "cartulary.report.default"
-	DefaultTemplateVersion = "1"
+	DefaultTemplateVersion = "4"
 
-	OutputKindSlidev  = "slidev"
-	OutputKindMermaid = "mermaid"
+	OutputKindSlidev  = outputcontract.OutputKindSlidev
+	OutputKindMermaid = outputcontract.OutputKindMermaid
 
-	ReleaseScopeInternalDraft  = "internal_draft"
-	ReleaseScopeInternalReview = "internal_review"
-	ReleaseScopeExternal       = "external_release"
+	ReleaseScopeInternalDraft  = outputcontract.ReleaseScopeInternalDraft
+	ReleaseScopeInternalReview = outputcontract.ReleaseScopeInternalReview
+	ReleaseScopeExternal       = outputcontract.ReleaseScopeExternal
 
 	ReleaseStatePendingApproval = "pending_approval"
 	ReleaseStateApproved        = "approved"
@@ -297,6 +298,14 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *httpap
 	default:
 		return CreateReleaseRequest{}, invalidReleaseRequest("composition_id", "composition_tuple_incomplete")
 	}
+	// Omission is a request default, not a replay fallback. The store binds the
+	// complete profile and digest to the authorized frozen snapshot at admission.
+	_, hasProfileID := raw["redaction_profile_id"]
+	_, hasProfileVersion := raw["redaction_profile_version"]
+	if !hasProfileID && !hasProfileVersion && (request.ReleaseScope == ReleaseScopeInternalDraft || request.ReleaseScope == ReleaseScopeInternalReview) {
+		raw["redaction_profile_id"], _ = json.Marshal(InternalRedactionProfileID)
+		raw["redaction_profile_version"], _ = json.Marshal(DefaultRedactionProfileVersion)
+	}
 	redactionProfileID, apiErr := requiredStringField(raw, "redaction_profile_id", "invalid_release_request")
 	if apiErr != nil {
 		return CreateReleaseRequest{}, apiErr
@@ -307,7 +316,16 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *httpap
 		return CreateReleaseRequest{}, apiErr
 	}
 	request.RedactionProfileVersion = redactionProfileVersion
-	normalized, err := json.Marshal(map[string]any{
+	normalized, err := normalizeReleaseRequest(request)
+	if err != nil {
+		return CreateReleaseRequest{}, internalAPIError(err)
+	}
+	request.Normalized = normalized
+	return request, nil
+}
+
+func normalizeReleaseRequest(request CreateReleaseRequest) ([]byte, error) {
+	return json.Marshal(map[string]any{
 		"snapshot_id":               request.SnapshotID.String(),
 		"client_txn_id":             request.ClientTxnID,
 		"template_id":               request.TemplateID,
@@ -323,11 +341,6 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *httpap
 		"composition_version":       optionalStringForHash(request.CompositionVersion),
 		"composition_sha256":        optionalStringForHash(request.CompositionSHA256),
 	})
-	if err != nil {
-		return CreateReleaseRequest{}, internalAPIError(err)
-	}
-	request.Normalized = normalized
-	return request, nil
 }
 
 func DecodeReleaseActionRequest(reader io.Reader) (ReleaseActionRequest, *httpapi.APIError) {
@@ -434,93 +447,12 @@ func optionalStringSet(raw json.RawMessage, field string, errorCode string) ([]s
 	return out, nil
 }
 
-func materializeOutputOptions(raw json.RawMessage, outputKind string, releaseScope string) (json.RawMessage, *httpapi.APIError) {
-	options := map[string]any{
-		"schema_id":         OutputOptionsSchemaID,
-		"source_only":       false,
-		"pdf":               outputKind == OutputKindSlidev,
-		"svg":               outputKind == OutputKindMermaid,
-		"png":               false,
-		"pptx":              false,
-		"rendered_diagrams": true,
-	}
-	explicitTrue := map[string]bool{}
-	if raw != nil {
-		if bytesEqualJSONNull(raw) {
-			return nil, invalidRequest("invalid_release_request", "output_options", "field_not_nullable")
-		}
-		parsed, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(raw))
-		if err != nil {
-			reasonCode := "invalid_value"
-			if errors.Is(err, httpapi.ErrStrictJSONDuplicateMember) {
-				reasonCode = "duplicate_object_member"
-			}
-			return nil, invalidRequest("invalid_release_request", "output_options", reasonCode)
-		}
-		allowed := map[string]struct{}{
-			"schema_id":         {},
-			"source_only":       {},
-			"pdf":               {},
-			"svg":               {},
-			"png":               {},
-			"pptx":              {},
-			"rendered_diagrams": {},
-		}
-		for key, value := range parsed {
-			if _, ok := allowed[key]; !ok {
-				return nil, invalidRequest("invalid_release_request", "output_options", "unknown_field")
-			}
-			if key == "schema_id" {
-				var schemaID string
-				if err := json.Unmarshal(value, &schemaID); err != nil || schemaID != OutputOptionsSchemaID {
-					return nil, invalidRequest("invalid_release_request", "output_options", "invalid_value")
-				}
-				continue
-			}
-			var parsedBool bool
-			if err := json.Unmarshal(value, &parsedBool); err != nil {
-				return nil, invalidRequest("invalid_release_request", "output_options", "invalid_value")
-			}
-			options[key] = parsedBool
-			if parsedBool {
-				explicitTrue[key] = true
-			}
-		}
-	}
-	sourceOnly, _ := options["source_only"].(bool)
-	topLevelSelectorsValid := validOutputKind(outputKind) && validReleaseScope(releaseScope)
-	if sourceOnly {
-		if topLevelSelectorsValid && releaseScope == ReleaseScopeExternal {
-			return nil, invalidRequest("invalid_release_request", "output_options", "source_only_external_release_invalid")
-		}
-		for _, key := range []string{"pdf", "svg", "png", "pptx", "rendered_diagrams"} {
-			if topLevelSelectorsValid && explicitTrue[key] {
-				return nil, invalidRequest("invalid_release_request", "output_options", "source_only_conflict")
-			}
-			options[key] = false
-		}
-	}
-	if topLevelSelectorsValid {
-		if outputKind == OutputKindMermaid && options["pptx"] == true {
-			return nil, invalidRequest("invalid_release_request", "output_options", "unsupported_output_option")
-		}
-		if options["png"] == true || options["pptx"] == true {
-			return nil, invalidRequest("invalid_release_request", "output_options", "unsupported_output_option")
-		}
-		if releaseScope == ReleaseScopeExternal {
-			switch {
-			case outputKind == OutputKindSlidev && options["pdf"] == false:
-				return nil, invalidRequest("invalid_release_request", "output_options", "required_output_omitted")
-			case outputKind == OutputKindMermaid && options["svg"] == false:
-				return nil, invalidRequest("invalid_release_request", "output_options", "required_output_omitted")
-			}
-		}
-	}
-	canonical, err := canonicalJSON(options)
+func materializeOutputOptions(raw json.RawMessage, kind, scope string) (json.RawMessage, *httpapi.APIError) {
+	options, err := outputcontract.Materialize(raw, kind, scope)
 	if err != nil {
-		return nil, internalAPIError(err)
+		return nil, invalidRequest("invalid_release_request", "output_options", err.ReasonCode)
 	}
-	return json.RawMessage(canonical), nil
+	return options, nil
 }
 
 func optionalJSONArray(raw json.RawMessage, field string, errorCode string) (json.RawMessage, *httpapi.APIError) {
@@ -696,71 +628,31 @@ func validReleaseScope(scope string) bool {
 	return slices.Contains(releaseScopeVocabulary, scope)
 }
 
-func validateCreateReleaseRequestSemantics(request CreateReleaseRequest) (TemplateContract, *httpapi.APIError) {
+func validateCreateReleaseRequestSemantics(request CreateReleaseRequest, templates *TemplatePackRegistry) (TemplatePack, *httpapi.APIError) {
 	if !validOutputKind(request.OutputKind) {
-		return TemplateContract{}, invalidReleaseRequest("output_kind", "unsupported_output_kind")
+		return TemplatePack{}, invalidReleaseRequest("output_kind", "unsupported_output_kind")
 	}
 	if !validReleaseScope(request.ReleaseScope) {
-		return TemplateContract{}, invalidReleaseRequest("release_scope", "unsupported_release_scope")
+		return TemplatePack{}, invalidReleaseRequest("release_scope", "unsupported_release_scope")
 	}
 	if request.ReleaseScope != ReleaseScopeExternal && len(request.RecipientPartitionRefs) > 0 {
-		return TemplateContract{}, invalidReleaseRequest("recipient_partition_refs", "recipient_partitions_not_allowed")
+		return TemplatePack{}, invalidReleaseRequest("recipient_partition_refs", "recipient_partitions_not_allowed")
 	}
-	templateContract, ok := ResolveTemplateContract(request.TemplateID, request.TemplateVersion)
+	pack, ok := templates.resolve(request.TemplateID, request.TemplateVersion)
 	if !ok {
-		return TemplateContract{}, unsupportedTemplateError(request.TemplateID, request.TemplateVersion)
+		return TemplatePack{}, unsupportedTemplateError(request.TemplateID, request.TemplateVersion)
+	}
+	if err := validateTemplateContract(pack.Manifest, request.OutputKind, request.ReleaseScope); err != nil {
+		var failure *renderValidationError
+		if errors.As(err, &failure) {
+			return TemplatePack{}, invalidReleaseRequest("template_id", failure.ReasonCode)
+		}
+		return TemplatePack{}, invalidReleaseRequest("template_id", "template_manifest_invalid")
 	}
 	if !isSupportedRedactionProfileSelector(request.RedactionProfileID, request.RedactionProfileVersion) {
-		return TemplateContract{}, unsupportedRedactionProfileError(request.RedactionProfileID, request.RedactionProfileVersion)
+		return TemplatePack{}, unsupportedRedactionProfileError(request.RedactionProfileID, request.RedactionProfileVersion)
 	}
-	return templateContract, nil
-}
-
-func validateCreateReleaseRecipientPartitions(request CreateReleaseRequest, model interface{ RedactionFields() []ExportField }) *httpapi.APIError {
-	if request.ReleaseScope != ReleaseScopeExternal {
-		return nil
-	}
-	if len(request.RecipientPartitionRefs) == 0 {
-		return invalidReleaseRequest("recipient_partition_refs", "recipient_partition_profile_mismatch")
-	}
-	snapshotPartyPartitions := map[string]struct{}{}
-	for _, field := range model.RedactionFields() {
-		if field.SourceFamily != "party" {
-			continue
-		}
-		for _, ref := range field.DisclosurePartitionRefs {
-			if strings.HasPrefix(ref, "party:") && validPartyPartitionRef(ref) {
-				snapshotPartyPartitions[ref] = struct{}{}
-			}
-		}
-	}
-	for _, ref := range request.RecipientPartitionRefs {
-		if !validPartyPartitionRef(ref) {
-			return invalidReleaseRequest("recipient_partition_refs", "invalid_recipient_partition_ref")
-		}
-		if _, ok := snapshotPartyPartitions[ref]; !ok {
-			return invalidReleaseRequest("recipient_partition_refs", "unknown_recipient_partition")
-		}
-	}
-	profile, _, err := ResolveRedactionProfile(request.RedactionProfileID, request.RedactionProfileVersion, request.RecipientPartitionRefs)
-	if err != nil {
-		return invalidReleaseRequest("redaction_profile_id", "unsupported_redaction_profile")
-	}
-	profilePartyRefs := map[string]struct{}{}
-	for _, ref := range profile.AllowedDisclosurePartitionRefs {
-		if strings.HasPrefix(ref, "party:") {
-			profilePartyRefs[ref] = struct{}{}
-		}
-	}
-	if len(profilePartyRefs) != len(request.RecipientPartitionRefs) {
-		return invalidReleaseRequest("recipient_partition_refs", "recipient_partition_profile_mismatch")
-	}
-	for _, ref := range request.RecipientPartitionRefs {
-		if _, ok := profilePartyRefs[ref]; !ok {
-			return invalidReleaseRequest("recipient_partition_refs", "recipient_partition_profile_mismatch")
-		}
-	}
-	return nil
+	return pack, nil
 }
 
 func validPartyPartitionRef(ref string) bool {
@@ -785,7 +677,7 @@ func validPartyPartitionRef(ref string) bool {
 func isSupportedRedactionProfileSelector(id string, version string) bool {
 	switch id {
 	case InternalRedactionProfileID, ExternalRedactionProfileID, TokenizedRedactionProfileID:
-		return version == "1"
+		return version == DefaultRedactionProfileVersion
 	default:
 		return false
 	}

@@ -15,6 +15,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { ReportingFeature } from "../reporting/ReportingPanel";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
@@ -931,6 +932,7 @@ export function App({
   }, [workflows]);
   const {
     workbookImport,
+    reporting,
     networkFlowImport,
     savedViews,
     preferences,
@@ -1148,6 +1150,8 @@ export function App({
               extensionProfiles={extensionProfiles}
               onIncidentAccessLost={handleIncidentAccessLost}
               onIncidentControlsSectionChange={(section) => {
+                if (section !== "snapshot-reports")
+                  reporting.controller.setPresented(false);
                 if (section !== "summary")
                   lifecycle.controller.setActive(false);
                 if (section !== "incident-fields")
@@ -1158,7 +1162,13 @@ export function App({
                   membershipAudit.controller.setActive(false);
               }}
               renderIncidentControls={(props) =>
-                props.activeSection === "membership-audit" ? (
+                props.activeSection === "snapshot-reports" ? (
+                  <ReportingFeature
+                    {...props}
+                    controller={reporting.controller}
+                    attachSurface={reporting.attachSurface}
+                  />
+                ) : props.activeSection === "membership-audit" ? (
                   <IncidentMembershipAuditFeature
                     {...props}
                     controller={membershipAudit.controller}

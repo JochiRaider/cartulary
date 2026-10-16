@@ -4,6 +4,7 @@ import type { WorkbookClipboardPastePort } from "../../adapters/WorkbookClipboar
 import type { WorkbookCollaborationCoordinator } from "../../collaboration/WorkbookCollaborationCoordinator";
 import type { WorkbookConflictActivation } from "../../components/WorkbookStatusStrip";
 import type { WorkbookViewBarWorkingSetBinding } from "../../components/WorkbookViewBar";
+import type { WorkbookEvidenceMetadataPort } from "../../evidence/WorkbookEvidenceMetadataPort";
 import type { WorkbookSurfaceLayoutOwner } from "../../layout/useWorkbookLayoutFacade";
 import type { WorkbookGridEntryFocusOwner } from "../../models/workbookGridEntryFocus";
 import type { WorkbookQueryState } from "../../models/workbookQuery";
@@ -47,6 +48,7 @@ export type TimelineWorkbookSurfaceRuntime = {
   readonly clipboardPaste: WorkbookClipboardPastePort;
   readonly mutationCommands: TimelineMutationCommandPorts;
   readonly evidenceAccess: EvidenceCapabilityPort;
+  readonly evidenceMetadata: WorkbookEvidenceMetadataPort;
   readonly gridEntryFocus: WorkbookGridEntryFocusOwner;
   readonly incident: {
     readonly id: string;

@@ -2,7 +2,6 @@ package queryengine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -97,7 +96,21 @@ func (reader *HostReader) CollectHostDerivedFactsTx(
 	incidentID uuid.UUID,
 ) ([]entityports.DerivedFact, error) {
 	rows, err := tx.Query(ctx, `
-SELECT h.record_id, to_jsonb(h) - 'incident_id'
+SELECT h.record_id, jsonb_build_object(
+       'record_id', h.record_id,
+       'row_version', h.row_version,
+       'display_name', h.display_name,
+       'hostname', h.hostname,
+       'host_state', h.host_state,
+       'linked_event_count', h.linked_event_count,
+       'evidence_count', h.evidence_count,
+       'location', h.location,
+       'os_platform', h.os_platform,
+       'business_owner', h.business_owner,
+       'criticality', h.criticality,
+       'containment_status', h.containment_status,
+       'edited_at', h.edited_at
+   )
   FROM host_grid_projection h
   JOIN records r
     ON r.incident_id = h.incident_id
@@ -120,8 +133,8 @@ SELECT h.record_id, to_jsonb(h) - 'incident_id'
 		if err := rows.Scan(&recordID, &raw); err != nil {
 			return nil, fmt.Errorf("scan host projection fact: %w", err)
 		}
-		value := map[string]any{}
-		if err := json.Unmarshal(raw, &value); err != nil {
+		value, err := decodeReportingFactObject(raw)
+		if err != nil {
 			return nil, fmt.Errorf("decode host projection fact: %w", err)
 		}
 		facts = append(facts, entityports.DerivedFact{

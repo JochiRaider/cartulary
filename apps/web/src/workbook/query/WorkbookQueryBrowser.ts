@@ -45,6 +45,7 @@ type Proposal = {
 };
 
 type WorkbookBrowsingSnapshot = {
+  readonly resultRevision: number;
   readonly accepted: WorkbookViewQueryAccepted | null;
   readonly authored: WorkbookQueryState | null;
   readonly canonicalQuery: WorkbookCanonicalQuery | null;
@@ -61,6 +62,7 @@ type WorkbookBrowsingSnapshot = {
 
 const initialSnapshot = (focusEpoch = 0): WorkbookBrowsingSnapshot => ({
   accepted: null,
+  resultRevision: 0,
   authored: null,
   canonicalQuery: null,
   requested: null,
@@ -96,6 +98,7 @@ export class WorkbookQueryBrowser {
   private resume: Checkpoint | null = null;
   private resumeAuthored: WorkbookQueryState | null = null;
   private generation = 0;
+  private resultRevision = 0;
   private authorityGeneration = 0;
   private controller: AbortController | null = null;
   private proposal: {
@@ -718,6 +721,7 @@ export class WorkbookQueryBrowser {
     this.publish({
       ...(candidate.plan.navigation ? { focusEpoch: ++this.focusEpoch } : {}),
       accepted: value,
+      resultRevision: ++this.resultRevision,
       canonicalQuery: value.canonicalQuery,
       authored: candidate.plan.authored,
       pageCount: this.pages.length,

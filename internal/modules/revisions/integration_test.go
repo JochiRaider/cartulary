@@ -27,6 +27,49 @@ import (
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
 )
 
+func TestHistoryProjectionDependencies_Integration(t *testing.T) {
+	harness := appsupport.StartServer(t, "revisions-dependent-projection-refresh")
+	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)
+	incidentID, _ := seedRecord(t, harness.DB, harness.Server, login, actorID, "IR-DEPENDENT-PROJECTIONS")
+	timelineID, evidenceID, _, _ := createAttachedEvidencePatchTarget(t, harness, login, incidentID, "projection-scope")
+	version := countRows(t, harness.DB, `SELECT row_version FROM records WHERE record_id=$1`, evidenceID)
+	patch := WorkbookPatch(t, harness, login, evidenceID, map[string]any{
+		"view_schema_id": "cartulary.view.evidence.v1", "base_row_version": version, "client_txn_id": "dependent-title",
+		"changes": []map[string]any{{"field_key": "evidence.title", "value": "Renamed evidence"}},
+	})
+	version++
+	// A dependent envelope is protected before evaluating a stale version.
+	lock, err := harness.DB.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lock.ExecContext(context.Background(), `SELECT record_id FROM records WHERE record_id=$1 FOR UPDATE`, timelineID); err != nil {
+		t.Fatal(err)
+	}
+	target := map[string]any{"kind": "change_set", "change_set_id": patch["change_set_id"]}
+	locked := rollbackRecord(t, harness, login, evidenceID, map[string]any{"base_row_version": version - 1, "client_txn_id": "dependent-locked", "target": target})
+	httptestx.RequireErrorEnvelope(t, locked, http.StatusConflict, "record_locked")
+	if err := lock.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	response := rollbackRecord(t, harness, login, evidenceID, map[string]any{"base_row_version": version, "client_txn_id": "dependent-rollback", "target": target})
+	httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
+	version++
+	if got := stringScalar(t, harness.DB, `SELECT attached_evidence_refs->0->>'display_text' FROM timeline_grid_projection WHERE record_id=$1`, timelineID); got != "Evidence projection-scope" {
+		t.Fatalf("dependent title after rollback = %q", got)
+	}
+	httptestx.RequireSuccessEnvelope(t, deleteRecord(t, harness, login, evidenceID, map[string]any{"base_row_version": version, "client_txn_id": "dependent-delete"}), http.StatusOK)
+	version++
+	if got := countRows(t, harness.DB, `SELECT jsonb_array_length(attached_evidence_refs) FROM timeline_grid_projection WHERE record_id=$1`, timelineID); got != 0 {
+		t.Fatalf("deleted evidence remains in dependent projection: %d", got)
+	}
+	// Discovery must use the retained relation, even with a deleted endpoint.
+	httptestx.RequireSuccessEnvelope(t, restoreRecord(t, harness, login, evidenceID, map[string]any{"base_row_version": version, "client_txn_id": "dependent-restore"}), http.StatusOK)
+	if got := stringScalar(t, harness.DB, `SELECT attached_evidence_refs->0->>'display_text' FROM timeline_grid_projection WHERE record_id=$1`, timelineID); got != "Evidence projection-scope" {
+		t.Fatalf("dependent title after restore = %q", got)
+	}
+}
+
 func TestDeleteRestoreRollbackAtomicConsequences_Integration(t *testing.T) {
 	harness := appsupport.StartServer(t, "history_revision-i-7-01-delete-restore")
 	login, actorID := appsupport.ProvisionBootstrapAdmin(t, harness.Server)

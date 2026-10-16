@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reporting_progress_measurement_proof.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "job_id",
+    "job_status",
+    "record_id",
+    "row_version",
+    "view_schema_id",
+    "field_key",
+    "cancel_enabled",
+    "grid_edit_accepted",
+    "draft_uncommitted",
+    "consecutive_frames",
+    "binding_stable",
+    "geometry_unchanged",
+    "scroll_unchanged",
+    "action_count",
+    "viewport_width",
+    "viewport_height",
+    "device_scale_factor",
+    "job_purpose",
+    "source_snapshot_id"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reporting_progress_measurement_proof.v1"
+    },
+    "kind": {
+      "const": "reporting_progress"
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "job_status": {
+      "enum": [
+        "queued",
+        "running"
+      ]
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "row_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "field_key": {
+      "const": "timeline.analyst_text"
+    },
+    "cancel_enabled": {
+      "const": true
+    },
+    "grid_edit_accepted": {
+      "const": true
+    },
+    "draft_uncommitted": {
+      "const": true
+    },
+    "consecutive_frames": {
+      "const": 2
+    },
+    "binding_stable": {
+      "const": true
+    },
+    "geometry_unchanged": {
+      "const": true
+    },
+    "scroll_unchanged": {
+      "const": true
+    },
+    "action_count": {
+      "const": 1
+    },
+    "viewport_width": {
+      "const": 1920
+    },
+    "viewport_height": {
+      "const": 1080
+    },
+    "device_scale_factor": {
+      "const": 1
+    },
+    "job_purpose": {
+      "enum": [
+        "snapshot",
+        "report"
+      ]
+    },
+    "source_snapshot_id": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "job_purpose": {
+            "const": "snapshot"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "source_snapshot_id": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "source_snapshot_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          }
+        }
+      }
+    }
+  ]
+}

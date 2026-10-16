@@ -1234,8 +1234,16 @@ browser_prepare_database() {
   fi
   "${TEST_SERVICES_BIN}" prepare-web-e2e --env-file "${TEST_SERVICES_ENV_FILE}" --metadata-file "${TEST_SERVICES_METADATA_FILE}" || preparation_status=$?
   if [[ "${preparation_status}" -ne 0 ]]; then
-    write_startup_diagnostics fail database_preparation infra service_start_error \
-      "browser database fixture preparation failed; see the session database preparation log"
+    if [[ "${preparation_status}" -eq 13 ]]; then
+      write_startup_diagnostics fail database_preparation timing timeout_failure \
+        "browser fixture preparation exceeded its admitted deadline before service startup"
+    elif [[ "${preparation_status}" -eq 2 ]]; then
+      write_startup_diagnostics fail database_preparation config configuration_error \
+        "browser fixture preparation rejected its inputs before service startup"
+    else
+      write_startup_diagnostics fail database_preparation infra service_start_error \
+        "browser fixture preparation failed before service startup; retained clone evidence describes acquired-resource cleanup"
+    fi
     return "${preparation_status}"
   fi
   if [[ ! -s "${TEST_SERVICES_ENV_FILE}" || ! -s "${TEST_SERVICES_METADATA_FILE}" ]]; then
@@ -1431,7 +1439,7 @@ start_backend_ready() {
   if [[ ! -x "${fixture_node_bin}" ]]; then
     fixture_node_bin="node"
   fi
-  "${fixture_node_bin}" "${ROOT_DIR}/apps/web/e2e/support/referencePackFixture.mjs" "${RUNTIME_ROOT_BASE}/reference-pack-bootstrap.json"
+  "${fixture_node_bin}" "${ROOT_DIR}/tools/harness/browser/reference-pack-fixture.mjs" "${RUNTIME_ROOT_BASE}/reference-pack-bootstrap.json"
   local backend_start_status=0
   if run_timing_span "server_startup" "browser-e2e start backend process" \
     start_browser_process_group SERVER_PGID "${SERVER_LOG}" \
@@ -1447,6 +1455,7 @@ start_backend_ready() {
       CARTULARY__REFERENCE_PACK__CLAIMED=true \
       CARTULARY__REFERENCE_PACKS__TRUST_BOOTSTRAP_PATH="${RUNTIME_ROOT_BASE}/reference-pack-bootstrap.json" \
       CARTULARY__REFERENCE_PACKS__CLOCK_TRUSTED=true \
+      CARTULARY__SNAPSHOT_REPORTING__RUNTIME_RECEIPT_PATH="${ROOT_DIR}/build/report-renderer/installation.json" \
       CARTULARY_AUTH_MASTER_KEY="${AUTH_MASTER_KEY}" \
       CARTULARY_SECRET_REVISIONS_CONFLICT_TOKEN_DEV_ACTIVE="${REVISIONS_CONFLICT_TOKEN_SECRET}" \
       CARTULARY_POSTGRES_POSTGRES_PRIMARY_RUNTIME_DSN="${E2E_DSN}" \

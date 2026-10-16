@@ -2392,6 +2392,16 @@ Restore MUST verify the integrity and retained-state linkage of every restored p
 **RP-REQ-231**
 Derived search and lookup indexes MAY be omitted from backup. When omitted, restore MUST rebuild them from verified canonical pack bytes before pack-dependent reads are admitted.
 
+Consumers validating retained artifact history MAY supply their consistent
+read-only transaction to Reference Data's retained-binding validator. Reference
+Data owns the set identity, digest, complete first-success provenance and
+historical-content checks; the consumer MUST NOT inspect Reference Data tables
+or substitute the current set. This validation MUST neither create pins nor
+mutate availability, perform activation or impose current-time freshness on a
+historical attestation. A missing transaction or mismatched binding fails. The
+transaction remains caller-owned. Operational history validation MUST NOT
+depend on an incident-portability catalog or its cardinality limits.
+
 Reference Pack objects MUST be read and restored through their own confined storage capability. The generic object-store capability MUST NOT interpret Reference Pack storage references. Restore preserves exact opaque object references, verifies streaming sizes and digests before publication, and rejects occupied destinations. The restore-target marker and verification basis MUST bind the Reference Pack root independently from the database and generic object store. Disposable restore-verification cleanup MUST operate only under the already acquired exclusive target lease and MUST leave source roots unchanged.
 
 # 24. Persistence minima and invariants

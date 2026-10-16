@@ -4,7 +4,7 @@ import conflicttokens "github.com/JochiRaider/cartulary/internal/modules/revisio
 
 func newPartyConflictSnapshotProjector() (conflicttokens.RevisionSnapshotProjector, error) {
 	projector, err := conflicttokens.NewRevisionSnapshotProjector(
-		"cartulary.revisions.snapshot.party.v1",
+		"cartulary.revisions.snapshot.party.v2",
 		map[string]string{
 			"party.display_name":      "display_name",
 			"party.party_kind":        "party_kind",

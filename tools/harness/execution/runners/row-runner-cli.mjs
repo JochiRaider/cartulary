@@ -5,7 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadSelectedTestRows, targetForCatalogRow } from "../../test-catalog/index.mjs";
+import { goRunnerBuildContext, loadSelectedTestRows, targetForCatalogRow } from "../../test-catalog/index.mjs";
 import { publicExitCodeForFailure, publicExitCodeForFailures, redactString, validateSchemaSync } from "../../contract/index.mjs";
 import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { beginActivity } from "../../runtime/local-activity.mjs";
@@ -109,10 +109,10 @@ function invocationsForRows(rows) {
   }
   if (runner === "go") {
     return {
-      invocations: buildGoInvocations(rows, workers, process.env.GO || "go").map((invocation) => ({
+      invocations: buildGoInvocations(rows, workers, process.env.GO || "go", goRunnerBuildContext(root)).map((invocation) => ({
         ...invocation,
         // Explicit test credentials: production key loading has no default.
-        environment: { CARTULARY_AUTH_MASTER_KEY: readFileSync(path.join(root, "internal/testutil/fixtures/auth/master-key.base64"), "utf8").trim() },
+        environment: { ...invocation.environment, CARTULARY_AUTH_MASTER_KEY: readFileSync(path.join(root, "internal/testutil/fixtures/auth/master-key.base64"), "utf8").trim() },
       })),
       adapt: adaptGoInvocationFile,
     };

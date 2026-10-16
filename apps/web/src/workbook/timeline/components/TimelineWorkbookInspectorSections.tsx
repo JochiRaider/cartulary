@@ -10,7 +10,6 @@ import type { WorkbookRecordHistoryState } from "../../inspector/workbookRecordH
 import { buildEvidenceCountDisplayViewModel } from "../../models/evidenceLifecycleViewModel";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import type { TimelineInspectorElementRegistry } from "../focus/timelineInspectorElementRegistry";
-import type { useTimelineLinkedEvidenceReview } from "../hooks/useTimelineLinkedEvidenceReview";
 import {
   type CollectionFieldKey,
   timelineCollectionBindings,
@@ -19,7 +18,10 @@ import {
   readTimelineCellValue,
   type WorkbookRow,
 } from "../models/timelineRowModel";
-import { TimelineEvidencePanel } from "./TimelineEvidencePanel";
+import {
+  TimelineEvidencePanel,
+  type TimelineEvidenceReview,
+} from "./TimelineEvidencePanel";
 import { TimelineHistoryPanel } from "./TimelineHistoryPanel";
 import {
   TimelineInspectorDetails,
@@ -65,9 +67,7 @@ export function useTimelineWorkbookInspectorSections({
   readonly detailsOwner: TimelineInspectorDetailsOwner;
   readonly historyBrowsingControls: HistoryBrowsingControls;
   readonly rowHistory: WorkbookRecordHistoryState;
-  readonly linkedEvidenceReview: ReturnType<
-    typeof useTimelineLinkedEvidenceReview
-  >;
+  readonly linkedEvidenceReview: TimelineEvidenceReview;
   readonly elementRegistry: TimelineInspectorElementRegistry;
 }) {
   const renderInspectorFieldEditors = useCallback(

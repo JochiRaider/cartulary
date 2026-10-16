@@ -75,8 +75,13 @@ describe("Protocol-TS authored family entrypoints", () => {
       networkFlowErrorRegistry,
       viewSchemaRegistry,
     ]) {
-      expect(Object.isFrozen(registry)).toBe(true);
+      expect(
+        Object.isFrozen(registry),
+        JSON.stringify(Object.keys(registry)),
+      ).toBe(true);
     }
+    expect(Object.isFrozen(importTargetRegistry.targets)).toBe(true);
+    expect(Object.isFrozen(importTargetRegistry.targets[0])).toBe(true);
     expect(errorRegistry.registry_id).toBe("cartulary.errors.phase3.v1");
     expect(extensionClientSupportRegistry.schema_id).toBe(
       "cartulary.client_extension_support_registry.v1",

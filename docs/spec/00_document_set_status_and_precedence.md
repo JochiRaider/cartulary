@@ -205,6 +205,18 @@ Verified by: AC-232, AC-233, AC-234, AC-235, AC-236, NF-AC-106
 
 For the Snapshot and Reporting Extension Profile, Core 00 adopts `docs/reporting-subsystem-nlspec.md` as the Reporting render/export authority and `docs/report-composition-nlspec.md` as the report-composition authoring authority when those documents are marked adopted/current by the repository document-status process. If either required NLSpec is absent, not adopted, or marked blocked for a claimed behavior, the affected external-release or report-composition conformance claim MUST fail closed; implementations MAY expose internal experimental behavior only when public validation reports the missing owner dependency explicitly.
 
+An adopted subsystem revision remains authoritative while its working document
+contains a proposed successor only when a human-reviewed adoption record names
+the adopted version, immutable repository commit and document path, applicable
+behavior scope, and satisfied companion dependencies. `adopted_base_version`
+alone does not satisfy an owner dependency. A proposed revision neither replaces
+the adopted text nor excuses a conflict with it. Claims about changed behavior
+remain blocked until coordinated adoption of the successor and its required
+companions. A missing, contradictory, or incomplete adoption record fails the
+affected claim closed. These are human document-review obligations: executable
+contracts, generators, tests, runtime admission, and release evidence MUST NOT
+read, stat, hash, or otherwise consume documents or adoption records.
+
 ### 4.3 Unsupported future areas
 
 The source artifact mentions several future areas without defining enough detail for current conformance, including restricted evidence visibility beyond the incident-scoped workspace model, promotion of `hypothesis` to a first-class record type, generalized workflow engines beyond the bounded analyst-work coordination and lifecycle model defined in this core, duplicate-resolution suggestions, cross-incident analytics, and presentation automation beyond the bounded snapshot and reporting controls defined in this core. These areas are reserved for future specification work and are non-conformant claims unless later NLSpecs define them.

@@ -339,6 +339,11 @@ const value = {
       "summary": "The object blob create request body failed route-owned validation."
     },
     {
+      "code": "invalid_evidence_metadata_request",
+      "http_status": 400,
+      "summary": "The bounded Evidence metadata query failed route-owned validation."
+    },
+    {
       "code": "blob_create_rejected",
       "http_status": 413,
       "summary": "The object blob create request was rejected before durable slot creation."
@@ -542,6 +547,11 @@ const value = {
       "code": "required_reference_pack_unavailable",
       "http_status": 409,
       "summary": "An exact Reference Pack set required by a retained artifact cannot be reconstructed; no substitute set is selected."
+    },
+    {
+      "code": "evidence_blob_verification_failed",
+      "http_status": 409,
+      "summary": "Background verification did not produce an attachable stored-object observation."
     }
   ],
   "note": "Derived repo-local artifact from the owner docs chain. This file is not the behavioral authority.",
@@ -1722,6 +1732,23 @@ const value = {
       ]
     },
     {
+      "error_code": "invalid_evidence_metadata_request",
+      "reason_codes": [
+        {
+          "code": "request_not_object",
+          "summary": "The bounded body is not one duplicate-free JSON object."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The metadata request contains an undeclared member."
+        },
+        {
+          "code": "invalid_record_ids",
+          "summary": "record_ids is not 1 through 100 distinct canonical non-nil UUID strings."
+        }
+      ]
+    },
+    {
       "error_code": "blob_create_rejected",
       "reason_codes": [
         {
@@ -2250,6 +2277,31 @@ const value = {
         {
           "code": "type_registry_incompatible",
           "summary": "type registry incompatible."
+        }
+      ]
+    },
+    {
+      "error_code": "evidence_blob_verification_failed",
+      "reason_codes": [
+        {
+          "code": "blob_pending",
+          "summary": "The completed upload bytes are not available for verification."
+        },
+        {
+          "code": "blob_failed",
+          "summary": "The pending blob is no longer eligible for verification."
+        },
+        {
+          "code": "accepted_contract_mismatch",
+          "summary": "Stored bytes do not match the accepted size or expected digest."
+        },
+        {
+          "code": "object_store_unavailable",
+          "summary": "Stored bytes could not be verified because an operational dependency failed."
+        },
+        {
+          "code": "verification_timeout",
+          "summary": "The bounded verification attempt exceeded its total deadline."
         }
       ]
     }

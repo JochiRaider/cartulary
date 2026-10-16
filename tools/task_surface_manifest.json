@@ -67,7 +67,6 @@
       "backend-process",
       "backend-store",
       "backend-unit",
-      "benchmark-claim-check",
       "browser-e2e",
       "browser-e2e-a11y",
       "browser-e2e-measurement",
@@ -109,7 +108,6 @@
       "standup-package-smoke",
       "standup-reference-pack-smoke",
       "test",
-      "test-evidence-audit",
       "test-fast",
       "test-slice",
       "toolchain-drift"
@@ -184,6 +182,11 @@
         "target": "ui-review-stop",
         "owner_section": "Section 15.1",
         "reason": "Private diagnostic review retains structural receipts only and never exports transient detail."
+      },
+      {
+        "target": "build-report-renderer",
+        "owner_section": "Section 4",
+        "reason": "Renderer installation is build preparation, outside the named test-performance portfolio."
       }
     ],
     "out_of_scope_targets": [
@@ -191,6 +194,11 @@
         "target": "author-test-row-id",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
+        "target": "benchmark-claim-check",
+        "owner_section": "Section 4",
+        "reason": "Claim validation consumes optional retained publication artifacts; a no-claim pass is not a benchmark-validation workload."
       },
       {
         "target": "bootstrap",
@@ -264,11 +272,6 @@
       },
       {
         "target": "db-reset",
-        "owner_section": "Section 4",
-        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
-      },
-      {
-        "target": "postgres-baseline-reset",
         "owner_section": "Section 4",
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
       },
@@ -388,6 +391,11 @@
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
       },
       {
+        "target": "postgres-baseline-reset",
+        "owner_section": "Section 4",
+        "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
+      },
+      {
         "target": "scheduler-event-order-drift",
         "owner_section": "Section 10",
         "reason": "Post-run scheduler diagnostics consume caller-selected retained evidence and are validation tools rather than stable execution workloads."
@@ -438,6 +446,11 @@
         "reason": "Development, build, cleanup, maintenance, or diagnostic command outside public testing measurement."
       },
       {
+        "target": "test-evidence-audit",
+        "owner_section": "Section 4",
+        "reason": "Owner audits validate caller-selected retained evidence; variable evidence partitions do not define a stable execution workload."
+      },
+      {
         "target": "test-services-session-down",
         "owner_section": "Section 4",
         "reason": "Explicit local session lifecycle is developer acceleration rather than a stable measured test workload."
@@ -451,6 +464,11 @@
         "target": "test-services-session-up",
         "owner_section": "Section 4",
         "reason": "Explicit local session lifecycle is developer acceleration rather than a stable measured test workload."
+      },
+      {
+        "target": "test-run-recover",
+        "owner_section": "Section 11",
+        "reason": "Exact failed-run cleanup has resource-dependent work and never constitutes execution-cost or test acceptance evidence."
       }
     ],
     "measurement_profiles": [
@@ -476,12 +494,13 @@
         ]
       },
       {
-        "profile_id": "module_auth_audit_no_regression",
+        "profile_id": "module_auth_service_backed_slice_no_regression",
         "canonical_inputs": {
           "OWNER": "module.auth",
-          "EVIDENCE_ROOTS_FILE": "retained-module.auth-slice-evidence"
+          "ROWS": "omitted",
+          "SERVICE_BACKED_ONLY": "1"
         },
-        "observation_eligibility": "direct_only",
+        "observation_eligibility": "direct_or_aggregate_exact_once",
         "warm_up_policy": "one_cold_one_discarded_warmup_five_measured_conditional_sixth",
         "performance_gates": [
           "wall_no_regression"
@@ -543,10 +562,6 @@
       },
       {
         "target": "backend-unit",
-        "profile_id": "standard_no_regression"
-      },
-      {
-        "target": "benchmark-claim-check",
         "profile_id": "standard_no_regression"
       },
       {
@@ -680,7 +695,7 @@
       },
       {
         "target": "service-backed-test-slice",
-        "profile_id": "module_auth_slice_no_regression"
+        "profile_id": "module_auth_service_backed_slice_no_regression"
       },
       {
         "target": "standup-operational-recovery-smoke",
@@ -697,10 +712,6 @@
       {
         "target": "test",
         "profile_id": "harness_bottleneck_improvement"
-      },
-      {
-        "target": "test-evidence-audit",
-        "profile_id": "module_auth_audit_no_regression"
       },
       {
         "target": "test-fast",
@@ -1246,6 +1257,11 @@
         {
           "target": "credential-capacity-assessment",
           "description": "assess bounded credential workflows on the fixed Windows 11 / WSL2 container profile"
+        },
+        {
+          "target": "test-run-recover",
+          "usage": "RESULTS_DIR=<exact-run> RUNTIME_ROOT=<private-runtime> RUNTIME_LEASE_ID=<lease>",
+          "description": "recover exact owned resources without changing original test evidence"
         }
       ]
     },
@@ -1328,6 +1344,10 @@
         {
           "target": "package-inspect",
           "description": "install and inspect the exact archive without a checkout or build tools"
+        },
+        {
+          "target": "build-report-renderer",
+          "description": "build a content-bound isolated Reporting runtime from installed pinned dependencies"
         }
       ]
     }
@@ -1673,7 +1693,8 @@
       "prerequisites": [
         "go-toolchain-readiness",
         "$(NODE_BIN)",
-        "$(FRONTEND_INSTALL_STAMP)"
+        "$(FRONTEND_INSTALL_STAMP)",
+        "$(REPORT_RENDERER_RECEIPT)"
       ],
       "type": "step_command",
       "mode": "command",
@@ -1940,7 +1961,7 @@
       "step_label": "test-catalog-check",
       "command": [
         "$(NODE_BIN)",
-        "./tools/harness/test-catalog/catalog-check.mjs"
+        "./tools/harness/execution/catalog-check-cli.mjs"
       ],
       "test_target": "self"
     },
@@ -2529,14 +2550,16 @@
     },
     "lint-shell": {
       "prerequisites": [
-        "shell-lint-toolchain"
+        "shell-lint-toolchain",
+        "$(NODE_BIN)"
       ],
       "type": "step_command",
       "mode": "run_step",
       "step_label": "lint shell",
       "env": {
         "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)",
-        "LINT_SHELL_STRICT": "1"
+        "LINT_SHELL_STRICT": "1",
+        "NODE_BIN": "$(NODE_BIN)"
       },
       "command": [
         "./tools/harness/static-analysis/shellcheck.sh"
@@ -2555,7 +2578,9 @@
       "test_target": "self"
     },
     "format-go": {
-      "prerequisites": [],
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
       "type": "step_command",
       "mode": "run_step",
       "step_label": "format go",
@@ -2564,7 +2589,10 @@
         "./tools/harness/static-analysis/go-format.sh",
         "--write"
       ],
-      "test_target": "self"
+      "test_target": "self",
+      "env": {
+        "NODE_BIN": "$(NODE_BIN)"
+      }
     },
     "format-frontend": {
       "prerequisites": [
@@ -2692,7 +2720,8 @@
     },
     "lint-go-format": {
       "prerequisites": [
-        "go-toolchain-readiness"
+        "go-toolchain-readiness",
+        "$(NODE_BIN)"
       ],
       "type": "step_command",
       "mode": "run_step",
@@ -2704,7 +2733,10 @@
       ],
       "test_target": "self",
       "success_summary": true,
-      "failure_note": "run make format to apply authored Go formatting"
+      "failure_note": "run make format to apply authored Go formatting",
+      "env": {
+        "NODE_BIN": "$(NODE_BIN)"
+      }
     },
     "lint-go-vet": {
       "prerequisites": [
@@ -2770,7 +2802,8 @@
     "go-gosec-targeted": {
       "prerequisites": [
         "go-toolchain-readiness",
-        "gosec-toolchain"
+        "gosec-toolchain",
+        "$(NODE_BIN)"
       ],
       "type": "step_command",
       "mode": "run_step",
@@ -2785,7 +2818,8 @@
         "GOSEC_FLAGS": "-exclude-generated",
         "GOSEC_PATTERNS": "./cmd/... ./internal/... ./db/... ./tools/...",
         "GOSEC_TARGETED_RUNTIME_RULES": "G122,G301,G302,G303,G304,G305,G306,G307",
-        "GOSEC_TARGETED_RUNTIME_PATTERNS": "./cmd/... ./internal/..."
+        "GOSEC_TARGETED_RUNTIME_PATTERNS": "./cmd/... ./internal/...",
+        "NODE_BIN": "$(NODE_BIN)"
       },
       "command": [
         "bash",
@@ -3443,6 +3477,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "deployable-shape",
+        "build-report-renderer",
         "syft-toolchain"
       ],
       "type": "step_command",
@@ -3686,6 +3721,61 @@
         "./tools/harness/observability/tests/test-observability.mjs"
       ],
       "test_target": "self"
+    },
+    "harness-browser-preparation-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-browser-preparation-contract",
+      "env": {
+        "NODE_BIN": "$(NODE_BIN)"
+      },
+      "command": [
+        "bash",
+        "./tools/harness/browser/tests/test-browser-preparation.sh"
+      ],
+      "test_target": "self"
+    },
+    "harness-benchmark-claim-contract": {
+      "type": "step_command",
+      "prerequisites": [
+        "$(NODE_BIN)"
+      ],
+      "mode": "run_step",
+      "step_label": "harness-benchmark-claim-contract",
+      "command": [
+        "$(NODE_BIN)",
+        "./tools/release-evidence/tests/test-benchmark-claim-check.mjs"
+      ],
+      "test_target": "self"
+    },
+    "build-report-renderer": {
+      "prerequisites": [
+        "$(REPORT_RENDERER_RECEIPT)"
+      ],
+      "type": "artifact_binding",
+      "test_target": "self"
+    },
+    "test-run-recover": {
+      "prerequisites": [
+        "go-toolchain-readiness",
+        "testservices-build",
+        "$(NODE_BIN)",
+        "$(HARNESS_RUNTIME_BIN)"
+      ],
+      "type": "step_command",
+      "mode": "command",
+      "env": {
+        "TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)",
+        "NODE_BIN": "$(NODE_BIN)"
+      },
+      "command": [
+        "$(HARNESS_RUNTIME_BIN)",
+        "recover"
+      ]
     }
   },
   "targets": [
@@ -6398,7 +6488,12 @@
         "tools/release-evidence/package-release.mjs",
         "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/reference-pack-fixtures.mjs",
-        "tools/toolchain_pins.json"
+        "tools/toolchain_pins.json",
+        "tools/report-renderer/stage-installation.mjs",
+        "tools/release-evidence/package-platform.mjs",
+        "tools/renderprobe/main.go",
+        "contracts/reporting/fixtures/slidev-source.v2.json",
+        "deploy/mvp/application-seccomp.v1.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6582,7 +6677,12 @@
         "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/reference-pack-fixtures.mjs",
         "tools/release-evidence/standup-reference-pack-scenarios.mjs",
-        "tools/toolchain_pins.json"
+        "tools/toolchain_pins.json",
+        "tools/report-renderer/stage-installation.mjs",
+        "tools/release-evidence/package-platform.mjs",
+        "tools/renderprobe/main.go",
+        "contracts/reporting/fixtures/slidev-source.v2.json",
+        "deploy/mvp/application-seccomp.v1.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6757,7 +6857,12 @@
         "tools/release-evidence/package-release.mjs",
         "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/portable-package-recovery.mjs",
-        "tools/release-evidence/recovery-interruption.mjs"
+        "tools/release-evidence/recovery-interruption.mjs",
+        "tools/report-renderer/stage-installation.mjs",
+        "tools/release-evidence/package-platform.mjs",
+        "tools/renderprobe/main.go",
+        "contracts/reporting/fixtures/slidev-source.v2.json",
+        "deploy/mvp/application-seccomp.v1.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6904,7 +7009,7 @@
     {
       "name": "test-catalog-check",
       "backing_scripts": [
-        "tools/harness/test-catalog/catalog-check.mjs",
+        "tools/harness/execution/catalog-check-cli.mjs",
         "tools/harness/test-catalog/test-catalog.mjs"
       ],
       "target_class": "check_internal",
@@ -7227,11 +7332,16 @@
     {
       "name": "benchmark-claim-check",
       "backing_scripts": [
-        "contracts/claim-publication/benchmark-profile-registry.v1.json",
+        "contracts/claim-publication/benchmark-profile.v3.json",
+        "tools/harness/browser/frontend-measurement-evidence.mjs",
         "tools/harness/contract/index.mjs",
+        "tools/harness/performance-fixture/index.mjs",
         "tools/harnessruntime/main.go",
         "tools/release-evidence/check-benchmark-claim.mjs",
-        "tools/schemas/cartulary.benchmark_profile_registry.v1.schema.json"
+        "tools/schemas/cartulary.benchmark_evidence_bundle.v1.schema.json",
+        "tools/schemas/cartulary.benchmark_manifest.v2.schema.json",
+        "tools/schemas/cartulary.benchmark_profile.v1.schema.json",
+        "tools/schemas/cartulary.browser_execution_environment.v1.schema.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7251,7 +7361,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.benchmark_claim_check.v2",
+      "command_id": "cartulary.harness.command.benchmark_claim_check.v3",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -7283,6 +7393,23 @@
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": [
+          {
+            "name": "BENCHMARK_MANIFEST",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": ".cartulary/benchmark/benchmark_manifest.json",
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
           {
             "name": "CARTULARY_HARNESS_CACHE_MODE",
             "binding": "make_variable",
@@ -11788,10 +11915,14 @@
         "tools/harness/execution/tests/test-vitest-diagnostics.mjs",
         "tools/harness/execution/tests/vitest-diagnostic-fixture.mjs",
         "tools/harness/execution/vitest-invocation-cli.mjs",
+        "tools/harness/readiness/list-build-inputs.sh",
+        "tools/harness/readiness/tests/test-build-input-discovery.sh",
         "tools/harness/runtime/command-failure-cli.mjs",
         "tools/harness/runtime/command-failure.mjs",
         "tools/harness/static-analysis/go-govulncheck.sh",
         "tools/harness/static-analysis/govulncheck-findings.mjs",
+        "tools/harness/test-catalog/executable-files-cli.mjs",
+        "tools/harness/test-catalog/restricted-input-boundary.mjs",
         "tools/harness/tests/command-failure-fixture.mjs",
         "tools/harness/tests/contract-catalog-cases.mjs",
         "tools/harness/tests/contract-initialization-cases.mjs",
@@ -14828,7 +14959,8 @@
         "tools/release-evidence/tests/test-release-readiness-evidence.mjs",
         "tools/release-evidence/tests/test-package-release.mjs",
         "deploy/mvp/scripts/install.sh",
-        "deploy/mvp/scripts/release-verify.sh"
+        "deploy/mvp/scripts/release-verify.sh",
+        "tools/report-renderer/stage-installation.mjs"
       ],
       "command_id": "cartulary.harness.command.release_evidence_contract.v2",
       "target_class": "check_internal",
@@ -17704,7 +17836,12 @@
         "tools/release-evidence/package-release.mjs",
         "tools/release-evidence/package-smoke-cleanup.sh",
         "tools/release-evidence/reference-pack-fixtures.mjs",
-        "tools/toolchain_pins.json"
+        "tools/toolchain_pins.json",
+        "tools/report-renderer/stage-installation.mjs",
+        "tools/release-evidence/package-platform.mjs",
+        "tools/renderprobe/main.go",
+        "contracts/reporting/fixtures/slidev-source.v2.json",
+        "deploy/mvp/application-seccomp.v1.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -17854,7 +17991,9 @@
         "deploy/mvp/scripts/release-verify.sh",
         "deploy/mvp/Containerfile",
         "deploy/mvp/docker-compose.yml",
-        "tools/harnessruntime/main.go"
+        "tools/harnessruntime/main.go",
+        "tools/report-renderer/stage-installation.mjs",
+        "deploy/mvp/application-seccomp.v1.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -18002,7 +18141,9 @@
         "deploy/mvp/scripts/release-verify.sh",
         "deploy/mvp/Containerfile",
         "deploy/mvp/docker-compose.yml",
-        "tools/harnessruntime/main.go"
+        "tools/harnessruntime/main.go",
+        "tools/report-renderer/stage-installation.mjs",
+        "deploy/mvp/application-seccomp.v1.json"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -18408,6 +18549,231 @@
       "target_class": "check_internal",
       "default_inclusion_sets": [],
       "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-browser-preparation-contract",
+      "backing_scripts": [
+        "tools/harness/browser/tests/test-browser-preparation.sh"
+      ],
+      "command_id": "cartulary.harness.command.harness_browser_preparation_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "harness-benchmark-claim-contract",
+      "backing_scripts": [
+        "contracts/claim-publication/benchmark-profile.v3.json",
+        "tools/harness/browser/frontend-measurement-evidence.mjs",
+        "tools/harness/contract/artifact-reader.mjs",
+        "tools/harness/contract/secure-directory.mjs",
+        "tools/harness/performance-fixture/index.mjs",
+        "tools/release-evidence/check-benchmark-claim.mjs",
+        "tools/release-evidence/tests/test-benchmark-claim-check.mjs",
+        "tools/schemas/cartulary.benchmark_evidence_bundle.v1.schema.json",
+        "tools/schemas/cartulary.benchmark_manifest.v2.schema.json",
+        "tools/schemas/cartulary.benchmark_profile.v1.schema.json",
+        "tools/schemas/cartulary.browser_execution_environment.v1.schema.json"
+      ],
+      "command_id": "cartulary.harness.command.harness_benchmark_claim_contract.v1",
+      "target_class": "check_internal",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "candidate_child"
+    },
+    {
+      "name": "build-report-renderer",
+      "backing_scripts": [
+        "tools/harness/backend/build-go-artifact.sh",
+        "tools/report-renderer/build-runtime.mjs",
+        "tools/harnessruntime/main.go"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.build_report_renderer.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [],
+      "lifecycle_state": "public_active",
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "build/bin",
+            "build/report-renderer"
+          ]
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "HARNESS_DIAGNOSTICS",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "enum",
+            "values": [
+              "off",
+              "basic"
+            ],
+            "default": "off",
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
+    },
+    {
+      "name": "test-run-recover",
+      "backing_scripts": [
+        "tools/harnessruntime/main.go",
+        "internal/testutil/harnessfixtures/recover_command_linux.go",
+        "internal/testutil/harnessfixtures/recovery_linux.go"
+      ],
+      "output_policy": {
+        "output_class": "service_summary",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 32,
+          "stdout_bytes": 8192,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "failure_or_verbose",
+        "summary_schema": "cartulary.tool_run_summary.v5"
+      },
+      "command_id": "cartulary.harness.command.test_run_recover.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "service_lifecycle",
+          "owner_section": "Section 11"
+        },
+        {
+          "behavior": "destructive_safety",
+          "owner_section": "Section 13"
+        },
+        {
+          "behavior": "security_boundary",
+          "owner_section": "Section 15"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "local_services_dev",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "destructive_cleanup",
+          "owner_section": "Section 13",
+          "predicates_section": "Section 13"
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "RESULTS_DIR",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "RUNTIME_ROOT",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "path",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "RUNTIME_LEASE_ID",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": true,
+            "type": "semantic_text",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "redacted_value",
+            "child_forwarding": "runtime_env"
+          }
+        ]
+      }
     }
   ],
   "harness_tiers": {
@@ -18449,7 +18815,6 @@
         "harness-smoke-release-readiness-evidence",
         "harness-smoke-sbom-license-evidence",
         "harness-smoke-seaweedfs-release-evidence",
-        "harness-smoke-benchmark-claim-check",
         "harness-smoke-make-node-tools",
         "harness-smoke-canonical-performance",
         "harness-smoke-canonical-evidence",
@@ -18513,7 +18878,6 @@
         "harness-smoke-release-readiness-evidence",
         "harness-smoke-sbom-license-evidence",
         "harness-smoke-seaweedfs-release-evidence",
-        "harness-smoke-benchmark-claim-check",
         "harness-smoke-make-node-tools",
         "harness-smoke-canonical-performance",
         "harness-smoke-canonical-evidence",
@@ -18753,18 +19117,6 @@
       "command": [
         "$(NODE_BIN)",
         "./tools/release-evidence/tests/test-seaweedfs-release-evidence.mjs"
-      ]
-    },
-    {
-      "name": "harness-smoke-benchmark-claim-check",
-      "backing_scripts": [
-        "contracts/claim-publication/benchmark-profile-registry.v1.json",
-        "tools/release-evidence/check-benchmark-claim.mjs",
-        "tools/release-evidence/tests/test-benchmark-claim-check.sh",
-        "tools/schemas/cartulary.benchmark_profile_registry.v1.schema.json"
-      ],
-      "command": [
-        "./tools/release-evidence/tests/test-benchmark-claim-check.sh"
       ]
     },
     {

@@ -1,0 +1,50 @@
+{
+  "schema_id": "cartulary.performance_history_contract.v2",
+  "contract_id": "cartulary.performance.history.v2",
+  "criterion_id": "AC-011",
+  "fixture_contract_id": "cartulary.performance.large_grid.v1",
+  "measurement_policy_id": "cartulary.measurement.single_observation.v1",
+  "warmup_passes": 0,
+  "measured_samples": 1,
+  "product_retries": 0,
+  "threshold_ms": 2000,
+  "threshold_comparison": "lt",
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "device_scale_factor": 1
+  },
+  "start_mark": "cartulary.workbook.history_action_accepted",
+  "predicates": [
+    {
+      "predicate_id": "perf.timeline_history_entry_rollback.rendered.v2",
+      "kind": "history_entry"
+    },
+    {
+      "predicate_id": "perf.timeline_change_set_rollback.rendered.v2",
+      "kind": "change_set"
+    },
+    {
+      "predicate_id": "perf.timeline_row_restore.rendered.v2",
+      "kind": "row_restore"
+    }
+  ],
+  "workload": {
+    "foreground_role": "reviewer",
+    "fields": [
+      {
+        "field_key": "timeline.analyst_text",
+        "before": "history-before",
+        "mistake": "history-mistake"
+      },
+      {
+        "field_key": "timeline.device_object_text",
+        "before": "device-before",
+        "mistake": "device-mistake"
+      }
+    ],
+    "action_driver": "keyboard_enter",
+    "inspector_scroll_policy": "product_managed"
+  }
+}

@@ -632,7 +632,10 @@
         "include": [
           "apps/web/src/workbook/timeline/hooks/**"
         ],
-        "exclude": []
+        "exclude": [
+          "apps/web/src/workbook/timeline/hooks/*.test.ts",
+          "apps/web/src/workbook/timeline/hooks/*.test.tsx"
+        ]
       },
       "allowed_importers": [],
       "restricted_imports": [
@@ -1611,6 +1614,39 @@
         {
           "kind": "path_prefix",
           "path": "apps/web/src/workbook/query/acceptWorkbookRowObservation"
+        }
+      ]
+    },
+    {
+      "id": "frontend-timeline-no-assessment-owner",
+      "level": "error",
+      "message": "Timeline models and workflows must not import Assessment-owned semantics.",
+      "applies_to": {
+        "include": [
+          "apps/web/src/workbook/timeline/**"
+        ],
+        "exclude": [
+          "**/*.test.ts",
+          "**/*.test.tsx"
+        ]
+      },
+      "allowed_importers": [],
+      "restricted_imports": [
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/models/assessmentWorkbookModel"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/components/AssessmentWorkbookSurface"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/hooks/useAssessmentSupportCandidates"
+        },
+        {
+          "kind": "path_prefix",
+          "path": "apps/web/src/workbook/features/assessments"
         }
       ]
     }

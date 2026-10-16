@@ -3,6 +3,9 @@ package performancefixturelifecycle
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,7 +16,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	appfixture "github.com/JochiRaider/cartulary/internal/testutil/appsupport/performancefixture"
+	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
@@ -45,6 +52,7 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	env["SSL_CERT_FILE"] = objectStoreHarness.RootCertificatePath()
 	env["CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE"] = "1"
 	profile := lifecycleTestProfile(t)
+	profile.ObjectPopulation = performancefixtureprofile.ObjectPopulation{ObjectCount: 1, TotalBytes: 13}
 	args := BuildArgs{
 		FixtureProfileID:     profile.FixtureProfileID,
 		SnapshotKey:          performanceFixtureTestKey,
@@ -59,12 +67,30 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 		}
 	})
 	ctx := context.Background()
-	build, err := Build(ctx, env, profile, args, appfixture.NewProduction)
+	build, err := Build(ctx, env, profile, args, func(db postgres.DB, objects objectstore.Store, actor authn.UserRecord, key string, profile performancefixtureprofile.Profile) (*fixture.Assembler, error) {
+		// A generic binary contribution exercises the lifecycle independently of an
+		// Evidence workload. The product fixture still goes through its real owners.
+		if err := objects.PutObject(ctx, "snapshot/payload", strings.NewReader("fixture bytes"), 13, "text/plain"); err != nil {
+			return nil, err
+		}
+		return appfixture.NewProduction(db, objects, actor, key, profile)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if build.State != "sealed" || len(build.ContributionReceipts) != 6 || !build.Validation.ConnectionsClosed || len(build.Validation.Counts) == 0 || len(build.Validation.Conditions) == 0 {
 		t.Fatalf("builder did not produce one closed sealed contribution set: %#v", build)
+	}
+
+	if build.ObjectSnapshot == nil || build.ObjectSnapshot.ObjectCount != 1 || build.ObjectSnapshot.TotalBytes != 13 {
+		t.Fatal("sealed object population is missing")
+	}
+	buildPath, err := BuildArtifactPath(env, args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteImmutableJSON(buildPath, build); err != nil {
+		t.Fatal(err)
 	}
 
 	rows := []struct{ row, predicate string }{
@@ -83,7 +109,11 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 		cloneEnv["CARTULARY_FIXTURE_PREDICATE_ID"] = binding.predicate
 		cloneEnv["CARTULARY_FIXTURE_CLONE_LEASE_ID"] = "lease-" + binding.predicate
 		cloneEnv["CARTULARY_FIXTURE_CLONE_ORDINAL"] = strconv.Itoa(index + 1)
-		prepared, err := prepareWithProfile(ctx, cloneEnv, profile)
+		admitted, err := readBuildArtifact(cloneEnv, profile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		prepared, err := prepareWithProfile(ctx, cloneEnv, profile, admitted)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -100,6 +130,29 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	for _, prepared := range fixtures {
 		seenDatabases[prepared.DatabaseName] = struct{}{}
 		seenBuckets[prepared.Bucket] = struct{}{}
+		if prepared.ObjectSnapshot == nil || *prepared.ObjectSnapshot != *build.ObjectSnapshot {
+			t.Fatal("clone object proof diverged")
+		}
+		objects := openCloneObjects(t, ctx, prepared)
+		body, info, err := objects.ReadObject(ctx, "snapshot/payload", objectstore.ReadOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, err := io.ReadAll(body)
+		if closeErr := body.Close(); err != nil || closeErr != nil {
+			t.Fatalf("read clone bytes: %v %v", err, closeErr)
+		}
+		if string(raw) != "fixture bytes" || info.ContentType != "text/plain" || info.Size != 13 {
+			t.Fatal("clone did not restore exact bytes and metadata")
+		}
+		if prepared.CloneOrdinal == 1 {
+			if err := objects.PutObject(ctx, "snapshot/payload", strings.NewReader("changed"), 7, "text/plain"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := objects.Close(); err != nil {
+			t.Fatal(err)
+		}
 		pool, err := pgxpool.New(ctx, prepared.DSN)
 		if err != nil {
 			t.Fatal(err)
@@ -170,6 +223,7 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 			CloneLeaseID:      prepared.CloneLeaseID,
 			CloneOrdinal:      prepared.CloneOrdinal,
 			RuntimeBundleRoot: prepared.RuntimeBundleRoot,
+			ObjectSnapshot:    prepared.ObjectSnapshot,
 		}
 		ports := CleanupPorts{
 			CleanupSessions: RevokeSessions,
@@ -190,6 +244,58 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 			t.Fatalf("clone %d retained its credential copy: %v", index+1, err)
 		}
 	}
+	// A corrupt source must fail admission, reclaim acquired resources and retain
+	// their actual cleanup outcomes without claiming browser execution occurred.
+	templateRoot, err := templateRuntimeRoot(env, args.SnapshotKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := objectstore.NewFilesystemStore(filepath.Join(templateRoot, objectSnapshotDirectory))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := source.PutObject(ctx, "snapshot/payload", strings.NewReader("corrupt bytes"), 13, "text/plain"); err != nil {
+		t.Fatal(err)
+	}
+	if err := source.Close(); err != nil {
+		t.Fatal(err)
+	}
+	failedEnv := cloneEnvironment(env)
+	failedEnv["CARTULARY_FIXTURE_PROFILE_ID"] = profile.FixtureProfileID
+	failedEnv["CARTULARY_FIXTURE_SNAPSHOT_KEY"] = args.SnapshotKey
+	failedEnv["CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID"] = args.BuilderUnitID
+	failedEnv["CARTULARY_FIXTURE_ROW_ID"] = "harness.browser.integration.corrupt_object_snapshot"
+	failedEnv["CARTULARY_FIXTURE_PREDICATE_ID"] = rows[0].predicate
+	failedEnv["CARTULARY_FIXTURE_CLONE_LEASE_ID"] = "lease-corrupt-objects"
+	failedEnv["CARTULARY_FIXTURE_CLONE_ORDINAL"] = "5"
+	rejected, preparationErr := prepareWithProfile(ctx, failedEnv, profile, build)
+	var failed *preparationFailure
+	if preparationErr == nil || rejected.DatabaseName != "" || !errors.As(preparationErr, &failed) {
+		t.Fatal("corrupt object population admitted a browser or lost cleanup evidence")
+	}
+	for _, result := range failed.cleanup {
+		expected := "not_acquired"
+		if result.ResourceClass == "database" || result.ResourceClass == "bucket" {
+			expected = "complete"
+		}
+		if result.Outcome != expected {
+			t.Fatalf("failed clone cleanup %s: %s", result.ResourceClass, result.Outcome)
+		}
+	}
+	if err := failedLeaseWithProfile(failedEnv, profile, "clone_failed", preparationErr); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], env["CARTULARY_TEST_RUN_ID"], "performance-fixtures", args.SnapshotKey, "leases", failedEnv["CARTULARY_FIXTURE_ROW_ID"]+".json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var failureArtifact leaseArtifact
+	if err := json.Unmarshal(raw, &failureArtifact); err != nil {
+		t.Fatal(err)
+	}
+	if failureArtifact.ObjectSnapshot != nil || failureArtifact.CreationState != "failed" || failureArtifact.CleanupResults[0].Outcome != "complete" {
+		t.Fatal("failed admission evidence is misleading")
+	}
 	leaseDirectory := filepath.Join(
 		env["CARTULARY_TEST_RESULTS_DIR"],
 		env["CARTULARY_TEST_RUN_ID"],
@@ -201,8 +307,8 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(leaseFiles) != 4 {
-		t.Fatalf("got %d immutable clone lease artifacts, want four", len(leaseFiles))
+	if len(leaseFiles) != 5 {
+		t.Fatalf("got %d immutable clone lease artifacts, want five", len(leaseFiles))
 	}
 	partialKey := strings.Repeat("c", 64)
 	partialTemplate := templateName(env[suiteservices.SuiteIDEnv], partialKey)
@@ -269,7 +375,7 @@ func cloneEnvironment(source map[string]string) map[string]string {
 func lifecycleTestProfile(t *testing.T) performancefixtureprofile.Profile {
 	t.Helper()
 	for _, profile := range performancefixtureprofile.Profiles() {
-		if profile.Status == "active" {
+		if profile.Status == "active" && profile.FixtureProfileID == "timeline_large_grid_snapshot_v2" {
 			profile.FixtureProfileID = "harness_lifecycle_small_v1"
 			profile.FixtureVersion = "cartulary.perf.lifecycle.small.v1"
 			profile.Seed = 20260817
@@ -321,4 +427,13 @@ func semanticCount(profile performancefixtureprofile.Profile, expectationID stri
 		}
 	}
 	return -1
+}
+
+func openCloneObjects(t *testing.T, ctx context.Context, prepared PreparedFixture) objectstore.Store {
+	t.Helper()
+	store, err := objectstore.Setup(ctx, objectstore.Settings{BindingKind: "managed_service", Endpoint: prepared.S3Endpoint, AccessKey: prepared.S3AccessKey, SecretKey: prepared.S3SecretKey, Secure: prepared.S3Secure, Bucket: prepared.Bucket, RootCertificatePath: prepared.S3RootCertificatePath}, objectstore.Instrumentation{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store
 }

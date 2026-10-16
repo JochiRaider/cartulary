@@ -111,6 +111,9 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 	if err := s.appendAliasCreateMutationsTx(ctx, tx, changeSetID, 2, record.AliasMutations); err != nil {
 		return MutationResult{}, err
 	}
+	if err := s.appendCollectionMutationsTx(ctx, tx, changeSetID, 2+len(record.AliasMutations), record.partyMutations); err != nil {
+		return MutationResult{}, err
+	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
 		changedFields := entityChangedFieldKeys(beforeRow, afterRow)
 		if err := s.ports.revisions.AppendLiveRevisionTx(ctx, tx, revisions.LiveRevisionInput{
@@ -238,6 +241,9 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 	if err := s.appendAliasCreateMutationsTx(ctx, tx, changeSetID, 2, record.AliasMutations); err != nil {
+		return MutationResult{}, err
+	}
+	if err := s.appendCollectionMutationsTx(ctx, tx, changeSetID, 2+len(record.AliasMutations), record.partyMutations); err != nil {
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {

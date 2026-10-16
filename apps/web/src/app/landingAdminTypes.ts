@@ -8,6 +8,7 @@ import type {
 export type IncidentStatusFilter = "active" | "all" | "closed";
 
 export type IncidentControlsSection =
+  | "snapshot-reports"
   | "import-assistant"
   | "incident-fields"
   | "membership-audit"

@@ -20,6 +20,9 @@ import {
   networkAnalysisSheetRef,
   networkAnalysisWorkspaceKey,
   networkFlowActivityProfileId,
+  reportingProfileId,
+  reportingReleasesRoute,
+  reportingSnapshotsRoute,
 } from "../extensions/extensionWorkspaceIdentities";
 import type { WorkbookImportController } from "../imports/WorkbookImportController";
 import type { WorkbookImportSurfaceBinding } from "../imports/workbookImportBinding";
@@ -642,6 +645,9 @@ function WorkbookShellContent({
   const incidentControls = useIncidentControlsDrawer(
     importAssistantAvailable,
     onIncidentControlsSectionChange,
+    [reportingSnapshotsRoute, reportingReleasesRoute].every((route) =>
+      extensionLifecycle.controller.isRouteAvailable(reportingProfileId, route),
+    ),
   );
   useNetworkFlowImportBinding({
     controller: networkFlowImportController,
@@ -684,6 +690,7 @@ function WorkbookShellContent({
       ),
   });
   const facadeProps: WorkbookSurfacesFacadeProps = {
+    evidenceMetadata: infrastructure.evidenceMetadata,
     navigation: workbench,
     collaboration: { projection: collaboration.projection },
     continuity: { resetKey: collaboration.continuityResetKey },

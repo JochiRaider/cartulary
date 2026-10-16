@@ -74,7 +74,7 @@ const strict = ({ children }: { children: ReactNode }) => (
   <StrictMode>{children}</StrictMode>
 );
 describe("Application workflow composition", () => {
-  it("constructs eight inert owners and retires and disposes each contribution once", async () => {
+  it("constructs nine inert owners and retires and disposes each contribution once", async () => {
     const h = setup();
     const subscribe = vi.spyOn(h.session, "subscribe");
     const fetch = vi.fn();
@@ -92,6 +92,7 @@ describe("Application workflow composition", () => {
       workflows.preferences,
       workflows.workbookImport,
       workflows.networkFlowImport,
+      workflows.reporting,
     ];
     const sync = members.map((m) => vi.spyOn(m, "synchronize"));
     const retire = members.map((m) => vi.spyOn(m, "retire"));

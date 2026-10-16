@@ -1,0 +1,37 @@
+{
+  "schema_id": "cartulary.performance_presence_contract.v2",
+  "contract_id": "cartulary.performance.presence.v2",
+  "fixture_contract_id": "cartulary.performance.large_grid.v1",
+  "measurement_policy_id": "cartulary.measurement.single_observation.v1",
+  "warmup_passes": 0,
+  "measured_samples": 1,
+  "product_retries": 0,
+  "threshold_ms": 1000,
+  "threshold_comparison": "lte",
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "field_key": "timeline.activity_synopsis_text",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "device_scale_factor": 1
+  },
+  "start_mark": "cartulary.workbook.presence_change_accepted",
+  "predicates": [
+    {
+      "predicate_id": "perf.timeline_presence_surface.rendered.v1",
+      "kind": "surface"
+    },
+    {
+      "predicate_id": "perf.timeline_presence_row.rendered.v1",
+      "kind": "row"
+    },
+    {
+      "predicate_id": "perf.timeline_presence_cell.rendered.v1",
+      "kind": "cell"
+    }
+  ],
+  "criterion_ids": [
+    "AC-008",
+    "AC-132"
+  ]
+}

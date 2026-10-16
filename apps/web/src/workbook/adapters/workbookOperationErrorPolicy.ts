@@ -25,6 +25,9 @@ const operationFamilyByID = {
   createIncidentSavedView: "field_mutation",
   createManualIndicatorObservation: "field_mutation",
   createObjectBlobSlot: "field_mutation",
+  verifyObjectBlob: "field_mutation",
+  getJob: "field_mutation",
+  cancelJob: "field_mutation",
   createRecordLinkedNote: "field_mutation",
   createViewRow: "field_mutation",
   deleteIncidentSavedView: "field_mutation",
@@ -56,6 +59,7 @@ const operationFamilyByID = {
   putCurrentUserWorkbookPreferences: "field_mutation",
   putIncidentDefaultWorkbookPreferences: "field_mutation",
   putTimelineTimeConversionProfile: "field_mutation",
+  queryEvidenceMetadata: "surface_load",
   queryWorkbookView: "surface_load",
   locateWorkbookViewRecord: "surface_load",
   resolveEntityMention: "field_mutation",
@@ -195,6 +199,7 @@ function publicMessage(
     operationID === "issueEvidencePreviewHandle" ||
     operationID === "issueEvidenceDownloadHandle" ||
     operationID === "createObjectBlobSlot" ||
+    operationID === "verifyObjectBlob" ||
     operationID === "attachBlobToEvidenceRecord"
   ) {
     return "Evidence request failed.";

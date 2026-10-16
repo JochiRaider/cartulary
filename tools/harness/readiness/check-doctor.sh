@@ -77,6 +77,12 @@ if [[ -n "$node_path" ]]; then
   if ! "$node_path" "$ROOT_DIR/tools/harness/readiness/diagnose-inotify.mjs" --advisory; then
     fail=2
   fi
+  bubblewrap_version="$("$node_path" -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).bubblewrap_version)' "$ROOT_DIR/tools/toolchain_pins.json")"
+  if [[ "$(bwrap --version 2>/dev/null || true)" == "bubblewrap ${bubblewrap_version}" ]]; then
+    printf 'ok render sandbox: bubblewrap %s\n' "$bubblewrap_version"
+  else
+    print_missing 'render sandbox' "install bubblewrap ${bubblewrap_version}; native namespace capability is checked by the Reporting renderer owner tests"
+  fi
 fi
 
 pnpm_path=""

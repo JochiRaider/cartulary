@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	reportingjson "github.com/JochiRaider/cartulary/internal/modules/reporting/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/outputcontract"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -78,7 +79,7 @@ func DecodeCreateDraftRequest(reader io.Reader) (CreateDraftRequest, *httpapi.AP
 			return CreateDraftRequest{}, apiErr
 		}
 	}
-	if summary := validateDraft(request.DeckOps, request.DiagramDecls, request.AuthoredTexts, nil); !summaryValid(summary) {
+	if summary := validateDraft(request.DeckOps, request.DiagramDecls, request.AuthoredTexts); !summaryValid(summary) {
 		return CreateDraftRequest{}, validationSummaryError(http.StatusBadRequest, "invalid_request", summary)
 	}
 	request.Normalized, _ = canonicalJSON(map[string]any{
@@ -194,7 +195,6 @@ func DecodeValidateRequest(reader io.Reader) (ValidateRequest, *httpapi.APIError
 		"source_kind":         {},
 		"composition_version": {},
 		"inline_composition":  {},
-		"validation_context":  {},
 	}
 	if apiErr := rejectUnknown(raw, allowed); apiErr != nil {
 		return ValidateRequest{}, apiErr
@@ -223,18 +223,6 @@ func DecodeValidateRequest(reader io.Reader) (ValidateRequest, *httpapi.APIError
 			return ValidateRequest{}, apiErr
 		}
 		request.InlineComposition = &parsed
-	}
-	if value, ok := raw["validation_context"]; ok {
-		request.ValidationContextIs = true
-		if bytesEqualJSONNull(value) {
-			request.ValidationContext = nil
-		} else {
-			parsed, apiErr := requiredObject(value, "validation_context")
-			if apiErr != nil {
-				return ValidateRequest{}, apiErr
-			}
-			request.ValidationContext = &parsed
-		}
 	}
 	if !validValidateSourceSelection(request) {
 		return ValidateRequest{}, validationCodeError(http.StatusBadRequest, "invalid_request", "composition_source_invalid")
@@ -269,7 +257,6 @@ func DecodePreviewRequest(reader io.Reader) (PreviewRequest, *httpapi.APIError) 
 	}
 	request := PreviewRequest{
 		SourceKind:             SourceKindDraft,
-		OutputOptions:          cloneRaw(emptyJSONObject),
 		RecipientPartitionRefs: cloneRaw(emptyJSONArray),
 		GraphProjectionRefs:    cloneRaw(emptyJSONArray),
 	}
@@ -318,12 +305,11 @@ func DecodePreviewRequest(reader io.Reader) (PreviewRequest, *httpapi.APIError) 
 	if !validPreviewSourceSelection(request) {
 		return PreviewRequest{}, validationCodeError(http.StatusBadRequest, "invalid_request", "composition_source_invalid")
 	}
-	if value, ok := raw["output_options"]; ok {
-		request.OutputOptions, apiErr = requiredObject(value, "output_options")
-		if apiErr != nil {
-			return PreviewRequest{}, apiErr
-		}
+	options, optionsErr := outputcontract.Materialize(raw["output_options"], request.OutputKind, outputcontract.ReleaseScopeInternalDraft)
+	if optionsErr != nil {
+		return PreviewRequest{}, schemaFieldError("output_options", optionsErr.ReasonCode)
 	}
+	request.OutputOptions = options
 	if value, ok := raw["recipient_partition_refs"]; ok {
 		request.RecipientPartitionRefs, apiErr = requiredArray(value, "recipient_partition_refs")
 		if apiErr != nil {
@@ -458,6 +444,12 @@ func requiredArray(value json.RawMessage, field string) (json.RawMessage, *httpa
 	canonical, err := reportingjson.Canonicalize(value)
 	if err != nil {
 		return nil, schemaFieldError(field, "invalid_value")
+	}
+	if field == "deck_ops" || field == "diagram_decls" || field == "authored_texts" {
+		canonical, err = materializeCompositionArray(canonical, field)
+		if err != nil {
+			return nil, schemaFieldError(field, "invalid_value")
+		}
 	}
 	return json.RawMessage(canonical), nil
 }

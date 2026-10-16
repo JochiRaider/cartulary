@@ -278,7 +278,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	); err != nil {
 		t.Fatalf("clear assessment projection before rebuild: %v", err)
 	}
-	if err := projectionCatalog.RevisionRebuilder().RebuildIncidentTx(
+	if err := projectionCatalog.ImportRebuilder().RebuildImportedIncidentTx(
 		ctx,
 		tx,
 		incident.ID,

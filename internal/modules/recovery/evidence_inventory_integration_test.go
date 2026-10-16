@@ -87,6 +87,7 @@ INSERT INTO evidence (
 		{name: "object_blobs", class: recoverystate.StateAuthoritative, inclusion: recoverystate.InclusionRequired, action: recoverystate.RestoreState},
 		{name: "evidence_access_handles", class: recoverystate.StateSecurity, inclusion: recoverystate.InclusionSecurity, action: recoverystate.InvalidateState},
 		{name: "evidence_object_upload_leases", class: recoverystate.StateSecurity, inclusion: recoverystate.InclusionSecurity, action: recoverystate.InvalidateState},
+		{name: "evidence_blob_verifications", class: recoverystate.StateSecurity, inclusion: recoverystate.InclusionSecurity, action: recoverystate.InvalidateState},
 		{name: "evidence_blob_cleanup_claims", class: recoverystate.StateTransient, inclusion: recoverystate.InclusionTransient, action: recoverystate.InvalidateState},
 	}
 	if len(contribution.Tables) != len(wantTables) {

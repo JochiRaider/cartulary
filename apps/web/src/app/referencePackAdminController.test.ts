@@ -1,3 +1,4 @@
+import { cartularyReferencePackProgressContract as timing } from "@cartulary/ui-contracts";
 import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -103,6 +104,7 @@ async function observed(
 afterEach(() => {
   for (const controller of controllers.splice(0)) controller.dispose();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe("Reference Pack execution", () => {
@@ -303,6 +305,7 @@ describe("Reference Pack execution", () => {
   });
 
   it("replays an uncertain upload with the original bytes target and transaction", async () => {
+    const mark = vi.spyOn(performance, "mark");
     const { controller, ports } = setup();
     await ready(controller);
     const file = new File([new Uint8Array([0, 1, 255, 42])], "bundle.zip", {
@@ -327,6 +330,38 @@ describe("Reference Pack execution", () => {
     expect(captured?.file).toBe(file);
     expect(captured?.request.client_txn_id).toBe("txn-1");
     expect(controller.getSnapshot().file).toBeNull();
+    expect(
+      mark.mock.calls.map(([name, options]) => [name, options?.detail]),
+    ).toEqual([
+      [
+        timing.start_mark,
+        { transactionId: "txn-1", purpose: "reference_pack_import" },
+      ],
+      [
+        timing.dispatch_mark,
+        {
+          transactionId: "txn-1",
+          purpose: "reference_pack_import",
+          replay: false,
+        },
+      ],
+      [
+        timing.dispatch_mark,
+        {
+          transactionId: "txn-1",
+          purpose: "reference_pack_import",
+          replay: true,
+        },
+      ],
+      [
+        timing.admission_mark,
+        {
+          transactionId: "txn-1",
+          purpose: "reference_pack_import",
+          jobId: referencePackTestJobId,
+        },
+      ],
+    ]);
   });
 
   it("keeps an inline commit committed when catalog reconciliation fails", async () => {

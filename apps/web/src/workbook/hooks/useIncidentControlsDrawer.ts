@@ -41,6 +41,12 @@ const importAssistantMenuItem = {
   description: "Discover, map, and apply CSV or XLSX data",
 } as const satisfies WorkbookIncidentControlsMenuItem;
 
+const reportingMenuItem = {
+  section: "snapshot-reports",
+  label: "Snapshots and reports",
+  description: "Immutable snapshots and internal report drafts",
+} as const satisfies WorkbookIncidentControlsMenuItem;
+
 const defaultIncidentControlsMenuItem = baseIncidentControlsMenuItems[0];
 
 function requireIncidentControlsMenuItem(
@@ -56,6 +62,7 @@ function requireIncidentControlsMenuItem(
 export function useIncidentControlsDrawer(
   importAssistantAvailable = false,
   onSectionChange?: (section: IncidentControlsSection | null) => void,
+  reportingAvailable = false,
 ) {
   const sectionChange = useRef(onSectionChange);
   sectionChange.current = onSectionChange;
@@ -110,24 +117,23 @@ export function useIncidentControlsDrawer(
 
   useEffect(() => {
     if (
-      !importAssistantAvailable &&
-      drawerSection === importAssistantMenuItem.section
+      (!importAssistantAvailable &&
+        drawerSection === importAssistantMenuItem.section) ||
+      (!reportingAvailable && drawerSection === reportingMenuItem.section)
     ) {
       setDrawerSection(null);
       setLastSection("summary");
     }
-  }, [drawerSection, importAssistantAvailable]);
+  }, [drawerSection, importAssistantAvailable, reportingAvailable]);
 
   const incidentControlsMenuItems = useMemo(
-    () =>
-      importAssistantAvailable
-        ? [
-            baseIncidentControlsMenuItems[0],
-            importAssistantMenuItem,
-            ...baseIncidentControlsMenuItems.slice(1),
-          ]
-        : baseIncidentControlsMenuItems,
-    [importAssistantAvailable],
+    () => [
+      baseIncidentControlsMenuItems[0],
+      ...(importAssistantAvailable ? [importAssistantMenuItem] : []),
+      ...(reportingAvailable ? [reportingMenuItem] : []),
+      ...baseIncidentControlsMenuItems.slice(1),
+    ],
+    [importAssistantAvailable, reportingAvailable],
   );
 
   const accountIncidentControls = useMemo<

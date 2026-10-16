@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.revisions",
   "rows": [
     {
@@ -611,6 +611,41 @@
       ]
     },
     {
+      "row_id": "module.revisions.browser.source_history_spec_ts_45f9ef2541",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/history.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "titles": [
+          "retargets open inspector history when row focus changes"
+        ],
+        "scenario_ids": [
+          "scenario_45f9ef254111"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.revisions.browser.uses_a_server_supplied_history_entry_ref_from_ro_109056553a",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.browser",
@@ -817,6 +852,34 @@
           "TestCommandServiceRejectsInvalidProviderContributionSets",
           "TestCommandServiceRequiresEveryExplicitDependency"
         ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.revisions.frontend.history_paint_qualification",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.history_paint_qualification"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/historyTimingSupport.test.ts",
+        "titles": [
+          "requires one accepted history action and stable visible restored cells with new attribution"
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1045,6 +1108,33 @@
       ]
     },
     {
+      "row_id": "module.revisions.integration.projection_dependencies",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.projection_dependencies"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestHistoryProjectionDependencies_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.revisions.integration.retained_history_evidence_for_an_extant_record_r_b590f9c4b1",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.integration",
@@ -1096,6 +1186,117 @@
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
       "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.measurement.change_set",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.change_set_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-history.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_history_change_set_measurement"
+        ],
+        "titles": [
+          "measures Timeline change-set rollback through visible row and history within AC-011"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.measurement.history_entry",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.history_entry_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-history.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_history_history_entry_measurement"
+        ],
+        "titles": [
+          "measures Timeline single-entry rollback through visible row and history within AC-011"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.revisions.measurement.row_restore",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.row_restore_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-history.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_history_row_restore_measurement"
+        ],
+        "titles": [
+          "measures Timeline whole-row restore through visible row and history within AC-011"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
         "postgres"
       ]
     },
@@ -1859,6 +2060,78 @@
         ]
       },
       "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.revisions.unit.decode_stored_target_requires_exact_positive_int_ce58cbde3a",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions/conflicts",
+        "tests": [
+          "TestDecodeStoredTargetRequiresExactPositiveIntegerRowVersion_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.revisions.unit.projection_scope",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.projection_dependencies"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestProjectionScopeIsDirectAndIncidentBound"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.revisions.unit.revisions_runtime_builds_capabilities_from_one_c_92b9dea0f1",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/revisionassembly",
+        "tests": [
+          "TestRevisionsRuntimeBuildsCapabilitiesFromOneClonedContributionSet"
+        ]
+      },
+      "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",

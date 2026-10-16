@@ -1,0 +1,20 @@
+{
+  "schema_id": "cartulary.base_job_catalog.v1",
+  "jobs": [
+    {
+      "job_kind": "evidence.verify_blob_v1",
+      "progress_unit_id": "evidence.verify_blob.bytes.v1",
+      "handler_name": "evidence.blob_verification_worker_v1"
+    }
+  ],
+  "workers": [
+    {
+      "profile_id": "base",
+      "worker_kind": "evidence.blob_verification_worker_v1",
+      "job_kinds": [
+        "evidence.verify_blob_v1"
+      ],
+      "max_active_attempts_per_process": 8
+    }
+  ]
+}

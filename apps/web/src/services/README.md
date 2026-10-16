@@ -39,3 +39,7 @@ availability live in [extensions](../extensions/README.md).
 | [networkFlowContractAdapter.test.ts](networkFlowContractAdapter.test.ts) | Network Flow claimed-profile and compiled-contract-major admission tests. |
 | [referencePacks.test.ts](referencePacks.test.ts) | Tests Reference Pack inline/asynchronous outcomes and exact selected-scope replay. |
 | [workbookEvidence.test.ts](workbookEvidence.test.ts) | Tests for evidence client helpers and error mapping. |
+
+[reportingClient.ts](reportingClient.ts) projects generated snapshot/release and
+common-Job operations for the retained Reporting workflow, with exact built-in
+template identity and ordinary authenticated/CSRF browser transport.

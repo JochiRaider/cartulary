@@ -18,6 +18,7 @@ func RecoveryStateContribution() recoverystate.Contribution {
 		recoverystate.SecurityStateTables(
 			"evidence.invalidate_upload_leases.v1",
 			"evidence_object_upload_leases",
+			"evidence_blob_verifications",
 		)...,
 	)
 	tables = append(tables,

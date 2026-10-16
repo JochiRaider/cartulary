@@ -164,8 +164,8 @@ func TestVNextCaptureRestoreCodecsRemainParallelAndCatalogDriven_Unit(t *testing
 	if target.stateCatalogSHA256 != captured.IntegrityManifest.RecoveryStateCatalogSHA256 {
 		t.Fatalf("restore target catalog = %s, want selected %s", target.stateCatalogSHA256, captured.IntegrityManifest.RecoveryStateCatalogSHA256)
 	}
-	if got := len(target.tables); got != 111 {
-		t.Fatalf("restored tables = %d, want 111", got)
+	if got := len(target.tables); got != 113 {
+		t.Fatalf("restored tables = %d, want 113", got)
 	}
 	firstTable := stateCatalog.RequiredTableNames()[0]
 	if got := string(target.rows[firstTable][0]); got != `{"a":"first","z":"last"}` {

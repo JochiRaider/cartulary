@@ -36,28 +36,30 @@ func (provider *provider) CollectFactsTx(ctx context.Context, tx pgx.Tx, inciden
 	if err != nil {
 		return exportprovider.ProviderOutput{}, err
 	}
-	fields := make([]exportprovider.FieldFact, 0, len(hostFacts)+len(identityFacts))
+	fields := make([]exportprovider.BoundField, 0, len(hostFacts)+len(identityFacts))
 	fields = appendDerivedFacts(fields, "hosts", hostFacts, supportRefs)
 	fields = appendDerivedFacts(fields, "identities", identityFacts, supportRefs)
-	return exportprovider.NewProviderOutput(provider.ProviderKey(), fields)
+	return exportprovider.NewProviderOutput(provider.ProviderKey(), fields, nil)
 }
 
 func appendDerivedFacts(
-	fields []exportprovider.FieldFact,
+	fields []exportprovider.BoundField,
 	prefix string,
 	facts []entityports.DerivedFact,
 	supportRefs map[string][]string,
-) []exportprovider.FieldFact {
+) []exportprovider.BoundField {
 	for _, fact := range facts {
 		recordID := fact.RecordID.String()
-		fields = append(fields, exportprovider.FieldFact{
-			SchemaID:     exportprovider.FieldFactSchemaID,
-			Path:         "/" + prefix + "/" + recordID,
-			ContentClass: fact.ContentClass,
-			SourceFamily: fact.RecordType,
-			Value:        fact.Value,
-			SupportRefs:  exportprovider.CloneStrings(supportRefs[recordID]),
-		})
+		fields = append(fields, exportprovider.BoundField{
+			RecordID: recordID, RecordType: fact.RecordType,
+			FieldFact: exportprovider.FieldFact{
+				SchemaID:     exportprovider.FieldFactSchemaID,
+				Path:         "/" + prefix + "/" + recordID,
+				ContentClass: fact.ContentClass,
+				SourceFamily: fact.RecordType,
+				Value:        fact.Value,
+				SupportRefs:  exportprovider.CloneStrings(supportRefs[recordID]),
+			}})
 	}
 	return fields
 }

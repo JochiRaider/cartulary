@@ -73,6 +73,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 				viewSchemaID: entitycontract.HostsViewSchemaID,
 				createOnly:   []string{"host.aad_device_id", "host.fqdn"},
 				patchable: []string{
+					"host.subject_party_ids", "host.responsible_party_ids", "host.observer_party_ids",
 					"host.aliases", "host.business_owner", "host.containment_status", "host.criticality",
 					"host.display_name", "host.hostname", "host.location", "host.os_platform",
 				},
@@ -89,6 +90,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 				viewSchemaID: entitycontract.IdentitiesViewSchemaID,
 				createOnly:   []string{"identity.aad_object_id", "identity.sid"},
 				patchable: []string{
+					"identity.subject_party_ids", "identity.responsible_party_ids", "identity.observer_party_ids",
 					"identity.aliases", "identity.display_name", "identity.email", "identity.mfa_state",
 					"identity.privilege_level", "identity.reset_status", "identity.sam_account_name", "identity.upn",
 				},
@@ -109,8 +111,8 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 					t.Fatalf("missing view schema %s", tc.viewSchemaID)
 				}
 				fields := schema.Fields()
-				if len(fields) != 15 {
-					t.Fatalf("%s field count = %d, want 15", tc.viewSchemaID, len(fields))
+				if len(fields) != 18 {
+					t.Fatalf("%s field count = %d, want 18", tc.viewSchemaID, len(fields))
 				}
 				var patchable, nonpatchable, createOnly []string
 				for key, field := range fields {
@@ -126,6 +128,7 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 						}
 					}
 				}
+				slices.Sort(tc.patchable)
 				slices.Sort(patchable)
 				slices.Sort(nonpatchable)
 				slices.Sort(createOnly)
@@ -135,8 +138,8 @@ func TestCreateRequestAdmissionAndHashCompatibility(t *testing.T) {
 
 				row := tc.buildRow()
 				cells := row["cells"].(map[string]any)
-				if len(cells) != 15 || len(row) != 4 || row["record_id"] == nil || row["row_version"] == nil {
-					t.Fatalf("%s row must have exactly 15 cells and root technical members, got %#v", tc.viewSchemaID, row)
+				if len(cells) != 18 || len(row) != 4 || row["record_id"] == nil || row["row_version"] == nil {
+					t.Fatalf("%s row must have exactly 18 cells and root technical members, got %#v", tc.viewSchemaID, row)
 				}
 				for key := range fields {
 					if _, ok := cells[key]; !ok {

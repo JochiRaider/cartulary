@@ -9,6 +9,47 @@
       "evidence_kinds": [
         "go_test"
       ]
+    },
+    {
+      "verification_id": "module.reporting.verification.browser_workflow",
+      "behavior_class": "product",
+      "profile": "extension.snapshot_reporting",
+      "evidence_kinds": [
+        "vitest"
+      ]
+    },
+    {
+      "verification_id": "module.reporting.verification.render_progress_measurement",
+      "behavior_class": "product",
+      "profile": "extension.snapshot_reporting",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.reporting.verification.render_runtime",
+      "behavior_class": "product",
+      "profile": "extension.snapshot_reporting",
+      "evidence_kinds": [
+        "go_test",
+        "vitest"
+      ]
+    },
+    {
+      "verification_id": "module.reporting.verification.snapshot_progress_measurement",
+      "behavior_class": "product",
+      "profile": "extension.snapshot_reporting",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.reporting.verification.source_contracts",
+      "behavior_class": "product",
+      "profile": "extension.snapshot_reporting",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

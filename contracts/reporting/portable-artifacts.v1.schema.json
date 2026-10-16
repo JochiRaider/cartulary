@@ -19,19 +19,19 @@
             "type": "string",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
           },
-          "export_model_path": {
+          "source_capture_path": {
             "type": "string",
-            "pattern": "^ext/snapshots/[0-9a-f-]{36}/export-model\\.json$"
+            "pattern": "^ext/snapshots/[0-9a-f-]{36}/source-capture\\.json$"
           },
-          "export_model_sha256": {
+          "source_capture_sha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
           }
         },
         "required": [
           "snapshot_id",
-          "export_model_path",
-          "export_model_sha256"
+          "source_capture_path",
+          "source_capture_sha256"
         ],
         "additionalProperties": false
       },

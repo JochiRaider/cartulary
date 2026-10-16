@@ -18,6 +18,7 @@ esac
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 GOFMT_BIN="${GOFMT:-gofmt}"
+NODE_BIN="${NODE_BIN:-node}"
 
 # shellcheck source=tools/harness/generated-artifacts/generated-artifacts.sh
 # shellcheck disable=SC1091
@@ -51,8 +52,10 @@ append_go_files() {
   done
 }
 
-append_go_files < <(git ls-files -z -- '*.go')
-append_go_files < <(git ls-files -z --others --exclude-standard -- '*.go')
+discovery_file="$(mktemp "${TMPDIR:-/tmp}/cartulary-go-inputs.XXXXXX")"
+trap 'rm -f "$discovery_file"' EXIT
+"$NODE_BIN" "$ROOT_DIR/tools/harness/test-catalog/executable-files-cli.mjs" "$ROOT_DIR" '*.go' >"$discovery_file"
+append_go_files <"$discovery_file"
 
 if [[ "${#go_files[@]}" -eq 0 ]]; then
   exit 0

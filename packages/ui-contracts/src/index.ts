@@ -151,8 +151,27 @@ export {
 } from "./networkFlowSelectors";
 export {
   type CartularyAc043PredicateId,
+  type CartularyAc044PredicateId,
+  type CartularyHistoryPredicateId,
+  type CartularyImportApplyPredicateId,
+  type CartularyImportDiscoveryPredicateId,
+  type CartularyPresencePredicateId,
+  type CartularyReferencePackProgressPredicateId,
+  type CartularyReportingProgressPredicateId,
+  cartularyAc003PerformanceContract,
   cartularyAc043PerformanceContract,
+  cartularyAc044PerformanceContract,
+  cartularyAnchorTraceContract,
+  cartularyEvidenceInspectorContract,
+  cartularyEvidenceVerificationContract,
+  cartularyHistoryPerformanceContract,
+  cartularyImportApplyPerformanceContract,
+  cartularyImportDiscoveryPerformanceContract,
   cartularyInteractiveP95MeasurementPolicy,
+  cartularyLargeGridFixture,
+  cartularyPresencePerformanceContract,
+  cartularyReferencePackProgressContract,
+  cartularyReportingProgressContract,
 } from "./performanceContracts";
 
 export {

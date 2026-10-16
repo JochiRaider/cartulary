@@ -360,6 +360,10 @@ services:
 
   app:
     image: ${CARTULARY_PACKAGE_APPLICATION_IMAGE:?immutable release required}
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=${CARTULARY_INSTALLATION_DIR:?installation required}/release/assets/application-seccomp.v1.json
     pull_policy: never
     environment:
       CARTULARY_CONFIG_FILE: /etc/cartulary/config.toml

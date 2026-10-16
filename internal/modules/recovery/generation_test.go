@@ -15,7 +15,7 @@ func TestRecoveryGenerationRegistryOwnsOneExactCurrentGeneration_Unit(t *testing
 	if err != nil {
 		t.Fatalf("load Recovery generation registry: %v", err)
 	}
-	wantIDs := []string{"recovery.current.reference_pack_v2.graph_v4"}
+	wantIDs := []string{"recovery.current.reference_pack_v2.graph_v4.evidence_verify_v1"}
 	gotIDs := make([]string, 0, len(contractrecovery.RecoveryGenerations))
 	for _, generation := range contractrecovery.RecoveryGenerations {
 		gotIDs = append(gotIDs, generation.GenerationID)

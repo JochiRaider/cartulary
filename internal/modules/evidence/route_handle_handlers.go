@@ -63,12 +63,8 @@ func (s *service) handleIssueHandle(w http.ResponseWriter, r *http.Request, kind
 		return
 	}
 	if kind == "preview" {
-		if access.PreviewKind == nil {
-			writeAPIError(w, r, evidenceAccessUnavailable("unsupported_preview"))
-			return
-		}
-		if access.SizeBytes > s.previewMax || (*access.PreviewKind == "text_inline" && access.SizeBytes > s.textPreviewMax) {
-			writeAPIError(w, r, evidenceAccessUnavailable("preview_payload_too_large"))
+		if reason := s.previewMetadataBlocker(access); reason != "" {
+			writeAPIError(w, r, evidenceAccessUnavailable(reason))
 			return
 		}
 	}

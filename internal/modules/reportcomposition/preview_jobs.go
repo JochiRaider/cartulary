@@ -2,6 +2,7 @@ package reportcomposition
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,7 +13,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
+// ErrPreviewInputRejected denotes an unsupported or unavailable requested input,
+// without disclosing another incident's snapshot or private renderer details.
+var ErrPreviewInputRejected = errors.New("reportcomposition: preview input rejected")
+
 type PreviewJobAdmission struct {
+	Source         PreviewRenderSource
 	IdempotencyKey authn.RouteIdempotencyKey
 	Scope          jobs.Scope
 	ActorUserID    uuid.UUID

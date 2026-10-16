@@ -246,6 +246,7 @@ func attachUploadedBlobWithoutLifecyclePromotion(t *testing.T, harness *appsuppo
 	}, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, contentType, login)
+	verifyUploadedBlob(t, harness, login, createData["object_blob_id"], createTxn+"-verify", "succeeded")
 	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,

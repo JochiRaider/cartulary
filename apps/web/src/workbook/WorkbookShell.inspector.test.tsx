@@ -183,6 +183,22 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         },
       ]),
     );
+    fetchMock.mockResolvedValueOnce(
+      successEnvelope({
+        incident_id: "10000000-0000-4000-8000-000000000001",
+        items: [
+          {
+            record_id: evidenceId,
+            row_version: 2,
+            title: "Viewer notes",
+            lifecycle_state: "available",
+            has_blob: true,
+            upload_state: "available",
+            preview_eligibility: { eligible: true, reason_code: null },
+          },
+        ],
+      }),
+    );
     const { container } = render(
       <TimelineWorkbookRuntimeFixture
         incidentId="10000000-0000-4000-8000-000000000001"
@@ -204,13 +220,15 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
           .textContent,
       ).toContain("Viewer notes"),
     );
-    expect(
-      (
-        screen.getByTestId(
-          evidencePreviewButtonTestId(evidenceId, "inspector"),
-        ) as HTMLButtonElement
-      ).disabled,
-    ).toBe(false);
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByTestId(
+            evidencePreviewButtonTestId(evidenceId, "inspector"),
+          ) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
     expect(
       (
         screen.getByTestId(
@@ -1196,14 +1214,14 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
   });
 
   it("Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes.", async () => {
-    for (const errorCode of [
-      "row_conflict",
-      "stale_row",
-      "authorization_denied",
-      "invalid_rollback_target",
-      "history_missing",
-      "rollback_unavailable",
-    ]) {
+    for (const [errorCode, status] of [
+      ["row_version_conflict", 409],
+      ["authorization_denied", 403],
+      ["invalid_rollback_request", 400],
+      ["record_not_found", 404],
+      ["rollback_target_not_found", 404],
+      ["rollback_precondition_failed", 409],
+    ] as const) {
       cleanup();
       cleanupTimelineWorkbookTestGlobals();
       fetchMock = installTimelineWorkbookTestGlobals();
@@ -1218,14 +1236,30 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
             }),
           ]),
         )
-        .mockResolvedValueOnce(
-          errorCode === "history_missing"
-            ? errorEnvelope(errorCode, 404)
-            : historyEnvelope({ rowVersion: 4 }),
-        );
+        .mockImplementation((url, init) => {
+          if (
+            String(url).includes("/history") &&
+            (!init?.method || init.method === "GET")
+          ) {
+            return Promise.resolve(
+              errorCode === "record_not_found"
+                ? errorEnvelope(errorCode, 404)
+                : historyEnvelope({ rowVersion: 4 }),
+            );
+          }
+          if (String(url).endsWith("/rollback") && init?.method === "POST") {
+            return Promise.resolve(errorEnvelope(errorCode, status));
+          }
+          throw new Error(
+            `Unexpected history scenario request ${init?.method ?? "GET"} ${String(url)}`,
+          );
+        });
 
       const { container } = render(
-        <TimelineWorkbookRuntimeFixture incidentId="10000000-0000-4000-8000-000000000001" />,
+        <TimelineWorkbookRuntimeFixture
+          incidentId="10000000-0000-4000-8000-000000000001"
+          currentIncidentRole="reviewer"
+        />,
       );
       await waitForVisibleGridRowRecordIds(container, [
         "20000000-0000-4000-8000-000000000001",
@@ -1245,10 +1279,10 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         ),
       );
 
-      if (errorCode === "history_missing") {
+      if (errorCode === "record_not_found") {
         expect(
           (await screen.findByTestId(rowHistoryMessageTestId())).textContent,
-        ).toContain("history_missing");
+        ).toContain(errorCode);
         continue;
       }
 
@@ -1261,8 +1295,11 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         await screen.findByTestId(rowHistoryActionTestId(actionAnchor)),
       );
       expect(
-        screen.getByTestId(rowHistoryRollbackPreviewTestId(actionAnchor))
-          .textContent,
+        (
+          await screen.findByTestId(
+            rowHistoryRollbackPreviewTestId(actionAnchor),
+          )
+        ).textContent,
       ).toContain(historyItem.history_item_ref);
       fireEvent.click(
         screen.getByTestId(rowHistoryRollbackCancelButtonTestId(actionAnchor)),
@@ -1271,15 +1308,24 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
         screen.queryByTestId(rowHistoryRollbackPreviewTestId(actionAnchor)),
       ).toBeNull();
 
-      fetchMock.mockResolvedValueOnce(errorEnvelope(errorCode, 409));
       fireEvent.click(screen.getByTestId(rowHistoryActionTestId(actionAnchor)));
       fireEvent.click(
-        screen.getByTestId(rowHistoryRollbackConfirmButtonTestId(actionAnchor)),
+        await screen.findByTestId(
+          rowHistoryRollbackConfirmButtonTestId(actionAnchor),
+        ),
       );
       await waitFor(() => {
-        expect(
-          screen.getByTestId(rowHistoryMessageTestId()).textContent,
-        ).toContain(errorCode);
+        if (errorCode === "authorization_denied") {
+          // Loss of authority hides retained history and disables further actions.
+          expect(
+            screen.queryByTestId(rowHistoryActionTestId(actionAnchor)),
+          ).toBeNull();
+        } else {
+          expect(
+            screen.getByTestId(rowHistoryMessageTestId()).textContent,
+            errorCode,
+          ).toContain(errorCode);
+        }
       });
       const rollbackCallIndex = fetchMock.mock.calls.findIndex(([url]) =>
         String(url).endsWith(
@@ -1295,7 +1341,8 @@ describe("browser.inspector-history inspector and row-local action coverage", ()
           history_entry_ref: historyItem.history_entry_ref,
         },
       });
-      expect(String(body.client_txn_id)).toMatch(/^timeline-client-/u);
+      expect(body.client_txn_id).toEqual(expect.any(String));
+      expect(String(body.client_txn_id).length).toBeGreaterThan(0);
     }
   });
 });

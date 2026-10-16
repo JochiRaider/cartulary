@@ -11,6 +11,14 @@
         "playwright",
         "vitest"
       ]
+    },
+    {
+      "verification_id": "platform.viewquery.verification.source_contracts",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

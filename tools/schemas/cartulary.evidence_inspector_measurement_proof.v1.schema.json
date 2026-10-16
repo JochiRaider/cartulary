@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.evidence_inspector_measurement_proof.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "target",
+    "items",
+    "viewport_width",
+    "viewport_height",
+    "device_scale_factor",
+    "owning_viewport",
+    "preview_preflight_records",
+    "preview_preflight_body_verification",
+    "measured_access_handle_requests",
+    "consecutive_frames",
+    "all_content_visible",
+    "bindings_stable",
+    "fresh_metadata_each_open",
+    "samples"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.evidence_inspector_measurement_proof.v1"
+    },
+    "kind": {
+      "const": "evidence_inspector"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "row_version"
+      ],
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "row_version": {
+          "const": 2
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record_id",
+          "row_version"
+        ],
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "row_version": {
+            "const": 1
+          }
+        }
+      }
+    },
+    "viewport_width": {
+      "const": 1920
+    },
+    "viewport_height": {
+      "const": 1080
+    },
+    "device_scale_factor": {
+      "const": 1
+    },
+    "owning_viewport": {
+      "const": "inspector"
+    },
+    "preview_preflight_records": {
+      "const": 100
+    },
+    "preview_preflight_body_verification": {
+      "const": "complete_size_and_sha256"
+    },
+    "measured_access_handle_requests": {
+      "const": 0
+    },
+    "consecutive_frames": {
+      "const": 2
+    },
+    "all_content_visible": {
+      "const": true
+    },
+    "bindings_stable": {
+      "const": true
+    },
+    "fresh_metadata_each_open": {
+      "const": true
+    },
+    "samples": {
+      "type": "array",
+      "maxItems": 101,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sample_index",
+          "warmup",
+          "total_ms",
+          "accepted_at",
+          "first_frame_at",
+          "second_frame_at",
+          "metadata_started_at",
+          "metadata_completed_at"
+        ],
+        "properties": {
+          "sample_index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "warmup": {
+            "type": "boolean"
+          },
+          "total_ms": {
+            "type": "number",
+            "minimum": 0
+          },
+          "accepted_at": {
+            "type": "number",
+            "minimum": 0
+          },
+          "first_frame_at": {
+            "type": "number",
+            "minimum": 0
+          },
+          "second_frame_at": {
+            "type": "number",
+            "minimum": 0
+          },
+          "metadata_started_at": {
+            "type": "number",
+            "minimum": 0
+          },
+          "metadata_completed_at": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

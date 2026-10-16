@@ -9,6 +9,14 @@
       "evidence_kinds": [
         "go_test"
       ]
+    },
+    {
+      "verification_id": "module.tabularingest.verification.source_contracts",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

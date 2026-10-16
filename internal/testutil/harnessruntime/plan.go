@@ -15,7 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
-const planSchema = "cartulary.harness_runtime_plan.v1"
+const planSchema = "cartulary.harness_runtime_plan.v2"
 const maximumPlanBytes = harnesssession.MaximumPlan
 
 var errPlan = errors.New("invalid private harness runtime plan")
@@ -102,7 +102,10 @@ type planWire struct {
 
 // Plan can only be constructed through strict bounded validation. Its facts are
 // private so a consumer cannot modify validated graph closure after preparation.
-type Plan struct{ facts planWire }
+type Plan struct {
+	facts   planWire
+	context map[string]any
+}
 
 func (p *Plan) GraphDigest() string  { return p.facts.Graph.Digest }
 func (p *Plan) SourceDigest() string { return p.facts.Manifest["source_digest"].(string) }
@@ -138,6 +141,14 @@ func decodePlan(data []byte) (*Plan, error) {
 		return nil, errPlan
 	}
 	document := value.(map[string]any)
+	policy, err := harnessschema.Decode([]byte(document["instrumentation_policy_bytes"].(string)))
+	if err != nil || harnessschema.Validate("cartulary.harness_instrumentation_policy.v3", policy) != nil {
+		return nil, errPlan
+	}
+	policyDigest, err := semanticDigest(policy)
+	if err != nil || policyDigest != document["manifest"].(map[string]any)["instrumentation"].(map[string]any)["policy_digest"] {
+		return nil, errPlan
+	}
 	graph := document["graph"].(map[string]any)
 	hash, err := semanticDigest(map[string]any{"units": graph["units"]})
 	if err != nil || hash != graph["graph_digest"] {
@@ -259,15 +270,12 @@ func decodePlan(data []byte) (*Plan, error) {
 			}
 		}
 	}
-	if facts.Manifest["cache_mode"] == "off" {
-		if len(facts.SourceInputs) != 0 || len(facts.CacheInputs) != 0 {
-			return nil, errPlan
-		}
-	} else {
-		hash, err := semanticDigest(map[string]any{"schema_id": "cartulary.source_snapshot_digest.v2", "entries": document["source_inputs"]})
-		if err != nil || hash != facts.Manifest["source_digest"] {
-			return nil, errPlan
-		}
+	if facts.Manifest["cache_mode"] == "off" && len(facts.CacheInputs) != 0 {
+		return nil, errPlan
+	}
+	hash, err = semanticDigest(map[string]any{"schema_id": "cartulary.source_snapshot_digest.v2", "entries": document["source_inputs"]})
+	if err != nil || hash != facts.Manifest["source_digest"] {
+		return nil, errPlan
 	}
 	for i, input := range facts.SourceInputs {
 		if !safeRelative(input.Path) || i > 0 && facts.SourceInputs[i-1].Path >= input.Path {
@@ -301,7 +309,15 @@ func decodePlan(data []byte) (*Plan, error) {
 			return nil, errPlan
 		}
 	}
-	return &Plan{facts: facts}, nil
+	manifestDigest, err := semanticDigest(document["manifest"])
+	if err != nil {
+		return nil, errPlan
+	}
+	context := map[string]any{"schema_id": "cartulary.harness_execution_context.v1", "manifest_digest": manifestDigest}
+	for _, key := range []string{"graph", "projections", "source_inputs", "host_profile", "instrumentation_policy_bytes"} {
+		context[key] = document[key]
+	}
+	return &Plan{facts: facts, context: context}, nil
 }
 func validCapacities(snapshot map[string]any, actual map[string]int64) bool {
 	n := func(k string) int64 { return int64(snapshot[k].(float64)) }

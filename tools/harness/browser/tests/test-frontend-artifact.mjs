@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { createRuntime } from "../../runtime/session-client.mjs";
 import { publishFrontendOutput, resolveFrontendArtifact, sealFrontendArtifact } from "../../readiness/frontend-artifact.mjs";
+import { buildSourceSnapshot } from "../../test-catalog/index.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const scratch = mkdtempSync(path.join(os.tmpdir(), "frontend-artifact-test-"));
@@ -31,6 +32,20 @@ function fixture(runID, version) {
   return { directory, environment, runtime, runRoot };
 }
 try {
+  // Publishing another profile may overlap input validation. Neither its
+  // staging files nor displaced output may enter the source snapshot.
+  const sourceBefore = buildSourceSnapshot(root).digest;
+  const publicationStage = mkdtempSync(path.join(root, "apps/web/.frontend-publish-"));
+  const displacedOutput = `${publicationStage}-previous`;
+  try {
+    writeFileSync(path.join(publicationStage, "temporary.js.map"), "unpublished");
+    mkdirSync(displacedOutput);
+    writeFileSync(path.join(displacedOutput, "old.js"), "replaced");
+    assert.equal(buildSourceSnapshot(root).digest, sourceBefore);
+  } finally {
+    rmSync(publicationStage, { recursive: true, force: true });
+    rmSync(displacedOutput, { recursive: true, force: true });
+  }
   const first = fixture("first", "original");
   const second = fixture("second", "replacement");
   const destination = path.join(scratch, "published");

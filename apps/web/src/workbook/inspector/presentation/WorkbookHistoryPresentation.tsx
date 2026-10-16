@@ -36,7 +36,15 @@ export function WorkbookHistoryEvent({
 }) {
   const summary = useRef<HTMLElement>(null);
   return (
-    <li data-testid={testId} style={eventStyle}>
+    <li
+      data-testid={testId}
+      data-history-item-ref={event.key}
+      data-history-actor-id={event.binding.actorId}
+      data-history-change-set-id={event.binding.changeSetId}
+      data-history-operation={event.binding.operation}
+      data-history-revision={event.binding.revision ?? undefined}
+      style={eventStyle}
+    >
       {highlighted ? (
         <strong data-history-requested-change="true" tabIndex={-1}>
           Requested change

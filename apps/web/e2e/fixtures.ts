@@ -119,9 +119,14 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
       { scope: "worker" },
     ],
 
-    context: async ({ browser, workerAdmin }, use) => {
+    context: async (
+      { browser, workerAdmin, viewport, deviceScaleFactor },
+      use,
+    ) => {
       const context = await browser.newContext({
         storageState: workerAdmin.storageState,
+        viewport,
+        ...(deviceScaleFactor === undefined ? {} : { deviceScaleFactor }),
       });
       await use(context);
       await context.close();

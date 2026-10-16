@@ -9,13 +9,51 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
+	"github.com/JochiRaider/cartulary/internal/testutil/performancefixturelifecycle"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 const performanceFixtureTestKey = "85a9ceb4cc34f66356baa07b68bf7f3636844beef90aa51ad8b1751d4b046c72"
+
+func TestBrowserFixturePreparationUsesAdmittedPopulationBudget(t *testing.T) {
+	for _, tc := range []struct {
+		id     string
+		budget time.Duration
+	}{
+		{"", 2 * time.Minute},
+		{"timeline_large_grid_snapshot_v2", 2 * time.Minute},
+		{"evidence_heavy_snapshot_v2", 15 * time.Minute},
+	} {
+		t.Run(tc.id, func(t *testing.T) {
+			actual, err := browserFixturePreparationTimeout(map[string]string{"CARTULARY_FIXTURE_PROFILE_ID": tc.id})
+			if err != nil || actual != tc.budget {
+				t.Fatalf("preparation budget=%v err=%v want=%v", actual, err, tc.budget)
+			}
+		})
+	}
+	if _, err := browserFixturePreparationTimeout(map[string]string{"CARTULARY_FIXTURE_PROFILE_ID": "unadmitted_v1"}); err == nil {
+		t.Fatal("unknown profile gained a preparation budget")
+	}
+	deps := defaultTestDependencies(t)
+	env := cloneEnv(deps.env)
+	authorizeSuiteEnv(env)
+	env[suiteservices.SuiteIDEnv] = "suite-redaction"
+	env[suiteservices.PGTemplateDBEnv] = "suite_template"
+	deps.prepareWebE2E = func(ctx context.Context, _ map[string]string) (webE2EFixture, error) {
+		deadline, ok := ctx.Deadline()
+		if !ok || time.Until(deadline) > 2*time.Minute {
+			t.Fatal("ordinary preparation lost its deadline")
+		}
+		return webE2EFixture{}, context.DeadlineExceeded
+	}
+	if status := run([]string{"prepare-web-e2e", "--env-file", filepath.Join(t.TempDir(), "env"), "--metadata-file", filepath.Join(t.TempDir(), "metadata.json")}, env, deps.dependencies); status != 13 {
+		t.Fatalf("preparation timeout classification = %d", status)
+	}
+}
 
 func TestPerformanceFixtureBuildArgumentsRequireCanonicalClosedIdentity(t *testing.T) {
 	profile := performanceFixtureTestProfile(t)
@@ -77,6 +115,7 @@ func TestPerformanceFixtureCleanupIsActiveCompleteAndIdempotentlyOwned(t *testin
 		CloneLeaseID:      "lease-000001",
 		CloneOrdinal:      1,
 		RuntimeBundleRoot: runtimeRoot,
+		ObjectSnapshot:    &performancefixturelifecycle.ObjectSnapshotSummary{ManifestSHA256: "sha256:" + strings.Repeat("a", 64)},
 	}
 	metadataFile := filepath.Join(t.TempDir(), "metadata.json")
 	if err := writeWebE2EMetadata(metadataFile, metadata); err != nil {
@@ -162,6 +201,7 @@ func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t
 		CloneLeaseID:      "lease-failure",
 		CloneOrdinal:      2,
 		RuntimeBundleRoot: runtimeRoot,
+		ObjectSnapshot:    &performancefixturelifecycle.ObjectSnapshotSummary{ManifestSHA256: "sha256:" + strings.Repeat("a", 64)},
 	}
 	bucketAttempted := false
 	deps.cleanupWebE2EDB = func(context.Context, webE2EMetadata, map[string]string) error {
@@ -216,7 +256,7 @@ func TestPerformanceFixtureCleanupRetainsFailureAndContinuesIndependentCleanup(t
 func performanceFixtureTestProfile(t *testing.T) performancefixtureprofile.Profile {
 	t.Helper()
 	for _, profile := range performancefixtureprofile.Profiles() {
-		if profile.Status == "active" {
+		if profile.Status == "active" && profile.FixtureProfileID == "timeline_large_grid_snapshot_v2" {
 			return profile
 		}
 	}

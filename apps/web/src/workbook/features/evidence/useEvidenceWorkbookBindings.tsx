@@ -172,6 +172,9 @@ export function useEvidenceWorkbookBindings(input: {
         onConfirmReview={() => owner.confirmReview(entry.recordId)}
         onReview={() => void owner.review(entry.recordId)}
         onResume={() => void owner.resume(entry.recordId)}
+        onCancelVerification={() =>
+          void owner.cancelVerification(entry.recordId)
+        }
         onFreshSlot={() => owner.freshSlot(entry.recordId)}
         onNewId={() => owner.newRequestId(entry.recordId)}
         onDiscard={() => owner.discard(entry.recordId)}

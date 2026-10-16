@@ -73,7 +73,7 @@ func TestSavedGraphCutoverAdmission_Integration(t *testing.T) {
 	}
 
 	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, adminLogin, jobID, "succeeded")
-	definitions := appsupport.RecognizedExtensionJobDefinitions(t)
+	definitions := appsupport.RecognizedJobDefinitions(t)
 	var definition jobs.Definition
 	for _, candidate := range definitions {
 		if candidate.JobKind == GraphViewMaterializationJobKind {

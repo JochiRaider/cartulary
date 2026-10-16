@@ -44,6 +44,7 @@ relevant directory. Documentation changes alone do not alter machine ownership.
 | [imports/](imports/README.md) | Workbook Import workflow ownership, captured requests, mapping, and job observation. |
 | [measurement/](measurement/README.md) | Deterministic browser fixtures for Network Flow grid load measurement. |
 | [networkFlow/](networkFlow/README.md) | Network Analysis extension presentation, analytical tables, imports, graph exploration, and retained operations. |
+| [reporting/](reporting/README.md) | Snapshot and internal-report commands, retained jobs, and nonmodal presentation. |
 | [services/](services/README.md) | Browser transport, generated-contract adapters, bounded observation, and shared operation clients. |
 | [shared/](shared/README.md) | Cross-feature validation, public errors, semantic contracts, and interaction helpers. |
 | [testing/](testing/README.md) | Reusable frontend fixtures, Vitest setup, and source/import/selector policy tests. |

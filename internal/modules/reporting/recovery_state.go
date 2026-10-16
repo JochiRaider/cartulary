@@ -8,6 +8,8 @@ func RecoveryStateContribution() recoverystate.Contribution {
 		recoverystate.AuthoritativeTables(
 			"reporting_composition_preview_output_files",
 			"reporting_composition_preview_outputs",
+			"reporting_preview_reveal_maps",
+			"reporting_release_reveal_maps",
 			"reporting_job_payloads",
 			"reporting_imported_artifact_files",
 			"reporting_release_approvals",

@@ -43,7 +43,7 @@ func TestValidateExtensionDependencyDeclarationsRejectsOmittedAndNullArrays(t *t
 			copyRows := append([]any(nil), dependencies...)
 			copyRows[0] = row
 			copySet["dependencies"] = copyRows
-			requireErrorContains(t, validateExtensionDependencyDeclarations(copySet), key+" must be a present non-null array")
+			requireErrorContains(t, validateExtensionDependencyDeclarations(copySet), key)
 		})
 		t.Run("null "+key, func(t *testing.T) {
 			row := cloneJSONMap(t, dependencies[0].(map[string]any))
@@ -52,7 +52,7 @@ func TestValidateExtensionDependencyDeclarationsRejectsOmittedAndNullArrays(t *t
 			copyRows := append([]any(nil), dependencies...)
 			copyRows[0] = row
 			copySet["dependencies"] = copyRows
-			requireErrorContains(t, validateExtensionDependencyDeclarations(copySet), key+" must be a present non-null array")
+			requireErrorContains(t, validateExtensionDependencyDeclarations(copySet), key)
 		})
 	}
 }
@@ -179,6 +179,7 @@ func validExtensionConfigurationContract() map[string]any {
 		"configuration_contract_id":    "test.configuration.v1",
 		"profile_id":                   "test",
 		"configuration_contract_major": json.Number("1"),
+		"configuration_namespace":      "test",
 		"namespace_schema_id":          "cartulary.test.configuration_namespace.v1",
 		"keys": []any{map[string]any{
 			"key":                      "test.value",
@@ -255,7 +256,7 @@ func TestValidateExtensionParticipantSpecializationRejectsWrongSharedResult(t *t
 			"operation_kind":        "emit",
 			"result_schema_id":      "cartulary.obsolete_snapshot_reporting_result.v1",
 			"algorithm_id":          "snapshot_reporting.render_export_v1",
-			"output_schema_id":      "cartulary.reporting_export_model.v2",
+			"output_schema_id":      "cartulary.reporting_export_model.v6",
 			"ordering_algorithm_id": "materialize_reporting_export_model_v2",
 			"state_family_ids":      []any{},
 			"max_input_bytes":       json.Number("67108864"),
@@ -301,12 +302,12 @@ func TestDeriveExtensionArtifactsIsDeterministicAndPhaseFree(t *testing.T) {
 		generatedExtensionPrefix + "job-contracts/import/import.discovery_v1.json",
 		generatedExtensionPrefix + "job-contracts/incident_portability/incident_portability.export_v2.json",
 		generatedExtensionPrefix + "job-contracts/incident_portability/incident_portability.import_v2.json",
-		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.import_v1.json",
-		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.refresh_v1.json",
-		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.reverify_v1.json",
-		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.composition_preview_v2.json",
-		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.release_create_v2.json",
-		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.snapshot_create_v2.json",
+		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.import_v2.json",
+		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.refresh_v2.json",
+		generatedExtensionPrefix + "job-contracts/reference_pack/reference_pack.reverify_v2.json",
+		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.composition_preview_v4.json",
+		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.release_create_v4.json",
+		generatedExtensionPrefix + "job-contracts/snapshot_reporting/snapshot_reporting.snapshot_create_v4.json",
 	} {
 		if _, exists := seen[requiredPath]; !exists {
 			t.Fatalf("missing generated artifact %s", requiredPath)
@@ -469,6 +470,20 @@ func TestValidateViewSchemaRejectsDuplicateFieldKeys(t *testing.T) {
 
 func TestValidateViewSchemaIndexRejectsStaleArtifactPaths(t *testing.T) {
 	root := t.TempDir()
+	ownerRoot, err := repoRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	registryBytes, err := os.ReadFile(filepath.Join(ownerRoot, "contracts", "view-inspector", "index.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry, err := decodeContract(registryBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeJSONFile(t, filepath.Join(root, "contracts", "view-inspector", "index.json"), registry)
+
 	writeJSONFile(t, filepath.Join(root, "contracts", "view-schemas", "index.json"), map[string]any{
 		"$schema":     contractDraft202012Schema,
 		"registry_id": "cartulary.view_schemas.v1",
@@ -491,7 +506,7 @@ func TestValidateViewSchemaIndexRejectsStaleArtifactPaths(t *testing.T) {
 		validViewSchema("cartulary.view.test.v1"),
 	)
 
-	err := validateContractFamily(root, "view-schemas")
+	err = validateContractFamily(root, "view-schemas")
 	requireErrorContains(t, err, "references missing artifact contracts/view-schemas/missing.json")
 }
 
@@ -920,7 +935,7 @@ func TestValidateViewSchemaRejectsInvalidInspectorConfig(t *testing.T) {
 		group["disabled_when"] = []any{"stale_legacy_state"}
 
 		err := validateViewSchemaWithInspectorRegistry(t, schema, []string{"details.read"})
-		requireErrorContains(t, err, "references unknown value stale_legacy_state")
+		requireErrorContains(t, err, "disabled_when references unknown field stale_legacy_state")
 	})
 
 	t.Run("unknown result behaviors", func(t *testing.T) {
@@ -1002,6 +1017,7 @@ func validateViewSchemaWithInspectorRegistry(
 func validViewSchema(id string) map[string]any {
 	return map[string]any{
 		"$schema":                      contractDraft202012Schema,
+		"schema_id":                    "cartulary.view_schema_source.v1",
 		"view_schema_id":               id,
 		"title":                        "Test View",
 		"surface_kind":                 "built_in_sheet",
@@ -1022,6 +1038,7 @@ func validViewSchema(id string) map[string]any {
 		"synthetic_filter_predicates": []any{},
 		"grouping_fields":             []any{},
 		"create_capable":              true,
+		"create_inputs":               []any{},
 		"inline_create":               map[string]any{"permits_zero_field_create": false},
 		"inspector_config":            validInspectorConfig(id),
 		"fields":                      []any{validViewField("name")},

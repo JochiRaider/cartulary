@@ -139,7 +139,7 @@ func TestProjectionAssemblyPortsAreCompleteAndDescriptorsImmutable(t *testing.T)
 		bundle.EvidenceMutationRows() == nil || bundle.EvidenceAssociationEffects() == nil ||
 		bundle.PartyPorts().Rows == nil ||
 		bundle.TaskDecisionMutationRows() == nil || bundle.TaskDecisionReportingReader() == nil ||
-		bundle.RestoreProbeQuery() == nil || bundle.RevisionRebuilder() == nil || bundle.RevisionLiveRecords() == nil || bundle.SourceTextRows() == nil {
+		bundle.RestoreProbeQuery() == nil || bundle.RevisionRows() == nil || bundle.RevisionLiveRecords() == nil || bundle.SourceTextRows() == nil {
 		t.Fatalf("projection assembly consumer ports are incomplete")
 	}
 	for _, descriptor := range bundle.DescriptorSet().All() {

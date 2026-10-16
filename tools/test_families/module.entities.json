@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.entities",
   "rows": [
     {
@@ -138,6 +138,43 @@
           "recovers host merge loss before dispatch with exact replay and existing history rollback",
           "recovers identity merge loss after commit with exact replay and existing history rollback",
           "recovers identity merge loss before dispatch with exact replay and existing history rollback"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.entities.browser.host_and_identity_party_assignments_use_ordinary_950c32b8ce",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.links",
+        "module.parties",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/entity-party-assignments.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_960f499904c4"
+        ],
+        "titles": [
+          "Host and Identity Party assignments use ordinary reference selection and preserve add and remove drafts"
         ]
       },
       "evidence_class": "browser",
@@ -546,6 +583,37 @@
         "package": "./internal/modules/entities",
         "tests": [
           "TestEntityCandidateDiscovery_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.entities.integration.entity_party_assignment_writes_preserve_authorit_9fb842a70d",
+      "owner_id": "module.entities",
+      "family_id": "module.entities.integration",
+      "collaborator_ids": [
+        "module.links",
+        "module.parties"
+      ],
+      "verification_ids": [
+        "module.entities.verification.behavior_contract",
+        "module.entities.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/entities",
+        "tests": [
+          "TestEntityPartyAssignmentWrites_Integration"
         ]
       },
       "evidence_class": "integration",

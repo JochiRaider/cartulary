@@ -9,7 +9,10 @@ import {
   identitiesViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
-import type { WorkbookBatchPlan } from "../runtime/workbookBatchOperation";
+import type {
+  WorkbookBatchEntry,
+  WorkbookBatchPlan,
+} from "../runtime/workbookBatchOperation";
 import {
   createWorkbookBatchTransport,
   validateWorkbookBatchReceipt,
@@ -71,6 +74,67 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("createWorkbookClipboardPasteAdapter", () => {
+  it("observes settled receipts once without retrying and cancels detached presentation", async () => {
+    let entry: WorkbookBatchEntry = {
+      id: "retained",
+      plan,
+      phase: "waiting",
+      attempt: null,
+      receipt: null,
+      failure: null,
+      transportPending: false,
+      reconciliation: "pending",
+    };
+    const listeners = new Set<() => void>();
+    const admit = vi.fn(() => entry.id);
+    const adapter = createWorkbookClipboardPasteAdapter({
+      admit,
+      getSnapshot: () => ({
+        authority,
+        entries: [entry],
+        admissionError: null,
+      }),
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    });
+    const accepted = vi.fn();
+    const detached = vi.fn();
+    adapter.observeReceipt(entry.id, accepted);
+    const cancel = adapter.observeReceipt(entry.id, detached);
+    expect(accepted).not.toHaveBeenCalled();
+    entry = {
+      ...entry,
+      phase: "acknowledged",
+      receipt: {
+        viewSchemaId: timelineViewSchemaId,
+        changeSetId,
+        rows: [row(createdId, 1)],
+        conflicts: [],
+      },
+    };
+    for (const listener of [...listeners]) listener();
+    expect(accepted).not.toHaveBeenCalled();
+    expect(listeners.size).toBe(0);
+    cancel();
+    await Promise.resolve();
+    expect(accepted).toHaveBeenCalledExactlyOnceWith(entry.receipt);
+    expect(detached).not.toHaveBeenCalled();
+    const late = vi.fn();
+    adapter.observeReceipt(entry.id, late);
+    await Promise.resolve();
+    expect(late).toHaveBeenCalledExactlyOnceWith(entry.receipt);
+    entry = { ...entry, phase: "rejected", receipt: null };
+    const rejected = vi.fn();
+    adapter.observeReceipt(entry.id, rejected);
+    await Promise.resolve();
+    expect(rejected).toHaveBeenCalledExactlyOnceWith(null);
+    expect(admit).not.toHaveBeenCalled();
+    expect(listeners.size).toBe(0);
+  });
   it("retains exact clear bytes and rejects lossy null receipts", async () => {
     const clear: WorkbookBatchPlan = {
       operation: "applyWorkbookBulkMutation",
@@ -193,7 +257,15 @@ describe("createWorkbookClipboardPasteAdapter", () => {
       ),
     ).toThrow();
     const admit = vi.fn(() => "retained");
-    const paste = createWorkbookClipboardPasteAdapter({ admit });
+    const paste = createWorkbookClipboardPasteAdapter({
+      admit,
+      subscribe: () => () => {},
+      getSnapshot: () => ({
+        authority: null,
+        entries: [],
+        admissionError: null,
+      }),
+    });
     const admission = { delivery: {} };
     expect(paste.paste(input, admission)).toBe("retained");
     expect(admit).toHaveBeenCalledWith(plan, admission);

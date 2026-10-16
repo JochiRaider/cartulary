@@ -96,14 +96,14 @@ func TestDeleteRestoreConcreteSourceAdapterMatrix_Integration(t *testing.T) {
 	}
 	ctx := context.Background()
 	projectionRuntime := projectiontest.MustBuild(t, harness.Pool)
-	projectionRebuilder := projectionRuntime.RevisionRebuilder()
+	projectionRebuilder := projectionRuntime.ImportRebuilder()
 	liveRecords := projectionRuntime.RevisionLiveRecords()
 	tx, err := harness.Pool.Begin(ctx)
 	if err != nil {
 		t.Fatalf("begin source adapter matrix transaction: %v", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if err := projectionRebuilder.RebuildIncidentTx(ctx, tx, incidentID); err != nil {
+	if err := projectionRebuilder.RebuildImportedIncidentTx(ctx, tx, incidentID); err != nil {
 		t.Fatalf("rebuild characterization projections: %v", err)
 	}
 

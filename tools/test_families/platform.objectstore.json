@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "platform.objectstore",
   "rows": [
     {
@@ -185,6 +185,32 @@
           "TestProxyPUTPreservesHostAndNormalizesCORS",
           "TestProxyPreflightExactPolicy",
           "TestProxyPreflightRejectsDisallowedOriginMethodAndHeader"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.objectstore.unit.telemetry_store_preserves_store_behavior_no_sdk_698de09dc3",
+      "owner_id": "platform.objectstore",
+      "family_id": "platform.objectstore.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.objectstore.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/objectstore",
+        "tests": [
+          "TestObjectStoreErrorClass",
+          "TestTelemetryStorePreservesStoreBehaviorNoSDK",
+          "TestTelemetryStorePreservesTypedStoreBehaviorNoSDK"
         ]
       },
       "evidence_class": "unit",

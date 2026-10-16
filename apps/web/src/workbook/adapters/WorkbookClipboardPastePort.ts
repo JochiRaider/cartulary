@@ -1,5 +1,8 @@
 import type { PasteWorkbookClipboardRequest } from "@cartulary/protocol-ts/http";
-import type { WorkbookBatchAdmission } from "../runtime/workbookBatchOperation";
+import type {
+  WorkbookBatchAdmission,
+  WorkbookBatchReceipt,
+} from "../runtime/workbookBatchOperation";
 export type WorkbookClipboardPasteInput = Omit<
   PasteWorkbookClipboardRequest,
   "client_txn_id"
@@ -10,4 +13,9 @@ export interface WorkbookClipboardPastePort {
     input: WorkbookClipboardPasteInput,
     admission: WorkbookBatchAdmission,
   ): string | null;
+  /** Observe one retained receipt after source settlement; never resubmit work. */
+  observeReceipt(
+    id: string,
+    accepted: (receipt: WorkbookBatchReceipt | null) => void,
+  ): () => void;
 }

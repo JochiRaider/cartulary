@@ -25,6 +25,7 @@ import {
   identitiesViewSchemaId,
   timelineViewSchemaId,
 } from "../models/workbookSurfaceRegistry";
+import { useWorkbookQueryActionTiming } from "../query/useWorkbookQueryActionTiming";
 import { useWorkbookQueryPresentation } from "../query/WorkbookQueryBrowsingContext";
 import { useWorkbookQueryState } from "../view-state/useWorkbookQueryState";
 
@@ -50,6 +51,7 @@ export function useWorkbookQueryController({
   readonly surface: string;
 }) {
   const browsing = useWorkbookQueryPresentation();
+  const recordQueryAcceptance = useWorkbookQueryActionTiming(surface);
   const viewSchemaIds = useMemo(
     () => [
       assessmentsViewSchemaId,
@@ -125,6 +127,7 @@ export function useWorkbookQueryController({
       onApplyFilter: (draft) => {
         const validation = validateFilterDraft(activeContract, draft);
         if (validation.kind === "invalid") return validation;
+        recordQueryAcceptance("filter");
         setActiveQueryState((current) =>
           applyFilterDraft(
             activeContract,
@@ -146,6 +149,7 @@ export function useWorkbookQueryController({
       },
       onFilterDraftChange: setActiveFilterDraft,
       onGroupByChange: (groupBy) => {
+        recordQueryAcceptance("group");
         setActiveQueryState((current) =>
           updateGroupBy(activeContract, current, groupBy),
         );
@@ -159,6 +163,7 @@ export function useWorkbookQueryController({
         );
       },
       onSortChange: (sort) => {
+        recordQueryAcceptance("sort");
         setActiveQueryState((current) =>
           replaceWorkbookSort(activeContract, current, sort),
         );
@@ -170,6 +175,7 @@ export function useWorkbookQueryController({
       surface,
     };
   }, [
+    recordQueryAcceptance,
     activeContract,
     activeEntry,
     activeBrowser,

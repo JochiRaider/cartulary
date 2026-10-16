@@ -1,8 +1,9 @@
 import path from "node:path";
+import os from "node:os";
 import { readFileSync } from "node:fs";
 import { resolveServiceSessionMode } from "../../services/local-session.mjs";
 import { WorkGraphCompiler } from "./compiler.mjs";
-import { captureCapabilitySnapshot, resourceCapacities } from "./capability.mjs";
+import { captureCapabilitySnapshot, resourceCapacities, availableGoWorkerBudget } from "./capability.mjs";
 import { CachePlan } from "./cache-plan.mjs";
 import { resolveVulnerabilityDatabaseRevision } from "./vulnerability.mjs";
 import { parseArgs, selectionFor, commandEntry, resolvedRunRoot, declaredInputs, selectionInputs, resolvedRuntimeEnvironment, sha256 } from "./preparation.mjs";
@@ -27,12 +28,15 @@ export function prepareRuntimePlan(argv) {
     previous = end_ms;
   };
   const serviceSession = resolveServiceSessionMode({ target: options.target, environment: process.env });
-  const compiler = new WorkGraphCompiler(root), entry = commandEntry(options.target);
+  const entry = commandEntry(options.target);
+  const inputs = { ...declaredInputs(entry), ...selectionInputs(options) };
+  const compiler = new WorkGraphCompiler(root, { targetInputs: { [options.target]: inputs } });
   const { runID, runRoot } = resolvedRunRoot();
   mark("configuration_catalog");
   const snapshot = captureCapabilitySnapshot({ root, override: process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE,
     services: { browser: true, object_store: true, postgres: true, service_stack: true } });
-  compiler.availableGoLanes = snapshot.cpu_tokens; compiler.availablePostgresLanes = snapshot.postgres_lanes;
+  compiler.availableGoLanes = availableGoWorkerBudget(snapshot.cpu_tokens, process.env);
+  compiler.availablePostgresLanes = snapshot.postgres_lanes;
   mark("capability_capture");
   const { graph, projections } = selectionFor(options, compiler);
   mark("graph_construction");
@@ -41,7 +45,7 @@ export function prepareRuntimePlan(argv) {
   const toolchain_digest = sha256(readFileSync(path.join(root, "tools/toolchain_pins.json")));
   const helper_digest = sha256(readFileSync(path.join(root, "tools/harness_helper_ownership.json")));
   const manifest = { schema_id: "cartulary.harness_run_manifest.v2", run_id: runID, command_id: entry.command_id,
-    target: options.target, declared_inputs: { ...declaredInputs(entry), ...selectionInputs(options) },
+    target: options.target, declared_inputs: inputs,
     source_digest: source.digest, ...executableProvenance(root), toolchain_digest, system_digest: snapshot.snapshot_digest,
     capability_snapshot: snapshot, graph_digest: graph.graph_digest, cache_mode: cacheMode,
     instrumentation: { mode, policy_digest: instrumentationPolicy().digest }, started_at: new Date().toISOString() };
@@ -52,7 +56,7 @@ export function prepareRuntimePlan(argv) {
     toolchainDigest: toolchain_digest, helperDigest: helper_digest, sourceEntries: source.entries,
     getCatalog: () => compiler.catalog, vulnerabilityDatabaseRevision: vulnerability.revision });
   cache.validateGraph(graph);
-  const source_inputs = cacheMode === "off" ? [] : source.entries;
+  const source_inputs = source.entries;
   const sourceIndex = new Map(source_inputs.map((entry, index) => [entry.path, index]));
   const cache_inputs = {};
   const facts = graph.units.map((unit) => {
@@ -68,7 +72,9 @@ export function prepareRuntimePlan(argv) {
     ...(serviceSession.sessionFile ? { CARTULARY_TEST_SERVICES_SESSION_FILE: serviceSession.sessionFile } : {}) };
   mark("launch_bindings");
   const commandIDs = new Map(compiler.taskSurface.targets.map((target) => [target.name, target.command_id]));
-  const value = { schema_id: "cartulary.harness_runtime_plan.v1", graph, manifest,
+  const value = { schema_id: "cartulary.harness_runtime_plan.v2", graph, manifest,
+    host_profile: { platform: os.platform(), architecture: os.arch(), kernel_release: os.release(), cpu_models: [...new Set(os.cpus().map((cpu) => cpu.model))].sort() },
+    instrumentation_policy_bytes: readFileSync(path.join(root, "tools/harness_instrumentation_policy.json"), "utf8"),
     projections: Object.fromEntries(Object.entries(projections).map(([target, unit_ids]) => [target, { command_id: commandIDs.get(target) ?? entry.command_id, unit_ids }])),
     capacities: Object.fromEntries(resourceCapacities(snapshot)), aging_quantum_ms: compiler.owner.aging_quantum_ms,
     bindings, cache: facts, source_inputs, cache_inputs, helper_digest, preparation: { clock: mode === "basic" ? { clock_identity: clock.clock_identity,

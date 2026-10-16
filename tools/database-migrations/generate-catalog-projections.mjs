@@ -56,6 +56,10 @@ const profileByVersion = new Map([
   [32, "network_flow_activity"],
   [33, "network_flow_activity"],
   [47, "snapshot_reporting"],
+  [69, "snapshot_reporting"],
+  [70, "snapshot_reporting"],
+  [71, "snapshot_reporting"],
+  [72, "snapshot_reporting"],
 ]);
 const recoveryCatalog = JSON.parse(
   readFileSync(path.join(root, "contracts/recovery/fixtures/recovery-state-catalog.v2.json"), "utf8"),
@@ -350,6 +354,8 @@ function toManifestEntry(object) {
     "reference_pack_sets",
     "reference_pack_versions",
     "reporting_imported_artifact_files",
+    "reporting_preview_reveal_maps",
+    "reporting_release_reveal_maps",
   ]);
   const derivedReadOnlyTables = new Set([
     "entity_active_identifier_claims",

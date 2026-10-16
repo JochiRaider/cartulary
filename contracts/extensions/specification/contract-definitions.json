@@ -289,7 +289,7 @@
       "owner_id": "network_flow_activity"
     },
     {
-      "schema_id": "cartulary.reporting_export_model.v2",
+      "schema_id": "cartulary.reporting_export_model.v7",
       "artifact_class": "runtime_protocol",
       "owner_id": "reporting"
     },

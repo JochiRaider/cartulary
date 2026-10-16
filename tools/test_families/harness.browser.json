@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "harness.browser",
   "rows": [
     {
@@ -487,6 +487,27 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.boundary_support.preparation_contract",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "shell",
+      "selector": {
+        "command_id": "cartulary.harness.command.harness_browser_preparation_contract.v1"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.boundary_support.public_http_diagnostic_privacy",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -647,6 +668,57 @@
           "withOnlyActiveDeploymentAdmin temporarily demotes active deployment admins except the retained admin"
         ],
         "project_id": "harness-node"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.source_publicjsonclient_test_ts_a6c5c0d17c",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/transport/publicJsonClient.test.ts",
+        "project_id": "harness-node",
+        "titles": [
+          "public HTTP operation client exposes repeated headers only after observed success validation"
+        ]
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.boundary_support.source_sessions_test_ts_24e61441d9",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/auth/sessions.test.ts",
+        "project_id": "harness-node",
+        "titles": [
+          "deployment admin generated operation boundary fails closed when a successful deployment-user payload drifts",
+          "deployment admin generated operation boundary preserves list, load, and patch request bytes while validating resources"
+        ]
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -1060,6 +1132,75 @@
       "fixture_capability": "none",
       "minimum_tier": "full",
       "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.integration.evidence_inspector_fixture",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "module.auth",
+        "module.collaboration",
+        "module.evidence",
+        "module.incidents",
+        "module.links",
+        "module.projections",
+        "module.revisions",
+        "module.timeline",
+        "platform.objectstore"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/appsupport/performancefixture",
+        "tests": [
+          "TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.integration.evidence_object_fixture",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "module.auth",
+        "module.evidence",
+        "module.incidents",
+        "module.projections",
+        "module.revisions",
+        "platform.objectstore"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/appsupport/performancefixture",
+        "tests": [
+          "TestEvidenceFixtureUsesRealObjectsAndOwnerMutations_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "postgres"
+      ]
     },
     {
       "row_id": "harness.browser.integration.native_fixture_lifecycle",
@@ -1636,6 +1777,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.unit.performance_fixture_objects",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [
+        "platform.objectstore"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/performancefixturelifecycle",
+        "tests": [
+          "TestPerformanceFixtureObjectSnapshotIntegrity",
+          "TestPerformanceFixtureObjectStorageAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.unit.performance_fixture_runtime_and_assembler",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
@@ -1725,6 +1893,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.unit.public_error_fault_route_disabled_by_default_0910c3af84",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/harnessruntime",
+        "tests": [
+          "TestPublicErrorFaultRegistryClearRemovesArmedFaults",
+          "TestPublicErrorFaultRouteArmsOneShotOrdinaryPublicMutation",
+          "TestPublicErrorFaultRouteDisabledByDefault",
+          "TestPublicErrorFaultRouteRejectsInvalidTargets",
+          "TestPublicErrorFaultRouteRejectsSecondArmWhilePending",
+          "TestPublicErrorFaultRouteRequiresHarnessAuthorization"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.unit.recovery_fixture_server_lifecycle",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
@@ -1741,6 +1938,30 @@
           "TestLifecyclePreservesEveryCleanupFailure",
           "TestRuntimeServerCloseCancelsHTTPAndWebSocketRequests",
           "TestRuntimeServerCloseRetiresTLSConnectionsWithoutRequests"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.browser.unit.renew_web_e2_eis_retired_7c2c41e8a2",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/testservices",
+        "tests": [
+          "TestRenewWebE2EIsRetired"
         ]
       },
       "evidence_class": "unit",
@@ -1780,12 +2001,39 @@
       "service_dependencies": []
     },
     {
+      "row_id": "harness.browser.unit.snapshot_key_is_profile_explicit_9d1006d723",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/performancefixture",
+        "tests": [
+          "TestGeneratedProfileLookupReturnsDefensiveCopies",
+          "TestSnapshotKeyIsProfileExplicit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "harness.browser.unit.source_owner_contribution_assembler",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
       "collaborator_ids": [
         "module.auth",
+        "module.collaboration",
         "module.entities",
+        "module.evidence",
         "module.incidents",
         "module.links",
         "module.projections",
@@ -1800,7 +2048,8 @@
         "tests": [
           "TestClosedAssemblerConsumesGeneratedDescriptor",
           "TestClosedAssemblerProducesExactDeterministicRedactedSemantics",
-          "TestClosedAssemblerPropagatesOwnerFailure"
+          "TestClosedAssemblerPropagatesOwnerFailure",
+          "TestEvidenceHeavyContractRejectsIncompatibleProfiles"
         ]
       },
       "evidence_class": "unit",
@@ -1857,6 +2106,7 @@
       "selector": {
         "package": "./tools/testservices",
         "tests": [
+          "TestBrowserFixturePreparationUsesAdmittedPopulationBudget",
           "TestCleanupOwnedServicesFailsFastOnBrowserFixtureLeak",
           "TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce",
           "TestCleanupOwnedServicesTerminatesServicesConcurrently",

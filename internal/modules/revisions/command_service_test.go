@@ -34,8 +34,12 @@ func (commandServiceTestDB) BeginTx(context.Context, pgx.TxOptions) (pgx.Tx, err
 
 type commandServiceTestProjection struct{}
 
-func (commandServiceTestProjection) RebuildIncidentTx(context.Context, pgx.Tx, uuid.UUID) error {
+func (commandServiceTestProjection) RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error {
 	return nil
+}
+
+func (commandServiceTestProjection) ProjectionDependentsTx(context.Context, pgx.Tx, uuid.UUID, []uuid.UUID) ([]uuid.UUID, error) {
+	return nil, nil
 }
 
 func (commandServiceTestProjection) Supports(string) bool {
@@ -130,6 +134,10 @@ func TestCommandServiceRequiresEveryExplicitDependency(t *testing.T) {
 		{name: "idempotency", mutate: func(value *CommandServiceDependencies) { value.Idempotency = nil }},
 		{name: "attribution", mutate: func(value *CommandServiceDependencies) { value.ImportedAttributionResolver = nil }},
 		{name: "projection", mutate: func(value *CommandServiceDependencies) { value.Projections = nil }},
+		{name: "projection dependency roster", mutate: func(value *CommandServiceDependencies) { value.ProjectionDependencies = nil }},
+		{name: "nil projection dependency", mutate: func(value *CommandServiceDependencies) {
+			value.ProjectionDependencies = []ProjectionDependencyReader{nil}
+		}},
 		{name: "live records", mutate: func(value *CommandServiceDependencies) { value.LiveRecords = nil }},
 		{name: "delete restore sources", mutate: func(value *CommandServiceDependencies) { value.DeleteRestoreSources = nil }},
 		{name: "target semantics", mutate: func(value *CommandServiceDependencies) { value.TargetSemantics = nil }},
@@ -165,6 +173,7 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 		Idempotency:                 commandServiceTestIdempotency{},
 		ImportedAttributionResolver: commandServiceTestAttributionResolver{},
 		Projections:                 commandServiceTestProjection{},
+		ProjectionDependencies:      []ProjectionDependencyReader{commandServiceTestProjection{}},
 		LiveRecords:                 commandServiceTestProjection{},
 		DeleteRestoreSources:        deleteRestoreSources,
 		TargetSemantics:             targetSemantics,
@@ -177,10 +186,14 @@ func validCommandServiceDependencies(t testing.TB) CommandServiceDependencies {
 
 func validProviderContributions() []ProviderContribution {
 	record := func(owner SourceOwnerModule, recordType string, historyTargetKinds ...string) RecordProviderContribution {
+		schemaID := "cartulary.revisions.snapshot." + recordType + ".v1"
+		if recordType == "party" {
+			schemaID = "cartulary.revisions.snapshot.party.v2"
+		}
 		return RecordProviderContribution{
 			SourceOwnerModule:   owner,
 			RecordType:          recordType,
-			SnapshotSchemaID:    "cartulary.revisions.snapshot." + recordType + ".v1",
+			SnapshotSchemaID:    schemaID,
 			HistoryProjector:    catalogTestHistoryProjector,
 			HistoryTargetKinds:  append([]string(nil), historyTargetKinds...),
 			DeleteRestoreSource: testDeleteRestoreSource{},
@@ -309,6 +322,19 @@ func TestCommandServiceRejectsInvalidProviderContributionSets(t *testing.T) {
 
 func TestIncidentBundleSourcePortFailsClosed(t *testing.T) {
 	t.Parallel()
+	t.Run("retired Party source clock schema", func(t *testing.T) {
+		retired := validProviderContributions()
+		for i := range retired {
+			for j := range retired[i].Records {
+				if retired[i].Records[j].RecordType == "party" {
+					retired[i].Records[j].SnapshotSchemaID = "cartulary.revisions.snapshot.party.v1"
+				}
+			}
+		}
+		if _, err := NewRecordSnapshotCaptureCatalog(retired); !errors.Is(err, ErrInvalidRecordSnapshot) {
+			t.Fatal("retired Party clock schema admitted", err)
+		}
+	})
 	contributions := validProviderContributions()
 	snapshots, err := NewRecordSnapshotCaptureCatalog(contributions)
 	if err != nil {

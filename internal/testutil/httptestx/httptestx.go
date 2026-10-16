@@ -32,6 +32,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
 )
 
 type Server struct {
@@ -222,10 +223,11 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		indicatorSourceText     indicators.SourceTextPort
 	)
 	runtimeOptions := server.Options{
-		Env:         env,
-		Now:         clock.Now,
-		Postgres:    options.Postgres,
-		ObjectStore: options.ObjectStore,
+		ReportingRuntime: reportingfixture.Runtime{},
+		Env:              env,
+		Now:              clock.Now,
+		Postgres:         options.Postgres,
+		ObjectStore:      options.ObjectStore,
 		ObserveJobs: func(manager *jobs.Manager, transactions *jobs.TransactionService, _ *jobs.Runner, pool *pgxpool.Pool) {
 			jobsCapability = &JobsCapability{manager: manager, transactions: transactions, pool: pool, now: clock.Now}
 		},

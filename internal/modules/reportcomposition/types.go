@@ -22,7 +22,6 @@ const (
 )
 
 var emptyJSONArray = json.RawMessage(`[]`)
-var emptyJSONObject = json.RawMessage(`{}`)
 
 type ResourceRecord struct {
 	CompositionID             uuid.UUID
@@ -81,11 +80,9 @@ type DraftVersionRequest struct {
 }
 
 type ValidateRequest struct {
-	SourceKind          string
-	CompositionVersion  *int64
-	InlineComposition   *json.RawMessage
-	ValidationContext   *json.RawMessage
-	ValidationContextIs bool
+	SourceKind         string
+	CompositionVersion *int64
+	InlineComposition  *json.RawMessage
 }
 
 type PreviewRequest struct {

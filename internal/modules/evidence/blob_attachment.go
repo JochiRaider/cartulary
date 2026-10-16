@@ -98,7 +98,7 @@ SELECT record_id
 	return attachBlobPreflightResult{Blob: blob}, nil
 }
 
-func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request attachBlobRequest, requestHash []byte, observed *observedObject, requestID string, now time.Time) (attachBlobResult, error) {
+func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request attachBlobRequest, requestHash []byte, requestID string, now time.Time) (attachBlobResult, error) {
 	key := LifecycleIdempotencyKey{
 		OperationID: LifecycleOperationBlobAttach, ActorUserID: actor.ID,
 		ScopeKey: recordID.String(), ClientTxnID: request.ClientTxnID,
@@ -188,19 +188,12 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		if blob.UploadLeaseState != "completed" {
 			return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}
 		}
-		if observed == nil {
-			failed, err := s.blobLifecycle.recordFinalizeFailureTx(ctx, tx, request.ObjectBlobID, now)
-			if err != nil {
-				return attachBlobResult{}, err
-			}
-			if err := tx.Commit(ctx); err != nil {
-				return attachBlobResult{}, err
-			}
-			reason := attachReasonBlobPending
-			if failed {
-				reason = attachReasonBlobFailed
-			}
-			return attachBlobResult{}, AttachRejectedError{ReasonCode: reason, Cause: errBlobNotAttachable}
+		observed, err := retainedBlobObservation(ctx, tx, request.ObjectBlobID)
+		if errors.Is(err, errBlobNotVerified) {
+			return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonBlobPending, Cause: errBlobNotAttachable}
+		}
+		if err != nil {
+			return attachBlobResult{}, err
 		}
 		if observed.Size != blob.ByteSize {
 			if err := s.blobLifecycle.failTx(ctx, tx, request.ObjectBlobID, "declared_size_mismatch", now); err != nil {
@@ -235,9 +228,6 @@ func (s *blobLifecycleService) AttachBlob(ctx context.Context, actor authn.UserR
 		return attachBlobResult{}, AttachRejectedError{ReasonCode: attachReasonEvidenceInconsistent, Cause: errBlobNotAttachable}
 	}
 	sha := blob.ObservedSHA256Hex
-	if sha == nil && observed != nil {
-		sha = &observed.SHA256Hex
-	}
 	storageRef, err := blobref.ObjectBlobStorageRef(request.ObjectBlobID)
 	if err != nil {
 		return attachBlobResult{}, err

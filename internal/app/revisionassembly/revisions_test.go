@@ -50,7 +50,7 @@ func (revisionsCompositionTestPublications) AppendRecordChangedTx(context.Contex
 	return nil
 }
 
-func (revisionsCompositionTestProjection) RebuildIncidentTx(context.Context, pgx.Tx, uuid.UUID) error {
+func (revisionsCompositionTestProjection) RefreshRowTx(context.Context, pgx.Tx, string, uuid.UUID) error {
 	return nil
 }
 

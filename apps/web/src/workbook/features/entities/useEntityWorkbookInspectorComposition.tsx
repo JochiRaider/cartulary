@@ -68,6 +68,10 @@ import { useWorkbookInspectorOrdinaryAttention } from "../../inspector/workbookI
 import { buildWorkbookInspectorSubject } from "../../inspector/workbookInspectorSubject";
 import { mergeIdentifierOutcomeText } from "../../models/entityMergePlan";
 import type { EntityRow } from "../../models/entityWorkbookModel";
+import {
+  type GenericCollectionMode,
+  genericCollectionItems,
+} from "../../models/genericWorkbookModel";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import type { WorkbookRecordSubject } from "../../ports/WorkbookRecordSubject";
 import type { WorkbookViewQueryPort } from "../../query/WorkbookViewQueryPort";
@@ -136,6 +140,8 @@ export function useEntityWorkbookInspectorComposition({
   const [deletedHistorySubject, setDeletedHistorySubject] =
     useState<WorkbookRecordSubject | null>(null);
   const [editFieldKey, setEditFieldKey] = useState("");
+  const [collectionMode, setCollectionMode] =
+    useState<GenericCollectionMode>("add");
   const aliasInputRef = useRef<HTMLInputElement | null>(null);
   const subject: WorkbookRecordSubject | null =
     selectedEntity === null
@@ -198,7 +204,10 @@ export function useEntityWorkbookInspectorComposition({
   const editableFields = useMemo(
     () =>
       contract.fields.filter(
-        (field) => field.patchWritable && field.writeKind === "direct_value",
+        (field) =>
+          field.patchWritable &&
+          (field.writeKind === "direct_value" ||
+            field.fieldKey.endsWith("_party_ids")),
       ),
     [contract],
   );
@@ -212,10 +221,21 @@ export function useEntityWorkbookInspectorComposition({
     store: mutationRuntime.inspectorDrafts,
     retainedSelection: {
       fields: editableFields,
-      select: (identity) => setEditFieldKey(identity.fieldKey),
+      select: (identity) => {
+        setEditFieldKey(identity.fieldKey);
+        setCollectionMode(
+          identity.action === "remove_party_ref" ? "remove" : "add",
+        );
+      },
     },
     row: selectedEntity?.rawRow ?? null,
     field: selectedEdit.field,
+    action:
+      selectedEdit.field?.writeKind === "action_payload"
+        ? collectionMode === "add"
+          ? "add_party_ref"
+          : "remove_party_ref"
+        : "value",
     viewSchemaId: contract.viewSchemaId,
     presentation: inspectorResetKey,
     active: isOpen,
@@ -307,7 +327,7 @@ export function useEntityWorkbookInspectorComposition({
     const prepared = prepareWorkbookInspectorChange(
       selectedEdit.field,
       edit.value,
-      "add",
+      collectionMode,
       contract.viewSchemaId,
     );
     if (prepared.error) {
@@ -441,6 +461,8 @@ export function useEntityWorkbookInspectorComposition({
         aliasInputRef,
         contract,
         editableFields,
+        collectionMode,
+        setCollectionMode,
         editFieldKey,
         edit,
         aliasEdit,
@@ -461,6 +483,7 @@ export function useEntityWorkbookInspectorComposition({
           merge.commands.invalidateReview();
           setMutationError(null);
           setEditFieldKey(value);
+          setCollectionMode("add");
         },
         setEditValue: (value) => {
           merge.commands.invalidateReview();
@@ -659,6 +682,8 @@ type EntityDetailsProps = {
   readonly aliasInputRef: RefObject<HTMLInputElement | null>;
   readonly contract: ViewContract;
   readonly editableFields: ViewContract["fields"];
+  readonly collectionMode: GenericCollectionMode;
+  readonly setCollectionMode: (mode: GenericCollectionMode) => void;
   readonly editFieldKey: string;
   readonly edit: WorkbookInspectorEditDraft;
   readonly aliasEdit: WorkbookInspectorEditDraft;
@@ -733,15 +758,42 @@ function useEntityEditSlots(props: EntityDetailsProps) {
     };
   return {
     content: (
-      <WorkbookInspectorEditControl
-        invalid={props.editFeedback.message !== null}
-        describedBy={props.editFeedback.message ? feedbackId : undefined}
-        edit={{ ...props.edit, update: props.setEditValue }}
-        ariaLabel={props.selectedEdit.field.label}
-        collectionMode="add"
-        field={props.selectedEdit.field}
-        testId={genericEditValueTestId(props.contract.viewSchemaId)}
-      />
+      <>
+        {props.selectedEdit.field.writeKind === "action_payload" ? (
+          <fieldset style={{ margin: 0, padding: 0, border: 0 }}>
+            <legend>Assignment action</legend>
+            {(["add", "remove"] as const).map((mode) => (
+              <WorkbookInspectorActionButton
+                key={mode}
+                type="button"
+                aria-pressed={props.collectionMode === mode}
+                disabled={
+                  props.mutationPending || props.disabledReason !== null
+                }
+                onClick={() => props.setCollectionMode(mode)}
+              >
+                {props.collectionMode === mode ? (
+                  <span aria-hidden="true">✓ </span>
+                ) : null}
+                {mode === "add" ? "Add parties" : "Remove parties"}
+              </WorkbookInspectorActionButton>
+            ))}
+          </fieldset>
+        ) : null}
+        <WorkbookInspectorEditControl
+          invalid={props.editFeedback.message !== null}
+          describedBy={props.editFeedback.message ? feedbackId : undefined}
+          edit={{ ...props.edit, update: props.setEditValue }}
+          ariaLabel={props.selectedEdit.field.label}
+          collectionMode={props.collectionMode}
+          collectionItems={genericCollectionItems(
+            props.selectedEntity.rawRow,
+            props.selectedEdit.field.fieldKey,
+          )}
+          field={props.selectedEdit.field}
+          testId={genericEditValueTestId(props.contract.viewSchemaId)}
+        />
+      </>
     ),
     actions: (
       <WorkbookInspectorActionButton

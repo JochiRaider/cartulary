@@ -25,7 +25,7 @@ func (fieldContribution) CollectFactsTx(
 ) (exportprovider.ProviderOutput, error) {
 	return exportprovider.CollectQueryProviderOutputTx(ctx, tx, incidentID, "evidence", supportRefs, []exportprovider.FieldQuery{{
 		Prefix: "evidence",
-		SQL: `SELECT e.record_id::text, 'evidence'::text, 'source_evidence'::text,
+		SQL: `SELECT e.record_id::text, 'evidence'::text, r.record_type::text, 'source_evidence'::text,
        jsonb_build_object(
            'record_id', e.record_id,
            'title', e.title,

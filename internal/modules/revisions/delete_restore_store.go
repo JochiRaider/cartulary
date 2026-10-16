@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -166,15 +167,22 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if !deleting {
-		if err := s.lockDestructiveOperationRecordsNowaitTx(ctx, tx, []uuid.UUID{recordID}); err != nil {
-			return DeleteRestoreResult{}, err
-		}
-	}
-
-	record, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID, !deleting)
+	record, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID, false)
 	if err != nil {
 		return DeleteRestoreResult{}, err
+	}
+	projectionRecords, err := s.projectionScopeTx(ctx, tx, record.IncidentID, []uuid.UUID{recordID})
+	if err != nil {
+		return DeleteRestoreResult{}, err
+	}
+	if !deleting {
+		if err := s.lockDestructiveOperationRecordsNowaitTx(ctx, tx, projectionRecords); err != nil {
+			return DeleteRestoreResult{}, err
+		}
+		record, err = s.loadDeleteRestoreRecordTx(ctx, tx, recordID, true)
+		if err != nil {
+			return DeleteRestoreResult{}, err
+		}
 	}
 	commandKind := CommandSoftDelete
 	if !deleting {
@@ -208,6 +216,13 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 		return DeleteRestoreResult{}, err
 	}
 	if deleting {
+		// Ordinary soft-delete retains ordinary transaction locking; it does not
+		// acquire the destructive-operation NOWAIT capability.
+		for _, id := range projectionRecords {
+			if _, err := s.envelopes.LoadEnvelopeTx(ctx, tx, id, true); err != nil {
+				return DeleteRestoreResult{}, adaptEnvelopeError(err)
+			}
+		}
 		protected, err := s.loadDeleteRestoreRecordTx(ctx, tx, recordID, true)
 		if err != nil {
 			return DeleteRestoreResult{}, err
@@ -227,6 +242,13 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 		record = protected
 	}
 
+	currentProjectionRecords, err := s.projectionScopeTx(ctx, tx, record.IncidentID, []uuid.UUID{recordID})
+	if err != nil {
+		return DeleteRestoreResult{}, err
+	}
+	if !slices.Equal(projectionRecords, currentProjectionRecords) {
+		return DeleteRestoreResult{}, fmt.Errorf("projection dependency scope changed during mutation admission")
+	}
 	beforeSnapshot, err := s.appender.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)
 	if err != nil {
 		return DeleteRestoreResult{}, err
@@ -242,7 +264,7 @@ func (s *commandStore) applyDeleteRestore(ctx context.Context, command DeleteRes
 	if err := sourceAdapter.UpdateSourceDeleteStateTx(ctx, tx, record.RecordID, actorID, now, deleting); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	if err := s.rebuildProjectionsTx(ctx, tx, record.IncidentID); err != nil {
+	if err := s.refreshProjectionsTx(ctx, tx, record.IncidentID, projectionRecords); err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	afterSnapshot, err := s.appender.CaptureRecordSnapshotTx(ctx, tx, record.RecordID)

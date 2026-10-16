@@ -26,7 +26,7 @@ const reportingGraphLeasePurpose = "render"
 type GraphSourceProvider interface {
 	SourceOwnerID() string
 	ValidateAndLeaseResultTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphprojection.ResultLeaseV2, error)
-	ReadAndRenewLeasedResult(context.Context, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphsourcecontract.Result, error)
+	ReadAndRenewLeasedResultTx(context.Context, pgx.Tx, uuid.UUID, graphprojection.ResultBindingV2, time.Time, time.Time) (graphsourcecontract.Result, error)
 	ReleaseJobLeasesTx(context.Context, pgx.Tx, uuid.UUID) error
 	ReleaseJobLeases(context.Context, uuid.UUID) error
 }
@@ -36,9 +36,9 @@ type GraphSourceRegistry struct {
 }
 
 type resolvedGraphResult struct {
-	Ref             sourceProjectionRef
-	Result          graphprojection.CompletedResultV2
-	LabelCandidates graphsourcecontract.LabelCandidates
+	Ref             sourceProjectionRef                 `json:"projection_ref"`
+	Result          graphprojection.CompletedResultV2   `json:"result"`
+	LabelCandidates graphsourcecontract.LabelCandidates `json:"label_candidates"`
 }
 
 func NewGraphSourceRegistry(providers ...GraphSourceProvider) (*GraphSourceRegistry, error) {
@@ -78,11 +78,11 @@ func (registry *GraphSourceRegistry) ValidateAndLeaseTx(ctx context.Context, tx 
 	return nil
 }
 
-func (registry *GraphSourceRegistry) ReadAndRenew(ctx context.Context, jobID uuid.UUID, refs []sourceProjectionRef, observedAt time.Time) ([]resolvedGraphResult, error) {
+func (registry *GraphSourceRegistry) ReadAndRenewTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, refs []sourceProjectionRef, observedAt time.Time) ([]resolvedGraphResult, error) {
 	if len(refs) == 0 {
 		return nil, nil
 	}
-	if registry == nil || jobID == uuid.Nil || observedAt.IsZero() {
+	if registry == nil || tx == nil || jobID == uuid.Nil || observedAt.IsZero() {
 		return nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_bound")
 	}
 	results := make([]resolvedGraphResult, 0, len(refs))
@@ -91,7 +91,7 @@ func (registry *GraphSourceRegistry) ReadAndRenew(ctx context.Context, jobID uui
 		if provider == nil {
 			return nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_bound")
 		}
-		sourceResult, err := provider.ReadAndRenewLeasedResult(ctx, jobID, ref.binding(), observedAt.UTC(), observedAt.UTC().Add(reportingGraphLeaseDuration))
+		sourceResult, err := provider.ReadAndRenewLeasedResultTx(ctx, tx, jobID, ref.binding(), observedAt.UTC(), observedAt.UTC().Add(reportingGraphLeaseDuration))
 		if err != nil {
 			return nil, graphSourceRenderError(err)
 		}
@@ -165,7 +165,7 @@ func validGraphLabelComponent(component graphsourcecontract.LabelComponent, kind
 }
 
 func (registry *GraphSourceRegistry) ReleaseJobLeasesTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) error {
-	if registry == nil || jobID == uuid.Nil {
+	if registry == nil || tx == nil || jobID == uuid.Nil {
 		return nil
 	}
 	owners := make([]string, 0, len(registry.providers))
@@ -223,10 +223,6 @@ func graphSourceRenderError(err error) error {
 		return newRenderValidationError("graph_projection_unavailable", "graph_projection_not_completed")
 	}
 	return mapped
-}
-
-func validReportingIdentifier(value string) bool {
-	return value != "" && len(value) <= 255
 }
 
 // ReconcileGraphProjectionRestoreTx recreates leases for restored nonterminal

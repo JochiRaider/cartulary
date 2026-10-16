@@ -28,6 +28,7 @@ import {
   useState,
 } from "react";
 import { clipboardRepresentations } from "./clipboardCodec";
+import { draftClipboardHandlers } from "./draftClipboard";
 import { captureSemanticClear, isClearNavigationKey } from "./semanticClear";
 
 export type {
@@ -133,6 +134,7 @@ import {
   mergeGridSemanticState,
   resolveGridSemanticState,
 } from "./semanticState";
+import { revealGridCell } from "./viewportGeometry";
 import { resolveGridViewportStyle } from "./viewportStyle";
 
 function coreRecordId<Row>(row: GridDataRow<Row>): string | null {
@@ -320,6 +322,8 @@ function useTestSupportGridHandle<Row>({
             )
               return { kind: "unavailable" };
             const element = draftFocusTargets.current.get(target.fieldKey);
+            if (element instanceof HTMLElement && scrollElement.current)
+              revealGridCell(scrollElement.current, element);
             return element ? { kind: "target", element } : { kind: "pending" };
           }
           if (target.kind === "cell") {
@@ -333,6 +337,8 @@ function useTestSupportGridHandle<Row>({
             const element = cellElements.current.get(
               gridAnchorKey(target.anchor),
             );
+            if (element && scrollElement.current)
+              revealGridCell(scrollElement.current, element);
             return element ? { kind: "target", element } : { kind: "pending" };
           }
           const element = scrollElement.current;
@@ -899,6 +905,10 @@ function TestGridBody<Row>({
           actionsColumn={actionsColumn}
           bulkSelection={bulkSelection}
           columns={columns}
+          clipboardPaste={clipboardPaste}
+          editable={editable}
+          presentation={presentation}
+          announce={setKeyboardAnnouncement}
           draftFocusTargets={draftFocusTargets}
           draftRow={draftRow}
           grouped={grouped}
@@ -1282,6 +1292,10 @@ function TestGridDataCell<Row>({
 
 function TestGridDraftRow<Row>({
   actionsColumn,
+  clipboardPaste,
+  editable,
+  presentation,
+  announce,
   bulkSelection,
   columns,
   draftFocusTargets,
@@ -1291,6 +1305,10 @@ function TestGridDraftRow<Row>({
   surface,
 }: {
   readonly actionsColumn: GridActionsColumn<Row> | undefined;
+  readonly clipboardPaste: SemanticDataGridProps<Row>["clipboardPaste"];
+  readonly editable: boolean;
+  readonly presentation: ReturnType<typeof buildSemanticPresentationModel<Row>>;
+  readonly announce: (message: string) => void;
   readonly bulkSelection: GridCoreRecordBulkSelection<Row> | undefined;
   readonly columns: readonly GridColumn<Row>[];
   readonly draftFocusTargets: MutableRefObject<
@@ -1304,6 +1322,13 @@ function TestGridDraftRow<Row>({
   const { refreshFocus } = useContext(TestKeyboardPolicyContext);
   return (
     <tr
+      {...draftClipboardHandlers({
+        editable,
+        draftVisible: true,
+        clipboardPaste,
+        presentation: () => presentation,
+        announce,
+      })}
       data-cartulary-grid-draft-row="true"
       data-testid={draftRow.testId}
       role="row"
@@ -1323,6 +1348,7 @@ function TestGridDraftRow<Row>({
           data-grid-field-key={column.fieldKey}
           key={column.fieldKey}
           role="gridcell"
+          tabIndex={-1}
         >
           {surface.kind === "view_schema"
             ? (column.renderDraftCell?.({

@@ -78,10 +78,11 @@ func (e *UnsupportedSnapshotDerivationError) Error() string {
 
 type Store struct {
 	pool               *pgxpool.Pool
-	jobTransactions    reportingJobAdmission
+	jobTransactions    reportingJobTransactions
 	exportMaterializer reportingExportMaterializer
 	graphSources       *GraphSourceRegistry
 	referencePacks     reference_data.Retention
+	templatePacks      *TemplatePackRegistry
 }
 
 type SnapshotRecord struct {
@@ -93,8 +94,8 @@ type SnapshotRecord struct {
 	SourceChangeSetHighWatermark string
 	SourceBoundaryJSON           []byte
 	DerivationVersion            string
-	ExportModelSHA256            string
-	ExportModelJSON              []byte
+	SourceCaptureSHA256          string
+	SourceCaptureJSON            []byte
 	CreateJobID                  uuid.UUID
 	CreatedAt                    time.Time
 }
@@ -171,6 +172,7 @@ type CreateReleaseParams struct {
 	ActorUserID      uuid.UUID
 	Request          CreateReleaseRequest
 	TemplateContract TemplateContract
+	TemplateFiles    []TemplatePackFile
 	Now              time.Time
 }
 
@@ -182,49 +184,29 @@ type CreateReleaseResult struct {
 }
 
 type snapshotCreateJobPayload struct {
+	JobAdmittedAt                time.Time       `json:"job_admitted_at"`
+	RequestedBoundary            *string         `json:"requested_boundary"`
 	IncidentID                   string          `json:"incident_id"`
 	ActorUserID                  string          `json:"actor_user_id"`
 	ClientTxnID                  string          `json:"client_txn_id"`
 	SnapshotAt                   time.Time       `json:"snapshot_at"`
 	SourceChangeSetHighWatermark string          `json:"source_change_set_high_watermark"`
 	SourceBoundaryJSON           json.RawMessage `json:"source_boundary_json"`
-	ExportModel                  SnapshotModel   `json:"export_model"`
-	ExportModelSHA256            string          `json:"export_model_sha256"`
+	SourceCapture                json.RawMessage `json:"source_capture"`
+	SourceCaptureSHA256          string          `json:"source_capture_sha256"`
 }
 
 type releaseCreateJobPayload struct {
-	ActorUserID                  string                `json:"actor_user_id"`
-	ClientTxnID                  string                `json:"client_txn_id"`
-	SnapshotID                   string                `json:"snapshot_id"`
-	IncidentID                   string                `json:"incident_id"`
-	SnapshotAt                   time.Time             `json:"snapshot_at"`
-	SourceChangeSetHighWatermark string                `json:"source_change_set_high_watermark"`
-	DerivationVersion            string                `json:"derivation_version"`
-	ExportModelSHA256            string                `json:"export_model_sha256"`
-	ExportModel                  ExportModel           `json:"export_model"`
-	TemplateID                   string                `json:"template_id"`
-	TemplateVersion              string                `json:"template_version"`
-	TemplateContract             TemplateContract      `json:"template_contract"`
-	RedactionProfileID           string                `json:"redaction_profile_id"`
-	RedactionProfileVersion      string                `json:"redaction_profile_version"`
-	OutputKind                   string                `json:"output_kind"`
-	OutputOptions                json.RawMessage       `json:"output_options"`
-	ReleaseScope                 string                `json:"release_scope"`
-	RecipientPartitionRefs       []string              `json:"recipient_partition_refs"`
-	GraphProjectionRefs          json.RawMessage       `json:"graph_projection_refs"`
-	CompositionJSON              json.RawMessage       `json:"composition_json,omitempty"`
-	CompositionID                *string               `json:"composition_id"`
-	CompositionVersion           *string               `json:"composition_version"`
-	CompositionSHA256            *string               `json:"composition_sha256"`
-	RenderAdmittedAt             time.Time             `json:"render_admitted_at"`
-	NormalizedRequest            []byte                `json:"normalized_request"`
-	Request                      CreateReleaseRequest  `json:"-"`
-	ResolvedGraphResults         []resolvedGraphResult `json:"-"`
+	renderInput
+	ClientTxnID       string               `json:"client_txn_id"`
+	NormalizedRequest []byte               `json:"normalized_request"`
+	Request           CreateReleaseRequest `json:"-"`
 }
 
 type compositionPreviewJobPayload struct {
-	PreviewAttemptID uuid.UUID
-	Release          releaseCreateJobPayload
+	renderInput
+	PreviewAttemptID  uuid.UUID `json:"preview_attempt_id"`
+	NormalizedRequest []byte    `json:"normalized_request"`
 }
 
 type sourceProjectionRef struct {
@@ -276,7 +258,7 @@ type ReleaseActionResult struct {
 
 func newStore(
 	pool *pgxpool.Pool,
-	jobTransactions reportingJobAdmission,
+	jobTransactions reportingJobTransactions,
 	exportMaterializer reportingExportMaterializer,
 	graphSources *GraphSourceRegistry,
 	referencePacks reference_data.Retention,
@@ -291,141 +273,7 @@ func newStore(
 }
 
 func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams) (CreateSnapshotResult, error) {
-	params.Now = params.Now.UTC().Truncate(time.Microsecond)
-	key := authn.RouteIdempotencyKey{
-		RouteKey:    "snapshots.create",
-		ActorUserID: params.ActorUserID,
-		ScopeKey:    params.Request.IncidentID.String(),
-		ClientTxnID: params.Request.ClientTxnID,
-	}
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	existing, err := lookupRouteIdempotencyTx(ctx, tx, key)
-	if err == nil {
-		existingJobID, parseErr := existingResponseJobID(existing.ResponseJSON)
-		if parseErr != nil {
-			return CreateSnapshotResult{}, parseErr
-		}
-		payload, payloadErr := getSnapshotPayloadTx(ctx, tx, existingJobID)
-		if payloadErr != nil {
-			return CreateSnapshotResult{}, payloadErr
-		}
-		if params.Request.SourceChangeSetHighWatermark != nil && *params.Request.SourceChangeSetHighWatermark != payload.SourceChangeSetHighWatermark {
-			return CreateSnapshotResult{}, authn.ErrClientTxnConflict
-		}
-		var resource jobs.Resource
-		if err := json.Unmarshal(existing.ResponseJSON, &resource); err != nil {
-			return CreateSnapshotResult{}, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return CreateSnapshotResult{}, err
-		}
-		return CreateSnapshotResult{Job: resource, JobID: existingJobID, Replayed: true}, nil
-	}
-	if !errors.Is(err, authn.ErrNotFound) {
-		return CreateSnapshotResult{}, err
-	}
-
-	incident, err := getIncidentTx(ctx, tx, params.Request.IncidentID)
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	boundary, err := s.exportMaterializer.ResolveSourceBoundaryTx(ctx, tx, incident)
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	if params.Request.SourceChangeSetHighWatermark != nil && *params.Request.SourceChangeSetHighWatermark != boundary.Token {
-		return CreateSnapshotResult{}, &SnapshotBoundaryConflictError{Expected: *params.Request.SourceChangeSetHighWatermark, Actual: boundary.Token}
-	}
-	normalized, err := normalizeSnapshotRequest(params.Request.IncidentID, params.Request.ClientTxnID, &boundary.Token)
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	sum := sha256.Sum256(normalized)
-	requestHash := sum[:]
-	workbookFields, err := s.exportMaterializer.CollectFieldsTx(ctx, tx, params.Request.IncidentID)
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-
-	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID}
-	admission, err := jobs.NewExtensionJobAdmission(
-		ProfileID,
-		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
-		scope,
-		normalized,
-	)
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
-		JobKind:           SnapshotCreateJobKind,
-		Scope:             scope,
-		SubmittedByUserID: params.ActorUserID,
-		Cancelable:        true,
-		Progress:          jobs.Progress{Completed: 0},
-		Extension:         admission,
-	}, params.Now.UTC())
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	jobID := uuid.MustParse(job.JobID)
-	model, _, err := BuildSnapshotModel(incident, reportingResourceID(jobID, "snapshot").String(), params.Now, boundary.Token, workbookFields)
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-
-	if s.referencePacks == nil {
-		return CreateSnapshotResult{}, errors.New("reporting: Reference Pack retention is required")
-	}
-	binding, err := s.referencePacks.CaptureCurrentTx(ctx, tx, "reporting_snapshot_job", jobID.String(), jobID)
-	if err != nil {
-		var unavailable *reference_data.ConsumerError
-		if errors.As(err, &unavailable) {
-			return CreateSnapshotResult{}, ErrRequiredReferencePackUnavailable
-		}
-		return CreateSnapshotResult{}, err
-	}
-	model.ReferencePacks = binding
-	boundModel, err := canonicalJSON(model)
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	exportSHA := reportingObjectDigest(model.SchemaID, boundModel)
-	payloadJSON, err := canonicalJSON(snapshotCreateJobPayload{
-		IncidentID:                   params.Request.IncidentID.String(),
-		ActorUserID:                  params.ActorUserID.String(),
-		ClientTxnID:                  params.Request.ClientTxnID,
-		SnapshotAt:                   params.Now.UTC(),
-		SourceChangeSetHighWatermark: boundary.Token,
-		SourceBoundaryJSON:           append(json.RawMessage(nil), boundary.CanonicalJSON...),
-		ExportModel:                  model,
-		ExportModelSHA256:            exportSHA,
-	})
-	if err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	if err := sqlc.New(tx).CreateReportingJobPayload(ctx, sqlc.CreateReportingJobPayloadParams{
-		JobID:       pgUUID(jobID),
-		JobKind:     "snapshot_create",
-		IncidentID:  pgUUID(params.Request.IncidentID),
-		ActorUserID: pgUUID(params.ActorUserID),
-		RequestJson: payloadJSON,
-		CreatedAt:   pgTimestamptz(params.Now),
-	}); err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return CreateSnapshotResult{}, err
-	}
-	return CreateSnapshotResult{Job: job, JobID: jobID}, nil
+	return s.admitSnapshotJob(ctx, params)
 }
 
 type SnapshotBoundaryConflictError struct {
@@ -438,201 +286,23 @@ func (e *SnapshotBoundaryConflictError) Error() string {
 }
 
 func (s *Store) GetSnapshot(ctx context.Context, snapshotID uuid.UUID) (map[string]any, uuid.UUID, error) {
-	record, err := s.getSnapshotRecord(ctx, snapshotID)
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return nil, uuid.UUID{}, err
+		return nil, uuid.Nil, err
 	}
-	return snapshotResource(record), record.IncidentID, nil
-}
-
-func (s *Store) GetSnapshotForRender(ctx context.Context, snapshotID uuid.UUID) (SnapshotRecord, SnapshotModel, error) {
-	record, err := s.getSnapshotRecord(ctx, snapshotID)
+	defer rollbackSnapshotTx(tx)
+	record, err := readSnapshotDescriptorTx(ctx, tx, snapshotID)
 	if err != nil {
-		return SnapshotRecord{}, SnapshotModel{}, err
+		return nil, uuid.Nil, err
 	}
-	if record.DerivationVersion != DerivationVersion {
-		return SnapshotRecord{}, SnapshotModel{}, &UnsupportedSnapshotDerivationError{DerivationVersion: record.DerivationVersion}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, uuid.Nil, err
 	}
-	model, _, err := decodePortableObject[SnapshotModel](record.ExportModelJSON, record.ExportModelSHA256)
-	if err != nil {
-		return SnapshotRecord{}, SnapshotModel{}, err
-	}
-	if validateSnapshotModelIdentity(model) != nil {
-		return SnapshotRecord{}, SnapshotModel{}, &UnsupportedSnapshotDerivationError{DerivationVersion: model.DerivationVersion, SchemaID: model.SchemaID}
-	}
-
-	return record, model, nil
-}
-
-// Only Reference Data classifies missing content. Preserve cancellation and
-// infrastructure failures as operation failures without a content verdict.
-func (s *Store) validateReferenceBinding(ctx context.Context, binding reference_data.SetBinding) error {
-	if s.referencePacks == nil {
-		return errors.New("reporting: Reference Pack retention is required")
-	}
-	err := s.referencePacks.ValidateBinding(ctx, binding)
-	var failure *reference_data.ConsumerError
-	if errors.As(err, &failure) {
-		return ErrRequiredReferencePackUnavailable
-	}
-	return err
+	return snapshotResource(record), record.Incident, nil
 }
 
 func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (CreateReleaseResult, error) {
-	params.Now = params.Now.UTC().Truncate(time.Microsecond)
-	sum := sha256.Sum256(params.Request.Normalized)
-	requestHash := sum[:]
-	key := authn.RouteIdempotencyKey{
-		RouteKey:    "releases.create",
-		ActorUserID: params.ActorUserID,
-		ScopeKey:    params.Request.SnapshotID.String(),
-		ClientTxnID: params.Request.ClientTxnID,
-	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	existing, err := lookupRouteIdempotencyTx(ctx, tx, key)
-	if err == nil {
-		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return CreateReleaseResult{}, authn.ErrClientTxnConflict
-		}
-		var resource jobs.Resource
-		if err := json.Unmarshal(existing.ResponseJSON, &resource); err != nil {
-			return CreateReleaseResult{}, err
-		}
-		existingJobID, parseErr := uuid.Parse(resource.JobID)
-		if parseErr != nil {
-			return CreateReleaseResult{}, parseErr
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return CreateReleaseResult{}, err
-		}
-		return CreateReleaseResult{Job: resource, JobID: existingJobID, Replayed: true}, nil
-	}
-	if !errors.Is(err, authn.ErrNotFound) {
-		return CreateReleaseResult{}, err
-	}
-
-	snapshot, err := getSnapshotRecordTx(ctx, tx, params.Request.SnapshotID)
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-	if snapshot.DerivationVersion != DerivationVersion {
-		return CreateReleaseResult{}, &InvalidReleaseRequestError{Field: "derivation_version", ReasonCode: "unsupported_derivation_version"}
-	}
-	snapshotModel, _, err := decodePortableObject[SnapshotModel](snapshot.ExportModelJSON, snapshot.ExportModelSHA256)
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-	if validateSnapshotModelIdentity(snapshotModel) != nil {
-		return CreateReleaseResult{}, &InvalidReleaseRequestError{Field: "derivation_version", ReasonCode: "unsupported_derivation_version"}
-	}
-	if s.referencePacks == nil {
-		return CreateReleaseResult{}, errors.New("reporting: Reference Pack retention is required")
-	}
-	if err := s.validateReferenceBinding(ctx, snapshotModel.ReferencePacks); err != nil {
-		return CreateReleaseResult{}, err
-	}
-	resolvedComposition, err := resolveReleaseCompositionTupleTx(ctx, tx, snapshot, params.Request)
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-	graphRefs, err := decodeSourceProjectionRefs(params.Request.GraphProjectionRefs)
-	if err != nil {
-		return CreateReleaseResult{}, &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "invalid_value"}
-	}
-	compositionIDString := optionalUUIDStringPointer(params.Request.CompositionID)
-	var compositionJSON json.RawMessage
-	if resolvedComposition != nil {
-		compositionJSON = append(json.RawMessage(nil), resolvedComposition.CanonicalComposition...)
-	}
-	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &snapshot.IncidentID}
-	admission, err := jobs.NewExtensionJobAdmission(
-		ProfileID,
-		jobs.NewRouteIdempotencyKey(key.RouteKey, key.ActorUserID, key.ScopeKey, key.ClientTxnID),
-		scope,
-		params.Request.Normalized,
-	)
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-	job, err := s.jobTransactions.CreateQueuedTx(ctx, tx, jobs.EnqueueParams{
-		JobKind:           ReleaseCreateJobKind,
-		Scope:             scope,
-		SubmittedByUserID: params.ActorUserID,
-		Cancelable:        true,
-		Progress:          jobs.Progress{Completed: 0},
-		Extension:         admission,
-	}, params.Now.UTC())
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-	jobID := uuid.MustParse(job.JobID)
-	releaseID := reportingResourceID(jobID, "release").String()
-	admittedAt, err := normalizedReportingTimestamp(params.Now)
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-	model, modelDigest, err := bindRenderModel(snapshotModel, RenderIdentity{ReleaseID: &releaseID, RenderAdmittedAt: admittedAt}, params.Request.ReleaseScope, params.Request.RecipientPartitionRefs)
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-	// The private Job codec retains normalized request bytes as base64. It is
-	// not a Reporting canonical object or a consumer-visible content identity.
-	payloadJSON, err := json.Marshal(releaseCreateJobPayload{
-		ActorUserID:                  params.ActorUserID.String(),
-		ClientTxnID:                  params.Request.ClientTxnID,
-		SnapshotID:                   snapshot.SnapshotID.String(),
-		IncidentID:                   snapshot.IncidentID.String(),
-		SnapshotAt:                   snapshot.SnapshotAt.UTC(),
-		SourceChangeSetHighWatermark: snapshot.SourceChangeSetHighWatermark,
-		DerivationVersion:            snapshot.DerivationVersion,
-		ExportModelSHA256:            modelDigest,
-		ExportModel:                  model,
-		TemplateID:                   params.Request.TemplateID,
-		TemplateVersion:              params.Request.TemplateVersion,
-		TemplateContract:             params.TemplateContract,
-		RedactionProfileID:           params.Request.RedactionProfileID,
-		RedactionProfileVersion:      params.Request.RedactionProfileVersion,
-		OutputKind:                   params.Request.OutputKind,
-		OutputOptions:                append(json.RawMessage(nil), params.Request.OutputOptions...),
-		ReleaseScope:                 params.Request.ReleaseScope,
-		RecipientPartitionRefs:       cloneStrings(params.Request.RecipientPartitionRefs),
-		GraphProjectionRefs:          append(json.RawMessage(nil), params.Request.GraphProjectionRefs...),
-		CompositionJSON:              compositionJSON,
-		CompositionID:                compositionIDString,
-		CompositionVersion:           cloneStringPtr(params.Request.CompositionVersion),
-		CompositionSHA256:            cloneStringPtr(params.Request.CompositionSHA256),
-		RenderAdmittedAt:             params.Now.UTC(),
-		NormalizedRequest:            append([]byte(nil), params.Request.Normalized...),
-	})
-	if err != nil {
-		return CreateReleaseResult{}, err
-	}
-
-	if err := s.graphSources.ValidateAndLeaseTx(ctx, tx, snapshot.IncidentID, jobID, graphRefs, params.Now.UTC()); err != nil {
-		return CreateReleaseResult{}, err
-	}
-	if err := sqlc.New(tx).CreateReportingJobPayload(ctx, sqlc.CreateReportingJobPayloadParams{
-		JobID:       pgUUID(jobID),
-		JobKind:     "release_create",
-		IncidentID:  pgUUID(snapshot.IncidentID),
-		ActorUserID: pgUUID(params.ActorUserID),
-		RequestJson: payloadJSON,
-		CreatedAt:   pgTimestamptz(params.Now),
-	}); err != nil {
-		return CreateReleaseResult{}, err
-	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
-		return CreateReleaseResult{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return CreateReleaseResult{}, err
-	}
-	return CreateReleaseResult{Job: job, JobID: jobID}, nil
+	return s.admitReleaseJob(ctx, params)
 }
 
 func (s *Store) GetRelease(ctx context.Context, releaseID uuid.UUID) (map[string]any, uuid.UUID, error) {
@@ -643,253 +313,58 @@ func (s *Store) GetRelease(ctx context.Context, releaseID uuid.UUID) (map[string
 	return releaseResource(record), record.IncidentID, nil
 }
 
-func (s *Store) CompleteSnapshotCreateJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, snapshotID uuid.UUID) error {
-	if existing, err := getSnapshotRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
-		if existing.SnapshotID != snapshotID {
-			return fmt.Errorf("reporting snapshot job %s has conflicting snapshot identity", jobID)
-		}
-		return nil
-	} else if !errors.Is(err, ErrNotFound) {
-		return err
+// beginExecutionRead keeps the Jobs transition lock until all owned input and
+// leased Graph bytes are copied. Rendering happens only after the transaction
+// closes; it never retains a database lock across subprocess work.
+func (s *Store) beginExecutionRead(ctx context.Context, execution jobs.Execution) (pgx.Tx, error) {
+	if s == nil || s.pool == nil || s.jobTransactions == nil {
+		return nil, jobs.ErrNotConfigured
 	}
-	payload, err := getSnapshotPayloadTx(ctx, tx, jobID)
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	incidentID, err := uuid.Parse(payload.IncidentID)
-	if err != nil {
-		return err
+	if err := s.jobTransactions.ValidateExecutionTx(ctx, tx, execution); err != nil {
+		_ = tx.Rollback(ctx)
+		return nil, err
 	}
-	actorID, err := uuid.Parse(payload.ActorUserID)
-	if err != nil {
-		return err
-	}
-
-	if payload.ExportModel.SnapshotID != snapshotID.String() || validateSnapshotModelIdentity(payload.ExportModel) != nil {
-		return errors.New("reporting: invalid frozen snapshot model")
-	}
-	exportJSON, err := canonicalJSON(payload.ExportModel)
-	if err != nil {
-		return err
-	}
-	if reportingObjectDigest(payload.ExportModel.SchemaID, exportJSON) != payload.ExportModelSHA256 {
-		return errors.New("reporting: altered frozen snapshot model")
-	}
-	row, err := sqlc.New(tx).CreateReportingSnapshot(ctx, sqlc.CreateReportingSnapshotParams{
-		SnapshotID:                   pgUUID(snapshotID),
-		IncidentID:                   pgUUID(incidentID),
-		CreatedByUserID:              pgUUID(actorID),
-		ClientTxnID:                  payload.ClientTxnID,
-		SnapshotAt:                   pgTimestamptz(payload.SnapshotAt),
-		SourceChangeSetHighWatermark: payload.SourceChangeSetHighWatermark,
-		SourceBoundaryJson:           []byte(payload.SourceBoundaryJSON),
-		DerivationVersion:            DerivationVersion,
-		ExportModelSha256:            payload.ExportModelSHA256,
-		ExportModelJson:              exportJSON,
-		CreateJobID:                  pgUUID(jobID),
-	})
-	if err != nil {
-		return err
-	}
-
-	if row.SnapshotID.Bytes != snapshotID {
-		return errors.New("reporting: snapshot publication identity mismatch")
-	}
-	return nil
+	return tx, nil
 }
 
-func (s *Store) ReleasePayloadForJob(ctx context.Context, jobID uuid.UUID) (releaseCreateJobPayload, error) {
-	row, err := sqlc.New(s.pool).GetReportingJobPayload(ctx, pgUUID(jobID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return releaseCreateJobPayload{}, ErrNotFound
-	}
+func (s *Store) ReleasePayloadForJob(ctx context.Context, execution jobs.Execution) (releaseCreateJobPayload, error) {
+	a, input, _, err := s.prepareRenderJob(ctx, execution)
 	if err != nil {
 		return releaseCreateJobPayload{}, err
 	}
-	if row.JobKind != "release_create" {
-		return releaseCreateJobPayload{}, fmt.Errorf("reporting job %s has kind %q", jobID, row.JobKind)
-	}
-	var payload releaseCreateJobPayload
-	if err := json.Unmarshal(row.RequestJson, &payload); err != nil {
-		return releaseCreateJobPayload{}, err
-	}
-	if err := validateReleasePayloadIdentity(payload, jobID); err != nil {
-		return releaseCreateJobPayload{}, err
-	}
-	if s.referencePacks == nil {
-		return releaseCreateJobPayload{}, errors.New("reporting: Reference Pack retention is required")
-	}
-	if err := s.validateReferenceBinding(ctx, payload.ExportModel.ReferencePacks); err != nil {
-		return releaseCreateJobPayload{}, err
-	}
-	snapshotID, err := uuid.Parse(payload.SnapshotID)
-	if err != nil {
-		return releaseCreateJobPayload{}, err
-	}
-	var compositionID *uuid.UUID
-	if payload.CompositionID != nil {
-		parsed, err := uuid.Parse(*payload.CompositionID)
-		if err != nil {
-			return releaseCreateJobPayload{}, err
-		}
-		compositionID = &parsed
-	}
-	payload.Request = CreateReleaseRequest{
-		SnapshotID:              snapshotID,
-		ClientTxnID:             payload.ClientTxnID,
-		TemplateID:              payload.TemplateID,
-		TemplateVersion:         payload.TemplateVersion,
-		RedactionProfileID:      payload.RedactionProfileID,
-		RedactionProfileVersion: payload.RedactionProfileVersion,
-		OutputKind:              payload.OutputKind,
-		ReleaseScope:            payload.ReleaseScope,
-		RecipientPartitionRefs:  cloneStrings(payload.RecipientPartitionRefs),
-		OutputOptions:           cloneRawMessageWithDefault(payload.OutputOptions, json.RawMessage(`{}`)),
-		GraphProjectionRefs:     cloneRawMessageWithDefault(payload.GraphProjectionRefs, json.RawMessage(`[]`)),
-		CompositionJSON:         cloneRawMessageWithDefault(payload.CompositionJSON, nil),
-		CompositionID:           compositionID,
-		CompositionVersion:      cloneStringPtr(payload.CompositionVersion),
-		CompositionSHA256:       cloneStringPtr(payload.CompositionSHA256),
-		Normalized:              append([]byte(nil), payload.NormalizedRequest...),
-	}
-	return payload, nil
+	return releasePayloadFromPrepared(a, input)
 }
 
-func (s *Store) ReportingJobKind(ctx context.Context, jobID uuid.UUID) (string, error) {
-	row, err := sqlc.New(s.pool).GetReportingJobPayload(ctx, pgUUID(jobID))
+func (s *Store) ReportingJobKind(ctx context.Context, execution jobs.Execution) (string, error) {
+	tx, err := s.beginExecutionRead(ctx, execution)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var kind string
+	err = tx.QueryRow(ctx, `SELECT job_kind FROM reporting_job_payloads WHERE job_id=$1`, execution.JobID()).Scan(&kind)
 	if errors.Is(err, pgx.ErrNoRows) {
-		if _, previewErr := reportcomposition.NewStore(s.pool).PreviewSourceForRender(ctx, jobID); previewErr == nil {
-			return reportingJobKindCompositionPreview, nil
-		} else if errors.Is(previewErr, reportcomposition.ErrNotFound) {
-			return "", ErrNotFound
-		} else {
-			return "", previewErr
-		}
+		return "", ErrNotFound
 	}
 	if err != nil {
 		return "", err
 	}
-	return row.JobKind, nil
+	if err := tx.Commit(ctx); err != nil {
+		return "", err
+	}
+	return kind, nil
 }
 
-func (s *Store) CompositionPreviewPayloadForJob(ctx context.Context, jobID uuid.UUID) (compositionPreviewJobPayload, error) {
-	source, err := reportcomposition.NewStore(s.pool).PreviewSourceForRender(ctx, jobID)
-	if err != nil {
-
-		return compositionPreviewJobPayload{}, err
-	}
-	digest, digestErr := reportcomposition.PreviewSourceDigest(source.PreviewSourceJSON)
-	if digestErr != nil || source.RenderAttemptID != jobID ||
-		digest != source.PreviewSourceSHA256 ||
-		source.DerivationVersion != DerivationVersion {
-		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview source binding is invalid")
-	}
-	snapshotID, err := uuid.Parse(source.SnapshotID)
+func (s *Store) CompositionPreviewPayloadForJob(ctx context.Context, execution jobs.Execution) (compositionPreviewJobPayload, error) {
+	a, input, _, err := s.prepareRenderJob(ctx, execution)
 	if err != nil {
 		return compositionPreviewJobPayload{}, err
 	}
-	snapshot, model, err := s.GetSnapshotForRender(ctx, snapshotID)
-	if err != nil {
-		return compositionPreviewJobPayload{}, err
-	}
-	if err := s.validateReferenceBinding(ctx, model.ReferencePacks); err != nil {
-		return compositionPreviewJobPayload{}, err
-	}
-	if snapshot.IncidentID != source.IncidentID || snapshot.DerivationVersion != source.DerivationVersion {
-		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview snapshot binding is invalid")
-	}
-	var recipientPartitionRefs []string
-	if err := json.Unmarshal(source.RecipientPartitionRefs, &recipientPartitionRefs); err != nil || len(recipientPartitionRefs) != 0 {
-		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview recipient partitions are invalid")
-	}
-	templateContract, ok := ResolveTemplateContract(source.TemplateID, source.TemplateVersion)
-	if !ok || !templateContract.SupportsOutputKind(source.OutputKind) ||
-		!templateContract.SupportsReleaseScope(ReleaseScopeInternalDraft) {
-		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview template binding is invalid")
-	}
-	_, profileSHA, err := ResolveRedactionProfile(source.RedactionProfileID, source.RedactionProfileVersion, nil)
-	if err != nil || profileSHA != source.RedactionProfileSHA256 {
-		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview redaction profile binding is invalid")
-	}
-	outputOptions, apiErr := materializeOutputOptions(source.OutputOptions, source.OutputKind, ReleaseScopeInternalDraft)
-	if apiErr != nil {
-		return compositionPreviewJobPayload{}, fmt.Errorf("reporting preview output options are invalid")
-	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return compositionPreviewJobPayload{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	graphRefs, err := decodeSourceProjectionRefs(source.GraphProjectionRefs)
-	if err != nil {
-		return compositionPreviewJobPayload{}, &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "invalid_value"}
-	}
-	if err := s.graphSources.ValidateAndLeaseTx(ctx, tx, snapshot.IncidentID, jobID, graphRefs, source.CreatedAt.UTC()); err != nil {
-		return compositionPreviewJobPayload{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return compositionPreviewJobPayload{}, err
-	}
-	compositionID := source.CompositionID.String()
-	var compositionVersion *string
-	if source.CompositionVersion != nil {
-		formatted := fmt.Sprintf("v%d", *source.CompositionVersion)
-		compositionVersion = &formatted
-	}
-	request := CreateReleaseRequest{
-		SnapshotID:              snapshotID,
-		TemplateID:              source.TemplateID,
-		TemplateVersion:         source.TemplateVersion,
-		RedactionProfileID:      source.RedactionProfileID,
-		RedactionProfileVersion: source.RedactionProfileVersion,
-		OutputKind:              source.OutputKind,
-		ReleaseScope:            ReleaseScopeInternalDraft,
-		OutputOptions:           append(json.RawMessage(nil), outputOptions...),
-		GraphProjectionRefs:     cloneRawMessageWithDefault(source.GraphProjectionRefs, json.RawMessage(`[]`)),
-		CompositionJSON:         append(json.RawMessage(nil), source.PreviewSourceJSON...),
-		CompositionID:           &source.CompositionID,
-		CompositionVersion:      compositionVersion,
-		CompositionSHA256:       cloneStringPtr(source.CompositionSHA256),
-	}
-
-	previewID := source.PreviewAttemptID.String()
-	admittedAt, err := normalizedReportingTimestamp(source.CreatedAt)
-	if err != nil {
-		return compositionPreviewJobPayload{}, err
-	}
-	renderModel, renderDigest, err := bindRenderModel(model, RenderIdentity{PreviewAttemptID: &previewID, RenderAdmittedAt: admittedAt}, ReleaseScopeInternalDraft, nil)
-	if err != nil {
-		return compositionPreviewJobPayload{}, err
-	}
-	return compositionPreviewJobPayload{
-		PreviewAttemptID: source.PreviewAttemptID,
-		Release: releaseCreateJobPayload{
-			ActorUserID:                  source.CreatedByUserID.String(),
-			SnapshotID:                   snapshot.SnapshotID.String(),
-			IncidentID:                   snapshot.IncidentID.String(),
-			SnapshotAt:                   snapshot.SnapshotAt.UTC(),
-			SourceChangeSetHighWatermark: snapshot.SourceChangeSetHighWatermark,
-			DerivationVersion:            snapshot.DerivationVersion,
-			ExportModelSHA256:            renderDigest,
-			ExportModel:                  renderModel,
-			TemplateID:                   source.TemplateID,
-			TemplateVersion:              source.TemplateVersion,
-			TemplateContract:             templateContract,
-			RedactionProfileID:           source.RedactionProfileID,
-			RedactionProfileVersion:      source.RedactionProfileVersion,
-			OutputKind:                   source.OutputKind,
-			OutputOptions:                append(json.RawMessage(nil), outputOptions...),
-			ReleaseScope:                 ReleaseScopeInternalDraft,
-			RecipientPartitionRefs:       []string{},
-			GraphProjectionRefs:          append(json.RawMessage(nil), source.GraphProjectionRefs...),
-			CompositionJSON:              append(json.RawMessage(nil), source.PreviewSourceJSON...),
-			CompositionID:                &compositionID,
-			CompositionVersion:           compositionVersion,
-			CompositionSHA256:            cloneStringPtr(source.CompositionSHA256),
-			RenderAdmittedAt:             source.CreatedAt.UTC(),
-			Request:                      request,
-		},
-	}, nil
+	return previewPayloadFromPrepared(a, input)
 }
 
 func (s *Store) CompleteCompositionPreviewJobTx(
@@ -897,27 +372,41 @@ func (s *Store) CompleteCompositionPreviewJobTx(
 	tx pgx.Tx,
 	jobID uuid.UUID,
 	previewAttemptID uuid.UUID,
-	rendered RenderedRelease,
+	candidate RenderCandidate,
 	now time.Time,
 ) error {
-	if rendered.RenderBundle.Manifest.ReleaseScope != ReleaseScopeInternalDraft {
-		return fmt.Errorf("reporting preview output must be internal_draft")
+	a, input, rendered, err := renderCandidateForCommitTx(ctx, tx, jobID, candidate)
+	if err != nil {
+		return err
 	}
-	var existing uuid.UUID
-	err := tx.QueryRow(ctx, `
-SELECT preview_attempt_id
-  FROM reporting_composition_preview_outputs
- WHERE render_attempt_id = $1
-`, jobID).Scan(&existing)
+	payload, err := previewPayloadFromPrepared(a, input)
+	if err != nil {
+		return err
+	}
+	if payload.PreviewAttemptID != previewAttemptID {
+		return errors.New("reporting: preview completion identity differs from admission")
+	}
+	if err := validateRetainedRenderFailureTx(ctx, tx, jobID, payload.renderInput, nil); err != nil {
+		return err
+	}
+	stored, err := loadRetainedPreviewArtifactsTx(ctx, tx, payload, jobID)
 	if err == nil {
-		if existing != previewAttemptID {
-			return fmt.Errorf("reporting preview job %s has conflicting preview identity", jobID)
+		retained, err := jobs.ReadRetainedExtensionJob(ctx, tx, jobID)
+		if err != nil {
+			return err
+		}
+		if err := validatePreviewJobOutcome(retained); err != nil {
+			return err
+		}
+		if !sameRetainedRenderArtifacts(stored, rendered) {
+			return errors.New("reporting: repeated preview completion changed output")
 		}
 		return nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
+
 	if err := reportcomposition.LockPreviewAttemptForRenderTx(ctx, tx, previewAttemptID, jobID); err != nil {
 		return err
 	}
@@ -950,20 +439,47 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, $8, $9)
 			return err
 		}
 	}
-	return nil
+	return insertPreviewRevealMapTx(ctx, tx, previewAttemptID, rendered, now)
 }
 
-func (s *Store) CompleteReleaseCreateJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, releaseID uuid.UUID, rendered RenderedRelease, now time.Time) error {
+func (s *Store) CompleteReleaseCreateJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, releaseID uuid.UUID, candidate RenderCandidate, now time.Time) error {
+	a, input, rendered, err := renderCandidateForCommitTx(ctx, tx, jobID, candidate)
+	if err != nil {
+		return err
+	}
+	payload, err := releasePayloadFromPrepared(a, input)
+	if err != nil {
+		return err
+	}
+	if err := validateRetainedRenderFailureTx(ctx, tx, jobID, payload.renderInput, nil); err != nil {
+		return err
+	}
+	if releaseID != reportingResourceID(jobID, "release") {
+		return errors.New("reporting: completion identity changed")
+	}
 	if existing, err := getReleaseRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
-		if existing.ReleaseID != releaseID {
-			return fmt.Errorf("reporting release job %s has conflicting release identity", jobID)
+		if err := validateReleaseAdmissionBinding(payload, jobID, existing); err != nil {
+			return err
+		}
+		admission, err := jobs.ReadRetainedExtensionJob(ctx, tx, jobID)
+		if err != nil {
+			return err
+		}
+		if err := validateReleaseJobOutcome(existing, admission); err != nil {
+			return err
+		}
+		if err := validateReleaseOutputBinding(existing, rendered); err != nil {
+			return err
+		}
+		stored, err := loadRetainedReleaseArtifactsTx(ctx, tx, payload, existing)
+		if err != nil {
+			return err
+		}
+		if !sameRetainedRenderArtifacts(stored, rendered) {
+			return errors.New("reporting: repeated release completion changed private artifact")
 		}
 		return nil
 	} else if !errors.Is(err, ErrNotFound) {
-		return err
-	}
-	payload, err := getReleasePayloadTx(ctx, tx, jobID)
-	if err != nil {
 		return err
 	}
 	incidentID, snapshotID, actorID, err := payloadUUIDs(payload)
@@ -1030,6 +546,9 @@ func (s *Store) CompleteReleaseCreateJobTx(ctx context.Context, tx pgx.Tx, jobID
 	if err := insertRenderBundleTx(ctx, tx, releaseID, rendered.RenderBundle, now.UTC()); err != nil {
 		return err
 	}
+	if err := insertReleaseRevealMapTx(ctx, tx, releaseID, rendered, now); err != nil {
+		return err
+	}
 	if err := insertCompositionReleaseBindingTx(ctx, tx, releaseID, payload, now.UTC()); err != nil {
 		return err
 	}
@@ -1069,16 +588,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	return nil
 }
 
-func (s *Store) CompleteReleaseRenderFailedJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, profile RedactionProfile, profileSHA string, reasonCode string, now time.Time) (uuid.UUID, error) {
-	if existing, err := getReleaseRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
-		return existing.ReleaseID, nil
-	} else if !errors.Is(err, ErrNotFound) {
-		return uuid.UUID{}, err
-	}
-	payload, err := getReleasePayloadTx(ctx, tx, jobID)
-	if err != nil {
-		return uuid.UUID{}, err
-	}
+func (s *Store) completeReleaseRenderFailedJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, payload releaseCreateJobPayload, reasonCode string, now time.Time) (uuid.UUID, error) {
+	profile, profileSHA := payload.RedactionProfile, payload.RedactionProfileSHA256
 	incidentID, snapshotID, actorID, err := payloadUUIDs(payload)
 	if err != nil {
 		return uuid.UUID{}, err
@@ -1090,12 +601,29 @@ func (s *Store) CompleteReleaseRenderFailedJobTx(ctx context.Context, tx pgx.Tx,
 	outputOptions := cloneRawMessageWithDefault(payload.OutputOptions, json.RawMessage(`{}`))
 	graphProjectionRefs := cloneRawMessageWithDefault(payload.GraphProjectionRefs, json.RawMessage(`[]`))
 	renderAdmittedAt := payload.RenderAdmittedAt.UTC()
-	if profile.ProfileID == "" {
-		profile.ProfileID = payload.RedactionProfileID
-		profile.Version = payload.RedactionProfileVersion
+	if reasonCode == "" {
+		return uuid.Nil, errors.New("reporting: failed release differs from admission")
 	}
-	if profileSHA == "" {
-		profileSHA = strings.Repeat("0", 64)
+	if existing, err := getReleaseRecordByCreateJobIDTx(ctx, tx, jobID); err == nil {
+		if err := validateReleaseAdmissionBinding(payload, jobID, existing); err != nil {
+			return uuid.Nil, err
+		}
+		if existing.ReleaseState != ReleaseStateRenderFailed || !equalOptionalString(existing.RenderFailedReasonCode, &reasonCode) || existing.RedactionProfileSHA256 != profileSHA {
+			return uuid.Nil, errors.New("reporting: repeated failure changed release outcome")
+		}
+		admission, err := jobs.ReadRetainedExtensionJob(ctx, tx, jobID)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		if err := validateReleaseJobOutcome(existing, admission); err != nil {
+			return uuid.Nil, err
+		}
+		if _, err := validateStoredReleaseOutputTx(ctx, tx, payload, existing); err != nil {
+			return uuid.Nil, err
+		}
+		return existing.ReleaseID, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return uuid.Nil, err
 	}
 	row, err := sqlc.New(tx).CreateRenderFailedReportingRelease(ctx, sqlc.CreateRenderFailedReportingReleaseParams{
 		ReleaseID:                    pgUUID(reportingResourceID(jobID, "release")),
@@ -1291,17 +819,6 @@ func (s *Store) withReleaseAction(
 	return ReleaseActionResult{Payload: payload, IncidentID: updated.IncidentID}, nil
 }
 
-func (s *Store) getSnapshotRecord(ctx context.Context, snapshotID uuid.UUID) (SnapshotRecord, error) {
-	row, err := sqlc.New(s.pool).GetReportingSnapshot(ctx, pgUUID(snapshotID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return SnapshotRecord{}, ErrNotFound
-	}
-	if err != nil {
-		return SnapshotRecord{}, err
-	}
-	return snapshotRecordFromSQL(row)
-}
-
 func (s *Store) getReleaseRecord(ctx context.Context, releaseID uuid.UUID) (ReleaseRecord, error) {
 	row, err := sqlc.New(s.pool).GetReportingRelease(ctx, pgUUID(releaseID))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -1315,17 +832,6 @@ func (s *Store) getReleaseRecord(ctx context.Context, releaseID uuid.UUID) (Rele
 
 func getSnapshotRecordTx(ctx context.Context, tx pgx.Tx, snapshotID uuid.UUID) (SnapshotRecord, error) {
 	row, err := sqlc.New(tx).GetReportingSnapshot(ctx, pgUUID(snapshotID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return SnapshotRecord{}, ErrNotFound
-	}
-	if err != nil {
-		return SnapshotRecord{}, err
-	}
-	return snapshotRecordFromSQL(row)
-}
-
-func getSnapshotRecordByCreateJobIDTx(ctx context.Context, tx pgx.Tx, createJobID uuid.UUID) (SnapshotRecord, error) {
-	row, err := sqlc.New(tx).GetReportingSnapshotByCreateJob(ctx, pgUUID(createJobID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SnapshotRecord{}, ErrNotFound
 	}
@@ -1372,11 +878,11 @@ func getReleaseRecordForUpdateTx(ctx context.Context, tx pgx.Tx, releaseID uuid.
 	return releaseRecordFromSQL(row)
 }
 
-func resolveReleaseCompositionTupleTx(ctx context.Context, tx pgx.Tx, snapshot SnapshotRecord, request CreateReleaseRequest) (*reportcomposition.ResolvedReleaseTuple, error) {
+func resolveReleaseCompositionTupleTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateReleaseRequest) (*reportcomposition.ResolvedReleaseTuple, error) {
 	if request.CompositionID == nil {
 		return nil, nil
 	}
-	resolved, err := reportcomposition.ResolveReleaseTupleTx(ctx, tx, snapshot.IncidentID, request.TemplateID, request.TemplateVersion, reportcomposition.ReleaseTuple{
+	resolved, err := reportcomposition.ResolveReleaseTupleTx(ctx, tx, incidentID, request.TemplateID, request.TemplateVersion, reportcomposition.ReleaseTuple{
 		CompositionID:      *request.CompositionID,
 		CompositionVersion: derefString(request.CompositionVersion),
 		CompositionSHA256:  derefString(request.CompositionSHA256),
@@ -1434,19 +940,8 @@ func insertCompositionReleaseBindingTx(ctx context.Context, tx pgx.Tx, releaseID
 	}, payload.ReleaseScope, now.UTC())
 }
 
-func snapshotRecordFromSQL(row any) (SnapshotRecord, error) {
-	switch r := row.(type) {
-	case sqlc.ReportingSnapshot:
-		return snapshotRecordFromSQLFields(r.SnapshotID, r.IncidentID, r.CreatedByUserID, r.ClientTxnID, r.SnapshotAt, r.SourceChangeSetHighWatermark, r.SourceBoundaryJson, r.DerivationVersion, r.ExportModelSha256, r.ExportModelJson, r.CreateJobID, r.CreatedAt)
-	case sqlc.CreateReportingSnapshotRow:
-		return snapshotRecordFromSQLFields(r.SnapshotID, r.IncidentID, r.CreatedByUserID, r.ClientTxnID, r.SnapshotAt, r.SourceChangeSetHighWatermark, r.SourceBoundaryJson, r.DerivationVersion, r.ExportModelSha256, r.ExportModelJson, r.CreateJobID, r.CreatedAt)
-	case sqlc.GetReportingSnapshotRow:
-		return snapshotRecordFromSQLFields(r.SnapshotID, r.IncidentID, r.CreatedByUserID, r.ClientTxnID, r.SnapshotAt, r.SourceChangeSetHighWatermark, r.SourceBoundaryJson, r.DerivationVersion, r.ExportModelSha256, r.ExportModelJson, r.CreateJobID, r.CreatedAt)
-	case sqlc.GetReportingSnapshotByCreateJobRow:
-		return snapshotRecordFromSQLFields(r.SnapshotID, r.IncidentID, r.CreatedByUserID, r.ClientTxnID, r.SnapshotAt, r.SourceChangeSetHighWatermark, r.SourceBoundaryJson, r.DerivationVersion, r.ExportModelSha256, r.ExportModelJson, r.CreateJobID, r.CreatedAt)
-	default:
-		return SnapshotRecord{}, fmt.Errorf("unsupported snapshot SQL row %T", row)
-	}
+func snapshotRecordFromSQL(r sqlc.GetReportingSnapshotRow) (SnapshotRecord, error) {
+	return snapshotRecordFromSQLFields(r.SnapshotID, r.IncidentID, r.CreatedByUserID, r.ClientTxnID, r.SnapshotAt, r.SourceChangeSetHighWatermark, r.SourceBoundaryJson, r.DerivationVersion, r.SourceCaptureSha256, r.SourceCaptureJson, r.CreateJobID, r.CreatedAt)
 }
 
 func snapshotRecordFromSQLFields(
@@ -1458,8 +953,8 @@ func snapshotRecordFromSQLFields(
 	rowSourceChangeSetHighWatermark string,
 	rowSourceBoundaryJSON []byte,
 	rowDerivationVersion string,
-	rowExportModelSHA256 string,
-	rowExportModelJSON []byte,
+	rowSourceCaptureSHA256 string,
+	rowSourceCaptureJSON []byte,
 	rowCreateJobID pgtype.UUID,
 	rowCreatedAt pgtype.Timestamptz,
 ) (SnapshotRecord, error) {
@@ -1496,8 +991,8 @@ func snapshotRecordFromSQLFields(
 		SourceChangeSetHighWatermark: rowSourceChangeSetHighWatermark,
 		SourceBoundaryJSON:           append([]byte(nil), rowSourceBoundaryJSON...),
 		DerivationVersion:            rowDerivationVersion,
-		ExportModelSHA256:            rowExportModelSHA256,
-		ExportModelJSON:              append([]byte(nil), rowExportModelJSON...),
+		SourceCaptureSHA256:          rowSourceCaptureSHA256,
+		SourceCaptureJSON:            append([]byte(nil), rowSourceCaptureJSON...),
 		CreateJobID:                  createJobID,
 		CreatedAt:                    createdAt,
 	}, nil
@@ -1581,6 +1076,9 @@ func releaseRecordFromSQL(row sqlc.ReportingRelease) (ReleaseRecord, error) {
 }
 
 func lookupRouteIdempotencyTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {
+	if err := authn.LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return authn.RouteIdempotencyRecord{}, err
+	}
 	row := tx.QueryRow(ctx, `
 SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_code, response_json
   FROM route_idempotency
@@ -1599,18 +1097,6 @@ SELECT route_key, scope_key, client_txn_id, actor_user_id, request_hash, status_
 	return record, nil
 }
 
-func existingResponseJobID(responseJSON []byte) (uuid.UUID, error) {
-	var resource jobs.Resource
-	if err := json.Unmarshal(responseJSON, &resource); err != nil {
-		return uuid.UUID{}, err
-	}
-	jobID, err := uuid.Parse(resource.JobID)
-	if err != nil {
-		return uuid.UUID{}, err
-	}
-	return jobID, nil
-}
-
 func getSnapshotPayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (snapshotCreateJobPayload, error) {
 	row, err := sqlc.New(tx).GetReportingJobPayload(ctx, pgUUID(jobID))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -1622,32 +1108,33 @@ func getSnapshotPayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (snap
 	if row.JobKind != "snapshot_create" {
 		return snapshotCreateJobPayload{}, fmt.Errorf("reporting job %s has kind %q", jobID, row.JobKind)
 	}
-	var payload snapshotCreateJobPayload
-	if err := json.Unmarshal(row.RequestJson, &payload); err != nil {
+	payload, err := decodeSnapshotJobPayload(row.RequestJson, jobID, row.IncidentID.Bytes, row.ActorUserID.Bytes, row.CreatedAt.Time)
+	if err != nil {
 		return snapshotCreateJobPayload{}, err
+	}
+	admission, err := jobs.ReadRetainedExtensionJob(ctx, tx, jobID)
+	if err != nil {
+		return snapshotCreateJobPayload{}, err
+	}
+	if err := validateSnapshotJobAdmission(payload, jobID, admission); err != nil {
+		return snapshotCreateJobPayload{}, err
+	}
+	seed, err := readSnapshotAdmissionTx(ctx, tx, jobID)
+	if err != nil {
+		return snapshotCreateJobPayload{}, err
+	}
+	if seed.ClientTxnID != payload.ClientTxnID || !sameReportingValue(seed.RequestedBoundary, payload.RequestedBoundary) || !sameSnapshotCaptureBinding(seed.ReferencePacks, payload.SourceCapture, payload.SourceCaptureSHA256) {
+		return snapshotCreateJobPayload{}, errors.New("reporting: capture differs from admitted request")
 	}
 	return payload, nil
 }
 
 func getReleasePayloadTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID) (releaseCreateJobPayload, error) {
-	row, err := sqlc.New(tx).GetReportingJobPayload(ctx, pgUUID(jobID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return releaseCreateJobPayload{}, ErrNotFound
-	}
+	a, input, err := materializeRetainedRenderTx(ctx, tx, jobID)
 	if err != nil {
 		return releaseCreateJobPayload{}, err
 	}
-	if row.JobKind != "release_create" {
-		return releaseCreateJobPayload{}, fmt.Errorf("reporting job %s has kind %q", jobID, row.JobKind)
-	}
-	var payload releaseCreateJobPayload
-	if err := json.Unmarshal(row.RequestJson, &payload); err != nil {
-		return releaseCreateJobPayload{}, err
-	}
-	if err := validateReleasePayloadIdentity(payload, jobID); err != nil {
-		return releaseCreateJobPayload{}, err
-	}
-	return payload, nil
+	return releasePayloadFromPrepared(a, input)
 }
 
 func payloadUUIDs(payload releaseCreateJobPayload) (uuid.UUID, uuid.UUID, uuid.UUID, error) {
@@ -1666,16 +1153,16 @@ func payloadUUIDs(payload releaseCreateJobPayload) (uuid.UUID, uuid.UUID, uuid.U
 	return incidentID, snapshotID, actorID, nil
 }
 
-func snapshotResource(record SnapshotRecord) map[string]any {
+func snapshotResource(record snapshotDescriptor) map[string]any {
 	return map[string]any{
-		"snapshot_id":                      record.SnapshotID.String(),
-		"incident_id":                      record.IncidentID.String(),
-		"created_by_user_id":               record.CreatedByUserID.String(),
+		"snapshot_id":                      record.ID.String(),
+		"incident_id":                      record.Incident.String(),
+		"created_by_user_id":               record.Actor.String(),
 		"created_at":                       record.CreatedAt.UTC(),
-		"snapshot_at":                      record.SnapshotAt.UTC(),
-		"source_change_set_high_watermark": record.SourceChangeSetHighWatermark,
-		"derivation_version":               record.DerivationVersion,
-		"export_model_sha256":              record.ExportModelSHA256,
+		"snapshot_at":                      record.At.UTC(),
+		"source_change_set_high_watermark": record.Boundary,
+		"derivation_version":               record.Derivation,
+		"source_capture_sha256":            record.CaptureSHA256,
 	}
 }
 

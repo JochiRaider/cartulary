@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { appendFileSync, chmodSync, lstatSync, mkdtempSync, renameSync, rmSync, truncateSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, linkSync, lstatSync, mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, truncateSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -36,6 +36,31 @@ function writeEvents(directory, name, events) {
   writeFileSync(file, `${events.map((entry) => JSON.stringify(entry)).join("\n")}\n`);
   return file;
 }
+
+test("canonical evidence rejects path aliases, documentation and concurrent mutation", async () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-canonical-paths-"));
+  const consume = async (file) => { for await (const _event of readCanonicalUnitEvents(file)) continue; };
+  try {
+    const admitted = path.join(directory, "admitted"); mkdirSync(admitted);
+    const file = writeEvents(admitted, "events.ndjson", [
+      event(1, 0, "run_started", "run", "running"),
+      event(2, 1, "run_completed", "run", "passed"),
+    ]);
+    symlinkSync(admitted, path.join(directory, "alias"));
+    await assert.rejects(consume(path.join(directory, "alias", "events.ndjson")), /ELOOP|ENOTDIR/u);
+    const linked = path.join(admitted, "linked.ndjson"); linkSync(file, linked);
+    await assert.rejects(consume(file), /unaliased/u); rmSync(linked);
+    const forbiddenDirectory = "docs";
+    for (const forbidden of [path.join(directory, forbiddenDirectory, "events.ndjson"), path.join(directory, "events.md")]) {
+      await assert.rejects(consume(forbidden), /documentation/u);
+    }
+    await assert.rejects(async () => {
+      for await (const current of readCanonicalUnitEvents(file)) {
+        if (current.seq === 1) appendFileSync(file, "\n");
+      }
+    }, /changed during read/u);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
 
 test("canonical event iterator validates JSON, sequence, time, and line bounds", async () => {
   const directory = mkdtempSync(path.join(os.tmpdir(), "cartulary-canonical-events-"));
@@ -234,10 +259,26 @@ test("normalized facts retain cache outcomes, zero-duration hits, cancellation a
   }
   const facts = await reduceCanonicalUnitIntervals(writeEvents(directory, "facts.ndjson", events));
   assert.deepEqual(facts.cache, { hit: 1, miss: 1, bypass: 1 });
+  assert.equal(facts.terminals.get("hit").cache_status, "hit");
+  assert.equal(facts.terminals.get("failure").cache_status, "miss");
+  assert.equal(facts.terminals.get("cancel").cache_status, "bypass");
   assert.deepEqual(facts.intervals.get("hit"), { start: 0, end: 0, queue_ms: 0 });
   assert.equal(facts.terminals.get("failure").failure_reason, "assertion_failure");
   assert.equal(facts.terminals.get("failure").failure_class, "test");
   assert.equal(facts.terminals.get("cancel").event, "cancelled");
+  for (const mutation of ["duplicate", "conflicting", "after_terminal", "started_hit"]) {
+    const altered = structuredClone(events);
+    const hitIndex = altered.findIndex((event) => event.event === "cache_hit");
+    const hit = altered[hitIndex];
+    if (mutation === "started_hit") {
+      altered.splice(hitIndex + 1, 0, { ...hit, event: "admitted" }, { ...hit, event: "started" });
+    } else {
+      altered.splice(hitIndex + (mutation === "after_terminal" ? 2 : 1), 0,
+        { ...hit, event: mutation === "conflicting" ? "cache_miss" : "cache_hit" });
+    }
+    altered.forEach((event, index) => { event.seq = index + 1; });
+    await assert.rejects(reduceCanonicalUnitIntervals(writeEvents(directory, `${mutation}.ndjson`, altered)), /cache/u);
+  }
 });
 
 // Many holder transitions must not retain an array of every historical segment.

@@ -124,39 +124,65 @@ func (m reportingExportMaterializer) ResolveSourceBoundaryTx(
 	}, nil
 }
 
-func (m reportingExportMaterializer) CollectFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]ExportField, error) {
+type SnapshotSource struct {
+	SourceFacts exportprovider.SourceFacts
+	Fields      []ExportField
+	Timeline    []exportprovider.TimelineSortFact
+}
+
+func (m reportingExportMaterializer) CollectSourceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (SnapshotSource, error) {
 	supportRefs, err := m.supportRefProvider.CollectSupportRefsTx(ctx, tx, incidentID)
 	if err != nil {
-		return nil, fmt.Errorf("collect reporting support provider %s: %w", m.supportRefProvider.ProviderKey(), err)
+		return SnapshotSource{}, fmt.Errorf("collect reporting support provider %s: %w", m.supportRefProvider.ProviderKey(), err)
 	}
-	fields := []ExportField{}
+	source := SnapshotSource{SourceFacts: exportprovider.EmptySourceFacts(), Fields: []ExportField{}, Timeline: []exportprovider.TimelineSortFact{}}
+	seenEvents := map[string]bool{}
 	seenPaths := map[string]string{}
 	for _, provider := range m.fieldProviders {
 		output, err := provider.CollectFactsTx(ctx, tx, incidentID, supportRefs)
 		if err != nil {
-			return nil, fmt.Errorf("collect reporting export provider %s: %w", provider.ProviderKey(), err)
+			return SnapshotSource{}, fmt.Errorf("collect reporting export provider %s: %w", provider.ProviderKey(), err)
 		}
 		if output.ProviderKey != provider.ProviderKey() {
-			return nil, fmt.Errorf("collect reporting export provider %s: output provider key %q", provider.ProviderKey(), output.ProviderKey)
+			return SnapshotSource{}, fmt.Errorf("collect reporting export provider %s: output provider key %q", provider.ProviderKey(), output.ProviderKey)
 		}
-		if err := output.Validate(); err != nil {
-			return nil, fmt.Errorf("collect reporting export provider %s: %w", provider.ProviderKey(), err)
+		boundFields, err := output.BoundFields()
+		if err != nil {
+			return SnapshotSource{}, fmt.Errorf("collect reporting export provider %s: %w", provider.ProviderKey(), err)
 		}
-		for _, field := range output.Fields() {
+		source.SourceFacts.Parties = append(source.SourceFacts.Parties, output.SourceFacts.Parties...)
+		source.SourceFacts.Assignments = append(source.SourceFacts.Assignments, output.SourceFacts.Assignments...)
+		source.SourceFacts.DeletedRecords = append(source.SourceFacts.DeletedRecords, output.SourceFacts.DeletedRecords...)
+		for _, event := range output.TimelineEventFacts {
+			if seenEvents[event.TimelineEventID] {
+				return SnapshotSource{}, fmt.Errorf("collect reporting export provider %s: overlapping timeline identity", provider.ProviderKey())
+			}
+			seenEvents[event.TimelineEventID] = true
+			source.Timeline = append(source.Timeline, event.Sort.Clone())
+		}
+		for _, field := range boundFields {
 			if field.Path == "" {
-				return nil, fmt.Errorf("collect reporting export provider %s: empty field path", provider.ProviderKey())
+				return SnapshotSource{}, fmt.Errorf("collect reporting export provider %s: empty field path", provider.ProviderKey())
 			}
 			if existingProvider, exists := seenPaths[field.Path]; exists {
-				return nil, fmt.Errorf("collect reporting export provider %s: duplicate field path %s already emitted by %s", provider.ProviderKey(), field.Path, existingProvider)
+				return SnapshotSource{}, fmt.Errorf("collect reporting export provider %s: duplicate field path %s already emitted by %s", provider.ProviderKey(), field.Path, existingProvider)
 			}
 			seenPaths[field.Path] = provider.ProviderKey()
-			fields = append(fields, exportFieldFromProvider(field))
+			projected := exportFieldFromProvider(field.FieldFact)
+			projected.SourceRecordID = field.RecordID
+			projected.SourceRecordType = field.RecordType
+			source.Fields = append(source.Fields, projected)
 		}
 	}
-	sort.Slice(fields, func(i, j int) bool {
-		return fields[i].Path < fields[j].Path
+	sort.Slice(source.Fields, func(i, j int) bool {
+		return source.Fields[i].Path < source.Fields[j].Path
 	})
-	return fields, nil
+	sort.Slice(source.Timeline, func(i, j int) bool { return source.Timeline[i].RecordID < source.Timeline[j].RecordID })
+	source.SourceFacts.Sort()
+	if err := source.SourceFacts.Validate(); err != nil {
+		return SnapshotSource{}, err
+	}
+	return source, nil
 }
 
 func incidentMetadataFromProvider(record exportprovider.IncidentSnapshot) IncidentMetadataSnapshot {
@@ -172,7 +198,7 @@ func incidentMetadataFromProvider(record exportprovider.IncidentSnapshot) Incide
 	}
 }
 
-func exportFieldFromProvider(field exportprovider.Field) ExportField {
+func exportFieldFromProvider(field exportprovider.FieldFact) ExportField {
 	return ExportField{
 		Path:                    field.Path,
 		ContentClass:            field.ContentClass,

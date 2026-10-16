@@ -161,7 +161,7 @@ describe("useTimelinePresenceController", () => {
 
     act(() =>
       result.current.commands.publishEditModePresence(
-        null,
+        firstRecordId,
         summaryFieldKey,
         false,
       ),
@@ -170,6 +170,71 @@ describe("useTimelinePresenceController", () => {
       fieldKey: null,
       mode: "viewing",
       recordId: firstRecordId,
+    });
+    act(() =>
+      result.current.commands.publishFocusedPresence(
+        secondRecordId,
+        summaryFieldKey,
+      ),
+    );
+    expect(publishPresence).toHaveBeenLastCalledWith({
+      recordId: secondRecordId,
+      fieldKey: null,
+      mode: "viewing",
+    });
+    act(() =>
+      result.current.commands.publishEditModePresence(
+        secondRecordId,
+        summaryFieldKey,
+        true,
+      ),
+    );
+    const count = publishPresence.mock.calls.length;
+    act(() => {
+      result.current.commands.publishFocusedPresence(
+        secondRecordId,
+        summaryFieldKey,
+      );
+      result.current.commands.publishEditModePresence(
+        firstRecordId,
+        summaryFieldKey,
+        false,
+      );
+      result.current.commands.publishEditModePresence(
+        null,
+        summaryFieldKey,
+        false,
+      );
+    });
+    expect(publishPresence).toHaveBeenCalledTimes(count);
+    expect(result.current.snapshot.currentPresence).toEqual({
+      recordId: secondRecordId,
+      fieldKey: summaryFieldKey,
+      mode: "editing",
+    });
+    act(() =>
+      result.current.commands.publishFocusedPresence(
+        firstRecordId,
+        summaryFieldKey,
+      ),
+    );
+    act(() =>
+      result.current.commands.publishEditModePresence(
+        secondRecordId,
+        summaryFieldKey,
+        false,
+      ),
+    );
+    expect(publishPresence).toHaveBeenLastCalledWith({
+      recordId: firstRecordId,
+      fieldKey: null,
+      mode: "viewing",
+    });
+    act(() => result.current.commands.publishFocusedPresence(null, null));
+    expect(publishPresence).toHaveBeenLastCalledWith({
+      recordId: null,
+      fieldKey: null,
+      mode: "idle",
     });
   });
 

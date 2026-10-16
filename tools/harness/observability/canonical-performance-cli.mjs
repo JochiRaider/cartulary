@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
-import { chmodSync, existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync } from "node:fs";
 import path from "node:path";
 import { parseStrictJSON } from "../contract/strict-json.mjs";
-import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { validateQualification } from "./qualification/validator.mjs";
 import { manifestSchema as qualificationSchema } from "./qualification/policy.mjs";
 
 import {
   prettyJSONString,
+  readRetainedArtifactBytes,
   secureWriteFile,
   validateSchemaSync,
 } from "../contract/index.mjs";
@@ -23,7 +23,7 @@ const root = path.resolve(import.meta.dirname, "../../..");
 const baselineFile = path.join(root, "tools/harness_public_target_duration_baselines.v3.json");
 
 function readJSON(file) {
-  return JSON.parse(readFileSync(file, "utf8"));
+  return parseStrictJSON(readRetainedArtifactBytes(path.dirname(file), path.basename(file), 16 * 1024 * 1024).toString("utf8"));
 }
 
 function parse(argv) {
@@ -42,7 +42,7 @@ function parse(argv) {
 }
 
 function publish(bytes) {
-  if (existsSync(baselineFile) && readFileSync(baselineFile, "utf8") === bytes) {
+  if (existsSync(baselineFile) && readRetainedArtifactBytes(path.dirname(baselineFile), path.basename(baselineFile), 16 * 1024 * 1024).toString("utf8") === bytes) {
     chmodSync(baselineFile, 0o644);
     return "unchanged";
   }
@@ -73,7 +73,7 @@ try {
     process.stdout.write(`[BASELINE] status=${disposition} targets=${built.reference.targets.length}\n`);
   } else if (options.mode === "check") {
     if (!options.evidence) throw new Error("check requires --evidence-roots-file");
-    const selected = parseStrictJSON(readLocalFile(path.resolve(options.evidence), { maximum: 1024 * 1024, privateFile: false }).toString("utf8"));
+    const selected = readJSON(path.resolve(options.evidence));
     if (selected.schema_id === qualificationSchema) {
       const result = await validateQualification(path.resolve(options.evidence));
       for (const workload of result.workloads) for (const cell of workload.cells) {

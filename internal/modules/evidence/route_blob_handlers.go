@@ -375,38 +375,8 @@ func (s *service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 		_ = httpapi.WriteSuccess(w, r, preflight.Replay.StatusCode, preflight.Replay.Payload)
 		return
 	}
-	blob := preflight.Blob
-	var observed *observedObject
-	if blob.UploadState == "pending" {
-		if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
-			writeAPIError(w, r, objectStoreDependencyAPIError(err))
-			return
-		}
-		observed, err = s.objects.observeUploadedObject(r.Context(), blob)
-		if err != nil {
-			// Recheck mutable record/blob gates and persist only the failed
-			// finalization budget. No Evidence mutation or receipt is committed.
-			result, finalizationErr := s.operations.AttachBlob(r.Context(), principal.User, recordID, request, requestHash, nil, httpapi.RequestIDFromContext(r.Context()), now)
-			if finalizationErr == nil {
-				_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
-				return
-			}
-			var rejected AttachRejectedError
-			if !errors.As(finalizationErr, &rejected) || rejected.ReasonCode != attachReasonBlobPending {
-				if apiErr := translateAttachError(finalizationErr, request.ClientTxnID); apiErr != nil {
-					writeAPIError(w, r, apiErr)
-					return
-				}
-			}
-			if apiErr := objectStoreDependencyAPIError(err); apiErr != nil {
-				writeAPIError(w, r, apiErr)
-				return
-			}
-			writeAPIError(w, r, evidenceAttachRejected(attachReasonBlobPending))
-			return
-		}
-	}
-	result, err := s.operations.AttachBlob(r.Context(), principal.User, recordID, request, requestHash, observed, httpapi.RequestIDFromContext(r.Context()), now)
+
+	result, err := s.operations.AttachBlob(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), now)
 	if apiErr := translateAttachError(err, request.ClientTxnID); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return

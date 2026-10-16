@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.benchmark_manifest.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "claim_bearing",
+    "benchmark_profile_id",
+    "environment",
+    "source_digest",
+    "criterion_ids",
+    "security_controls_state",
+    "bundle"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.benchmark_manifest.v2"
+    },
+    "claim_bearing": {
+      "const": true
+    },
+    "benchmark_profile_id": {
+      "const": "cartulary.perf.desktop_ref.v3"
+    },
+    "environment": {
+      "$ref": "cartulary.benchmark_profile.v1#/properties/environment"
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "criterion_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^AC-[0-9]{3}$"
+      }
+    },
+    "security_controls_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authentication",
+        "session_handling",
+        "csrf_protection",
+        "sanitization",
+        "safe_preview_restrictions",
+        "integrity_checks"
+      ],
+      "properties": {
+        "authentication": {
+          "const": true
+        },
+        "session_handling": {
+          "const": true
+        },
+        "csrf_protection": {
+          "const": true
+        },
+        "sanitization": {
+          "const": true
+        },
+        "safe_preview_restrictions": {
+          "const": true
+        },
+        "integrity_checks": {
+          "const": true
+        }
+      }
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

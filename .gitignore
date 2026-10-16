@@ -116,3 +116,5 @@ temp/fallow-dead-code.json
 server-harness
 
 /apps/web/dist-measurement/
+# Atomic frontend publication stages and displaced outputs are build artifacts.
+/apps/web/.frontend-publish-*/

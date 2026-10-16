@@ -91,7 +91,7 @@ func createOrReusePartyTx(
 	if err != nil {
 		return createOrReuseResult{}, err
 	}
-	if err := partysource.InsertPartyTx(ctx, tx, recordID, incidentID, params, now); err != nil {
+	if err := partysource.InsertPartyTx(ctx, tx, recordID, incidentID, params); err != nil {
 		return createOrReuseResult{}, err
 	}
 	if recordID == uuid.Nil {

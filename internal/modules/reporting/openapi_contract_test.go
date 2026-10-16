@@ -33,7 +33,7 @@ func TestOpenAPIReleaseEnumsAndExactResources_Unit(t *testing.T) {
 		"snapshot_at",
 		"source_change_set_high_watermark",
 		"derivation_version",
-		"export_model_sha256",
+		"source_capture_sha256",
 	})
 
 	releaseResource := reportingOpenAPIObjectAt(t, schemas, "ReleaseResource")

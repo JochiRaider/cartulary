@@ -74,7 +74,7 @@ func TestStableFieldKeysOnly_Unit(t *testing.T) {
 func TestTimelineGroupingWhitelistRejectsNonContractKeys(t *testing.T) {
 	wantWhitelist := []string{
 		"timeline.date_entered_sort_day",
-		"timeline.date_entered_sort_day",
+		"timeline.activity_time_pair_state",
 		"timeline.capture_state",
 		"timeline.has_evidence",
 		"timeline.has_unresolved_mentions",

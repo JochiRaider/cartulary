@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   linkSync,
   lstatSync,
@@ -89,22 +90,22 @@ function assertPerformanceEvidenceGenerationBoundary() {
   const attachments = readJSON("tools/harness_schema_attachments.json");
   const activeIDs = new Set(attachments.attachments.map((entry) => entry.schema_id));
   for (const schemaID of [
-    "cartulary.browser_target_result.v4",
-    "cartulary.frontend_measurement_aggregate.v3",
-    "cartulary.frontend_measurement_observation.v2",
-    "cartulary.frontend_measurement_summary.v3",
+    "cartulary.browser_target_result.v6",
+    "cartulary.frontend_measurement_aggregate.v5",
+    "cartulary.frontend_measurement_observation.v4",
+    "cartulary.frontend_measurement_summary.v5",
     "cartulary.performance_fixture_build_diagnostics.v2",
     "cartulary.performance_fixture_runtime.v2",
-    "cartulary.performance_fixture_snapshot.v2",
+    "cartulary.performance_fixture_snapshot.v3",
     "cartulary.performance_fixture_snapshot_key.v2",
-    "cartulary.performance_fixture_snapshot_lease.v2",
-    "cartulary.performance_fixture_snapshot_owner.v2",
+    "cartulary.performance_fixture_snapshot_lease.v3",
+    "cartulary.performance_fixture_snapshot_owner.v3",
     "cartulary.web_e2e_stack_lease.v2",
   ]) {
     assert.equal(activeIDs.has(schemaID), true);
   }
   // Independent rejection examples require no retired schema bundle or registry.
-  for (const schema_id of ["cartulary.performance_fixture_snapshot_key.v1", "cartulary.frontend_measurement_aggregate.v1", "cartulary.web_e2e_stack.v3", "cartulary.test.network_flow_randomness_control.v2"]) {
+  for (const schema_id of ["cartulary.performance_fixture_snapshot.v2", "cartulary.performance_fixture_snapshot_lease.v2", "cartulary.performance_fixture_snapshot_owner.v2", "cartulary.performance_fixture_snapshot_key.v1", "cartulary.frontend_measurement_aggregate.v1", "cartulary.web_e2e_stack.v3", "cartulary.test.network_flow_randomness_control.v2"]) {
     assert.throws(() => validateSchemaSync(schema_id, { schema_id }), /unregistered schema attachment/u);
   }
   const reference = (role, name) => ({
@@ -115,7 +116,7 @@ function assertPerformanceEvidenceGenerationBoundary() {
     sha256: `sha256:${"a".repeat(64)}`,
   });
   const aggregate = {
-    schema_id: "cartulary.frontend_measurement_aggregate.v3",
+    schema_id: "cartulary.frontend_measurement_aggregate.v5",
     target_id: "browser-e2e-measurement",
     status: "qualified",
     profile_groups: [{
@@ -129,7 +130,7 @@ function assertPerformanceEvidenceGenerationBoundary() {
       rollups: [{
         predicate_id: "perf.synthetic.fixture_profile.v1",
         sample_count: 100,
-        p95_ms: 20,
+        statistics: { kind: "percentile", percentile: 95, p50_ms: 10, p95_ms: 20 },
         threshold_ms: 100,
         outcome: "passed",
       }],
@@ -148,7 +149,7 @@ function assertPerformanceEvidenceGenerationBoundary() {
 
 function assertPerformanceFixtureSnapshotContract(context) {
   const fixtureProfiles = context.catalog.fixtureProfiles;
-  const profile = [...fixtureProfiles.profiles.values()].find((entry) => entry.status === "active");
+  const profile = fixtureProfiles.profiles.get("timeline_large_grid_snapshot_v2");
   assert.ok(profile);
   assert.match(profile.source_contract_digest, /^[a-f0-9]{64}$/u);
   const migrationDigest = postgresMigrationDigest(root);
@@ -202,10 +203,20 @@ function assertPerformanceFixtureSnapshotContract(context) {
     syntheticProfile.fixture_profile_id,
   );
   const syntheticGo = renderPerformanceFixtureProfilesGo([profile, syntheticProfile]);
+  assert.equal(
+    renderPerformanceFixtureProfilesGo([syntheticProfile, profile]),
+    syntheticGo,
+    "descriptor output must not depend on registration order",
+  );
+  assert.equal(
+    renderPerformanceFixtureKeyVectors([syntheticProfile, profile]),
+    renderPerformanceFixtureKeyVectors([profile, syntheticProfile]),
+    "key-vector output must not depend on registration order",
+  );
   assert.match(syntheticGo, /synthetic_grid_snapshot_v1/u);
   assert.doesNotMatch(
     syntheticGo,
-    /profile\.FixtureProfileID == "ac043_large_grid_snapshot_v1"/u,
+    /profile\.FixtureProfileID == "timeline_large_grid_snapshot_v2"/u,
   );
   assert.doesNotMatch(
     syntheticGo,
@@ -295,7 +306,9 @@ function assertPerformanceFixtureSnapshotContract(context) {
   const registryFile = path.join(fixtureRoot, "registry.json");
   const expectRegistryFailure = (mutate, pattern) => {
     const candidate = structuredClone(original);
-    mutate(candidate.profiles[0]);
+    const selected = candidate.profiles.find((entry) => entry.fixture_profile_id === profile.fixture_profile_id);
+    assert.ok(selected);
+    mutate(selected);
     writeFileSync(registryFile, JSON.stringify(candidate));
     assert.throws(
       () => loadPerformanceFixtureSnapshotRegistry(root, { registryPath: registryFile }),
@@ -345,13 +358,13 @@ function assertPerformanceFixtureSnapshotContract(context) {
     expectRegistryFailure(
       (candidate) => {
         candidate.source_contract_refs[0].contract_id =
-          "cartulary.performance.route_divergence.v1";
+          candidate.source_contract_refs[0].contract_id.replace(/\.v[1-9][0-9]*$/u, ".v99");
       },
       /contract identity does not match/u,
     );
 
     const inactive = structuredClone(original);
-    inactive.profiles[0].status = "inactive";
+    inactive.profiles.find((entry) => entry.fixture_profile_id === profile.fixture_profile_id).status = "inactive";
     writeFileSync(registryFile, JSON.stringify(inactive));
     const inactiveProfiles = loadPerformanceFixtureSnapshotRegistry(root, {
       registryPath: registryFile,
@@ -382,7 +395,7 @@ const generalCases = [
     acceptance_ids: ["TH-HARNESS-AC-082"],
     run(context) {
       assert.equal(context.taskSurface.schema_id, "cartulary.task_surface_owner.v2");
-      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v10");
+      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v11");
     },
   },
   {
@@ -674,8 +687,13 @@ function assertCommandSurfaceContract(context, kind) {
 }
 
 function assertGoSelectorBuildContextContract() {
-  const fixtureRoot = mkdtempSync(path.join(root, "internal/selector-resolution-contract."));
-  const relativePackage = `./${path.relative(root, fixtureRoot).replaceAll("\\", "/")}`;
+  const sourceRoot = mkdtempSync(path.join(tmpdir(), "cartulary-selector-build-context."));
+  const fixtureRoot = path.join(sourceRoot, "internal/fixture");
+  mkdirSync(fixtureRoot, { recursive: true });
+  mkdirSync(path.join(sourceRoot, "tools"));
+  copyFileSync(path.join(root, "tools/toolchain_pins.json"), path.join(sourceRoot, "tools/toolchain_pins.json"));
+  copyFileSync(path.join(root, "tools/generated_artifact_policy.json"), path.join(sourceRoot, "tools/generated_artifact_policy.json"));
+  const relativePackage = "./internal/fixture";
   const runner = { approved_roots: ["internal"] };
   const row = (testName) => ({
     row_id: "harness.test_catalog.behavior.fixture",
@@ -697,23 +715,23 @@ function assertGoSelectorBuildContextContract() {
       "//go:build windows\n\npackage fixture\nfunc TestExcludedPlatform() {}\n",
     );
     assert.deepEqual(
-      resolveRowSelector({ root, row: row("TestOrdinary"), runner, taskSurfaceCommandIDs: new Set() }),
+      resolveRowSelector({ root: sourceRoot, row: row("TestOrdinary"), runner, taskSurfaceCommandIDs: new Set() }),
       [`go:${relativePackage}:TestOrdinary`],
     );
     assert.deepEqual(
-      resolveRowSelector({ root, row: row("TestApplicablePlatform"), runner, taskSurfaceCommandIDs: new Set() }),
+      resolveRowSelector({ root: sourceRoot, row: row("TestApplicablePlatform"), runner, taskSurfaceCommandIDs: new Set() }),
       [`go:${relativePackage}:TestApplicablePlatform`],
     );
     assert.throws(
-      () => resolveRowSelector({ root, row: row("TestPrivateProfile"), runner, taskSurfaceCommandIDs: new Set() }),
+      () => resolveRowSelector({ root: sourceRoot, row: row("TestPrivateProfile"), runner, taskSurfaceCommandIDs: new Set() }),
       /TestPrivateProfile is excluded from the Go runner build context linux\/amd64/u,
     );
     assert.throws(
-      () => resolveRowSelector({ root, row: row("TestExcludedPlatform"), runner, taskSurfaceCommandIDs: new Set() }),
+      () => resolveRowSelector({ root: sourceRoot, row: row("TestExcludedPlatform"), runner, taskSurfaceCommandIDs: new Set() }),
       /TestExcludedPlatform is excluded from the Go runner build context linux\/amd64/u,
     );
   } finally {
-    rmSync(fixtureRoot, { recursive: true, force: true });
+    rmSync(sourceRoot, { recursive: true, force: true });
   }
 }
 

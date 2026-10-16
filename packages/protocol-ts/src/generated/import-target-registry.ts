@@ -31,7 +31,17 @@ export type ImportTargetFrontendProjection = {
   readonly targets: readonly ImportTargetFrontendRow[];
 };
 
-export const importTargetRegistry = {
+function deepFreeze<Value>(value: Value): Value {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    for (const child of Object.values(value)) {
+      deepFreeze(child);
+    }
+    Object.freeze(value);
+  }
+  return value;
+}
+
+const value = {
   "registry_sha256": "4ac3fbbf38fa1177304f01d52823ee27d3c273d1cfdb35998e2884debc1d1822",
   "schema_id": "cartulary.import_target_frontend_projection.v1",
   "source_sha256": "78d9fcaee197d4f4c70ed261d9eb765ffd595b94dcdf108bc544f9034390e033",
@@ -308,3 +318,5 @@ export const importTargetRegistry = {
     }
   ]
 } as const satisfies ImportTargetFrontendProjection;
+
+export const importTargetRegistry = deepFreeze(value);

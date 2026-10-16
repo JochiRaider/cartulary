@@ -186,6 +186,40 @@ UPDATE incidents
 			t.Fatalf("reopen AC-543 incident: %v", err)
 		}
 	})
+	t.Run("verification denies before admission and preserves the completed slot", func(t *testing.T) {
+		candidate := createSlot(t, "verification-security", issuingLogin)
+		httptestx.RequireStatus(t, put(t, candidate, &issuingLogin, "", true), http.StatusNoContent)
+		route := harness.Server.HTTP.URL + "/api/v1/object-blobs/" + candidate.blobID.String() + "/verify"
+		body := map[string]any{"client_txn_id": "verify-denials"}
+		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, body), http.StatusUnauthorized, "session_required")
+		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, body, appsupport.WithCookies(issuingLogin.SessionCookie, issuingLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+		setRole(t, "viewer")
+		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusForbidden, "authorization_denied")
+		setRole(t, "editor")
+		unknown := harness.Server.HTTP.URL + "/api/v1/object-blobs/" + uuid.NewString() + "/verify"
+		httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, unknown, body, authOptions(issuingLogin)...), http.StatusConflict, "evidence_attach_rejected"), "reason_code", "blob_not_visible")
+		if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM incident_memberships WHERE incident_id=$1 AND user_id=$2`, incidentID, uploader.ID); err != nil {
+			t.Fatal(err)
+		}
+		httptestx.RequireErrorDetail(t, httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusConflict, "evidence_attach_rejected"), "reason_code", "blob_not_visible")
+		incidentstoretest.SeedMembership(t, harness.DB, incidentID, uploader.ID, "Evidence AC543 Uploader", "editor", bootstrapAdminID)
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incidents SET status='closed',closed_at=now() WHERE id=$1`, incidentID); err != nil {
+			t.Fatal(err)
+		}
+		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, route, body, authOptions(issuingLogin)...), http.StatusConflict, "incident_closed")
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incidents SET status='active',closed_at=NULL WHERE id=$1`, incidentID); err != nil {
+			t.Fatal(err)
+		}
+		var count int
+		if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM jobs WHERE job_kind='evidence.verify_blob_v1'`).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Fatalf("denials admitted %d verification Jobs", count)
+		}
+		requireLeaseState(t, candidate.blobID, "completed")
+		requireObjectCount(t, candidate, 1)
+	})
 	for _, role := range []string{"editor", "reviewer", "admin"} {
 		t.Run(role+" may use one capability exactly once", func(t *testing.T) {
 			setRole(t, role)
@@ -193,6 +227,7 @@ UPDATE incidents
 			httptestx.RequireStatus(t, put(t, candidate, &issuingLogin, "", true), http.StatusNoContent)
 			requireLeaseState(t, candidate.blobID, "completed")
 			requireObjectCount(t, candidate, 1)
+			verifyUploadedBlob(t, harness, issuingLogin, candidate.blobID.String(), "verify-allowed-"+role, "succeeded")
 			httptestx.RequireErrorEnvelope(t, put(t, candidate, &issuingLogin, "", true), http.StatusNotFound, "object_upload_not_found_or_revoked")
 			requireLeaseState(t, candidate.blobID, "completed")
 			requireObjectCount(t, candidate, 1)

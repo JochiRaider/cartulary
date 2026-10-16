@@ -1,7 +1,96 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.reporting",
   "rows": [
+    {
+      "row_id": "module.reporting.frontend.progress_paint",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.frontend",
+      "collaborator_ids": [
+        "harness.browser"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.browser_workflow"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/jobProgressPaint.test.ts",
+        "titles": [
+          "requires fresh snapshot and report jobs with visible cancellation and stable grid editing"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.frontend.retained_jobs",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.frontend",
+      "collaborator_ids": [
+        "module.jobapi",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.browser_workflow"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/reporting/ReportingController.test.ts",
+        "titles": [
+          "bounds reporting observation without retrying the product action or blocking cancellation behind a read",
+          "cancels the exact reporting job and replays an uncertain cancellation unchanged",
+          "pauses detached reporting without replay and retires replaced authority",
+          "rejects foreign jobs wrong result identities and regressing observations",
+          "renders only the verified same-incident snapshot with the exact internal default template",
+          "retains exact uncertain reporting commands and prevents duplicate admission"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.frontend.workflow_authority",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.frontend",
+      "collaborator_ids": [
+        "module.jobapi",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.browser_workflow"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/app/createReportingWorkflow.test.tsx",
+        "titles": [
+          "binds reporting controls to claimed supported routes and current incident roles",
+          "retains exact reporting admission across drawer detachment and purges withdrawn profile state"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
     {
       "row_id": "module.reporting.integration.evidence_provider_redaction_4b6d27e1e9",
       "owner_id": "module.reporting",
@@ -64,6 +153,34 @@
       ]
     },
     {
+      "row_id": "module.reporting.integration.execution_payload_boundary",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [
+        "platform.jobs"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingPayloadReadsRequireLiveExecution_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.reporting.integration.external_releases_require_distinct_reviewer_and_0df12b0a47",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.integration",
@@ -91,6 +208,203 @@
       ]
     },
     {
+      "row_id": "module.reporting.integration.renderer_browser_policy",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/report-renderer/src/browser-policy.integration.test.ts",
+        "titles": [
+          "browser interception blocks external HTTP and undeclared loopback before connection"
+        ],
+        "project_id": "renderer-node"
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "renderer_browser",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": [],
+      "process_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reporting.integration.renderer_installed_sandbox",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingInstalledSandboxRenders"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "renderer_browser",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": [],
+      "process_isolation": "exclusive",
+      "preparation_targets": [
+        "build-report-renderer"
+      ]
+    },
+    {
+      "row_id": "module.reporting.integration.renderer_mermaid",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/report-renderer/src/mermaid.test.ts",
+        "titles": [
+          "Mermaid renders real graph geometry arrowheads and sequence messages as repeatable passive SVG",
+          "passive SVG construction rejects active elements references and unsupported effects"
+        ],
+        "project_id": "renderer-node"
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "renderer_browser",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": [],
+      "process_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reporting.integration.renderer_process",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/renderprocess",
+        "tests": [
+          "TestRenderInstallationAdmission",
+          "TestRenderNetworkPolicy",
+          "TestRenderProcessCancellationAndOutputAdmission",
+          "TestRenderProcessIsolation",
+          "TestRenderProcessRejectsInvalidCapabilities"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.integration.renderer_slidev",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/report-renderer/src/slidev.test.ts",
+        "titles": [
+          "Slidev exports each click state and rejects an incorrect expected page count",
+          "Slidev parses canonical Reporting source without implicit or blank slides",
+          "Slidev renders generated expressions entities HTML and URLs as literal text",
+          "Slidev renders packaged slides assets and diagrams with repeatable admitted metadata"
+        ],
+        "project_id": "renderer-node"
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "renderer_browser",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": [],
+      "process_isolation": "exclusive",
+      "preparation_targets": [
+        "build-report-renderer"
+      ]
+    },
+    {
+      "row_id": "module.reporting.integration.renderer_stage_boundary",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingRenderStageAdmitsRealPDF",
+          "TestReportingRenderStageAdmitsRealSVG"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "renderer_browser",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": [],
+      "process_isolation": "exclusive",
+      "preparation_targets": [
+        "frontend-install",
+        "playwright-install"
+      ]
+    },
+    {
+      "row_id": "module.reporting.integration.renderer_stage_execution",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/report-renderer/src/stage.test.ts",
+        "titles": [
+          "render stage produces a digest-bound real PDF with observed browser traffic"
+        ],
+        "project_id": "renderer-node"
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "renderer_browser",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": [],
+      "process_isolation": "exclusive"
+    },
+    {
       "row_id": "module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.integration",
@@ -105,6 +419,7 @@
         "package": "./internal/modules/reporting",
         "tests": [
           "TestReportingIdentityCutoverDoesNotReconstructHistory_Integration",
+          "TestSnapshotAdmissionAndCancellationDoNotWaitForSourceCapture_Integration",
           "TestSnapshotAdmissionAndRerenderRetainSetAcrossActivation_Integration",
           "TestSnapshotReplayAndReleaseProvenanceAreStable_Integration"
         ]
@@ -176,6 +491,80 @@
       ]
     },
     {
+      "row_id": "module.reporting.measurement.render_progress",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.render_progress_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/reporting-progress.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_reporting_render_progress_measurement"
+        ],
+        "titles": [
+          "measures report job progress and cancel while Timeline accepts editing"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.reporting.measurement.snapshot_progress",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.snapshot_progress_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/reporting-progress.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_reporting_snapshot_progress_measurement"
+        ],
+        "titles": [
+          "measures snapshot job progress and cancel while Timeline accepts editing"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.reporting.unit.admitted_render_export_participant_c0da40986c",
       "owner_id": "module.reporting",
       "family_id": "module.reporting.unit",
@@ -194,6 +583,118 @@
           "TestReportingJobWorkerParticipantFailurePublishesNoRenderOutput",
           "TestReportingPreviewWorkerHonorsCancellationAndParticipantFailure",
           "TestReportingTimestampPrecisionIsFixedAtAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.build_export_model_uses_reporting_owned_metadata_bdda4b2393",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestBuildExportModelUsesReportingOwnedMetadataSnapshotStableHash",
+          "TestCompositionRenderBinding_Unit",
+          "TestMermaidSourceCanonicalGrammar",
+          "TestMermaidSourceRejectsUnresolvedAndUnsafeInput",
+          "TestRenderBundleExternalReleaseRecordsDeterminismDigest",
+          "TestRenderBundleManifestBindsOutputHash",
+          "TestRenderBundleMermaidPipelineEmitsSourceSVGAndDeterministicManifest",
+          "TestRenderBundlePreservesInertSourceLabelText",
+          "TestRenderBundleSeparatesSensitiveRedactionArtifacts",
+          "TestRenderedSVGClosedOutputBoundary",
+          "TestRenderedSVGRejectsMalformedDocuments",
+          "TestSlidevCanonicalSourceV2",
+          "TestSlidevFieldTextCanonicalValues",
+          "TestSlidevInvalidFieldPublishesNoBundle",
+          "TestSlidevMarkdownEscapeV2",
+          "TestSlidevSpeakerNotesRejectBeforeOutput"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.frozen_output_options",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingFrozenOutputOptions"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.frozen_release_payload",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingFrozenReleasePayload"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.frozen_snapshot_payload",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingFrozenSnapshotPayload",
+          "TestSnapshotCaptureRetainsSourceOnce"
         ]
       },
       "evidence_class": "unit",
@@ -285,6 +786,240 @@
         ]
       },
       "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.provider_output_validate_and_fields_1d0b913cab",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting/exportprovider",
+        "tests": [
+          "TestProviderOutputValidateAndBindings",
+          "TestProviderOutputValidateRejectsFlatOrIncompleteFacts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.renderer_browser_policy",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/report-renderer/src/browser-policy.test.ts",
+        "titles": [
+          "renderer browser destination policy admits only the allocated loopback transport without credentials",
+          "renderer browser destination policy classifies external and forbidden schemes without retaining destinations"
+        ],
+        "project_id": "renderer-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.renderer_mermaid_admission",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/report-renderer/src/mermaid.test.ts",
+        "titles": [
+          "Mermaid admission accepts only canonical bounded flowchart and sequence source"
+        ],
+        "project_id": "renderer-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.renderer_module_assets",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/report-renderer/src/module-assets.test.ts",
+        "titles": [
+          "renderer module admission excludes documentation traversal and symlink targets"
+        ],
+        "project_id": "renderer-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.renderer_pdf",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/report-renderer/src/pdf.test.ts",
+        "titles": [
+          "rendered PDF admission normalizes wall-clock metadata while retaining real pages and content",
+          "rendered PDF admission rejects invalid admission bindings before interpreting output",
+          "rendered PDF admission rejects placeholder PDF bytes and incorrect click page counts"
+        ],
+        "project_id": "renderer-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.renderer_stage_admission",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "packages/report-renderer/src/stage.test.ts",
+        "titles": [
+          "render stage admission rejects unknown capabilities malformed identities and duplicate keys"
+        ],
+        "project_id": "renderer-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.renderer_stage_result_admission",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.render_runtime"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingDeckChunkingPreservesContent",
+          "TestReportingDeclaredLimits",
+          "TestReportingRenderStageRejectsUnboundOutputs",
+          "TestReportingStageEnforcesDeclaredLimits"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.reporting_job_worker_cancels_before_work_68d5024f75",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingFailureDiagnosticsBindAdmission",
+          "TestReportingJobWorkerCancelsBeforeWork",
+          "TestReportingJobWorkerExecutionBoundary",
+          "TestReportingJobWorkerRenderFailureSummaryIsDeterministic",
+          "TestReportingJobWorkerTimeoutRetainsFailedRelease",
+          "TestReportingRenderDeadlineOwnsMaterializationAndPublication",
+          "TestReportingWorkerInterruptsActiveRenderer"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.snapshot_record_materialization",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestSnapshotRecordMaterialization"
+        ]
+      },
+      "evidence_class": "unit",
       "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
@@ -431,6 +1166,31 @@
         "tests": [
           "TestDecoderNormalizationAndRegisteredReasons_Unit",
           "TestPortableArtifactCatalogClosure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.reporting.unit.source_owner_orchestration",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reporting.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingMaterializerRejectsInvalidOwnerRegistration",
+          "TestReportingMaterializerUsesOwnerContracts"
         ]
       },
       "evidence_class": "unit",

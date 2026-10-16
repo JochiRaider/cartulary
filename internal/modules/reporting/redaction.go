@@ -1,9 +1,11 @@
 package reporting
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
 	"regexp"
 	"sort"
 	"strings"
@@ -11,15 +13,16 @@ import (
 )
 
 const (
-	InternalRedactionProfileID  = "cartulary.redaction.internal"
-	ExternalRedactionProfileID  = "cartulary.redaction.external"
-	TokenizedRedactionProfileID = "cartulary.redaction.tokenized_review"
+	DefaultRedactionProfileVersion = "5"
+	InternalRedactionProfileID     = "cartulary.redaction.internal"
+	ExternalRedactionProfileID     = "cartulary.redaction.external"
+	TokenizedRedactionProfileID    = "cartulary.redaction.tokenized_review"
 
-	RedactionProfileSchemaID       = "cartulary.redaction_profile.v1"
-	RedactionProfileViewSchemaID   = "cartulary.redaction_profile_view.v1"
-	RedactionManifestSchemaID      = "cartulary.redaction_manifest.v2"
-	RedactionTokenManifestSchemaID = "cartulary.reporting_token_manifest.v2"
-	RedactionRevealMapSchemaID     = "cartulary.reporting_token_reveal_map.v2"
+	RedactionProfileSchemaID       = "cartulary.redaction_profile.v3"
+	RedactionProfileViewSchemaID   = "cartulary.reporting_redaction_profile_view.v2"
+	RedactionManifestSchemaID      = "cartulary.redaction_manifest.v5"
+	RedactionTokenManifestSchemaID = "cartulary.reporting_token_manifest.v3"
+	RedactionRevealMapSchemaID     = "cartulary.reporting_token_reveal_map.v3"
 
 	ActionAllow    = "allow"
 	ActionDrop     = "drop"
@@ -32,10 +35,16 @@ const (
 	DefaultStubText     = "[STUB]"
 	DefaultTruncateMark = "[TRUNCATED]"
 
-	ContentClassCuratedNarrative = "curated_narrative"
-	ContentClassDerivedAnalytic  = "derived_analytic"
-	ContentClassSourceEvidence   = "source_evidence"
-	ContentClassWorkingMaterial  = "working_material"
+	ContentClassCuratedNarrative    = "curated_narrative"
+	ContentClassDerivedAnalytic     = "derived_analytic"
+	ContentClassSourceEvidence      = "source_evidence"
+	ContentClassWorkingMaterial     = "working_material"
+	ContentClassPresentationText    = "presentation_text"
+	ContentClassSupportReference    = "support_reference"
+	ContentClassValidation          = "validation"
+	ContentClassTemplateBoilerplate = "template_boilerplate"
+	ReportingSectionSchemaID        = "cartulary.reporting_section.v2"
+	ReportingBlockSchemaID          = "cartulary.reporting_block.v3"
 )
 
 var (
@@ -56,6 +65,10 @@ var (
 )
 
 type RedactionProfile struct {
+	ProfileStatus                  string              `json:"profile_status"`
+	AllowedReleaseScopes           []string            `json:"allowed_release_scopes"`
+	IncludeSuperseded              bool                `json:"include_superseded"`
+	NeutralTokenFamily             bool                `json:"neutral_token_family"`
 	SchemaID                       string              `json:"schema_id"`
 	ProfileID                      string              `json:"profile_id"`
 	Version                        string              `json:"version"`
@@ -73,6 +86,7 @@ type RedactionRule struct {
 }
 
 type RedactionActionSpec struct {
+	TokenBacked     bool    `json:"token_backed"`
 	Type            string  `json:"type"`
 	ReplacementText *string `json:"replacement_text,omitempty"`
 	StubText        *string `json:"stub_text,omitempty"`
@@ -97,20 +111,22 @@ type SnapshotContent struct {
 	Diagrams                     []ReportingDiagram             `json:"diagrams"`
 	Assets                       []ReportingAssetDeclaration    `json:"assets"`
 	SupportIndex                 []ReportingSupportRef          `json:"support_index"`
+	SourceIndex                  []ReportingSourceRef           `json:"source_index"`
 	ValidationSummary            ReportingExportModelValidation `json:"validation_summary"`
-	Fields                       []ExportField                  `json:"-"`
 }
 
 type SnapshotModel struct {
-	SchemaID        string `json:"schema_id"`
-	SnapshotModelID string `json:"snapshot_model_id"`
+	SourceFacts     exportprovider.SourceFacts `json:"source_facts"`
+	SchemaID        string                     `json:"schema_id"`
+	SnapshotModelID string                     `json:"snapshot_model_id"`
 	SnapshotContent
 }
 
 type ExportModel struct {
-	SchemaID        string `json:"schema_id"`
-	ExportModelID   string `json:"export_model_id"`
-	SnapshotModelID string `json:"snapshot_model_id"`
+	PresentationTexts []ReportingPresentationText `json:"presentation_texts"`
+	SchemaID          string                      `json:"schema_id"`
+	ExportModelID     string                      `json:"export_model_id"`
+	SnapshotModelID   string                      `json:"snapshot_model_id"`
 	RenderIdentity
 	ExportModelCreatedAt   string   `json:"export_model_created_at"`
 	ReleaseScope           string   `json:"release_scope"`
@@ -119,6 +135,9 @@ type ExportModel struct {
 }
 
 type ExportField struct {
+	lifecycle               lifecycleRestriction
+	SourceRecordID          string   `json:"source_record_id"`
+	SourceRecordType        string   `json:"source_record_type"`
 	Path                    string   `json:"path"`
 	ContentClass            string   `json:"content_class"`
 	SourceFamily            string   `json:"source_family,omitempty"`
@@ -145,22 +164,17 @@ type ReportingSection struct {
 }
 
 type ReportingBlock struct {
-	SchemaID                    string           `json:"schema_id"`
-	BlockID                     string           `json:"block_id"`
-	BlockKind                   string           `json:"block_kind"`
-	BlockOrdinal                int              `json:"block_ordinal"`
-	ParentBlockID               *string          `json:"parent_block_id"`
-	SplitFromBlockID            *string          `json:"split_from_block_id"`
-	ContentClass                string           `json:"content_class"`
-	AggregateOnlyNonIdentifying bool             `json:"aggregate_only_non_identifying"`
-	AggregatePolicyID           *string          `json:"aggregate_policy_id"`
-	ContributorCount            *int             `json:"contributor_count"`
-	ExcludedFieldKeys           []string         `json:"excluded_field_keys"`
-	Fields                      []ReportingField `json:"fields"`
-	Children                    []ReportingBlock `json:"children"`
-	SourceRefs                  []string         `json:"source_refs"`
-	SupportRefs                 []string         `json:"support_refs"`
-	DisclosurePartitionRefs     []string         `json:"disclosure_partition_refs"`
+	SchemaID                string           `json:"schema_id"`
+	BlockID                 string           `json:"block_id"`
+	BlockKind               string           `json:"block_kind"`
+	BlockOrdinal            int              `json:"block_ordinal"`
+	ParentBlockID           *string          `json:"parent_block_id"`
+	ContentClass            string           `json:"content_class"`
+	Fields                  []ReportingField `json:"fields"`
+	Children                []ReportingBlock `json:"children"`
+	SourceRefs              []string         `json:"source_refs"`
+	SupportRefs             []string         `json:"support_refs"`
+	DisclosurePartitionRefs []string         `json:"disclosure_partition_refs"`
 }
 
 type ReportingField struct {
@@ -220,35 +234,71 @@ type RelationshipEndpointRef struct {
 }
 
 type ReportingTimelineEvent struct {
-	SchemaID                string           `json:"schema_id"`
-	TimelineEventID         string           `json:"timeline_event_id"`
-	SourceRecordRef         SourceRecordRef  `json:"source_record_ref"`
-	ActivitySortTS          *string          `json:"activity_sort_ts"`
-	ActivitySortState       string           `json:"activity_sort_state"`
-	DisplayTimes            map[string]any   `json:"display_times"`
-	Fields                  []ReportingField `json:"fields"`
-	SourceRefs              []string         `json:"source_refs"`
-	SupportRefs             []string         `json:"support_refs"`
-	DisclosurePartitionRefs []string         `json:"disclosure_partition_refs"`
+	SchemaID                string                `json:"schema_id"`
+	RecordID                string                `json:"record_id"`
+	ActivitySortKey         string                `json:"activity_sort_key"`
+	ActivitySortTS          *string               `json:"activity_sort_ts"`
+	ActivityParseState      string                `json:"activity_parse_state"`
+	ActivityPrecisionRank   int                   `json:"activity_precision_rank"`
+	DateEnteredSortKey      *string               `json:"date_entered_sort_key"`
+	RecordCreatedAt         string                `json:"record_created_at"`
+	DisplayTimes            ReportingDisplayTimes `json:"display_times"`
+	Fields                  []ReportingField      `json:"fields"`
+	SourceRefs              []string              `json:"source_refs"`
+	SupportRefs             []string              `json:"support_refs"`
+	DisclosurePartitionRefs []string              `json:"disclosure_partition_refs"`
+}
+
+type ReportingDisplayTimes struct {
+	PrimaryDisplay    *string `json:"primary_display"`
+	PrecisionLabel    *string `json:"precision_label"`
+	SourceTextDisplay *string `json:"source_text_display"`
 }
 
 type TokenizableSubject struct {
-	SchemaID                string           `json:"schema_id"`
-	StableSubjectRef        string           `json:"stable_subject_ref"`
-	SubjectKind             string           `json:"subject_kind"`
-	SourceRecordRef         *SourceRecordRef `json:"source_record_ref"`
-	DisplayName             *string          `json:"display_name"`
-	DisclosurePartitionRefs []string         `json:"disclosure_partition_refs"`
+	SchemaID                    string   `json:"schema_id"`
+	StableSubjectRef            string   `json:"stable_subject_ref"`
+	SubjectFamily               string   `json:"subject_family"`
+	SourceRecordID              *string  `json:"source_record_id"`
+	SourceRecordType            *string  `json:"source_record_type"`
+	EntityMentionID             *string  `json:"entity_mention_id"`
+	CanonicalDisplayValueSHA256 string   `json:"canonical_display_value_sha256"`
+	DisclosurePartitionRefs     []string `json:"disclosure_partition_refs"`
+	SourceRefs                  []string `json:"source_refs"`
+	SupportRefs                 []string `json:"support_refs"`
 }
 
 type ReportingDiagram struct {
-	SchemaID  string `json:"schema_id"`
-	DiagramID string `json:"diagram_id"`
+	compositionOwned        bool
+	SourceRefs              []string                  `json:"source_refs"`
+	SupportRefs             []string                  `json:"support_refs"`
+	DisclosurePartitionRefs []string                  `json:"disclosure_partition_refs"`
+	CompositionLayout       *compositionDiagramLayout `json:"composition_layout"`
+	SchemaID                string                    `json:"schema_id"`
+	DiagramID               string                    `json:"diagram_id"`
+	DiagramKind             string                    `json:"diagram_kind"`
+	DiagramSourceKind       string                    `json:"diagram_source_kind"`
+	LayoutMode              string                    `json:"layout_mode"`
+	SourceProjectionRef     *sourceProjectionRef      `json:"source_projection_ref"`
+	SelectionRule           diagramSelectionRule      `json:"selection_rule"`
+	IncludedVertexRefs      []string                  `json:"included_vertex_refs"`
+	IncludedEdgeRefs        []string                  `json:"included_edge_refs"`
+	OverflowSummary         *diagramOverflowSummary   `json:"overflow_summary"`
+	Nodes                   []reportingDiagramNode    `json:"nodes"`
+	Edges                   []reportingDiagramEdge    `json:"edges"`
 }
 
 type ReportingAssetDeclaration struct {
-	SchemaID string `json:"schema_id"`
-	AssetID  string `json:"asset_id"`
+	SchemaID                string   `json:"schema_id"`
+	AssetID                 string   `json:"asset_id"`
+	AssetKind               string   `json:"asset_kind"`
+	BundlePath              string   `json:"bundle_path"`
+	MediaType               string   `json:"media_type"`
+	SHA256                  string   `json:"sha256"`
+	ByteSize                int64    `json:"byte_size"`
+	DeclaredBy              string   `json:"declared_by"`
+	RequiredForRelease      bool     `json:"required_for_release"`
+	DisclosurePartitionRefs []string `json:"disclosure_partition_refs"`
 }
 
 type ReportingSupportRef struct {
@@ -280,8 +330,10 @@ type ReportingValidationIssue struct {
 }
 
 type ReportingContentClassSummary struct {
-	CaseFact            int `json:"case_fact"`
-	DerivedSummary      int `json:"derived_summary"`
+	SourceEvidence      int `json:"source_evidence"`
+	CuratedNarrative    int `json:"curated_narrative"`
+	DerivedAnalytic     int `json:"derived_analytic"`
+	WorkingMaterial     int `json:"working_material"`
 	PresentationText    int `json:"presentation_text"`
 	SupportReference    int `json:"support_reference"`
 	Validation          int `json:"validation"`
@@ -294,22 +346,23 @@ type ReportingSectionValidation struct {
 }
 
 type RedactedExportModel struct {
-	ExportModelSHA256 string `json:"export_model_sha256"`
-	RenderIdentity
-	SnapshotID    string `json:"snapshot_id"`
-	ExportModelID string `json:"export_model_id"`
-
-	ReferencePacks               reference_data.SetBinding `json:"reference_packs"`
-	SchemaID                     string                    `json:"schema_id"`
-	IncidentID                   string                    `json:"incident_id"`
-	SnapshotAt                   time.Time                 `json:"snapshot_at"`
-	SourceChangeSetHighWatermark string                    `json:"source_change_set_high_watermark"`
-	DerivationVersion            string                    `json:"derivation_version"`
-	Fields                       []RedactedField           `json:"fields"`
+	ExportModel
+	assembly                  *renderModelAssembly
+	admittedPresentationTexts map[string]string
+	// The decision index retains pre-removal addresses for evidence. Deck
+	// derivation reads only the reconstructed retained section tree.
+	admittedFieldPaths    map[string]string
+	lifecycleRestrictions map[string]lifecycleRestriction
+	// Frozen dimension identities and selected token labels are private
+	// derivation inputs, never an alternative case-content projection.
+	admittedPartyIDs          []string
+	subjectDisplayTokens      map[string]string
+	admittedExportModelSHA256 string
+	Fields                    []RedactedField `json:"-"`
 }
 
 type RedactedField struct {
-	Path                    string   `json:"path"`
+	Path                    string   `json:"export_model_path"`
 	ContentClass            string   `json:"content_class"`
 	SourceFamily            string   `json:"source_family,omitempty"`
 	Value                   any      `json:"value,omitempty"`
@@ -325,64 +378,26 @@ type RedactionManifest struct {
 	SnapshotID string `json:"snapshot_id"`
 	CreatedAt  string `json:"created_at"`
 
-	SchemaID               string                   `json:"schema_id"`
-	ProfileID              string                   `json:"profile_id"`
-	ProfileVersion         string                   `json:"profile_version"`
-	ProfileSHA256          string                   `json:"profile_sha256"`
-	ProfileViewSHA256      string                   `json:"profile_view_sha256"`
-	TokenManifestSHA256    *string                  `json:"token_manifest_sha256,omitempty"`
-	RecipientPartitionRefs []string                 `json:"recipient_partition_refs,omitempty"`
-	SourceExportSHA256     string                   `json:"source_export_model_sha256"`
-	RedactedExportSHA256   string                   `json:"redacted_export_model_sha256"`
-	Entries                []RedactionManifestEntry `json:"entries"`
+	SchemaID           string                       `json:"schema_id"`
+	ProfileID          string                       `json:"redaction_profile_id"`
+	ProfileVersion     string                       `json:"redaction_profile_version"`
+	ProfileSHA256      string                       `json:"redaction_profile_sha256"`
+	Entries            []RedactionManifestEntry     `json:"entries"`
+	StructuralRemovals []StructuralRedactionRemoval `json:"structural_removals"`
+	ContainerDecisions []ContainerRedactionDecision `json:"container_decisions"`
 }
 
 type RedactionManifestEntry struct {
-	Path                        string            `json:"path"`
+	Path                        string            `json:"export_model_path"`
 	ContentClass                string            `json:"content_class"`
-	SourceFamily                string            `json:"source_family,omitempty"`
 	Action                      string            `json:"action"`
 	RuleID                      string            `json:"rule_id"`
-	ProfileID                   string            `json:"profile_id"`
-	ProfileVersion              string            `json:"profile_version"`
-	ProfileSHA256               string            `json:"profile_sha256"`
+	RulePrecedence              string            `json:"rule_precedence"`
 	SelectedRuleTrace           SelectedRuleTrace `json:"selected_rule_trace"`
-	DisclosurePartitionHandling string            `json:"disclosure_partition_handling"`
-	DisclosurePartitionRefs     []string          `json:"disclosure_partition_refs,omitempty"`
-	SupportRefs                 []string          `json:"support_refs,omitempty"`
+	DisclosurePartitionHandling string            `json:"partition_handling"`
+	DisclosurePartitionRefs     []string          `json:"disclosure_partition_refs"`
 	Outcome                     string            `json:"outcome"`
-}
-
-type SelectedRuleTrace struct {
-	SchemaID          string  `json:"schema_id"`
-	SelectionKind     string  `json:"selection_kind"`
-	SelectorValue     *string `json:"selector_value,omitempty"`
-	RuleID            string  `json:"rule_id"`
-	Action            string  `json:"action"`
-	PrecedenceOrdinal int     `json:"precedence_ordinal"`
-}
-
-type RedactionProfileView struct {
-	SchemaID                       string              `json:"schema_id"`
-	ProfileID                      string              `json:"profile_id"`
-	ProfileVersion                 string              `json:"profile_version"`
-	ProfileSHA256                  string              `json:"profile_sha256"`
-	AllowedDisclosurePartitionRefs []string            `json:"allowed_disclosure_partition_refs,omitempty"`
-	AllowAuthoredPresentationText  bool                `json:"allow_authored_presentation_text"`
-	DefaultAction                  RedactionActionView `json:"default_action"`
-	Rules                          []RedactionRuleView `json:"rules"`
-}
-
-type RedactionRuleView struct {
-	RuleID        string              `json:"rule_id"`
-	SelectorKind  string              `json:"selector_kind"`
-	SelectorValue string              `json:"selector_value"`
-	Action        RedactionActionView `json:"action"`
-}
-
-type RedactionActionView struct {
-	Type     string `json:"type"`
-	MaxChars *int   `json:"max_chars,omitempty"`
+	TokenID                     *string           `json:"token_id"`
 }
 
 type RedactionTokenManifest struct {
@@ -390,24 +405,21 @@ type RedactionTokenManifest struct {
 	SnapshotID string `json:"snapshot_id"`
 	CreatedAt  string `json:"created_at"`
 
-	SchemaID             string                        `json:"schema_id"`
-	SourceExportSHA256   string                        `json:"source_export_model_sha256"`
-	RedactedExportSHA256 string                        `json:"redacted_export_model_sha256"`
-	ProfileSHA256        string                        `json:"profile_sha256"`
-	ReleaseScope         string                        `json:"release_scope"`
-	Entries              []RedactionTokenManifestEntry `json:"entries"`
+	SchemaID                string                        `json:"schema_id"`
+	ProfileSHA256           string                        `json:"redaction_profile_sha256"`
+	RedactionManifestSHA256 string                        `json:"redaction_manifest_sha256"`
+	Entries                 []RedactionTokenManifestEntry `json:"entries"`
 }
 
 type RedactionTokenManifestEntry struct {
-	TokenID                 string   `json:"token_id"`
-	DisplayToken            string   `json:"display_token"`
-	StableSubjectRef        string   `json:"stable_subject_ref"`
-	SubjectKind             string   `json:"subject_kind"`
-	Paths                   []string `json:"paths"`
-	ContentClasses          []string `json:"content_classes"`
-	SourceFamilies          []string `json:"source_families"`
-	Actions                 []string `json:"actions"`
-	DisclosurePartitionRefs []string `json:"disclosure_partition_refs,omitempty"`
+	TokenID                     string   `json:"token_id"`
+	DisplayToken                string   `json:"display_token"`
+	StableSubjectRef            string   `json:"stable_subject_ref"`
+	SubjectFamily               string   `json:"subject_family"`
+	SourceRecordID              *string  `json:"source_record_id"`
+	EntityMentionID             *string  `json:"entity_mention_id"`
+	CanonicalDisplayValueSHA256 string   `json:"canonical_display_value_sha256"`
+	RecipientPartitionRefs      []string `json:"recipient_partition_refs"`
 }
 
 type RedactionRevealMap struct {
@@ -415,25 +427,22 @@ type RedactionRevealMap struct {
 	SnapshotID string `json:"snapshot_id"`
 	CreatedAt  string `json:"created_at"`
 
-	SchemaID             string                    `json:"schema_id"`
-	Sensitivity          string                    `json:"sensitivity"`
-	TokenManifestSHA256  string                    `json:"token_manifest_sha256"`
-	SourceExportSHA256   string                    `json:"source_export_model_sha256"`
-	RedactedExportSHA256 string                    `json:"redacted_export_model_sha256"`
-	Entries              []RedactionRevealMapEntry `json:"entries"`
+	SchemaID            string                    `json:"schema_id"`
+	TokenManifestSHA256 string                    `json:"token_manifest_sha256"`
+	ProfileSHA256       string                    `json:"redaction_profile_sha256"`
+	Entries             []RedactionRevealMapEntry `json:"entries"`
 }
 
 type RedactionRevealMapEntry struct {
-	TokenID                 string   `json:"token_id"`
-	DisplayToken            string   `json:"display_token"`
-	StableSubjectRef        string   `json:"stable_subject_ref"`
-	SubjectKind             string   `json:"subject_kind"`
-	Path                    string   `json:"path"`
-	Action                  string   `json:"action"`
-	RuleID                  string   `json:"rule_id"`
-	OriginalValue           any      `json:"original_value"`
-	OriginalValueSHA256     string   `json:"original_value_sha256"`
-	DisclosurePartitionRefs []string `json:"disclosure_partition_refs,omitempty"`
+	TokenID                     string   `json:"token_id"`
+	DisplayToken                string   `json:"display_token"`
+	StableSubjectRef            string   `json:"stable_subject_ref"`
+	SubjectFamily               string   `json:"subject_family"`
+	SourceRecordID              *string  `json:"source_record_id"`
+	EntityMentionID             *string  `json:"entity_mention_id"`
+	CanonicalDisplayValue       string   `json:"canonical_display_value"`
+	CanonicalDisplayValueSHA256 string   `json:"canonical_display_value_sha256"`
+	RecipientPartitionRefs      []string `json:"recipient_partition_refs"`
 }
 
 type RedactionResult struct {
@@ -443,6 +452,7 @@ type RedactionResult struct {
 	TokenManifest       *RedactionTokenManifest
 	RevealMap           *RedactionRevealMap
 	ModelSHA256         string
+	ModelJSON           []byte
 	ManifestSHA256      string
 	ProfileViewSHA256   string
 	TokenManifestSHA256 string
@@ -451,28 +461,6 @@ type RedactionResult struct {
 	ProfileViewJSON     []byte
 	TokenManifestJSON   []byte
 	RevealMapJSON       []byte
-}
-
-type TemplateAsset struct {
-	Path   string `json:"path"`
-	SHA256 string `json:"sha256"`
-}
-
-type TemplateBinding struct {
-	Name string `json:"name"`
-	Path string `json:"path,omitempty"`
-}
-
-type TemplateContract struct {
-	TemplateID             string            `json:"template_id"`
-	TemplateVersion        string            `json:"template_version"`
-	DeckTitle              string            `json:"deck_title"`
-	SupportedOutputKinds   []string          `json:"supported_output_kinds"`
-	SupportedReleaseScopes []string          `json:"supported_release_scopes"`
-	AllowedBindings        []string          `json:"allowed_bindings"`
-	RenderBindings         []TemplateBinding `json:"render_bindings"`
-	RequiredFieldPaths     []string          `json:"required_field_paths"`
-	LocalAssets            []TemplateAsset   `json:"local_assets"`
 }
 
 type IncidentMetadataSnapshot struct {
@@ -486,7 +474,11 @@ type IncidentMetadataSnapshot struct {
 	Version      int64
 }
 
-func BuildSnapshotModel(incident IncidentMetadataSnapshot, snapshotID string, snapshotAt time.Time, watermark string, workbookFields []ExportField) (SnapshotModel, string, error) {
+func BuildSnapshotModel(incident IncidentMetadataSnapshot, snapshotID string, snapshotAt time.Time, watermark string, source SnapshotSource) (SnapshotModel, string, error) {
+	return buildSnapshotModel(context.Background(), incident, snapshotID, snapshotAt, watermark, source)
+}
+
+func buildSnapshotModel(ctx context.Context, incident IncidentMetadataSnapshot, snapshotID string, snapshotAt time.Time, watermark string, source SnapshotSource) (SnapshotModel, string, error) {
 	fields := []ExportField{
 		{
 			Path:         "/incident/title",
@@ -504,14 +496,14 @@ func BuildSnapshotModel(incident IncidentMetadataSnapshot, snapshotID string, sn
 			Value:        incident.Status,
 		},
 	}
-	fields = append(fields, workbookFields...)
+	fields = append(fields, source.Fields...)
 	if incident.Description != nil {
 		fields = append(fields, ExportField{
 			Path:                    "/incident/description",
 			ContentClass:            ContentClassSourceEvidence,
 			SourceFamily:            "incident_metadata",
 			Value:                   *incident.Description,
-			DisclosurePartitionRefs: []string{"public_summary"},
+			DisclosurePartitionRefs: []string{"public"},
 		})
 	}
 	if incident.Severity != nil {
@@ -538,16 +530,50 @@ func BuildSnapshotModel(incident IncidentMetadataSnapshot, snapshotID string, sn
 			Value:        *incident.CurrentPhase,
 		})
 	}
-	return buildStructuredSnapshotModel(incident.ID, snapshotID, snapshotAt, watermark, fields)
+	return buildStructuredSnapshotModelContext(ctx, incident.ID, snapshotID, snapshotAt, watermark, SnapshotSource{SourceFacts: source.SourceFacts, Fields: fields, Timeline: source.Timeline})
 }
 
-func buildStructuredSnapshotModel(incidentID string, snapshotID string, snapshotAt time.Time, watermark string, fields []ExportField) (SnapshotModel, string, error) {
+func buildStructuredSnapshotModel(incidentID string, snapshotID string, snapshotAt time.Time, watermark string, source SnapshotSource) (SnapshotModel, string, error) {
+	return buildStructuredSnapshotModelContext(context.Background(), incidentID, snapshotID, snapshotAt, watermark, source)
+}
+
+func buildStructuredSnapshotModelContext(ctx context.Context, incidentID string, snapshotID string, snapshotAt time.Time, watermark string, source SnapshotSource) (SnapshotModel, string, error) {
+	fields := cloneExportFields(source.Fields)
 	sort.Slice(fields, func(i, j int) bool {
 		return fields[i].Path < fields[j].Path
 	})
-	fields = cloneExportFields(fields)
+	supportTargets := map[string]supportTarget{}
+	sourceOwners := map[string]sourceOwner{}
+	for i, field := range fields {
+		if err := ctx.Err(); err != nil {
+			return SnapshotModel{}, "", err
+		}
+		if field.SourceFamily != "incident_metadata" && (field.SourceRecordID == "" || field.SourceRecordType == "") {
+			return SnapshotModel{}, "", newRenderValidationError("export_model_invalid", "dangling_source_ref")
+		}
+		if field.Path == "" {
+			return SnapshotModel{}, "", newRenderValidationError("export_model_invalid", "invalid_scalar_value")
+		}
+		if err := validateSourceContentClass(field.ContentClass); err != nil {
+			return SnapshotModel{}, "", err
+		}
+		if field.RawBlobSource || field.OpaqueBinary || field.GeneratedPresentation {
+			return SnapshotModel{}, "", newRenderValidationError("export_model_invalid", "invalid_scalar_value")
+		}
+		if i > 0 && fields[i-1].Path == field.Path {
+			return SnapshotModel{}, "", newRenderValidationError("export_model_invalid", "duplicate_export_model_path")
+		}
+		refs, targets, err := materializeSupportReferences(field.SupportRefs, incidentID, snapshotID)
+		if err != nil {
+			return SnapshotModel{}, "", err
+		}
+		fields[i].SupportRefs = refs
+		for id, target := range targets {
+			supportTargets[id] = target
+		}
+	}
 	section := ReportingSection{
-		SchemaID:                "cartulary.reporting_section.v1",
+		SchemaID:                ReportingSectionSchemaID,
 		SectionID:               "sec-0001",
 		SectionKind:             "appendix",
 		Title:                   "Snapshot export",
@@ -556,117 +582,110 @@ func buildStructuredSnapshotModel(incidentID string, snapshotID string, snapshot
 		SourceRefs:              []string{},
 		SupportRefs:             []string{},
 		DisclosurePartitionRefs: []string{},
-		ContentClassSummary: ReportingContentClassSummary{
-			CaseFact: len(fields),
-		},
 		SectionValidation: ReportingSectionValidation{
 			Result: "passed",
 		},
 	}
-	recordsByKey := map[string]ReportingRecordSummary{}
+	type sourceRecordKey struct{ family, id string }
+	recordsByKey := map[sourceRecordKey]reportingSourceGroup{}
 	relationships := []ReportingRelationshipSummary{}
 	timelineEvents := []ReportingTimelineEvent{}
-	subjectsByRef := map[string]TokenizableSubject{}
+	sortFacts := map[string]exportprovider.TimelineSortFact{}
+	for _, fact := range source.Timeline {
+		if err := ctx.Err(); err != nil {
+			return SnapshotModel{}, "", err
+		}
+		if fact.Validate() != nil {
+			return SnapshotModel{}, "", newRenderValidationError("export_model_invalid", "timeline_sort_key_missing")
+		}
+		if _, exists := sortFacts[fact.RecordID]; exists {
+			return SnapshotModel{}, "", newRenderValidationError("export_model_invalid", "duplicate_stable_id")
+		}
+		sortFacts[fact.RecordID] = fact.Clone()
+	}
 	supportIndexByID := map[string]ReportingSupportRef{}
+	projectedPaths := map[string]bool{}
+	sectionRefs := emptyContainerRefs()
 
 	for index, field := range fields {
-		sourceRefs := []string{field.Path}
-		supportRefs := cloneStrings(field.SupportRefs)
-		blockID := fmt.Sprintf("sec-0001.b%04d", index+1)
-		reportingField := ReportingField{
-			SchemaID:                "cartulary.reporting_field.v1",
-			FieldKey:                fieldKeyFromExportPath(field.Path),
-			DisplayLabel:            displayLabelFromExportPath(field.Path),
-			FieldOrdinal:            1,
-			SourceValueState:        sourceValueState(field.Value),
-			RedactedValueState:      "unchanged",
-			Value:                   field.Value,
-			RawValueSHA256:          nil,
-			SourceRefs:              sourceRefs,
-			SupportRefs:             supportRefs,
-			DisclosurePartitionRefs: cloneStrings(field.DisclosurePartitionRefs),
+		if err := ctx.Err(); err != nil {
+			return SnapshotModel{}, "", err
 		}
+		reportingFields, sourceRefs, err := projectReportingSourceFields(field)
+		if err != nil {
+			return SnapshotModel{}, "", err
+		}
+		for _, ref := range sourceRefs {
+			if projectedPaths[ref] {
+				return SnapshotModel{}, "", newRenderValidationError("export_model_invalid", "duplicate_export_model_path")
+			}
+			projectedPaths[ref] = true
+			owner := sourceOwner{field.SourceFamily, field.SourceRecordID}
+			if owner.family == "incident_metadata" {
+				owner.id = incidentID
+			}
+			sourceOwners[ref] = owner
+		}
+		supportRefs := reportingFields[0].SupportRefs
+		blockID := fmt.Sprintf("sec-0001.b%04d", index+1)
 		block := ReportingBlock{
-			SchemaID:                "cartulary.reporting_block.v1",
+			SchemaID:                ReportingBlockSchemaID,
 			BlockID:                 blockID,
 			BlockKind:               "paragraph",
 			BlockOrdinal:            index + 1,
 			ContentClass:            field.ContentClass,
-			Fields:                  []ReportingField{reportingField},
+			Fields:                  reportingFields,
 			Children:                []ReportingBlock{},
 			SourceRefs:              sourceRefs,
 			SupportRefs:             supportRefs,
-			DisclosurePartitionRefs: cloneStrings(field.DisclosurePartitionRefs),
-			ExcludedFieldKeys:       []string{},
+			DisclosurePartitionRefs: reportingFields[0].DisclosurePartitionRefs,
 		}
 		section.Blocks = append(section.Blocks, block)
-		section.SourceRefs = appendUniqueStrings(section.SourceRefs, sourceRefs...)
-		section.SupportRefs = appendUniqueStrings(section.SupportRefs, supportRefs...)
+		sectionRefs.include(sourceRefs, supportRefs, block.DisclosurePartitionRefs)
 
-		recordID, ok := exportRecordID(field.Path)
-		if ok {
-			refID := field.Path
+		recordID := field.SourceRecordID
+		if recordID != "" {
 			sourceRef := SourceRecordRef{
 				SchemaID:         "source_record_ref.v1",
 				SourceFamily:     field.SourceFamily,
 				SourceRecordID:   recordID,
 				SourceSnapshotID: snapshotID,
-				SourceRefID:      &refID,
 			}
-			recordKey := field.SourceFamily + ":" + recordID
+			recordKey := sourceRecordKey{field.SourceFamily, recordID}
 			record := recordsByKey[recordKey]
-			if record.SchemaID == "" {
-				displayName := displayNameFromValue(field.Value)
-				record = ReportingRecordSummary{
-					SchemaID:                "cartulary.reporting_record_summary.v1",
+			if record.RecordID != "" && record.RecordType != field.SourceRecordType {
+				return SnapshotModel{}, "", newRenderValidationError("export_model_invalid", "duplicate_stable_id")
+			}
+			if record.RecordID == "" {
+				record = reportingSourceGroup{
 					RecordID:                recordID,
-					RecordType:              field.SourceFamily,
+					RecordType:              field.SourceRecordType,
 					SourceRecordRef:         sourceRef,
-					DisplayName:             displayName,
-					DeletedState:            "active",
 					Fields:                  []ReportingField{},
 					SourceRefs:              []string{},
 					SupportRefs:             []string{},
-					DisclosurePartitionRefs: cloneStrings(field.DisclosurePartitionRefs),
+					DisclosurePartitionRefs: append([]string{}, reportingFields[0].DisclosurePartitionRefs...),
 				}
 			}
-			record.Fields = append(record.Fields, reportingField)
+			record.Fields = append(record.Fields, reportingFields...)
 			record.SourceRefs = appendUniqueStrings(record.SourceRefs, sourceRefs...)
 			record.SupportRefs = appendUniqueStrings(record.SupportRefs, supportRefs...)
+			record.DisclosurePartitionRefs = orderedDisclosurePartitions(append(record.DisclosurePartitionRefs, field.DisclosurePartitionRefs...))
 			recordsByKey[recordKey] = record
-			if field.SourceFamily == "timeline_event" {
-				timelineEvents = append(timelineEvents, ReportingTimelineEvent{
-					SchemaID:                "cartulary.reporting_timeline_event.v1",
-					TimelineEventID:         recordID,
-					SourceRecordRef:         sourceRef,
-					ActivitySortState:       "unresolved",
-					DisplayTimes:            map[string]any{"primary": nil},
-					Fields:                  []ReportingField{reportingField},
-					SourceRefs:              sourceRefs,
-					SupportRefs:             supportRefs,
-					DisclosurePartitionRefs: cloneStrings(field.DisclosurePartitionRefs),
-				})
-			}
-			if subjectKind := subjectKindForSourceFamily(field.SourceFamily); subjectKind != "" {
-				stableRef := subjectKind + ":" + recordID
-				subjectsByRef[stableRef] = TokenizableSubject{
-					SchemaID:                "cartulary.tokenizable_subject.v1",
-					StableSubjectRef:        stableRef,
-					SubjectKind:             subjectKind,
-					SourceRecordRef:         &sourceRef,
-					DisplayName:             displayNameFromValue(field.Value),
-					DisclosurePartitionRefs: cloneStrings(field.DisclosurePartitionRefs),
-				}
-			}
+
 		}
 		for _, supportRef := range supportRefs {
-			supportID := supportRefID(supportRef)
+			target, exists := supportTargets[supportRef]
+			if !exists {
+				return SnapshotModel{}, "", invalidSupportRef()
+			}
+			supportID := supportRef
 			if _, exists := supportIndexByID[supportID]; !exists {
 				supportIndexByID[supportID] = ReportingSupportRef{
 					SchemaID:                "cartulary.reporting_support_ref.v1",
 					SupportRefID:            supportID,
-					SupportKind:             supportKindFromRef(supportRef),
-					SupportTargetRef:        supportTargetFromRef(supportRef),
+					SupportKind:             target.kind,
+					SupportTargetRef:        target.ref,
 					SourceSnapshotID:        snapshotID,
 					SupportRole:             "corroborating",
 					CustodyState:            "not_applicable",
@@ -675,35 +694,72 @@ func buildStructuredSnapshotModel(incidentID string, snapshotID string, snapshot
 			}
 		}
 		if field.SourceFamily == "record_link" {
-			relationships = append(relationships, relationshipSummaryFromField(field, snapshotID, reportingField))
+			relationships = append(relationships, relationshipSummaryFromField(field, snapshotID, ReportingField{SourceRefs: sourceRefs, SupportRefs: supportRefs}))
 		}
 	}
-	records := make([]ReportingRecordSummary, 0, len(recordsByKey))
-	for _, record := range recordsByKey {
-		sort.Slice(record.Fields, func(i, j int) bool {
-			return record.Fields[i].FieldKey < record.Fields[j].FieldKey
-		})
-		for i := range record.Fields {
-			record.Fields[i].FieldOrdinal = i + 1
-		}
-		records = append(records, record)
+	var summaryErr error
+	sectionRefs = sectionRefs.normalized()
+	section.SourceRefs, section.SupportRefs, section.DisclosurePartitionRefs = sectionRefs.source, sectionRefs.support, sectionRefs.partitions
+	section.ContentClassSummary, summaryErr = summarizeReportingBlocks(section.Blocks)
+	if summaryErr != nil {
+		return SnapshotModel{}, "", summaryErr
 	}
-	sort.Slice(records, func(i, j int) bool {
-		if records[i].RecordType == records[j].RecordType {
-			return records[i].RecordID < records[j].RecordID
+	groups := make([]reportingSourceGroup, 0, len(recordsByKey))
+	subjects := make([]TokenizableSubject, 0, len(recordsByKey))
+	for key, record := range recordsByKey {
+		if err := ctx.Err(); err != nil {
+			return SnapshotModel{}, "", err
 		}
-		return records[i].RecordType < records[j].RecordType
-	})
+		if err := record.normalize(); err != nil {
+			return SnapshotModel{}, "", err
+		}
+		groups = append(groups, record)
+		kind, err := snapshotRecordSubjectKind(record)
+		if err != nil {
+			return SnapshotModel{}, "", err
+		}
+		if kind != "" {
+			// Derive once from the complete source record. A later field must
+			// neither replace its binding nor discard earlier disclosure labels.
+			subject, err := materializeReportingSubject(record, kind)
+			if err != nil {
+				return SnapshotModel{}, "", err
+			}
+			subjects = append(subjects, subject)
+		}
+		if key.family == "timeline_event" && record.RecordType == "timeline_event" {
+			fact, exists := sortFacts[record.RecordID]
+			if !exists {
+				return SnapshotModel{}, "", newRenderValidationError("export_model_invalid", "timeline_sort_key_missing")
+			}
+			delete(sortFacts, record.RecordID)
+			timelineEvents = append(timelineEvents, ReportingTimelineEvent{
+				SchemaID: "cartulary.reporting_timeline_event.v1",
+				RecordID: fact.RecordID, ActivitySortKey: timelineSortKey(fact),
+				ActivitySortTS: fact.ActivitySortTS, ActivityParseState: fact.ActivityParseState,
+				ActivityPrecisionRank: fact.ActivityPrecisionRank, DateEnteredSortKey: fact.DateEnteredSortKey,
+				RecordCreatedAt:         fact.RecordCreatedAt,
+				DisplayTimes:            ReportingDisplayTimes{},
+				Fields:                  append([]ReportingField(nil), record.Fields...),
+				SourceRefs:              append([]string{}, record.SourceRefs...),
+				SupportRefs:             append([]string{}, record.SupportRefs...),
+				DisclosurePartitionRefs: append([]string{}, record.DisclosurePartitionRefs...),
+			})
+		}
+	}
+	if len(sortFacts) != 0 {
+		return SnapshotModel{}, "", newRenderValidationError("export_model_invalid", "dangling_source_ref")
+	}
+	records, err := coreRecordSummaries(groups)
+	if err != nil {
+		return SnapshotModel{}, "", err
+	}
 	sort.Slice(relationships, func(i, j int) bool {
 		return relationships[i].RelationshipID < relationships[j].RelationshipID
 	})
 	sort.Slice(timelineEvents, func(i, j int) bool {
-		return timelineEvents[i].TimelineEventID < timelineEvents[j].TimelineEventID
+		return compareTimelineEvents(timelineEvents[i], timelineEvents[j], false, false) < 0
 	})
-	subjects := make([]TokenizableSubject, 0, len(subjectsByRef))
-	for _, subject := range subjectsByRef {
-		subjects = append(subjects, subject)
-	}
 	sort.Slice(subjects, func(i, j int) bool {
 		return subjects[i].StableSubjectRef < subjects[j].StableSubjectRef
 	})
@@ -720,6 +776,7 @@ func buildStructuredSnapshotModel(incidentID string, snapshotID string, snapshot
 	}
 	createdAt := snapshotAt.UTC()
 	model := SnapshotModel{
+		SourceFacts:     source.SourceFacts.Clone(),
 		SchemaID:        SnapshotModelSchemaID,
 		SnapshotModelID: snapshotIdentity,
 		SnapshotContent: SnapshotContent{
@@ -746,7 +803,16 @@ func buildStructuredSnapshotModel(incidentID string, snapshotID string, snapshot
 				Result:   "passed",
 				Issues:   []ReportingValidationIssue{},
 			},
-			Fields: fields},
+		},
+	}
+	if err := materializeSnapshotSourceIndex(&model.SnapshotContent, sourceOwners, groups); err != nil {
+		return SnapshotModel{}, "", err
+	}
+	if err := snapshotLifecycleFields(&model.SnapshotContent, true); err != nil {
+		return SnapshotModel{}, "", err
+	}
+	if err := ctx.Err(); err != nil {
+		return SnapshotModel{}, "", err
 	}
 	if err := validateSnapshotModelIdentity(model); err != nil {
 		return SnapshotModel{}, "", err
@@ -758,57 +824,97 @@ func buildStructuredSnapshotModel(incidentID string, snapshotID string, snapshot
 	return model, reportingObjectDigest(model.SchemaID, encoded), nil
 }
 
-func (model SnapshotContent) CompatibilityFields() []ExportField {
-	return model.RedactionFields()
-}
-
-func (model SnapshotContent) RedactionFields() []ExportField {
+func (model SnapshotContent) RedactionFields() ([]ExportField, error) {
+	if err := validateSnapshotContent(model); err != nil {
+		return nil, err
+	}
 	fields := []ExportField{}
 	for _, section := range model.Sections {
-		fields = append(fields, redactionFieldsFromBlocks(section.Blocks)...)
+		part, err := redactionFieldsFromBlocks(section.Blocks)
+		if err != nil {
+			return nil, err
+		}
+		fields = append(fields, part...)
 	}
-	if len(fields) > 0 {
-		sort.Slice(fields, func(i, j int) bool {
-			return fields[i].Path < fields[j].Path
-		})
-		return fields
+	groups, err := snapshotSourceGroups(model)
+	if err != nil {
+		return nil, err
 	}
-	if len(model.Fields) > 0 {
-		return cloneExportFields(model.Fields)
+	byPath := map[string]reportingSourceGroup{}
+	for _, record := range groups {
+		if record.SourceRecordRef.SourceSnapshotID != model.SnapshotID {
+			return nil, newRenderValidationError("export_model_invalid", "snapshot_ref_mismatch")
+		}
+		for _, path := range record.SourceRefs {
+			if _, exists := byPath[path]; exists {
+				return nil, newRenderValidationError("export_model_invalid", "duplicate_export_model_path")
+			}
+			byPath[path] = record
+		}
+	}
+	index := snapshotSourceIndex(model)
+	for i := range fields {
+		record, exists := byPath[fields[i].Path]
+		if !exists {
+			ref, found := index[fields[i].Path]
+			if !found || ref.SourceFamily != "incident_metadata" || ref.SourceRecordID != model.IncidentID {
+				return nil, newRenderValidationError("export_model_invalid", "dangling_source_ref")
+			}
+			fields[i].SourceFamily = "incident_metadata"
+			continue
+		}
+		fields[i].SourceFamily = record.SourceRecordRef.SourceFamily
+		fields[i].SourceRecordID = record.SourceRecordRef.SourceRecordID
+		fields[i].SourceRecordType = record.RecordType
+	}
+	sort.Slice(fields, func(i, j int) bool { return fields[i].Path < fields[j].Path })
+	return fields, nil
+}
+
+func redactionFieldsFromBlocks(blocks []ReportingBlock) ([]ExportField, error) {
+	fields := []ExportField{}
+	for _, block := range blocks {
+		if err := validateSourceContentClass(block.ContentClass); err != nil {
+			return nil, err
+		}
+		for _, field := range block.Fields {
+			if _, valid := admitReportingFieldValue(field.Value, block.BlockKind == "paragraph"); !valid {
+				return nil, newRenderValidationError("export_model_invalid", "invalid_scalar_value")
+			}
+			if len(field.SourceRefs) == 0 || field.SourceRefs[0] == "" {
+				return nil, newRenderValidationError("export_model_invalid", "dangling_source_ref")
+			}
+			fields = append(fields, ExportField{
+				Path: field.SourceRefs[0], ContentClass: block.ContentClass,
+				Value: field.Value, DisclosurePartitionRefs: append([]string{}, field.DisclosurePartitionRefs...), SupportRefs: cloneStrings(field.SupportRefs),
+			})
+		}
+		children, err := redactionFieldsFromBlocks(block.Children)
+		if err != nil {
+			return nil, err
+		}
+		fields = append(fields, children...)
+	}
+	return fields, nil
+}
+
+func validateSourceContentClass(class string) error {
+	if class == "" {
+		return newRenderValidationError("content_class_missing", "content_class_missing")
+	}
+	if !validContentClass(class) {
+		return newRenderValidationError("export_model_invalid", "invalid_scalar_value")
 	}
 	return nil
 }
 
-func redactionFieldsFromBlocks(blocks []ReportingBlock) []ExportField {
-	fields := []ExportField{}
-	for _, block := range blocks {
-		for _, field := range block.Fields {
-			path := ""
-			if len(field.SourceRefs) > 0 {
-				path = field.SourceRefs[0]
-			}
-			if path == "" {
-				path = "/" + field.FieldKey
-			}
-			fields = append(fields, ExportField{
-				Path:                    path,
-				ContentClass:            contentClassForRedactionBlock(block, path),
-				SourceFamily:            sourceFamilyForPath(path),
-				Value:                   field.Value,
-				DisclosurePartitionRefs: cloneStrings(field.DisclosurePartitionRefs),
-				SupportRefs:             cloneStrings(field.SupportRefs),
-			})
-		}
-		fields = append(fields, redactionFieldsFromBlocks(block.Children)...)
+func validContentClass(class string) bool {
+	switch class {
+	case ContentClassCuratedNarrative, ContentClassDerivedAnalytic, ContentClassSourceEvidence, ContentClassWorkingMaterial:
+		return true
+	default:
+		return false
 	}
-	return fields
-}
-
-func contentClassForRedactionBlock(block ReportingBlock, path string) string {
-	if strings.TrimSpace(block.ContentClass) != "" {
-		return block.ContentClass
-	}
-	return legacyContentClassForPath(path)
 }
 
 func cloneExportFields(fields []ExportField) []ExportField {
@@ -818,7 +924,7 @@ func cloneExportFields(fields []ExportField) []ExportField {
 	out := make([]ExportField, len(fields))
 	for i, field := range fields {
 		out[i] = field
-		out[i].DisclosurePartitionRefs = cloneStrings(field.DisclosurePartitionRefs)
+		out[i].DisclosurePartitionRefs = orderedDisclosurePartitions(field.DisclosurePartitionRefs)
 		out[i].SupportRefs = cloneStrings(field.SupportRefs)
 	}
 	return out
@@ -843,29 +949,6 @@ func appendUniqueStrings(values []string, additions ...string) []string {
 	return values
 }
 
-func fieldKeyFromExportPath(path string) string {
-	key := strings.Trim(path, "/")
-	key = strings.ReplaceAll(key, "/", ".")
-	key = strings.ReplaceAll(key, ":", "_")
-	key = strings.ReplaceAll(key, "-", "_")
-	if key == "" {
-		return "value"
-	}
-	return key
-}
-
-func displayLabelFromExportPath(path string) *string {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) == 0 || parts[len(parts)-1] == "" {
-		return nil
-	}
-	label := strings.ReplaceAll(parts[0], "_", " ")
-	if len(parts) > 1 {
-		label = strings.ReplaceAll(parts[0], "_", " ") + " " + parts[len(parts)-1]
-	}
-	return &label
-}
-
 func sourceValueState(value any) string {
 	if value == nil {
 		return "null"
@@ -873,85 +956,26 @@ func sourceValueState(value any) string {
 	return "present"
 }
 
-func exportRecordID(path string) (string, bool) {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) != 2 {
-		return "", false
-	}
-	if parts[0] == "incident" {
-		return "", false
-	}
-	return parts[1], true
-}
-
-func displayNameFromValue(value any) *string {
-	object, ok := value.(map[string]any)
-	if !ok {
-		return nil
-	}
-	for _, key := range []string{"display_name", "title", "summary", "activity_synopsis_text", "statement"} {
-		if text, ok := object[key].(string); ok && strings.TrimSpace(text) != "" {
-			return &text
+// Subject family is resolved from the complete assembled source record. A
+// provider may contribute disjoint field sets without repeating identity facts.
+func snapshotRecordSubjectKind(record reportingSourceGroup) (string, error) {
+	switch record.SourceRecordRef.SourceFamily {
+	case "host", "identity", "party":
+		return record.SourceRecordRef.SourceFamily, nil
+	case "entity_mention":
+		binding, err := reportingMentionSource(record)
+		if err != nil {
+			return "", err
+		}
+		if binding.ResolvedRecordID == nil {
+			return binding.Family, nil
 		}
 	}
-	return nil
-}
-
-func subjectKindForSourceFamily(sourceFamily string) string {
-	switch sourceFamily {
-	case "host":
-		return "host"
-	case "identity":
-		return "identity"
-	case "party":
-		return "party"
-	case "entity_mention":
-		return "unresolved_mention"
-	default:
-		return ""
-	}
-}
-
-func supportRefID(ref string) string {
-	return "sup_" + hashHex([]byte(ref))[:24]
-}
-
-func supportKindFromRef(ref string) string {
-	switch {
-	case strings.HasPrefix(ref, "/record_envelopes/"):
-		return "source_record"
-	case strings.HasPrefix(ref, "/evidence/"):
-		return "evidence_item"
-	case strings.HasPrefix(ref, "/timeline/"):
-		return "timeline_event"
-	case strings.HasPrefix(ref, "/relationships/"):
-		return "relationship"
-	default:
-		return "source_record"
-	}
-}
-
-func supportTargetFromRef(ref string) string {
-	parts := strings.Split(strings.Trim(ref, "/"), "/")
-	if len(parts) != 2 {
-		return "record:unknown:" + hashHex([]byte(ref))[:16]
-	}
-	switch parts[0] {
-	case "record_envelopes":
-		return "record:record_envelope:" + parts[1]
-	case "evidence":
-		return "evidence:" + parts[1]
-	case "timeline":
-		return "timeline:" + parts[1]
-	case "relationships":
-		return "relationship:" + parts[1]
-	default:
-		return "record:" + sourceFamilyForPath(ref) + ":" + parts[1]
-	}
+	return "", nil
 }
 
 func relationshipSummaryFromField(field ExportField, snapshotID string, reportingField ReportingField) ReportingRelationshipSummary {
-	relationshipID, _ := exportRecordID(field.Path)
+	relationshipID := field.SourceRecordID
 	value, _ := field.Value.(map[string]any)
 	srcID, _ := value["src_record_id"].(string)
 	dstID, _ := value["dst_record_id"].(string)
@@ -959,8 +983,6 @@ func relationshipSummaryFromField(field ExportField, snapshotID string, reportin
 	if kind == "" {
 		kind = "record_link"
 	}
-	srcRefID := "/record_envelopes/" + srcID
-	dstRefID := "/record_envelopes/" + dstID
 	return ReportingRelationshipSummary{
 		SchemaID:         "cartulary.reporting_relationship_summary.v1",
 		RelationshipID:   relationshipID,
@@ -973,7 +995,6 @@ func relationshipSummaryFromField(field ExportField, snapshotID string, reportin
 				SourceFamily:     "record_envelope",
 				SourceRecordID:   srcID,
 				SourceSnapshotID: snapshotID,
-				SourceRefID:      &srcRefID,
 			},
 		},
 		DstRecordRef: RelationshipEndpointRef{
@@ -984,13 +1005,12 @@ func relationshipSummaryFromField(field ExportField, snapshotID string, reportin
 				SourceFamily:     "record_envelope",
 				SourceRecordID:   dstID,
 				SourceSnapshotID: snapshotID,
-				SourceRefID:      &dstRefID,
 			},
 		},
 		Direction:               "directed",
 		SourceRefs:              cloneStrings(reportingField.SourceRefs),
-		SupportRefs:             cloneStrings(reportingField.SupportRefs),
-		DisclosurePartitionRefs: cloneStrings(field.DisclosurePartitionRefs),
+		SupportRefs:             append([]string{}, reportingField.SupportRefs...),
+		DisclosurePartitionRefs: orderedDisclosurePartitions(field.DisclosurePartitionRefs),
 	}
 }
 
@@ -1037,49 +1057,113 @@ func sourceFamilyForPath(path string) string {
 	case "entity_mentions":
 		return "entity_mention"
 	default:
-		return parts[0]
+		return ""
 	}
 }
 
-func legacyContentClassForPath(path string) string {
-	switch sourceFamilyForPath(path) {
-	case "incident_metadata":
-		if strings.HasPrefix(path, "/incident/description") {
-			return ContentClassSourceEvidence
-		}
-		if strings.HasPrefix(path, "/incident/title") {
-			return ContentClassCuratedNarrative
-		}
-		return ContentClassDerivedAnalytic
-	case "record_envelope", "host", "identity", "record_link", "record_tag":
-		return ContentClassDerivedAnalytic
-	case "timeline_event", "party", "evidence", "entity_mention":
-		return ContentClassSourceEvidence
-	case "finding_hypothesis":
-		return ContentClassCuratedNarrative
+// ResolveRedactionProfile materializes the exact profile against the retained
+// snapshot. Subject rules are explicit paths, never implicit mask behavior.
+func ResolveRedactionProfile(id string, version string, recipientPartitionRefs []string, snapshot SnapshotContent) (RedactionProfile, string, error) {
+	profile, err := selectedRedactionProfile(id, version, recipientPartitionRefs)
+	if err != nil {
+		return RedactionProfile{}, "", err
+	}
+	return materializeRedactionProfile(profile, snapshot)
+}
+
+func selectedRedactionProfile(id, version string, recipientPartitionRefs []string) (RedactionProfile, error) {
+	if version != DefaultRedactionProfileVersion {
+		return RedactionProfile{}, ErrInvalidRedactionProfile
+	}
+	switch id {
+	case InternalRedactionProfileID:
+		return internalRedactionProfile(), nil
+	case ExternalRedactionProfileID:
+		return externalRedactionProfile(recipientPartitionRefs), nil
+	case TokenizedRedactionProfileID:
+		return tokenizedReviewRedactionProfile(), nil
 	default:
-		return ContentClassWorkingMaterial
+		return RedactionProfile{}, ErrInvalidRedactionProfile
 	}
 }
 
-type RedactionProfileRegistry struct{}
-
-func DefaultRedactionProfileRegistry() RedactionProfileRegistry {
-	return RedactionProfileRegistry{}
-}
-
-func (RedactionProfileRegistry) Resolve(incidentID string, id string, version string, recipientPartitionRefs []string) (RedactionProfile, string, error) {
-	_ = incidentID
-	var profile RedactionProfile
-	switch {
-	case id == InternalRedactionProfileID && version == "1":
-		profile = internalRedactionProfile()
-	case id == ExternalRedactionProfileID && version == "1":
-		profile = externalRedactionProfile(recipientPartitionRefs)
-	case id == TokenizedRedactionProfileID && version == "1":
-		profile = tokenizedReviewRedactionProfile()
-	default:
-		return RedactionProfile{}, "", ErrInvalidRedactionProfile
+// Materialize only the retained authored policy. A queued attempt never resolves
+// a selector against a newer registry or substitutes a current policy document.
+func materializeRedactionProfile(profile RedactionProfile, snapshot SnapshotContent) (RedactionProfile, string, error) {
+	id := profile.ProfileID
+	if id == TokenizedRedactionProfileID {
+		modelPaths, err := redactionFieldModelPaths(snapshot)
+		if err != nil {
+			return RedactionProfile{}, "", err
+		}
+		subjectIndex, err := redactionSubjectIndex(snapshot)
+		if err != nil {
+			return RedactionProfile{}, "", err
+		}
+		fields, err := snapshot.RedactionFields()
+		if err != nil {
+			return RedactionProfile{}, "", err
+		}
+		for _, field := range fields {
+			subjects := subjectIndex[field.Path]
+			if len(subjects) == 0 || field.Value == nil {
+				continue
+			}
+			if len(subjects) != 1 {
+				return RedactionProfile{}, "", newRenderValidationError("token_manifest_invalid", "token_subject_not_unique")
+			}
+			path := modelPaths[field.Path]
+			if path == "" {
+				return RedactionProfile{}, "", newRenderValidationError("export_model_invalid", "dangling_source_ref")
+			}
+			profile.Rules = append(profile.Rules, RedactionRule{
+				RuleID: "tokenized-review-subject-" + hashHex([]byte(path)), Path: &path,
+				Action: RedactionActionSpec{Type: ActionMask, TokenBacked: true},
+			})
+		}
+	}
+	if id == ExternalRedactionProfileID || id == TokenizedRedactionProfileID {
+		fields, err := snapshot.RedactionFields()
+		if err != nil {
+			return RedactionProfile{}, "", err
+		}
+		paths, err := redactionFieldModelPaths(snapshot)
+		if err != nil {
+			return RedactionProfile{}, "", err
+		}
+		sources := reportingFieldSources(snapshot)
+		for _, field := range fields {
+			// Null is an explicit source value, not text to mask or truncate.
+			// Working material retains the external profile's drop decision.
+			if sources[field.Path].Field.SourceValueState != "null" || id == ExternalRedactionProfileID && field.ContentClass == ContentClassWorkingMaterial {
+				continue
+			}
+			path := paths[field.Path]
+			profile.Rules = append(profile.Rules, RedactionRule{
+				RuleID: "null-value-allow-" + hashHex([]byte(path)), Path: &path,
+				Action: RedactionActionSpec{Type: ActionAllow},
+			})
+		}
+	}
+	if id == InternalRedactionProfileID || id == TokenizedRedactionProfileID {
+		allowed, err := effectiveDisclosurePartitions(snapshot, ReleaseScopeInternalReview, nil)
+		if err != nil {
+			return RedactionProfile{}, "", err
+		}
+		profile.AllowedDisclosurePartitionRefs = allowed
+	}
+	containers, err := redactionTreeCandidates(snapshot)
+	if err != nil {
+		return RedactionProfile{}, "", err
+	}
+	// Built-ins transform values, retaining their typed envelopes. Freeze that
+	// policy as exact rules; class masking must not implicitly rewrite a block.
+	for _, candidate := range containers {
+		if candidate.kind == "field" {
+			continue
+		}
+		path := candidate.path
+		profile.Rules = append(profile.Rules, RedactionRule{RuleID: "container-allow-" + hashHex([]byte(path)), Path: &path, Action: RedactionActionSpec{Type: ActionAllow}})
 	}
 	digest, err := ValidateRedactionProfile(profile)
 	if err != nil {
@@ -1088,13 +1172,12 @@ func (RedactionProfileRegistry) Resolve(incidentID string, id string, version st
 	return profile, digest, nil
 }
 
-func ResolveRedactionProfile(id string, version string, recipientPartitionRefs []string) (RedactionProfile, string, error) {
-	return DefaultRedactionProfileRegistry().Resolve("", id, version, recipientPartitionRefs)
-}
-
 func ValidateRedactionProfile(profile RedactionProfile) (string, error) {
-	if profile.SchemaID != RedactionProfileSchemaID || strings.TrimSpace(profile.ProfileID) == "" || strings.TrimSpace(profile.Version) == "" {
+	if profile.SchemaID != RedactionProfileSchemaID || !validReportingIdentifier(profile.ProfileID) || !validReportingIdentifier(profile.Version) {
 		return "", fmt.Errorf("%w: missing identity", ErrInvalidRedactionProfile)
+	}
+	if err := validateProfilePolicy(profile.ProfileStatus, profile.AllowedReleaseScopes); err != nil {
+		return "", err
 	}
 	if err := validateAction(profile.DefaultAction); err != nil {
 		return "", err
@@ -1102,27 +1185,35 @@ func ValidateRedactionProfile(profile RedactionProfile) (string, error) {
 	if err := validateDisclosurePartitionSet(profile.AllowedDisclosurePartitionRefs); err != nil {
 		return "", err
 	}
+	ruleIDs := map[string]bool{"profile_default": true}
 	paths := map[string]string{}
 	classes := map[string]string{}
 	for _, rule := range profile.Rules {
-		if strings.TrimSpace(rule.RuleID) == "" {
-			return "", fmt.Errorf("%w: missing rule id", ErrInvalidRedactionProfile)
+		if !validReportingIdentifier(rule.RuleID) || ruleIDs[rule.RuleID] {
+			return "", fmt.Errorf("%w: missing or duplicate rule id", ErrInvalidRedactionProfile)
 		}
+		ruleIDs[rule.RuleID] = true
 		if err := validateAction(rule.Action); err != nil {
 			return "", err
 		}
-		hasPath := rule.Path != nil && strings.TrimSpace(*rule.Path) != ""
-		hasClass := rule.ContentClass != nil && strings.TrimSpace(*rule.ContentClass) != ""
+		hasPath := rule.Path != nil
+		hasClass := rule.ContentClass != nil
 		if hasPath == hasClass {
 			return "", fmt.Errorf("%w: rule %s must select exactly one target", ErrInvalidRedactionProfile, rule.RuleID)
 		}
 		if hasPath {
+			if !validExactExportModelPath(*rule.Path) {
+				return "", profilePolicyError()
+			}
 			if previous, ok := paths[*rule.Path]; ok {
 				return "", fmt.Errorf("%w: duplicate path rule %s conflicts with %s", ErrInvalidRedactionProfile, rule.RuleID, previous)
 			}
 			paths[*rule.Path] = rule.RuleID
 		}
 		if hasClass {
+			if !validReportingContentClass(*rule.ContentClass) {
+				return "", fmt.Errorf("%w: invalid content class selector", ErrInvalidRedactionProfile)
+			}
 			if previous, ok := classes[*rule.ContentClass]; ok {
 				return "", fmt.Errorf("%w: duplicate class rule %s conflicts with %s", ErrInvalidRedactionProfile, rule.RuleID, previous)
 			}
@@ -1136,191 +1227,260 @@ func ValidateRedactionProfile(profile RedactionProfile) (string, error) {
 	return reportingObjectDigest(profile.SchemaID, encoded), nil
 }
 
-func BuildRedactionProfileView(profile RedactionProfile, profileSHA256 string) (RedactionProfileView, []byte, string, error) {
-	rules := make([]RedactionRuleView, 0, len(profile.Rules))
-	for _, rule := range profile.Rules {
-		view := RedactionRuleView{
-			RuleID: rule.RuleID,
-			Action: redactionActionView(rule.Action),
-		}
-		switch {
-		case rule.Path != nil:
-			view.SelectorKind = "path"
-			view.SelectorValue = *rule.Path
-		case rule.ContentClass != nil:
-			view.SelectorKind = "content_class"
-			view.SelectorValue = *rule.ContentClass
-		}
-		rules = append(rules, view)
-	}
-	sort.Slice(rules, func(i, j int) bool {
-		if rules[i].SelectorKind == rules[j].SelectorKind {
-			if rules[i].SelectorValue == rules[j].SelectorValue {
-				return rules[i].RuleID < rules[j].RuleID
-			}
-			return rules[i].SelectorValue < rules[j].SelectorValue
-		}
-		return rules[i].SelectorKind < rules[j].SelectorKind
-	})
-	view := RedactionProfileView{
-		SchemaID:                       RedactionProfileViewSchemaID,
-		ProfileID:                      profile.ProfileID,
-		ProfileVersion:                 profile.Version,
-		ProfileSHA256:                  profileSHA256,
-		AllowedDisclosurePartitionRefs: cloneStrings(profile.AllowedDisclosurePartitionRefs),
-		AllowAuthoredPresentationText:  profile.AllowAuthoredPresentationText,
-		DefaultAction:                  redactionActionView(profile.DefaultAction),
-		Rules:                          rules,
-	}
-	encoded, err := canonicalJSON(view)
-	if err != nil {
-		return RedactionProfileView{}, nil, "", err
-	}
-	return view, encoded, reportingObjectDigest(view.SchemaID, encoded), nil
+func RedactExportModel(model ExportModel, facts exportprovider.SourceFacts, profile RedactionProfile, profileSHA256 string, sourceExportSHA256 string, releaseScope string, recipientPartitionRefs []string) (RedactionResult, error) {
+	return redactExportModel(context.Background(), model, facts, profile, profileSHA256, sourceExportSHA256, releaseScope, recipientPartitionRefs, renderSelectionInput{})
 }
 
-func redactionActionView(action RedactionActionSpec) RedactionActionView {
-	return RedactionActionView{
-		Type:     action.Type,
-		MaxChars: action.MaxChars,
+func redactExportModel(ctx context.Context, model ExportModel, facts exportprovider.SourceFacts, profile RedactionProfile, profileSHA256 string, sourceExportSHA256 string, releaseScope string, recipientPartitionRefs []string, composition renderSelectionInput) (RedactionResult, error) {
+	if err := ctx.Err(); err != nil {
+		return RedactionResult{}, err
 	}
-}
-
-func RedactExportModel(model ExportModel, profile RedactionProfile, profileSHA256 string, sourceExportSHA256 string, releaseScope string, recipientPartitionRefs []string) (RedactionResult, error) {
+	if digest, err := ValidateRedactionProfile(profile); err != nil || digest != profileSHA256 {
+		return RedactionResult{}, fmt.Errorf("%w: profile digest mismatch", ErrInvalidRedactionProfile)
+	}
 	profileView, profileViewJSON, profileViewSHA, err := BuildRedactionProfileView(profile, profileSHA256)
 	if err != nil {
 		return RedactionResult{}, err
 	}
-	pathRules := map[string]RedactionRule{}
-	classRules := map[string]RedactionRule{}
-	for _, rule := range profile.Rules {
-		if rule.Path != nil {
-			pathRules[*rule.Path] = rule
-			continue
-		}
-		if rule.ContentClass != nil {
-			classRules[*rule.ContentClass] = rule
-		}
+	fields, err := model.RedactionFields()
+	if err != nil {
+		return RedactionResult{}, err
 	}
-	fields := model.RedactionFields()
+	fields, err = assignSubjectFieldPartitions(ctx, model.SnapshotContent, facts, fields, releaseScope)
+	if err != nil {
+		return RedactionResult{}, err
+	}
 	sort.Slice(fields, func(i, j int) bool {
 		return fields[i].Path < fields[j].Path
 	})
+	modelPaths, err := redactionFieldModelPaths(model.SnapshotContent)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	if err := validateDeletedRecordBindings(facts, composition); err != nil {
+		return RedactionResult{}, err
+	}
+	if err := validateNarrativeSourceBindings(composition.template, model.SnapshotContent); err != nil {
+		return RedactionResult{}, err
+	}
+	restrictions := map[string]lifecycleRestriction{}
+	for _, field := range fields {
+		restrictions[field.Path] = field.lifecycle
+	}
+	bindings, err := templateFieldBindings(model.SnapshotContent, modelPaths)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	fields, err = selectReachableSourceFields(ctx, model, facts, fields, bindings, profile, releaseScope, recipientPartitionRefs, composition)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	eligibleSource := eligibleSourceTree(model.SnapshotContent, fields)
+	fields, containers, err := selectContainerRedactions(ctx, eligibleSource, fields, profileView)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	effective, err := effectiveDisclosurePartitions(model.SnapshotContent, releaseScope, recipientPartitionRefs)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	selected, err := selectRedactionFields(fields, modelPaths, profileView, releaseScope, effective)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	sourceFields := reportingFieldSources(model.SnapshotContent)
+	authoredFields, authored, err := prepareCompositionTextFields(composition, model, selected, sourceFields, modelPaths)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	for path, source := range composition.graphs.sources {
+		if _, exists := modelPaths[path]; exists {
+			return RedactionResult{}, newRenderValidationError("export_model_invalid", "duplicate_export_model_path")
+		}
+		modelPaths[path], sourceFields[path] = path, source
+	}
+	assets, assetSelected, err := selectTemplateAssets(composition.template, modelPaths, profileView, releaseScope, effective)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	if err := validateRedactionPathBindings(modelPaths, profileView, model.SnapshotContent); err != nil {
+		return RedactionResult{}, err
+	}
+	authoredSelected, err := selectRedactionFields(authoredFields, modelPaths, profileView, releaseScope, effective)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	selected = append(selected, authoredSelected...)
+	graphSelected, err := selectRedactionFields(composition.graphs.fields, modelPaths, profileView, releaseScope, effective)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	selected = append(selected, graphSelected...)
+	selected = append(selected, assetSelected...)
+	subjectBindings := map[string][]TokenizableSubject{}
+	for path, text := range authored {
+		subjectBindings[path] = text.subjects
+	}
+	tokens, err := assignDisplayTokens(model, selected, profile.NeutralTokenFamily, subjectBindings)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	if err := resolveCompositionTextValues(composition, model, selected, tokens, sourceFields, authored); err != nil {
+		return RedactionResult{}, err
+	}
+	identity, err := retainedExportIdentity(model)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	identity.ReleaseScope = releaseScope
+	identity.RecipientPartitionRefs = orderedDisclosurePartitions(recipientPartitionRefs)
 	redacted := RedactedExportModel{
-		ExportModelSHA256: sourceExportSHA256,
-		RenderIdentity:    model.RenderIdentity, SnapshotID: model.SnapshotID, ExportModelID: model.ExportModelID,
-		SchemaID:                     "cartulary.redacted_export_model.v2",
-		ReferencePacks:               model.ReferencePacks,
-		IncidentID:                   model.IncidentID,
-		SnapshotAt:                   model.SnapshotAt.UTC(),
-		SourceChangeSetHighWatermark: model.SourceChangeSetHighWatermark,
-		DerivationVersion:            model.DerivationVersion,
-		Fields:                       []RedactedField{},
+		ExportModel: identity, admittedPresentationTexts: map[string]string{},
+		admittedFieldPaths: modelPaths, lifecycleRestrictions: restrictions,
+		admittedExportModelSHA256: sourceExportSHA256,
+		Fields:                    []RedactedField{},
+	}
+	redacted.admittedPartyIDs = make([]string, 0, len(facts.Parties))
+	for _, party := range facts.Parties {
+		redacted.admittedPartyIDs = append(redacted.admittedPartyIDs, party.PartyID)
+	}
+	redacted.subjectDisplayTokens = map[string]string{}
+	for _, token := range tokens {
+		redacted.subjectDisplayTokens[token.StableSubjectRef] = token.DisplayToken
 	}
 	entries := make([]RedactionManifestEntry, 0, len(fields))
-	tokenEntriesByID := map[string]*RedactionTokenManifestEntry{}
-	revealEntries := []RedactionRevealMapEntry{}
-	for _, field := range fields {
-		ruleID, action, selectedTrace := selectRedactionRule(field, profile.DefaultAction, pathRules, classRules)
-		value, include, outcome, err := applyRedactionAction(field.Value, action)
-		if err != nil {
+	retainedFields := map[string]ReportingField{}
+	for _, selection := range selected {
+		if err := ctx.Err(); err != nil {
 			return RedactionResult{}, err
 		}
-		tokenCandidate := false
-		tokenID := ""
-		displayToken := ""
-		stableSubjectRef := ""
-		subjectKind := ""
-		if action.Type == ActionMask || action.Type == ActionStub {
-			if ref, kind, ok := tokenizableSubjectRefForField(field); ok {
-				tokenCandidate = true
-				stableSubjectRef = ref
-				subjectKind = kind
-				tokenID, displayToken, err = deriveDisplayToken(model.RenderIdentity, stableSubjectRef)
-				if err != nil {
-					return RedactionResult{}, err
-				}
-				value = displayToken
-				include = true
-				outcome = "tokenized"
+		field, ruleID, action, selectedTrace := selection.Field, selection.RuleID, selection.Action, selection.Trace
+		value, include, outcome := selection.Value, selection.Include, selection.Outcome
+		authoredText, isAuthored := authored[field.Path]
+		if isAuthored {
+			encoded, err := canonicalJSON(authoredText.text)
+			if err != nil {
+				return RedactionResult{}, err
 			}
+			redacted.admittedPresentationTexts[field.Path] = hashHex(encoded)
 		}
-		if releaseScope == ReleaseScopeExternal && include && !fieldDisclosureAllowed(profile, field) {
-			value = nil
-			include = false
-			outcome = "dropped_disclosure_partition"
-			action.Type = ActionDrop
-			selectedTrace.Action = action.Type
-			tokenCandidate = false
+		var tokenID *string
+		if action.TokenBacked {
+			token := tokens[field.Path]
+			id := token.TokenID
+			tokenID = &id
+			value, include, outcome = token.DisplayToken, true, "tokenized"
 		}
+		if asset, isAsset := assets[field.Path]; include && isAsset {
+			redacted.Assets = append(redacted.Assets, asset)
+		} else if include {
+			source, exists := sourceFields[field.Path]
+			if !exists {
+				return RedactionResult{}, newRenderValidationError("export_model_invalid", "dangling_source_ref")
+			}
+			retained, err := retainedReportingField(source.Field, value, outcome, selectedTrace.RulePrecedence, source.Multiline)
+			if err != nil {
+				return RedactionResult{}, err
+			}
+			retained.DisclosurePartitionRefs = orderedDisclosurePartitions(field.DisclosurePartitionRefs)
+			if isAuthored {
+				redacted.PresentationTexts = append(redacted.PresentationTexts, ReportingPresentationText{SchemaID: "cartulary.reporting_presentation_text.v1", AuthoredTextID: authoredText.text.AuthoredTextID, TextRole: authoredText.text.TextRole, ContentClass: ContentClassPresentationText, Body: retained})
+			} else if _, graphField := composition.graphs.sources[field.Path]; !graphField {
+				retainedFields[field.Path] = retained
+			}
+			value = retained.Value
+		}
+		// Source identity has finished its role in subject resolution. Public
+		// artifacts and token uses address the pre-removal model, never a
+		// private source selector or a path reconstructed by the renderer.
+		field.Path = modelPaths[field.Path]
+
 		if include {
 			redacted.Fields = append(redacted.Fields, RedactedField{
 				Path:                    field.Path,
 				ContentClass:            field.ContentClass,
 				SourceFamily:            field.SourceFamily,
 				Value:                   value,
-				DisclosurePartitionRefs: cloneStrings(field.DisclosurePartitionRefs),
+				DisclosurePartitionRefs: orderedDisclosurePartitions(field.DisclosurePartitionRefs),
 				SupportRefs:             cloneStrings(field.SupportRefs),
 				RawBlobSource:           field.RawBlobSource,
 				OpaqueBinary:            field.OpaqueBinary,
 				GeneratedPresentation:   field.GeneratedPresentation,
 			})
-			if tokenCandidate {
-				recordTokenManifestEntry(tokenEntriesByID, tokenID, displayToken, stableSubjectRef, subjectKind, field, action.Type)
-				revealEntry, err := redactionRevealMapEntry(tokenID, displayToken, stableSubjectRef, subjectKind, field, action.Type, ruleID)
-				if err != nil {
-					return RedactionResult{}, err
-				}
-				revealEntries = append(revealEntries, revealEntry)
-			}
+
 		}
 		entries = append(entries, RedactionManifestEntry{
 			Path:                        field.Path,
 			ContentClass:                field.ContentClass,
-			SourceFamily:                field.SourceFamily,
 			Action:                      action.Type,
 			RuleID:                      ruleID,
-			ProfileID:                   profile.ProfileID,
-			ProfileVersion:              profile.Version,
-			ProfileSHA256:               profileSHA256,
+			RulePrecedence:              selectedTrace.RulePrecedence,
 			SelectedRuleTrace:           selectedTrace,
-			DisclosurePartitionHandling: disclosurePartitionHandling(field, include),
-			DisclosurePartitionRefs:     cloneStrings(field.DisclosurePartitionRefs),
-			SupportRefs:                 cloneStrings(field.SupportRefs),
+			DisclosurePartitionHandling: disclosurePartitionHandling(field, outcome),
+			DisclosurePartitionRefs:     orderedDisclosurePartitions(field.DisclosurePartitionRefs),
 			Outcome:                     outcome,
+			TokenID:                     tokenID,
 		})
+	}
+	sort.Slice(redacted.Fields, func(i, j int) bool { return redacted.Fields[i].Path < redacted.Fields[j].Path })
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Path < entries[j].Path })
+	sortAssetDeclarations(redacted.Assets)
+	sort.Slice(redacted.PresentationTexts, func(i, j int) bool {
+		return redacted.PresentationTexts[i].AuthoredTextID < redacted.PresentationTexts[j].AuthoredTextID
+	})
+	redacted.Sections, err = projectRetainedSections(ctx, explicitlyRetainedTree(eligibleSource, containers).Sections, retainedFields)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	redacted.TimelineEvents, err = projectRetainedTimeline(ctx, model.TimelineEvents, retainedFields)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	redacted.Records, err = projectRetainedRecords(ctx, model.Records, retainedFields)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	if err := projectRetainedMetadata(ctx, model, &redacted, retainedFields, effective, profileView); err != nil {
+		return RedactionResult{}, err
 	}
 	redactedBytes, err := canonicalJSON(redacted)
 	if err != nil {
 		return RedactionResult{}, err
 	}
 	modelSHA := reportingObjectDigest(redacted.SchemaID, redactedBytes)
-	tokenManifest, tokenManifestJSON, tokenManifestSHA, revealMap, revealMapJSON, revealMapSHA, err := buildTokenArtifacts(model.RenderIdentity, model.SnapshotID, tokenEntriesByID, revealEntries, sourceExportSHA256, modelSHA, profileSHA256, releaseScope)
+	qualifyRetainedContainers(containers, redacted.Fields)
+	removals, err := structuralRedactionRemovals(eligibleSource, structuralDecisionEntries(entries, containers))
 	if err != nil {
 		return RedactionResult{}, err
 	}
-	var tokenManifestSHAPtr *string
-	if tokenManifestSHA != "" {
-		tokenManifestSHAPtr = &tokenManifestSHA
-	}
 	manifest := RedactionManifest{
 		RenderIdentity: model.RenderIdentity, SnapshotID: model.SnapshotID, CreatedAt: model.RenderAdmittedAt,
-		SchemaID:               RedactionManifestSchemaID,
-		ProfileID:              profile.ProfileID,
-		ProfileVersion:         profile.Version,
-		ProfileSHA256:          profileSHA256,
-		ProfileViewSHA256:      profileViewSHA,
-		TokenManifestSHA256:    tokenManifestSHAPtr,
-		RecipientPartitionRefs: cloneStrings(recipientPartitionRefs),
-		SourceExportSHA256:     sourceExportSHA256,
-		RedactedExportSHA256:   modelSHA,
-		Entries:                entries,
+		ContainerDecisions: containers,
+		SchemaID:           RedactionManifestSchemaID,
+		ProfileID:          profile.ProfileID,
+		ProfileVersion:     profile.Version,
+		ProfileSHA256:      profileSHA256,
+		Entries:            entries,
+		StructuralRemovals: removals,
 	}
 	if err := ValidateRedactionResult(redacted, manifest, releaseScope); err != nil {
 		return RedactionResult{}, err
 	}
 	manifestBytes, err := canonicalJSON(manifest)
 	if err != nil {
+		return RedactionResult{}, err
+	}
+	manifestSHA := reportingObjectDigest(manifest.SchemaID, manifestBytes)
+	tokenManifest, tokenManifestJSON, tokenManifestSHA, revealMap, revealMapJSON, revealMapSHA, err := buildTokenArtifacts(model, tokens, manifestSHA, profileSHA256, recipientPartitionRefs)
+	if err != nil {
+		return RedactionResult{}, err
+	}
+	if tokenManifest != nil {
+		if err := validateTokenManifestBindings(*tokenManifest, manifest, manifestSHA); err != nil {
+			return RedactionResult{}, err
+		}
+	}
+	if err := ctx.Err(); err != nil {
 		return RedactionResult{}, err
 	}
 	return RedactionResult{
@@ -1330,7 +1490,8 @@ func RedactExportModel(model ExportModel, profile RedactionProfile, profileSHA25
 		TokenManifest:       tokenManifest,
 		RevealMap:           revealMap,
 		ModelSHA256:         modelSHA,
-		ManifestSHA256:      reportingObjectDigest(manifest.SchemaID, manifestBytes),
+		ModelJSON:           redactedBytes,
+		ManifestSHA256:      manifestSHA,
 		ProfileViewSHA256:   profileViewSHA,
 		TokenManifestSHA256: tokenManifestSHA,
 		RevealMapSHA256:     revealMapSHA,
@@ -1341,160 +1502,15 @@ func RedactExportModel(model ExportModel, profile RedactionProfile, profileSHA25
 	}, nil
 }
 
-func selectRedactionRule(field ExportField, defaultAction RedactionActionSpec, pathRules map[string]RedactionRule, classRules map[string]RedactionRule) (string, RedactionActionSpec, SelectedRuleTrace) {
-	if rule, ok := pathRules[field.Path]; ok {
-		selector := field.Path
-		return rule.RuleID, rule.Action, SelectedRuleTrace{
-			SchemaID:          "cartulary.selected_redaction_rule_trace.v1",
-			SelectionKind:     "path",
-			SelectorValue:     &selector,
-			RuleID:            rule.RuleID,
-			Action:            rule.Action.Type,
-			PrecedenceOrdinal: 1,
-		}
-	}
-	if rule, ok := classRules[field.ContentClass]; ok {
-		selector := field.ContentClass
-		return rule.RuleID, rule.Action, SelectedRuleTrace{
-			SchemaID:          "cartulary.selected_redaction_rule_trace.v1",
-			SelectionKind:     "content_class",
-			SelectorValue:     &selector,
-			RuleID:            rule.RuleID,
-			Action:            rule.Action.Type,
-			PrecedenceOrdinal: 2,
-		}
-	}
-	return "profile_default", defaultAction, SelectedRuleTrace{
-		SchemaID:          "cartulary.selected_redaction_rule_trace.v1",
-		SelectionKind:     "profile_default",
-		RuleID:            "profile_default",
-		Action:            defaultAction.Type,
-		PrecedenceOrdinal: 3,
-	}
-}
-
-func tokenizableSubjectRefForField(field ExportField) (string, string, bool) {
-	sourceFamily := field.SourceFamily
-	if sourceFamily == "" {
-		sourceFamily = sourceFamilyForPath(field.Path)
-	}
-	subjectKind := subjectKindForSourceFamily(sourceFamily)
-	if subjectKind == "" {
-		return "", "", false
-	}
-	recordID, ok := exportRecordID(field.Path)
-	if !ok {
-		return "", "", false
-	}
-	return subjectKind + ":" + recordID, subjectKind, true
-}
-
-func deriveDisplayToken(identity RenderIdentity, stableSubjectRef string) (string, string, error) {
-	id, err := identity.generatedID("token", "tok_", map[string]any{"stable_subject_ref": stableSubjectRef})
-	if err != nil {
-		return "", "", err
-	}
-	return id, "SUBJECT-" + strings.ToUpper(strings.TrimPrefix(id, "tok_")[:12]), nil
-}
-
-func recordTokenManifestEntry(entries map[string]*RedactionTokenManifestEntry, tokenID string, displayToken string, stableSubjectRef string, subjectKind string, field ExportField, action string) {
-	entry, ok := entries[tokenID]
-	if !ok {
-		entry = &RedactionTokenManifestEntry{
-			TokenID:          tokenID,
-			DisplayToken:     displayToken,
-			StableSubjectRef: stableSubjectRef,
-			SubjectKind:      subjectKind,
-			Paths:            []string{},
-			ContentClasses:   []string{},
-			SourceFamilies:   []string{},
-			Actions:          []string{},
-		}
-		entries[tokenID] = entry
-	}
-	entry.Paths = appendUniqueStrings(entry.Paths, field.Path)
-	entry.ContentClasses = appendUniqueStrings(entry.ContentClasses, field.ContentClass)
-	entry.SourceFamilies = appendUniqueStrings(entry.SourceFamilies, field.SourceFamily)
-	entry.Actions = appendUniqueStrings(entry.Actions, action)
-	entry.DisclosurePartitionRefs = appendUniqueStrings(entry.DisclosurePartitionRefs, field.DisclosurePartitionRefs...)
-}
-
-func redactionRevealMapEntry(tokenID string, displayToken string, stableSubjectRef string, subjectKind string, field ExportField, action string, ruleID string) (RedactionRevealMapEntry, error) {
-	encodedOriginal, err := canonicalJSON(field.Value)
-	if err != nil {
-		return RedactionRevealMapEntry{}, err
-	}
-	return RedactionRevealMapEntry{
-		TokenID:                 tokenID,
-		DisplayToken:            displayToken,
-		StableSubjectRef:        stableSubjectRef,
-		SubjectKind:             subjectKind,
-		Path:                    field.Path,
-		Action:                  action,
-		RuleID:                  ruleID,
-		OriginalValue:           field.Value,
-		OriginalValueSHA256:     hashHex(encodedOriginal),
-		DisclosurePartitionRefs: cloneStrings(field.DisclosurePartitionRefs),
-	}, nil
-}
-
-func buildTokenArtifacts(identity RenderIdentity, snapshotID string, entriesByID map[string]*RedactionTokenManifestEntry, revealEntries []RedactionRevealMapEntry, sourceExportSHA256 string, redactedExportSHA256 string, profileSHA256 string, releaseScope string) (*RedactionTokenManifest, []byte, string, *RedactionRevealMap, []byte, string, error) {
-	if len(entriesByID) == 0 {
-		return nil, nil, "", nil, nil, "", nil
-	}
-	tokenEntries := make([]RedactionTokenManifestEntry, 0, len(entriesByID))
-	for _, entry := range entriesByID {
-		tokenEntries = append(tokenEntries, *entry)
-	}
-
-	sort.Slice(tokenEntries, func(i, j int) bool { return tokenEntries[i].TokenID < tokenEntries[j].TokenID })
-	sort.Slice(revealEntries, func(i, j int) bool {
-		if revealEntries[i].TokenID == revealEntries[j].TokenID {
-			return revealEntries[i].Path < revealEntries[j].Path
-		}
-		return revealEntries[i].TokenID < revealEntries[j].TokenID
-	})
-	tokenManifest := RedactionTokenManifest{
-		RenderIdentity: identity, SnapshotID: snapshotID, CreatedAt: identity.RenderAdmittedAt,
-		SchemaID:             RedactionTokenManifestSchemaID,
-		SourceExportSHA256:   sourceExportSHA256,
-		RedactedExportSHA256: redactedExportSHA256,
-		ProfileSHA256:        profileSHA256,
-		ReleaseScope:         releaseScope,
-		Entries:              tokenEntries,
-	}
-	tokenManifestJSON, err := canonicalJSON(tokenManifest)
-	if err != nil {
-		return nil, nil, "", nil, nil, "", err
-	}
-	tokenManifestSHA := reportingObjectDigest(tokenManifest.SchemaID, tokenManifestJSON)
-	revealMap := RedactionRevealMap{
-		RenderIdentity: identity, SnapshotID: snapshotID, CreatedAt: identity.RenderAdmittedAt,
-		SchemaID:             RedactionRevealMapSchemaID,
-		Sensitivity:          "internal_sensitive",
-		TokenManifestSHA256:  tokenManifestSHA,
-		SourceExportSHA256:   sourceExportSHA256,
-		RedactedExportSHA256: redactedExportSHA256,
-		Entries:              revealEntries,
-	}
-	revealMapJSON, err := canonicalJSON(revealMap)
-	if err != nil {
-		return nil, nil, "", nil, nil, "", err
-	}
-	return &tokenManifest, tokenManifestJSON, tokenManifestSHA, &revealMap, revealMapJSON, reportingObjectDigest(revealMap.SchemaID, revealMapJSON), nil
-}
-
 func ValidateRedactionResult(model RedactedExportModel, manifest RedactionManifest, releaseScope string) error {
-	if manifest.SchemaID != RedactionManifestSchemaID ||
-		strings.TrimSpace(manifest.ProfileSHA256) == "" ||
-		strings.TrimSpace(manifest.ProfileViewSHA256) == "" {
+	if validateRedactionManifest(manifest) != nil {
 		return fmt.Errorf("%w: manifest_identity", ErrRedactionValidation)
-	}
-	if len(manifest.Entries) == 0 {
-		return fmt.Errorf("%w: manifest_empty", ErrRedactionValidation)
 	}
 	fieldPaths := map[string]RedactedField{}
 	for _, field := range model.Fields {
+		if !validExactExportModelPath(field.Path) {
+			return fmt.Errorf("%w: invalid_model_path", ErrRedactionValidation)
+		}
 		if fieldPaths[field.Path].Path != "" {
 			return fmt.Errorf("%w: duplicate_redacted_path", ErrRedactionValidation)
 		}
@@ -1519,50 +1535,34 @@ func ValidateRedactionResult(model RedactedExportModel, manifest RedactionManife
 	}
 	manifestPaths := map[string]struct{}{}
 	for _, entry := range manifest.Entries {
-		if entry.Path == "" || entry.ContentClass == "" || entry.Action == "" || entry.RuleID == "" {
+		if !validExactExportModelPath(entry.Path) || entry.ContentClass == "" || entry.Action == "" || entry.RuleID == "" {
 			return fmt.Errorf("%w: manifest_entry_incomplete", ErrRedactionValidation)
 		}
-		if entry.SelectedRuleTrace.SchemaID != "cartulary.selected_redaction_rule_trace.v1" ||
-			entry.SelectedRuleTrace.RuleID == "" ||
-			entry.SelectedRuleTrace.Action == "" ||
-			entry.SelectedRuleTrace.PrecedenceOrdinal < 1 {
+		if !validSelectedRuleTrace(entry.SelectedRuleTrace) || entry.SelectedRuleTrace.RuleID != entry.RuleID {
 			return fmt.Errorf("%w: manifest_entry_trace_incomplete", ErrRedactionValidation)
 		}
 		if _, ok := manifestPaths[entry.Path]; ok {
 			return fmt.Errorf("%w: duplicate_manifest_path", ErrRedactionValidation)
 		}
 		manifestPaths[entry.Path] = struct{}{}
+		if field, exists := fieldPaths[entry.Path]; exists && (entry.Outcome == "dropped" || field.ContentClass != entry.ContentClass || !sameReportingValue(field.DisclosurePartitionRefs, entry.DisclosurePartitionRefs)) {
+			return fmt.Errorf("%w: manifest_outcome_mismatch", ErrRedactionValidation)
+		}
 		if _, ok := fieldPaths[entry.Path]; !ok && !strings.HasPrefix(entry.Outcome, "dropped") {
 			return fmt.Errorf("%w: manifest_outcome_mismatch", ErrRedactionValidation)
 		}
 	}
-	return nil
-}
-
-func validateDisclosurePartitionSet(values []string) error {
-	seen := map[string]struct{}{}
-	for _, value := range values {
-		if strings.TrimSpace(value) == "" {
-			return fmt.Errorf("%w: empty disclosure partition", ErrInvalidRedactionProfile)
+	for path := range fieldPaths {
+		if _, exists := manifestPaths[path]; !exists {
+			return fmt.Errorf("%w: missing_field_decision", ErrRedactionValidation)
 		}
-		if _, ok := seen[value]; ok {
-			return fmt.Errorf("%w: duplicate disclosure partition %q", ErrInvalidRedactionProfile, value)
-		}
-		seen[value] = struct{}{}
 	}
 	return nil
 }
 
-func fieldDisclosureAllowed(profile RedactionProfile, field ExportField) bool {
-	if len(field.DisclosurePartitionRefs) == 0 {
-		return true
-	}
-	allowed := map[string]struct{}{}
-	for _, partition := range profile.AllowedDisclosurePartitionRefs {
-		allowed[partition] = struct{}{}
-	}
+func fieldDisclosureAllowed(allowed map[string]bool, field ExportField) bool {
 	for _, partition := range field.DisclosurePartitionRefs {
-		if _, ok := allowed[partition]; !ok {
+		if !allowed[partition] {
 			return false
 		}
 	}
@@ -1582,11 +1582,26 @@ func externalDirectSourceFamilyBlocked(sourceFamily string, contentClass string)
 }
 
 func validateAction(action RedactionActionSpec) error {
+	if action.TokenBacked && (action.Type != ActionMask && action.Type != ActionStub || action.ReplacementText != nil || action.StubText != nil || action.MaxChars != nil) {
+		return fmt.Errorf("%w: invalid token-backed action", ErrInvalidRedactionProfile)
+	}
+	// Parameters belong to one action only. Accepting ignored parameters makes
+	// profile identity depend on values that never affect the selected outcome.
+	if (action.ReplacementText != nil && action.Type != ActionMask) ||
+		(action.StubText != nil && action.Type != ActionStub) ||
+		(action.MaxChars != nil && action.Type != ActionTruncate) {
+		return fmt.Errorf("%w: action parameter mismatch", ErrInvalidRedactionProfile)
+	}
+	for _, literal := range []*string{action.ReplacementText, action.StubText} {
+		if literal != nil && !validReportingText(*literal, false) {
+			return fmt.Errorf("%w: invalid action literal", ErrInvalidRedactionProfile)
+		}
+	}
 	switch action.Type {
 	case ActionAllow, ActionDrop, ActionMask, ActionStub:
 		return nil
 	case ActionTruncate:
-		if action.MaxChars == nil || *action.MaxChars < 1 || *action.MaxChars > 4096 {
+		if action.MaxChars == nil || *action.MaxChars < 1 || *action.MaxChars > 240 {
 			return fmt.Errorf("%w: truncate.max_chars", ErrInvalidRedactionProfile)
 		}
 		return nil
@@ -1600,7 +1615,7 @@ func validateAction(action RedactionActionSpec) error {
 func applyRedactionAction(value any, action RedactionActionSpec) (any, bool, string, error) {
 	switch action.Type {
 	case ActionAllow:
-		return value, true, "allowed", nil
+		return value, true, "unchanged", nil
 	case ActionDrop:
 		return nil, false, "dropped", nil
 	case ActionMask:
@@ -1616,7 +1631,7 @@ func applyRedactionAction(value any, action RedactionActionSpec) (any, bool, str
 		text := formatFieldValue(value)
 		runes := []rune(text)
 		if len(runes) <= *action.MaxChars {
-			return text, true, "allowed", nil
+			return text, true, "truncated", nil
 		}
 		return string(runes[:*action.MaxChars]) + DefaultTruncateMark, true, "truncated", nil
 	case ActionStub:
@@ -1632,38 +1647,19 @@ func applyRedactionAction(value any, action RedactionActionSpec) (any, bool, str
 	}
 }
 
-func disclosurePartitionHandling(field ExportField, include bool) string {
-	if len(field.DisclosurePartitionRefs) == 0 {
-		return "none"
+func disclosurePartitionHandling(field ExportField, outcome string) string {
+	if outcome == "dropped" {
+		for _, partition := range field.DisclosurePartitionRefs {
+			if partition == "blocked" {
+				return "blocked_removed"
+			}
+		}
+		return "dropped"
 	}
-	if !include {
-		return "dropped_with_field"
+	if outcome == "unchanged" {
+		return "releasable"
 	}
-	return "retained_with_field"
-}
-
-const defaultReportCSS = "body{font-family:system-ui,sans-serif;margin:2rem;}main{max-width:72rem;}dt{font-weight:600;}dd{margin:0 0 0.75rem 0;}"
-
-func ResolveTemplateContract(id string, version string) (TemplateContract, bool) {
-	if id != DefaultTemplateID || version != DefaultTemplateVersion {
-		return TemplateContract{}, false
-	}
-	return TemplateContract{
-		TemplateID:             DefaultTemplateID,
-		TemplateVersion:        DefaultTemplateVersion,
-		DeckTitle:              "Incident Report",
-		SupportedOutputKinds:   supportedOutputKinds(),
-		SupportedReleaseScopes: supportedReleaseScopes(),
-		AllowedBindings:        []string{"fields", "redaction_manifest"},
-		RenderBindings: []TemplateBinding{
-			{Name: "fields"},
-			{Name: "redaction_manifest"},
-		},
-		RequiredFieldPaths: []string{"/incident/status", "/incident/title"},
-		LocalAssets: []TemplateAsset{
-			{Path: "templates/cartulary.report.default/1/report.css", SHA256: hashHex([]byte(defaultReportCSS))},
-		},
-	}, true
+	return "redacted"
 }
 
 func (contract TemplateContract) SupportsOutputKind(kind string) bool {
@@ -1702,45 +1698,6 @@ func ValidateSelfContainedOutput(kind string, output []byte) error {
 	return nil
 }
 
-func validateTemplateContract(contract TemplateContract, kind string, model RedactedExportModel, releaseScope string) error {
-	if contract.TemplateID == "" || contract.TemplateVersion == "" {
-		return fmt.Errorf("template contract identity is incomplete")
-	}
-	if strings.ContainsAny(contract.DeckTitle, "\r\n") || len([]rune(contract.DeckTitle)) > 120 {
-		return fmt.Errorf("template deck title is invalid")
-	}
-	if !contract.SupportsOutputKind(kind) {
-		return fmt.Errorf("template %s@%s does not support output kind %q", contract.TemplateID, contract.TemplateVersion, kind)
-	}
-	if !contract.SupportsReleaseScope(releaseScope) {
-		return fmt.Errorf("template %s@%s does not support release scope %q", contract.TemplateID, contract.TemplateVersion, releaseScope)
-	}
-	allowed := map[string]struct{}{}
-	for _, name := range contract.AllowedBindings {
-		allowed[name] = struct{}{}
-	}
-	for _, binding := range contract.RenderBindings {
-		if _, ok := allowed[binding.Name]; !ok {
-			return fmt.Errorf("%w: %s", ErrUndeclaredTemplateBinding, binding.Name)
-		}
-	}
-	paths := map[string]struct{}{}
-	for _, field := range model.Fields {
-		paths[field.Path] = struct{}{}
-	}
-	for _, path := range contract.RequiredFieldPaths {
-		if _, ok := paths[path]; !ok {
-			return fmt.Errorf("%w: %s", ErrMissingRequiredField, path)
-		}
-	}
-	for _, asset := range contract.LocalAssets {
-		if strings.HasPrefix(asset.Path, "http://") || strings.HasPrefix(asset.Path, "https://") || strings.HasPrefix(asset.Path, "//") || asset.Path == "" || asset.SHA256 == "" {
-			return fmt.Errorf("template asset is not a local integrity-checked asset")
-		}
-	}
-	return nil
-}
-
 func formatFieldValue(value any) string {
 	switch value.(type) {
 	case map[string]any, []any:
@@ -1770,12 +1727,14 @@ func cloneStrings(values []string) []string {
 
 func internalRedactionProfile() RedactionProfile {
 	return RedactionProfile{
-		SchemaID:  RedactionProfileSchemaID,
-		ProfileID: InternalRedactionProfileID,
-		Version:   "1",
+		ProfileStatus:        "adopted_current",
+		AllowedReleaseScopes: []string{ReleaseScopeInternalDraft, ReleaseScopeInternalReview},
+		SchemaID:             RedactionProfileSchemaID,
+		ProfileID:            InternalRedactionProfileID,
+		Version:              DefaultRedactionProfileVersion,
 		AllowedDisclosurePartitionRefs: []string{
-			"public_summary",
-			"working_material",
+			"public",
+			"internal_only",
 		},
 		DefaultAction: RedactionActionSpec{
 			Type: ActionAllow,
@@ -1787,12 +1746,15 @@ func internalRedactionProfile() RedactionProfile {
 func tokenizedReviewRedactionProfile() RedactionProfile {
 	sourceClass := ContentClassSourceEvidence
 	return RedactionProfile{
-		SchemaID:  RedactionProfileSchemaID,
-		ProfileID: TokenizedRedactionProfileID,
-		Version:   "1",
+		ProfileStatus:        "adopted_current",
+		AllowedReleaseScopes: []string{ReleaseScopeInternalDraft, ReleaseScopeInternalReview},
+		SchemaID:             RedactionProfileSchemaID,
+		ProfileID:            TokenizedRedactionProfileID,
+		NeutralTokenFamily:   true,
+		Version:              DefaultRedactionProfileVersion,
 		AllowedDisclosurePartitionRefs: []string{
-			"public_summary",
-			"working_material",
+			"public",
+			"internal_only",
 		},
 		DefaultAction: RedactionActionSpec{
 			Type: ActionAllow,
@@ -1814,10 +1776,12 @@ func externalRedactionProfile(recipientPartitionRefs []string) RedactionProfile 
 	workingClass := ContentClassWorkingMaterial
 	maxChars := 120
 	return RedactionProfile{
+		ProfileStatus:                  "adopted_current",
+		AllowedReleaseScopes:           []string{ReleaseScopeExternal},
 		SchemaID:                       RedactionProfileSchemaID,
 		ProfileID:                      ExternalRedactionProfileID,
-		Version:                        "1",
-		AllowedDisclosurePartitionRefs: canonicalStringSet(append([]string{"public_summary"}, recipientPartitionRefs...)),
+		Version:                        DefaultRedactionProfileVersion,
+		AllowedDisclosurePartitionRefs: orderedDisclosurePartitions(append([]string{"public"}, recipientPartitionRefs...)),
 		DefaultAction: RedactionActionSpec{
 			Type: ActionAllow,
 		},
@@ -1839,24 +1803,4 @@ func externalRedactionProfile(recipientPartitionRefs []string) RedactionProfile 
 			},
 		},
 	}
-}
-
-func canonicalStringSet(values []string) []string {
-	if len(values) == 0 {
-		return nil
-	}
-	seen := map[string]struct{}{}
-	for _, value := range values {
-		trimmed := strings.TrimSpace(value)
-		if trimmed == "" {
-			continue
-		}
-		seen[trimmed] = struct{}{}
-	}
-	out := make([]string, 0, len(seen))
-	for value := range seen {
-		out = append(out, value)
-	}
-	sort.Strings(out)
-	return out
 }

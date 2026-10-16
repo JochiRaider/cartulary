@@ -197,6 +197,7 @@ type entityAliasQueryer interface {
 }
 
 type entityRowHydration struct {
+	PartyAssignmentsByRecord    map[uuid.UUID]map[string][]PartyReference
 	AliasesByRecord             map[uuid.UUID][]AliasValue
 	ReusableIdentifiersByRecord map[uuid.UUID][]ReusableIdentifier
 }
@@ -210,7 +211,12 @@ func loadEntityRowHydrationByRecord(ctx context.Context, querier entityAliasQuer
 	if err != nil {
 		return entityRowHydration{}, err
 	}
+	assignments, err := loadPartyAssignmentReferences(ctx, querier, incidentID, recordIDs)
+	if err != nil {
+		return entityRowHydration{}, err
+	}
 	return entityRowHydration{
+		PartyAssignmentsByRecord:    assignments,
 		AliasesByRecord:             aliasesByRecord,
 		ReusableIdentifiersByRecord: reusableIdentifiersByRecord,
 	}, nil
@@ -219,11 +225,13 @@ func loadEntityRowHydrationByRecord(ctx context.Context, querier entityAliasQuer
 func applyHostRowHydration(record *HostRecord, hydration entityRowHydration) {
 	record.SuggestionOnlyAliases = hydration.AliasesByRecord[record.RecordID]
 	record.ReusableIdentifiers = hydration.ReusableIdentifiersByRecord[record.RecordID]
+	record.PartyAssignments = hydration.PartyAssignmentsByRecord[record.RecordID]
 }
 
 func applyIdentityRowHydration(record *IdentityRecord, hydration entityRowHydration) {
 	record.SuggestionOnlyAliases = hydration.AliasesByRecord[record.RecordID]
 	record.ReusableIdentifiers = hydration.ReusableIdentifiersByRecord[record.RecordID]
+	record.PartyAssignments = hydration.PartyAssignmentsByRecord[record.RecordID]
 }
 
 func hydrateHostRecordTx(ctx context.Context, tx pgx.Tx, record *HostRecord) error {
@@ -237,6 +245,11 @@ func hydrateHostRecordTx(ctx context.Context, tx pgx.Tx, record *HostRecord) err
 	}
 	record.SuggestionOnlyAliases = aliases
 	record.ReusableIdentifiers = reusableIdentifiers
+	assignments, err := loadPartyAssignmentReferences(ctx, tx, record.IncidentID, []uuid.UUID{record.RecordID})
+	if err != nil {
+		return err
+	}
+	record.PartyAssignments = assignments[record.RecordID]
 	return nil
 }
 
@@ -251,6 +264,11 @@ func hydrateIdentityRecordTx(ctx context.Context, tx pgx.Tx, record *IdentityRec
 	}
 	record.SuggestionOnlyAliases = aliases
 	record.ReusableIdentifiers = reusableIdentifiers
+	assignments, err := loadPartyAssignmentReferences(ctx, tx, record.IncidentID, []uuid.UUID{record.RecordID})
+	if err != nil {
+		return err
+	}
+	record.PartyAssignments = assignments[record.RecordID]
 	return nil
 }
 

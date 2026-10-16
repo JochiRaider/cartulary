@@ -36,5 +36,6 @@ export const workspaceLayout = Object.freeze({
   "package_vite_dependencies": "packages/*/node_modules/.vite",
   "package_vite_temp_dependencies": "packages/*/node_modules/.vite-temp",
   "pnpm_store": ".pnpm-store",
-  "embedded_assets": "internal/platform/httpapi/webassets/assets/generated"
+  "embedded_assets": "internal/platform/httpapi/webassets/assets/generated",
+  "report_renderer": "build/report-renderer"
 });

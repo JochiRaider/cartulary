@@ -146,6 +146,60 @@ const value = {
       "view_schema_id": "cartulary.view.handoff.v1"
     },
     {
+      "add_operation": "add_party_ref",
+      "exclude_source": false,
+      "field_key": "host.observer_party_ids",
+      "kind": "collection",
+      "remove_operation": "remove_party_ref",
+      "target_domain": "party",
+      "view_schema_id": "cartulary.view.hosts.v1"
+    },
+    {
+      "add_operation": "add_party_ref",
+      "exclude_source": false,
+      "field_key": "host.responsible_party_ids",
+      "kind": "collection",
+      "remove_operation": "remove_party_ref",
+      "target_domain": "party",
+      "view_schema_id": "cartulary.view.hosts.v1"
+    },
+    {
+      "add_operation": "add_party_ref",
+      "exclude_source": false,
+      "field_key": "host.subject_party_ids",
+      "kind": "collection",
+      "remove_operation": "remove_party_ref",
+      "target_domain": "party",
+      "view_schema_id": "cartulary.view.hosts.v1"
+    },
+    {
+      "add_operation": "add_party_ref",
+      "exclude_source": false,
+      "field_key": "identity.observer_party_ids",
+      "kind": "collection",
+      "remove_operation": "remove_party_ref",
+      "target_domain": "party",
+      "view_schema_id": "cartulary.view.identities.v1"
+    },
+    {
+      "add_operation": "add_party_ref",
+      "exclude_source": false,
+      "field_key": "identity.responsible_party_ids",
+      "kind": "collection",
+      "remove_operation": "remove_party_ref",
+      "target_domain": "party",
+      "view_schema_id": "cartulary.view.identities.v1"
+    },
+    {
+      "add_operation": "add_party_ref",
+      "exclude_source": false,
+      "field_key": "identity.subject_party_ids",
+      "kind": "collection",
+      "remove_operation": "remove_party_ref",
+      "target_domain": "party",
+      "view_schema_id": "cartulary.view.identities.v1"
+    },
+    {
       "add_operation": "add_record_ref",
       "exclude_source": true,
       "field_key": "lesson.evidence_refs",

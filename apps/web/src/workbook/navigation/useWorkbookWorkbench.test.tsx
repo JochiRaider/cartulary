@@ -140,7 +140,7 @@ function fixture() {
     },
   );
   const detachPresentation = vi.fn();
-  registry.updatePresentation(
+  registry.bindPresentation(
     timelineViewSchemaId,
     Symbol(),
     true,
@@ -488,7 +488,7 @@ it("workbench navigation reconciles a superseded inspector request until committ
       { current: grid },
       (_id, committed) => committed(),
     );
-    f.registry.updatePresentation(notesViewSchemaId, Symbol(), true, () => {});
+    f.registry.bindPresentation(notesViewSchemaId, Symbol(), true, () => {});
     const wrongSubjectFocus = vi.fn(() => true);
     act(() =>
       f.hook.result.current.registerInspectorFocus(
@@ -595,7 +595,7 @@ it("navigation selects the accepted record through its owner before inspection, 
     } as unknown as GridHandle;
     registry.bindGrid(notesViewSchemaId, { current: grid }, select);
     const token = Symbol();
-    registry.updatePresentation(notesViewSchemaId, token, false, () => {});
+    registry.bindPresentation(notesViewSchemaId, token, false, () => {});
     const signal = new AbortController().signal;
     presentation.registerInspectorFocus(notesViewSchemaId, recordId, () => {
       inspect();
@@ -695,7 +695,7 @@ it("cancels destination attachment before delayed mounting, selection commit and
     const handle = { current: phase === "mount" ? null : grid };
     registry.bindGrid(notesViewSchemaId, handle, select);
     const token = Symbol();
-    registry.updatePresentation(notesViewSchemaId, token, true, () => {});
+    registry.bindPresentation(notesViewSchemaId, token, true, () => {});
     const intent = new AbortController();
     presentation.registerInspector(notesViewSchemaId, inspect);
     presentation.start({

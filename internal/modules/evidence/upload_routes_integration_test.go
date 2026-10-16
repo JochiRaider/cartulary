@@ -118,6 +118,7 @@ UPDATE incident_memberships
 	}
 	uploadTarget := createData["upload_target"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, uploadTarget["href"].(string), payload, "text/plain", login)
+	verifyUploadedBlob(t, harness, login, createData["object_blob_id"], "verify-uploaded-object", "succeeded")
 
 	replayResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)

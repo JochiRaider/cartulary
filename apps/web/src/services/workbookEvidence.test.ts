@@ -8,7 +8,7 @@ import { createEvidenceFileTransport } from "../workbook/adapters/createEvidence
 import { EvidenceUploadSession } from "../workbook/features/evidence/EvidenceUploadSession";
 
 const authority = {
-  actorId: "actor",
+  actorId: "10000000-0000-4000-8000-000000000001",
   sessionIdentity: "session",
   incidentId: "00000000-0000-4000-8000-000000001001",
   role: "editor" as const,
@@ -77,6 +77,8 @@ describe("workbookEvidence", () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse(slot))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse(verificationEnvelope("queued"), 202))
+      .mockResolvedValueOnce(jsonResponse(verificationEnvelope("succeeded")))
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
@@ -107,6 +109,8 @@ describe("workbookEvidence", () => {
     expect(fetchMock.mock.calls.map(([, init]) => init.method)).toEqual([
       "POST",
       "PUT",
+      "POST",
+      "GET",
       "POST",
     ]);
     expect(JSON.parse(fetchMock.mock.calls[0]?.[1].body).byte_size).toBe(0);
@@ -188,6 +192,18 @@ describe("workbookEvidence", () => {
       if (url === "/base/api/v1/object-uploads/upload-token") {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
+      if (
+        url.endsWith(
+          "/object-blobs/00000000-0000-4000-8000-000000003001/verify",
+        )
+      ) {
+        return Promise.resolve(
+          jsonResponse(verificationEnvelope("queued"), 202),
+        );
+      }
+      if (url.endsWith("/jobs/70000000-0000-4000-8000-000000000007")) {
+        return Promise.resolve(jsonResponse(verificationEnvelope("succeeded")));
+      }
       return Promise.resolve(
         jsonResponse({ error: { code: "unexpected" } }, 500),
       );
@@ -200,7 +216,7 @@ describe("workbookEvidence", () => {
     expect(upload.blob?.object_blob_id).toBe(
       "00000000-0000-4000-8000-000000003001",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     const createRequest = fetchMock.mock.calls[0]?.[1] as
       | RequestInit
       | undefined;
@@ -215,6 +231,15 @@ describe("workbookEvidence", () => {
       filename_hint: "evidence.txt",
       content_type_hint: "text/plain",
     });
+    const verificationRequest = fetchMock.mock.calls[2]?.[1] as RequestInit;
+    expect(verificationRequest.method).toBe("POST");
+    expect(JSON.parse(String(verificationRequest.body))).toEqual({
+      client_txn_id: "blob-txn-1",
+    });
+    expect(new Headers(verificationRequest.headers).get("X-CSRF-Token")).toBe(
+      "evidence-csrf",
+    );
+    expect(upload.isFinalizable).toBe(true);
     const uploadRequest = fetchMock.mock.calls[1]?.[1] as RequestInit;
     expect(uploadRequest.credentials).toBe("include");
     expect(new Headers(uploadRequest.headers).get("X-CSRF-Token")).toBe(
@@ -238,17 +263,21 @@ describe("workbookEvidence", () => {
     fetchMock.mockReset();
     fetchMock
       .mockResolvedValueOnce(jsonResponse(objectBlobEnvelope()))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse(verificationEnvelope("queued"), 202))
+      .mockResolvedValueOnce(jsonResponse(verificationEnvelope("succeeded")));
     const normalized = prepareUpload(
       new File(["abc"], "  evidence.txt  ", { type: "text/plain" }),
       "normalized-hint",
     );
     expect(await normalized.prepare(authority)).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     fetchMock.mockReset();
     fetchMock
       .mockResolvedValueOnce(jsonResponse(objectBlobEnvelope()))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse(verificationEnvelope("queued"), 202))
+      .mockResolvedValueOnce(jsonResponse(verificationEnvelope("succeeded")));
     const unicodeWhitespace = prepareUpload(
       new File(["abc"], "\u0085evidence.txt\u0085", { type: "text/plain" }),
       "normalized-unicode-hint",
@@ -257,7 +286,7 @@ describe("workbookEvidence", () => {
     expect(unicodeWhitespace.blob?.accepted_contract.filename_hint).toBe(
       "evidence.txt",
     );
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it("fails closed before upload for malformed or cross-incident blob-slot responses", async () => {
@@ -323,4 +352,32 @@ function jsonResponse(payload: unknown, status = 200) {
       "Content-Type": "application/json",
     },
   });
+}
+
+function verificationEnvelope(status: "queued" | "succeeded") {
+  const terminal = status === "succeeded";
+  return {
+    data: {
+      job_id: "70000000-0000-4000-8000-000000000007",
+      scope: { kind: "incident", incident_id: authority.incidentId },
+      status_route: "/api/v1/jobs/70000000-0000-4000-8000-000000000007",
+      status,
+      cancelable: !terminal,
+      submitted_by_user_id: authority.actorId,
+      submitted_at: "2026-04-05T00:00:00Z",
+      updated_at: terminal ? "2026-04-05T00:00:02Z" : "2026-04-05T00:00:00Z",
+      started_at: terminal ? "2026-04-05T00:00:01Z" : null,
+      finished_at: terminal ? "2026-04-05T00:00:02Z" : null,
+      retained_until: terminal ? "2026-04-12T00:00:02Z" : null,
+      progress: { completed: terminal ? 3 : 0, total: 3 },
+      result_summary: terminal
+        ? {
+            code: "evidence_blob_verified",
+            message: "Uploaded evidence verified.",
+          }
+        : null,
+      error_summary: null,
+    },
+    meta: { request_id: "verification-request" },
+  };
 }

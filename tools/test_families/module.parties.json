@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.parties",
   "rows": [
     {
@@ -103,6 +103,7 @@
         "package": "./internal/modules/parties",
         "tests": [
           "TestPartyActiveKeyClaimsMigration_Integration",
+          "TestPartyClockCutoverPreservesIncompatibleHistory_Integration",
           "TestPartyConcurrentCreateAndRecoveryClaims_Integration",
           "TestPartyMutationHashMigration_Integration"
         ]
@@ -348,6 +349,81 @@
       ]
     },
     {
+      "row_id": "module.parties.unit.new_contribution_requires_source_7a663ababe",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.parties.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties/workbookprojection",
+        "tests": [
+          "TestNewContributionRequiresSource",
+          "TestPartyProjectionContractOwnsSemanticSurface",
+          "TestPartyProjectionContributionDefensivelyCopiesFactsAndRetainsTypedSource"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.parties.unit.normalization_corpus_c9b7db05c6",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.parties.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties/internal/policy",
+        "tests": [
+          "TestNormalizationCorpus"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.parties.unit.party_create_admission_defaults_are_shared_unit_fdc0b6d64d",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.parties.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties",
+        "tests": [
+          "TestPartyCreateAdmissionDefaultsAreShared_Unit",
+          "TestPartyImportCreateScalarAdmissionMatrix_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.parties.unit.party_mutation_admission_and_replay_hashing_are_o_7e9a31d4c2",
       "owner_id": "module.parties",
       "family_id": "module.parties.unit",
@@ -362,6 +438,105 @@
         "package": "./internal/modules/parties",
         "tests": [
           "TestPartyMutationAdmissionAndReplayHashing_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.parties.unit.party_mutation_admission_public_identity_unit_27b3ca8c40",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.parties.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties",
+        "tests": [
+          "TestPartyMutationAdmissionPublicIdentity_Unit",
+          "TestPartyMutationFieldBoundariesAndClears_Unit",
+          "TestPartyMutationRejectsUnknownAndDuplicateMembers_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.parties.unit.party_mutation_hash_normalization_equivalence_un_c73a730e10",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.parties.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties",
+        "tests": [
+          "TestPartyMutationHashNormalizationEquivalence_Unit",
+          "TestPartyPatchRejectsActionPayloadAsUnknownField_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.parties.unit.party_rollback_every_present_field_uses_generate_d66e34fcd3",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.parties.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties/internal/providers/rollback",
+        "tests": [
+          "TestPartyRollbackEveryPresentFieldUsesGeneratedPolicy"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.parties.unit.row_version_consumption_requires_exact_int64_uni_2f197503f1",
+      "owner_id": "module.parties",
+      "family_id": "module.parties.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.parties.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/parties",
+        "tests": [
+          "TestRowVersionConsumptionRequiresExactInt64_Unit"
         ]
       },
       "evidence_class": "unit",

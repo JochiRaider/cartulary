@@ -90,6 +90,8 @@
         "apps/web/src/app/createIncidentMembershipManagementWorkflow.ts",
         "apps/web/src/app/createIncidentMetadataWorkflow.ts",
         "apps/web/src/app/createNetworkFlowImportWorkflow.ts",
+        "apps/web/src/app/createReportingWorkflow.test.tsx",
+        "apps/web/src/app/createReportingWorkflow.ts",
         "apps/web/src/app/createWorkbookImportWorkflow.ts",
         "apps/web/src/app/createWorkbookPreferencesWorkflow.ts",
         "apps/web/src/app/createWorkbookSavedViewsWorkflow.ts",
@@ -295,6 +297,14 @@
       ]
     },
     {
+      "owner_id": "web.reporting",
+      "paths": [
+        "apps/web/src/reporting/ReportingController.test.ts",
+        "apps/web/src/reporting/ReportingController.ts",
+        "apps/web/src/reporting/ReportingPanel.tsx"
+      ]
+    },
+    {
       "owner_id": "web.services",
       "paths": [
         "apps/web/src/services/asyncObservation.ts",
@@ -302,7 +312,6 @@
         "apps/web/src/services/browserApi.ts",
         "apps/web/src/services/clientTransactionId.test.ts",
         "apps/web/src/services/clientTransactionId.ts",
-        "apps/web/src/services/clientTransactionIdPolicy.test.ts",
         "apps/web/src/services/commonJobContract.ts",
         "apps/web/src/services/httpTransport.ts",
         "apps/web/src/services/importClient.test.ts",
@@ -317,6 +326,7 @@
         "apps/web/src/services/publicErrorIdentity.ts",
         "apps/web/src/services/referencePacks.test.ts",
         "apps/web/src/services/referencePacks.ts",
+        "apps/web/src/services/reportingClient.ts",
         "apps/web/src/services/workbookEvidence.test.ts",
         "apps/web/src/services/workbookEvidence.ts"
       ]
@@ -359,6 +369,7 @@
         "apps/web/src/testing/entityMergeTestSupport.ts",
         "apps/web/src/testing/extensionAvailabilityTestSupport.ts",
         "apps/web/src/testing/fetchMockTestSupport.ts",
+        "apps/web/src/testing/fixtures/vitestSelectionTestSupport.ts",
         "apps/web/src/testing/incidentImportTestSupport.ts",
         "apps/web/src/testing/incidentLifecycleSurfaceTestSupport.tsx",
         "apps/web/src/testing/incidentMembershipManagementSurfaceTestSupport.tsx",
@@ -445,6 +456,8 @@
         "apps/web/src/workbook/adapters/createWorkbookDecisionSupersessionAdapter.ts",
         "apps/web/src/workbook/adapters/createWorkbookEntityMergeAdapter.test.ts",
         "apps/web/src/workbook/adapters/createWorkbookEntityMergeAdapter.ts",
+        "apps/web/src/workbook/adapters/createWorkbookEvidenceMetadataAdapter.test.ts",
+        "apps/web/src/workbook/adapters/createWorkbookEvidenceMetadataAdapter.ts",
         "apps/web/src/workbook/adapters/createWorkbookIncidentAdapter.ts",
         "apps/web/src/workbook/adapters/createWorkbookPendingMutationAdapter.test.ts",
         "apps/web/src/workbook/adapters/createWorkbookPendingMutationAdapter.ts",
@@ -573,6 +586,7 @@
         "apps/web/src/workbook/continuity/useWorkbookGridContinuity.tsx",
         "apps/web/src/workbook/continuity/workbookContinuityPort.test.ts",
         "apps/web/src/workbook/continuity/workbookContinuityPort.ts",
+        "apps/web/src/workbook/evidence/WorkbookEvidenceMetadataPort.ts",
         "apps/web/src/workbook/evidence/evidenceAccessPresentation.test.ts",
         "apps/web/src/workbook/evidence/evidenceAccessPresentation.ts",
         "apps/web/src/workbook/features/ImportAssistantFeature.test.tsx",
@@ -651,6 +665,7 @@
         "apps/web/src/workbook/features/evidence/EvidenceAttachmentContext.ts",
         "apps/web/src/workbook/features/evidence/EvidenceAttachmentEntry.test.tsx",
         "apps/web/src/workbook/features/evidence/EvidenceAttachmentEntry.tsx",
+        "apps/web/src/workbook/features/evidence/EvidenceBlobVerification.ts",
         "apps/web/src/workbook/features/evidence/EvidenceFileFinalization.ts",
         "apps/web/src/workbook/features/evidence/EvidenceFileRecovery.tsx",
         "apps/web/src/workbook/features/evidence/EvidenceUploadSession.ts",
@@ -839,6 +854,7 @@
         "apps/web/src/workbook/inspector/InspectorCreateRelatedWorkflow.tsx",
         "apps/web/src/workbook/inspector/WorkbookExplicitPatchRecovery.tsx",
         "apps/web/src/workbook/inspector/WorkbookInspectorContextualActions.tsx",
+        "apps/web/src/workbook/inspector/WorkbookInspectorDeclaredPanelList.test.tsx",
         "apps/web/src/workbook/inspector/WorkbookInspectorDeclaredPanelList.tsx",
         "apps/web/src/workbook/inspector/WorkbookInspectorDetails.tsx",
         "apps/web/src/workbook/inspector/WorkbookInspectorDraftFeedback.tsx",
@@ -1037,6 +1053,7 @@
         "apps/web/src/workbook/query/useEntitySurfaceQuery.ts",
         "apps/web/src/workbook/query/useGenericSurfaceQuery.test.tsx",
         "apps/web/src/workbook/query/useGenericSurfaceQuery.ts",
+        "apps/web/src/workbook/query/useWorkbookQueryActionTiming.ts",
         "apps/web/src/workbook/query/workbookLatestRequest.test.ts",
         "apps/web/src/workbook/query/workbookLatestRequest.ts",
         "apps/web/src/workbook/query/workbookQueryMetadata.test.ts",
@@ -1156,6 +1173,7 @@
         "apps/web/src/workbook/timeline/components/TimelineCollectionCell.test.tsx",
         "apps/web/src/workbook/timeline/components/TimelineCollectionCell.tsx",
         "apps/web/src/workbook/timeline/components/TimelineDraftRowActions.tsx",
+        "apps/web/src/workbook/timeline/components/TimelineEvidenceMetadata.test.tsx",
         "apps/web/src/workbook/timeline/components/TimelineEvidencePanel.test.tsx",
         "apps/web/src/workbook/timeline/components/TimelineEvidencePanel.tsx",
         "apps/web/src/workbook/timeline/components/TimelineHistoryPanel.tsx",
@@ -1190,6 +1208,7 @@
         "apps/web/src/workbook/timeline/editing/useTimelineEditorDraftRegistry.ts",
         "apps/web/src/workbook/timeline/focus/timelineInspectorElementRegistry.test.ts",
         "apps/web/src/workbook/timeline/focus/timelineInspectorElementRegistry.ts",
+        "apps/web/src/workbook/timeline/hooks/useTimelineClipboardPasteController.test.ts",
         "apps/web/src/workbook/timeline/hooks/useTimelineClipboardPasteController.ts",
         "apps/web/src/workbook/timeline/hooks/useTimelineCommittedRecordIdle.ts",
         "apps/web/src/workbook/timeline/hooks/useTimelineCommittedRows.ts",
@@ -1197,6 +1216,8 @@
         "apps/web/src/workbook/timeline/hooks/useTimelineConflicts.ts",
         "apps/web/src/workbook/timeline/hooks/useTimelineCreateRelatedWorkflow.ts",
         "apps/web/src/workbook/timeline/hooks/useTimelineEvidenceAttach.ts",
+        "apps/web/src/workbook/timeline/hooks/useTimelineEvidenceMetadata.test.tsx",
+        "apps/web/src/workbook/timeline/hooks/useTimelineEvidenceMetadata.ts",
         "apps/web/src/workbook/timeline/hooks/useTimelineFindSource.ts",
         "apps/web/src/workbook/timeline/hooks/useTimelineGridAnchorController.ts",
         "apps/web/src/workbook/timeline/hooks/useTimelineGridInteractions.ts",

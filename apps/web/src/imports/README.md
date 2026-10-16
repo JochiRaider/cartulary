@@ -35,3 +35,11 @@ receipts and exact captured requests. Unsupported versions, definitive claim/acc
 protocol defect retires protected Import state. The browser does not implicitly
 cancel server jobs. `workbookImportBinding.ts` owns the presentation input type;
 its readiness comes from the extension availability owner rather than a UI Boolean.
+
+Discovery and apply timing marks separate user acceptance, each transport attempt, and the
+exact admitted job. They retain only opaque correlation identities and never
+file contents, filenames, credentials, or an inferred completion timestamp.
+
+Apply acceptance precedes the mandatory current-session and selection reads; a
+replay retains the same transaction and records another dispatch, not another
+accepted action.

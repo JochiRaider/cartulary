@@ -57,6 +57,12 @@ export type WorkbookHistoryValue =
   RecordHistoryItem["diff_summary"]["units"][number]["changes"][number]["before"];
 
 export type WorkbookHistoryEventPresentation = {
+  readonly binding: {
+    readonly actorId: string;
+    readonly changeSetId: string;
+    readonly operation: string;
+    readonly revision: number | null;
+  };
   readonly actorLabel: string;
   readonly committedAt: string;
   readonly key: string;

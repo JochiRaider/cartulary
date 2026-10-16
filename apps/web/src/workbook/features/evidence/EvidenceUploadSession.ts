@@ -3,6 +3,7 @@ import type { WorkbookProtocolBlobSlotReceipt } from "../../adapters/workbookPro
 import type { SecureTransactionIdPort } from "../../mutations/secureTransactionId";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import type { WorkbookOperationFailure } from "../../mutations/workbookOperationOutcome";
+import { EvidenceBlobVerification } from "./EvidenceBlobVerification";
 import type {
   EvidenceFileAttempt,
   EvidenceFileTransport,
@@ -26,6 +27,7 @@ type EvidenceUploadPhase =
 /** One file and one single-upload lease. Finalization policy belongs to its caller. */
 export class EvidenceUploadSession {
   private file: File | null;
+  private verification: EvidenceBlobVerification;
   private capability:
     | WorkbookProtocolBlobSlotReceipt["data"]["upload_target"]
     | null = null;
@@ -53,9 +55,20 @@ export class EvidenceUploadSession {
     private readonly now = Date.now,
   ) {
     this.file = file;
+    this.verification = new EvidenceBlobVerification(
+      transport,
+      ids,
+      changed,
+      recoverAuthority,
+    );
   }
   get status() {
-    return { phase: this.phase, pending: this.pending, failure: this.failure };
+    return {
+      phase: this.phase,
+      pending: this.pending || this.verification.state.pending,
+      failure: this.failure ?? this.verification.state.failure,
+      verification: this.verification.state,
+    };
   }
   get blob() {
     return this.slotReceipt?.data ?? null;
@@ -64,7 +77,7 @@ export class EvidenceUploadSession {
     return this.file !== null;
   }
   get isFinalizable() {
-    return this.phase === "transferred" || this.phase === "transfer_uncertain";
+    return this.verification.state.phase === "verified";
   }
   setAuthority(authority: WorkbookMutationAuthority | null) {
     this.authority = authority;
@@ -74,6 +87,7 @@ export class EvidenceUploadSession {
       authority.role === "viewer" ||
       (this.issuedSession && this.issuedSession !== authority.sessionIdentity)
     ) {
+      this.verification.suspend();
       this.capability = null;
       if (this.phase === "ready") this.phase = "fresh_required";
       if (this.phase === "transferring") {
@@ -83,10 +97,25 @@ export class EvidenceUploadSession {
       this.changed();
     }
   }
-  async prepare(authority: WorkbookMutationAuthority): Promise<boolean> {
-    if (this.pending || this.retired || !this.file) return false;
+  async prepare(
+    authority: WorkbookMutationAuthority,
+    explicit = false,
+  ): Promise<boolean> {
+    if (this.status.pending || this.retired || !this.file) return false;
     this.setAuthority(authority);
-    if (this.phase === "transferred") return true;
+    if (
+      this.phase === "transferred" ||
+      (explicit && this.phase === "transfer_uncertain")
+    ) {
+      return (
+        !!this.slotReceipt &&
+        this.verification.verify(
+          authority,
+          this.slotReceipt.data.object_blob_id,
+          explicit,
+        )
+      );
+    }
     if (!["selected", "slot_uncertain", "ready"].includes(this.phase))
       return false;
     const lifetime = this.lifetime;
@@ -216,7 +245,6 @@ export class EvidenceUploadSession {
         this.recoverAuthority();
       }
       if (outcome.kind === "authentication_required") this.recoverAuthority();
-      return this.phase === "transferred";
     } catch {
       if (!this.retired && lifetime === this.lifetime)
         this.phase = "transfer_uncertain";
@@ -229,11 +257,29 @@ export class EvidenceUploadSession {
         this.changed();
       }
     }
+    return (
+      this.phase === "transferred" &&
+      this.verification.verify(
+        authority,
+        this.slotReceipt.data.object_blob_id,
+        explicit,
+      )
+    );
+  }
+  cancelVerification() {
+    return this.verification.cancel();
   }
   /** Caller first proves no finalization remains uncertain or accepted. */
   freshSlot() {
-    if (this.pending || !this.file || this.retired) return false;
+    if (this.status.pending || !this.file || this.retired) return false;
     this.lifetime++;
+    this.verification.retire();
+    this.verification = new EvidenceBlobVerification(
+      this.transport,
+      this.ids,
+      this.changed,
+      this.recoverAuthority,
+    );
     this.slotAttempt = null;
     this.slotReceipt = null;
     this.capability = null;
@@ -271,6 +317,7 @@ export class EvidenceUploadSession {
   }
   retire() {
     this.retired = true;
+    this.verification.retire();
     this.lifetime++;
     this.transferAbort?.abort();
     this.transferAbort = null;

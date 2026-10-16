@@ -213,6 +213,60 @@
       "exclude_source": false
     },
     {
+      "view_schema_id": "cartulary.view.hosts.v1",
+      "field_key": "host.observer_party_ids",
+      "kind": "collection",
+      "target_domain": "party",
+      "exclude_source": false,
+      "add_operation": "add_party_ref",
+      "remove_operation": "remove_party_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.hosts.v1",
+      "field_key": "host.responsible_party_ids",
+      "kind": "collection",
+      "target_domain": "party",
+      "exclude_source": false,
+      "add_operation": "add_party_ref",
+      "remove_operation": "remove_party_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.hosts.v1",
+      "field_key": "host.subject_party_ids",
+      "kind": "collection",
+      "target_domain": "party",
+      "exclude_source": false,
+      "add_operation": "add_party_ref",
+      "remove_operation": "remove_party_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.identities.v1",
+      "field_key": "identity.observer_party_ids",
+      "kind": "collection",
+      "target_domain": "party",
+      "exclude_source": false,
+      "add_operation": "add_party_ref",
+      "remove_operation": "remove_party_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.identities.v1",
+      "field_key": "identity.responsible_party_ids",
+      "kind": "collection",
+      "target_domain": "party",
+      "exclude_source": false,
+      "add_operation": "add_party_ref",
+      "remove_operation": "remove_party_ref"
+    },
+    {
+      "view_schema_id": "cartulary.view.identities.v1",
+      "field_key": "identity.subject_party_ids",
+      "kind": "collection",
+      "target_domain": "party",
+      "exclude_source": false,
+      "add_operation": "add_party_ref",
+      "remove_operation": "remove_party_ref"
+    },
+    {
       "view_schema_id": "cartulary.view.lesson.v1",
       "field_key": "lesson.evidence_refs",
       "kind": "collection",

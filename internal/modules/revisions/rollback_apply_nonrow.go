@@ -77,7 +77,7 @@ func (a rollbackTransactionalApplier) applyNonRowRollbackTx(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	if err := a.publication.rebuildProjectionsTx(ctx, tx, incidentID); err != nil {
+	if err := a.publication.refreshProjectionsTx(ctx, tx, incidentID, plan.ProjectionRecords); err != nil {
 		return nil, err
 	}
 	for index, target := range targets {

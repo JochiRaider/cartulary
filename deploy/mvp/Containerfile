@@ -1,12 +1,13 @@
 FROM gcr.io/distroless/base-debian12:nonroot@sha256:7f0c72cd138b442ae0deeb69c08b1acf5525439ba251a49ad93c320a061567e5
 
 LABEL org.opencontainers.image.title="Cartulary MVP on-prem package"
-LABEL org.opencontainers.image.description="Single Cartulary application image with server, migrate, and operator binaries"
+LABEL org.opencontainers.image.description="Cartulary application and isolated pinned Reporting runtime"
 LABEL org.opencontainers.image.source="github.com/JochiRaider/cartulary"
 
 COPY --chown=nonroot:nonroot --chmod=0555 build/bin/server /usr/local/bin/cartulary-server
 COPY --chown=nonroot:nonroot --chmod=0555 build/bin/migrate /usr/local/bin/cartulary-migrate
 COPY --chown=nonroot:nonroot --chmod=0555 build/bin/operator /usr/local/bin/cartulary-operator
+COPY --chown=root:root build/report-renderer/ /opt/cartulary/report-renderer/
 COPY --chown=nonroot:nonroot deploy/mvp/runtime-roots/ /var/lib/cartulary/
 
 USER nonroot:nonroot

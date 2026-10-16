@@ -1,6 +1,7 @@
 package performancefixturelifecycle
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -13,6 +14,8 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/JochiRaider/cartulary/internal/platform/rootedfs"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
@@ -40,6 +43,7 @@ type BuildArgs struct {
 }
 
 type BuildArtifact struct {
+	ObjectSnapshot           *ObjectSnapshotSummary        `json:"object_snapshot"`
 	SchemaID                 string                        `json:"schema_id"`
 	FixtureProfileID         string                        `json:"fixture_profile_id"`
 	FixtureVersion           string                        `json:"fixture_version"`
@@ -123,21 +127,22 @@ type BuildValidation struct {
 }
 
 type leaseArtifact struct {
-	SchemaID          string          `json:"schema_id"`
-	FixtureProfileID  string          `json:"fixture_profile_id"`
-	SnapshotKey       string          `json:"snapshot_key"`
-	BuilderUnitID     string          `json:"builder_unit_id"`
-	RowID             string          `json:"row_id"`
-	PredicateID       string          `json:"predicate_id"`
-	LeaseIdentity     string          `json:"lease_identity"`
-	CloneOrdinal      int             `json:"clone_ordinal"`
-	CreationState     string          `json:"creation_state"`
-	IsolationResult   string          `json:"isolation_result"`
-	CleanupResults    []CleanupResult `json:"cleanup_results"`
-	CleanupState      string          `json:"cleanup_state"`
-	FailureCode       string          `json:"failure_code,omitempty"`
-	RedactionPolicyID string          `json:"redaction_policy_id"`
-	FinalizedAt       string          `json:"finalized_at"`
+	ObjectSnapshot    *ObjectSnapshotSummary `json:"object_snapshot"`
+	SchemaID          string                 `json:"schema_id"`
+	FixtureProfileID  string                 `json:"fixture_profile_id"`
+	SnapshotKey       string                 `json:"snapshot_key"`
+	BuilderUnitID     string                 `json:"builder_unit_id"`
+	RowID             string                 `json:"row_id"`
+	PredicateID       string                 `json:"predicate_id"`
+	LeaseIdentity     string                 `json:"lease_identity"`
+	CloneOrdinal      int                    `json:"clone_ordinal"`
+	CreationState     string                 `json:"creation_state"`
+	IsolationResult   string                 `json:"isolation_result"`
+	CleanupResults    []CleanupResult        `json:"cleanup_results"`
+	CleanupState      string                 `json:"cleanup_state"`
+	FailureCode       string                 `json:"failure_code,omitempty"`
+	RedactionPolicyID string                 `json:"redaction_policy_id"`
+	FinalizedAt       string                 `json:"finalized_at"`
 }
 
 type CleanupResult struct {
@@ -300,7 +305,7 @@ func writeLeaseArtifact(env map[string]string, profile performancefixtureprofile
 	return nil
 }
 
-func FailedLease(env map[string]string, failureCode string) error {
+func FailedLease(env map[string]string, failureCode string, preparationErr error) error {
 	profileID := strings.TrimSpace(env["CARTULARY_FIXTURE_PROFILE_ID"])
 	if profileID == "" {
 		return nil
@@ -309,6 +314,10 @@ func FailedLease(env map[string]string, failureCode string) error {
 	if err != nil {
 		return err
 	}
+	return failedLeaseWithProfile(env, profile, failureCode, preparationErr)
+}
+
+func failedLeaseWithProfile(env map[string]string, profile performancefixtureprofile.Profile, failureCode string, preparationErr error) error {
 	ordinal, err := strconv.Atoi(strings.TrimSpace(env["CARTULARY_FIXTURE_CLONE_ORDINAL"]))
 	if err != nil {
 		return err
@@ -316,6 +325,11 @@ func FailedLease(env map[string]string, failureCode string) error {
 	leaseIdentity, err := opaqueLeaseIdentity(strings.TrimSpace(env["CARTULARY_FIXTURE_CLONE_LEASE_ID"]))
 	if err != nil {
 		return err
+	}
+	cleanup := cleanupResults("not_acquired", "not_acquired", "not_acquired", "not_acquired", "not_acquired")
+	var failure *preparationFailure
+	if errors.As(preparationErr, &failure) {
+		cleanup = failure.cleanup
 	}
 	return writeLeaseArtifact(env, profile, leaseArtifact{
 		SchemaID:          profile.ArtifactPolicy.LeaseSchemaID,
@@ -328,7 +342,7 @@ func FailedLease(env map[string]string, failureCode string) error {
 		CloneOrdinal:      ordinal,
 		CreationState:     "failed",
 		IsolationResult:   "not_checked",
-		CleanupResults:    cleanupResults("not_acquired", "not_acquired", "not_acquired", "not_acquired", "not_acquired"),
+		CleanupResults:    cleanup,
 		CleanupState:      "failed",
 		FailureCode:       failureCode,
 		RedactionPolicyID: profile.RedactionPolicy.PolicyID,
@@ -337,6 +351,10 @@ func FailedLease(env map[string]string, failureCode string) error {
 }
 
 func validateLeaseArtifact(profile performancefixtureprofile.Profile, artifact leaseArtifact) error {
+	if artifact.CreationState == "created" && (artifact.ObjectSnapshot == nil || !validObjectSnapshotSummary(*artifact.ObjectSnapshot)) || artifact.CreationState == "failed" && artifact.ObjectSnapshot != nil {
+		return errors.New("performance fixture lease object snapshot proof is invalid")
+	}
+
 	if artifact.SchemaID != profile.ArtifactPolicy.LeaseSchemaID ||
 		artifact.FixtureProfileID != profile.FixtureProfileID || !lowerHexDigest(artifact.SnapshotKey) ||
 		artifact.BuilderUnitID != "fixture_snapshot:default:"+profile.FixtureProfileID+":"+artifact.SnapshotKey ||
@@ -372,4 +390,89 @@ func predicateAdmitted(profile performancefixtureprofile.Profile, predicateID st
 		}
 	}
 	return false
+}
+
+// readBuildArtifact admits only this run's exact sealed construction proof before
+// clone allocation. Documentation and prior evidence generations are never inputs.
+func readBuildArtifact(env map[string]string, profile performancefixtureprofile.Profile) (BuildArtifact, error) {
+	key := strings.TrimSpace(env["CARTULARY_FIXTURE_SNAPSHOT_KEY"])
+	if !lowerHexDigest(key) {
+		return BuildArtifact{}, errors.New("invalid fixture snapshot key")
+	}
+	resultsRoot, err := suiteservices.ResolveResultsRoot(env)
+	if err != nil {
+		return BuildArtifact{}, err
+	}
+	root, err := rootedfs.Open(filepath.Join(resultsRoot, suiteservices.ResolveRunID(env)))
+	if err != nil {
+		return BuildArtifact{}, err
+	}
+	defer root.Close()
+	ref, err := rootedfs.ParseReference("performance-fixtures/" + key + "/snapshot-build.json")
+	if err != nil {
+		return BuildArtifact{}, err
+	}
+	raw, _, err := root.ReadRegular(ref, 1<<20)
+	if err != nil {
+		return BuildArtifact{}, err
+	}
+	if _, err := canonicaljson.DecodeStrict(raw); err != nil {
+		return BuildArtifact{}, errors.New("invalid fixture snapshot build JSON")
+	}
+	var build BuildArtifact
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&build); err != nil {
+		return BuildArtifact{}, err
+	}
+	if err := validatePreparedBuild(env, profile, build); err != nil {
+		return BuildArtifact{}, err
+	}
+	return build, nil
+}
+
+func validatePreparedBuild(env map[string]string, profile performancefixtureprofile.Profile, build BuildArtifact) error {
+	if build.SchemaID != profile.ArtifactPolicy.BuildSchemaID || build.State != "sealed" ||
+		build.FixtureProfileID != profile.FixtureProfileID || build.FixtureVersion != profile.FixtureVersion || build.Seed != profile.Seed ||
+		build.SnapshotKeySchemaID != profile.ArtifactPolicy.SnapshotKeySchemaID || build.SnapshotKey != strings.TrimSpace(env["CARTULARY_FIXTURE_SNAPSHOT_KEY"]) ||
+		build.BuilderUnitID != strings.TrimSpace(env["CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID"]) || build.SourceContractDigest != profile.SourceContractDigest ||
+		build.BuildOrdinal != 1 || !build.Validation.ConnectionsClosed || build.ObjectSnapshot == nil || !validObjectSnapshotSummary(*build.ObjectSnapshot) {
+		return errors.New("performance fixture requires its exact sealed build and object snapshot proof")
+	}
+	if build.ObjectSnapshot.ObjectCount != profile.ObjectPopulation.ObjectCount || build.ObjectSnapshot.TotalBytes != profile.ObjectPopulation.TotalBytes {
+		return errors.New("fixture object population differs from its admitted profile")
+	}
+	if build.FailureCode != "" || !lowerHexDigest(build.MigrationDigest) || build.RedactionPolicyID != profile.RedactionPolicy.PolicyID || !strings.HasPrefix(build.SemanticValidationDigest, "sha256:") || !lowerHexDigest(strings.TrimPrefix(build.SemanticValidationDigest, "sha256:")) {
+		return errors.New("fixture build provenance is incomplete")
+	}
+	if _, err := time.Parse(time.RFC3339Nano, build.CreatedAt); err != nil {
+		return errors.New("fixture build timestamp is invalid")
+	}
+	if len(build.ContributionReceipts) != len(profile.Contributions) || len(build.Validation.Counts) != len(profile.SemanticExpectations.Counts) || len(build.Validation.Conditions) != len(profile.SemanticExpectations.Conditions) {
+		return errors.New("fixture build obligations are incomplete")
+	}
+	for i, expected := range profile.Contributions {
+		actual := build.ContributionReceipts[i]
+		if actual.ContributionID != expected.ContributionID || actual.Version != expected.Version || actual.OwnerID != expected.OwnerID || len(actual.Counts) != len(expected.ExpectedReceiptCounts) {
+			return errors.New("fixture contribution identity diverges")
+		}
+		for j, count := range expected.ExpectedReceiptCounts {
+			if actual.Counts[j].CountID != count.CountID || actual.Counts[j].Actual != count.Exact {
+				return errors.New("fixture contribution count diverges")
+			}
+		}
+	}
+	for i, expected := range profile.SemanticExpectations.Counts {
+		actual := build.Validation.Counts[i]
+		if actual.ExpectationID != expected.ExpectationID || actual.Actual != expected.Exact || !actual.Passed {
+			return errors.New("fixture semantic count diverges")
+		}
+	}
+	for i, expected := range profile.SemanticExpectations.Conditions {
+		actual := build.Validation.Conditions[i]
+		if actual.ExpectationID != expected.ExpectationID || actual.Actual != expected.Required || !actual.Passed {
+			return errors.New("fixture semantic condition diverges")
+		}
+	}
+	return nil
 }

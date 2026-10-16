@@ -51,7 +51,7 @@ func TestPartyRollbackEveryPresentFieldUsesGeneratedPolicy(t *testing.T) {
 		"organization_name": "Example Org",
 		"role_title":        "Lead",
 		"primary_email":     "lead@example.test",
-		"timezone_name":     "UTC",
+		"timezone_name":     "Etc/UTC",
 		"external_ref":      "Directory/Lead",
 		"notes":             "first\nsecond",
 	}

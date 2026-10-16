@@ -163,7 +163,7 @@ describe("Generic inspector reference summary", () => {
 
     rerender(
       <GenericInspectorReferenceSummary
-        contract={requireViewContract("cartulary.view.hosts.v1")}
+        contract={requireViewContract("cartulary.view.parties.v1")}
         row={row({})}
         canEdit={false}
         onEdit={onEdit}

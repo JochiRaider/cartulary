@@ -19,6 +19,14 @@
         "static_check"
       ],
       "public_target": "release-check"
+    },
+    {
+      "verification_id": "platform.objectstore.verification.source_contracts",
+      "behavior_class": "architecture",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

@@ -47,6 +47,7 @@ export type EvidenceAttachmentSnapshot = Readonly<{
   canNewId: boolean;
   canDiscard: boolean;
   refreshRequired: boolean;
+  verification: EvidenceUploadSession["status"]["verification"];
 }>;
 
 /** Existing Evidence finalization survives grid and inspector attachment. */
@@ -109,6 +110,7 @@ export class WorkbookEvidenceAttachmentOwner {
             recordId: entry.recordId,
             filename: entry.filename,
             message: this.message(entry),
+            verification: entry.upload.status.verification,
             busy,
             accepted: !!stage.receipt,
             reviewText: entry.reviewCandidate
@@ -198,12 +200,15 @@ export class WorkbookEvidenceAttachmentOwner {
       case "transferring":
         return "Uploading file.";
       case "transfer_uncertain":
-        return "Upload acknowledgement is uncertain. Recover by finalizing the file.";
+        return "Upload acknowledgement is uncertain. Resume to verify the stored file.";
       case "fresh_required":
         return "This upload target cannot be used. Start a fresh upload.";
       default:
         return "File retained for attachment.";
     }
+  }
+  cancelVerification(recordId: string) {
+    return this.entries.get(recordId)?.upload.cancelVerification();
   }
   setAuthority(authority: WorkbookMutationAuthority | null) {
     if (
@@ -400,7 +405,7 @@ export class WorkbookEvidenceAttachmentOwner {
         if (prior.phase === "rejected") return;
         if (
           !entry.upload.isFinalizable &&
-          !(await entry.upload.prepare(this.authority))
+          !(await entry.upload.prepare(this.authority, explicit))
         )
           return;
         if (!explicit && entry.upload.status.phase === "transfer_uncertain")

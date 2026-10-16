@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestEvidenceOpenAPIIncludesRouteFamily(t *testing.T) {
@@ -34,6 +35,7 @@ func TestEvidenceOpenAPIIncludesRouteFamily(t *testing.T) {
 	}
 	for _, path := range []string{
 		"/api/v1/object-blobs",
+		"/api/v1/object-blobs/{object_blob_id}/verify",
 		"/api/v1/evidence-records/{record_id}/attach-blob",
 		"/api/v1/evidence-records/{record_id}/preview-handle",
 		"/api/v1/evidence-records/{record_id}/download-handle",
@@ -67,6 +69,7 @@ func attachUploadedBlob(t *testing.T, harness *appsupport.ServerHarness, login a
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := createData["upload_target"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, uploadTarget["href"].(string), payload, "text/plain", login)
+	verifyUploadedBlob(t, harness, login, createData["object_blob_id"], createTxn+"-verify", "succeeded")
 	attachResp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
@@ -305,4 +308,30 @@ func redeemHandle(t *testing.T, href string, login appsupport.LoginResult) []byt
 func repoRoot() string {
 	_, file, _, _ := runtime.Caller(0)
 	return filepath.Join(filepath.Dir(file), "..", "..", "..")
+}
+
+// Exercise the public admission and observation path; never seed a successful
+// verification proof for route-level product assurance.
+func verifyUploadedBlob(t testing.TB, harness *appsupport.ServerHarness, login appsupport.LoginResult, blobID any, txn, wantStatus string) map[string]any {
+	t.Helper()
+	response := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs/"+blobID.(string)+"/verify", map[string]any{"client_txn_id": txn}, authOptions(login)...)
+	admitted := httptestx.RequireSuccessEnvelope(t, response, http.StatusAccepted)["data"].(map[string]any)
+	deadline := time.Now().Add(10 * time.Second)
+	job := admitted
+	for job["status"] != "succeeded" && job["status"] != "failed" && job["status"] != "canceled" {
+		if time.Now().After(deadline) {
+			t.Fatalf("verification Job did not finish: %v", job["status"])
+		}
+		time.Sleep(10 * time.Millisecond)
+		response = appsupport.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+job["status_route"].(string), nil, authOptions(login)...)
+		job = httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+	}
+	if job["status"] != wantStatus {
+		t.Fatalf("verification status=%v error=%v, want %s", job["status"], job["error_summary"], wantStatus)
+	}
+	replay := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs/"+blobID.(string)+"/verify", map[string]any{"client_txn_id": txn}, authOptions(login)...)
+	if got := httptestx.RequireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)["job_id"]; got != admitted["job_id"] {
+		t.Fatal("verification replay created another Job")
+	}
+	return job
 }

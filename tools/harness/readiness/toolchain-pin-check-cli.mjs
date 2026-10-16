@@ -58,6 +58,7 @@ function loadExpected(root) {
   const tools = requireObject(pins, "tools", file);
   return {
     uiReview: requireObject(pins, "ui_review", file),
+    reportRenderer: requireObject(pins, "report_renderer", file),
     cryptographicModule: requireObject(pins, "cryptographic_module", file),
     applicationBaseImage: requireString(pins, "application_base_image", file),
     modulePath: requireString(pins, "module_path", file),
@@ -73,6 +74,7 @@ function loadExpected(root) {
     cyclonedxGomodTool: requireString(tools, "cyclonedx_gomod", file),
     syftTool: requireString(tools, "syft", file),
     shellcheckVersion: requireString(pins, "shellcheck_version", file),
+    bubblewrapVersion: requireString(pins, "bubblewrap_version", file),
     testcontainersGoVersion: requireString(
       pins,
       "testcontainers_go_version",
@@ -293,6 +295,10 @@ function main() {
   browserTrustTool(root);
   const mismatches = [];
 
+  if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(expected.bubblewrapVersion)) {
+    throw new Error("tools/toolchain_pins.json: bubblewrap_version requires an exact version");
+  }
+
   if (!/^\S+@sha256:[a-f0-9]{64}$/.test(expected.applicationBaseImage)) {
     throw new Error("tools/toolchain_pins.json: application_base_image requires an immutable digest");
   }
@@ -300,6 +306,16 @@ function main() {
     matchLine(readRepoFile(root, "deploy/mvp/Containerfile"), /^FROM (\S+)$/m));
   checkMakefile(root, mismatches, expected);
   checkPackageJson(root, mismatches, expected);
+  const rendererFile = "packages/report-renderer/package.json";
+  const rendererPackage = JSON.parse(readRepoFile(root, rendererFile));
+  checkEqual(mismatches, rendererFile, "engines.node", expected.nodeVersion, rendererPackage.engines?.node);
+  for (const [name, version] of Object.entries(expected.reportRenderer)) {
+    if (typeof version !== "string" || !/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version)) throw new Error(`tools/toolchain_pins.json: report_renderer.${name} requires an exact version`);
+    checkEqual(mismatches, rendererFile, `dependencies.${name}`, version, rendererPackage.dependencies?.[name]);
+  }
+  for (const name of Object.keys(rendererPackage.dependencies ?? {})) {
+    if (!(name in expected.reportRenderer)) throw new Error(`${rendererFile}: unpinned renderer dependency ${name}`);
+  }
   checkGoMod(root, mismatches, expected);
   const analysisFile = "tools/go-analysis/go.mod";
   const analysisModule = readRepoFile(root, analysisFile);

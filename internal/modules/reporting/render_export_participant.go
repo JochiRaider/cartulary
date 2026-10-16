@@ -158,14 +158,16 @@ func AdmitRenderExportResult(invocation RenderExportInvocation, result RenderExp
 	if err != nil || !bytes.Equal(canonical, result.Output) {
 		return ExportModel{}, "", fmt.Errorf("%w: non-canonical output", ErrRenderExportParticipant)
 	}
-	model.Fields = model.RedactionFields()
+	if _, err := model.RedactionFields(); err != nil {
+		return ExportModel{}, "", err
+	}
 	return model, reportingObjectDigest(model.SchemaID, canonical), nil
 }
 
 func renderExportItemCount(model ExportModel) int {
 	count := len(model.Sections) + len(model.Records) + len(model.Relationships) +
 		len(model.TimelineEvents) + len(model.Subjects) + len(model.Diagrams) +
-		len(model.Assets) + len(model.SupportIndex)
+		len(model.Assets) + len(model.SupportIndex) + len(model.SourceIndex) + len(model.PresentationTexts)
 	var visit func([]ReportingBlock)
 	visit = func(blocks []ReportingBlock) {
 		count += len(blocks)

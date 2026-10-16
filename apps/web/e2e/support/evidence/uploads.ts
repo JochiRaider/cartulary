@@ -119,3 +119,39 @@ export async function openTimelineAttachmentFeedback(page: Page) {
   if ((await trigger.getAttribute("aria-expanded")) === "false")
     await trigger.click();
 }
+
+/** Verify through the real Job owner before a fixture finalizes stored bytes. */
+export async function verifyUploadedObjectBlob(
+  page: Page,
+  blobId: string,
+  clientTxnId: string,
+) {
+  const admitted = await publicHttpOperation({
+    operationID: "verifyObjectBlob",
+    pathParameters: { object_blob_id: blobId },
+    body: { client_txn_id: clientTxnId },
+    headers: await csrfHeaders(page),
+    request: atJsonOrigin(page.request, apiBase),
+  });
+  if (!admitted.ok)
+    throw new Error(`verification admission failed: ${admitted.status}`);
+  let job = admitted.payload.data;
+  const deadline = Date.now() + 10_000;
+  while (job.status !== "succeeded") {
+    if (job.status === "failed" || job.status === "canceled")
+      throw new Error(`verification ended: ${job.status}`);
+    if (Date.now() >= deadline)
+      throw new Error("verification fixture observation expired");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const observed = await publicHttpOperation({
+      operationID: "getJob",
+      pathParameters: { job_id: job.job_id },
+      request: atJsonOrigin(page.request, apiBase),
+    });
+    if (!observed.ok)
+      throw new Error(`verification observation failed: ${observed.status}`);
+    job = observed.payload.data;
+  }
+  if (job.result_summary?.code !== "evidence_blob_verified")
+    throw new Error("verification returned a different successful operation");
+}

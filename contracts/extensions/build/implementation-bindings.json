@@ -162,9 +162,9 @@
         "snapshot_reporting.snapshots_route"
       ],
       "implemented_job_kinds": [
-        "snapshot_reporting.composition_preview_v2",
-        "snapshot_reporting.release_create_v2",
-        "snapshot_reporting.snapshot_create_v2"
+        "snapshot_reporting.composition_preview_v4",
+        "snapshot_reporting.release_create_v4",
+        "snapshot_reporting.snapshot_create_v4"
       ],
       "implemented_worker_kinds": [
         "snapshot_reporting.job_worker_v2"

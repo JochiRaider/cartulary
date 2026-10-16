@@ -1,7 +1,62 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "platform.viewschema",
   "rows": [
+    {
+      "row_id": "platform.viewschema.integration.view_schemas_discovery_http_036651fc36",
+      "owner_id": "platform.viewschema",
+      "family_id": "platform.viewschema.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewschema.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/viewschemas",
+        "tests": [
+          "TestViewSchemasDiscoveryHTTP"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "platform.viewschema.unit.base_registry_public_resources_4bc34da97c",
+      "owner_id": "platform.viewschema",
+      "family_id": "platform.viewschema.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewschema.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/viewschema",
+        "tests": [
+          "TestBaseRegistryPublicResources",
+          "TestCoordinationInternalProjectionAndFilterBindings",
+          "TestHandoffAckStateExposesDeclaredEnumOrder",
+          "TestOptionalStandardizedSurfacesExposedAsAdditiveResources",
+          "TestTaskDecisionInternalProjectionBindings"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
     {
       "row_id": "platform.viewschema.unit.layout_version_compatibility",
       "owner_id": "platform.viewschema",

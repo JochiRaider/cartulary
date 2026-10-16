@@ -31,7 +31,7 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 		t.Fatalf("descriptors are not canonical: %#v", descriptors)
 	}
 	inactivePolicies := coordinator.InactiveConfigurationPolicies()
-	if len(inactivePolicies) != 5 ||
+	if len(inactivePolicies) != 6 ||
 		inactivePolicies[0].Key != "enterprise_authentication.provider_manifest_path" ||
 		inactivePolicies[0].Kind != "forbidden" ||
 		inactivePolicies[1].Key != "network_flow_activity.key_ring_manifest_path" ||
@@ -41,7 +41,10 @@ func TestCoordinatorGeneratedRegistry_Unit(t *testing.T) {
 		inactivePolicies[3].Key != "reference_packs.clock_trusted" ||
 		inactivePolicies[3].Kind != "forbidden" ||
 		inactivePolicies[4].Key != "reference_packs.trust_bootstrap_path" ||
-		inactivePolicies[4].Kind != "forbidden" {
+		inactivePolicies[4].Kind != "forbidden" ||
+		inactivePolicies[5].ProfileID != "snapshot_reporting" ||
+		inactivePolicies[5].Key != "snapshot_reporting.runtime_receipt_path" ||
+		inactivePolicies[5].Kind != "forbidden" {
 		t.Fatalf("inactive configuration policies = %#v", inactivePolicies)
 	}
 	descriptors[0].RouteFamilies[0] = "mutated"
@@ -91,9 +94,9 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 			{jobKind: "reference_pack.refresh_v2", operationKind: "reference_pack.refresh", workerKind: "reference_pack.lifecycle_worker_v2"},
 		},
 		"snapshot_reporting": {
-			{jobKind: "snapshot_reporting.snapshot_create_v2", operationKind: "snapshot_reporting.snapshot_create", workerKind: "snapshot_reporting.job_worker_v2"},
-			{jobKind: "snapshot_reporting.release_create_v2", operationKind: "snapshot_reporting.release_create", workerKind: "snapshot_reporting.job_worker_v2"},
-			{jobKind: "snapshot_reporting.composition_preview_v2", operationKind: "snapshot_reporting.composition_preview", workerKind: "snapshot_reporting.job_worker_v2"},
+			{jobKind: "snapshot_reporting.snapshot_create_v4", operationKind: "snapshot_reporting.snapshot_create", workerKind: "snapshot_reporting.job_worker_v2"},
+			{jobKind: "snapshot_reporting.release_create_v4", operationKind: "snapshot_reporting.release_create", workerKind: "snapshot_reporting.job_worker_v2"},
+			{jobKind: "snapshot_reporting.composition_preview_v4", operationKind: "snapshot_reporting.composition_preview", workerKind: "snapshot_reporting.job_worker_v2"},
 		},
 	}
 	if len(adoption) != 6 {
@@ -129,9 +132,9 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		"reference_pack.import_v2":                        "reference_pack.import.request.v2",
 		"reference_pack.refresh_v2":                       "reference_pack.refresh.cohort_member.v2",
 		"reference_pack.reverify_v2":                      "reference_pack.reverify.pack_version.v2",
-		"snapshot_reporting.composition_preview_v2":       "snapshot_reporting.composition_preview.render_attempt.v1",
-		"snapshot_reporting.release_create_v2":            "snapshot_reporting.release_create.render_attempt.v1",
-		"snapshot_reporting.snapshot_create_v2":           "snapshot_reporting.snapshot_create.materialization.v1",
+		"snapshot_reporting.composition_preview_v4":       "snapshot_reporting.composition_preview.render_attempt.v1",
+		"snapshot_reporting.release_create_v4":            "snapshot_reporting.release_create.render_attempt.v1",
+		"snapshot_reporting.snapshot_create_v4":           "snapshot_reporting.snapshot_create.materialization.v1",
 	}
 	liveJobs := coordinator.JobKindContracts()
 	if len(liveJobs) != len(jobKinds) {
@@ -212,7 +215,7 @@ func TestExtensionProfileAdoptionMatrix_Static(t *testing.T) {
 		len(participant.Operations) != 1 ||
 		participant.Operations[0].OperationKind != "emit" ||
 		participant.Operations[0].ResultSchemaID != "cartulary.extension_snapshot_reporting_participant_result.v1" ||
-		participant.Operations[0].OutputSchemaID != "cartulary.reporting_export_model.v2" {
+		participant.Operations[0].OutputSchemaID != "cartulary.reporting_export_model.v7" {
 		t.Fatalf("Snapshot/Reporting participant specialization = %#v", participant)
 	}
 }

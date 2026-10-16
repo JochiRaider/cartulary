@@ -95,7 +95,7 @@ function SemanticFocusHarness({
   const registry = useWorkbookBrowsingRegistry();
   useLayoutEffect(() => {
     const token = Symbol();
-    registry.updatePresentation(viewSchemaId, token, true, () => {});
+    registry.bindPresentation(viewSchemaId, token, true, () => {});
     return () => registry.unbindPresentation(viewSchemaId, token);
   }, [registry, viewSchemaId]);
   const registerGridHandle = useWorkbookSemanticGridFocus({

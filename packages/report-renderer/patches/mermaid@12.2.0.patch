@@ -1,0 +1,34 @@
+--- a/dist/chunks/mermaid.core/chunk-AQDTSKZB.mjs
++++ b/dist/chunks/mermaid.core/chunk-AQDTSKZB.mjs
+@@ -265,7 +265,13 @@
+ __name(preprocessMarkdown, "preprocessMarkdown");
+ function nonMarkdownToLines(nonMarkdownText) {
+   return nonMarkdownText.split(/\\n|\n|<br\s*\/?>/gi).map(
+-    (line) => line.trim().match(/<[^>]+>|[^\s<>]+/g)?.map((word) => ({ content: word, type: "normal" })) ?? []
++    (line) => line.trim().match(/<[^>]+>|[^\s<>]+/g)?.map((word) => ({
++      // Decode canonical inert label entities after tokenization, before SVG
++      // measurement. Decoding before tokenization could turn a literal backslash
++      // followed by n into a line break. Text remains assigned through textContent.
++      content: word.replace(/&#(32|34|35|37|38|39|59|92|96|124);/g, (_, scalar) => String.fromCodePoint(Number(scalar))),
++      type: "normal"
++    })) ?? []
+   );
+ }
+ __name(nonMarkdownToLines, "nonMarkdownToLines");
+--- a/dist/chunks/mermaid.esm/chunk-VTNK77LY.mjs
++++ b/dist/chunks/mermaid.esm/chunk-VTNK77LY.mjs
+@@ -1475,7 +1475,13 @@
+ __name(preprocessMarkdown, "preprocessMarkdown");
+ function nonMarkdownToLines(nonMarkdownText) {
+   return nonMarkdownText.split(/\\n|\n|<br\s*\/?>/gi).map(
+-    (line) => line.trim().match(/<[^>]+>|[^\s<>]+/g)?.map((word) => ({ content: word, type: "normal" })) ?? []
++    (line) => line.trim().match(/<[^>]+>|[^\s<>]+/g)?.map((word) => ({
++      // Decode canonical inert label entities after tokenization, before SVG
++      // measurement. Decoding before tokenization could turn a literal backslash
++      // followed by n into a line break. Text remains assigned through textContent.
++      content: word.replace(/&#(32|34|35|37|38|39|59|92|96|124);/g, (_, scalar) => String.fromCodePoint(Number(scalar))),
++      type: "normal"
++    })) ?? []
+   );
+ }
+ __name(nonMarkdownToLines, "nonMarkdownToLines");

@@ -418,6 +418,19 @@
       "typescript_projections": [],
       "activation_dependency_ids": [],
       "description": "Core security cryptographic primitive framing and bounded-use projections."
+    },
+    {
+      "family_id": "jobs",
+      "contract_root": "contracts/jobs",
+      "generation_status": "active",
+      "go_name": "JobArtifacts",
+      "output_order": 25,
+      "generated_outputs": [
+        "internal/gen/contractjobs/artifacts_gen.go"
+      ],
+      "typescript_projections": [],
+      "activation_dependency_ids": [],
+      "description": "Core-owned Base Profile durable job definitions and worker capacity contracts."
     }
   ]
 }

@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_anchor_trace_contract.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "contract_id",
+    "criterion_id",
+    "predicate_id",
+    "fixture_contract_id",
+    "measurement_policy_id",
+    "view_schema_id",
+    "viewport",
+    "seed",
+    "product_retries",
+    "field_key",
+    "draft_value",
+    "live_field_key",
+    "live_value",
+    "sort_field_key",
+    "filter",
+    "group_field_key",
+    "steps",
+    "sort_value"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.performance_anchor_trace_contract.v1"
+    },
+    "contract_id": {
+      "const": "cartulary.performance.ac047.v2"
+    },
+    "criterion_id": {
+      "const": "AC-047"
+    },
+    "predicate_id": {
+      "const": "perf.anchor_stability_under_live_updates.v2"
+    },
+    "fixture_contract_id": {
+      "const": "cartulary.performance.large_grid.v1"
+    },
+    "measurement_policy_id": {
+      "const": "cartulary.measurement.seeded_trace.v1"
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "viewport": {
+      "const": {
+        "width": 1920,
+        "height": 1080,
+        "device_scale_factor": 1
+      }
+    },
+    "seed": {
+      "const": 20260405
+    },
+    "product_retries": {
+      "const": 0
+    },
+    "field_key": {
+      "const": "timeline.activity_synopsis_text"
+    },
+    "draft_value": {
+      "const": "AC047 anchored draft"
+    },
+    "live_field_key": {
+      "const": "timeline.data_source_text"
+    },
+    "live_value": {
+      "const": "AC047 newer source"
+    },
+    "sort_field_key": {
+      "const": "timeline.analyst_text"
+    },
+    "filter": {
+      "const": {
+        "field_key": "timeline.has_evidence",
+        "value": "false"
+      }
+    },
+    "group_field_key": {
+      "const": "timeline.capture_state"
+    },
+    "steps": {
+      "const": [
+        "draft_open",
+        "scroll_away",
+        "scroll_return",
+        "pending_commit",
+        "sort_accepted",
+        "filter_accepted",
+        "group_accepted",
+        "commit_accepted",
+        "stale_refresh_released",
+        "live_update_applied",
+        "final_stable"
+      ]
+    },
+    "sort_value": {
+      "const": "anchor-first"
+    }
+  }
+}

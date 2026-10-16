@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	strictjson "github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
+	"github.com/google/uuid"
 )
 
 var errCanonicalReportingJSON = errors.New("reporting: invalid canonical JSON")
@@ -58,6 +59,12 @@ func validateReportingValue(v reflect.Value, depth int) error {
 		return err
 	}
 	if v.Type() == reflect.TypeFor[time.Time]() {
+		return nil
+	}
+	// UUID is an admitted textual identity with a fixed lowercase JSON
+	// representation, despite its Go storage being a byte array. This does not
+	// admit arbitrary byte buffers or user-defined marshalers.
+	if v.Type() == reflect.TypeFor[uuid.UUID]() {
 		return nil
 	}
 	switch v.Kind() {

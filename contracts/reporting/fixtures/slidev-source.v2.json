@@ -1,0 +1,157 @@
+{
+  "template": {
+    "author": "An \"analyst\"",
+    "theme": "default",
+    "layouts": [
+      {"layout_id":"cover","slidev_layout":"cover","allowed_block_kinds":["paragraph"]},
+      {"layout_id":"default","slidev_layout":"default","allowed_block_kinds":["paragraph","metric","bullet_list","table","speaker_note"]}
+    ]
+  },
+  "deck": {
+    "title": "Incident \"Review\"",
+    "slides": [
+      {
+        "title": "First & literal {{ title }}",
+        "blocks": [
+          {
+            "block_kind": "paragraph",
+            "fields": [
+              {
+                "field_key": "text",
+                "field_ordinal": 1,
+                "value": "A literal <element> & entity."
+              }
+            ]
+          }
+        ],
+        "speaker_notes": "Private presenter note",
+        "layout_id": "cover"
+      },
+      {
+        "title": "Second page",
+        "blocks": [
+          {
+            "block_kind": "paragraph",
+            "fields": [
+              {
+                "field_key": "text",
+                "field_ordinal": 1,
+                "value": "Separate content."
+              }
+            ]
+          },
+          {
+            "block_kind": "metric",
+            "fields": [
+              {
+                "field_key": "count",
+                "field_ordinal": 1,
+                "display_label": "Total",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "block_kind": "bullet_list",
+            "children": [
+              {
+                "block_kind": "paragraph",
+                "fields": [
+                  {
+                    "field_key": "value",
+                    "field_ordinal": 1,
+                    "display_label": null,
+                    "value": "First item"
+                  }
+                ]
+              },
+              {
+                "block_kind": "paragraph",
+                "fields": [
+                  {
+                    "field_key": "value",
+                    "field_ordinal": 1,
+                    "display_label": null,
+                    "value": "Literal | <item>"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "block_kind": "table",
+            "children": [
+              {
+                "block_kind": "paragraph",
+                "fields": [
+                  {
+                    "field_key": "name",
+                    "field_ordinal": 1,
+                    "display_label": "Name",
+                    "value": "Alpha"
+                  }
+                ]
+              },
+              {
+                "block_kind": "paragraph",
+                "fields": [
+                  {
+                    "field_key": "name",
+                    "field_ordinal": 1,
+                    "display_label": null,
+                    "value": "Beta"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "speaker_notes": null,
+        "layout_id": "default"
+      }
+    ]
+  },
+  "source_lines": [
+    "---",
+    "title: \"Incident \\\"Review\\\"\"",
+    "author: \"An \\\"analyst\\\"\"",
+    "theme: \"default\"",
+    "download: false",
+    "export:",
+    "  format: \"pdf\"",
+    "  withClicks: true",
+    "clickAnimation: false",
+    "lineNumbers: false",
+    "monaco: false",
+    "twoslash: false",
+    "layout: \"cover\"",
+    "---",
+    "",
+    "# First \\& literal {{ title }}",
+    "",
+    "A literal \\<element> \\& entity.",
+    "",
+    "<!--",
+    "Private presenter note",
+    "-->",
+    "",
+    "---",
+    "layout: \"default\"",
+    "---",
+    "",
+    "# Second page",
+    "",
+    "Separate content.",
+    "",
+    "**Total:** 2",
+    "",
+    "- First item",
+    "- Literal \\| \\<item>",
+    "",
+    "| Name |",
+    "| --- |",
+    "| Alpha |",
+    "| Beta |",
+    ""
+  ]
+}

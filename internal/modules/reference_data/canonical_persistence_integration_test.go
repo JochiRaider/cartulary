@@ -248,6 +248,27 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 	if binding.SetID != pinned.ID || len(binding.Provenance) != 3 || retention.ValidateBinding(ctx, binding) != nil {
 		t.Fatal("invalid immutable report binding")
 	}
+	t.Run("historical binding in consumer read transaction", func(t *testing.T) {
+		read, err := pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer read.Rollback(ctx)
+		if err := retention.ValidateBindingTx(ctx, read, binding); err != nil {
+			t.Fatal(err)
+		}
+		altered := binding
+		altered.SHA256 = strings.Repeat("0", 64)
+		if retention.ValidateBindingTx(ctx, read, altered) == nil {
+			t.Fatal("altered historical binding admitted")
+		}
+		if retention.ValidateBindingTx(ctx, nil, binding) == nil {
+			t.Fatal("missing read transaction admitted")
+		}
+		if err := read.Commit(ctx); err != nil {
+			t.Fatal("validation changed or aborted read-only transaction", err)
+		}
+	})
 	t.Run("current backup restores exact historical pins and rebuilds indexes", func(t *testing.T) {
 		sourcePacks, err := referenceassembly.NewRecoveryStorage(temporaryRoot, publishedRoot, reference_data.DefaultLimits())
 		if err != nil {
@@ -337,6 +358,17 @@ func TestCanonicalBasePersistencePinsAndImmutableProvenance_Integration(t *testi
 		retained, err := reference_data.NewRetention(targetPool, restoredStorage, func() time.Time { return at }, consumerIntegrityOptions(t))
 		if err != nil || retained.ValidateBinding(ctx, binding) != nil {
 			t.Fatal("restored provenance/pin unavailable", err)
+		}
+		restoredRead, err := targetPool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := retained.ValidateBindingTx(ctx, restoredRead, binding); err != nil {
+			_ = restoredRead.Rollback(ctx)
+			t.Fatal("restored historical binding rejected", err)
+		}
+		if err := restoredRead.Commit(ctx); err != nil {
+			t.Fatal(err)
 		}
 		if err := reference_data.ValidateRequiredState(ctx, targetPool, restoredStorage, reference_data.DefaultLimits()); err != nil {
 			t.Fatal(err)

@@ -2,7 +2,6 @@ package queryengine
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -35,13 +34,68 @@ func (*ArtifactReader) CollectDerivedFactsTx(
 	incidentID uuid.UUID,
 ) ([]artifactprojection.DerivedFact, error) {
 	rows, err := tx.Query(ctx, `
-SELECT a.record_id, a.artifact_type, a.finding_kind, to_jsonb(a) - 'incident_id'
+SELECT a.record_id, a.artifact_type, a.finding_kind, jsonb_build_object(
+       'record_id', a.record_id,
+       'row_version', a.row_version,
+       'artifact_type', a.artifact_type,
+       'title', a.title,
+       'body', a.body,
+       'timestamp_utc', a.timestamp_utc,
+       'updated_at', a.updated_at,
+       'created_at', a.created_at,
+       'created_by_user_id', a.created_by_user_id,
+       'linked_record_count', a.linked_record_count
+   ) || CASE a.artifact_type
+     WHEN 'note' THEN '{}'::jsonb
+     WHEN 'comm_log' THEN jsonb_build_object(
+       'comm_id', a.comm_id,
+       'comm_type', a.comm_type,
+       'audience', a.audience,
+       'channel_or_meeting', a.channel_or_meeting,
+       'summary', a.summary,
+       'next_report_at', a.next_report_at,
+       'privilege_tag', a.privilege_tag
+   )
+     WHEN 'handoff' THEN jsonb_build_object(
+       'handoff_id', a.handoff_id,
+       'outgoing_owner_user_id', a.outgoing_owner_user_id,
+       'incoming_owner_user_id', a.incoming_owner_user_id,
+       'current_state_summary', a.current_state_summary,
+       'next_checks', a.next_checks,
+       'acknowledged_at', a.acknowledged_at,
+       'ack_state', a.ack_state
+   )
+     WHEN 'status_review' THEN jsonb_build_object(
+       'status_review_id', a.status_review_id,
+       'review_owner_user_id', a.review_owner_user_id,
+       'current_state_summary', a.current_state_summary,
+       'active_risks_summary', a.active_risks_summary,
+       'next_report_at', a.next_report_at
+   )
+     WHEN 'lesson' THEN jsonb_build_object(
+       'lesson_id', a.lesson_id,
+       'owner_user_id', a.owner_user_id,
+       'closure_state', a.closure_state
+   )
+     WHEN 'finding' THEN jsonb_build_object(
+       'finding_statement', a.finding_statement,
+       'finding_kind', a.finding_kind,
+       'finding_state', a.finding_state,
+       'finding_owner_user_id', a.finding_owner_user_id,
+       'finding_confidence_score', a.finding_confidence_score,
+       'finding_closed_at', a.finding_closed_at,
+       'finding_updated_at', a.finding_updated_at,
+       'finding_confidence_band', a.finding_confidence_band
+   )
+     ELSE '{}'::jsonb
+   END
   FROM artifact_grid_projection a
   JOIN records r
     ON r.incident_id = a.incident_id
    AND r.record_id = a.record_id
    AND r.deleted_at IS NULL
  WHERE a.incident_id = $1
+   AND a.artifact_type IN ('note', 'comm_log', 'handoff', 'status_review', 'lesson', 'finding')
  ORDER BY a.record_id
 `, incidentID)
 	if err != nil {
@@ -63,8 +117,8 @@ SELECT a.record_id, a.artifact_type, a.finding_kind, to_jsonb(a) - 'incident_id'
 			value := findingKind.String
 			fact.FindingKind = &value
 		}
-		fact.Value = map[string]any{}
-		if err := json.Unmarshal(raw, &fact.Value); err != nil {
+		fact.Value, err = decodeReportingFactObject(raw)
+		if err != nil {
 			return nil, fmt.Errorf("decode Artifact projection fact: %w", err)
 		}
 		facts = append(facts, fact)

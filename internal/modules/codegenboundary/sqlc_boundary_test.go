@@ -19,59 +19,59 @@ const (
 
 func TestSQLCImportsStayBehindPersistenceAdapters(t *testing.T) {
 	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
+	// SQLC is private to the owning persistence packages. Source-file splitting
+	// and renaming within an owner must not change this architectural boundary.
 	allowed := map[string]bool{
-		"internal/modules/incidents/import_finalization.go":        true,
-		"internal/modules/incidents/open_guard.go":                 true,
-		"internal/modules/incidents/store.go":                      true,
-		"internal/modules/workbook/startup/postgres/repository.go": true,
-		"internal/modules/workbook/startup/postgres/writer.go":     true,
-		"internal/modules/recovery/store.go":                       true,
-		"internal/modules/reporting/store.go":                      true,
-		"internal/modules/savedviews/store.go":                     true,
-		"internal/modules/timeline/query_projection_store.go":      true,
-		"internal/modules/timeline/store.go":                       true,
-		"internal/modules/timeline/workbookprojection/store.go":    true,
+		"internal/modules/incidents":                   true,
+		"internal/modules/workbook/startup/postgres":   true,
+		"internal/modules/recovery":                    true,
+		"internal/modules/reporting":                   true,
+		"internal/modules/savedviews":                  true,
+		"internal/modules/timeline":                    true,
+		"internal/modules/timeline/workbookprojection": true,
 	}
 
 	var offenders []string
-	err := filepath.WalkDir(repoRoot, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			switch filepath.ToSlash(path) {
-			case filepath.ToSlash(filepath.Join(repoRoot, ".git")),
-				filepath.ToSlash(filepath.Join(repoRoot, ".cartulary")),
-				filepath.ToSlash(filepath.Join(repoRoot, "internal", "gen")),
-				filepath.ToSlash(filepath.Join(repoRoot, "tmp")):
-				return filepath.SkipDir
+	for _, sourceRoot := range []string{"cmd", "internal"} {
+		err := filepath.WalkDir(filepath.Join(repoRoot, sourceRoot), func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() {
+				switch filepath.ToSlash(path) {
+				case filepath.ToSlash(filepath.Join(repoRoot, ".git")),
+					filepath.ToSlash(filepath.Join(repoRoot, ".cartulary")),
+					filepath.ToSlash(filepath.Join(repoRoot, "internal", "gen")),
+					filepath.ToSlash(filepath.Join(repoRoot, "tmp")):
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+
+			relPath, err := filepath.Rel(repoRoot, path)
+			if err != nil {
+				return err
+			}
+			relPath = filepath.ToSlash(relPath)
+			sqlcAliases := sqlcImportAliases(t, path)
+			if len(sqlcAliases) == 0 {
+				return nil
+			}
+			if !allowed[filepath.ToSlash(filepath.Dir(relPath))] {
+				offenders = append(offenders, relPath)
+				return nil
+			}
+			if exportedDeclExposesSQLC(t, path, sqlcAliases) {
+				offenders = append(offenders, relPath+" exposes sqlc types through an exported declaration")
 			}
 			return nil
-		}
-		if !strings.HasSuffix(path, ".go") {
-			return nil
-		}
-
-		relPath, err := filepath.Rel(repoRoot, path)
+		})
 		if err != nil {
-			return err
+			t.Fatalf("scan repository Go files: %v", err)
 		}
-		relPath = filepath.ToSlash(relPath)
-		sqlcAliases := sqlcImportAliases(t, path)
-		if len(sqlcAliases) == 0 {
-			return nil
-		}
-		if !allowed[relPath] {
-			offenders = append(offenders, relPath)
-			return nil
-		}
-		if exportedDeclExposesSQLC(t, path, sqlcAliases) {
-			offenders = append(offenders, relPath+" exposes sqlc types through an exported declaration")
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("scan repository Go files: %v", err)
 	}
 	if len(offenders) > 0 {
 		sort.Strings(offenders)

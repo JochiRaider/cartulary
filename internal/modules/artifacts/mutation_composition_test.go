@@ -51,6 +51,7 @@ func completeArtifactImportDependencies() ImportDependencies {
 		ActiveUsers:     artifactImportActiveUserStub{},
 		Projections:     artifactImportProjectionStub{},
 		Revisions:       artifactImportRevisionStub{},
+		Collaboration:   artifactCollaborationStub{},
 	}
 }
 
@@ -127,6 +128,7 @@ func TestArtifactImportContributionRejectsMissingDependencies(t *testing.T) {
 		{name: "records insertion", want: "Records insertion", drop: func(d *ImportDependencies) { d.RecordEnvelopes = nil }},
 		{name: "active-user lookup", want: "Active-user lookup", drop: func(d *ImportDependencies) { d.ActiveUsers = nil }},
 		{name: "projection refresh/load", want: "Projection refresh/load", drop: func(d *ImportDependencies) { d.Projections = nil }},
+		{name: "collaboration publication", want: "Collaboration publication appender", drop: func(d *ImportDependencies) { d.Collaboration = nil }},
 		{name: "revision and intent appender", want: "Revision and intent appender", drop: func(d *ImportDependencies) { d.Revisions = nil }},
 	}
 	for _, tc := range tests {

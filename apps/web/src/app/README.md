@@ -15,7 +15,7 @@ paused. Replacement-shell authorization and an accepted current-surface query
 precede replay. Account replacement retires previous protected state and pending
 work. Directory and incident-creation recovery have separate lifetimes.
 
-The eight retained incident/workbook workflows use named `create*Workflow`
+The nine retained incident/workbook workflows use named `create*Workflow`
 adapters. Adapters own feature authority, activation, and recovery; React only
 commits their environment and presentation. Import adapters distinguish pending
 route readiness from definitive unavailability and protocol defects. Returning
@@ -90,7 +90,7 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [useAuthentication.ts](useAuthentication.ts) | React binding for authentication commands, local inputs, and TOTP normalization. |
 
 The fixed contribution record in [AppWorkflows.ts](AppWorkflows.ts) supplies
-synchronization, synchronous retirement and terminal disposal for all eight
+synchronization, synchronous retirement and terminal disposal for all nine
 owners. [useAppWorkflows.ts](useAppWorkflows.ts) commits environment changes and
 maintains one session subscription; `useAppSession` schedules terminal cleanup
 without disposing live owners during Strict Mode replay. Construction and
@@ -231,3 +231,13 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 | [workbookPreferenceIntegration.test.tsx](workbookPreferenceIntegration.test.tsx) | Tests preference work across drawer transitions, role changes, and session replacement. |
 
 Incident presentation test compositions live in [testing](../testing/README.md).
+
+## Reporting workflow
+
+[createReportingWorkflow.ts](createReportingWorkflow.ts) binds the retained Reporting
+controller to current incident membership, session lifetime, and supported claimed
+Reporting routes. The drawer borrows presentation; retirement belongs to the app.
+
+[createReportingWorkflow.test.tsx](createReportingWorkflow.test.tsx) exercises
+claimed-contract admission, current role changes, drawer detachment, exact retained
+requests and definitive profile withdrawal through the ordinary feature binding.

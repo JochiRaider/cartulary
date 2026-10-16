@@ -32,7 +32,7 @@
     },
     {
       "claim_config_key": "snapshot_reporting.claimed",
-      "configuration_contract_sha256": "570060b842f6f6be2b9102080395bcae9956a8321eeb705d8dc4312778609c0e",
+      "configuration_contract_sha256": "8631f6d966404c83002882c590260e6f65a634665ada39c89042066249698f43",
       "fact_kind": "claim_configuration",
       "profile_id": "snapshot_reporting"
     }

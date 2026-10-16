@@ -29,7 +29,7 @@ func newTestTimelineComposition(
 	t.Helper()
 	revisionComposition := revisionsupport.MustComposition(t)
 	projections := mustBuildProjectionRuntime(t, pool)
-	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+	evidenceOwner := appsupport.NewEvidenceSourceRuntimeForTimeline(
 		pool,
 		conflictTokens,
 		revisionComposition.Runtime.Appender(),

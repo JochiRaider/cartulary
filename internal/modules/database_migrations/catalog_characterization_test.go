@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"testing/fstest"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
@@ -94,10 +95,11 @@ func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hash canonical source: %v", err)
 	}
-	const wantHash = "661c1031e97601ea882365c4590611ea49c8e3f5032bd466765aa83bfc3c8de9"
-	if hash != wantHash {
-		t.Fatalf("canonical source hash = %s, want %s", hash, wantHash)
+	secondHash, err := database_migrations.SchemaHash(second, runnerIdentity)
+	if err != nil || hash != secondHash {
+		t.Fatalf("canonical source hash is not repeatable: %q %q %v", hash, secondHash, err)
 	}
+	assertSchemaHashContract(t)
 	if _, err := database_migrations.SchemaHash(nil, runnerIdentity); err == nil {
 		t.Fatal("nil source unexpectedly produced a schema hash")
 	}
@@ -109,6 +111,44 @@ func TestCanonicalEmbeddedMigrationCatalogCharacterization(t *testing.T) {
 	}
 	if _, err := database_migrations.SchemaHash(first, " "); err == nil {
 		t.Fatal("empty runner identity unexpectedly produced a schema hash")
+	}
+}
+
+// Production catalog membership evolves. Keep byte-level hash compatibility on
+// a fixed synthetic catalog; the manifest checks above still bind every real
+// filename and SQL digest without copying the whole catalog's derived hash.
+func assertSchemaHashContract(t *testing.T) {
+	t.Helper()
+	const body = "-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n"
+	const runner = "test-runner/1"
+	build := func(filename, sql string) *database_migrations.Source {
+		t.Helper()
+		source, err := database_migrations.BuildCanonicalEmbedded(fstest.MapFS{filename: &fstest.MapFile{Data: []byte(sql)}}, ".")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return source
+	}
+	source := build("00001_fixture.sql", body)
+	got, err := database_migrations.SchemaHash(source, runner)
+	const expected = "b49ffe41307f06df9dcfa00bb98168479a9683778a3934ddd09cd402426a32c9"
+	if err != nil || got != expected {
+		t.Fatalf("schema hash framing changed: got=%s want=%s error=%v", got, expected, err)
+	}
+	for name, test := range map[string]struct {
+		source *database_migrations.Source
+		runner string
+	}{
+		"runner identity": {source, "test-runner/2"},
+		"migration bytes": {build("00001_fixture.sql", body+"\n"), runner},
+		"migration name":  {build("00001_renamed.sql", body), runner},
+	} {
+		t.Run(name, func(t *testing.T) {
+			hash, err := database_migrations.SchemaHash(test.source, test.runner)
+			if err != nil || hash == expected {
+				t.Fatalf("changed hash input was not bound: %s %v", hash, err)
+			}
+		})
 	}
 }
 

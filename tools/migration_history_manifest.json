@@ -410,6 +410,168 @@
       "filename": "00068_recovery_transfer_operations.sql",
       "sha256": "45a4e0e4c11912cda595430a31ab909b52e585e59f9e84158748ffb81a33fc16",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 69,
+      "filename": "00069_reporting_sensitive_artifacts.sql",
+      "sha256": "db24a41b15e732170cb75e107bab954a50871f7a2b74c3de07f0e6553d0d238c",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 70,
+      "filename": "00070_reporting_profile_admission.sql",
+      "sha256": "9106b75e17e820782855e25817fe2b1365e46d96b421791744bf9876ead6c565",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 71,
+      "filename": "00071_reporting_preview_admission.sql",
+      "sha256": "c8f5db692b3c5cac36cfa6cc2118ecc7b86f4a31efae9b4ffc9c1c2b105c7ec4",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 72,
+      "filename": "00072_reporting_template_metadata.sql",
+      "sha256": "3f96368ee11a7b033f1d91b3604f8de967adf3ced75aecb56ea03359cead95cc",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 73,
+      "filename": "00073_party_envelope_clock_authority.sql",
+      "sha256": "b9a7970f13f038b72e54ee642b4b2c59d36f727366fb86c955d5d77f75700563",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 74,
+      "filename": "00074_reporting_failure_diagnostics.sql",
+      "sha256": "0a05ec253da959a7645592c1f7494b5b64fa248b5e3fa50fbf2936df9e8fbe43",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 75,
+      "filename": "00075_reporting_frozen_source_facts.sql",
+      "sha256": "a977813ed0164c7a2b005ce642c9ddaefefe89d81919046e2fab75ced1f41a81",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 76,
+      "filename": "00076_reporting_profile_policy_cutover.sql",
+      "sha256": "20f802c99f37ef55c3f456dfa4c91a0c212ff60fb3391fcb2dfcbac36dd3de51",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 77,
+      "filename": "00077_reporting_subject_identity_cutover.sql",
+      "sha256": "670e39825028a4bc3cfa780ad9d0ba6d228ed90ef5bb897ef1a2ff515bd16e5a",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 78,
+      "filename": "00078_reporting_token_artifact_cutover.sql",
+      "sha256": "9851e95564c31950736fd76d92a0dbd26e07c1608e976c6f92851b7bca1ff9fb",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 79,
+      "filename": "00079_reporting_structural_removal_cutover.sql",
+      "sha256": "cfba63b326363653e2ab16c0eebc667e0572d0dfb1d7787b84b4c96cfe65b551",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 80,
+      "filename": "00080_reporting_retained_field_policy.sql",
+      "sha256": "458675ae79e32aea1715bcbd3785a6c9044b2c128ddb595f7eb50fa011f44806",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 81,
+      "filename": "00081_reporting_retained_graph_sources.sql",
+      "sha256": "892a7384a9b22212b36514efdb1b70bd3231378481a138d0f46c3e46a0e86a65",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 82,
+      "filename": "00082_reporting_template_manifest.sql",
+      "sha256": "9e918cb4dde9b96e790f92bdeeb2622b481dbac1e79e6e62179cceb41314b081",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 83,
+      "filename": "00083_reporting_presentation_text_admission.sql",
+      "sha256": "792369d314709e8f34b376ce1bdb4024b52cd017bedf33ee4be2487bb93029a7",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 84,
+      "filename": "00084_reporting_source_index_admission.sql",
+      "sha256": "3c9e7bcf1b4ac32d90c035ad1a9b9d051f68d5ebc39255c10094dbf4a44497b1",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 85,
+      "filename": "00085_reporting_core_record_admission.sql",
+      "sha256": "919a207e434e3ef151469ad8a0a05ad997ab46a68ee3f595d4b639c1c909b0b4",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 86,
+      "filename": "00086_reporting_lifecycle_admission.sql",
+      "sha256": "a7714cc77aaf7a4a0bd37428edfda595e929b8b62008e72f5948f3d8a2ee88eb",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 87,
+      "filename": "00087_reporting_bundle_model_identity.sql",
+      "sha256": "49627ad46d291481f138be32bef3ae60fa916a4c726aff3bb32d11af9ed5bdf3",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 88,
+      "filename": "00088_reporting_container_redaction.sql",
+      "sha256": "ac319f74d435ddf6bd91df2467df2abe7025557f9e86923320930413d0117419",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 89,
+      "filename": "00089_reporting_template_pack_admission.sql",
+      "sha256": "971d32c316f96b10502569c2d5738abff900367c7c5972f03f2a80314a2ce26b",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 90,
+      "filename": "00090_reporting_theme_toolchain_inventory.sql",
+      "sha256": "a88d2834131e5fc02f14a518cfad5b735d3daabfe835465dab816a708014f0fb",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 91,
+      "filename": "00091_reporting_structured_redaction.sql",
+      "sha256": "e710ac0923a4b1d6b9155494c2de0bcdc1a2ce8758eaae4ee4fa9b154c1fe50c",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 92,
+      "filename": "00092_reporting_snapshot_job_admission.sql",
+      "sha256": "690ff74fb9169e6435188d17b92cc8773ac8400f117678aaccc4ca2e71366d61",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 93,
+      "filename": "00093_reporting_snapshot_source_capture.sql",
+      "sha256": "93a2f41d114be55c0d6fafb24b2ebd3f438b193410540cc069f2d312981286dc",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 94,
+      "filename": "00094_reporting_render_recipe.sql",
+      "sha256": "dca31b789a7745c55d29e23e53b569f929629439aa1441e783cbad6c69ff8f72",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 95,
+      "filename": "00095_evidence_blob_verification.sql",
+      "sha256": "6b667ddecfcca7b46ebbada60da97690ae4a8363bdf404e562dc1d45edeacd3e",
+      "historical_phase_shaped": false
     }
   ]
 }

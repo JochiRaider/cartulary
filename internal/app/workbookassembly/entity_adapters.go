@@ -308,6 +308,10 @@ func entityMutationFailure(err error, clientTxnID string) (*workbook.MutationFai
 	if errors.Is(err, hostidentity.ErrInvalidAliasReference) {
 		return workbook.InvalidPayloadFailure("action_payload", "invalid_value"), true
 	}
+	var admissionFailure *mutationadmission.Failure
+	if errors.As(err, &admissionFailure) {
+		return entityAdmissionFailure(admissionFailure), true
+	}
 	var rowConflict *hostidentity.RowVersionConflictError
 	if errors.As(err, &rowConflict) {
 		return workbook.RowVersionConflictFailure(

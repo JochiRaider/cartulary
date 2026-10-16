@@ -35,6 +35,7 @@ import {
 } from "./frontend-measurement-evidence.mjs";
 import { promoteVisualSnapshotCandidate } from "./visual-snapshot-promotion.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { reportCommandFailure } from "../runtime/command-failure.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -219,6 +220,7 @@ async function writeTargetResult(base, options, groups, resets) {
         );
         const summaries = collectFinalizedMeasurementSummaries({
           buildSchemaID: fixtureGroup.profile.artifact_policy.build_schema_id,
+          objectPopulation: fixtureGroup.profile.object_population,
           expectedPredicateIDs: fixtureGroup.predicate_ids,
           leaseSchemaID: fixtureGroup.profile.artifact_policy.lease_schema_id,
           observationSchemaID:
@@ -288,7 +290,7 @@ async function writeTargetResult(base, options, groups, resets) {
             .map((entry) => ({
               predicate_id: entry.summary.rollup.predicate_id,
               sample_count: entry.summary.rollup.sample_count,
-              p95_ms: entry.summary.rollup.p95_ms,
+              statistics: entry.summary.rollup.statistics,
               threshold_ms: entry.summary.rollup.threshold_ms,
               outcome: entry.summary.rollup.outcome,
             }))
@@ -300,7 +302,9 @@ async function writeTargetResult(base, options, groups, resets) {
       measurementAggregate = {
         schema_id: [...aggregateSchemaIDs][0],
         target_id: options.target,
-        status: profileGroups.some((group) =>
+        status: profileGroups.some(group => group.rollups.some(rollup => rollup.outcome === "predicate_failed"))
+          ? "predicate_failed"
+          : profileGroups.some((group) =>
           group.rollups.some((rollup) => rollup.outcome === "threshold_failed"),
         )
           ? "threshold_failed"
@@ -411,7 +415,7 @@ async function writeTargetResult(base, options, groups, resets) {
     sessionsByID.set(group.result.browser_session_id, session);
   }
   const payload = {
-    schema_id: "cartulary.browser_target_result.v4",
+    schema_id: "cartulary.browser_target_result.v6",
     target_id: options.target,
     status:
       groups.every((group) => group.result.status === "pass") &&
@@ -442,6 +446,7 @@ async function writeTargetResult(base, options, groups, resets) {
   return payload;
 }
 
+async function main() {
 const options = parse(process.argv.slice(2));
 const base = runRoot();
 const groups = options.groups
@@ -475,3 +480,10 @@ if (!complete) {
   process.stderr.write(`failure_class=${failure.failure_class} failure_reason=${failure.failure_reason}\n`);
   process.exitCode = publicExitCodeForFailure(failure);
 }
+
+}
+
+main().catch((error) => {
+  process.stderr.write("browser target evidence finalization failed\n");
+  process.exitCode = publicExitCodeForFailure(reportCommandFailure(root, error, { failure_class: "artifact", failure_reason: "artifact_error" }));
+});

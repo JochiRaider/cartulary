@@ -114,11 +114,21 @@ export default defineConfig(({ mode }) => ({
           name: "browser-unit",
           environment: "jsdom",
           include: browserUnitIncludes,
+          exclude: ["../../packages/report-renderer/**"],
           testTimeout: 15_000,
           setupFiles: [
             "./src/testing/testSetup.ts",
             "./src/testing/testSetup.dom.ts",
           ],
+        },
+      }),
+      defineProject({
+        test: {
+          name: "renderer-node",
+          environment: "node",
+          include: ["../../packages/report-renderer/src/**/*.test.ts"],
+          testTimeout: 60_000,
+          hookTimeout: 30_000,
         },
       }),
       defineProject({

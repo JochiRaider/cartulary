@@ -49,30 +49,59 @@ normal_output="$("$SCRIPT" cmd/server internal/app)"
 assert_contains "$normal_output" "cmd/server/main.go" "server discovery"
 assert_contains "$normal_output" "internal/app/server/runtime.go" "app facade discovery"
 
-if "$SCRIPT" cmd/server "$tmp_dir/missing-root" >"$tmp_dir/missing.stdout" 2>"$tmp_dir/missing.stderr"; then
+assert_not_contains "$normal_output" "AGENTS.md" "human guidance exclusion"
+assert_not_contains "$normal_output" "README" "human reference exclusion"
+
+if "$SCRIPT" cmd/server tmp/missing-build-root >"$tmp_dir/missing.stdout" 2>"$tmp_dir/missing.stderr"; then
   fail "missing root discovery unexpectedly succeeded"
 fi
-assert_contains "$(cat "$tmp_dir/missing.stderr")" "missing build input root: $tmp_dir/missing-root" "missing root diagnostic"
+assert_contains "$(cat "$tmp_dir/missing.stderr")" "build input root is missing, empty or outside executable scope" "missing root diagnostic"
+[[ ! -s "$tmp_dir/missing.stdout" ]] || fail "invalid scope emitted a partial input list"
+
+fixture="$tmp_dir/repository"
+mkdir -p "$fixture/src"
+git -C "$fixture" init --quiet
+printf 'package fixture\n' >"$fixture/src/source.go"
+ln -s "$tmp_dir/not-admitted" "$fixture/src/README.md"
+ln -s "$tmp_dir/not-admitted" "$fixture/src/guide.markdown"
+mapfile -t restricted_roots < <("${NODE_BIN:?}" -e 'const fs = require("node:fs"); for (const root of JSON.parse(fs.readFileSync(process.argv[1], "utf8")).restricted_roots) console.log(root)' "$ROOT_DIR/tools/executable_input_policy.json")
+[[ "${#restricted_roots[@]}" -gt 0 ]] || fail "restricted-root policy unavailable"
+for restricted in "${restricted_roots[@]}"; do
+  mkdir -p "$(dirname "$fixture/$restricted")"
+  ln -s "$tmp_dir/not-admitted" "$fixture/$restricted"
+done
+
+cd "$fixture"
+fixture_output="$("$SCRIPT" src)"
+[[ "$fixture_output" == "src/source.go" ]] || fail "non-executable input entered the build list"
+for restricted in "${restricted_roots[@]}"; do
+  if "$SCRIPT" "$restricted" >"$tmp_dir/restricted.stdout" 2>"$tmp_dir/restricted.stderr"; then
+    fail "restricted input root was admitted"
+  fi
+  assert_contains "$(cat "$tmp_dir/restricted.stderr")" "outside executable scope" "restricted root rejected without following its link"
+done
+ln -s "$tmp_dir/not-admitted" src/escape
+if "$SCRIPT" src >"$tmp_dir/link.stdout" 2>"$tmp_dir/link.stderr"; then
+  fail "executable symbolic link was admitted"
+fi
+assert_contains "$(cat "$tmp_dir/link.stderr")" "symbolic link" "link admission"
+rm src/escape
+printf 'package fixture\n' >"src/has space.go"
+if "$SCRIPT" src >"$tmp_dir/space.stdout" 2>"$tmp_dir/space.stderr"; then
+  fail "Make-incompatible filename was silently split"
+fi
+assert_contains "$(cat "$tmp_dir/space.stderr")" "contains whitespace" "path admission"
+rm "src/has space.go"
 
 fake_bin="$tmp_dir/bin"
 mkdir -p "$fake_bin"
-cat >"$fake_bin/rg" <<'EOF'
+cat >"$fake_bin/git" <<'EOF'
 #!/usr/bin/env bash
-echo "fake rg failed" >&2
 exit 97
 EOF
-chmod +x "$fake_bin/rg"
-touch "$tmp_dir/stale-server"
-
-if env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
-  PATH="$fake_bin:$PATH" CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
-  CARTULARY_TEST_RUN_ID=broken-rg \
-  make --no-print-directory -n build-server SERVER_BIN="$tmp_dir/stale-server" >"$tmp_dir/make.stdout" 2>"$tmp_dir/make.stderr"; then
-  fail "make build-server dry-run unexpectedly succeeded with broken rg"
+chmod +x "$fake_bin/git"
+if PATH="$fake_bin:$PATH" "$SCRIPT" src >"$tmp_dir/git.stdout" 2>"$tmp_dir/git.stderr"; then
+  fail "failed Git discovery was admitted"
 fi
-make_failure="$(cat "$tmp_dir/make.stdout" "$tmp_dir/make.stderr")"
-for diagnostic in "fake rg failed" "build input discovery failed"; do
-  # Runtime bootstrap must reject incomplete inputs before any graph can run.
-  assert_contains "$make_failure" "$diagnostic" "broken rg diagnostic"
-done
-assert_not_contains "$make_failure" "up to date" "stale binary reuse"
+assert_contains "$(cat "$tmp_dir/git.stderr")" "cannot enumerate admitted repository inputs" "discovery failure"
+[[ ! -s "$tmp_dir/git.stdout" ]] || fail "failed discovery emitted cache inputs"

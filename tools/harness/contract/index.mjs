@@ -3,6 +3,8 @@ export {
   secureMkdir,
   secureWriteFile,
 } from "./artifact-writer.mjs";
+export { openDirectory } from "./secure-directory.mjs";
+export { assertMachineEvidencePath, assertRetainedArtifactFile, readRetainedArtifactBytes } from "./artifact-reader.mjs";
 export {
   newestTargetArtifact,
 } from "./artifact-discovery.mjs";

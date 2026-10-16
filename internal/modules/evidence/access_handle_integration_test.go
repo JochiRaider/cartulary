@@ -24,6 +24,79 @@ func TestEvidenceHandles_Integration(t *testing.T) {
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 	payload := []byte("handle body")
 	attachUploadedBlob(t, harness, login, incidentID, recordID, payload, "txn-entity_linking-handles-blob", "txn-entity_linking-handles-attach")
+	t.Run("bounded metadata preserves state without issuing handles", func(t *testing.T) {
+		unattached := uuid.New()
+		seedEvidenceRecord(t, harness, incidentID, adminID, unattached)
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE evidence SET title=NULL WHERE record_id=$1`, unattached); err != nil {
+			t.Fatal(err)
+		}
+		url := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/evidence-metadata"
+		body := map[string]any{"record_ids": []string{unattached.String(), recordID.String()}}
+		before := countAccessHandles(t, harness, incidentID)
+		readOnlyState := func() string {
+			return structuredTableText(t, harness, "records", "evidence", "object_blobs",
+				"evidence_custody_events", "route_idempotency", "change_sets",
+				"change_set_mutations", "record_revisions", "evidence_access_handles",
+				"evidence_grid_projection", "timeline_grid_projection")
+		}
+		beforeState := readOnlyState()
+		response := appsupport.DoJSON(t, http.MethodPost, url, body, authOptions(login)...)
+		data := httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
+		items := data["items"].([]any)
+		if len(data) != 2 || data["incident_id"] != incidentID.String() || len(items) != 2 {
+			t.Fatal("metadata response lost its scope or selection")
+		}
+		first, second := items[0].(map[string]any), items[1].(map[string]any)
+		if len(first) != 7 || len(second) != 7 || first["record_id"] != unattached.String() || second["record_id"] != recordID.String() || first["title"] != nil || first["has_blob"] != false || first["upload_state"] != nil || second["has_blob"] != true || second["upload_state"] != "available" {
+			t.Fatal("metadata identity, null shape, or attachment state differs", data)
+		}
+		for index, item := range []map[string]any{first, second} {
+			if item["row_version"].(float64) < 1 {
+				t.Fatal("missing current row version")
+			}
+			eligibility := item["preview_eligibility"].(map[string]any)
+			if len(eligibility) != 2 || eligibility["eligible"] != (index == 1) {
+				t.Fatal("incorrect preview metadata eligibility", eligibility)
+			}
+			if index == 0 && eligibility["reason_code"] != "no_visible_blob" || index == 1 && eligibility["reason_code"] != nil {
+				t.Fatal("incorrect preview metadata reason", eligibility)
+			}
+		}
+		if countAccessHandles(t, harness, incidentID) != before {
+			t.Fatal("metadata read issued a handle")
+		}
+		if readOnlyState() != beforeState {
+			t.Fatal("metadata read changed evidence, history, idempotency, or projections")
+		}
+		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url, body), http.StatusUnauthorized, "session_required")
+		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url, body, appsupport.WithCookies(login.SessionCookie)), http.StatusForbidden, "csrf_verification_failed")
+		for _, ids := range [][]string{{uuid.NewString(), recordID.String()}, {recordID.String(), recordID.String()}} {
+			status, code := http.StatusNotFound, "evidence_record_not_found"
+			if ids[0] == ids[1] {
+				status, code = http.StatusBadRequest, "invalid_evidence_metadata_request"
+			}
+			httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url, map[string]any{"record_ids": ids}, authOptions(login)...), status, code)
+		}
+		updateRecordDeletedState(t, harness, unattached, true)
+		httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url, body, authOptions(login)...), http.StatusNotFound, "evidence_record_not_found")
+		otherIncident := appsupport.CreateIncident(t, harness.Server, login, map[string]any{
+			"client_txn_id": "txn-evidence-metadata-other-incident",
+			"incident_key":  "evidence-metadata-other", "title": "Other incident",
+		})
+		otherID := appsupport.MustUUID(t, otherIncident["incident_id"].(string))
+		foreignRecord := uuid.New()
+		seedEvidenceRecord(t, harness, otherID, adminID, foreignRecord)
+		beforeState = readOnlyState()
+		denied := httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost, url,
+			map[string]any{"record_ids": []string{recordID.String(), foreignRecord.String()}}, authOptions(login)...),
+			http.StatusNotFound, "evidence_record_not_found")
+		if _, exists := denied["data"]; exists {
+			t.Fatal("cross-incident query returned partial metadata")
+		}
+		if readOnlyState() != beforeState {
+			t.Fatal("rejected metadata query changed structured state")
+		}
+	})
 
 	beforeInvalidHandles := countAccessHandles(t, harness, incidentID)
 	for _, endpoint := range []struct {
@@ -79,6 +152,10 @@ DELETE FROM incident_memberships
 		resp := appsupport.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...)
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "evidence_record_not_found")
 	}
+	httptestx.RequireErrorEnvelope(t, appsupport.DoJSON(t, http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/evidence-metadata",
+		map[string]any{"record_ids": []string{recordID.String()}}, authOptions(login)...),
+		http.StatusNotFound, "incident_not_found")
 	if got := countAccessHandles(t, harness, incidentID); got != afterIssuedHandles {
 		t.Fatalf("authorization failures wrote evidence_access_handles: got %d want %d", got, afterIssuedHandles)
 	}

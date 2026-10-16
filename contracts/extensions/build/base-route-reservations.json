@@ -117,6 +117,11 @@
       "match_scope": "exact"
     },
     {
+      "reservation_id": "base.object_blobs.verify",
+      "path_template": "/api/v1/object-blobs/{object_blob_id}/verify",
+      "match_scope": "exact"
+    },
+    {
       "reservation_id": "base.object_uploads",
       "path_template": "/api/v1/object-uploads/{upload_token}",
       "match_scope": "exact"

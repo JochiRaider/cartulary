@@ -102,7 +102,7 @@ func (a rollbackTransactionalApplier) applyChangeSetRollbackPlanTx(ctx context.C
 			return nil, &RollbackPreconditionError{ReasonCode: "target_not_reversible"}
 		}
 	}
-	if err := a.publication.rebuildProjectionsTx(ctx, tx, incidentID); err != nil {
+	if err := a.publication.refreshProjectionsTx(ctx, tx, incidentID, plan.ProjectionRecords); err != nil {
 		return nil, err
 	}
 

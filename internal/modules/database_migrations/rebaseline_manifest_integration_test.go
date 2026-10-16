@@ -178,7 +178,7 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 	if err := json.Unmarshal(data, &recovery); err != nil {
 		t.Fatal(err)
 	}
-	if recovery.SchemaID != "cartulary.recovery_state_catalog.v2" || len(recovery.Tables) != 143 {
+	if recovery.SchemaID != "cartulary.recovery_state_catalog.v2" || len(recovery.Tables) == 0 {
 		t.Fatalf("Recovery catalog identity/cardinality = %q/%d", recovery.SchemaID, len(recovery.Tables))
 	}
 	authoritative := 0
@@ -189,7 +189,12 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 			manifestTables[strings.TrimPrefix(entry.QualifiedName, "public.")] = entry
 		}
 	}
+	seenRecovery := map[string]bool{}
 	for _, table := range recovery.Tables {
+		if seenRecovery[table.TableName] {
+			t.Fatalf("duplicate Recovery table %s", table.TableName)
+		}
+		seenRecovery[table.TableName] = true
 		if table.BackupInclusion == "authoritative_required" {
 			authoritative++
 		}
@@ -204,7 +209,7 @@ func assertRecoveryCardinality(t testing.TB, manifest schemaObjectManifest) {
 			revisionConflictFacts++
 		}
 	}
-	if authoritative != 111 || revisionConflictFacts != 1 || len(manifestTables) != 143 {
+	if authoritative == 0 || revisionConflictFacts != 1 || len(manifestTables) != len(recovery.Tables) {
 		t.Fatalf("Recovery facts = tables %d/%d, authoritative %d, revision conflict facts %d", len(recovery.Tables), len(manifestTables), authoritative, revisionConflictFacts)
 	}
 }

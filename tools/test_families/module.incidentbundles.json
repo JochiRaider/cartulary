@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.incidentbundles",
   "rows": [
     {
@@ -420,6 +420,55 @@
         "object_store",
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.incidentbundles.unit.catalog_requires_the_composed_revisions_source_p_f5281c6d1f",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidentbundles.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/app/incidentportabilityassembly",
+        "tests": [
+          "TestCatalogRequiresTheComposedRevisionsSourcePort_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.incidentbundles.unit.compression_ratio_boundary_uses_threshold_compar_9c4165a1f9",
+      "owner_id": "module.incidentbundles",
+      "family_id": "module.incidentbundles.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidentbundles.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidentbundles",
+        "tests": [
+          "TestCompressionRatioBoundaryUsesThresholdComparison_Unit",
+          "TestDecodeImportMetadataUsesUploadHash_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     },
     {
       "row_id": "module.incidentbundles.unit.cross_owner_import_descriptor_is_closed_9f6d848f63",

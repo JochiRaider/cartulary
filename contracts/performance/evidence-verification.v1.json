@@ -1,0 +1,41 @@
+{
+  "schema_id": "cartulary.performance_evidence_verification_contract.v1",
+  "contract_id": "cartulary.performance.evidence_verification.v1",
+  "fixture_contract_id": "cartulary.performance.ac045.v2",
+  "fixture_profile_id": "evidence_heavy_snapshot_v2",
+  "measurement_policy_id": "cartulary.measurement.single_observation.v1",
+  "warmup_passes": 0,
+  "measured_samples": 1,
+  "product_retries": 0,
+  "threshold_ms": 1000,
+  "threshold_comparison": "lte",
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "device_scale_factor": 1
+  },
+  "start_mark": "cartulary.workbook.evidence_verification_accepted",
+  "dispatch_mark": "cartulary.workbook.evidence_verification_dispatched",
+  "admission_mark": "cartulary.workbook.evidence_verification_admitted",
+  "workload": {
+    "foreground_role": "editor",
+    "source_selection": "lowest_record_id",
+    "target_selection": "next_lowest_record_id",
+    "field_key": "timeline.analyst_text",
+    "draft_value": "x",
+    "filename": "verification-workload.png",
+    "content_type": "image/png",
+    "object_bytes": 2097152,
+    "clipboard_driver": "synthesized_file_event",
+    "grid_driver": "pointer_select_keyboard_edit",
+    "preview_preflight_records": 100,
+    "inspector_open": false,
+    "attachment_details_expanded": false
+  },
+  "criterion_ids": [
+    "AC-016",
+    "AC-046"
+  ],
+  "predicate_id": "perf.evidence_verification.visible_with_cancel.v1"
+}

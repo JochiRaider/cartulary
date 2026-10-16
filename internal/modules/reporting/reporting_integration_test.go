@@ -1,11 +1,13 @@
 package reporting_test
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"net/http"
 	"reflect"
 	"sort"
@@ -36,7 +38,13 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 		"current_phase": "analysis",
 	})
 	incidentID := incident["incident_id"].(string)
+	addUnpublishedReportingColumns(t, harness.DB)
 	fixture := seedReportingWorkbookFixture(t, harness.DB, incidentID, adminUserID)
+	assignment := seedReportingAssignment(t, harness.DB, incidentID, adminUserID, fixture)
+	resolveReportingFixtureMention(t, harness.DB, adminUserID, fixture)
+	if _, err := harness.DB.Exec(`UPDATE timeline_events SET activity_utc_text='2026-05-02T01:02:03.000001Z', activity_local_text='2020-01-01T00:00+01:00', date_entered_text='2026-05-02T00:30+02:00' WHERE record_id=$1`, fixture["timeline"]); err != nil {
+		t.Fatal(err)
+	}
 
 	createSnapshot := func(clientTxnID string, watermark *string) *http.Response {
 		t.Helper()
@@ -60,7 +68,8 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	firstSnapshotJob := httptestx.RequireSuccessEnvelope(t, firstSnapshot, http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, firstSnapshotJob, "snapshot")
 	snapshot := requireSnapshot(t, harness, adminLogin, snapshotID)
-	if snapshot["export_model_sha256"] == "" || snapshot["source_change_set_high_watermark"] == "" {
+	assertSnapshotPublicationCandidate(t, harness, uuid.MustParse(firstSnapshotJob["job_id"].(string)), uuid.MustParse(snapshotID))
+	if snapshot["source_capture_sha256"] == "" || snapshot["source_change_set_high_watermark"] == "" {
 		t.Fatalf("snapshot must expose immutable export model and source boundary provenance: %#v", snapshot)
 	}
 	initialWatermark := snapshot["source_change_set_high_watermark"].(string)
@@ -70,6 +79,10 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	requireSnapshotBoundaryJSON(t, harness.DB, snapshotID, initialWatermark, incidentID)
 	exportModel := requireSnapshotExportModel(t, harness.DB, snapshotID)
 	requireExportModelCoverage(t, exportModel, fixture)
+	requireClosedReportingSourceFields(t, exportModel, fixture)
+	requireCoreRecordSummaries(t, harness.DB, exportModel, incidentID)
+	requireFrozenTimelineSort(t, harness.DB, exportModel, fixture["timeline"])
+	requireFrozenDisclosureFacts(t, harness.DB, exportModel, assignment, snapshotID, fixture)
 	requireSnapshotSourceIdentities(t, exportModel, snapshotID)
 	binding, ok := exportModel["reference_packs"].(map[string]any)
 	if !ok {
@@ -129,7 +142,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 			"template_id":               reporting.DefaultTemplateID,
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.ExternalRedactionProfileID,
-			"redaction_profile_version": "1",
+			"redaction_profile_version": "5",
 			"release_scope":             "external_release",
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
@@ -158,27 +171,32 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 		t.Fatal("release changed snapshot Reference Pack provenance")
 	}
 	rendered, manifest := requireReleaseArtifacts(t, harness.DB, releaseID)
+	if strings.Contains(rendered, "future_private") || strings.Contains(rendered, "unpublished-source-value") {
+		t.Fatal("release exposed an unadmitted source column")
+	}
 	if refs := release["recipient_partition_refs"].([]any); len(refs) != 1 || refs[0] != "party:"+fixture["party"] {
 		t.Fatalf("external recipient partitions must bind the selected party, got %#v", refs)
 	}
 	if strings.Contains(rendered, "Working note body") {
 		t.Fatalf("external output must not package working material: %s", rendered)
 	}
-	if manifest["profile_sha256"] != release["redaction_profile_sha256"] {
-		t.Fatalf("manifest profile digest must match release provenance: manifest=%#v release=%#v", manifest["profile_sha256"], release["redaction_profile_sha256"])
+	if manifest["redaction_profile_sha256"] != release["redaction_profile_sha256"] {
+		t.Fatalf("manifest profile digest must match release provenance: manifest=%#v release=%#v", manifest["redaction_profile_sha256"], release["redaction_profile_sha256"])
 	}
-	entries := manifestEntriesByPath(t, manifest)
-	noteEntry := entries["/notes/"+fixture["note"]]
-	if noteEntry["action"] != reporting.ActionDrop || noteEntry["outcome"] != "dropped" {
-		t.Fatalf("note working material must be dropped with stable manifest outcome, got %#v", noteEntry)
+	entries := manifestEntriesBySource(t, manifest, exportModel)
+	for _, noteEntry := range requireManifestSourceEntries(t, entries, "/notes/"+fixture["note"]) {
+		if noteEntry["action"] != reporting.ActionDrop || noteEntry["outcome"] != "dropped" {
+			t.Fatalf("every note field must be dropped with stable manifest outcome, got %#v", noteEntry)
+		}
 	}
 	descriptionEntry := entries["/incident/description"]
 	if descriptionEntry["action"] != reporting.ActionTruncate || descriptionEntry["outcome"] != "truncated" {
 		t.Fatalf("source evidence must be truncated for external release, got %#v", descriptionEntry)
 	}
-	partyEntry := entries["/parties/"+fixture["party"]]
-	if partyEntry["outcome"] == "dropped_disclosure_partition" {
-		t.Fatalf("selected party partition must be retained, got %#v", partyEntry)
+	for _, partyEntry := range requireManifestSourceEntries(t, entries, "/parties/"+fixture["party"]) {
+		if partyEntry["outcome"] == "dropped_disclosure_partition" {
+			t.Fatalf("selected party field must be retained, got %#v", partyEntry)
+		}
 	}
 
 	tokenizedReleaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
@@ -191,7 +209,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 			"template_id":               reporting.DefaultTemplateID,
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.TokenizedRedactionProfileID,
-			"redaction_profile_version": "1",
+			"redaction_profile_version": "5",
 			"release_scope":             reporting.ReleaseScopeInternalReview,
 			"output_kind":               reporting.OutputKindSlidev,
 		},
@@ -203,25 +221,30 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	if tokenizedRelease["redaction_profile_id"] != reporting.TokenizedRedactionProfileID {
 		t.Fatalf("tokenized review release must bind tokenized profile, got %#v", tokenizedRelease)
 	}
-	_, tokenizedRedactionManifest := requireReleaseArtifacts(t, harness.DB, tokenizedReleaseID)
 	tokenizedBundleSHA, tokenizedBundleManifest := requireReleaseBundle(t, harness.DB, tokenizedReleaseID)
 	if tokenizedRelease["output_sha256"] != tokenizedBundleSHA {
 		t.Fatalf("tokenized release output must bind bundle manifest: release=%#v bundle_sha=%q", tokenizedRelease["output_sha256"], tokenizedBundleSHA)
 	}
 	tokenArtifact, revealArtifact := requireReleaseTokenArtifacts(t, harness.DB, tokenizedReleaseID)
+	assertPrivateRevealReadiness(t, harness, tokenizedReleaseID, false)
+	assertNativeReleaseReadiness(t, harness, tokenizedReleaseID)
 	tokenManifestSHA := tokenArtifact.objectSHA
 	tokenManifest, revealMap := tokenArtifact.object, revealArtifact.object
-	if tokenizedRedactionManifest["token_manifest_sha256"] != tokenManifestSHA {
-		t.Fatalf("redaction manifest must bind token manifest: manifest=%#v token_sha=%q", tokenizedRedactionManifest, tokenManifestSHA)
+	if tokenManifest["redaction_manifest_sha256"] != tokenizedBundleManifest["redaction_manifest_sha256"] || tokenManifest["redaction_manifest_sha256"] != tokenizedRelease["redaction_manifest_sha256"] {
+		t.Fatal("token manifest must bind the same redaction decisions as the bundle and release")
 	}
 	if tokenizedBundleManifest["token_manifest_sha256"] != tokenManifestSHA {
 		t.Fatalf("bundle manifest must bind token manifest: bundle=%#v token_sha=%q", tokenizedBundleManifest, tokenManifestSHA)
 	}
 	requireBundleManifestFile(t, tokenizedBundleManifest, "token_manifest", "validation/token-manifest.json", tokenArtifact.fileSHA, true)
-	requireBundleManifestFile(t, tokenizedBundleManifest, "sensitive_reveal_map", "internal/reveal-map.json", revealArtifact.fileSHA, false)
-	requireTokenManifestEntry(t, tokenManifest, "party:"+fixture["party"])
+	for _, item := range tokenizedBundleManifest["files"].([]any) {
+		file := item.(map[string]any)
+		if file["role"] == "sensitive_reveal_map" || file["path"] == "internal/reveal-map.json" {
+			t.Fatal("reveal map was exposed in the ordinary bundle manifest")
+		}
+	}
+	requireTokenManifestEntry(t, tokenManifest, "subject:party:record:"+fixture["party"])
 	if revealMap["schema_id"] != reporting.RedactionRevealMapSchemaID ||
-		revealMap["sensitivity"] != "internal_sensitive" ||
 		revealMap["token_manifest_sha256"] != tokenManifestSHA {
 		t.Fatalf("reveal map must be internal and token-manifest-bound: %#v", revealMap)
 	}
@@ -237,7 +260,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 			"template_id":               reporting.DefaultTemplateID,
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.ExternalRedactionProfileID,
-			"redaction_profile_version": "1",
+			"redaction_profile_version": "5",
 			"release_scope":             "external_release",
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"], "party:" + fixture["party"]},
@@ -258,13 +281,15 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 		t.Fatalf("same recipient partition slot must supersede the prior render, got %#v", supersededInitialRelease)
 	}
 	_, partitionedManifest := requireReleaseArtifacts(t, harness.DB, partitionedReleaseID)
-	partitionedEntries := manifestEntriesByPath(t, partitionedManifest)
-	if partitionedEntries["/parties/"+fixture["party"]]["outcome"] == "dropped_disclosure_partition" {
-		t.Fatalf("requested party partition must be retained in partitioned external release, got %#v", partitionedEntries["/parties/"+fixture["party"]])
-	}
-	manifestRefs := partitionedManifest["recipient_partition_refs"].([]any)
-	if len(manifestRefs) != 1 || manifestRefs[0] != "party:"+fixture["party"] {
-		t.Fatalf("redaction manifest must bind recipient partitions, got %#v", manifestRefs)
+	partitionedEntries := manifestEntriesBySource(t, partitionedManifest, exportModel)
+	for _, entry := range requireManifestSourceEntries(t, partitionedEntries, "/parties/"+fixture["party"]) {
+		if entry["outcome"] == "dropped" {
+			t.Fatal("requested party field must be retained in partitioned external release")
+		}
+		refs, ok := entry["disclosure_partition_refs"].([]any)
+		if !ok || len(refs) != 1 || refs[0] != partitionRefs[0] {
+			t.Fatal("retained party field lost its exact admitted disclosure binding")
+		}
 	}
 	secondPartitionedRelease := httptestx.DoJSON(
 		t,
@@ -276,7 +301,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 			"template_id":               reporting.DefaultTemplateID,
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.ExternalRedactionProfileID,
-			"redaction_profile_version": "1",
+			"redaction_profile_version": "5",
 			"release_scope":             "external_release",
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
@@ -307,7 +332,7 @@ func TestSnapshotReplayAndReleaseProvenanceAreStable_Integration(t *testing.T) {
 	releaseRequest := map[string]any{
 		"snapshot_id": snapshotID, "client_txn_id": "missing-reference-new-render",
 		"template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion,
-		"redaction_profile_id": reporting.ExternalRedactionProfileID, "redaction_profile_version": "1",
+		"redaction_profile_id": reporting.ExternalRedactionProfileID, "redaction_profile_version": "5",
 		"release_scope": "external_release", "output_kind": reporting.OutputKindSlidev, "recipient_partition_refs": []string{"party:" + fixture["party"]},
 	}
 	submit := func() *http.Response {
@@ -341,6 +366,9 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 	})
 	incidentID := incident["incident_id"].(string)
 	fixture := seedReportingWorkbookFixture(t, harness.DB, incidentID, adminUserID)
+	seedReportingAssignment(t, harness.DB, incidentID, adminUserID, fixture)
+	assertUnresolvedReportingMentionDenied(t, harness, adminLogin, incidentID, fixture)
+	resolveReportingFixtureMention(t, harness.DB, adminUserID, fixture)
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-reporting-reviewer-membership",
 		"user_id":       reviewerID,
@@ -375,7 +403,7 @@ func TestExternalReleaseApprovalPublishAndStateConflicts_Integration(t *testing.
 			"template_id":               reporting.DefaultTemplateID,
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.ExternalRedactionProfileID,
-			"redaction_profile_version": "1",
+			"redaction_profile_version": "5",
 			"release_scope":             "external_release",
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
@@ -509,12 +537,46 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
-	replayJob := httptestx.RequireSuccessEnvelope(t, replayWithExplicitBoundary, http.StatusAccepted)["data"].(map[string]any)
+	httptestx.RequireErrorEnvelope(t, replayWithExplicitBoundary, http.StatusConflict, "client_txn_conflict")
+	replayJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots",
+		map[string]any{"incident_id": incidentID, "client_txn_id": "txn-reporting-idempotency-snapshot"},
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
 	if replayJob["job_id"] != snapshotJob["job_id"] {
-		t.Fatalf("explicit snapshot replay must return original job: first=%#v replay=%#v", snapshotJob, replayJob)
+		t.Fatal("exact omitted-boundary replay allocated another Job")
 	}
-	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM reporting_snapshots`); got != 1 {
-		t.Fatalf("explicit original boundary replay must not create a new snapshot, got %d rows", got)
+	httptestx.RequireErrorEnvelope(t, httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/snapshots",
+		map[string]any{"incident_id": incidentID, "client_txn_id": "txn-reporting-stale-explicit-snapshot", "source_change_set_high_watermark": watermark},
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusConflict, "snapshot_source_boundary_conflict")
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM reporting_snapshots`); got != 1 {
+		t.Fatal("snapshot replay or conflict published another capture", got)
+	}
+
+	unknownRecipientRequest := map[string]any{
+		"snapshot_id": snapshotID, "client_txn_id": "txn-reporting-unknown-recipient",
+		"template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion,
+		"redaction_profile_id": reporting.ExternalRedactionProfileID, "redaction_profile_version": reporting.DefaultRedactionProfileVersion,
+		"output_kind": reporting.OutputKindSlidev, "release_scope": reporting.ReleaseScopeExternal,
+		"recipient_partition_refs": []string{"party:missing"},
+	}
+	unknownRecipientJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases", unknownRecipientRequest,
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
+	unknownRecipientTerminal := requireJobStatus(t, harness, adminLogin, unknownRecipientJob["job_id"].(string), "failed")
+	unknownRecipientSummary := unknownRecipientTerminal["error_summary"].(map[string]any)
+	unknownRecipientDetails := unknownRecipientSummary["details"].(map[string]any)
+	if unknownRecipientSummary["code"] != "release_render_failed" || unknownRecipientDetails["reason_code"] != "unknown_recipient_partition" || unknownRecipientDetails["release_id"] != nil {
+		t.Fatal("recipient preparation failure lost its reason or fabricated a release", unknownRecipientSummary)
+	}
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT count(*) FROM reporting_releases`); got != 0 {
+		t.Fatal("unprepared recipient failure published a release", got)
+	}
+	unknownRecipientReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases", unknownRecipientRequest,
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
+	if unknownRecipientReplay["job_id"] != unknownRecipientJob["job_id"] {
+		t.Fatal("failed preparation replay allocated another admission")
 	}
 
 	remoteAssetIncident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -546,16 +608,17 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 			"template_id":               reporting.DefaultTemplateID,
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.InternalRedactionProfileID,
-			"redaction_profile_version": "1",
+			"redaction_profile_version": "5",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
-	remoteAssetReleaseID := requireFailedReleaseJob(t, harness, adminLogin, remoteAssetReleaseJob, "template_render_failed")
+	remoteAssetReleaseID := requireFailedReleaseJob(t, harness, adminLogin, remoteAssetReleaseJob, "remote_asset_reference_invalid")
+	assertFailedReleaseReadiness(t, harness, remoteAssetReleaseID)
 	remoteAssetRelease := requireRelease(t, harness, adminLogin, remoteAssetReleaseID)
 	if remoteAssetRelease["release_state"] != reporting.ReleaseStateRenderFailed ||
-		remoteAssetRelease["render_failed_reason_code"] != "template_render_failed" ||
+		remoteAssetRelease["render_failed_reason_code"] != "remote_asset_reference_invalid" ||
 		remoteAssetRelease["output_sha256"] != nil ||
 		remoteAssetRelease["redaction_manifest_sha256"] != nil ||
 		remoteAssetRelease["output_media_type"] != nil {
@@ -604,13 +667,11 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
 		map[string]any{
-			"snapshot_id":               snapshotID,
-			"client_txn_id":             "txn-reporting-idempotency-release",
-			"template_id":               reporting.DefaultTemplateID,
-			"template_version":          reporting.DefaultTemplateVersion,
-			"redaction_profile_id":      reporting.InternalRedactionProfileID,
-			"redaction_profile_version": "1",
-			"output_kind":               reporting.OutputKindSlidev,
+			"snapshot_id":      snapshotID,
+			"client_txn_id":    "txn-reporting-idempotency-release",
+			"template_id":      reporting.DefaultTemplateID,
+			"template_version": reporting.DefaultTemplateVersion,
+			"output_kind":      reporting.OutputKindSlidev,
 		},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -619,6 +680,20 @@ func TestBoundaryReplayDefaultsAndActionIdempotency_Integration(t *testing.T) {
 	release := requireRelease(t, harness, adminLogin, releaseID)
 	if release["release_scope"] != reporting.ReleaseScopeInternalDraft || release["release_state"] != reporting.ReleaseStateApproved {
 		t.Fatalf("omitted release_scope must default to approved internal draft, got %#v", release)
+	}
+	if release["redaction_profile_id"] != reporting.InternalRedactionProfileID || release["redaction_profile_version"] != reporting.DefaultRedactionProfileVersion || release["redaction_profile_sha256"] == "" {
+		t.Fatal("omitted profile did not retain its complete admission identity")
+	}
+	explicitReplay := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases", map[string]any{
+			"snapshot_id": snapshotID, "client_txn_id": "txn-reporting-idempotency-release",
+			"template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion,
+			"redaction_profile_id": reporting.InternalRedactionProfileID, "redaction_profile_version": reporting.DefaultRedactionProfileVersion,
+			"output_kind": reporting.OutputKindSlidev,
+		}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
+	if explicitReplay["job_id"] != releaseJob["job_id"] {
+		t.Fatal("explicit default created another admission for an identical request")
 	}
 
 	publish := httptestx.DoJSON(
@@ -762,7 +837,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			"template_id":               reporting.DefaultTemplateID,
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.InternalRedactionProfileID,
-			"redaction_profile_version": "1",
+			"redaction_profile_version": "5",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
 		httptestx.WithCookies(outsiderLogin.SessionCookie, outsiderLogin.CSRFCookie),
@@ -779,7 +854,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			"template_id":               reporting.DefaultTemplateID,
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.InternalRedactionProfileID,
-			"redaction_profile_version": "1",
+			"redaction_profile_version": "5",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
 		httptestx.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
@@ -794,7 +869,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			"template_id":               reporting.DefaultTemplateID,
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.InternalRedactionProfileID,
-			"redaction_profile_version": "1",
+			"redaction_profile_version": "5",
 			"output_kind":               reporting.OutputKindSlidev,
 		}
 		if mutate != nil {
@@ -887,7 +962,7 @@ func TestExactShapesAndRouteScopedVisibility_Integration(t *testing.T) {
 			"template_id":               reporting.DefaultTemplateID,
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.InternalRedactionProfileID,
-			"redaction_profile_version": "1",
+			"redaction_profile_version": "5",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
 		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -1258,6 +1333,42 @@ VALUES ($1, 'host', 'timeline.activity_synopsis_text', 'manual_entry', 'summary:
 	return ids
 }
 
+// Positive external-lifecycle evidence uses an explicitly resolved source
+// mention. Unresolved mentions remain in the ordinary seed and denial cases.
+func resolveReportingFixtureMention(t testing.TB, db *sql.DB, actorID string, ids map[string]string) {
+	t.Helper()
+	if _, err := db.Exec(`UPDATE entity_mentions SET resolution_status='resolved',
+resolved_record_id=$2, resolved_by_user_id=$3, resolved_at=created_at,
+resolution_method='manual', row_version=row_version+1 WHERE source_record_id=$1`, ids["timeline"], ids["host"], actorID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertUnresolvedReportingMentionDenied(t *testing.T, harness *appsupport.ServerHarness, actor flowtest.LoginResult, incidentID string, ids map[string]string) {
+	t.Helper()
+	submit := func(route string, body map[string]any) map[string]any {
+		t.Helper()
+		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+route, body,
+			httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
+	}
+	snapshot := submit("/api/v1/snapshots", map[string]any{"incident_id": incidentID, "client_txn_id": "unresolved-disclosure-snapshot"})
+	snapshotID := requireSucceededJobResourceID(t, harness, actor, snapshot, "snapshot")
+	job := submit("/api/v1/releases", map[string]any{
+		"snapshot_id": snapshotID, "client_txn_id": "unresolved-disclosure-release",
+		"template_id": reporting.DefaultTemplateID, "template_version": reporting.DefaultTemplateVersion,
+		"redaction_profile_id": reporting.ExternalRedactionProfileID, "redaction_profile_version": reporting.DefaultRedactionProfileVersion,
+		"release_scope": "external_release", "output_kind": reporting.OutputKindSlidev,
+		"recipient_partition_refs": []string{"party:" + ids["party"]},
+	})
+	releaseID := requireFailedReleaseJob(t, harness, actor, job, "disclosure_partition_unresolved")
+	assertFailedReleaseReadiness(t, harness, releaseID)
+	release := requireRelease(t, harness, actor, releaseID)
+	if release["output_sha256"] != nil || release["redaction_manifest_sha256"] != nil {
+		t.Fatal("unresolved disclosure published successful output identities")
+	}
+}
+
 func querySeedID(t testing.TB, db *sql.DB, query string, args ...any) string {
 	t.Helper()
 	var id string
@@ -1405,13 +1516,18 @@ SELECT
 
 func requireSnapshotExportModel(t testing.TB, db *sql.DB, snapshotID string) map[string]any {
 	t.Helper()
-	var raw []byte
-	if err := db.QueryRow(`
-SELECT export_model_json
-  FROM reporting_snapshots
- WHERE snapshot_id::text = $1
-`, snapshotID).Scan(&raw); err != nil {
-		t.Fatalf("query snapshot export model: %v", err)
+	var capture []byte
+	var digest string
+	if err := db.QueryRow(`SELECT p.request_json->'source_capture',s.source_capture_sha256 FROM reporting_snapshots s JOIN reporting_job_payloads p ON p.job_id=s.create_job_id WHERE s.snapshot_id::text=$1`, snapshotID).Scan(&capture, &digest); err != nil {
+		t.Fatal(err)
+	}
+	projection, err := reporting.MaterializeSnapshotCapture(context.Background(), capture, digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(projection)
+	if err != nil {
+		t.Fatal(err)
 	}
 	var model map[string]any
 	if err := json.Unmarshal(raw, &model); err != nil {
@@ -1495,17 +1611,17 @@ func queryLiveWorkbookRowsJSON(t testing.TB, harness *appsupport.ServerHarness, 
 func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[string]string) {
 	t.Helper()
 	if model["schema_id"] != reporting.SnapshotModelSchemaID || model["derivation_version"] != reporting.DerivationVersion {
-		t.Fatalf("snapshot export model must use current v2 identity, got %#v", model)
+		t.Fatalf("snapshot export model must use current identity, got %#v", model)
 	}
-	for _, key := range []string{"sections", "records", "relationships", "timeline_events", "subjects", "diagrams", "assets", "support_index", "validation_summary"} {
+	for _, key := range []string{"sections", "records", "relationships", "timeline_events", "subjects", "diagrams", "assets", "support_index", "source_index", "validation_summary"} {
 		if _, ok := model[key]; !ok {
-			t.Fatalf("snapshot export model missing v2 member %s: %#v", key, model)
+			t.Fatalf("snapshot export model missing member %s: %#v", key, model)
 		}
 	}
 	if _, ok := model["fields"]; ok {
 		t.Fatalf("snapshot export model must not persist legacy top-level fields[]")
 	}
-	byPath := exportModelFieldsByPath(model)
+	byPath := exportModelFieldsByPath(t, model)
 	wantPaths := []string{
 		"/timeline/" + ids["timeline"],
 		"/hosts/" + ids["host"],
@@ -1522,7 +1638,7 @@ func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[stri
 		"/lessons/" + ids["lesson"],
 	}
 	for _, path := range wantPaths {
-		if byPath[path] == nil {
+		if byPath[path+"/record_id"] == nil {
 			t.Fatalf("snapshot export model missing workbook path %s; paths=%#v", path, byPath)
 		}
 	}
@@ -1530,7 +1646,7 @@ func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[stri
 		"/investigative_queries/" + ids["investigative_query"],
 		"/forensic_keywords/" + ids["forensic_keyword"],
 	} {
-		if byPath[path] != nil {
+		if byPath[path+"/record_id"] != nil {
 			t.Fatalf("reporting export admitted explicitly excluded artifact path %s", path)
 		}
 	}
@@ -1550,8 +1666,8 @@ func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[stri
 		"/lessons/" + ids["lesson"]:               "lesson",
 	}
 	for path, family := range wantFamilies {
-		if byPath[path]["source_family"] != family {
-			t.Fatalf("path %s source_family = %#v want %q", path, byPath[path]["source_family"], family)
+		if byPath[path+"/record_id"]["source_family"] != family {
+			t.Fatalf("path %s source_family = %#v want %q", path, byPath[path+"/record_id"]["source_family"], family)
 		}
 	}
 	wantClasses := map[string]string{
@@ -1566,8 +1682,8 @@ func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[stri
 		"/lessons/" + ids["lesson"]:               reporting.ContentClassWorkingMaterial,
 	}
 	for path, class := range wantClasses {
-		if byPath[path]["content_class"] != class {
-			t.Fatalf("path %s content_class = %#v want %q", path, byPath[path]["content_class"], class)
+		if byPath[path+"/record_id"]["content_class"] != class {
+			t.Fatalf("path %s content_class = %#v want %q", path, byPath[path+"/record_id"]["content_class"], class)
 		}
 	}
 	if byPath["/relationships/"+ids["task"]] == nil {
@@ -1599,35 +1715,99 @@ relationshipPresent:
 	if !mentionPresent {
 		t.Fatalf("snapshot export model missing entity mention metadata; paths=%#v", byPath)
 	}
-	supportRefs := byPath["/task_requests/"+ids["task"]]["support_refs"].([]any)
-	if len(supportRefs) != 1 || supportRefs[0] != "/evidence/"+ids["evidence"] {
+	supportID := ""
+	for _, value := range model["support_index"].([]any) {
+		ref := value.(map[string]any)
+		if ref["support_kind"] == "evidence_item" && ref["support_target_ref"] == "evidence:"+ids["evidence"] {
+			if supportID != "" {
+				t.Fatal("Evidence support was duplicated in the index")
+			}
+			supportID = ref["support_ref_id"].(string)
+		}
+	}
+	if !strings.HasPrefix(supportID, "sup_") || len(supportID) != 68 {
+		t.Fatal("Evidence support has no registered snapshot identity")
+	}
+	supportRefs := byPath["/task_requests/"+ids["task"]+"/record_id"]["support_refs"].([]any)
+	if len(supportRefs) != 1 || supportRefs[0] != supportID {
 		t.Fatalf("task export field must carry deterministic support refs, got %#v", supportRefs)
 	}
-	findingSupportRefs := byPath["/findings/"+ids["finding"]]["support_refs"].([]any)
-	if len(findingSupportRefs) != 1 || findingSupportRefs[0] != "/evidence/"+ids["evidence"] {
+	findingSupportRefs := byPath["/findings/"+ids["finding"]+"/record_id"]["support_refs"].([]any)
+	if len(findingSupportRefs) != 1 || findingSupportRefs[0] != supportID {
 		t.Fatalf("curated finding export field must carry deterministic support refs, got %#v", findingSupportRefs)
 	}
-	partyPartitions := byPath["/parties/"+ids["party"]]["disclosure_partition_refs"].([]any)
+	partyPartitions := byPath["/parties/"+ids["party"]+"/record_id"]["disclosure_partition_refs"].([]any)
 	if len(partyPartitions) != 1 || partyPartitions[0] != "party:"+ids["party"] {
 		t.Fatalf("party export field must carry disclosure partition refs, got %#v", partyPartitions)
 	}
 }
 
-func exportModelFieldsByPath(model map[string]any) map[string]map[string]any {
-	if fields, ok := model["fields"].([]any); ok {
-		byPath := make(map[string]map[string]any, len(fields))
-		for _, item := range fields {
-			field := item.(map[string]any)
-			byPath[field["path"].(string)] = field
-		}
-		return byPath
-	}
+// Fixture labels keep source-obligation assertions readable. They are authored
+// here, not retained selectors or a compatibility reader. Public references
+// resolve exclusively through source_index and explicit source ownership.
+func exportModelFieldsByPath(t testing.TB, model map[string]any) map[string]map[string]any {
+	t.Helper()
 	byPath := map[string]map[string]any{}
 	for _, sectionItem := range model["sections"].([]any) {
 		section := sectionItem.(map[string]any)
 		collectExportModelBlockFields(section["blocks"].([]any), byPath)
 	}
-	return byPath
+	aliases := fixtureSourceAliases(t, model, byPath)
+	result := map[string]map[string]any{}
+	for source, field := range byPath {
+		alias, exists := aliases[source]
+		if !exists || result[alias] != nil {
+			t.Fatal("fixture field has no unique source-index binding")
+		}
+		result[alias] = field
+	}
+	return result
+}
+
+func fixtureSourceAliases(t testing.TB, model map[string]any, fields map[string]map[string]any) map[string]string {
+	t.Helper()
+	roots := map[string]string{
+		"record_envelope": "record_envelopes", "timeline_event": "timeline", "host": "hosts", "identity": "identities", "party": "parties", "evidence": "evidence", "task_request": "task_requests", "decision": "decisions", "note": "notes", "finding_hypothesis": "findings", "comm_log": "comm_log", "handoff": "handoffs", "status_review": "status_reviews", "lesson": "lessons", "record_link": "relationships", "record_tag": "tags", "entity_mention": "entity_mentions",
+	}
+	aliases := map[string]string{}
+	incidentRefs := map[string]string{}
+	for _, raw := range model["source_index"].([]any) {
+		ref := raw.(map[string]any)
+		id := ref["source_ref_id"].(string)
+		if ref["source_path"] == nil {
+			continue
+		}
+		field, exists := fields[id]
+		if !exists {
+			t.Fatal("indexed field absent from fixture sections")
+		}
+		family := ref["source_family"].(string)
+		field["source_family"] = family
+		if family == "incident_metadata" {
+			incidentRefs[ref["source_path"].(string)] = id
+			continue
+		}
+		root, exists := roots[family]
+		if !exists {
+			t.Fatalf("fixture has no declared label for source family %q", family)
+		}
+		aliases[id] = "/" + root + "/" + ref["source_record_id"].(string) + "/" + field["field_key"].(string)
+	}
+	// This fixture authors these five incident scalars in canonical section order.
+	// The immutable model does not retain their old provider selectors.
+	paths := make([]string, 0, len(incidentRefs))
+	for path := range incidentRefs {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	labels := []string{"current_phase", "description", "severity", "status", "title"}
+	if len(paths) != len(labels) {
+		t.Fatal("fixture incident scalar inventory changed")
+	}
+	for i, path := range paths {
+		aliases[incidentRefs[path]] = "/incident/" + labels[i]
+	}
+	return aliases
 }
 
 func collectExportModelBlockFields(blocks []any, byPath map[string]map[string]any) {
@@ -1641,73 +1821,16 @@ func collectExportModelBlockFields(blocks []any, byPath map[string]map[string]an
 			}
 			path := sourceRefs[0].(string)
 			byPath[path] = map[string]any{
+				"field_key":                 field["field_key"],
 				"path":                      path,
-				"source_family":             sourceFamilyForExportPath(path),
-				"content_class":             contentClassForExportPath(path),
+				"source_family":             "incident_metadata",
+				"content_class":             block["content_class"],
 				"value":                     field["value"],
 				"support_refs":              field["support_refs"],
 				"disclosure_partition_refs": field["disclosure_partition_refs"],
 			}
 		}
 		collectExportModelBlockFields(block["children"].([]any), byPath)
-	}
-}
-
-func sourceFamilyForExportPath(path string) string {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) == 0 {
-		return ""
-	}
-	switch parts[0] {
-	case "timeline":
-		return "timeline_event"
-	case "hosts":
-		return "host"
-	case "identities":
-		return "identity"
-	case "parties":
-		return "party"
-	case "evidence":
-		return "evidence"
-	case "task_requests":
-		return "task_request"
-	case "decisions":
-		return "decision"
-	case "notes":
-		return "note"
-	case "findings":
-		return "finding_hypothesis"
-	case "comm_log":
-		return "comm_log"
-	case "handoffs":
-		return "handoff"
-	case "status_reviews":
-		return "status_review"
-	case "lessons":
-		return "lesson"
-	case "relationships":
-		return "record_link"
-	case "tags":
-		return "record_tag"
-	case "entity_mentions":
-		return "entity_mention"
-	case "record_envelopes":
-		return "record_envelope"
-	default:
-		return parts[0]
-	}
-}
-
-func contentClassForExportPath(path string) string {
-	switch sourceFamilyForExportPath(path) {
-	case "host", "identity", "record_link", "record_tag", "record_envelope":
-		return reporting.ContentClassDerivedAnalytic
-	case "timeline_event", "party", "evidence", "entity_mention":
-		return reporting.ContentClassSourceEvidence
-	case "finding_hypothesis":
-		return reporting.ContentClassCuratedNarrative
-	default:
-		return reporting.ContentClassWorkingMaterial
 	}
 }
 
@@ -1810,7 +1933,7 @@ func requireSnapshotResourceShape(t testing.TB, resource map[string]any) {
 		"snapshot_at",
 		"source_change_set_high_watermark",
 		"derivation_version",
-		"export_model_sha256",
+		"source_capture_sha256",
 	})
 }
 
@@ -1951,8 +2074,7 @@ func requireReleaseTokenArtifacts(t testing.TB, db *sql.DB, releaseID string) (r
 SELECT role, bundle_path, file_sha256, inline_bytes
   FROM reporting_render_bundle_files
  WHERE release_id::text = $1
-   AND role IN ('token_manifest', 'sensitive_reveal_map')
- ORDER BY role
+   AND role = 'token_manifest'
 `, releaseID)
 	if err != nil {
 		t.Fatalf("query token artifacts: %v", err)
@@ -1986,17 +2108,29 @@ SELECT role, bundle_path, file_sha256, inline_bytes
 				t.Fatalf("unexpected token manifest artifact: path=%q sha=%q decoded=%#v", path, fileSHA, decoded)
 			}
 			token = artifact
-		case "sensitive_reveal_map":
-			if path != "internal/reveal-map.json" || decoded["schema_id"] != reporting.RedactionRevealMapSchemaID {
-				t.Fatalf("unexpected reveal map artifact: path=%q sha=%q decoded=%#v", path, fileSHA, decoded)
-			}
-			reveal = artifact
 		default:
 			t.Fatalf("unexpected token artifact role %q", role)
 		}
 	}
 	if err := rows.Err(); err != nil {
 		t.Fatalf("iterate token artifacts: %v", err)
+	}
+	var revealBytes []byte
+	if err := db.QueryRow(`SELECT reveal_map_sha256,canonical_bytes FROM reporting_release_reveal_maps WHERE release_id::text=$1`, releaseID).Scan(&reveal.objectSHA, &revealBytes); err != nil {
+		t.Fatal("private reveal map missing", err)
+	}
+	if err := json.Unmarshal(revealBytes, &reveal.object); err != nil {
+		t.Fatal(err)
+	}
+	fileSum := sha256.Sum256(revealBytes)
+	reveal.fileSHA = hex.EncodeToString(fileSum[:])
+	objectSum := sha256.Sum256(append([]byte(reporting.RedactionRevealMapSchemaID+"\n"), revealBytes...))
+	if reveal.objectSHA != hex.EncodeToString(objectSum[:]) {
+		t.Fatal("private reveal map digest mismatch")
+	}
+	var sensitiveMembers int
+	if err := db.QueryRow(`SELECT count(*) FROM reporting_render_bundle_files WHERE release_id::text=$1 AND (role='sensitive_reveal_map' OR bundle_path LIKE 'internal/%')`, releaseID).Scan(&sensitiveMembers); err != nil || sensitiveMembers != 0 {
+		t.Fatal("sensitive bytes remained in ordinary bundle storage", err)
 	}
 	if token.fileSHA == "" || reveal.fileSHA == "" || token.object == nil || reveal.object == nil {
 		t.Fatal("release token artifacts incomplete")
@@ -2041,7 +2175,7 @@ func requireTokenManifestEntry(t testing.TB, tokenManifest map[string]any, stabl
 		if !strings.HasPrefix(displayToken, "SUBJECT-") || entry["token_id"] == "" {
 			t.Fatalf("token manifest entry must expose stable non-reversible token fields: %#v", entry)
 		}
-		if _, ok := entry["original_value"]; ok {
+		if _, ok := entry["canonical_display_value"]; ok {
 			t.Fatalf("token manifest must not expose original values: %#v", entry)
 		}
 		return
@@ -2049,15 +2183,78 @@ func requireTokenManifestEntry(t testing.TB, tokenManifest map[string]any, stabl
 	t.Fatalf("token manifest missing stable subject %q: %#v", stableSubjectRef, tokenManifest)
 }
 
-func manifestEntriesByPath(t testing.TB, manifest map[string]any) map[string]map[string]any {
+func requireManifestSourceEntries(t testing.TB, entries map[string]map[string]any, source string) []map[string]any {
 	t.Helper()
-	rows := manifest["entries"].([]any)
-	entries := make(map[string]map[string]any, len(rows))
-	for _, row := range rows {
-		entry := row.(map[string]any)
-		entries[entry["path"].(string)] = entry
+	selected := []map[string]any{}
+	for path, entry := range entries {
+		if strings.HasPrefix(path, source+"/") {
+			selected = append(selected, entry)
+		}
 	}
-	return entries
+	if len(selected) == 0 {
+		t.Fatalf("manifest has no scalar fields for source %s", source)
+	}
+	return selected
+}
+
+func manifestEntriesBySource(t testing.TB, manifest, model map[string]any) map[string]map[string]any {
+	t.Helper()
+	byPath := map[string]map[string]any{}
+	for _, row := range manifest["entries"].([]any) {
+		entry := row.(map[string]any)
+		path, ok := entry["export_model_path"].(string)
+		if !ok || !strings.HasPrefix(path, "$.sections[") || byPath[path] != nil {
+			t.Fatal("manifest is not keyed by exact model address")
+		}
+		if _, legacy := entry["path"]; legacy {
+			t.Fatal("legacy source path emitted")
+		}
+		byPath[path] = entry
+	}
+	keyed := func(parent, member, id string) string {
+		return parent + "." + member + "['" + strings.ReplaceAll(strings.ReplaceAll(id, "\\", "\\\\"), "'", "\\'") + "']"
+	}
+	entries := map[string]map[string]any{}
+	var visit func(string, string, []any)
+	visit = func(parent, member string, blocks []any) {
+		for _, raw := range blocks {
+			block := raw.(map[string]any)
+			path := keyed(parent, member, block["block_id"].(string))
+			for _, rawField := range block["fields"].([]any) {
+				field := rawField.(map[string]any)
+				fieldPath := keyed(path, "fields", field["field_key"].(string))
+				entry, exists := byPath[fieldPath]
+				if !exists {
+					t.Fatal("source field has no model-addressed manifest entry")
+				}
+				for _, ref := range field["source_refs"].([]any) {
+					entries[ref.(string)] = entry
+				}
+				delete(byPath, fieldPath)
+			}
+			visit(path, "children", block["children"].([]any))
+		}
+	}
+	for _, raw := range model["sections"].([]any) {
+		section := raw.(map[string]any)
+		visit(keyed("$", "sections", section["section_id"].(string)), "blocks", section["blocks"].([]any))
+	}
+	if len(byPath) != 0 {
+		t.Fatal("manifest contains an unbound field address")
+	}
+	fields := map[string]map[string]any{}
+	for _, raw := range model["sections"].([]any) {
+		collectExportModelBlockFields(raw.(map[string]any)["blocks"].([]any), fields)
+	}
+	result := map[string]map[string]any{}
+	for source, alias := range fixtureSourceAliases(t, model, fields) {
+		entry, exists := entries[source]
+		if !exists || result[alias] != nil {
+			t.Fatal("manifest has no unique fixture source")
+		}
+		result[alias] = entry
+	}
+	return result
 }
 
 func requireSnapshotSourceIdentities(t testing.TB, value any, snapshotID string) {
@@ -2095,7 +2292,7 @@ func requireRenderAdmissionIdentities(t testing.TB, db *sql.DB, release, bundle 
 		t.Fatal(err)
 	}
 	stamp := at.UTC().Format("2006-01-02T15:04:05.000000Z")
-	if bundle["release_id"] != release["release_id"] || bundle["snapshot_id"] != release["snapshot_id"] || bundle["preview_attempt_id"] != nil || bundle["bundle_created_at"] != stamp || bundle["render_admitted_at"] != stamp || bundle["export_model_sha256"] != release["export_model_sha256"] {
+	if bundle["release_id"] != release["release_id"] || bundle["snapshot_id"] != release["snapshot_id"] || bundle["preview_attempt_id"] != nil || bundle["bundle_created_at"] != stamp || bundle["render_admitted_at"] != stamp || bundle["admitted_export_model_sha256"] != release["export_model_sha256"] || bundle["export_model_sha256"] == release["export_model_sha256"] {
 		t.Fatal("render bundle lost admitted identity or time")
 	}
 	// Independent standard-library serialization of this ASCII-only literal tuple.
@@ -2137,4 +2334,34 @@ func requireRenderAdmissionIdentities(t testing.TB, db *sql.DB, release, bundle 
 	if count != 4 {
 		t.Fatalf("generated artifact coverage=%d", count)
 	}
+}
+
+func requirePreparedRenderProfile(t testing.TB, harness *appsupport.ServerHarness, jobID uuid.UUID) reporting.RedactionProfile {
+	t.Helper()
+	var raw []byte
+	if err := harness.DB.QueryRow(`SELECT request_json FROM reporting_job_payloads WHERE job_id=$1`, jobID).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var admission struct {
+		SnapshotID string                     `json:"snapshot_id"`
+		Profile    reporting.RedactionProfile `json:"authored_redaction_profile"`
+		Recipients []string                   `json:"recipient_partition_refs"`
+	}
+	if err := json.Unmarshal(raw, &admission); err != nil {
+		t.Fatal(err)
+	}
+	var capture []byte
+	var digest string
+	if err := harness.DB.QueryRow(`SELECT p.request_json->'source_capture',s.source_capture_sha256 FROM reporting_snapshots s JOIN reporting_job_payloads p ON p.job_id=s.create_job_id WHERE s.snapshot_id::text=$1`, admission.SnapshotID).Scan(&capture, &digest); err != nil {
+		t.Fatal(err)
+	}
+	model, err := reporting.MaterializeSnapshotCapture(context.Background(), capture, digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, _, err := reporting.ResolveRedactionProfile(admission.Profile.ProfileID, admission.Profile.Version, admission.Recipients, model.SnapshotContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return profile
 }

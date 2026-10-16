@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 import { validateSchemaSync } from "../contract/index.mjs";
@@ -40,10 +40,67 @@ export function restrictedExecutableInputRoots(root) {
   return [...readPolicy(root).restricted_roots];
 }
 
-function trackedExecutableSources(root) {
+// Git must prune human material before inspecting untracked directories. A
+// filter applied only to Git's output is too late to enforce this boundary.
+export function executableInputPathspec(restrictedRoots, includes = ["."]) {
+  return [
+    ...includes,
+    ...restrictedRoots.map((entry) => `:(top,exclude,literal)${entry}`),
+    ...["*.md", "*.markdown", "README", "README.*", "**/README", "**/README.*"]
+      .map((pattern) => `:(exclude,icase)${pattern}`),
+  ];
+}
+
+export function executableRepositoryPaths(root, {
+  restrictedRoots = restrictedExecutableInputRoots(root),
+  untracked = false,
+  includes = ["."],
+} = {}) {
+  const result = spawnSync("git", [
+    "ls-files", "--cached", ...(untracked ? ["--others", "--exclude-standard"] : []),
+    "-z", "--", ...executableInputPathspec(restrictedRoots, includes),
+  ], { cwd: root, encoding: "utf8" });
+  if (result.status !== 0) throw new Error("cannot enumerate admitted repository inputs");
+  return [...new Set(result.stdout.split("\0").filter(Boolean))].sort();
+}
+
+// Git can retain descendants of a directory replaced by a link. Inspect every
+// ancestor before probing a descendant; lexical admission alone is insufficient.
+// A final link is returned as data for snapshot consumers, never dereferenced.
+export function inspectExecutableRepositoryPath(root, relative) {
+  const segments = relative.split("/");
+  if (path.isAbsolute(relative) || relative.includes("\\") || relative.includes("\0") ||
+      segments.some((segment) => !segment || segment === "." || segment === "..")) {
+    throw new Error("executable input path is not normalized");
+  }
+  let absolute = path.resolve(root);
+  for (let index = 0; index < segments.length; index++) {
+    absolute = path.join(absolute, segments[index]);
+    let stat;
+    try { stat = lstatSync(absolute); }
+    catch (error) { if (error.code === "ENOENT") return null; throw error; }
+    if (index === segments.length - 1) return { absolute, stat };
+    if (!stat.isDirectory()) throw new Error("executable input ancestor is not a directory (symbolic links are forbidden)");
+  }
+}
+
+function readExecutableSource(root, relative) {
+  const admitted = inspectExecutableRepositoryPath(root, relative);
+  if (!admitted) return null;
+  if (!admitted.stat.isFile()) throw new Error("executable source must be a regular file (symbolic links are forbidden)");
+  const descriptor = openSync(admitted.absolute, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  try {
+    const opened = fstatSync(descriptor);
+    if (!opened.isFile() || opened.dev !== admitted.stat.dev || opened.ino !== admitted.stat.ino)
+      throw new Error("executable source changed during admission");
+    return readFileSync(descriptor, "utf8");
+  } finally { closeSync(descriptor); }
+}
+
+function trackedExecutableSources(root, restrictedRoots) {
   const result = spawnSync(
     "git",
-    ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+    ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", ...executableInputPathspec(restrictedRoots)],
     { cwd: root, encoding: "buffer" },
   );
   if (result.status !== 0) {
@@ -53,7 +110,6 @@ function trackedExecutableSources(root) {
     .toString("utf8")
     .split("\0")
     .filter(Boolean)
-    .filter((file) => existsSync(path.join(root, file)))
     .filter((file) => {
       const normalized = normalize(file);
       const basename = path.posix.basename(normalized);
@@ -118,11 +174,12 @@ export function validateExecutableInputPolicy(root) {
   const policy = readPolicy(root);
   const documentationOnly = new Set(policy.documentation_only_sources);
   const findings = [];
-  for (const file of trackedExecutableSources(root)) {
+  for (const file of trackedExecutableSources(root, policy.restricted_roots)) {
     if (documentationOnly.has(file)) {
       continue;
     }
-    const source = readFileSync(path.join(root, file), "utf8");
+    const source = readExecutableSource(root, file);
+    if (source === null) continue;
     findings.push(
       ...scanRestrictedReadSource(file, source, policy.restricted_roots).map(
         (finding) =>

@@ -86,6 +86,8 @@ import userEvent from "@testing-library/user-event";
 import { useLayoutEffect, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkbookImportController } from "../imports/WorkbookImportController";
+import type { WorkbookImportSurfaceBinding } from "../imports/workbookImportBinding";
+import type { CommonJobResource } from "../services/commonJobContract";
 import { createWorkflowAttachment } from "../shared/workflowAttachment";
 import { sessionResource } from "../testing/appShellTestSupport";
 import { deferred } from "../testing/fetchMockTestSupport";
@@ -173,6 +175,8 @@ function WorkbookShell(
     >[0]["mutationRuntimeRegistry"];
   },
 ) {
+  const [importController] = useState(() => new WorkbookImportController());
+  useLayoutEffect(() => () => importController.dispose(), [importController]);
   const registry = useWorkbookMutationRuntimeTestRegistry(
     props.mutationRuntimeRegistry,
   );
@@ -201,10 +205,30 @@ function WorkbookShell(
   return (
     <WorkbookShellImpl
       sessionIdentity="workbook-test"
-      importController={new WorkbookImportController()}
+      importController={importController}
       networkFlowImportController={new NetworkFlowImportController()}
       attachNetworkFlowImport={() => ({ update: () => true, detach: () => {} })}
-      attachWorkbookImport={() => ({ update: () => true, detach: () => {} })}
+      attachWorkbookImport={
+        createWorkflowAttachment<WorkbookImportSurfaceBinding>(
+          () => () => true,
+          (binding) => {
+            if (!binding || binding.readiness !== "available") {
+              importController.pause();
+              return;
+            }
+            importController.bind({
+              ...binding,
+              scope: {
+                incidentId: props.incidentId,
+                actorId: testUserId,
+                lifetime: "session",
+              },
+              available: true,
+              current: () => true,
+            });
+          },
+        ).attach
+      }
       {...savedViews}
       {...props}
       mutationRuntimeRegistry={registry}
@@ -958,6 +982,38 @@ describe("WorkbookShell surface selection", () => {
             },
           },
           201,
+        );
+      }
+      if (
+        method === "POST" &&
+        url.endsWith(
+          "/api/v1/object-blobs/00000000-0000-4000-8000-000000003001/verify",
+        )
+      ) {
+        return successEnvelope(
+          {
+            job_id: "70000000-0000-4000-8000-000000000007",
+            scope: {
+              kind: "incident",
+              incident_id: "10000000-0000-4000-8000-000000000001",
+            },
+            status_route: "/api/v1/jobs/70000000-0000-4000-8000-000000000007",
+            status: "succeeded",
+            cancelable: false,
+            submitted_by_user_id: testUserId,
+            submitted_at: "2026-04-05T00:00:00Z",
+            updated_at: "2026-04-05T00:00:02Z",
+            started_at: "2026-04-05T00:00:01Z",
+            finished_at: "2026-04-05T00:00:02Z",
+            retained_until: "2026-04-12T00:00:02Z",
+            progress: { completed: 3, total: 3 },
+            result_summary: {
+              code: "evidence_blob_verified",
+              message: "Uploaded evidence verified.",
+            },
+            error_summary: null,
+          } satisfies CommonJobResource,
+          202,
         );
       }
       if (
@@ -2114,7 +2170,7 @@ describe("WorkbookShell surface selection", () => {
     expect(
       await screen.findByTestId(workbookImportAssistantTestId()),
     ).toBeTruthy();
-    expect(screen.getByLabelText("Source workbook")).toBeTruthy();
+    expect(await screen.findByLabelText("Source workbook")).toBeTruthy();
   });
 
   it("focuses the first creation control for every explicitly selected built-in tab without a write", async () => {
@@ -4833,6 +4889,18 @@ describe("WorkbookShell surface selection", () => {
           .join(" "),
       ).toContain("File attached. Custody unchanged.");
     });
+    const verificationIndex = fetchMock.mock.calls.findIndex(([input]) =>
+      String(input).endsWith(
+        "/api/v1/object-blobs/00000000-0000-4000-8000-000000003001/verify",
+      ),
+    );
+    const finalizationIndex = fetchMock.mock.calls.findIndex(([input]) =>
+      String(input).endsWith(
+        "/api/v1/evidence-records/00000000-0000-4000-8000-000000004010/attach-blob",
+      ),
+    );
+    expect(verificationIndex).toBeGreaterThanOrEqual(0);
+    expect(finalizationIndex).toBeGreaterThan(verificationIndex);
     const createBlobCall = fetchMock.mock.calls.find(([input]) =>
       String(input).endsWith("/api/v1/object-blobs"),
     );
@@ -5085,7 +5153,7 @@ describe("WorkbookShell surface selection", () => {
             { name: "Inspector file recovery: screenshot.txt" },
           ),
         ).getByText(
-          "Upload acknowledgement is uncertain. Recover by finalizing the file.",
+          "Upload acknowledgement is uncertain. Resume to verify the stored file.",
         ),
       ).toBeTruthy();
     });
@@ -5496,6 +5564,12 @@ function hostRow({
     record_id: recordId,
     row_version: rowVersion,
     cells: {
+      ...fullWorkbookViewRow(
+        requireViewContract(hostsViewSchemaId),
+        recordId,
+        rowVersion,
+        {},
+      ).cells,
       "host.display_name": { value: displayName },
       "host.hostname": { value: hostname },
       "host.aad_device_id": { value: null },
@@ -5568,6 +5642,12 @@ function identityRow({
     record_id: recordId,
     row_version: rowVersion,
     cells: {
+      ...fullWorkbookViewRow(
+        requireViewContract(identitiesViewSchemaId),
+        recordId,
+        rowVersion,
+        {},
+      ).cells,
       "identity.display_name": { value: displayName },
       "identity.aad_object_id": { value: null },
       "identity.sid": { value: null },

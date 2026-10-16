@@ -18,7 +18,7 @@ func TestVNextGraphRestoreV4ProjectionContract_Unit(t *testing.T) {
 	if len(contractrecovery.RecoveryGenerations) != 1 {
 		t.Fatalf("Recovery generations = %d, want one current generation", len(contractrecovery.RecoveryGenerations))
 	}
-	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "1006d1df55a273762d1986adcf541bac8b027e7a11894cf58f741deb12303afe"; got != want {
+	if got, want := contractrecovery.CurrentGraphProjectionRestoreImplementationBindingSHA256, "ad87fb5eb04cafebcf02fca27fc9b3df10e504d497ab63d2b1c1bd005b1d8953"; got != want {
 		t.Fatalf("current Graph v4 binding digest = %s, want %s", got, want)
 	}
 	if got, want := contractrecovery.CurrentGraphProjectionRestoreSourceRegistrySHA256, "a18774fbb30712823a95c90f43517ca19484f37f3e7f685cfe75401eaec6b634"; got != want {

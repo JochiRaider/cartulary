@@ -311,7 +311,7 @@ const value = {
         {
           "contribution_id": "snapshot_reporting.render_export",
           "kind": "snapshot_reporting_participant",
-          "participant_contract_sha256": "a423f022c63f784c147626442411a7ed16db85b7bd24c65b3b7aa0b2343b110e",
+          "participant_contract_sha256": "f927f161cfdc9af801d26fab93f660b15f139d99ddae6097b5733f58c26b6dcd",
           "participant_id": "snapshot_reporting.render_export_v1"
         },
         {

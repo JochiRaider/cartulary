@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app/referenceassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	evidencemodule "github.com/JochiRaider/cartulary/internal/modules/evidence"
+	evidenceflow "github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	recoverytestsupport "github.com/JochiRaider/cartulary/internal/modules/recovery/testsupport"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
@@ -58,6 +59,13 @@ func TestFreshEnvironmentRestoreWorkbookConsistency_Integration(t *testing.T) {
 	}
 	if restored.BackupSet.BackupSetID != fixture.LatestBackupSetID || restored.ConsistencyReport.BlobCount != 1 || restored.RestoredObjectCount != fixture.ObjectCount || restored.GraphProjectionCompletion == nil {
 		t.Fatalf("incomplete current restore: %#v", restored)
+	}
+	var restoredProofs int
+	if err := target.Postgres.QueryRow(ctx, `SELECT count(*) FROM evidence_blob_verifications`).Scan(&restoredProofs); err != nil {
+		t.Fatal(err)
+	}
+	if restoredProofs != 0 {
+		t.Fatalf("restore retained %d security-ephemeral verification proofs", restoredProofs)
 	}
 
 	basis := recovery.RestoreVerificationBasis{
@@ -201,6 +209,7 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 	uploadTarget := blobData["upload_target"].(map[string]any)
 	objectBlobID := blobData["object_blob_id"].(string)
 	putObject(t, server, uploadTarget, payload, adminLogin)
+	evidenceflow.VerifyUploadedBlob(t, server.Client, server.BaseURL, adminLogin.SessionCookie, adminLogin.CSRFCookie, blobData["object_blob_id"].(string), "txn-verify-uploaded-"+blobData["object_blob_id"].(string))
 
 	attach := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   objectBlobID,
@@ -257,6 +266,13 @@ func captureRestoreSource(t testing.TB, prefix string) sourceBackupFixture {
 	capture, err := recovery.NewVNextCaptureService(recoveryassembly.NewVNextSnapshotRepository(sourcePool), streaming, catalog, inventories)
 	if err != nil {
 		t.Fatal(err)
+	}
+	var sourceProofs int
+	if err := sourcePool.QueryRow(ctx, `SELECT count(*) FROM evidence_blob_verifications`).Scan(&sourceProofs); err != nil {
+		t.Fatal(err)
+	}
+	if sourceProofs != 1 {
+		t.Fatalf("source fixture requires one real verification proof, got %d", sourceProofs)
 	}
 	captured, err := capture.Capture(ctx, recovery.VNextCaptureParams{
 		BackupSetID: latestBackupSetID, ConsistencyPointAt: consistencyPointAt,

@@ -182,16 +182,81 @@ closed ordered set `fast`, `standard`, `full`, or `release`. Aggregate selection
 admits catalog rows whose minimum tier is N or lower. The catalog MUST NOT
 contain `default_check`, inferred tiers, or implicit tier fallbacks.
 
-The current execution topology input is `cartulary.execution_topology.v10`.
-Raw Go aggregate selectors are unsupported. The explicit, sorted
-`go_targets.catalog_packages` roster requires full active-test coverage for each
-listed helper package under the Go runner build context; TestMain is setup, not
-a selectable assertion. New or removed test functions cannot silently escape
-this catalog closure. Every required Go test context,
-including harness helper tests, MUST have an exact owner-catalog selection.
+The current execution topology input is `cartulary.execution_topology.v11`.
+Raw Go aggregate selectors and `go_targets.catalog_packages` are unsupported.
+Source completeness MUST be derived from the approved roots in
+`cartulary.test_runner_registry.v3`, independently of selected packages or files.
+The Go roots are `cmd`, `internal`, `tools/contractgen`, `tools/embedwebassets`,
+`tools/objectstoreprobe`, and `tools/testservices`. Every active Go Test function
+under the runner build context MUST have exactly one owner-catalog selection;
+TestMain is setup, not a selectable assertion. Excluded build contexts, examples,
+benchmarks and fuzz targets require human inventory dispositions and MUST NOT
+silently satisfy ordinary Go Test coverage. Required unsupported contexts remain
+uncovered until an adopted runner contract admits them or equivalent supported
+coverage replaces them. New or removed test functions cannot silently escape
+catalog closure. Every required Go test context, including harness helper tests,
+MUST have an exact owner-catalog selection.
 An additional environment or fixture context requires a named assurance boundary,
-not a duplicate package-wide selector. Current commands MUST reject v9 topology
-inputs and the retired `raw_go_aggregates` field.
+not a duplicate package-wide selector. Current commands MUST reject v9 and v10 topology inputs and the retired `raw_go_aggregates` and `catalog_packages` fields.
+
+Frontend completeness covers the browser-unit file patterns declared by the
+current Vitest project (`apps/web/src/**/*.{test,spec}.{ts,tsx}` and
+`packages/*/src/**/*.test.{ts,tsx}`, excluding `packages/report-renderer`), harness-node
+`apps/web/e2e/**/*.test.ts`, and Chromium Playwright
+`apps/web/e2e/**/*.spec.{ts,tsx}`. Helpers without registrations are not tests.
+The `renderer-node` Vitest project owns
+`packages/report-renderer/src/**/*.test.ts` under the Reporting owner. Its pure
+unit rows require frontend installation; its browser integration rows additionally
+require the pinned Playwright installation. Integration rows run exclusively in
+their test process, reserve browser capacity, and close all test-owned browser
+contexts, servers and temporary directories. They do not acquire an application,
+database or object-store fixture solely to render generated presentation input.
+This context establishes renderer behavior only; sandbox, production packaging
+and release qualification require their own evidence. Repository documentation
+is not input to these tests; temporary generated presentation source is product
+data. The project has a 60-second test deadline and 30-second hook deadline for
+bounded cold renderer characterization. These are test-execution bounds, not
+Reporting product timeout or performance predicates.
+Discovery and selector resolution MUST use the same non-executing parser.
+Literal titles, static local constants and supported literal/constant `.each`
+tables resolve to exact full titles. Unresolvable test registrations are
+configuration failures, not omitted coverage. Registrations MUST be unconditional
+module-level statements or statements in literal suite callbacks. Named imports
+may alias the runner's `it`, `test`, `describe`, or `suite` interfaces. Bindings
+MUST resolve in their declaration's lexical scope; mutable or dynamic title
+bindings, conditional registrations, arbitrary callback registration, unknown
+registration modifiers and parameterized suite registration MUST reject.
+Runner APIs may use simple constant aliases. Computed member access,
+destructuring, storage in objects, and passage to arbitrary registration helpers
+are unsupported API escapes and MUST reject before setup. Runtime test metadata
+and hooks remain distinct from registration; ordinary object property names do
+not create runner identities.
+The admitted `.each` title grammar is primitive `%s`, `%d`, `%i`, `%f`, case
+indices `%#`/`%$`, and primitive named object properties (`$name`), with the
+pinned runner's exact formatting. Other formatting tokens, unresolved property
+paths or inspected object values MUST reject; neither approximated titles nor
+unexpanded templates establish selection coverage. New syntax requires an
+explicit parser-contract amendment and parity tests before admission.
+Imported `register*Suite` modules MUST expose the named zero-argument exported
+function and the importer MUST call it exactly once as an unconditional
+module-level statement. Unused, conditional, argument-bearing or repeated suite
+calls MUST reject. Runtime profile routing belongs in catalog execution context,
+not environment-dependent registration guards.
+Playwright logical scenario IDs
+and physical project/file/full-title identities MUST both be unique; changing a
+scenario ID cannot authorize duplicate execution of the same test. Distinct
+assurance contexts require distinct explicitly owned registrations.
+
+Before service or fixture setup, missing, ambiguous, orphaned or overlapping
+supported source selections MUST fail with `failure_class=config`,
+`failure_reason=configuration_error`, and exit 2. Discovery MUST prune Markdown,
+documentation, generated roots/files, dependency trees, vendor trees and test
+data before content traversal or file metadata access. It MUST reject traversal
+and symlink paths, never execute discovered source, and never broaden beyond
+the approved runner roots and source patterns. Human dispositions and external
+provenance records remain supporting documentation, not runtime exemptions or
+a second selection catalog. Source inventories and catalog totals are derived
+diagnostics, never authored completeness targets.
 
 Tier selection MUST precede unit construction and readiness dependency expansion.
 An excluded row MUST NOT introduce readiness work; dependencies of selected
@@ -465,23 +530,59 @@ them locally.
 
 Every p95 browser measurement consumes the typed harness policy: exactly one
 discarded warm-up operation, exactly 100 finite non-negative measured
-operations, nearest-rank p95 at `ceil(0.95 * N) - 1`, and zero retries. Before a
-threshold assertion, and on safe partial setup or sampling failure, each
-predicate MUST emit one immutable
-`cartulary.frontend_measurement_observation.v1` with predicate, criterion,
-policy, fixture, digest, threshold, counts, p50 and p95 when available, numeric
-stage samples, and traffic qualification. The observation MUST exclude entered
-text, record and transaction IDs, credentials, tokens, and payload data.
+operations, nearest-rank p95 at `ceil(0.95 * N) - 1`, and zero retries. A
+single-observation predicate consumes exactly one measured operation, no warm-up,
+and no action retry; it MUST NOT report percentiles. The behavior owner fixes the
+threshold comparison, sampling and observable predicate. Before a threshold
+assertion, and on safe partial setup or sampling failure, each predicate MUST
+emit one immutable `cartulary.frontend_measurement_observation.v4` with predicate,
+criterion, policy, fixture, digest, threshold, counts, numeric stage samples,
+traffic qualification and discriminated statistics. `percentile` statistics
+contain the declared percentile and p50/p95; `single` statistics contain elapsed
+milliseconds. Unavailable statistics are explicit nulls. Validators MUST
+recompute complete statistics and the threshold outcome from retained samples;
+changing a summary value cannot convert a failed observation to a pass.
+A seeded pass/fail trace uses `seeded_trace` statistics with expected and completed
+step counts, a null timing threshold, zero timing samples, no warm-up, and no
+product-action retries. Its exact ordered workload and invariants belong to the
+product criterion owner. Every checkpoint retains at least two observed frames;
+missing, duplicated, reordered or contradictory checkpoints cannot qualify.
+An observed invariant violation is `predicate_failed`; incomplete preparation or
+an interrupted trace cannot be reported as a passing predicate. Trace results
+MUST NOT be converted into latency samples or compared as elapsed/p95 timings.
+
+Observations MUST exclude entered text, transaction IDs, credentials, tokens,
+and payload data. Bounded synthetic-fixture identity proofs are permitted only
+at their closed typed locations: AC-003 retains exactly 20 opaque new record IDs
+and positive integer row versions in `predicate_evidence.created_records`;
+the three Timeline presence predicates retain one synthetic actor ID and, for
+row/cell presence, one synthetic target record ID and positive integer row
+version in `predicate_evidence`. Surface presence has null record and version
+bindings. No source values or production record inventory accompanies those
+identities. The three Timeline history predicates may retain one synthetic actor
+and target record ID, the prior and new integer row versions, and closed
+qualification facts in their typed `predicate_evidence`; raw history payloads,
+timestamps and change-set/transaction identities remain excluded. The Timeline
+anchor trace retains its one synthetic target and actual request record identity,
+positive integer version progression, ordered checkpoint/frame counts, maximum
+mounted-row count, grid replacement counts, and closed invariant-violation codes.
+It MUST NOT retain draft text, request bodies or response payloads. AC-003
+additionally records TSV delivery posture, fixed geometry,
+and predicate qualification facts. Collection and retained-artifact finalization
+MUST apply the same identity admission and redaction policy.
+Unknown statistics variants, predicate proof members and retired evidence schemas
+fail closed. Playwright retries cannot contribute qualifying observations, even
+when only the final attempt supplies an attachment.
 
 An observation is not qualification evidence. After the browser-stack lease
 has released and clone cleanup has completed, the row finalizer MUST combine
 the observation with the immutable snapshot-build and snapshot-lease artifacts
 and scheduler overlap proof into
-`cartulary.frontend_measurement_summary.v2`. The target finalizer MUST accept
-only current v2 summaries and emit
-`cartulary.frontend_measurement_aggregate.v2`. Missing, malformed, stale,
-unredacted, v1-only, digest-inconsistent, not-cleaned, or overlapping evidence
-fails closed as `environment_not_qualified`.
+`cartulary.frontend_measurement_summary.v5`. The target finalizer MUST accept
+only current v5 summaries and emit
+`cartulary.frontend_measurement_aggregate.v5`. Missing, malformed, stale,
+unredacted, retired-schema, digest-inconsistent, not-cleaned, or overlapping
+evidence fails closed as `environment_not_qualified`.
 
 A failed or unhealthy lane is quarantined and cleaned, and its product work is
 not retried. Direct and aggregate selectors use identical group IDs,
@@ -690,12 +791,13 @@ Verified by: TH-HARNESS-AC-095
 **TH-HARNESS-REQ-812**
 `tools/performance_fixture_snapshot_owner.json` is the sole authored harness
 registry for populated performance-fixture profiles and MUST validate as
-`cartulary.performance_fixture_snapshot_owner.v2`. Each active profile closes
+`cartulary.performance_fixture_snapshot_owner.v3`. Each active profile closes
 its stable profile ID, fixture version and seed, compatible runner, evidence
 class, selector stage, runtime profile, resource profile, fixture capability
 and services, verification-to-predicate bindings, source-contract identities,
 ordered source-owner contributions and receipt-count expectations, semantic
-count and condition expectations, runtime credential sets, compatibility,
+count and condition expectations, exact physical object population, runtime
+credential sets, compatibility,
 cleanup, artifact, and redaction policies. These collections are structural:
 generic schemas and lifecycle code MUST NOT encode a particular profile's
 identities, counts, conditions, or credentials.
@@ -737,7 +839,7 @@ Verified by: TH-HARNESS-AC-096
 
 **TH-HARNESS-REQ-813**
 Populated fixture construction MUST use one closed owner-neutral contribution
-contract. Auth, Incidents, Entities, Timeline, Links, and Projections each
+contract. Auth, Incidents, Entities, Evidence, Timeline, Links, and Projections each
 construct their registered contribution through production application,
 persistence, query, and validation boundaries owned by that source owner. The
 harness validates complete membership, unique identities, versions, source
@@ -813,8 +915,9 @@ Selecting any nonempty subset of the active Timeline measurement rows MUST
 therefore produce exactly one production construction and one build diagnostic
 with `construction_count=1`. A harness closure with no populated measurement
 row MUST produce no production snapshot builder and no construction diagnostic.
-Each dependent predicate receives one isolated database clone, one empty
-object-store bucket, explicit lease identity and clone ordinal, and a private
+Each dependent predicate receives one isolated database clone, one initially empty
+object-store bucket restored and verified under TH-HARNESS-REQ-820, explicit
+lease identity and clone ordinal, and a private
 copy of its typed runtime bundle. A populated-profile row has no empty-template
 or live-assembly fallback.
 
@@ -836,7 +939,10 @@ contains accounts and required memberships but no sessions, tokens, cookies,
 browser state, traffic, object payloads, or predicate-local mutations. Each
 predicate receives its own private bundle copy, authenticates through the
 ordinary login path, and deletes that copy before its snapshot lease finalizes.
-The suite bundle is deleted during suite cleanup.
+The suite bundle is deleted during suite cleanup. Binary payloads, when contributed,
+are sealed separately in the private template root under TH-HARNESS-REQ-820;
+each clone restores that exact population into its own initially empty bucket.
+The database-only profile uses an explicit sealed empty object population.
 
 The private root is the one suite-runtime boundary defined by
 TH-HARNESS-REQ-603. Template bundles, clone copies, browser state, stack
@@ -861,16 +967,19 @@ scheduler overlap, exact traffic and sampling, and redaction. Historical v1
 summaries and any superseded evidence generations remain inspectable bytes but
 cannot qualify current source and MUST NOT be dual-written or translated.
 
-The sole active populated-fixture evidence generation is selected by the v2
-profile registry and consists of snapshot-key v2, snapshot v2, snapshot-lease
-v2, runtime v2, frontend-measurement-observation v2,
-frontend-measurement-summary v3, and frontend-measurement-aggregate v3. A
-summary v3 contains bounded qualification rollups and immutable run-relative
+The sole active populated-fixture evidence generation is selected by the v3
+profile registry and consists of snapshot-key v2, snapshot v3, snapshot-lease
+v3, runtime v2, frontend-measurement-observation v4,
+frontend-measurement-summary v5, and frontend-measurement-aggregate v5. An
+observation v4 preserves the selected predicate's single-observation,
+percentile-sampling, or continuous-trace evidence contract; producers MUST NOT
+coerce one evidence kind into another. A summary v5 contains bounded
+qualification rollups and immutable run-relative
 references with digests to its observation, build, and retained lease
-artifacts; it MUST NOT embed any of those artifacts. An aggregate v3 contains
+artifacts; it MUST NOT embed any of those artifacts. An aggregate v5 contains
 independent profile groups, immutable summary references, and bounded
 cross-row rollups; it MUST NOT embed observations or complete summaries. The
-browser target result wrapper is v4 and the retained browser-stack lease is v2.
+browser target result wrapper is v6 and the retained browser-stack lease is v2.
 
 Only necessary current owner-required schemas and their transitive definitions
 belong to the supported schema surface. Superseded performance evidence remains
@@ -882,6 +991,79 @@ failure. Diagnostics MUST NOT interpret historical fields or present historical
 validation as current evidence. Removal of support MUST NOT rewrite retained
 bytes, synthesize evidence or change current qualification policy.
 Verified by: TH-HARNESS-AC-099
+
+**TH-HARNESS-REQ-820**
+An object-backed populated fixture MUST seal its binary payload population as
+well as its database. This capability requires an explicitly admitted snapshot
+and lease evidence generation; a v2 database-only snapshot MUST NOT be inferred
+to contain objects. The builder constructs objects in the suite-private rooted
+store, validates actual bytes and metadata, and exclusively writes one canonical
+`cartulary.performance_fixture_objects.v1` manifest. Its closed top-level members
+are `schema_id`, `snapshot_key`, and `objects`. Each object contains exactly
+`key`, `byte_size`, `content_type`, and `sha256`. Keys are canonical relative
+storage references in strict ascending UTF-8 byte order, without duplicates, path-prefix
+collisions, traversal, symlinks or reserved `.meta.json` / `.tmp` suffixes. Hashes
+use `sha256:<64 lowercase hexadecimal digits>`. JSON uses RFC 8785 canonical
+UTF-8 encoding followed by one final LF; ambiguous or noncanonical input fails.
+
+The v1 resource bounds are 100,000 objects, 1 GiB per object, 128 GiB total,
+1,024 bytes per key, 255 bytes per content type without CR/LF/NUL, and a 16 MiB
+manifest. Empty populations are explicit arrays with zero count and bytes. The
+retained projection contains only manifest digest, object count and total bytes;
+keys, payloads and private paths remain outside result roots. Snapshot v3 and
+snapshot-lease v3 require `object_snapshot` containing `manifest_sha256`,
+`object_count`, and `total_bytes` for successful construction/admission, and null
+for failed construction/admission. The clone must read the exact run-scoped
+sealed build before allocating resources; its retained proof must equal the
+build proof. Missing proof or a retired generation rejects. Counts describe
+actual bytes and objects, never substituted logical size. Each v3 profile declares
+`object_population` with exact `object_count` and `total_bytes`; these expectations
+participate in its source-contract digest. Sealing, admission and qualification
+reject populations that differ, including an undeclared nonempty population.
+Before cloning a populated database or invoking source-owner contributions, the
+builder MUST verify that the private scratch filesystem has at least the declared
+physical object bytes available to its user. Unavailable capacity information
+or insufficient space rejects construction with a bounded setup diagnostic;
+private paths MUST NOT enter that diagnostic. This is a lower-bound admission
+check, not a storage reservation: metadata, concurrent writers and later write
+failures still require ordinary cleanup. The existing external
+`CARTULARY_HARNESS_SCRATCH_ROOT` override selects a sufficiently sized filesystem;
+the builder MUST NOT silently shrink the population, use sparse substitutes,
+or fall back to a different storage root.
+Physical-object snapshot construction and clone restoration use a bounded
+15-minute preparation budget. An empty-object population retains the ordinary
+two-minute browser template-preparation budget. This administrative budget
+covers verified storage transfer and MUST NOT change product action thresholds,
+warm-up, sample counts or retry policy. Unknown profiles reject before preparation.
+Preparation deadline failures MUST retain `timing` / `timeout_failure` and exit
+`13` through browser startup diagnostics; they MUST NOT be reported as an
+unexplained service-start failure or point to a discarded private log.
+After failed admission, retained cleanup outcomes describe resources actually
+acquired and reclaimed; they must not label acquired resources `not_acquired`.
+
+The Evidence-heavy profile has a final Collaboration-owned contribution after
+projection validation. It uses ordinary durable sequencing to complete
+construction publications before sealing, retains the corresponding replay
+events, and independently validates zero pending intents, no quarantined stream,
+and exact intent-to-replay bindings. Stalled sequencing fails construction
+without retry, backoff bypass, payload repair, or history deletion. The profile's
+contribution and semantic proof participate in the snapshot key; an older sealed
+database without this proof cannot be reused. Generic lifecycle code does not
+inspect Collaboration tables or dispatch product events.
+
+Each predicate restores into its own initially empty bucket. It verifies the
+admitted manifest, exact source membership, metadata and content hashes, then
+verifies the destination's actual stored bytes and metadata. A missing, altered,
+unsafe, cancelled or partially copied snapshot cannot admit a browser consumer.
+The lifecycle owner cleans any partial destination before releasing the lease;
+a preexisting nonempty destination is rejected without mutation. Restoring may
+not perform owner-domain construction or infer historical bindings. Generic
+snapshot mechanics know storage resources and profile contracts, not Evidence
+field names, product record types or workload-specific counts. Source-owner
+contributions and profile adapters retain those meanings. This extension does
+not qualify AC-045 until its populated profile, evidence generation and actual
+measurement have all been admitted and exercised.
+Verified by: TH-HARNESS-AC-098, TH-HARNESS-AC-099
 
 **TH-HARNESS-REQ-816**
 The explicit local managed-service session commands are
@@ -1044,7 +1226,7 @@ The current owner inputs are `contracts/verification/registry.json`,
 `contracts/verification/owners/*.json`, `tools/test_catalog_owner.json`, and
 `tools/test_families/*.json`. They validate respectively as
 `cartulary.verification_registry.v3`, `cartulary.verification_contract.v3`,
-`cartulary.test_owner_registry.v1`, and `cartulary.test_family_manifest.v7`.
+`cartulary.test_owner_registry.v1`, and `cartulary.test_family_manifest.v8`.
 Every schema uses JSON Schema Draft 2020-12, requires its exact `schema_id`,
 rejects unknown properties, and closes every current enum.
 
@@ -1077,6 +1259,34 @@ Every active catalog row MUST contain `row_id`, `owner_id`, `family_id`,
 Rows governed by TH-HARNESS-REQ-812 also contain the required
 `fixture_profile_id`; all other rows omit it.
 
+A Go or Vitest row MAY declare a sorted, duplicate-free `preparation_targets`
+array selecting only `frontend-install`, `playwright-install`, and
+`build-report-renderer`. These are
+references to existing owned preparation producers, not executable commands or
+arguments. Omission means no additional preparation. Their graph units MUST
+complete before the row starts, and failures MUST prevent that row from running.
+The row semantic identity and evidence bindings MUST include the declaration.
+A Go row invoking the checkout's Reporting stage MUST declare both frontend producers,
+reserve `renderer_browser` capacity, and use exclusive process isolation. This
+cross-language context establishes protocol and artifact admission only; it does
+not establish native sandbox or production-package conformance. Unknown producers,
+other runner kinds, arguments, duplicate entries, and retired v7 catalogs fail
+configuration preflight. Resource profiles alone MUST NOT infer prerequisites.
+
+A Go row exercising the packaged native boundary MUST instead declare
+`build-report-renderer`, use exclusive process isolation, and reserve
+`renderer_browser` capacity. The build producer depends on the frontend and
+browser preparation producers and supplies the content-bound installation. The
+test MUST verify its receipt and complete inventory before invoking the private
+launcher; it MUST NOT build a launcher or infer missing runtime capabilities.
+
+A Vitest `renderer-node` integration row that inspects the installed adapter's
+browser content MAY declare the same producer with exclusive process isolation
+and `renderer_browser` capacity. That row establishes packaged adapter content
+and dependency behavior only, not native confinement. Other Vitest contexts MUST
+NOT request this producer. The native Go row remains responsible for complete
+inventory admission and launcher isolation.
+
 `collaborator_ids` is required and MAY be empty. `verification_ids` is required
 and MUST be nonempty. Verification entries contain only routing semantics:
 `verification_id`, `behavior_class`, `profile`, `evidence_kinds`, optional
@@ -1098,7 +1308,7 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-065, TH-HARNESS-AC-069
 ### 3.3 Runner registry and selectors
 
 **TH-HARNESS-REQ-016**
-`tools/test_runner_registry.json` MUST validate as `cartulary.test_runner_registry.v2`. The current runner set and selectors are closed by this table:
+`tools/test_runner_registry.json` MUST validate as `cartulary.test_runner_registry.v3`. The current runner set and selectors are closed by this table:
 
 | Runner | Exact selector contract |
 | --- | --- |
@@ -1108,8 +1318,16 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-065, TH-HARNESS-AC-069
 | `shell` | One stable registered command ID; raw shell, argv, executable paths, and row-defined environment are forbidden. |
 
 Go selector resolution uses the current ordinary Go-runner build context:
-Linux, `amd64`, the repository-pinned Go release tags, the `gc` compiler tag,
-and no private or caller-supplied build tags. Filename constraints and
+Linux, `amd64.v1`, the repository-pinned Go release tags, the `gc` compiler tag,
+cgo disabled, and no private or caller-supplied build tags. The adapter MUST
+bind this same context explicitly: `GOOS=linux`, `GOARCH=amd64`, `GOAMD64=v1`,
+`CGO_ENABLED=0`, empty `GOFLAGS` and `GOEXPERIMENT`, `GOENV=off`, `GOWORK=off`,
+`GO111MODULE=on`, and the pinned `GOTOOLCHAIN`. Host settings and Go environment
+files MUST NOT alter source selection. The pinned toolchain's default experiments
+remain toolchain-owned; first-party `goexperiment.*` constraints are unsupported
+and MUST fail configuration before setup until an explicit experimental context
+is admitted. Cryptographic module and runtime policy remain independently owned.
+Filename constraints and
 `//go:build` expressions are part of selector resolution. A `Test...` symbol
 that exists only in a file excluded by that context has zero resolution.
 `runtime_profile_id` selects harness runtime configuration; it does not add Go
@@ -1548,7 +1766,7 @@ structured diagnostics, not classify by matching
 human error strings. One failed cleanup step MUST NOT prevent independent owned
 resources from being retired; repeated finalization MUST be idempotent.
 
-The Playwright result adapter MUST join observations by exact normalized selector file and exact catalog title. Zero observations, multiple observations, aggregate process success without selector observations, and an unauthorized Playwright skip are accounting failures; a product assertion failure MUST remain a product failure. Reports, stdout, and stderr MUST be retained through the redaction boundary, and only exact selector observations may close catalog rows.
+The Playwright result adapter MUST join observations by exact normalized selector file, project ID and full suite/test title path resolved by the shared static parser. Execution MUST use the pinned Playwright exact test-list interface, derived from those catalog identities; substring or suffix title filters are forbidden. Unrepresentable test-list components, imported Playwright registration suites whose source location differs from the spec entrypoint, or a selected test path that is also a suite prefix MUST fail configuration preflight. Shared fixture and test-body helpers remain supported. Unexpected executed identities are accounting failures, even when every selected test passed. Zero observations, multiple observations, aggregate process success without selector observations, and an unauthorized Playwright skip are accounting failures; a product assertion failure MUST remain a product failure. Reports, stdout, and stderr MUST be retained through the redaction boundary, and only exact selector observations may close catalog rows.
 
 Ordinary Playwright configuration MUST set `updateSnapshots=none`. Missing
 goldens therefore fail ordinary visual validation. Snapshot mutation is
@@ -1669,14 +1887,25 @@ Harness implementation code MUST import declared owner facades rather than arbit
 Tests MAY import private implementation fixtures only from declared test-support paths. Generated files MAY mirror declared owner paths but MUST NOT independently widen import allowances. Non-owner harness code MUST NOT import private browser implementation helpers directly once a browser owner facade exists; scheduler code MUST use the scheduler browser adapter instead of direct browser helper imports. Import-boundary failures are harness failures, not product failures.
 
 `tools/backend_module_boundaries.json` MUST validate as
-`cartulary.backend_module_boundaries.v3`; the v2 schema and reader are
+`cartulary.backend_module_boundaries.v4`; the v2 and v3 schemas and readers are
 unsupported. Every forbidden-import rule MUST declare `match_kind` as exactly
 `exact` or `subtree`. `exact` matches only the named import path. `subtree`
 matches the named import path and paths below it on a package-segment boundary.
 The checker MUST NOT infer prefix semantics from the spelling of a path.
 Diagnostics MUST identify the rule, match kind, importer, and candidate import.
 
-The v3 input MAY declare reusable `exact_file_sets[]`. Each set MUST have a
+Every forbidden-source-token rule MUST declare `match_kind` as `source_text`
+or `go_identifier`. `source_text` matches literal source bytes, including
+strings and comments, where those bytes are themselves contractual.
+`go_identifier` accepts only Go identifier tokens and matches complete
+identifiers in Go code, including test code when `production_only=false`.
+Strings, rune literals, raw strings, and comments MUST NOT contribute matches;
+whitespace, comments between a name and its call, and longer identifiers MUST
+not change identifier identity. Missing or unknown match kinds and malformed
+identifier tokens MUST reject. The checker MUST NOT infer a match kind from
+token spelling. This revision does not authorize broader source traversal.
+
+The v4 input MAY declare reusable `exact_file_sets[]`. Each set MUST have a
 unique non-empty `id`, one non-empty unique `paths[]` list, and one token-based
 `discovery` with non-empty unique `scan_roots[]`, non-empty unique `tokens[]`,
 and explicit `production_only`. Declared paths and discovery roots MUST be
@@ -1779,8 +2008,19 @@ Verified by: TH-HARNESS-AC-056
 ### 4.1B Command-runtime profiles and legacy-surface disposition
 
 **TH-HARNESS-REQ-068**
-Cartulary has exactly three deployable executable identities: `server`, `migrate`,
-and `operator`. `build-server-harness` is a harness-only build profile of the
+Cartulary has three public deployable command identities: `server`, `migrate`,
+and `operator`. The Reporting runtime additionally contains the private
+`render-sandbox` confinement launcher. It is invoked only by the native render
+supervisor with its inherited observation channel and exact installed stage
+command; it has no product, administrative, or configuration interface.
+`build-report-renderer` produces a content-bound installation of that launcher,
+the pinned renderer packages, Node, Chromium, local fonts, and their declared
+native libraries. Build preparation MUST use the frozen lockfile, fail when an
+installed prerequisite is missing, exclude human documentation before traversal,
+and produce regular independent files without symlinks or hardlinks. Runtime
+inventory and manifests MUST contain operational identities only.
+
+`build-server-harness` is a harness-only build profile of the
 existing `server` identity, not a fourth deployable, release artifact, or public
 product command. `build-server` produces the production profile; it MUST NOT link
 harness-route contributors or inherited-listener support.
@@ -1966,115 +2206,121 @@ units with exact producer edges. `migration-drift`, for example, retains one
 public command projection while static migration-input validation and migration
 database evidence retain separate unit, resource, lease, and artifact identities.
 
-| Target | Command ID | Family ID | Default inclusion sets | Output class | Stable summary schema | Semantic behaviors | Side effects | Lifecycle state | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `help` | `cartulary.harness.command.help.v1` | `help_discovery` | `check` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
-| `help-all` | `cartulary.harness.command.help_all.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
-| `doctor` | `cartulary.harness.command.doctor.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `bootstrap` | `cartulary.harness.command.bootstrap.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  |
-| `bootstrap-node-runtime` | `cartulary.harness.command.bootstrap_node_runtime.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  |
-| `frontend-toolchain` | `cartulary.harness.command.frontend_toolchain.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `frontend-install` | `cartulary.harness.command.frontend_install.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  |
-| `frontend-lockfile-update` | `cartulary.harness.command.frontend_lockfile_update.v1` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write` | `public_active` | Explicit pinned-pnpm lockfile preparation; never a normal installation prerequisite. |
-| `playwright-install` | `cartulary.harness.command.playwright_install.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  |
-| `db-up` | `cartulary.harness.command.db_up.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start` | `public_active` |  |
-| `db-migrate` | `cartulary.harness.command.db_migrate.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Proves local Postgres readiness under Section 11, starting an owned instance when absent, and applies current-line migrations without resetting the database or object storage. |
-| `db-reset` | `cartulary.harness.command.db_reset.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `destructive_safety` (Section 13), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `destructive_cleanup` | `public_active` | Requires `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset` unless `CARTULARY_CLEANUP_DRY_RUN=1`; resets only the local database and does not reset object storage. |
-| `postgres-baseline-reset` | `cartulary.harness.command.postgres_baseline_reset.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `destructive_safety` (Section 13), `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `destructive_cleanup` | `public_active` | Accepts only `POSTGRES_BASELINE_PROFILE=dev\|mvp`; requires `CARTULARY_DESTRUCTIVE_CONFIRM=postgres-baseline-reset` unless dry-run; removes only exact Compose-labeled legacy/current PostgreSQL volumes. |
-| `services-up` | `cartulary.harness.command.services_up.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start` | `public_active` |  |
-| `services-down` | `cartulary.harness.command.services_down.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `destructive_safety` (Section 13), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `destructive_cleanup` | `public_active` | Stops local Compose services with named volumes preserved. |
-| `test-services-session-up` | `cartulary.harness.command.test_services_session_up.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start` | `public_active` | Creates one explicit, expiring local managed-service session; accepts only an optional absolute `CARTULARY_TEST_SERVICES_SESSION_FILE`. |
-| `test-services-session-status` | `cartulary.harness.command.test_services_session_status.v1` | `local_services_dev` | `helper_only` | `machine_stdout_json` | `cartulary.test_services.local_session_status.v1` | `service_lifecycle` (Section 11), `security_boundary` (Section 15), `failure_normalization` (Section 9) | `none` | `public_active` | Emits one redacted session-status object and performs no lifecycle mutation. |
-| `test-services-session-down` | `cartulary.harness.command.test_services_session_down.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `destructive_safety` (Section 13), `security_boundary` (Section 15), `failure_normalization` (Section 9) | `retained_artifacts`, `destructive_cleanup` | `public_active` | Refuses live borrowers and removes only an exactly proven session; repeated removal succeeds. |
-| `object-store-init` | `cartulary.harness.command.object_store_init.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Proves local object-store readiness under Section 11, starting an owned instance when absent, and initializes the configured bucket without requiring Postgres. |
-| `object-store-reset` | `cartulary.harness.command.object_store_reset.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `destructive_safety` (Section 13), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `destructive_cleanup` | `public_active` | Requires `CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset` unless `CARTULARY_CLEANUP_DRY_RUN=1`; clears objects only from the configured local object-store bucket. |
-| `dev` | `cartulary.harness.command.dev.v1` | `local_services_dev` | `helper_only` | `interactive_raw` | none | `service_lifecycle` (Section 11) | `service_start` | `public_active` |  |
-| `browser-design-review` | `cartulary.harness.command.browser_design_review.v1` | `local_services_dev` | `helper_only` | `interactive_raw` | none | `service_lifecycle` (Section 11) | `service_start` | `public_active` |  |
-| `browser-design-review-smoke` | `cartulary.harness.command.browser_design_review_smoke.v1` | `local_services_dev` | `helper_only` | `interactive_raw` | none | `service_lifecycle` (Section 11) | `service_start` | `public_active` |  |
-| `generate` | `cartulary.harness.command.generate.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `generated_artifacts` | `public_active` |  |
-| `generate-drift` | `cartulary.harness.command.generate_drift.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `generated-artifact-policy-check` | `cartulary.harness.command.generated_artifact_policy_check.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `json-shape-check` | `cartulary.harness.command.json_shape_check.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `openapi-compatibility-check` | `cartulary.harness.command.openapi_compatibility_check.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `toolchain-drift` | `cartulary.harness.command.toolchain_drift.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `migration-drift` | `cartulary.harness.command.migration_drift.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_resource_mutation` | `public_active` |  |
-| `standup-package-smoke` | `cartulary.harness.command.standup_package_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Consumes and smokes the exact produced MVP on-prem stand-up package with one app image plus local Postgres and SeaweedFS S3, verifies embedded browser assets, package-local object-store init, readiness, persistent Docker-volume roots, and WebSocket Origin behavior. It is package smoke evidence only and MUST NOT be represented as disconnected-profile or backup/restore conformance evidence. |
-| `standup-operational-recovery-smoke` | `cartulary.harness.command.standup_operational_recovery_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Consumes the exact produced MVP package and smokes its operational recovery workflow, creates a backup through the canonical operator recovery result schema, inspects the latest retained backup through the canonical inspect command, runs due restore verification against an isolated target, proves public recovery route-family absence, and retains command-specific recovery artifacts. It is not disconnected-profile evidence and does not reclassify `standup-package-smoke` as backup/restore conformance evidence. |
-| `standup-reference-pack-smoke` | `cartulary.harness.command.standup_reference_pack_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Qualifies Reference Pack administration through shipped server and operator binaries on disposable source and destination deployments, including trust, replay, explicit activation, historical reporting, portability, recovery and accountable cleanup. It does not establish specification adoption, FIPS conformance or suitability of an untested deployment. |
-| `agent-finalize` | `cartulary.harness.command.agent_finalize.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `generated_artifacts` | `public_active` |  |
-| `test-evidence-audit` | `cartulary.harness.command.test_evidence_audit.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Audits one owner's catalog rows across compatible retained broad-check, support, visual, accessibility, and measurement roots. |
-| `benchmark-claim-check` | `cartulary.harness.command.benchmark_claim_check.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Validates retained Core 05 benchmark claim artifacts when the default benchmark manifest exists; absence of the default manifest is a no-claim pass, while an explicitly configured non-default missing manifest remains a harness failure. |
-| `task-surface-report` | `cartulary.harness.command.task_surface_report.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
-| `task-guide` | `cartulary.harness.command.task_guide.v2` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Requires `ROLE=module-author` and `OWNER`. |
-| `author-test-row-id` | `cartulary.harness.command.author_test_row_id.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
-| `test-slice` | `cartulary.harness.command.test_slice.v2` | `test_owner_slices` | `helper_only` | `scheduler_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Selects every active owner row when `ROWS` is omitted. |
-| `service-backed-test-slice` | `cartulary.harness.command.service_backed_test_slice.v2` | `test_owner_slices` | `helper_only` | `scheduler_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Selects only rows whose runtime profile requires managed services. |
-| `backend-unit` | `cartulary.harness.command.backend_unit.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `backend-store` | `cartulary.harness.command.backend_store.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` |  |
-| `backend-integration` | `cartulary.harness.command.backend_integration.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` |  |
-| `backend-process` | `cartulary.harness.command.backend_process.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` |  |
-| `otel-conformance` | `cartulary.harness.command.otel_conformance.v2` | `backend_frontend_leaf_tests` | `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Validates source snapshot, generated constants evidence, emitted telemetry goldens, browser non-export, retained raw capture policy, and telemetry security boundaries. |
-| `target-plan` | `cartulary.harness.command.target_plan.v2` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
-| `target-plan-json` | `cartulary.harness.command.target_plan_json.v2` | `help_discovery` | `helper_only` | `machine_stdout_json` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
-| `fixture-report` | `cartulary.harness.command.fixture_report.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
-| `explain-run` | `cartulary.harness.command.explain_run.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
-| `test-run-status` | `cartulary.harness.command.test_run_status.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 8.9) | `none` | `public_active` | Exact-invocation live observation; target-local JSON and bounded waiting. |
-| `harness-observability-check` | `cartulary.harness.command.harness_observability_check.v2` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `none` | `public_active` | Read-only validation of deterministic harness diagnostic projection for one exact retained run. |
-| `harness-otel-export` | `cartulary.harness.command.harness_otel_export.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `external_network` | `public_active` | Explicit post-run OTLP export; ordinary harness commands never invoke it. |
-| `harness-performance-check` | `cartulary.harness.command.harness_performance_check.v5` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `failure_normalization` (Section 9) | `none` | `public_active` | Validates exact target/provider-scoped baseline and candidate evidence windows under Section 10.5. |
-| `harness-public-target-duration-baselines` | `cartulary.harness.command.harness_public_target_duration_baselines.v5` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `diagnostic_synthesis` (Section 4), `failure_normalization` (Section 9) | `retained_artifacts`, `generated_artifacts` | `public_active` | Sole writer of the public-target duration baseline artifact from exact qualified target/provider windows. |
-| `explain-test-owner` | `cartulary.harness.command.explain_test_owner.v2` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Read-only catalog and topology explanation for one owner. |
-| `explain-target` | `cartulary.harness.command.explain_target.v2` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  |
-| `go-test-duration-baselines` | `cartulary.harness.command.go_test_duration_baselines.v4` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `go-test-duration-baseline-coverage` | `cartulary.harness.command.go_test_duration_baseline_coverage.v4` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `go-test-duration-baseline-drift` | `cartulary.harness.command.go_test_duration_baseline_drift.v4` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `browser-e2e-duration-baselines` | `cartulary.harness.command.browser_e2e_duration_baselines.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `browser-e2e-duration-baseline-drift` | `cartulary.harness.command.browser_e2e_duration_baseline_drift.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `service-backed-make-target-duration-baselines` | `cartulary.harness.command.service_backed_make_target_duration_baselines.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `service-backed-make-target-duration-baseline-drift` | `cartulary.harness.command.service_backed_make_target_duration_baseline_drift.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `harness-smoke-duration-baselines` | `cartulary.harness.command.harness_smoke_duration_baselines.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `harness-smoke-duration-baseline-drift` | `cartulary.harness.command.harness_smoke_duration_baseline_drift.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `scheduler-event-order-drift` | `cartulary.harness.command.scheduler_event_order_drift.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  |
-| `scheduler-summary-timing-drift` | `cartulary.harness.command.scheduler_summary_timing_drift.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` | Canonical event/run/target timing closure only. |
-| `frontend-typecheck` | `cartulary.harness.command.frontend_typecheck.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `frontend-unit` | `cartulary.harness.command.frontend_unit.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `frontend-import-boundary-check` | `cartulary.harness.command.frontend_import_boundary_check.v2` | `backend_frontend_leaf_tests` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `backend-module-boundary-check` | `cartulary.harness.command.backend_module_boundary_check.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 8), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Enforces backend module ownership boundaries from `tools/backend_module_boundaries.json` and emits `cartulary.backend_module_boundary_summary.v1`. |
-| `frontend-fallow-static` | `cartulary.harness.command.frontend_fallow_static.v2` | `static_analysis_security` | `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Direct global Fallow static gate. Emits `cartulary.fallow_static_summary.v2`; Fallow Runtime and Fallow security scans are not selected. |
-| `lint-biome` | `cartulary.harness.command.lint_biome.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `lint-scripts` | `cartulary.harness.command.lint_scripts.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `lint-markdown` | `cartulary.harness.command.lint_markdown.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` | Structural Markdown lint over authored active docs; generated ledgers remain generator-owned. |
-| `harness-contract` | `cartulary.harness.command.harness_contract.v2` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs extended harness topology, schema, and field-shape contract checks outside default local `check`. |
-| `lint-shell` | `cartulary.harness.command.lint_shell.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `format` | `cartulary.harness.command.format.v2` | `formatting` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write` | `public_active` |  |
-| `browser-e2e` | `cartulary.harness.command.browser_e2e.v2` | `browser_e2e` | `test`, `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Direct aggregate remains full browser evidence and is not a default local `check` member. |
-| `browser-e2e-webserver-backed` | `cartulary.harness.command.browser_e2e_webserver_backed.v2` | `browser_e2e` | `test`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Direct and aggregate selections compile the same webserver-backed group units and full-fidelity evidence. |
-| `browser-e2e-stateful` | `cartulary.harness.command.browser_e2e_stateful.v2` | `browser_e2e` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Stateful affinity, reset, and group order are explicit graph dependencies. |
-| `browser-e2e-measurement` | `cartulary.harness.command.browser_e2e_measurement.v2` | `browser_e2e` | `test`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` |  |
-| `browser-e2e-a11y` | `cartulary.harness.command.browser_e2e_a11y.v2` | `browser_e2e` | `test`, `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Emits `cartulary.frontend_accessibility_summary.v4` for active selected accessibility rows only. Direct target evidence remains full-fidelity and default local `check` does not schedule current accessibility work. Release-check uses it as release-readiness evidence only. |
-| `browser-e2e-visual` | `cartulary.harness.command.browser_e2e_visual.v2` | `browser_e2e` | `test`, `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Direct target evidence runs the full active visual catalog inventory. Owner slices pass exact selected visual row IDs. Default local `check` does not schedule full visual work. Release-check uses it as release-readiness evidence only. |
-| `browser-e2e-visual-update` | `cartulary.harness.command.browser_e2e_visual_update.v2` | `browser_e2e` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Helper-only refresh command for committed Playwright visual goldens. It runs the same visual stack and row selection as `browser-e2e-visual` with snapshot-update mode, mutates only authored snapshot PNGs under the visual spec snapshot directory, and MUST NOT be selected by `check`, `test`, `ci`, or release gates. |
-| `test-fast` | `cartulary.harness.command.test_fast.v2` | `aggregates_gates` | `test`, `check`, `ci` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` |  |
-| `test` | `cartulary.harness.command.test.v2` | `aggregates_gates` | `test`, `check`, `ci` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` |  |
-| `lint` | `cartulary.harness.command.lint.v2` | `aggregates_gates` | `helper_only` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Sequence aggregate that emits run and target summaries for blocking lint/typecheck children. |
-| `go-vulncheck` | `cartulary.harness.command.go_vulncheck.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs Govulncheck with structured JSON output and retains `govulncheck-findings.json` with schema ID `cartulary.govulncheck_findings.v1`. Symbol-reachable vulnerability findings are blocking `security_finding` failures; package-only and module-only findings are retained as diagnostic security evidence unless a later profile promotes them. |
-| `go-gosec-targeted` | `cartulary.harness.command.go_gosec_targeted.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  |
-| `go-gosec-audit` | `cartulary.harness.command.go_gosec_audit.v2` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Advisory no-fail audit evidence. It MUST NOT be selected by default local `check`. |
-| `check` | `cartulary.harness.command.check.v2` | `aggregates_gates` | `check` | `scheduler_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` |  |
-| `ci` | `cartulary.harness.command.ci.v3` | `aggregates_gates` | `ci` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Duration-baseline drift remains an explicit post-run maintenance command and is not an in-flight CI child. |
-| `release-check` | `cartulary.harness.command.release_check.v2` | `aggregates_gates` | `release-check` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Runs release child helpers for extended harness contract checks, advisory security audit evidence, SBOM/license evidence, SeaweedFS S3 release-gate evidence, builds, deployable-shape evidence, frontend support/visual/accessibility readiness children, and final release-readiness aggregation. |
-| `release-readiness-evidence` | `cartulary.harness.command.release_readiness_evidence.v2` | `aggregates_gates` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Validates the exact canonical target-projection closure required by `release-check`; it writes no parallel release-evidence format and does not promote design/support evidence to product conformance or Core 05 publication evidence. |
-| `seaweedfs-compatibility` | `cartulary.harness.command.seaweedfs_compatibility.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Runs the dedicated SeaweedFS S3 compatibility profile and emits the full `SWFS-COMP-*` report outside `services-up` as a command-specific retained artifact. |
-| `seaweedfs-release-evidence` | `cartulary.harness.command.seaweedfs_release_evidence.v2` | `static_analysis_security` |  | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 15), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs current SeaweedFS compatibility as a prerequisite, emits SeaweedFS release evidence, and emits a non-enforcing release-gate summary as command-specific retained artifacts; missing strict child evidence is reported as blocked evidence rather than hidden. |
-| `seaweedfs-release-gate` | `cartulary.harness.command.seaweedfs_release_gate.v2` | `static_analysis_security` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 15), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs current SeaweedFS compatibility and enforces the strict SeaweedFS release gate from current-run compatibility, backup-integrity, redaction, storage-ref owner, security, license, and occurrence evidence. The release-gate summary is a command-specific retained artifact. |
-| `build` | `cartulary.harness.command.build.v2` | `builds` | `helper_only` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` |  |
-| `build-server` | `cartulary.harness.command.build_server.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for downstream service-backed work, not release deployable-shape evidence. |
-| `build-server-harness` | `cartulary.harness.command.build_server_harness.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | Builds the harness-only profile of the existing `server` identity. Default local `check` selects it as process/browser runtime readiness; it is never release deployable-shape evidence. |
-| `build-migrate` | `cartulary.harness.command.build_migrate.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for migration and service-backed work, not release deployable-shape evidence. |
-| `build-operator` | `cartulary.harness.command.build_operator.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | Selected through `build`, CI, release-shaped gates, and scheduler-visible operator runtime-binary readiness. Default local `check` builds the operator only when selected runtime-binary work declares it. |
-| `build-web` | `cartulary.harness.command.build_web.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for browser preview work, not release deployable-shape evidence. |
-| `clean` | `cartulary.harness.command.clean.v2` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  |
-| `distclean` | `cartulary.harness.command.distclean.v2` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  |
+| Target | Command ID | Family ID | Default inclusion sets | Output class | Stable summary schema | Semantic behaviors | Side effects | Lifecycle state | Notes | Performance portfolio |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `help` | `cartulary.harness.command.help.v1` | `help_discovery` | `check` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  | outside |
+| `help-all` | `cartulary.harness.command.help_all.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  | outside |
+| `doctor` | `cartulary.harness.command.doctor.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `bootstrap` | `cartulary.harness.command.bootstrap.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  | outside |
+| `bootstrap-node-runtime` | `cartulary.harness.command.bootstrap_node_runtime.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  | outside |
+| `frontend-toolchain` | `cartulary.harness.command.frontend_toolchain.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `frontend-install` | `cartulary.harness.command.frontend_install.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  | outside |
+| `frontend-lockfile-update` | `cartulary.harness.command.frontend_lockfile_update.v1` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write` | `public_active` | Explicit pinned-pnpm lockfile preparation; never a normal installation prerequisite. | outside |
+| `playwright-install` | `cartulary.harness.command.playwright_install.v2` | `bootstrap_toolchain` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `tool_install` | `public_active` |  | outside |
+| `db-up` | `cartulary.harness.command.db_up.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start` | `public_active` |  | outside |
+| `db-migrate` | `cartulary.harness.command.db_migrate.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Proves local Postgres readiness under Section 11, starting an owned instance when absent, and applies current-line migrations without resetting the database or object storage. | outside |
+| `db-reset` | `cartulary.harness.command.db_reset.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `destructive_safety` (Section 13), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `destructive_cleanup` | `public_active` | Requires `CARTULARY_DESTRUCTIVE_CONFIRM=db-reset` unless `CARTULARY_CLEANUP_DRY_RUN=1`; resets only the local database and does not reset object storage. | outside |
+| `postgres-baseline-reset` | `cartulary.harness.command.postgres_baseline_reset.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `destructive_safety` (Section 13), `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `destructive_cleanup` | `public_active` | Accepts only `POSTGRES_BASELINE_PROFILE=dev\|mvp`; requires `CARTULARY_DESTRUCTIVE_CONFIRM=postgres-baseline-reset` unless dry-run; removes only exact Compose-labeled legacy/current PostgreSQL volumes. | outside |
+| `services-up` | `cartulary.harness.command.services_up.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start` | `public_active` |  | outside |
+| `services-down` | `cartulary.harness.command.services_down.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `destructive_safety` (Section 13), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `destructive_cleanup` | `public_active` | Stops local Compose services with named volumes preserved. | outside |
+| `test-services-session-up` | `cartulary.harness.command.test_services_session_up.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start` | `public_active` | Creates one explicit, expiring local managed-service session; accepts only an optional absolute `CARTULARY_TEST_SERVICES_SESSION_FILE`. | outside |
+| `test-services-session-status` | `cartulary.harness.command.test_services_session_status.v1` | `local_services_dev` | `helper_only` | `machine_stdout_json` | `cartulary.test_services.local_session_status.v1` | `service_lifecycle` (Section 11), `security_boundary` (Section 15), `failure_normalization` (Section 9) | `none` | `public_active` | Emits one redacted session-status object and performs no lifecycle mutation. | outside |
+| `test-services-session-down` | `cartulary.harness.command.test_services_session_down.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `destructive_safety` (Section 13), `security_boundary` (Section 15), `failure_normalization` (Section 9) | `retained_artifacts`, `destructive_cleanup` | `public_active` | Refuses live borrowers and removes only an exactly proven session; repeated removal succeeds. | outside |
+| `test-run-recover` | `cartulary.harness.command.test_run_recover.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `destructive_safety` (Section 13), `security_boundary` (Section 15), `failure_normalization` (Section 9) | `retained_artifacts`, `destructive_cleanup` | `public_active` | Exact failed-run resource recovery; private runtime ownership admission, shared cleanup evaluator and unchanged original evidence. | outside |
+| `object-store-init` | `cartulary.harness.command.object_store_init.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Proves local object-store readiness under Section 11, starting an owned instance when absent, and initializes the configured bucket without requiring Postgres. | outside |
+| `object-store-reset` | `cartulary.harness.command.object_store_reset.v1` | `local_services_dev` | `helper_only` | `service_summary` | `cartulary.tool_run_summary.v5` | `destructive_safety` (Section 13), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `destructive_cleanup` | `public_active` | Requires `CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset` unless `CARTULARY_CLEANUP_DRY_RUN=1`; clears objects only from the configured local object-store bucket. | outside |
+| `dev` | `cartulary.harness.command.dev.v1` | `local_services_dev` | `helper_only` | `interactive_raw` | none | `service_lifecycle` (Section 11) | `service_start` | `public_active` |  | outside |
+| `browser-design-review` | `cartulary.harness.command.browser_design_review.v1` | `local_services_dev` | `helper_only` | `interactive_raw` | none | `service_lifecycle` (Section 11) | `service_start` | `public_active` |  | outside |
+| `browser-design-review-smoke` | `cartulary.harness.command.browser_design_review_smoke.v1` | `local_services_dev` | `helper_only` | `interactive_raw` | none | `service_lifecycle` (Section 11) | `service_start` | `public_active` |  | outside |
+| `generate` | `cartulary.harness.command.generate.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `generated_artifacts` | `public_active` |  | outside |
+| `generate-drift` | `cartulary.harness.command.generate_drift.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `generated-artifact-policy-check` | `cartulary.harness.command.generated_artifact_policy_check.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `json-shape-check` | `cartulary.harness.command.json_shape_check.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `openapi-compatibility-check` | `cartulary.harness.command.openapi_compatibility_check.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `toolchain-drift` | `cartulary.harness.command.toolchain_drift.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `migration-drift` | `cartulary.harness.command.migration_drift.v2` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_resource_mutation` | `public_active` |  | required |
+| `standup-package-smoke` | `cartulary.harness.command.standup_package_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Consumes and smokes the exact produced MVP on-prem stand-up package with one app image plus local Postgres and SeaweedFS S3, verifies embedded browser assets, package-local object-store init, readiness, persistent Docker-volume roots, and WebSocket Origin behavior. It is package smoke evidence only and MUST NOT be represented as disconnected-profile or backup/restore conformance evidence. | required |
+| `standup-operational-recovery-smoke` | `cartulary.harness.command.standup_operational_recovery_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Consumes the exact produced MVP package and smokes its operational recovery workflow, creates a backup through the canonical operator recovery result schema, inspects the latest retained backup through the canonical inspect command, runs due restore verification against an isolated target, proves public recovery route-family absence, and retains command-specific recovery artifacts. It is not disconnected-profile evidence and does not reclassify `standup-package-smoke` as backup/restore conformance evidence. | required |
+| `standup-reference-pack-smoke` | `cartulary.harness.command.standup_reference_pack_smoke.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Qualifies Reference Pack administration through shipped server and operator binaries on disposable source and destination deployments, including trust, replay, explicit activation, historical reporting, portability, recovery and accountable cleanup. It does not establish specification adoption, FIPS conformance or suitability of an untested deployment. | required |
+| `agent-finalize` | `cartulary.harness.command.agent_finalize.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `generated_artifacts` | `public_active` |  | required |
+| `test-evidence-audit` | `cartulary.harness.command.test_evidence_audit.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Audits one owner's catalog rows across compatible retained broad-check, support, visual, accessibility, and measurement roots. | out_of_scope |
+| `benchmark-claim-check` | `cartulary.harness.command.benchmark_claim_check.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Validates retained Core 05 benchmark claim artifacts when the default benchmark manifest exists; absence of the default manifest is a no-claim pass, while an explicitly configured non-default missing manifest remains a harness failure. | out_of_scope |
+| `task-surface-report` | `cartulary.harness.command.task_surface_report.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  | outside |
+| `task-guide` | `cartulary.harness.command.task_guide.v2` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Requires `ROLE=module-author` and `OWNER`. | outside |
+| `author-test-row-id` | `cartulary.harness.command.author_test_row_id.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  | outside |
+| `test-slice` | `cartulary.harness.command.test_slice.v2` | `test_owner_slices` | `helper_only` | `scheduler_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Selects every active owner row when `ROWS` is omitted. | required |
+| `service-backed-test-slice` | `cartulary.harness.command.service_backed_test_slice.v2` | `test_owner_slices` | `helper_only` | `scheduler_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Selects only rows whose runtime profile requires managed services. | required |
+| `backend-unit` | `cartulary.harness.command.backend_unit.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `backend-store` | `cartulary.harness.command.backend_store.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` |  | required |
+| `backend-integration` | `cartulary.harness.command.backend_integration.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` |  | required |
+| `backend-process` | `cartulary.harness.command.backend_process.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` |  | required |
+| `otel-conformance` | `cartulary.harness.command.otel_conformance.v2` | `backend_frontend_leaf_tests` | `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Validates source snapshot, generated constants evidence, emitted telemetry goldens, browser non-export, retained raw capture policy, and telemetry security boundaries. | required |
+| `target-plan` | `cartulary.harness.command.target_plan.v2` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  | outside |
+| `target-plan-json` | `cartulary.harness.command.target_plan_json.v2` | `help_discovery` | `helper_only` | `machine_stdout_json` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  | outside |
+| `fixture-report` | `cartulary.harness.command.fixture_report.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  | outside |
+| `explain-run` | `cartulary.harness.command.explain_run.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  | outside |
+| `test-run-status` | `cartulary.harness.command.test_run_status.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 8.9) | `none` | `public_active` | Exact-invocation live observation; target-local JSON and bounded waiting. | outside |
+| `harness-observability-check` | `cartulary.harness.command.harness_observability_check.v2` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `none` | `public_active` | Read-only validation of deterministic harness diagnostic projection for one exact retained run. | outside |
+| `harness-otel-export` | `cartulary.harness.command.harness_otel_export.v1` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `security_boundary` (Section 15) | `external_network` | `public_active` | Explicit post-run OTLP export; ordinary harness commands never invoke it. | outside |
+| `harness-performance-check` | `cartulary.harness.command.harness_performance_check.v5` | `generated_drift` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4), `failure_normalization` (Section 9) | `none` | `public_active` | Validates exact target/provider-scoped baseline and candidate evidence windows under Section 10.5. | outside |
+| `harness-public-target-duration-baselines` | `cartulary.harness.command.harness_public_target_duration_baselines.v5` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `diagnostic_synthesis` (Section 4), `failure_normalization` (Section 9) | `retained_artifacts`, `generated_artifacts` | `public_active` | Sole writer of the public-target duration baseline artifact from exact qualified target/provider windows. | outside |
+| `explain-test-owner` | `cartulary.harness.command.explain_test_owner.v2` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` | Read-only catalog and topology explanation for one owner. | outside |
+| `explain-target` | `cartulary.harness.command.explain_target.v2` | `help_discovery` | `helper_only` | `human_summary` | none | `diagnostic_synthesis` (Section 4) | `none` | `public_active` |  | outside |
+| `go-test-duration-baselines` | `cartulary.harness.command.go_test_duration_baselines.v4` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `go-test-duration-baseline-coverage` | `cartulary.harness.command.go_test_duration_baseline_coverage.v4` | `generated_drift` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `go-test-duration-baseline-drift` | `cartulary.harness.command.go_test_duration_baseline_drift.v4` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `browser-e2e-duration-baselines` | `cartulary.harness.command.browser_e2e_duration_baselines.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `browser-e2e-duration-baseline-drift` | `cartulary.harness.command.browser_e2e_duration_baseline_drift.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `service-backed-make-target-duration-baselines` | `cartulary.harness.command.service_backed_make_target_duration_baselines.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `service-backed-make-target-duration-baseline-drift` | `cartulary.harness.command.service_backed_make_target_duration_baseline_drift.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `harness-smoke-duration-baselines` | `cartulary.harness.command.harness_smoke_duration_baselines.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `harness-smoke-duration-baseline-drift` | `cartulary.harness.command.harness_smoke_duration_baseline_drift.v3` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `scheduler-event-order-drift` | `cartulary.harness.command.scheduler_event_order_drift.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` |  | outside |
+| `scheduler-summary-timing-drift` | `cartulary.harness.command.scheduler_summary_timing_drift.v2` | `generated_drift` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` | Canonical event/run/target timing closure only. | outside |
+| `frontend-typecheck` | `cartulary.harness.command.frontend_typecheck.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `frontend-unit` | `cartulary.harness.command.frontend_unit.v2` | `backend_frontend_leaf_tests` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `frontend-import-boundary-check` | `cartulary.harness.command.frontend_import_boundary_check.v2` | `backend_frontend_leaf_tests` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `backend-module-boundary-check` | `cartulary.harness.command.backend_module_boundary_check.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 8), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Enforces backend module ownership boundaries from `tools/backend_module_boundaries.json` and emits `cartulary.backend_module_boundary_summary.v1`. | required |
+| `frontend-fallow-static` | `cartulary.harness.command.frontend_fallow_static.v2` | `static_analysis_security` | `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Direct global Fallow static gate. Emits `cartulary.fallow_static_summary.v2`; Fallow Runtime and Fallow security scans are not selected. | required |
+| `lint-biome` | `cartulary.harness.command.lint_biome.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `lint-scripts` | `cartulary.harness.command.lint_scripts.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `lint-markdown` | `cartulary.harness.command.lint_markdown.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` | Structural Markdown lint over authored active docs; generated ledgers remain generator-owned. | outside |
+| `harness-contract` | `cartulary.harness.command.harness_contract.v2` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs extended harness topology, schema, and field-shape contract checks outside default local `check`. | required |
+| `lint-shell` | `cartulary.harness.command.lint_shell.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `format` | `cartulary.harness.command.format.v2` | `formatting` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write` | `public_active` |  | outside |
+| `browser-e2e` | `cartulary.harness.command.browser_e2e.v2` | `browser_e2e` | `test`, `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Direct aggregate remains full browser evidence and is not a default local `check` member. | required |
+| `browser-e2e-webserver-backed` | `cartulary.harness.command.browser_e2e_webserver_backed.v2` | `browser_e2e` | `test`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Direct and aggregate selections compile the same webserver-backed group units and full-fidelity evidence. | required |
+| `browser-e2e-stateful` | `cartulary.harness.command.browser_e2e_stateful.v2` | `browser_e2e` | `test`, `check`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Stateful affinity, reset, and group order are explicit graph dependencies. | required |
+| `browser-e2e-measurement` | `cartulary.harness.command.browser_e2e_measurement.v2` | `browser_e2e` | `test`, `ci` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` |  | required |
+| `browser-e2e-a11y` | `cartulary.harness.command.browser_e2e_a11y.v2` | `browser_e2e` | `test`, `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Emits `cartulary.frontend_accessibility_summary.v4` for active selected accessibility rows only. Direct target evidence remains full-fidelity and default local `check` does not schedule current accessibility work. Release-check uses it as release-readiness evidence only. | required |
+| `browser-e2e-visual` | `cartulary.harness.command.browser_e2e_visual.v2` | `browser_e2e` | `test`, `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Direct target evidence runs the full active visual catalog inventory. Owner slices pass exact selected visual row IDs. Default local `check` does not schedule full visual work. Release-check uses it as release-readiness evidence only. | required |
+| `browser-e2e-visual-update` | `cartulary.harness.command.browser_e2e_visual_update.v2` | `browser_e2e` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `authored_source_write`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Helper-only refresh command for committed Playwright visual goldens. It runs the same visual stack and row selection as `browser-e2e-visual` with snapshot-update mode, mutates only authored snapshot PNGs under the visual spec snapshot directory, and MUST NOT be selected by `check`, `test`, `ci`, or release gates. | outside |
+| `test-fast` | `cartulary.harness.command.test_fast.v2` | `aggregates_gates` | `test`, `check`, `ci` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` |  | required |
+| `test` | `cartulary.harness.command.test.v2` | `aggregates_gates` | `test`, `check`, `ci` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` |  | required |
+| `lint` | `cartulary.harness.command.lint.v2` | `aggregates_gates` | `helper_only` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Sequence aggregate that emits run and target summaries for blocking lint/typecheck children. | required |
+| `go-vulncheck` | `cartulary.harness.command.go_vulncheck.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs Govulncheck with structured JSON output and retains `govulncheck-findings.json` with schema ID `cartulary.govulncheck_findings.v1`. Symbol-reachable vulnerability findings are blocking `security_finding` failures; package-only and module-only findings are retained as diagnostic security evidence unless a later profile promotes them. | required |
+| `go-gosec-targeted` | `cartulary.harness.command.go_gosec_targeted.v2` | `static_analysis_security` | `check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` |  | required |
+| `go-gosec-audit` | `cartulary.harness.command.go_gosec_audit.v2` | `static_analysis_security` | `ci`, `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 15), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Advisory no-fail audit evidence. It MUST NOT be selected by default local `check`. | required |
+| `check` | `cartulary.harness.command.check.v2` | `aggregates_gates` | `check` | `scheduler_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `scheduler_orchestration` (Section 10), `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` |  | required |
+| `ci` | `cartulary.harness.command.ci.v3` | `aggregates_gates` | `ci` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Duration-baseline drift remains an explicit post-run maintenance command and is not an in-flight CI child. | required |
+| `release-check` | `cartulary.harness.command.release_check.v2` | `aggregates_gates` | `release-check` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation`, `runtime_reset` | `public_active` | Runs release child helpers for extended harness contract checks, advisory security audit evidence, SBOM/license evidence, SeaweedFS S3 release-gate evidence, builds, deployable-shape evidence, frontend support/visual/accessibility readiness children, and final release-readiness aggregation. | required |
+| `release-readiness-evidence` | `cartulary.harness.command.release_readiness_evidence.v2` | `aggregates_gates` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Validates the exact canonical target-projection closure required by `release-check`; it writes no parallel release-evidence format and does not promote design/support evidence to product conformance or Core 05 publication evidence. | required |
+| `seaweedfs-compatibility` | `cartulary.harness.command.seaweedfs_compatibility.v2` | `local_services_dev` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `service_start`, `service_resource_mutation` | `public_active` | Runs the dedicated SeaweedFS S3 compatibility profile and emits the full `SWFS-COMP-*` report outside `services-up` as a command-specific retained artifact. | required |
+| `seaweedfs-release-evidence` | `cartulary.harness.command.seaweedfs_release_evidence.v2` | `static_analysis_security` |  | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 15), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs current SeaweedFS compatibility as a prerequisite, emits SeaweedFS release evidence, and emits a non-enforcing release-gate summary as command-specific retained artifacts; missing strict child evidence is reported as blocked evidence rather than hidden. | required |
+| `seaweedfs-release-gate` | `cartulary.harness.command.seaweedfs_release_gate.v2` | `static_analysis_security` | `release-check` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `security_boundary` (Section 15), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Runs current SeaweedFS compatibility and enforces the strict SeaweedFS release gate from current-run compatibility, backup-integrity, redaction, storage-ref owner, security, license, and occurrence evidence. The release-gate summary is a command-specific retained artifact. | required |
+| `build` | `cartulary.harness.command.build.v2` | `builds` | `helper_only` | `aggregate_summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` |  | outside |
+| `build-server` | `cartulary.harness.command.build_server.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for downstream service-backed work, not release deployable-shape evidence. | outside |
+| `build-server-harness` | `cartulary.harness.command.build_server_harness.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | Builds the harness-only profile of the existing `server` identity. Default local `check` selects it as process/browser runtime readiness; it is never release deployable-shape evidence. | outside |
+| `build-migrate` | `cartulary.harness.command.build_migrate.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for migration and service-backed work, not release deployable-shape evidence. | outside |
+| `build-operator` | `cartulary.harness.command.build_operator.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | Selected through `build`, CI, release-shaped gates, and scheduler-visible operator runtime-binary readiness. Default local `check` builds the operator only when selected runtime-binary work declares it. | outside |
+| `build-web` | `cartulary.harness.command.build_web.v2` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for browser preview work, not release deployable-shape evidence. | outside |
+| `build-report-renderer` | `cartulary.harness.command.build_report_renderer.v1` | `builds` | none | `summary_with_artifacts` | `cartulary.tool_run_summary.v5` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | Builds the immutable isolated renderer installation. Its success establishes preparation, not sandbox or release conformance. | outside |
+| `clean` | `cartulary.harness.command.clean.v2` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  | outside |
+| `distclean` | `cartulary.harness.command.distclean.v2` | `cleanup` | `helper_only` | `destructive_human` | none | `destructive_safety` (Section 13), `failure_normalization` (Section 9) | `destructive_cleanup` | `public_active` |  | outside |
+| `cryptographic-policy-assessment` | `cartulary.harness.command.cryptographic_policy_assessment.v1` | `static_analysis_security` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 8), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts` | `public_active` | Checks the pinned Go cryptographic module and production build policy against Core 04; retains module, toolchain, build and policy evidence without claiming certification. | required |
+| `credential-capacity-assessment` | `cartulary.harness.command.credential_capacity_assessment.v1` | `static_analysis_security` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `security_boundary` (Section 8), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Measures credential-derivation capacity using the Core 04 reference workload and isolated packaged services; retains observed capacity and qualification limits. | required |
+| `package-release` | `cartulary.harness.command.package_release.v1` | `local_services_dev` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Builds and validates the local deployable release package and immutable manifest under the Core deployment contract; does not publish or deploy externally. | required |
+| `package-inspect` | `cartulary.harness.command.package_inspect.v1` | `local_services_dev` | `helper_only` | `summary_with_artifacts` | `cartulary.harness_run_summary.v1` | `service_lifecycle` (Section 11), `evidence_normalization` (Section 8), `failure_normalization` (Section 9), `scheduler_orchestration` (Section 10) | `retained_artifacts`, `build_outputs`, `service_start`, `service_resource_mutation` | `public_active` | Validates the current local release package, its manifest and byte digests, and isolated inspection evidence; does not publish or deploy the package. | required |
 
 **TH-HARNESS-REQ-059**
 Every public target MUST declare one or more side-effect classes in the public target registry source. The declaration MUST be represented as `side_effects[]`, where each entry is an object with `class`, `owner_section`, and the class-specific details required by the table below. A target that performs an undeclared side effect is non-conformant. `none` is mutually exclusive with every other side-effect class.
@@ -2102,8 +2348,7 @@ nonempty owner section and reason. Every required target MUST bind exactly one
 stable measurement profile; its target-row command ID and resolved profile's
 canonical inputs, direct or aggregate eligibility, warm-up policy, and
 performance gate form the measurement identity. Parameterized
-slice and audit profiles MUST use `OWNER=module.auth`; the audit profile MUST
-consume that owner's retained slice evidence. A target binding MAY declare one
+slice profiles MUST use `OWNER=module.auth`. A target binding MAY declare one
 target-specific normalized policy transition when a shared measurement
 profile's gates and canonical inputs remain unchanged; that override MUST be a
 closed validator-owned transition and MUST NOT affect any sibling binding.
@@ -2116,10 +2361,16 @@ binding outside the public disposition sets only when a named acceptance gate
 requires that exact diagnostic. Execution-context capture and performance
 qualification MUST retain and evaluate every declared binding. Defaults,
 runtime-family inference, and target-name inference are forbidden.
-`scheduler-event-order-drift` and
-`scheduler-summary-timing-drift` are explicitly `out_of_scope`: they validate
-caller-selected retained evidence, so their duration describes that external
-evidence selection rather than a stable command workload.
+`scheduler-event-order-drift`, `scheduler-summary-timing-drift`, and
+`test-evidence-audit` are explicitly `out_of_scope`: they validate caller-selected
+retained evidence, so their duration describes that external evidence selection
+rather than a stable command workload. `benchmark-claim-check` is also
+`out_of_scope`: the optional publication manifest selects a variable artifact
+workload, and absence only establishes that no claim was requested. These
+dispositions do not waive owner-evidence audits or Core 05 claim validation.
+Their time remains part of any enclosing measured invocation. No synthetic
+evidence path, absent-manifest timing, or invented publication claim may stand
+in for a stable validation workload.
 Verified by: TH-HARNESS-AC-072, TH-HARNESS-AC-073
 
 **TH-HARNESS-REQ-078**
@@ -2292,6 +2543,13 @@ Verified by: TH-HARNESS-AC-002
 
 **TH-HARNESS-REQ-102**
 When a scheduler work unit invokes a child runner that starts its own worker pool, the scheduler input MUST either declare logical resource claims equal to the child worker budget or constrain that child worker budget through scheduler-owned environment. The scheduler-owned value wins for that scheduled work unit even when the same variable has a different direct public-target default. For Vitest, one compatible file group has one file worker; `VITEST_MAX_WORKERS` is an upper bound and the resolved effect MUST appear in scheduler claims. Direct and aggregate selections use the same grouping and resource contract.
+
+A nested Go graph under an inherited host-admission lease MUST bound its
+available Go worker budget by the enclosing unit's scheduler-owned CPU budget
+and the observed host capacity. Missing or invalid inherited budgets are
+configuration errors. The child MUST retain the real parent lease and the
+unchanged physical capability snapshot; this worker bound is not a caller
+capacity override or permission to inflate host admission capacity.
 
 Auto-derived scheduler capacity MUST NOT resolve below the largest declared claim for that resource in the normalized work-unit set. Caller overrides MAY still choose lower limits, but such overrides are configuration errors when they cannot satisfy a declared work unit.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-021
@@ -2537,12 +2795,16 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `agent-finalize` | `RESULTS_DIR` | `result_selector` | no | make command line, environment, makefile default | none | omitted | `omitted` | `path_token` | `result_selector` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `test-evidence-audit`, `task-guide`, `test-slice`, `service-backed-test-slice`, `explain-test-owner` | `OWNER` | `owner_id` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `owner_id` | `usage_error`, exit `2` | `value` | `argv` |
 | `test-evidence-audit`, `harness-performance-check` | `EVIDENCE_ROOTS_FILE` | `path` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `path_token` | `path` | `usage_error`, exit `2` | `value` | `argv` |
+| `benchmark-claim-check` | `BENCHMARK_MANIFEST` | `path` | no | make command line, environment, makefile default | `.cartulary/benchmark/benchmark_manifest.json` | use default manifest; absent default means no claim | `invalid` | `path_token` | `path`; Core 05 secure artifact admission applies | `usage_error`, exit `2` | `value` | `argv` |
 | `task-surface-report` | `TASK_SURFACE_REPORT_ARGS` | `task_surface_report_args` | no | make command line, environment, makefile default | none | omitted | `omitted` | `trim` | `task_surface_report_args` | `usage_error`, exit `2` | `value` | `argv` |
 | `task-guide` | `ROLE` | `enum` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `module-author` | `usage_error`, exit `2` | `value` | `argv` |
 | `task-guide`, `test-slice`, `service-backed-test-slice`, `fixture-report`, `explain-test-owner`, `explain-target`, `test-run-status` | `JSON` | `exact_1_bool` | no | make command line, environment, makefile default | `false` | use `false` | `false` | `trim` | `exact_1_bool` | `usage_error`, exit `2` | `value` | `argv` |
 | `author-test-row-id` | `FAMILY_ID` | `family_id` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `family_id` | `usage_error`, exit `2` | `value` | `argv` |
 | `author-test-row-id` | `CLAIM` | `semantic_text` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `semantic_text` | `usage_error`, exit `2` | `value` | `argv` |
 | `author-test-row-id` | `SELECTOR_KEY` | `semantic_text` | yes | make command line, environment, makefile default | none | missing required input | `invalid` | `trim` | `semantic_text` | `usage_error`, exit `2` | `value` | `argv` |
+| `test-run-recover` | `RESULTS_DIR` | `path` | yes | make command line | none | invalid | `invalid` | `path_token` | exact original run directory | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
+| `test-run-recover` | `RUNTIME_ROOT` | `path` | yes | make command line | none | invalid | `invalid` | `path_token` | exact external private runtime directory | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
+| `test-run-recover` | `RUNTIME_LEASE_ID` | `semantic_text` | yes | make command line | none | invalid | `invalid` | `trim` | exact opaque lease identifier, native owner validated | `configuration_error`, exit `2` | `redacted_value` | `runtime_env` |
 | `generate-drift`, `generated-artifact-policy-check`, `json-shape-check`, `openapi-compatibility-check`, `toolchain-drift`, `migration-drift`, `standup-package-smoke`, `standup-operational-recovery-smoke`, `standup-reference-pack-smoke`, `agent-finalize`, `test-evidence-audit`, `benchmark-claim-check`, `test-slice`, `service-backed-test-slice`, `backend-unit`, `backend-store`, `backend-integration`, `backend-process`, `otel-conformance`, `go-test-duration-baseline-coverage`, `frontend-typecheck`, `frontend-unit`, `frontend-import-boundary-check`, `backend-module-boundary-check`, `frontend-fallow-static`, `lint-biome`, `lint-scripts`, `harness-contract`, `lint-shell`, `format`, `browser-e2e`, `browser-e2e-webserver-backed`, `browser-e2e-stateful`, `browser-e2e-measurement`, `browser-e2e-a11y`, `browser-e2e-visual`, `browser-e2e-visual-update`, `test-fast`, `test`, `lint`, `go-vulncheck`, `go-gosec-targeted`, `go-gosec-audit`, `check`, `ci`, `release-check`, `release-readiness-evidence`, `seaweedfs-compatibility`, `seaweedfs-release-evidence`, `seaweedfs-release-gate`, `build` | `CARTULARY_HARNESS_CACHE_MODE` | `enum` | no | make command line, environment, makefile default | `normal` | use `normal` | `omitted` | `trim` | `normal`, `cold`, `off` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `generate-drift`, `generated-artifact-policy-check`, `json-shape-check`, `openapi-compatibility-check`, `toolchain-drift`, `migration-drift`, `standup-package-smoke`, `standup-operational-recovery-smoke`, `standup-reference-pack-smoke`, `agent-finalize`, `test-evidence-audit`, `benchmark-claim-check`, `test-slice`, `service-backed-test-slice`, `backend-unit`, `backend-store`, `backend-integration`, `backend-process`, `otel-conformance`, `go-test-duration-baseline-coverage`, `frontend-typecheck`, `frontend-unit`, `frontend-import-boundary-check`, `backend-module-boundary-check`, `frontend-fallow-static`, `lint-biome`, `lint-scripts`, `harness-contract`, `lint-shell`, `format`, `browser-e2e`, `browser-e2e-webserver-backed`, `browser-e2e-stateful`, `browser-e2e-measurement`, `browser-e2e-a11y`, `browser-e2e-visual`, `browser-e2e-visual-update`, `test-fast`, `test`, `lint`, `go-vulncheck`, `go-gosec-targeted`, `go-gosec-audit`, `check`, `ci`, `release-check`, `release-readiness-evidence`, `seaweedfs-compatibility`, `seaweedfs-release-evidence`, `seaweedfs-release-gate`, `build` | `CARTULARY_HARNESS_CAPACITY_OVERRIDE` | `path` | no | make command line, environment, makefile default | none | omitted | `omitted` | `path_token` | `path` | `usage_error`, exit `2` | `value` | `runtime_env` |
 | `test-slice`, `service-backed-test-slice` | `PLAYWRIGHT_WORKERS` | `positive_integer` | no | make command line, environment, makefile default | `3` | use `3` | `invalid` | `trim` | `1..16` | `usage_error`, exit `2` | `value` | `runtime_env` |
@@ -2990,7 +3252,7 @@ Verified by: TH-HARNESS-AC-107, TH-HARNESS-AC-125, TH-HARNESS-AC-127
 A public Make-owned command that declares a stable schema ID MUST emit JSON that validates against the matching normative schema attachment before command success. If required artifact validation fails, the public target MUST fail with `artifact_error` or `scheduler_accounting_error` according to Section 9.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-025
 
-Current row producers MUST emit `cartulary.harness_row_result.v2`. Each row
+Current row producers MUST emit `cartulary.harness_row_result.v3`. Each row
 result requires nullable `failure_class`, `failure_reason`, and
 `failure_diagnostic`; all three are null on success. A setup failure diagnostic,
 when present, MUST validate as `cartulary.harness_test_failure.v1` and MUST agree
@@ -3037,6 +3299,7 @@ claim publication.
 | `cartulary.harness_target_summary.v1`           | `tools/schemas/cartulary.harness_target_summary.v1.schema.json`           | present           | Target projection        | Before graph command exit.                |
 | `cartulary.harness_target_plan.v4`              | `tools/schemas/cartulary.harness_target_plan.v4.schema.json`              | present           | Graph diagnostics        | Before machine target-plan output.        |
 | `cartulary.harness_evidence_root_manifest.v1`   | `tools/schemas/cartulary.harness_evidence_root_manifest.v1.schema.json`   | present           | Evidence audit caller    | Before canonical owner-evidence audit.    |
+| `cartulary.harness_owner_evidence_audit.v1` | `tools/schemas/cartulary.harness_owner_evidence_audit.v1.schema.json` | present | Owner-evidence auditor | Before publishing owner-evidence acceptance. |
 | `cartulary.fallow_reachability_owner.v1`        | `tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json`        | present           | Fallow reachability owner | During JSON shape checks and before `frontend-fallow-static` builds its effective config. |
 | `cartulary.fallow_static_summary.v2`            | `tools/schemas/cartulary.fallow_static_summary.v2.schema.json`            | present           | Fallow static target     | Before `frontend-fallow-static` success.  |
 | `cartulary.vitest_failure_details.v2`           | `tools/schemas/cartulary.vitest_failure_details.v2.schema.json`           | present           | Vitest wrappers          | Before owner summaries consume failure diagnostics. |
@@ -3047,8 +3310,8 @@ claim publication.
 | `cartulary.verification_registry.v3`            | `tools/schemas/cartulary.verification_registry.v3.schema.json`            | present           | Verification registry    | Before catalog compilation or evidence routing. |
 | `cartulary.verification_contract.v3`            | `tools/schemas/cartulary.verification_contract.v3.schema.json`            | present           | Verification owner       | Before catalog compilation or evidence routing. |
 | `cartulary.test_owner_registry.v1`              | `tools/schemas/cartulary.test_owner_registry.v1.schema.json`              | present           | Test catalog owner       | Before owner manifest loading. |
-| `cartulary.test_family_manifest.v7`             | `tools/schemas/cartulary.test_family_manifest.v7.schema.json`             | present           | Test family owners       | Before selection, topology generation, or audit. |
-| `cartulary.test_runner_registry.v2`             | `tools/schemas/cartulary.test_runner_registry.v2.schema.json`             | present           | Runner registry          | Before selector resolution or adapter invocation. |
+| `cartulary.test_family_manifest.v8`             | `tools/schemas/cartulary.test_family_manifest.v8.schema.json`             | present           | Test family owners       | Before selection, topology generation, or audit. |
+| `cartulary.test_runner_registry.v3`             | `tools/schemas/cartulary.test_runner_registry.v3.schema.json`             | present           | Runner registry          | Before selector resolution or adapter invocation. |
 | `cartulary.test_owner_explanation.v3`           | `tools/schemas/cartulary.test_owner_explanation.v3.schema.json`           | present           | Owner diagnostics        | Before target-local JSON output. |
 | `cartulary.task_guide_summary.v3`               | `tools/schemas/cartulary.task_guide_summary.v3.schema.json`               | present           | Task guidance            | Before target-local JSON output. |
 | `cartulary.test_catalog_check_summary.v2`       | `tools/schemas/cartulary.test_catalog_check_summary.v2.schema.json`       | present           | Catalog validator        | Before private catalog-check success. |
@@ -3072,7 +3335,7 @@ claim publication.
 | `cartulary.browser_startup_event.v2`             | `tools/schemas/cartulary.browser_startup_event.v2.schema.json`             | present           | Browser session lifecycle | For each append-only startup transition. |
 | `cartulary.browser_startup_diagnostics.v3`       | `tools/schemas/cartulary.browser_startup_diagnostics.v3.schema.json`       | present           | Browser session lifecycle | Once at terminal ready or failed state. |
 | `cartulary.browser_group_result.v7`              | `tools/schemas/cartulary.browser_group_result.v7.schema.json`              | present           | Browser evidence adapter | Before browser group evidence is accepted. |
-| `cartulary.browser_target_result.v4`             | `tools/schemas/cartulary.browser_target_result.v4.schema.json`             | present           | Browser evidence finalizer | Before browser target evidence is accepted. |
+| `cartulary.browser_target_result.v6`             | `tools/schemas/cartulary.browser_target_result.v6.schema.json`             | present           | Browser evidence finalizer | Before browser target evidence is accepted. |
 | `cartulary.local_object_store_proxy_start_attempt.v2` | `tools/schemas/cartulary.local_object_store_proxy_start_attempt.v2.schema.json` | present | Local development proxy lifecycle | Before a startup attempt is recovered or promoted. |
 | `cartulary.local_object_store_proxy_lease.v2`    | `tools/schemas/cartulary.local_object_store_proxy_lease.v2.schema.json`    | present           | Local development proxy lifecycle | Before reuse or signaling. |
 | `cartulary.local_object_store_proxy_health.v2`   | `tools/schemas/cartulary.local_object_store_proxy_health.v2.schema.json`   | present           | Local development proxy lifecycle | During ownership and configuration proof. |
@@ -3313,9 +3576,9 @@ Verified by: TH-HARNESS-AC-037
 The owner-first schema families are `cartulary.requirement_registry.v1`,
 `cartulary.requirement_catalog.v1`, `cartulary.verification_registry.v3`,
 `cartulary.verification_contract.v3`, `cartulary.test_owner_registry.v1`,
-`cartulary.test_family_manifest.v7`, `cartulary.test_runner_registry.v2`,
+`cartulary.test_family_manifest.v8`, `cartulary.test_runner_registry.v3`,
 `cartulary.harness_work_graph.v5`, `cartulary.harness_target_plan.v4`,
-`cartulary.harness_row_result.v2`, `cartulary.harness_test_failure.v1`,
+`cartulary.harness_row_result.v3`, `cartulary.harness_test_failure.v1`,
 `cartulary.harness_unit_result.v1`,
 `cartulary.harness_run_manifest.v2`, `cartulary.harness_unit_event.v4`,
 `cartulary.harness_run_summary.v1`, `cartulary.harness_target_summary.v1`,
@@ -3343,7 +3606,7 @@ nonempty explicit `service_dependencies` declaration.
 Verified by: TH-HARNESS-AC-063, TH-HARNESS-AC-064
 
 **TH-HARNESS-REQ-271**
-Exactly one `cartulary.harness_row_result.v2` closes every resolved row. It
+Exactly one `cartulary.harness_row_result.v3` closes every resolved row. It
 identifies the row, owning unit, terminal state, and normalized failure fields.
 A missing, duplicate, unexpected, or incompatible row result is
 `scheduler_accounting_error`.
@@ -3372,6 +3635,26 @@ the exact compatibility tuple, required rows, accepted artifacts, rejected
 artifacts with reasons, and final closure. It fails when any required
 `(owner_id, target, row_id)` lacks exactly one compatible successful terminal
 result or when a historical schema is supplied.
+
+The result is `cartulary.harness_owner_evidence_audit.v1`, retained as
+`test-evidence-audit/audit.json` in the auditor's invocation. It records the
+owner, complete-owner or target-partition selection, current source/catalog/
+verification compatibility tuple, required target/row partitions, accepted
+roots with run and graph identities, rejected roots with reasons, and explicit
+unused inputs. A rejected retained root fails as `artifact_error`, exit `11`;
+malformed selection fails as `usage_error`, exit `2`.
+
+Source compatibility MUST bind the complete current executable snapshot.
+The auditor MUST reconstruct each selected invocation's current graph using
+its declared selection and retained capacity snapshot, then compare graph,
+target-projection, registered-row and per-unit semantic identities. This
+reconstruction establishes the catalog, runtime, resource and fixture-profile
+projection from that source; it MUST NOT start execution, acquire fixtures,
+capture replacement capacity or read documentation. Source changes during an
+audit invalidate its result. Successful target summaries alone are insufficient:
+selected unit terminal events, unit results, current row-result schemas and
+successful row outcomes MUST agree, and cleanup MUST have completed. Cache hits
+retain their recorded reuse status and MUST NOT become fresh observations.
 Verified by: TH-HARNESS-AC-066
 
 **TH-HARNESS-REQ-274**
@@ -3399,6 +3682,7 @@ The required current graph and evidence schema attachments are
 `cartulary.harness_cache_record.v2`,
 `cartulary.harness_fixture_lease.v4`,
 `cartulary.harness_run_manifest.v2`,
+`cartulary.harness_execution_context.v1`,
 `cartulary.harness_unit_event.v4`,
 `cartulary.harness_run_summary.v1`,
 `cartulary.harness_target_summary.v1`,
@@ -3418,7 +3702,25 @@ declared inputs, source, toolchain, system and graph digests, the immutable
 capability snapshot, cache mode, and start time. Its graph digest is computed
 from the fully resolved work graph before child execution. A missing,
 mismatched, mutable, or superseded manifest makes the run artifact-incomplete.
-Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074
+The execution producer also publishes one immutable `execution-context.json`
+(`cartulary.harness_execution_context.v1`) before any child starts. It retains
+only the validated resolved graph, target projections, source-entry digest
+preimage, manifest semantic digest, bounded host profile (OS, architecture,
+kernel release, CPU models), and exact instrumentation-policy JSON bytes.
+Private launch bindings and credentials MUST NOT be retained. This is canonical
+execution evidence, not a diagnostic export. The private preparation protocol is
+`cartulary.harness_runtime_plan.v2`; retired v1 plans are rejected.
+
+Performance qualification MUST reconstruct graph and unit digests, source and
+toolchain bindings, capability and instrumentation digests, target membership
+and workload identities from that context, and timing from canonical events.
+The system profile for comparison binds the retained host profile and capability
+snapshot together. Policy bytes MUST match their retained source-entry byte
+digest before semantic policy validation. Missing context, altered bindings,
+unknown context fields, repeated run identities, overlapping or out-of-order
+window observations, and incomplete cleanup reject qualification. Validators
+MUST NOT reconstruct missing historical context from current source files.
+Verified by: TH-HARNESS-AC-073, TH-HARNESS-AC-074, TH-HARNESS-AC-079
 
 **TH-HARNESS-REQ-279**
 `run-summary.json` and `target-summaries/<target>.json` are deterministic
@@ -3612,7 +3914,7 @@ Verified by: TH-HARNESS-AC-135
 | Browser stack metadata                               | Browser session lifecycle                       | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/stack-v7.json` | `cartulary.web_e2e_stack.v8` | Immutable suite/session/mode/profile identity, compact service admission, database, object-store namespace, backend/frontend process proofs, build digest, fixture, diagnostic, lease, and readiness bindings | Retained for current-run attach admission. |
 | Browser backend generation                           | Browser reset lifecycle                         | `_shared/test-services/<suite-id>/browser-sessions/<browser-session-id>/backend-generations/<reset-id>.json` | `cartulary.web_e2e_backend_generation.v2` | Reset ID, monotonic generation, unchanged runtime/config identity, base stack reference/digest, and replacement backend process proof | Immutable current-run attachment overlay. |
 | Browser group result                                 | Browser evidence adapter                        | `<target>/browser-groups/<group-id>/browser-group-result.json` | `cartulary.browser_group_result.v6` | Exact selected rows, terminal observations, lease reference, and ordered session artifact references/digests | Retained for target accounting. |
-| Browser target result                                | Browser evidence finalizer                      | `<target>/browser-target-result.json` | `cartulary.browser_target_result.v4` | Ordered group-result references/digests and deduplicated session artifact references/digests | Retained for target accounting. |
+| Browser target result                                | Browser evidence finalizer                      | `<target>/browser-target-result.json` | `cartulary.browser_target_result.v6` | Ordered group-result references/digests and deduplicated session artifact references/digests | Retained for target accounting. |
 | Local object-store proxy attempt, lease, and health  | Local development proxy lifecycle               | owner-only `.cartulary/runtime/object-store-proxy/` state and loopback health endpoint | `cartulary.local_object_store_proxy_start_attempt.v2`, `cartulary.local_object_store_proxy_lease.v2`, `cartulary.local_object_store_proxy_health.v2` | Canonical nonsecret configuration, instance identity, boot-aware process proof, and readiness state | Development-only; never browser or product evidence. |
 | Database reset diagnostic                            | Recovery reset controller                       | `<target>/reset-boundary/<label>.database-reset.json`            | `cartulary.test.database_reset_diagnostic.v1`                 | Reset ID, attempt one, closed stage, nullable SQLSTATE, timeout flag, duration, sorted table/count proofs, and normalized failure | Retained; excludes raw SQL, DSNs, database names, credentials, backend IDs, and raw errors. |
 | Browser reset attempt                                | Browser reset lifecycle                         | `<target>/reset-boundary/<label>.attempt.json`                   | `cartulary.browser_reset_attempt.v2`                          | Ordered lifecycle outcome, old/new backend generations, database diagnostic reference, persistent/browser reset proof, taint, and terminal classification | Authoritative lifecycle-unit failure evidence. |
@@ -5179,6 +5481,14 @@ declared normalized policy projection MUST match. A changed graph, command, or
 policy MUST be the reviewed successor declared for that target; comparing only
 an opaque changed digest is insufficient.
 
+An input absent from a measurement profile MAY appear in retained declared
+inputs only with the provider command's exact adopted default. An explicit
+`omitted` binding still requires absence. The execution-policy projection MUST
+retain actual semantic declared inputs; validators MUST NOT insert defaults
+into historical observations. Every cold, warm-up and measured root within a
+window is distinct, and reference and candidate portfolios MUST NOT reuse any
+observation. Exact shared leaf projections within one portfolio remain allowed.
+
 For each window, `p50` is the median, `p90` is the nearest-rank ninetieth
 percentile, and `MAD` is the median absolute deviation from `p50`. For a paired
 comparison, `variability_band = 3 * max(reference MAD, candidate MAD, 1ms)`.
@@ -5214,13 +5524,16 @@ semantic occurrence; otherwise the command MUST be run directly. Dispatch-only
 timing, an aggregate command envelope charged to multiple children, and a
 material interval not attributed to one canonical bucket are invalid evidence.
 For an aggregate-provided canonical graph-unit observation, the writer MUST
-read the retained scheduler event streams, find exactly one successful
-`start`/`finish` pair whose `work_unit_id` equals the bound target, and derive
-the interval from those events. A missing boundary, duplicate occurrence,
-nonzero terminal status, reversed interval, or target-name inference is invalid
-evidence. A reconstructed target span is permitted only when no canonical
-scheduler unit exists and the retained bundle proves one exact successful
-target occurrence.
+validate the retained target projection against the resolved execution context
+and use the evidence-accounting owner's canonical event reducer. Every selected
+semantic unit has exactly one registration and successful terminal outcome;
+executed units have one admitted start/terminal interval. The target duration is
+the union of those intervals, not the surrounding aggregate envelope. A cache
+hit contributes no invented execution interval and remains labeled reused work;
+it is not fresh behavioral assurance. Missing execution boundaries, duplicate
+occurrences, nonzero terminal outcomes, reversed intervals, incomplete projection
+closure, or target-name inference invalidate the observation. Invocation waiting
+time and cached acceleration remain distinct from fresh execution cost.
 
 A v3 evidence-roots manifest deduplicates explicit reference or candidate
 windows and binds every target to one window and timing source.
@@ -5233,8 +5546,12 @@ The baseline's derived `source_windows` collection MUST equal the exact sorted
 grouping of public target rows by their retained source commit and snapshot;
 missing, duplicate, empty, or incorrectly attributed source-window membership
 is invalid evidence.
-The current owner roster contains 50 public targets, including
-`openapi-compatibility-check`. Internal diagnostics are stored in a separate
+The normative performance roster is exactly the named Section 4.3 target rows
+whose `Performance portfolio` value is `required`. Its cardinality MUST be
+derived from that roster, never copied as an independent acceptance total.
+`observability_policy.required_targets` MUST be its exact operational projection.
+Roster changes require coordinated normative membership review and machine
+projection changes; the machine list cannot establish scope on its own. Internal diagnostics are stored in a separate
 collection and MUST NOT affect public roster closure or portfolio totals.
 Every public target MUST pass its individual gate. Default `make check` MUST
 NOT enforce the performance drift gate.
@@ -6095,6 +6412,19 @@ independent releases continue. Unknown edges remain unresolved. Each physical
 service receives its own existing bounded cleanup attempt; independent services
 may drain concurrently. Cleanup evidence distinguishes completed, failed and
 blocked resources without replacing the primary failure.
+
+The public `test-run-recover` maintenance command admits one exact retained graph
+run using required Make-command-line inputs `RESULTS_DIR`, `RUNTIME_ROOT` and
+`RUNTIME_LEASE_ID`. These identify the original result directory and private
+runtime lease; no newest-run selection, path scan, PID inference or broad service
+reset is permitted. The native owner MUST validate repository/run/lease bindings,
+private-path protections and the original owner's death before external recovery.
+It MUST reuse the shared cleanup evaluator and physical adapters, retain proof
+when settlement fails, and leave original execution artifacts unchanged. Recovery
+has separate tool-run evidence with redacted inputs and bounded resource-kind
+outcome counts. Invalid identity fails before mutation with exit 2; unresolved
+cleanup exits 12. This helper-only command is not a performance-portfolio target
+and a successful recovery does not convert the original failure into a pass.
 
 The same dependency evaluator governs ordinary close and explicit recovery for
 all retained resource kinds, including diagnostic scopes, process proofs and
@@ -8532,23 +8862,32 @@ Verified by: TH-HARNESS-AC-062, TH-HARNESS-AC-068
 **TH-HARNESS-REQ-668**
 Evidence-class gate applicability is closed:
 
-Every active row requires one full-owner `test-slice` partition in addition to the
-evidence-class gate below. An explicit selected-subset slice remains valid execution
-evidence but cannot close a full-owner audit.
+Each active row requires its exact evidence-class execution context below.
+The auditor accepts either the explicit target partitions or the atomic,
+unfiltered full-owner `test-slice` alternative in TH-HARNESS-REQ-121. It MUST NOT
+require both copies of the same row execution. An explicit selected-subset or
+service-backed-only slice remains valid execution evidence but cannot close the
+full-owner alternative. This audit establishes row execution and compatible
+contexts; applicable project-level security, release and claim-publication gates
+remain additional obligations.
 
 | Evidence class | Required gate family |
 | --- | --- |
-| `unit` | Owner slice and the unit or fast gate named by the verification contract. |
-| `integration` | Owner slice and the integration gate named by the verification contract. |
+| `unit` | The unit or fast execution target resolved by the registered runner and selector. |
+| `integration` | The integration execution target resolved by the registered runner, selector and fixture profile. |
 | `browser` | The Playwright stage's webserver-backed, stateful, or support public gate. |
 | `accessibility` | `browser-e2e-a11y`. |
 | `visual` | Visual golden digest validation and `browser-e2e-visual`. |
 | `measurement` | `browser-e2e-measurement`; informative unless an active claim authorizes publication. |
-| `static` | The exact static public target named by the verification contract. |
-| `security` | The exact security public target named by the verification contract. |
-| `release` | `release-check`. |
+| `static` | The exact public execution target resolved for the registered static row. |
+| `security` | The exact public execution target resolved for the registered security row. |
+| `release` | The exact registered release-support execution target; project `release-check` remains additional. |
 
-Every static or security verification contract MUST name one current public target. An unknown or private target is invalid.
+A standalone static or security verification represented without catalog rows
+MUST name one current public target; an unknown or private target is invalid.
+Row execution targets MUST resolve through the existing catalog routing contract,
+not a second audit roster. Standalone verification targets are additional project
+gates and MUST NOT be reported as satisfied by an owner-row audit.
 Verified by: TH-HARNESS-AC-069
 
 **TH-HARNESS-REQ-669**
@@ -8740,7 +9079,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-076 | Sections 2, 4, 15 | Explicit exporter containment | Disabled ordinary runs, hostile `OTEL_*`, exact and ambiguous selection, valid HTTPS/loopback endpoints, invalid URLs, header permissions/shapes, redirect, timeout, and receiver failure | Fake collector and process-network fixtures | Ordinary runs make no telemetry request; explicit export sends exact payloads; configuration exits `2`; delivery exits `1` | Bounded count and endpoint class | Bounded configuration or exporter diagnostic with secrets absent | Fake collector request digests | Newest-run fallback, inherited env egress, redirect follow, timeout drift, header leak, failure-code collapse, or source mutation passes | fake collector stopped; source run unchanged |
 | TH-HARNESS-AC-077 | Sections 8, 10 | Graph and browser scheduling | Serial, parallel, simultaneous failure, dependency failure, interruption, generic resource contention, cycles, unknown dependencies, release dependency, and one/two-stack capability fixtures | Unified scheduler matrix, generated topology, broker, and browser lifecycle tests | DAG order, deterministic event bytes and failure order, capacity, summary projection, process-group cancellation, resets, isolated leaves, finalizers, and cleanup match the adopted contract | Bounded run/browser summaries | Bounded scheduler diagnostic | Canonical unit events, run/target summaries, fixture leases, and browser group results | Shell owns scheduler policy, release dependency starts early, more than declared stacks overlap, sibling leaks, or direct leaf shares a stack | all started stacks cleaned |
 | TH-HARNESS-AC-078 | Sections 9, 10 | Backend and finalizer optimization parity | Compatible/incompatible direct compatibility keys, raw and isolated selectors, missing/extra/duplicate/partial Go JSON, capture and worker exceptions, concurrent failure, and emission fixtures | Backend target plan, runner fixtures, backend-unit, and artifact comparison | Process grouping and bounded concurrency reduce work while every row, partial success, artifact, and primary failure remains exact | Existing bounded target summary | Bounded row, artifact, or failure diagnostic | Before/after process and interval-union finalizer accounting | Family-level inference merges rows, raw selector merges, partial success drops, artifact order changes, or race masks failure | ordinary target cleanup |
-| TH-HARNESS-AC-079 | Sections 4, 8, 10, 17 | Public-target performance acceptance | Target/provider windows with one forced-cold root, one discarded warm-up, and five or conditionally six measured roots; p50, nearest-rank p90, MAD, variability-band and leave-one-out stability; canonical non-overlapping timing; ordering, duplicate, failed, cold, retried, dirty, provenance mismatch, missing-command, exact reviewed policy transition, required-improvement targets, 47-row public closure including `openapi-compatibility-check`, separate internal diagnostics, and independent check-window fixtures | Baseline writer, performance checker, retained-run inspection, canonical unit-event accounting, and task-surface owner closure | Exact Section 10.5 formulas and cardinality pass for every required public command, required improvement clears the variability band without p90 regression, every other p90 is non-regressing, all material intervals are singly attributed, and the public roster/count/bindings/rows/sum close exactly | Bounded performance summary | `duration_baseline_drift`, exit `13`, with every rejected-root reason | Verified root refs and bindings, timing sources, policy projections, samples, p50, p90, deviations, variability bands, structural metrics, roster arithmetic, and verdicts | Hand-edited baseline, inferred/newest root, mismatched or failed run, dispatch-only timing, multiply attributed intervals, opaque policy change, blanket percentage, archival-reader translation, or moved required work passes | retained inputs unchanged; baseline writes only after complete validation |
+| TH-HARNESS-AC-079 | Sections 4, 8, 10, 17 | Public-target performance acceptance | Target/provider windows with one forced-cold root, one discarded warm-up, and five or conditionally six measured roots; p50, nearest-rank p90, MAD, variability-band and leave-one-out stability; canonical non-overlapping timing; ordering, duplicate, failed, cold, retried, dirty, provenance mismatch, missing-command, exact reviewed policy transition, required-improvement targets, exact named Section 4.3 performance-roster closure, separate internal diagnostics, and independent check-window fixtures | Baseline writer, performance checker, retained-run inspection, canonical unit-event accounting, and task-surface owner closure | Exact Section 10.5 formulas and cardinality pass for every required public command, required improvement clears the variability band without p90 regression, every other p90 is non-regressing, all material intervals are singly attributed, and the public roster/count/bindings/rows/sum close exactly | Bounded performance summary | `duration_baseline_drift`, exit `13`, with every rejected-root reason | Verified root refs and bindings, timing sources, policy projections, samples, p50, p90, deviations, variability bands, structural metrics, roster arithmetic, and verdicts | Hand-edited baseline, inferred/newest root, mismatched or failed run, dispatch-only timing, multiply attributed intervals, opaque policy change, blanket percentage, archival-reader translation, or moved required work passes | retained inputs unchanged; baseline writes only after complete validation |
 | TH-HARNESS-AC-080 | Sections 5, 9, 17 | Versioned focus-continuity observation | Delayed mention mutation whose focused control unmounts, whose semantic Timeline row is initially offscreen, and whose projection delivers `N-1`, then response version `N`; instrumented postcondition helper | Focus-continuity model and React fixtures plus the exact live browser row through its canonical owner slice | One attempt succeeds only after the stable source row reaches at least `N` and the application restores the row-local focus target; helper interaction counters remain zero | Existing bounded unit/browser summary | Product assertion diagnostic with expected/rendered versions, target presence, active-element identity, mounted row IDs, and scroll geometry | Ordered lifecycle generations, response source identity/version, rendered version observations, and focus/viewport observation | `N-1` settles continuity, the helper focuses or scrolls after mutation, user interruption still permits focus stealing, or a later pass replaces the failed invocation | ordinary target cleanup; historical failed evidence remains unchanged |
 | TH-HARNESS-AC-081 | Sections 8, 17 | Incremental accumulated validation | At least three source versions containing an unaffected passing target, an affected passing target, a failed affected attempt, a relevant repair, an unrelated repair, a selector/profile change, and malformed impact/provenance entries | Build and validate the accumulated workstream ledger; execute only each version's deterministic affected closure | Success only when all current requirements resolve exactly once to the newest applicable pass, unaffected passes carry forward, the repaired affected failure is superseded by a later-version pass, and unrelated or same-version attempts cannot erase a failure | Bounded closure summary by source version and carried/rerun/superseded count | Bounded impact, provenance, duplicate, missing, conflict, or same-version-retry diagnostic | Source-snapshot roster, changed-input digests, affected row/target closure, retained root refs, pass provenance, failure history, and supersession edges | Filename heuristic omits impact, changed contract carries forward, failed same-version result is retried away, historical bytes are relabeled, performance samples cross source within one window, or missing current work closes | retained attempts remain immutable; no scheduler or cache reuse is inferred |
 | TH-HARNESS-AC-082 | Section 2.1 | Tier selection | Complete catalog plus invalid, duplicate, and redundancy fixtures | Cutover disposition and tier-reachability validation | Every active row has one minimum tier and reaches its declared aggregate union; direct selection remains unfiltered and raw aggregate inputs reject | Bounded tier counts | Exact row/tier diagnostic | Tier report and evidence-union closure | Boolean fallback, missing or invalid tier, raw-group selection, or silent coverage removal passes | no child work |

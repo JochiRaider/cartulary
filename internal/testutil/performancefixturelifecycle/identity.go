@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
@@ -51,7 +50,8 @@ func removeTemplateRuntime(env map[string]string, key string) error {
 	if err != nil {
 		return err
 	}
-	return performancefixture.RemoveRuntimeBundle(runtimeRoot)
+	// The root is derived exclusively from the admitted suite capability and key.
+	return os.RemoveAll(runtimeRoot)
 }
 
 func newCloneName() (string, error) {

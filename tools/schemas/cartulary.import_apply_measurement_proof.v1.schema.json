@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.import_apply_measurement_proof.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "source_format",
+    "job_id",
+    "job_status",
+    "record_id",
+    "row_version",
+    "view_schema_id",
+    "field_key",
+    "data_rows",
+    "columns",
+    "header_rows",
+    "cancel_enabled",
+    "grid_edit_accepted",
+    "draft_uncommitted",
+    "consecutive_frames",
+    "binding_stable",
+    "geometry_unchanged",
+    "scroll_unchanged",
+    "action_count",
+    "viewport_width",
+    "viewport_height",
+    "device_scale_factor",
+    "selected_units",
+    "mapped_column_ordinal",
+    "mapped_field_key",
+    "unmapped_column_ordinal"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.import_apply_measurement_proof.v1"
+    },
+    "kind": {
+      "const": "import_apply"
+    },
+    "source_format": {
+      "enum": [
+        "csv",
+        "xlsx"
+      ]
+    },
+    "job_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "job_status": {
+      "enum": [
+        "queued",
+        "running"
+      ]
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "row_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "field_key": {
+      "const": "timeline.analyst_text"
+    },
+    "data_rows": {
+      "const": 20000
+    },
+    "columns": {
+      "const": 2
+    },
+    "header_rows": {
+      "const": 1
+    },
+    "cancel_enabled": {
+      "const": true
+    },
+    "grid_edit_accepted": {
+      "const": true
+    },
+    "draft_uncommitted": {
+      "const": true
+    },
+    "consecutive_frames": {
+      "const": 2
+    },
+    "binding_stable": {
+      "const": true
+    },
+    "geometry_unchanged": {
+      "const": true
+    },
+    "scroll_unchanged": {
+      "const": true
+    },
+    "action_count": {
+      "const": 1
+    },
+    "viewport_width": {
+      "const": 1920
+    },
+    "viewport_height": {
+      "const": 1080
+    },
+    "device_scale_factor": {
+      "const": 1
+    },
+    "selected_units": {
+      "const": 1
+    },
+    "mapped_column_ordinal": {
+      "const": 1
+    },
+    "mapped_field_key": {
+      "const": "timeline.activity_synopsis_text"
+    },
+    "unmapped_column_ordinal": {
+      "const": 2
+    }
+  }
+}

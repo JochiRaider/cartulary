@@ -800,25 +800,25 @@ function measurementAggregate(runDir) {
     throw new Error(`measurement aggregate is not a bounded regular file: ${file}`);
   }
   const value = readJSON(file);
-  if (value.schema_id === "cartulary.frontend_measurement_aggregate.v3") {
+  if (value.schema_id === "cartulary.frontend_measurement_aggregate.v5") {
     validateSchemaSync(value.schema_id, value);
     const measurements = value.profile_groups.flatMap((group) =>
       group.summary_artifacts.map((reference) => {
         const summary = readMeasurementReference(runDir, reference);
-        validateSchemaSync("cartulary.frontend_measurement_summary.v3", summary.value);
+        validateSchemaSync("cartulary.frontend_measurement_summary.v5", summary.value);
         const observation = readMeasurementReference(
           runDir,
           summary.value.observation_artifact,
         );
         validateSchemaSync(
-          "cartulary.frontend_measurement_observation.v2",
+          "cartulary.frontend_measurement_observation.v4",
           observation.value,
         );
         const build = readMeasurementReference(runDir, summary.value.build_artifact);
-        validateSchemaSync("cartulary.performance_fixture_snapshot.v2", build.value);
+        validateSchemaSync("cartulary.performance_fixture_snapshot.v3", build.value);
         const lease = readMeasurementReference(runDir, summary.value.lease_artifact);
         validateSchemaSync(
-          "cartulary.performance_fixture_snapshot_lease.v2",
+          "cartulary.performance_fixture_snapshot_lease.v3",
           lease.value,
         );
         return {
@@ -830,7 +830,7 @@ function measurementAggregate(runDir) {
     );
     return { file, generation: "current", measurements, value };
   }
-  throw Object.assign(new Error("unsupported measurement artifact; current diagnostics require frontend measurement aggregate v3"), { exit_code: 11 });
+  throw Object.assign(new Error("unsupported measurement artifact; current diagnostics require frontend measurement aggregate v5"), { exit_code: 11 });
 }
 
 function readMeasurementReference(runDir, reference) {
@@ -878,7 +878,8 @@ function measurementCompatibilityKey(observation) {
     fixture_id: observation.fixture_id,
     measured_samples: observation.measured_samples,
     measurement_policy_id: observation.measurement_policy_id,
-    percentile: observation.percentile,
+    statistics_kind: observation.statistics.kind,
+    percentile: observation.statistics.kind === "percentile" ? observation.statistics.percentile : null,
     predicate_id: observation.predicate_id,
     threshold_ms: observation.threshold_ms,
     warmup_samples: observation.warmup_samples,
@@ -946,20 +947,19 @@ function writeMeasurementDetail(runDir) {
   for (const measurement of aggregate.measurements) {
     const summary = measurement.observation;
     process.stdout.write(
-      `[MEASUREMENT] run_id=${runID} generation=${measurement.generation} predicate_id=${summary.predicate_id} outcome=${summary.outcome} threshold_ms=${summary.threshold_ms} p50_ms=${summary.p50_ms ?? "none"} p95_ms=${summary.p95_ms ?? "none"} samples=${summary.samples.length} fixture_digest=${summary.fixture_digest} policy_id=${summary.measurement_policy_id} overlap=${measurement.overlap ?? "none"}\n`,
+      `[MEASUREMENT] run_id=${runID} generation=${measurement.generation} predicate_id=${summary.predicate_id} outcome=${summary.outcome} threshold_ms=${summary.threshold_ms} statistics=${JSON.stringify(summary.statistics)} samples=${summary.samples.length} fixture_digest=${summary.fixture_digest} policy_id=${summary.measurement_policy_id} overlap=${measurement.overlap ?? "none"}\n`,
     );
     for (const stage of measurementStages(summary)) {
       process.stdout.write(
-        `[MEASUREMENT-STAGE] run_id=${runID} predicate_id=${summary.predicate_id} stage=${stage.name} samples=${stage.samples} p50_ms=${stage.p50 ?? "none"} p95_ms=${stage.p95 ?? "none"}\n`,
+        `[MEASUREMENT-STAGE] run_id=${runID} predicate_id=${summary.predicate_id} stage=${stage.name} samples=${stage.samples} statistics=${JSON.stringify(summary.statistics.kind === "single" ? { kind: "single", elapsed_ms: stage.p50 } : { kind: "percentile", p50_ms: stage.p50, p95_ms: stage.p95 })}\n`,
       );
     }
     for (const compatible of compatibleMeasurementRuns(runDir, summary)) {
-      const p95Delta =
-        summary.p95_ms === null || compatible.measurement.observation.p95_ms === null
-          ? "none"
-          : summary.p95_ms - compatible.measurement.observation.p95_ms;
+      const value = (observation) => observation.statistics.kind === "seeded_trace" ? null : observation.statistics.kind === "single" ? observation.statistics.elapsed_ms : observation.statistics.p95_ms;
+      const current = value(summary), previous = value(compatible.measurement.observation);
+      const delta = current === null || previous === null ? "none" : current - previous;
       process.stdout.write(
-        `[MEASUREMENT-COMPARE] predicate_id=${summary.predicate_id} current_run=${runID} compatible_run=${compatible.runID} current_outcome=${summary.outcome} compatible_outcome=${compatible.measurement.observation.outcome} current_p95_ms=${summary.p95_ms ?? "none"} compatible_p95_ms=${compatible.measurement.observation.p95_ms ?? "none"} p95_delta_ms=${p95Delta}\n`,
+        `[MEASUREMENT-COMPARE] predicate_id=${summary.predicate_id} current_run=${runID} compatible_run=${compatible.runID} current_outcome=${summary.outcome} compatible_outcome=${compatible.measurement.observation.outcome} statistic=${summary.statistics.kind === "seeded_trace" ? "trace" : summary.statistics.kind === "single" ? "elapsed" : "p95"} current_ms=${current ?? "none"} compatible_ms=${previous ?? "none"} delta_ms=${delta}\n`,
       );
     }
   }

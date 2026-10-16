@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.auth",
   "rows": [
     {
@@ -1100,6 +1100,32 @@
       ]
     },
     {
+      "row_id": "module.auth.integration.route_idempotency_actor_scoped_uniqueness_afb930c9c4",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/authn",
+        "tests": [
+          "TestRouteIdempotencyActorScopedUniqueness"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.auth.integration.saml_sp_initiated_begin_acs_verifies_determinist_3b5547023b",
       "owner_id": "module.auth",
       "family_id": "module.auth.integration",
@@ -1155,6 +1181,58 @@
       ]
     },
     {
+      "row_id": "module.auth.integration.slide_session_does_not_regress_persisted_timing_0a4df22db3",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestSlideSessionDoesNotRegressPersistedTiming"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.auth.integration.start_store_uses_rollback_dbfor_seeds_assertions_29c8a92930",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth/testsupport/storetest",
+        "tests": [
+          "TestStartStoreUsesRollbackDBForSeedsAssertionsAndNestedTransactions"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.auth.integration.user_create_applies_defaults_stores_argon2id_pas_8af88020c6",
       "owner_id": "module.auth",
       "family_id": "module.auth.integration",
@@ -1169,6 +1247,33 @@
           "TestUserAdminAudit_Integration",
           "TestUserAdminLifecycle_Integration",
           "TestUserCreateReplayReturnsOriginalCommittedResource_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.auth.integration.user_list_search_tokenizes_identifiers_and_binds_45c3e062a8",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestUserListSearchTokenizesIdentifiersAndBindsCursorScope"
         ]
       },
       "evidence_class": "integration",
@@ -1340,6 +1445,31 @@
         "package": "./internal/modules/auth/testsupport/flowtest",
         "tests": [
           "TestSessionSocketClientCapturesRevocationThenClose"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.auth.unit.admin_list_queries_use_core_list_query_errors_ee8aae9fd6",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestAdminListQueriesUseCoreListQueryErrors",
+          "TestStrictAuthRequestDecoding"
         ]
       },
       "evidence_class": "unit",
@@ -1613,6 +1743,57 @@
           "TestProviderManifestRejectsMalformedJSON",
           "TestProviderManifestRejectsMissingSecret",
           "TestProviderManifestValidMixedProviders"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.auth.unit.enterprise_route_registration_requires_exact_adm_1f99782c9f",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth",
+        "tests": [
+          "TestEnterpriseAuthBindingsUseNarrowRouteAdmission_Unit",
+          "TestEnterpriseRouteRegistrationRequiresExactAdmission_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.auth.unit.login_normalization_and_password_exactness_0e7111e226",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/authn",
+        "tests": [
+          "TestLoginNormalizationAndPasswordExactness",
+          "TestSelectSessionForConcurrencyLimitTieBreaks",
+          "TestSessionTiming"
         ]
       },
       "evidence_class": "unit",

@@ -10,6 +10,7 @@ import (
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/app/configassembly"
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
@@ -44,6 +45,9 @@ func newMigrateRunner(stderr io.Writer) migrateRunner {
 				return err
 			}
 			if err := reporting.PreflightCutover(ctx, db); err != nil {
+				return err
+			}
+			if err := parties.PreflightClockCutover(ctx, db); err != nil {
 				return err
 			}
 			return database_migrations.ApplyWithCryptoAdmission(ctx, db, guard, source, inspect)

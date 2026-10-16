@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { workbookInspectorStateIsOpen } from "../../models/workbookInspectorModel";
 import { workbookRowIsAdmissible } from "../../query/workbookRowObservation";
 import { useTimelineCaptureActions } from "../actions/useTimelineCaptureActions";
+import { useTimelineEvidenceMetadata } from "../hooks/useTimelineEvidenceMetadata";
 import { useTimelineFindSource } from "../hooks/useTimelineFindSource";
 import { useTimelineLinkedEvidenceReview } from "../hooks/useTimelineLinkedEvidenceReview";
 import { useTimelineObservationSource } from "../hooks/useTimelineObservationSource";
@@ -199,8 +200,7 @@ export function useTimelineWorkbookComposition({
     },
     onAuthorityUncertain: runtime.onAuthorityUncertain,
   });
-  const linkedEvidenceReview = useTimelineLinkedEvidenceReview({
-    port: runtime.evidenceAccess,
+  const evidenceContext = {
     rowsRef: foundation.refs.rows,
     selectedRowId: inspector.snapshot.selection.selectedRowId,
     inspectorOpen: workbookInspectorStateIsOpen(inspector.snapshot.lifecycle),
@@ -222,12 +222,26 @@ export function useTimelineWorkbookComposition({
     ]),
     elementRegistry: inspector.ports.elements,
     onAccessFailure: () => runtime.onAuthorityUncertain?.(),
-    onRestoreGridFocus: (recordId) => {
+    onRestoreGridFocus: (recordId: string) => {
       const anchor = grid.refs.workbookFocusAnchor.current;
       if (anchor?.recordId === recordId)
         void grid.commands.anchors.restoreTimelineFocusAnchor(anchor);
     },
-  });
+  };
+  const linkedEvidenceReview = {
+    ...useTimelineLinkedEvidenceReview({
+      ...evidenceContext,
+      port: runtime.evidenceAccess,
+    }),
+    metadata: useTimelineEvidenceMetadata({
+      ...evidenceContext,
+      port: runtime.evidenceMetadata,
+      row:
+        foundation.snapshot.rows.find(
+          (row) => row.recordId === evidenceContext.selectedRowId,
+        ) ?? null,
+    }),
+  };
   const interaction = useTimelineInteractionComposition({
     foundation: {
       editorDraftRegistry: foundation.refs.editorDraftRegistry,
@@ -253,6 +267,10 @@ export function useTimelineWorkbookComposition({
         grid.commands.anchors.navigateTimelineFocusAnchor,
       resolveTimelinePasteTargetResolution:
         grid.commands.anchors.resolveTimelinePasteTargetResolution,
+      resolveTimelineDraftPasteTargetResolution:
+        grid.commands.anchors.resolveTimelineDraftPasteTargetResolution,
+      captureCreatedPasteReveal:
+        grid.commands.anchors.captureCreatedPasteReveal,
       restoreTimelineFocusAnchor:
         grid.commands.anchors.restoreTimelineFocusAnchor,
       timelineAnchorColumnsRef: grid.refs.timelineAnchorColumns,
@@ -273,6 +291,8 @@ export function useTimelineWorkbookComposition({
     loadAccessLost: foundation.snapshot.lifecycle.loadAccessLost,
     mutation: {
       activateConflict: mutation.commands.save.activateConflict,
+      captureCreatedBatchPresentation:
+        mutation.commands.save.captureCreatedBatchPresentation,
       commitScalarGridEdit: mutation.commands.mutation.commitScalarGridEdit,
       mutationCommands: runtime.mutationCommands,
       queueCollectionSave: mutation.commands.mutation.queueCollectionSave,
@@ -479,6 +499,8 @@ export function useTimelineWorkbookComposition({
         presence: {
           publishEditModePresence:
             mutation.commands.presence.publishEditModePresence,
+          publishFocusedPresence:
+            mutation.commands.presence.publishFocusedPresence,
         },
         query: {
           loadRows: mutation.commands.query.loadRows,

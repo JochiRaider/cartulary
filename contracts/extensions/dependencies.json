@@ -82,7 +82,8 @@
     {
       "dependency_id": "reporting",
       "imported_schema_ids": [
-        "cartulary.reporting_export_model.v2"
+        "cartulary.reporting_export_model.v7",
+        "cartulary.reporting_runtime_receipt_path.v1"
       ],
       "imported_algorithm_ids": [
         "materialize_reporting_export_model_v2",
@@ -98,10 +99,10 @@
         "cartulary.harness_run_manifest.v2",
         "cartulary.harness_run_summary.v1",
         "cartulary.harness_target_summary.v1",
-        "cartulary.test_family_manifest.v7",
+        "cartulary.test_family_manifest.v8",
         "cartulary.test_owner_explanation.v3",
         "cartulary.test_owner_registry.v1",
-        "cartulary.test_runner_registry.v2",
+        "cartulary.test_runner_registry.v3",
         "cartulary.verification_contract.v3",
         "cartulary.verification_registry.v3"
       ],

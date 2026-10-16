@@ -438,6 +438,10 @@ function performanceFixtureEvidence(fixture) {
   const build = JSON.parse(readFileSync(buildArtifact, "utf8"));
   validateSchemaSync(build.schema_id, build);
   if (
+    build.schema_id !== "cartulary.performance_fixture_snapshot.v3" ||
+    build.object_snapshot?.manifest_sha256 !== fixture.object_snapshot?.manifest_sha256 ||
+    build.object_snapshot?.object_count !== fixture.object_snapshot?.object_count ||
+    build.object_snapshot?.total_bytes !== fixture.object_snapshot?.total_bytes ||
     build.state !== "sealed" ||
     build.fixture_profile_id !== profileID ||
     build.snapshot_key !== snapshotKey ||

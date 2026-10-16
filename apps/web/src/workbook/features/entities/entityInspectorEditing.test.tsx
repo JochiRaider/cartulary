@@ -38,6 +38,25 @@ function row(id: string, version = 1) {
         "host.display_name": { value: id === firstId ? "Host A" : "Host B" },
         "host.location": { value: "Saved location" },
         "host.host_state": { value: "canonical" },
+        ...Object.fromEntries(
+          ["subject", "responsible", "observer"].map((kind) => [
+            `host.${kind}_party_ids`,
+            {
+              value: {
+                kind: "collection_value_v1",
+                ordered: false,
+                items: [
+                  {
+                    item_ref: "party_ref:00000000-0000-4000-8000-000000000701",
+                    item_kind: "party_ref",
+                    party_id: "00000000-0000-4000-8000-000000000701",
+                    display_text: "Assigned party",
+                  },
+                ],
+              },
+            },
+          ]),
+        ),
       },
     },
     "host",
@@ -270,4 +289,76 @@ it("invalidates Entity field errors when the canonical subject changes", async (
   await screen.findByText("Original Host needs review");
   view.rerender(<f.Surface selected={secondId} />);
   expect(screen.queryByText("Original Host needs review")).toBeNull();
+});
+
+it("retains independent assignment add and remove drafts and dispatches the selected entity field", async () => {
+  const { Surface, patch, runtime } = fixture();
+  render(<Surface />);
+  fireEvent.click(screen.getByText("Inspect selected"));
+  attachField("host.subject_party_ids");
+  const party = "00000000-0000-4000-8000-000000000702";
+  fireEvent.change(screen.getByTestId(genericEditValueTestId(schema)), {
+    target: { value: party },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Remove parties" }));
+  expect(patch).not.toHaveBeenCalled();
+  const remove = screen.getByTestId(
+    genericEditValueTestId(schema),
+  ) as HTMLSelectElement;
+  const option = Array.from(remove.options).find(
+    (item) => item.value === "party_ref:00000000-0000-4000-8000-000000000701",
+  );
+  expect(option).toBeDefined();
+  if (!option) throw new Error("missing assignment option");
+  option.selected = true;
+  fireEvent.change(remove);
+  fireEvent.click(screen.getByRole("button", { name: "Add parties" }));
+  expect(
+    (screen.getByTestId(genericEditValueTestId(schema)) as HTMLInputElement)
+      .value,
+  ).toBe(party);
+  expect(
+    (screen.getByTestId(genericEditSubmitTestId(schema)) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Remove parties",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Remove parties" }));
+  expect(
+    (screen.getByTestId(genericEditSubmitTestId(schema)) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Resume draft" }));
+  fireEvent.click(screen.getByTestId(genericEditSubmitTestId(schema)));
+  await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+  const captured = patch.mock.calls[0]?.[0];
+  expect(captured?.recordId).toBe(firstId);
+  expect(JSON.parse(captured?.body ?? "null")).toMatchObject({
+    view_schema_id: schema,
+    base_row_version: 1,
+    changes: [
+      {
+        field_key: "host.subject_party_ids",
+        action_payload: {
+          kind: "collection_actions_v1",
+          actions: [
+            {
+              op: "remove_party_ref",
+              item_ref: "party_ref:00000000-0000-4000-8000-000000000701",
+            },
+          ],
+        },
+      },
+    ],
+  });
+  expect(
+    runtime.inspectorDrafts
+      .readRecord(schema, firstId)
+      .find((draft) => draft.identity.action === "add_party_ref")?.value,
+  ).toBe(party);
 });

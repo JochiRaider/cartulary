@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.links",
   "rows": [
     {
@@ -38,6 +38,33 @@
       ]
     },
     {
+      "row_id": "module.links.integration.active_links_and_tags_views_v1_contract_eaf4aac3b7",
+      "owner_id": "module.links",
+      "family_id": "module.links.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.links.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/links",
+        "tests": [
+          "TestActiveLinksAndTagsViewsV1Contract",
+          "TestRecordLinkOwnerValidation"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.links.integration.link_and_tag_mutations_atomically_update_project_03f8283906",
       "owner_id": "module.links",
       "family_id": "module.links.integration",
@@ -62,6 +89,32 @@
       "minimum_tier": "standard",
       "service_dependencies": [
         "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.links.integration.party_assignment_source_facts_preserve_snapshot_963c86bbbb",
+      "owner_id": "module.links",
+      "family_id": "module.links.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.links.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/links",
+        "tests": [
+          "TestPartyAssignmentSnapshotSource"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
         "postgres"
       ]
     },
@@ -165,6 +218,31 @@
         "tests": [
           "TestMutationConstructorRejectsInvalidGrammar",
           "TestMutationRecursivelyIsolatesConstructionAndReaders"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.links.unit.links_item_refs_are_canonical_ade3870b93",
+      "owner_id": "module.links",
+      "family_id": "module.links.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.links.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/links",
+        "tests": [
+          "TestLinksItemRefParsingIsStrict",
+          "TestLinksItemRefsAreCanonical"
         ]
       },
       "evidence_class": "unit",

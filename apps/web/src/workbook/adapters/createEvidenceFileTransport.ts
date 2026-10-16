@@ -2,14 +2,19 @@ import {
   type AttachBlobToEvidenceRecordResponse,
   buildHTTPOperationPath,
   type CreateObjectBlobSlotResponse,
+  type GetJobResponse,
 } from "@cartulary/protocol-ts/http";
 import { evidenceViewSchemaId } from "@cartulary/view-contracts";
 import { fetchHTTPOperation } from "../../services/browserApi";
+import { validCommonJob } from "../../services/commonJobContract";
 import {
   uploadEvidenceObjectBlobTarget,
   validEvidenceObjectUploadTarget,
 } from "../../services/workbookEvidence";
-import type { EvidenceFileTransport } from "../features/evidence/evidenceFileOperation";
+import type {
+  EvidenceFileAttempt,
+  EvidenceFileTransport,
+} from "../features/evidence/evidenceFileOperation";
 import type { WorkbookReadScopeSource } from "../query/WorkbookQueryRow";
 import { freezeWorkbookValue } from "../utils/freezeWorkbookValue";
 import { sendWorkbookRecordMutation } from "./sendWorkbookRecordMutation";
@@ -20,14 +25,98 @@ export function createEvidenceFileTransport(
   apiBase: string | undefined,
   readScope?: WorkbookReadScopeSource,
 ): EvidenceFileTransport {
+  async function verificationRequest(
+    attempt: EvidenceFileAttempt,
+    signal: AbortSignal,
+    operationID: "verifyObjectBlob" | "getJob" | "cancelJob",
+    jobId?: string,
+    clientTxnId?: string,
+  ): ReturnType<EvidenceFileTransport["verify"]> {
+    if (
+      attempt.stage !== "verify" ||
+      !attempt.objectBlobId ||
+      (operationID !== "verifyObjectBlob" && !jobId) ||
+      attempt.path !==
+        buildHTTPOperationPath("verifyObjectBlob", {
+          object_blob_id: attempt.objectBlobId,
+        })
+    )
+      return { kind: "uncertain" };
+    let status: number | null = null,
+      requestId: string | null = null;
+    try {
+      const result = await fetchHTTPOperation<GetJobResponse>({
+        apiBase: attempt.apiBase,
+        operationID,
+        pathParameters:
+          operationID === "verifyObjectBlob"
+            ? { object_blob_id: attempt.objectBlobId }
+            : { job_id: jobId ?? "" },
+        init: {
+          method: operationID === "getJob" ? "GET" : "POST",
+          ...(operationID === "getJob"
+            ? {}
+            : {
+                body:
+                  operationID === "verifyObjectBlob"
+                    ? attempt.body
+                    : JSON.stringify({ client_txn_id: clientTxnId }),
+              }),
+          signal,
+          cache: "no-store",
+        },
+        onResponse: (response) => {
+          status = response.status;
+          requestId = response.headers.get("X-Request-ID");
+        },
+      });
+      if (!result.ok)
+        return rejectedOrUncertain(
+          status,
+          requestId,
+          result.payload,
+          operationID,
+        );
+      if (
+        (operationID === "verifyObjectBlob"
+          ? status !== 202
+          : status !== 200 && status !== 202) ||
+        !validRequestId(result.payload.meta.request_id, requestId) ||
+        (result.payload.data.status === "succeeded" &&
+          result.payload.data.result_summary?.code !==
+            "evidence_blob_verified") ||
+        !validCommonJob(
+          result.payload.data,
+          attempt.authority.incidentId,
+          jobId,
+        ) ||
+        result.payload.data.submitted_by_user_id !== attempt.authority.actorId
+      )
+        return { kind: "uncertain" };
+      return {
+        kind: "accepted",
+        receipt: freezeWorkbookValue(structuredClone(result.payload.data)),
+      };
+    } catch {
+      return { kind: "uncertain" };
+    }
+  }
   return {
+    verify: (attempt, signal) =>
+      verificationRequest(attempt, signal, "verifyObjectBlob"),
+    readVerification: (attempt, jobId, signal) =>
+      verificationRequest(attempt, signal, "getJob", jobId),
+    cancelVerification: (attempt, jobId, clientTxnId, signal) =>
+      verificationRequest(attempt, signal, "cancelJob", jobId, clientTxnId),
     capture(input) {
       const operationID =
         input.stage === "slot"
           ? "createObjectBlobSlot"
-          : input.stage === "attach"
-            ? "attachBlobToEvidenceRecord"
-            : "createViewRow";
+          : input.stage === "verify"
+            ? "verifyObjectBlob"
+            : input.stage === "attach"
+              ? "attachBlobToEvidenceRecord"
+              : "createViewRow";
       const body =
         input.stage === "slot"
           ? {
@@ -37,17 +126,19 @@ export function createEvidenceFileTransport(
               filename_hint: input.file?.name || null,
               content_type_hint: input.file?.type || null,
             }
-          : input.stage === "attach"
-            ? {
-                client_txn_id: input.clientTxnId,
-                object_blob_id: input.objectBlobId,
-                base_row_version: input.baseRowVersion,
-              }
-            : {
-                ...input.fields,
-                client_txn_id: input.clientTxnId,
-                "evidence.initial_object_blob_id": input.objectBlobId,
-              };
+          : input.stage === "verify"
+            ? { client_txn_id: input.clientTxnId }
+            : input.stage === "attach"
+              ? {
+                  client_txn_id: input.clientTxnId,
+                  object_blob_id: input.objectBlobId,
+                  base_row_version: input.baseRowVersion,
+                }
+              : {
+                  ...input.fields,
+                  client_txn_id: input.clientTxnId,
+                  "evidence.initial_object_blob_id": input.objectBlobId,
+                };
       return freezeWorkbookValue({
         stage: input.stage,
         authority: { ...input.authority },
@@ -61,12 +152,14 @@ export function createEvidenceFileTransport(
           operationID,
           input.stage === "slot"
             ? undefined
-            : input.stage === "attach"
-              ? { record_id: input.recordId ?? "" }
-              : {
-                  incident_id: input.authority.incidentId,
-                  view_schema_id: evidenceViewSchemaId,
-                },
+            : input.stage === "verify"
+              ? { object_blob_id: input.objectBlobId ?? "" }
+              : input.stage === "attach"
+                ? { record_id: input.recordId ?? "" }
+                : {
+                    incident_id: input.authority.incidentId,
+                    view_schema_id: evidenceViewSchemaId,
+                  },
         ),
       });
     },
@@ -235,7 +328,12 @@ function rejectedOrUncertain(
   status: number | null,
   requestId: string | null,
   payload: Parameters<typeof classifyWorkbookOperationFailure>[1],
-  operation: "createObjectBlobSlot" | "attachBlobToEvidenceRecord",
+  operation:
+    | "createObjectBlobSlot"
+    | "attachBlobToEvidenceRecord"
+    | "verifyObjectBlob"
+    | "getJob"
+    | "cancelJob",
 ) {
   const error =
     payload && typeof payload === "object" && "error" in payload

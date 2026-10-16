@@ -88,12 +88,18 @@ func DecodeWorkbookConflictResolveRequest(
 	}
 	change := PatchChange{FieldKey: claims.FieldKey}
 	if descriptor.patch == entityFieldPatchCollection {
-		actions, ok := decodeAliasPatchActionPayload(claims.ViewSchemaID, claims.FieldKey, resolvedValue)
+		var actions []CollectionAction
+		var ok bool
+		if isPartyAssignmentField(claims.FieldKey) {
+			actions, ok = decodePartyAssignmentActions(resolvedValue)
+		} else {
+			actions, ok = decodeAliasPatchActionPayload(claims.ViewSchemaID, claims.FieldKey, resolvedValue)
+		}
 		if !ok {
 			return WorkbookConflictResolveRequest{}, invalidMutationPayload(claims.FieldKey, "invalid_value")
 		}
 		change.CollectionActions = actions
-		request.CanonicalValue = canonicalAliasActions(actions)
+		request.CanonicalValue = canonicalCollectionActions(actions)
 	} else {
 		value, apiErr := decodeEntityPatchValue(claims.FieldKey, descriptor.owner, resolvedValue)
 		if apiErr != nil {

@@ -28,14 +28,14 @@ func NewProductionApplication(pool postgres.DB, actor authn.UserRecord) (*Produc
 	return &ProductionApplication{actor: actor, store: authn.NewStore(pool), now: time.Now}, nil
 }
 
-func (a *ProductionApplication) CreateBackgroundAnalyst(ctx context.Context, request CreateBackgroundAnalystRequest) (Account, error) {
+func (a *ProductionApplication) CreateFixtureAnalyst(ctx context.Context, request CreateFixtureAnalystRequest) (Account, error) {
 	email, _, ok := authn.NormalizeEmailAddress(request.Email)
 	if !ok {
-		return Account{}, fmt.Errorf("normalize background analyst email")
+		return Account{}, fmt.Errorf("normalize fixture analyst email")
 	}
 	displayName, ok := authn.NormalizeDisplayNameLine(request.DisplayName)
 	if !ok {
-		return Account{}, fmt.Errorf("normalize background analyst display name")
+		return Account{}, fmt.Errorf("normalize fixture analyst display name")
 	}
 	if _, err := authn.ValidatePasswordProvision(request.InitialPassword); err != nil {
 		return Account{}, err
@@ -78,7 +78,7 @@ func (a *ProductionApplication) CreateBackgroundAnalyst(ctx context.Context, req
 		return Account{}, err
 	}
 	if created.IsActive != request.Active {
-		return Account{}, fmt.Errorf("created background analyst active state mismatch")
+		return Account{}, fmt.Errorf("created fixture analyst active state mismatch")
 	}
 	return Account{UserID: created.ID.String()}, nil
 }

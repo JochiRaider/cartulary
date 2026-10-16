@@ -1,3 +1,4 @@
+import { cartularyReferencePackProgressContract as timing } from "@cartulary/ui-contracts";
 import { clientTxnID } from "../services/browserApi";
 import {
   cancelReferencePackJob,
@@ -31,6 +32,7 @@ import {
   referencePackBusy,
   referencePackCommandLabel,
   referencePackEligible,
+  referencePackJobPurpose,
   sameReferencePackQuery,
   selectionChanged,
   terminalReferencePackJobStates,
@@ -417,9 +419,17 @@ export class ReferencePackAdminController {
       return;
     }
     if (command.kind === "refresh_selected" && !command.packKeys.length) return;
+    const transactionId = this.ports.transactionId(
+      `reference-pack-${command.kind}`,
+    );
+    const purpose = referencePackJobPurpose(command);
+    if (purpose)
+      performance.mark?.(timing.start_mark, {
+        detail: { transactionId, purpose },
+      });
     const attempt = captureReferencePackAttempt(
       command,
-      this.ports.transactionId(`reference-pack-${command.kind}`),
+      transactionId,
       command.kind === "import" ? (this.state.file ?? undefined) : undefined,
     );
     this.publish({
@@ -517,6 +527,11 @@ export class ReferencePackAdminController {
     this.announce(
       `${referencePackCommandLabel(operation.command)} submitted. Awaiting server acknowledgment.`,
     );
+    const purpose = referencePackJobPurpose(operation.command);
+    if (purpose)
+      performance.mark?.(timing.dispatch_mark, {
+        detail: { transactionId: operation.id, purpose, replay },
+      });
     const outcome = await this.bounded(
       (signal) => this.ports.submit(attempt, signal, replay),
       referencePackTiming.admission,
@@ -567,6 +582,14 @@ export class ReferencePackAdminController {
         });
         return;
       }
+      if (purpose)
+        performance.mark?.(timing.admission_mark, {
+          detail: {
+            transactionId: operation.id,
+            purpose,
+            jobId: result.job.job_id,
+          },
+        });
       this.publish({
         ...this.state,
         file: operation.command.kind === "import" ? null : this.state.file,

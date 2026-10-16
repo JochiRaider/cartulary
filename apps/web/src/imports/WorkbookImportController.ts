@@ -1,3 +1,7 @@
+import {
+  cartularyImportApplyPerformanceContract as applyTiming,
+  cartularyImportDiscoveryPerformanceContract as discoveryTiming,
+} from "@cartulary/ui-contracts";
 import { clientTxnID } from "../services/browserApi";
 import {
   commonJobDoesNotRegress,
@@ -390,12 +394,12 @@ export class WorkbookImportController {
     )
       return;
     try {
+      const transactionId = this.transactionId();
+      performance.mark?.(discoveryTiming.start_mark, {
+        detail: { transactionId },
+      });
       await this.submit(
-        captureWorkbookUpload(
-          this.scope,
-          this.state.file,
-          this.transactionId(),
-        ),
+        captureWorkbookUpload(this.scope, this.state.file, transactionId),
       );
     } catch {
       this.publish({
@@ -625,6 +629,14 @@ export class WorkbookImportController {
       async (signal) => {
         if (!this.current(epoch) || !this.canWrite())
           return { kind: "failed", failure: importInterruptedFailure() };
+        if (attempt.kind === "upload")
+          performance.mark?.(discoveryTiming.dispatch_mark, {
+            detail: { transactionId: attempt.metadata.client_txn_id, replay },
+          });
+        if (attempt.kind === "apply")
+          performance.mark?.(applyTiming.dispatch_mark, {
+            detail: { transactionId: attempt.body.client_txn_id, replay },
+          });
         const pending = binding.client.send(attempt, signal, replay);
         void pending.then(
           (outcome) => {
@@ -636,7 +648,7 @@ export class WorkbookImportController {
               this.state.operation?.attempt === attempt &&
               this.state.operation.phase === "uncertain"
             )
-              this.acceptReceipt(attempt, outcome.receipt);
+              this.acceptReceipt(attempt, outcome.receipt, false);
           },
           () => {},
         );
@@ -668,20 +680,35 @@ export class WorkbookImportController {
       );
       return false;
     }
-    this.acceptReceipt(attempt, outcome.receipt);
+    this.acceptReceipt(attempt, outcome.receipt, !replay);
     void this.pumpPreviews();
     return true;
   }
   private acceptReceipt(
     attempt: ImportWriteAttempt,
     receipt: ImportWriteReceipt,
+    freshAdmission: boolean,
   ) {
     this.publish({ operation: null });
     if (receipt.kind === "job") {
+      if (attempt.kind === "upload")
+        performance.mark?.(discoveryTiming.admission_mark, {
+          detail: {
+            transactionId: attempt.metadata.client_txn_id,
+            jobId: receipt.job.job_id,
+          },
+        });
+      if (attempt.kind === "apply")
+        performance.mark?.(applyTiming.admission_mark, {
+          detail: {
+            transactionId: attempt.body.client_txn_id,
+            jobId: receipt.job.job_id,
+          },
+        });
       this.publish({
         job: receipt.job,
         jobPurpose: attempt.kind === "upload" ? "discovery" : "apply",
-        jobCurrent: false,
+        jobCurrent: freshAdmission,
         observationFailure: null,
         cancellation: null,
         message:
@@ -960,6 +987,17 @@ export class WorkbookImportController {
     }
     const selected = [...session.selected_unit_ids],
       epoch = this.epoch;
+    let transactionId: string;
+    try {
+      transactionId = this.transactionId();
+    } catch {
+      this.publish({
+        message:
+          "A secure apply request could not be created. No request was sent.",
+      });
+      return;
+    }
+    performance.mark?.(applyTiming.start_mark, { detail: { transactionId } });
     this.publish({ actionPending: true });
     const refreshed = await this.refresh();
     if (!this.current(epoch)) return;
@@ -986,7 +1024,7 @@ export class WorkbookImportController {
           scope: binding.scope,
           sessionId: session.import_session_id,
           body: {
-            client_txn_id: this.transactionId(),
+            client_txn_id: transactionId,
             selected_unit_ids: selected,
           },
         }),

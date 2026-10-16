@@ -12,6 +12,7 @@ import { type SheetRef, sheetRefKey } from "../shared/sheetRef";
 import { WorkbookRecoveryNavigation } from "../shared/workbookRecoveryNavigation";
 import { createWorkbookBatchTransport } from "../workbook/adapters/createWorkbookBatchTransport";
 import { createWorkbookClipboardPasteAdapter } from "../workbook/adapters/createWorkbookClipboardPasteAdapter";
+import { createWorkbookEvidenceMetadataAdapter } from "../workbook/adapters/createWorkbookEvidenceMetadataAdapter";
 import { createWorkbookIncidentAdapter } from "../workbook/adapters/createWorkbookIncidentAdapter";
 import { createWorkbookPendingMutationAdapter } from "../workbook/adapters/createWorkbookPendingMutationAdapter";
 import { createWorkbookRecordHistoryAdapter } from "../workbook/adapters/createWorkbookRecordHistoryAdapter";
@@ -305,6 +306,15 @@ function TimelineWorkbookRuntimeFixtureContent({
     () => createWorkbookIncidentAdapter({ apiBase, incidentId }),
     [apiBase, incidentId],
   );
+  const evidenceMetadata = useMemo(
+    () =>
+      createWorkbookEvidenceMetadataAdapter({
+        apiBase,
+        incidentId,
+        readScope: () => mutationRuntime.recordReadScope,
+      }),
+    [apiBase, incidentId, mutationRuntime],
+  );
   const [collaborationProjection] = useState(() =>
     createWorkbookCollaborationCoordinator({
       authorizationRecovery: workbookAuthorizationRecovery(),
@@ -352,6 +362,7 @@ function TimelineWorkbookRuntimeFixtureContent({
                 mutationRuntime,
                 mutationCommands: mutationCommands.timeline,
                 evidenceAccess: mutationCommands.evidence,
+                evidenceMetadata,
                 gridEntryFocus: idleGridEntryFocus,
                 incident: {
                   id: incidentId,

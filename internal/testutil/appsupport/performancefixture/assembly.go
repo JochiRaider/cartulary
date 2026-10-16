@@ -67,7 +67,7 @@ func New(profile performancefixtureprofile.Profile, dependencies Dependencies) (
 	if err != nil {
 		return nil, err
 	}
-	auth, err := authfixture.New(dependencies.Auth, authDescriptor, ac043BackgroundCredentialSetID)
+	auth, err := authfixture.New(dependencies.Auth, authDescriptor, ac043BackgroundCredentialSetID, "Performance Background Analyst")
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func New(profile performancefixtureprofile.Profile, dependencies Dependencies) (
 	if err != nil {
 		return nil, err
 	}
-	incidents, err := incidentsfixture.New(dependencies.Incidents, incidentsDescriptor)
+	incidents, err := incidentsfixture.New(dependencies.Incidents, incidentsDescriptor, incidentsfixture.WorkspaceIdentity{KeyPrefix: "AC043-PERF", Title: "Large-grid performance fixture"})
 	if err != nil {
 		return nil, err
 	}

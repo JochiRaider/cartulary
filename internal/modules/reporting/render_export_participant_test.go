@@ -23,7 +23,13 @@ func TestRenderExportParticipantValidatesClosedOutputAndBounds(t *testing.T) {
 			Assets:            []ReportingAssetDeclaration{},
 			SupportIndex:      []ReportingSupportRef{}},
 	}
+	if err := materializeSnapshotSourceIndex(&model.SnapshotContent, nil, nil); err != nil {
+		t.Fatal(err)
+	}
 	model = bindFixtureRenderModel(model.SnapshotContent)
+	if renderExportItemCount(model) != 1 {
+		t.Fatal("source index omitted from participant item budget")
+	}
 	modelJSON, err := canonicalJSON(model)
 	if err != nil {
 		t.Fatalf("canonical model: %v", err)

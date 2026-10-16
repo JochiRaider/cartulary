@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { workbookGridRows } from "../models/workbookContractRows";
 
 const layoutDirectory = path.dirname(fileURLToPath(import.meta.url));
 const workbookDirectory = path.resolve(layoutDirectory, "..");
@@ -26,19 +27,33 @@ function productionTypeScriptPaths(directory: string): string[] {
 }
 
 describe("workbook layout policy", () => {
-  it("keeps viewport and row-count geometry behind semantic layout rules", () => {
-    for (const file of productionTypeScriptPaths(workbookDirectory)) {
-      const source = readFileSync(file, "utf8");
-      expect(source, file).not.toMatch(/calc\(\s*100d?vh\s*-/u);
-      expect(source, file).not.toMatch(
-        /(?:height|minHeight|blockSize|minBlockSize)\s*:\s*[^,\n]*(?:rowCount|rows?\.length)/u,
-      );
-      expect(source, file).not.toMatch(
-        /(?:synthetic|filler|placeholder)(?:Grid)?Rows?\b/u,
-      );
+  it("preserves exactly the supplied record population without layout filler", () => {
+    for (const count of [0, 1, 3, 50]) {
+      const records = Array.from({ length: count }, (_, index) => ({
+        id: `record-${index}`,
+        version: index + 1,
+      }));
+      const rendered = workbookGridRows({
+        rows: records,
+        surface: "cartulary.view.timeline.v2",
+        getRecordId: (row) => row.id,
+        getRowVersion: (row) => row.version,
+      });
+      expect(rendered).toHaveLength(count);
+      for (const [index, row] of rendered.entries()) {
+        expect(row.kind).toBe("data");
+        expect(row.data).toBe(records[index]);
+        expect(row.rowIdentity).toEqual({
+          kind: "core_record",
+          recordId: records[index]?.id,
+        });
+        expect(row.mutationIdentity).toEqual({
+          kind: "core_row_version",
+          baseRowVersion: records[index]?.version,
+        });
+      }
     }
   });
-
   it("keeps surface geometry in the shared layout owner", () => {
     for (const file of productionTypeScriptPaths(workbookDirectory)) {
       if (file.startsWith(`${layoutDirectory}${path.sep}`)) continue;

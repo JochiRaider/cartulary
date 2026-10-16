@@ -206,13 +206,13 @@ describe("useTimelineRowMutationCoordinator", () => {
       null,
     ]);
     expect(
-      result.current.coordinator.ports.queryAdmission.currentCreatedRowPresentationRecordId(),
-    ).toBe(recordId);
+      result.current.coordinator.ports.queryAdmission.currentCreatedRowPresentationRecordIds(),
+    ).toEqual([recordId]);
     unmount();
     runtime.invalidate({ kind: "runtime_disposed" });
   });
 
-  it("pins only the latest locally created row within its query presentation scope", () => {
+  it("pins only the latest creation operation within its query presentation scope", () => {
     const runtime = runtimeFixture();
     const draft = createDraftRow(1);
     const { result, rerender, unmount } = renderCoordinator(runtime, [draft]);
@@ -236,17 +236,30 @@ describe("useTimelineRowMutationCoordinator", () => {
     });
 
     expect(
-      result.current.coordinator.ports.queryAdmission.currentCreatedRowPresentationRecordId(),
-    ).toBe(secondRecordId);
-    rerender({ createdRowPresentationScopeKey: "incident-1:filtered-query" });
+      result.current.coordinator.ports.queryAdmission.currentCreatedRowPresentationRecordIds(),
+    ).toEqual([secondRecordId]);
+    const older =
+      result.current.coordinator.commands.captureCreatedBatchPresentation();
+    const latest =
+      result.current.coordinator.commands.captureCreatedBatchPresentation();
+    expect(latest([recordId, thirdRecordId, recordId])).toBe(true);
+    expect(older([secondRecordId])).toBe(false);
     expect(
-      result.current.coordinator.ports.queryAdmission.currentCreatedRowPresentationRecordId(),
-    ).toBeNull();
+      result.current.coordinator.ports.queryAdmission.currentCreatedRowPresentationRecordIds(),
+    ).toEqual([recordId, thirdRecordId]);
+    rerender({ createdRowPresentationScopeKey: "incident-1:filtered-query" });
+    expect(latest([secondRecordId])).toBe(false);
+    expect(
+      result.current.coordinator.ports.queryAdmission.currentCreatedRowPresentationRecordIds(),
+    ).toEqual([]);
+    const detached =
+      result.current.coordinator.commands.captureCreatedBatchPresentation();
     unmount();
+    expect(detached([recordId])).toBe(false);
     runtime.invalidate({ kind: "runtime_disposed" });
   });
 
-  it("retains one query-scoped created row when a refresh omits it", () => {
+  it("retains a bounded creation block without duplicates or stale versions", () => {
     const earlierCreated = timelineRow(1, "earlier", recordId);
     const pinnedCreated = timelineRow(1, "pinned", secondRecordId);
     const incoming = timelineRow(1, "incoming", thirdRecordId);
@@ -255,7 +268,7 @@ describe("useTimelineRowMutationCoordinator", () => {
       incomingRows: [incoming],
       materializeRow: (row) => row,
       nextDraftIndex: () => 2,
-      pinnedCommittedRow: pinnedCreated,
+      pinnedCommittedRows: [pinnedCreated],
     });
 
     expect(reconciled.committedRows.map((row) => row.recordId)).toEqual([
@@ -276,8 +289,21 @@ describe("useTimelineRowMutationCoordinator", () => {
       incomingRows: [incoming, authoritativePinned],
       materializeRow: (row) => row,
       nextDraftIndex: () => 3,
-      pinnedCommittedRow: pinnedCreated,
+      pinnedCommittedRows: [pinnedCreated],
     });
+    const batch = reconcileCommittedRowsWithLocalDrafts({
+      currentRows: reconciled.rows,
+      incomingRows: [authoritativePinned, incoming],
+      materializeRow: (row) => row,
+      nextDraftIndex: () => 3,
+      pinnedCommittedRows: [earlierCreated, pinnedCreated, pinnedCreated],
+    });
+    expect(batch.committedRows.map((row) => row.recordId)).toEqual([
+      thirdRecordId,
+      recordId,
+      secondRecordId,
+    ]);
+    expect(batch.committedRows.at(-1)).toEqual(authoritativePinned);
     expect(
       withAuthoritativePin.committedRows.filter(
         (row) => row.recordId === secondRecordId,

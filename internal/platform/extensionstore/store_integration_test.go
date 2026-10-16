@@ -26,17 +26,35 @@ func TestExtensionCoordinationStateAndStagedObjects_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.WithProfileLock(context.Background(), "network_flow_activity", time.Second, func(session *Session) error {
+	if err := store.WithProfileLock(context.Background(), "coordination_fixture", time.Second, func(session *Session) error {
 		tx, err := session.Begin(context.Background())
 		if err != nil {
 			return err
 		}
-		metadata, err := tx.StateMetadata(context.Background(), "network_flow_activity")
+		metadata, err := tx.StateMetadata(context.Background(), "coordination_fixture")
 		if err != nil {
 			return err
 		}
-		if metadata == nil || metadata.MigrationLineageID != "network_flow_activity.state_v1" || metadata.StateVersion != 1 {
-			t.Fatalf("migrated metadata = %#v", metadata)
+		if metadata != nil {
+			t.Fatalf("unclaimed profile must not have initialized metadata: %#v", metadata)
+		}
+		// Exercise storage mechanics with an explicitly admitted test profile;
+		// bootstrap migrations do not invent an extension claim or provenance.
+		initializedAt := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
+		if err := tx.InsertStateMetadata(context.Background(), StateMetadata{
+			ProfileID: "coordination_fixture", MigrationLineageID: "coordination_fixture.state_v1",
+			StateVersion: 1, MetadataVersion: 1, CreatedAt: initializedAt,
+		}); err != nil {
+			return err
+		}
+		metadata, err = tx.StateMetadata(context.Background(), "coordination_fixture")
+		if err != nil {
+			return err
+		}
+		if metadata == nil || metadata.MigrationLineageID != "coordination_fixture.state_v1" ||
+			metadata.StateVersion != 1 || metadata.MetadataVersion != 1 || metadata.LastMigrationID != nil ||
+			!metadata.CreatedAt.Equal(initializedAt) || !metadata.UpdatedAt.Equal(initializedAt) {
+			t.Fatalf("explicitly initialized metadata = %#v", metadata)
 		}
 		counts, err := tx.FamilyCounts(context.Background(), []string{"network_flow_activity.tables"})
 		if err != nil || counts["network_flow_activity.tables"] != 0 {
@@ -49,7 +67,7 @@ func TestExtensionCoordinationStateAndStagedObjects_Integration(t *testing.T) {
 	}
 
 	now := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
-	staged := NewStagedObject("staging-1", "network_flow_activity", "staged/object-1", 3, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", now)
+	staged := NewStagedObject("staging-1", "coordination_fixture", "staged/object-1", 3, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", now)
 	if err := store.AllocateStagedObject(context.Background(), staged); err != nil {
 		t.Fatal(err)
 	}

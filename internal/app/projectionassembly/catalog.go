@@ -60,11 +60,11 @@ func (runtime *Runtime) RestoreProbeQuery() workbookrestoreprobe.ProjectionQuery
 	return runtime.ports.RestoreProbeQuery()
 }
 
-func (runtime *Runtime) RevisionRebuilder() revisions.ProjectionRebuilder {
+func (runtime *Runtime) RevisionRows() revisions.ProjectionRefresher {
 	if runtime == nil {
 		return nil
 	}
-	return runtime.ports.RevisionRebuilder()
+	return runtime.ports.RevisionRows()
 }
 
 func (runtime *Runtime) RevisionLiveRecords() revisions.LiveRecordReader {

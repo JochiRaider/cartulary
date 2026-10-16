@@ -300,6 +300,7 @@ main() {
   start_process_group SERVER_PGID "${SERVER_LOG}" \
     env \
     CARTULARY_CONFIG_FILE="${CONFIG_FILE}" \
+    CARTULARY__SNAPSHOT_REPORTING__RUNTIME_RECEIPT_PATH="${ROOT_DIR}/build/report-renderer/installation.json" \
     CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH="${CARTULARY__APPLICATION__TLS_CERTIFICATE_PATH:?set the backend certificate}" \
     CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH="${CARTULARY__APPLICATION__TLS_PRIVATE_KEY_PATH:?set the backend private key}" \
     CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH="${ROOT_DIR}/configs/dev/bootstrap-admin.json" \

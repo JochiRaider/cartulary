@@ -1,0 +1,57 @@
+{
+  "schema_id": "cartulary.performance_reference_pack_progress_contract.v1",
+  "contract_id": "cartulary.performance.reference_pack_progress.v1",
+  "fixture_contract_id": "cartulary.performance.large_grid.v1",
+  "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+  "measurement_policy_id": "cartulary.measurement.single_observation.v1",
+  "warmup_passes": 0,
+  "measured_samples": 1,
+  "product_retries": 0,
+  "threshold_ms": 1000,
+  "threshold_comparison": "lte",
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "device_scale_factor": 1
+  },
+  "start_mark": "cartulary.reference_pack.action_accepted",
+  "dispatch_mark": "cartulary.reference_pack.action_dispatched",
+  "admission_mark": "cartulary.reference_pack.action_admitted",
+  "predicates": [
+    {
+      "predicate_id": "perf.reference_pack_import.visible_with_cancel.v1",
+      "kind": "import"
+    },
+    {
+      "predicate_id": "perf.reference_pack_reverify.visible_with_cancel.v1",
+      "kind": "reverify"
+    },
+    {
+      "predicate_id": "perf.reference_pack_refresh.visible_with_cancel.v1",
+      "kind": "refresh"
+    }
+  ],
+  "workload": {
+    "foreground_role": "editor",
+    "deployment_admin": true,
+    "field_key": "timeline.analyst_text",
+    "draft_value": "x",
+    "action_driver": "keyboard_enter",
+    "grid_driver": "pointer_select_keyboard_edit",
+    "grid_location": "opener",
+    "pack_key": "type_registry.host",
+    "pack_version": "browser-1",
+    "base_version": "base-2026-10-02.1",
+    "payload_sha256": "afaae18a960bf0d7f75365494966403333706ee4b7f680ca789c5cad8a237b8f",
+    "trust_repository_id": "browser.fixture.repo",
+    "activation_policy": "staged_only",
+    "selected_pack_keys": [
+      "type_registry.host"
+    ]
+  },
+  "criterion_ids": [
+    "AC-033",
+    "AC-046"
+  ]
+}

@@ -92,13 +92,50 @@ function commandOwnershipProblems(file: string, source: string): string[] {
     ts.ScriptKind.TSX,
   );
   const problems = new Set<string>();
+  const browserNamespaces = new Set<string>();
+  if (!file.includes("/workbook/mutations/")) {
+    for (const statement of syntax.statements) {
+      if (
+        !ts.isImportDeclaration(statement) ||
+        !ts.isStringLiteral(statement.moduleSpecifier)
+      )
+        continue;
+      const module = statement.moduleSpecifier.text.replace(
+        /\.[cm]?[jt]sx?$/u,
+        "",
+      );
+      if (
+        !/(?:^|\/)services\/(?:browserApi|clientTransactionId)$/u.test(module)
+      )
+        continue;
+      const bindings = statement.importClause?.namedBindings;
+      if (bindings && ts.isNamespaceImport(bindings))
+        browserNamespaces.add(bindings.name.text);
+      if (
+        bindings &&
+        ts.isNamedImports(bindings) &&
+        bindings.elements.some((binding) =>
+          ["clientTxnID", "createClientTransactionId"].includes(
+            (binding.propertyName ?? binding.name).text,
+          ),
+        )
+      )
+        problems.add("transaction identity outside mutation owner");
+    }
+  }
   const inspect = (node: ts.Node) => {
     if (
-      ((ts.isIdentifier(node) && node.text === "clientTxnID") ||
-        (ts.isElementAccessExpression(node) &&
-          ts.isStringLiteral(node.argumentExpression) &&
-          node.argumentExpression.text === "clientTxnID")) &&
-      !file.includes("/workbook/mutations/")
+      (ts.isPropertyAccessExpression(node) ||
+        ts.isElementAccessExpression(node)) &&
+      ts.isIdentifier(node.expression) &&
+      browserNamespaces.has(node.expression.text) &&
+      (ts.isPropertyAccessExpression(node)
+        ? node.name.text === "clientTxnID" ||
+          node.name.text === "createClientTransactionId"
+        : ts.isStringLiteral(node.argumentExpression) &&
+          ["clientTxnID", "createClientTransactionId"].includes(
+            node.argumentExpression.text,
+          ))
     )
       problems.add("transaction identity outside mutation owner");
     if (
@@ -250,6 +287,24 @@ describe("frontend source ownership policy", () => {
         'const request = { ["client_txn_id"] : id };',
       ),
     ).toEqual(["wire intent in presentation"]);
+    expect(
+      commandOwnershipProblems(
+        "apps/web/src/workbook/components/renamed.tsx",
+        'const clientTxnID = "a local label"; const clientTxnRef = {label: clientTxnID};',
+      ),
+    ).toEqual([]);
+    expect(
+      commandOwnershipProblems(
+        "apps/web/src/workbook/components/renamed.tsx",
+        'import * as renamed from "../../services/browserApi"; const create = renamed["clientTxnID"];',
+      ),
+    ).toEqual(["transaction identity outside mutation owner"]);
+    expect(
+      commandOwnershipProblems(
+        "apps/web/src/workbook/components/renamed.tsx",
+        'import {createClientTransactionId as local} from "../../services/clientTransactionId";',
+      ),
+    ).toEqual(["transaction identity outside mutation owner"]);
   });
 
   it("keeps authorization recovery and collaboration transport dependencies below Workbook reconciliation", () => {

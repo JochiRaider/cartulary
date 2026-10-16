@@ -16,14 +16,18 @@
       "verification_id": "module.incidents.verification.incident_portability",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
+      "evidence_kinds": [
+        "go_test"
+      ],
       "public_target": "test"
     },
     {
       "verification_id": "module.incidents.verification.incident_portability_actors",
       "behavior_class": "security",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
+      "evidence_kinds": [
+        "go_test"
+      ],
       "public_target": "test"
     },
     {
@@ -44,6 +48,14 @@
         "go_test",
         "playwright",
         "vitest"
+      ]
+    },
+    {
+      "verification_id": "module.incidents.verification.source_contracts",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
       ]
     }
   ]

@@ -1,27 +1,14 @@
 import { parseStrictJSON } from "../contract/strict-json.mjs";
 import { resourceCapacities } from "../scheduler/work-graph/index.mjs";
-import { existsSync } from "node:fs";
 import path from "node:path";
 
-import { validateSchemaSync } from "../contract/index.mjs";
+import { assertRetainedArtifactFile, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
 import { reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
 
-import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { actualCriticalPath, intervalUnion, canonicalTimingAccounting, projectResourcePressure } from "../evidence-accounting/index.mjs";
 
 function readJSON(file) {
-  return parseStrictJSON(readLocalFile(file, { maximum: 16 * 1024 * 1024 }).toString("utf8"), "canonical evidence");
-}
-
-function containedArtifact(runRoot, relative) {
-  if (path.isAbsolute(relative) || relative.split(/[\\/]/u).includes("..")) {
-    throw new Error(`${relative} is not a contained canonical artifact reference`);
-  }
-  const resolved = path.resolve(runRoot, relative);
-  if (resolved !== runRoot && !resolved.startsWith(`${runRoot}${path.sep}`)) {
-    throw new Error(`${relative} escapes the canonical run root`);
-  }
-  return resolved;
+  return parseStrictJSON(readRetainedArtifactBytes(path.dirname(file), path.basename(file), 16 * 1024 * 1024).toString("utf8"), "canonical evidence");
 }
 
 export async function validateCanonicalRun(runRoot, expectedTarget = "") {
@@ -30,9 +17,6 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
     summary: path.join(runRoot, "run-summary.json"),
     events: path.join(runRoot, "unit-events.ndjson"),
   };
-  for (const file of Object.values(files)) {
-    if (!existsSync(file)) throw new Error(`${file} is required canonical evidence`);
-  }
   const manifest = readJSON(files.manifest);
   const summary = readJSON(files.summary);
   validateSchemaSync("cartulary.harness_run_manifest.v2", manifest);
@@ -79,13 +63,14 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
     throw new Error(`${files.events} does not close the canonical run interval`);
   }
   if (
+    ({ pass: "passed", fail: "failed", cancelled: "cancelled" })[summary.status] !== runCompleted.status ||
     summary.wall_duration_ms !== runCompleted.monotonic_ms ||
     runCompleted.seq !== eventState.eventCount
   ) {
     throw new Error(`${files.summary} wall duration does not equal the canonical run interval`);
   }
   for (const artifact of summary.artifact_refs) {
-    if (!existsSync(containedArtifact(runRoot, artifact))) throw new Error(`${runRoot} is missing declared artifact ${artifact}`);
+    assertRetainedArtifactFile(runRoot, artifact);
   }
   const targetSummaries = new Map();
   for (const artifact of summary.artifact_refs.filter((value) => value.startsWith("target-summaries/"))) {
@@ -95,9 +80,7 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
       throw new Error(`${artifact} references a unit outside the canonical terminal roster`);
     }
     for (const evidence of targetSummary.evidence_refs) {
-      if (!existsSync(containedArtifact(runRoot, evidence))) {
-        throw new Error(`${artifact} is missing declared unit evidence ${evidence}`);
-      }
+      assertRetainedArtifactFile(runRoot, evidence);
     }
     const selectedIntervals = targetSummary.unit_ids
       .filter((unitID) => started.has(unitID) && terminal.has(unitID))

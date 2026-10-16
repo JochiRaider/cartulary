@@ -1,3 +1,7 @@
+import {
+  cartularyImportApplyPerformanceContract as applyTiming,
+  cartularyImportDiscoveryPerformanceContract as discoveryTiming,
+} from "@cartulary/ui-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type ImportReadResult,
@@ -178,6 +182,139 @@ function harness() {
 }
 
 describe("Workbook import lifecycle", () => {
+  it("marks accepted discovery separately from dispatch replay and exact job admission", async () => {
+    const mark = vi.fn();
+    vi.stubGlobal("performance", { mark });
+    try {
+      const h = harness();
+      await h.controller.upload();
+      expect(mark).not.toHaveBeenCalled();
+      h.client.send.mockResolvedValueOnce({
+        ...interrupted,
+        kind: "uncertain",
+      });
+      h.controller.chooseFile(
+        new File(["Activity Synopsis\nSynthetic"], "source.csv"),
+      );
+      await h.controller.upload();
+      expect(mark.mock.calls.map((call) => call[0])).toEqual([
+        discoveryTiming.start_mark,
+        discoveryTiming.dispatch_mark,
+      ]);
+      await h.controller.upload();
+      expect(mark).toHaveBeenCalledTimes(2);
+      const currentJob = deferred<ImportReadResult<ImportJobResource>>();
+      h.client.readJob.mockReturnValueOnce(currentJob.promise);
+      await h.controller.retryWrite();
+      expect(h.controller.canCancel()).toBe(false);
+      currentJob.resolve(received(importTestJob("succeeded")));
+      await settle();
+      expect(mark.mock.calls.map((call) => call[0])).toEqual([
+        discoveryTiming.start_mark,
+        discoveryTiming.dispatch_mark,
+        discoveryTiming.dispatch_mark,
+        discoveryTiming.admission_mark,
+      ]);
+      expect(mark.mock.calls[2]?.[1]).toEqual({
+        detail: { transactionId: "txn-1", replay: true },
+      });
+      expect(mark.mock.calls[3]?.[1]).toEqual({
+        detail: { transactionId: "txn-1", jobId: ids.job },
+      });
+      expect(JSON.stringify(mark.mock.calls)).not.toContain("Synthetic");
+      expect(JSON.stringify(mark.mock.calls)).not.toContain("source.csv");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+  it("includes current selection preflight in apply timing and retains exact replay identity", async () => {
+    const mark = vi.fn();
+    vi.stubGlobal("performance", { mark });
+    try {
+      const h = harness();
+      await h.discover();
+      await h.controller.approve(ids.unit, true);
+      await settle();
+      h.controller.stopObservation();
+      mark.mockClear();
+      const read =
+        deferred<ImportReadResult<ReturnType<typeof importTestSession>>>();
+      h.client.readSession.mockReturnValueOnce(read.promise);
+      h.client.send.mockResolvedValueOnce({
+        ...interrupted,
+        kind: "uncertain",
+      });
+      const applying = h.controller.apply();
+      await settle();
+      expect(mark.mock.calls.map((call) => call[0])).toEqual([
+        applyTiming.start_mark,
+      ]);
+      const transactionId = mark.mock.calls[0]?.[1].detail.transactionId;
+      await h.controller.apply();
+      expect(mark).toHaveBeenCalledTimes(1);
+      read.resolve(
+        received(
+          importTestSession({
+            session_status: "ready_to_apply",
+            selected_unit_ids: [ids.unit],
+          }),
+        ),
+      );
+      await applying;
+      expect(mark.mock.calls.map((call) => call[0])).toEqual([
+        applyTiming.start_mark,
+        applyTiming.dispatch_mark,
+      ]);
+      expect(mark.mock.calls[1]?.[1]).toEqual({
+        detail: { transactionId, replay: false },
+      });
+      await h.controller.retryWrite();
+      expect(mark.mock.calls.map((call) => call[0])).toEqual([
+        applyTiming.start_mark,
+        applyTiming.dispatch_mark,
+        applyTiming.dispatch_mark,
+        applyTiming.admission_mark,
+      ]);
+      expect(mark.mock.calls[2]?.[1]).toEqual({
+        detail: { transactionId, replay: true },
+      });
+      expect(mark.mock.calls[3]?.[1]).toEqual({
+        detail: {
+          transactionId,
+          jobId: "00000000-0000-4000-8000-000000000007",
+        },
+      });
+      expect(JSON.stringify(mark.mock.calls)).not.toContain("source.csv");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+  it("does not dispatch or admit apply when current persisted selection changes", async () => {
+    const mark = vi.fn();
+    vi.stubGlobal("performance", { mark });
+    try {
+      const h = harness();
+      await h.discover();
+      await h.controller.approve(ids.unit, true);
+      await settle();
+      h.controller.stopObservation();
+      mark.mockClear();
+      h.setSession(
+        importTestSession({ session_status: "mapped", selected_unit_ids: [] }),
+      );
+      const writes = h.client.send.mock.calls.length;
+      await h.controller.apply();
+      expect(mark.mock.calls.map((call) => call[0])).toEqual([
+        applyTiming.start_mark,
+      ]);
+      expect(h.client.send).toHaveBeenCalledTimes(writes);
+      expect(h.controller.getSnapshot().message).toContain(
+        "Persisted selection changed",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
   it("restores acknowledged review without restarting observation on bind", async () => {
     const h = harness();
     await h.discover();
@@ -427,10 +564,15 @@ describe("Workbook import lifecycle", () => {
     await vi.advanceTimersByTimeAsync(120_001);
     await first;
     expect(h.controller.getSnapshot().operation?.phase).toBe("uncertain");
+    const currentJob = deferred<ImportReadResult<ImportJobResource>>();
+    h.client.readJob.mockReturnValueOnce(currentJob.promise);
     pending.resolve({
       kind: "accepted",
       receipt: { kind: "job", job: importTestJob() },
     });
+    await settle();
+    expect(h.controller.canCancel()).toBe(false);
+    currentJob.resolve(received(importTestJob("succeeded")));
     await settle();
     expect(h.controller.getSnapshot().session?.import_session_id).toBe(
       ids.session,
@@ -655,6 +797,20 @@ describe("Workbook import lifecycle", () => {
   });
 
   it("requires current cancelability, admits cancellation once, and handles completion races", async () => {
+    const fresh = harness();
+    const observation = deferred<ImportReadResult<ImportJobResource>>();
+    fresh.client.readJob.mockReturnValueOnce(observation.promise);
+    await fresh.discover();
+    expect(fresh.controller.canCancel()).toBe(true);
+    // A fresh admission enables the intent, but cancellation still reads current
+    // authority and must not send a mutation after the job has completed.
+    await fresh.controller.cancel();
+    expect(
+      fresh.client.send.mock.calls.filter(([a]) => a.kind === "cancel"),
+    ).toHaveLength(0);
+    observation.resolve(received(importTestJob("succeeded")));
+    await settle();
+    expect(fresh.controller.canCancel()).toBe(false);
     const h = harness();
     h.setJob(importTestJob("running"));
     await h.discover();

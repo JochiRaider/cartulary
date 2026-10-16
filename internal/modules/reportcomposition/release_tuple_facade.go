@@ -100,6 +100,13 @@ SELECT composition_sha256, canonical_composition_bytes
 	if compositionSHA != tuple.CompositionSHA256 {
 		return ResolvedReleaseTuple{}, &ReleaseTupleError{Field: "composition_sha256", ReasonCode: ReleaseTupleReasonDigestMismatch}
 	}
+	source, decodeErr := DecodeRenderSource(canonicalComposition)
+	if decodeErr != nil || source.SchemaID != CompositionSchemaID || source.IncidentID != expectedIncidentID.String() || source.CompositionID != tuple.CompositionID.String() || source.CompositionVersion == nil || *source.CompositionVersion != tuple.CompositionVersion || source.CompositionSHA256 == nil || *source.CompositionSHA256 != compositionSHA {
+		return ResolvedReleaseTuple{}, &ReleaseTupleError{Field: "composition_sha256", ReasonCode: ReleaseTupleReasonDigestMismatch}
+	}
+	if source.TemplateID != expectedTemplateID || source.TemplateVersion != expectedTemplateVersion {
+		return ResolvedReleaseTuple{}, &ReleaseTupleError{Field: "composition_id", ReasonCode: ReleaseTupleReasonTemplateMismatch}
+	}
 
 	return ResolvedReleaseTuple{
 		CompositionID:        tuple.CompositionID,
@@ -124,5 +131,48 @@ INSERT INTO report_composition_release_bindings (
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (composition_id, composition_version, release_id) DO NOTHING
 `, tuple.CompositionID, versionNumber, tuple.CompositionSHA256, releaseID, releaseScope, now.UTC())
-	return err
+	if err != nil {
+		return err
+	}
+	return ValidateRetainedReleaseBindingTx(ctx, tx, releaseID, releaseScope, &tuple)
+}
+
+// ValidateRetainedReleaseBindingTx checks the companion's own retained pin.
+// A nil tuple means that this release must have no Composition binding. It
+// never inserts a missing binding or replaces a historical version.
+func ValidateRetainedReleaseBindingTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, scope string, tuple *ReleaseTuple) error {
+	invalid := errors.New("reportcomposition: inconsistent retained release binding")
+	var version int64
+	if tuple != nil {
+		var err error
+		version, err = ParseCompositionVersionNumber(tuple.CompositionVersion)
+		if err != nil {
+			return invalid
+		}
+	}
+	rows, err := tx.Query(ctx, `SELECT composition_id,composition_version,composition_sha256,release_scope FROM report_composition_release_bindings WHERE release_id=$1 ORDER BY composition_id,composition_version LIMIT 2`, releaseID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	count := 0
+	for rows.Next() {
+		count++
+		var id uuid.UUID
+		var retainedVersion int64
+		var digest, retainedScope string
+		if err := rows.Scan(&id, &retainedVersion, &digest, &retainedScope); err != nil {
+			return err
+		}
+		if tuple == nil || count != 1 || id != tuple.CompositionID || retainedVersion != version || digest != tuple.CompositionSHA256 || retainedScope != scope {
+			return invalid
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if (tuple != nil) != (count == 1) {
+		return invalid
+	}
+	return nil
 }

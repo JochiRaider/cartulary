@@ -933,7 +933,7 @@ func newEventTimelineCommandsWithProjectionFailure(t testing.TB, pool postgres.D
 	appender := revisionComposition.Runtime.Appender()
 	projections := mustBuildProjectionRuntime(t, pool)
 	conflictTokens := conflicttest.NewCodec("timeline-query")
-	evidenceOwner := appsupport.NewEvidenceOwnerRuntimeForTimeline(
+	evidenceOwner := appsupport.NewEvidenceSourceRuntimeForTimeline(
 		pool,
 		conflictTokens,
 		appender,

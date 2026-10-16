@@ -2,11 +2,8 @@ package evidence
 
 import (
 	"context"
-	"crypto/sha256"
-	"fmt"
 	"io"
 	"net/url"
-	"strings"
 
 	evidencepolicy "github.com/JochiRaider/cartulary/internal/modules/evidence/internal/policy"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -48,42 +45,7 @@ func (service uploadCapabilityService) createTarget(
 
 // routeObjectStoreAdapter contains the transport-to-platform object-store
 // adaptation. It owns no Evidence database state or authorization decisions.
-type routeObjectStoreAdapter struct {
-	store objectstore.TypedStore
-}
-
-func (adapter routeObjectStoreAdapter) observeUploadedObject(
-	ctx context.Context,
-	blob blobRecord,
-) (*observedObject, error) {
-	if err := evidencepolicy.ValidatePersistedObjectBlobStorageKey(blob.StorageKey, blob.IncidentID, blob.ObjectBlobID); err != nil {
-		return nil, err
-	}
-	stat, err := adapter.store.Head(ctx, objectstore.HeadObjectRequest{
-		Key:     blob.StorageKey,
-		Purpose: objectstore.PurposeProductUpload,
-	})
-	if err != nil {
-		return nil, err
-	}
-	object, _, err := adapter.store.Get(ctx, objectstore.GetObjectRequest{
-		Key:     blob.StorageKey,
-		Purpose: objectstore.PurposeProductRead,
-	})
-	if err != nil {
-		return nil, err
-	}
-	defer object.Close()
-	hash := sha256.New()
-	if _, err := io.Copy(hash, object); err != nil {
-		return nil, err
-	}
-	contentType := strings.TrimSpace(stat.ContentType)
-	if contentType == "" {
-		contentType = firstNonEmptyPtr(blob.ContentTypeHint, nil, "application/octet-stream")
-	}
-	return &observedObject{Size: stat.Size, ContentType: contentType, SHA256Hex: fmt.Sprintf("%x", hash.Sum(nil))}, nil
-}
+type routeObjectStoreAdapter struct{ store objectstore.TypedStore }
 
 func (adapter routeObjectStoreAdapter) verifyEvidenceObjectAvailable(
 	ctx context.Context,

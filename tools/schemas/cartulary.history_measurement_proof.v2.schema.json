@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.history_measurement_proof.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "action_kind",
+    "record_id",
+    "actor_user_id",
+    "row_version",
+    "prior_row_version",
+    "view_schema_id",
+    "visible_cells",
+    "consecutive_frames",
+    "new_history_entry",
+    "attribution_verified",
+    "binding_stable",
+    "geometry_unchanged",
+    "action_count",
+    "viewport_width",
+    "viewport_height",
+    "device_scale_factor",
+    "grid_scroll_unchanged",
+    "action_driver",
+    "inspector_scroll_policy"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.history_measurement_proof.v2"
+    },
+    "kind": {
+      "const": "timeline_history"
+    },
+    "action_kind": {
+      "enum": [
+        "history_entry",
+        "change_set",
+        "row_restore"
+      ]
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "actor_user_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "row_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "prior_row_version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "visible_cells": {
+      "const": 2
+    },
+    "consecutive_frames": {
+      "const": 2
+    },
+    "new_history_entry": {
+      "const": true
+    },
+    "attribution_verified": {
+      "const": true
+    },
+    "binding_stable": {
+      "const": true
+    },
+    "geometry_unchanged": {
+      "const": true
+    },
+    "action_count": {
+      "const": 1
+    },
+    "viewport_width": {
+      "const": 1920
+    },
+    "viewport_height": {
+      "const": 1080
+    },
+    "device_scale_factor": {
+      "const": 1
+    },
+    "grid_scroll_unchanged": {
+      "const": true
+    },
+    "action_driver": {
+      "const": "keyboard_enter"
+    },
+    "inspector_scroll_policy": {
+      "const": "product_managed"
+    }
+  }
+}

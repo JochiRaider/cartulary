@@ -73,7 +73,7 @@ func TestNativeSnapshotReferencesSurviveBundleRoundTrip_Integration(t *testing.T
 		t.Fatal("native snapshot bindings absent or duplicated", string(exported), err)
 	}
 	var pinned string
-	if err := source.DB.QueryRow(`SELECT export_model_json->'reference_packs'->>'pack_set_id' FROM reporting_snapshots WHERE incident_id=$1 ORDER BY snapshot_id LIMIT 1`, id).Scan(&pinned); err != nil {
+	if err := source.DB.QueryRow(`SELECT p.snapshot_admission_json->'reference_packs'->>'pack_set_id' FROM reporting_snapshots s JOIN reporting_job_payloads p ON p.job_id=s.create_job_id WHERE s.incident_id=$1 ORDER BY s.snapshot_id LIMIT 1`, id).Scan(&pinned); err != nil {
 		t.Fatal(err)
 	}
 	if refs.Sets[0].ID != pinned {

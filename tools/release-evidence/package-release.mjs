@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { validateSchemaSync } from "../harness/contract/index.mjs";
+import { stageRendererInstallation } from "../report-renderer/stage-installation.mjs";
 
 const root = path.resolve(import.meta.dirname, "../..");
 export const packageArtifactRoot = () => path.join(path.resolve(root, process.env.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results"), process.env.CARTULARY_TEST_RUN_ID || "package-release-manual", "package-release", "artifacts");
@@ -54,7 +55,13 @@ export function produce() {
     const scannerBuild = run(process.env.GO || "go", ["version", "-m", scanner]);
     assert.match(scannerBuild, /mod\s+github\.com\/anchore\/syft\s+v1\.44\.0\s/);
     write(path.join(payload,"inventories/scanner.json"), {schema_id:"cartulary.image_inventory_tool.v1", module:"github.com/anchore/syft", version:"v1.44.0", binary_sha256:hashFile(scanner)});
-    run("docker", ["build", "--platform", "linux/amd64", "--file", "deploy/mvp/Containerfile", "--tag", appTag, "."]);
+    const context = path.join(stage, "image-context");
+    mkdirSync(path.join(context, "build/bin"), { recursive: true });
+    for (const binary of ["server", "migrate", "operator"]) copy(path.join(root, "build/bin", binary), path.join(context, "build/bin", binary));
+    copy(path.join(root, "deploy/mvp/Containerfile"), path.join(context, "Containerfile"));
+    for (const directory of ["backups", "exports", "reference-packs", "tmp"]) mkdirSync(path.join(context, "deploy/mvp/runtime-roots", directory), { recursive: true });
+    stageRendererInstallation(path.join(root, "build/report-renderer"), path.join(context, "build/report-renderer"));
+    run("docker", ["build", "--platform", "linux/amd64", "--file", path.join(context, "Containerfile"), "--tag", appTag, context]);
     const application = imageInfo(appTag);
     const immutableTag = `cartulary/local:sha256-${application.Id.slice(7)}`;
     const prior = spawnSync("docker", ["image", "inspect", "--format", "{{.Id}}", immutableTag], { encoding: "utf8" });
@@ -120,7 +127,7 @@ export function produce() {
       images.push({ role, reference, id: info.Id, config_sha256: configSHA256, archive, inventory });
     }
     write(path.join(payload, "inventories/notices.json"), notices);
-    const assets = [".env.example", "config.toml.example", "bootstrap-admin.json.example", "revisions-conflict-token-key-ring.json.example", "restore-verification-target.toml.example", "reference-pack-administration.toml.example", "docker-compose.yml", "docker-compose.reference-packs.yml", "postgres-entrypoint.sh", "postgres-hba.conf", "postgres-ident.conf", "postgres-provision.sh", "postgres-provision.sql", "seaweed-entrypoint.sh"];
+    const assets = ["application-seccomp.v1.json", ".env.example", "config.toml.example", "bootstrap-admin.json.example", "revisions-conflict-token-key-ring.json.example", "restore-verification-target.toml.example", "reference-pack-administration.toml.example", "docker-compose.yml", "docker-compose.reference-packs.yml", "postgres-entrypoint.sh", "postgres-hba.conf", "postgres-ident.conf", "postgres-provision.sh", "postgres-provision.sql", "seaweed-entrypoint.sh"];
     for (const name of assets) copy(path.join(source, name), path.join(payload, "assets", name));
     for (const directory of ["scripts", "systemd"]) for (const name of readdirSync(path.join(source, directory))) copy(path.join(source, directory, name), path.join(payload, "assets", directory, name));
     for (const name of ["docker-compose.yml","docker-compose.reference-packs.yml"]) {

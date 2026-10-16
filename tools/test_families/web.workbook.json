@@ -1,14 +1,12 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "web.workbook",
   "rows": [
     {
-      "row_id": "web.workbook.boundary_support.assessment_semantics_stay_out_of_timeline_and_ve_e8534ed9d2",
+      "row_id": "web.workbook.boundary_support.declarative_surface_policy",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.boundary_support",
-      "collaborator_ids": [
-        "module.assessments"
-      ],
+      "collaborator_ids": [],
       "verification_ids": [
         "web.workbook.verification.frontend_regression"
       ],
@@ -16,7 +14,8 @@
       "selector": {
         "file": "apps/web/src/workbook/policies/workbookSurfaceOwnershipPolicy.test.ts",
         "titles": [
-          "workbook surface ownership policy keeps assessment semantics out of Timeline and vendor grid imports behind the adapter"
+          "workbook surface ownership policy assigns every registration to one declared bounded-context owner",
+          "workbook surface ownership policy exposes immutable declarative owner policies without executable capabilities"
         ],
         "project_id": "browser-unit"
       },
@@ -27,6 +26,61 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.boundary_support.source_workbookinspectorownershiparchitecture_test_t_8849e53c39",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/workbookInspectorOwnershipArchitecture.test.ts",
+        "project_id": "browser-unit",
+        "titles": [
+          "Workbook inspector owner boundaries keeps Timeline inspector sections and model assembly in its owner unit",
+          "Workbook inspector owner boundaries keeps inspector construction out of components/AssessmentWorkbookSurface.tsx",
+          "Workbook inspector owner boundaries keeps inspector construction out of components/EntityWorkbookSurface.tsx",
+          "Workbook inspector owner boundaries keeps inspector construction out of components/GenericWorkbookSurface.tsx",
+          "Workbook inspector owner boundaries keeps inspector focus and geometry on semantic owner registries",
+          "Workbook inspector owner boundaries keeps presentation source free of state orchestration hooks"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.boundary_support.source_workbookshell_gridprovenance_test_tsx_99af84ded9",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.gridProvenance.test.tsx",
+        "project_id": "browser-unit",
+        "titles": [
+          "Hosts, Identities, Notes grid provenance integration Verify Hosts, Identities, and Notes grids render contract-derived columns and preserve mention/entity provenance through edit and refresh."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
       "service_dependencies": []
     },
     {
@@ -53,33 +107,6 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "web.workbook.boundary_support.workbooksurfaceownershippolicy_suite_85a208f2dd",
-      "owner_id": "web.workbook",
-      "family_id": "web.workbook.boundary_support",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "web.workbook.verification.frontend_regression"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/workbook/policies/workbookSurfaceOwnershipPolicy.test.ts",
-        "titles": [
-          "workbook surface ownership policy assigns every registration to one declared bounded-context owner",
-          "workbook surface ownership policy keeps domain workflow branches out of the common contract surface",
-          "workbook surface ownership policy keeps owner policy definitions pure and transport-free"
-        ],
-        "project_id": "browser-unit"
-      },
-      "evidence_class": "static",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "standard",
       "service_dependencies": []
     },
     {
@@ -3550,6 +3577,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.inspector_declared_panel_behavior",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/WorkbookInspectorDeclaredPanelList.test.tsx",
+        "titles": [
+          "Declared inspector panels conceals inaccessible content and limits a deleted subject to history",
+          "Declared inspector panels preserves declared order and forwards semantic focus and refs without owning data reads",
+          "Declared inspector panels requires explicit owner models and a matching creation attachment"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.inspector_draft_binding",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -3660,7 +3716,8 @@
           "invalidates Entity field errors when the canonical subject changes",
           "opens with saved values and submits only explicitly while Escape retains unfinished text",
           "preserves unfinished Entity text through same-record query replacement",
-          "retains Entity field authoring for explicit return to its original field"
+          "retains Entity field authoring for explicit return to its original field",
+          "retains independent assignment add and remove drafts and dispatches the selected entity field"
         ],
         "project_id": "browser-unit"
       },
@@ -5138,6 +5195,297 @@
       "service_dependencies": []
     },
     {
+      "row_id": "web.workbook.regression.source_createworkbookmutationcommandports_test_ts_45d11a0581",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.tasksdecisions",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/mutations/createWorkbookMutationCommandPorts.test.ts",
+        "project_id": "browser-unit",
+        "titles": [
+          "semantic mutation command ports executes record lifecycle actions through the declared existing route"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.source_entityworkbookmodel_test_ts_03bbff84c7",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/entityWorkbookModel.test.ts",
+        "project_id": "browser-unit",
+        "titles": [
+          "entityWorkbookModel keeps create-only entity identifiers stable and non-grid-editable"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.source_genericworkbookmodel_test_ts_152a7a0726",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/models/genericWorkbookModel.test.ts",
+        "project_id": "browser-unit",
+        "titles": [
+          "genericWorkbookModel keeps indicator identity readiness in the owner-specific validator"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.source_indicatorcreateauthoring_test_tsx_414309fccb",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.indicators"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/features/indicators/indicatorCreateAuthoring.test.tsx",
+        "project_id": "browser-unit",
+        "titles": [
+          "Indicator requests preserve raw values for the shared owner algorithms"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.source_useworkbookinspectorcoordinator_test_tsx_5718a6ee76",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/useWorkbookInspectorCoordinator.test.tsx",
+        "project_id": "browser-unit",
+        "titles": [
+          "useWorkbookInspectorCoordinator coalesces config and lifecycle changes and rejects stale commands"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.source_workbookinspectorpresentation_test_tsx_a1f2f0b207",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "web.design"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/inspector/presentation/WorkbookInspectorPresentation.test.tsx",
+        "project_id": "browser-unit",
+        "titles": [
+          "Workbook Inspector presentation binds semantic identity to an owner control and describes it",
+          "Workbook Inspector presentation consumes panel-read groups without rendering their labels",
+          "Workbook Inspector presentation derives closed owner-backed disabled reasons in contract order",
+          "Workbook Inspector presentation focuses the safe confirmation action and consumes Escape locally",
+          "Workbook Inspector presentation keeps a safe public code available in technical details",
+          "Workbook Inspector presentation keeps the machine no-row state while presenting ordinary-user copy",
+          "Workbook Inspector presentation presents deterministic copy for authorization_lost",
+          "Workbook Inspector presentation presents deterministic copy for evidence_preview_unavailable",
+          "Workbook Inspector presentation presents deterministic copy for incident_closed",
+          "Workbook Inspector presentation presents deterministic copy for merge_target_unavailable",
+          "Workbook Inspector presentation presents deterministic copy for no_row_selected",
+          "Workbook Inspector presentation presents deterministic copy for party_text_unavailable",
+          "Workbook Inspector presentation presents deterministic copy for pivot_target_unavailable",
+          "Workbook Inspector presentation presents deterministic copy for record_deleted",
+          "Workbook Inspector presentation presents deterministic copy for record_merged",
+          "Workbook Inspector presentation presents deterministic copy for record_not_deleted",
+          "Workbook Inspector presentation presents deterministic copy for rollback_target_unavailable",
+          "Workbook Inspector presentation presents deterministic copy for row_version_changed",
+          "Workbook Inspector presentation renders declared panels once in order for live, only History for deleted, and only explicit creation content for null",
+          "Workbook Inspector presentation validates one live or deleted subject boundary and rejects invalid identity"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.source_workbookmutationruntime_test_ts_466432dfe3",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/runtime/WorkbookMutationRuntime.test.ts",
+        "project_id": "browser-unit",
+        "titles": [
+          "WorkbookMutationRuntime keeps a replacement conflict when an older resolution settles after refresh"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.source_workbookshell_inspector_test_tsx_63255c08e4",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.inspector.test.tsx",
+        "project_id": "browser-unit",
+        "titles": [
+          "browser.inspector-history inspector and row-local action coverage Verify history and rollback preview/action use public route contracts, preserve retained history, and render public error envelopes."
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.source_workbookshell_support_test_tsx_f6e3a3154a",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.support.test.tsx",
+        "project_id": "browser-unit",
+        "titles": [
+          "support TimelineWorkbookRuntimeFixture commits sequential hostRefs edits with the latest returned row versions",
+          "support TimelineWorkbookRuntimeFixture dispatches a queued second hostRefs edit with the first response row version",
+          "support TimelineWorkbookRuntimeFixture keeps the workbook mounted after committing a relationship-cell edit",
+          "support TimelineWorkbookRuntimeFixture renders auto-resolved chips distinctly from manual resolved chips",
+          "support TimelineWorkbookRuntimeFixture reveals a clipped inspect action after an auto-resolution collection patch",
+          "support TimelineWorkbookRuntimeFixture suppresses self-originated websocket invalidations and reloads for external ones",
+          "support TimelineWorkbookRuntimeFixture treats Enter followed by blur as one hostRefs collection commit",
+          "support workbook helpers builds explicit mention route action payloads",
+          "support workbook helpers builds inspector mentions and auto-resolution notices from row deltas",
+          "support workbook helpers reads manual and auto-resolved collection items without dropping confidence nulls"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "web.workbook.regression.source_workbookshell_surfaces_test_tsx_31d5b00c0b",
+      "owner_id": "web.workbook",
+      "family_id": "web.workbook.regression",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "web.workbook.verification.frontend_regression"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+        "project_id": "browser-unit",
+        "titles": [
+          "WorkbookShell surface selection lazy-loads the Workbook Import Assistant only for the claimed Import profile"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "web.workbook.regression.surface_composition_debb2dc3cb",
       "owner_id": "web.workbook",
       "family_id": "web.workbook.regression",
@@ -5184,7 +5532,8 @@
           "Timeline attachment feedback keeps completed history collapsed and excludes it from unfinished counts without discarding receipts",
           "Timeline attachment feedback keeps stage-specific actions bound to the original source",
           "Timeline attachment feedback preserves focus and disclosure state through background outcomes and returns lost controls locally",
-          "Timeline attachment feedback shows new work on the same row and updates the feedback leaf without rebuilding its parent"
+          "Timeline attachment feedback shows new work on the same row and updates the feedback leaf without rebuilding its parent",
+          "keeps active verification cancellation visible while details are collapsed without moving grid focus"
         ],
         "project_id": "browser-unit"
       },
@@ -9374,6 +9723,7 @@
         "file": "apps/web/src/workbook/adapters/createWorkbookClipboardPasteAdapter.test.ts",
         "titles": [
           "createWorkbookClipboardPasteAdapter accepts ordered repeated Entity reuse and historical empty-conflict receipts",
+          "createWorkbookClipboardPasteAdapter observes settled receipts once without retrying and cancels detached presentation",
           "createWorkbookClipboardPasteAdapter rejects invalid capture and delegates action identity to retained admission",
           "createWorkbookClipboardPasteAdapter retains exact clear bytes and rejects lossy null receipts",
           "createWorkbookClipboardPasteAdapter retains uncertainty for malformed success and replays captured create bytes",

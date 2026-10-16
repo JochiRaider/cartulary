@@ -20,6 +20,7 @@ type evidenceAccessRecord struct {
 	IncidentID             uuid.UUID
 	RecordID               uuid.UUID
 	RecordRowVersion       int64
+	Title                  *string
 	ObjectBlobID           *uuid.UUID
 	BlobMetadataVisible    bool
 	StorageKey             *string
@@ -64,6 +65,10 @@ func newAccessHandleService(pool postgres.DB) (*accessHandleService, error) {
 
 func (s *accessHandleService) LoadEvidenceAccess(ctx context.Context, recordID uuid.UUID) (evidenceAccessRecord, error) {
 	return s.accessHandles.loadEvidence(ctx, recordID)
+}
+
+func (s *accessHandleService) LoadEvidenceMetadata(ctx context.Context, incidentID uuid.UUID, recordIDs []uuid.UUID) ([]evidenceAccessRecord, error) {
+	return s.accessHandles.loadMetadata(ctx, incidentID, recordIDs)
 }
 
 func classifyEvidenceAccess(access evidenceAccessRecord, boundObjectBlobID *uuid.UUID) string {

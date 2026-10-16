@@ -23,10 +23,18 @@ type SetBinding struct {
 // Retention participates in the caller's admission transaction. Owners never
 // inspect Reference Data tables, storage references or index generations.
 type Retention interface {
+	RetainedBindingValidator
 	CaptureCurrentTx(context.Context, pgx.Tx, string, string, uuid.UUID) (SetBinding, error)
 	CaptureRetainedTx(context.Context, pgx.Tx, string, string, string, uuid.UUID) (SetBinding, error)
 	ExportReferencesTx(context.Context, pgx.Tx, []string) ([]byte, error)
 	ValidateBinding(context.Context, SetBinding) error
+}
+
+// RetainedBindingValidator checks historical identity inside the consumer's
+// consistent read. It does not create pins, select the current set, mutate
+// availability or apply today's freshness policy to historical attestations.
+type RetainedBindingValidator interface {
+	ValidateBindingTx(context.Context, pgx.Tx, SetBinding) error
 }
 
 type retention struct {
@@ -128,4 +136,12 @@ func (r *retention) ValidateBinding(ctx context.Context, binding SetBinding) err
 		}
 	}
 	return nil
+}
+
+func (r *retention) ValidateBindingTx(ctx context.Context, tx pgx.Tx, binding SetBinding) error {
+	if tx == nil {
+		return errors.New("reference pack: retained binding transaction required")
+	}
+	validator := retention{repository: &canonicalRepository{pool: tx, storage: r.repository.storage}}
+	return validator.ValidateBinding(ctx, binding)
 }

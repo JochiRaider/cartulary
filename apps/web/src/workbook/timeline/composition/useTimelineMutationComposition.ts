@@ -127,8 +127,13 @@ export function useTimelineMutationComposition({
     [incident.id, timelineQueryIdentity, timelineSurfaceIdentity],
   );
   const createdRowPresentationScopeKey = useMemo(
-    () => `${incident.continuityResetKey}:${timelineQueryIdentity}`,
-    [incident.continuityResetKey, timelineQueryIdentity],
+    () =>
+      `${incident.continuityResetKey}:${timelineQueryIdentity}:${foundation.loadAccessLost}`,
+    [
+      incident.continuityResetKey,
+      timelineQueryIdentity,
+      foundation.loadAccessLost,
+    ],
   );
   const rowMutations = useTimelineRowMutationCoordinator({
     committedRows: foundation.committedRows,
@@ -202,8 +207,8 @@ export function useTimelineMutationComposition({
     advanceViewportContinuity: grid.advanceViewportContinuity,
     beginRefreshInFlight: rowMutations.commands.beginRefreshInFlight,
     beginTimelineRowsLoad: queryAdmission.beginLoad,
-    currentCreatedRowPresentationRecordId:
-      queryAdmission.currentCreatedRowPresentationRecordId,
+    currentCreatedRowPresentationRecordIds:
+      queryAdmission.currentCreatedRowPresentationRecordIds,
     currentCommittedTimelineRow: queryAdmission.currentCommittedTimelineRow,
     currentMutationEpoch: queryAdmission.currentMutationEpoch,
     failViewportContinuity: grid.failViewportContinuity,

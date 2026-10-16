@@ -44,3 +44,7 @@ Base surface registry.
 | --- | --- |
 | [ordinary/README.md](ordinary/README.md) | Retained ordinary row authoring and source preparation composition. |
 | [artifacts/README.md](artifacts/README.md) | Findings, query and keyword ordinary preparation contributions. |
+
+Import apply readiness and its action sit beside the job status above unit
+review. The single action and cancellation control stay in the same non-modal
+workflow; mappings and persisted selection remain explicit prerequisites.

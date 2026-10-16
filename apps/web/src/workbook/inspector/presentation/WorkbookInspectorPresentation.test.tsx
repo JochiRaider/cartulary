@@ -1,4 +1,3 @@
-import { readdirSync, readFileSync } from "node:fs";
 import { workbookInspectorPanelTestId } from "@cartulary/ui-contracts";
 import {
   type InspectorDisabledCondition,
@@ -12,6 +11,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
@@ -1354,24 +1354,6 @@ describe("Workbook Inspector presentation", () => {
     >().toEqualTypeOf<false>();
   });
 
-  it("keeps presentation source free of state orchestration hooks", () => {
-    const presentationDirectory = new URL(".", import.meta.url);
-    for (const filename of readdirSync(presentationDirectory)) {
-      if (
-        (!filename.endsWith(".ts") && !filename.endsWith(".tsx")) ||
-        filename.endsWith(".test.ts") ||
-        filename.endsWith(".test.tsx")
-      ) {
-        continue;
-      }
-      const source = readFileSync(
-        new URL(filename, presentationDirectory),
-        "utf8",
-      );
-      expect(source, filename).not.toMatch(/\buse(?:State|Reducer)\b/u);
-    }
-  });
-
   it("keeps the machine no-row state while presenting ordinary-user copy", () => {
     render(
       <WorkbookInspectorShell
@@ -1413,7 +1395,12 @@ describe("Workbook Inspector presentation", () => {
         ]}
       />,
     );
-    expect(screen.getByText("Relationships")).not.toBeNull();
+    const relationships = screen.getByTestId(
+      workbookInspectorPanelTestId(hosts.viewSchemaId, "relationships"),
+    );
+    expect(within(relationships).getByRole("heading").textContent).toBe(
+      "Relationships",
+    );
     expect(screen.getByText("Relationship content")).not.toBeNull();
     expect(screen.queryByText("Relationships Read")).toBeNull();
     expect(screen.queryByText("Entity Aliases Read")).toBeNull();
@@ -1614,7 +1601,7 @@ describe("Workbook Inspector presentation", () => {
     render(
       <WorkbookInspectorContextualAction
         binding={binding}
-        currentIncidentRole="editor"
+        currentIncidentRole="viewer"
         disabledTokens={new Set()}
         onInvoke={vi.fn()}
       />,

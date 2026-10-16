@@ -6,6 +6,7 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../workspace_layout.generated.sh"
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../.." && pwd)"
 ALLOWED_RUNTIME_DIRS=("server" "migrate" "operator")
+PRIVATE_RUNTIME_DIRS=("render-sandbox")
 EMBEDDED_WEB_DIR="${CARTULARY_LAYOUT_EMBEDDED_ASSETS}"
 EMBEDDED_WEB_ARCHIVE="${EMBEDDED_WEB_DIR}/web-assets.zip"
 
@@ -29,8 +30,8 @@ if [[ ! -f "cmd/operator/main.go" ]]; then
 fi
 
 mapfile -t MAIN_ENTRYPOINTS < <(find cmd -mindepth 2 -maxdepth 2 -type f -name 'main.go' | LC_ALL=C sort)
-if [[ "${#MAIN_ENTRYPOINTS[@]}" -ne 3 ]]; then
-  echo "deployable-shape check failed: expected exactly three cmd/*/main.go entrypoints (server + migrate + operator)" >&2
+if [[ "${#MAIN_ENTRYPOINTS[@]}" -ne $((${#ALLOWED_RUNTIME_DIRS[@]} + ${#PRIVATE_RUNTIME_DIRS[@]})) ]]; then
+  echo "deployable-shape check failed: runtime entrypoints differ from the public and private runtime roster" >&2
   printf 'found entrypoints:\n' >&2
   printf '  %s\n' "${MAIN_ENTRYPOINTS[@]}" >&2
   exit 1
@@ -39,7 +40,7 @@ fi
 for main_file in "${MAIN_ENTRYPOINTS[@]}"; do
   entry_dir="$(basename "$(dirname "$main_file")")"
   case "$entry_dir" in
-    "${ALLOWED_RUNTIME_DIRS[0]}"|"${ALLOWED_RUNTIME_DIRS[1]}"|"${ALLOWED_RUNTIME_DIRS[2]}")
+    "${ALLOWED_RUNTIME_DIRS[0]}"|"${ALLOWED_RUNTIME_DIRS[1]}"|"${ALLOWED_RUNTIME_DIRS[2]}"|"${PRIVATE_RUNTIME_DIRS[0]}")
       ;;
     *)
       fail "unexpected deployable entrypoint $main_file"
@@ -53,7 +54,7 @@ runtime_packages="$(
   GOCACHE="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
   GOMODCACHE="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
   GOTMPDIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
-    "${GO:-go}" list -deps -f '{{.ImportPath}}' ./cmd/server ./cmd/migrate ./cmd/operator
+    "${GO:-go}" list -deps -f '{{.ImportPath}}' ./cmd/server ./cmd/migrate ./cmd/operator ./cmd/render-sandbox
 )"
 if grep -Fxq 'github.com/JochiRaider/cartulary/internal/gen/contractreferencepackfixtures' <<<"$runtime_packages"; then
   fail "runtime dependency closure contains Reference Pack test assets"

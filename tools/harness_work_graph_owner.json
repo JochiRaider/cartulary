@@ -160,7 +160,8 @@
     },
     "build-server-harness": {
       "needs": [
-        "embedded-web-assets"
+        "embedded-web-assets",
+        "build-report-renderer"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
@@ -675,6 +676,7 @@
     "package-release": {
       "needs": [
         "deployable-shape",
+        "build-report-renderer",
         "syft-toolchain"
       ],
       "cache_policy": "none",
@@ -778,6 +780,16 @@
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "build-report-renderer": {
+      "needs": [
+        "frontend-install",
+        "playwright-install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 15000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     }

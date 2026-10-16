@@ -34,6 +34,7 @@ export function WorkbookSurfaceLayout({
   primaryGrid,
   queryControls,
   presentationBinding,
+  queryObservation,
   workAreaFeedback,
   statusStrip,
   testId,
@@ -56,7 +57,15 @@ export function WorkbookSurfaceLayout({
     | undefined;
   readonly primaryGrid: ReactNode;
   readonly queryControls?: ReactNode;
+  readonly queryObservation?: {
+    readonly acceptedRevision: number;
+    readonly pending: boolean;
+    readonly filterCount: number;
+    readonly sortCount: number;
+    readonly groupField: string;
+  };
   readonly presentationBinding?: {
+    readonly bind: (token: symbol) => void;
     readonly update: (
       token: symbol,
       ready: boolean,
@@ -92,16 +101,16 @@ export function WorkbookSurfaceLayout({
   );
   const presentationToken = useRef(Symbol("surface presentation")).current;
   useLayoutEffect(() => {
+    presentationBinding?.bind(presentationToken);
+    return () => presentationBinding?.unbind(presentationToken);
+  }, [presentationBinding, presentationToken]);
+  useLayoutEffect(() => {
     presentationBinding?.update(presentationToken, !inspectorOpen, () => {
       coordinatedClose.current = true;
       if (dock?.attachment) dock.attachment.close("navigation");
       else onRequestInspectorClose?.();
     });
   });
-  useLayoutEffect(
-    () => () => presentationBinding?.unbind(presentationToken),
-    [presentationBinding, presentationToken],
-  );
   const inspectorIsAdjacent = chromeMode === "base";
   const backgroundIsInert = inspectorOpen && !inspectorIsAdjacent;
   const [viewportWidth, setViewportWidth] = useState(
@@ -286,6 +295,12 @@ export function WorkbookSurfaceLayout({
             : "closed"
         }
         data-testid={testId}
+        data-workbook-view-schema-id={viewSchemaId}
+        data-workbook-query-revision={queryObservation?.acceptedRevision}
+        data-workbook-query-pending={queryObservation?.pending}
+        data-workbook-query-filter-count={queryObservation?.filterCount}
+        data-workbook-query-sort-count={queryObservation?.sortCount}
+        data-workbook-query-group-field={queryObservation?.groupField}
         data-workbook-responsive-band={chromeMode}
         style={{
           ...workbookSurfaceFrameStyle,

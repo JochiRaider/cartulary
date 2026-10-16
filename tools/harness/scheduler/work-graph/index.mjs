@@ -1,4 +1,5 @@
 export { WorkGraphCompiler } from "./compiler.mjs";
+export { compileRetainedRun } from "./retained-plan.mjs";
 export {
   browserStages,
   browserTargetStage,
@@ -19,6 +20,7 @@ export {
 } from "./resource-claims.mjs";
 export {
   captureCapabilitySnapshot,
+  availableGoWorkerBudget,
   cpuCapacityWithSafetyMargin,
   resourceCapacities,
 } from "./capability.mjs";

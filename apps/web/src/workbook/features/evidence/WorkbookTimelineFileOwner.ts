@@ -82,6 +82,7 @@ export type TimelineFileSnapshot = Readonly<{
   canNewId: boolean;
   canDiscard: boolean;
   refreshRequired: boolean;
+  verification: EvidenceUploadSession["status"]["verification"];
 }>;
 
 export type TimelineFileAdmissionNotice = Readonly<{
@@ -216,6 +217,7 @@ export class WorkbookTimelineFileOwner {
             sourceLabel:
               e.source.label || e.recordId || "Original Timeline draft",
             message: this.message(e),
+            verification: e.upload.status.verification,
             busy: this.busy(e),
             needsReview:
               e.needsReview ||
@@ -376,12 +378,15 @@ export class WorkbookTimelineFileOwner {
       case "transferring":
         return "Uploading file. You can keep editing.";
       case "transfer_uncertain":
-        return "Upload acknowledgement is uncertain. Recover by finalizing the file.";
+        return "Upload acknowledgement is uncertain. Resume to verify the stored file.";
       case "fresh_required":
         return "This upload target cannot be used. Start a fresh upload.";
       default:
         return "File retained for the original Timeline row.";
     }
+  }
+  cancelVerification(key: string) {
+    return this.entries.get(key)?.upload.cancelVerification();
   }
   setAuthority(authority: WorkbookMutationAuthority | null) {
     if (
@@ -582,7 +587,7 @@ export class WorkbookTimelineFileOwner {
             return;
           if (
             !e.upload.isFinalizable &&
-            !(await e.upload.prepare(this.authority))
+            !(await e.upload.prepare(this.authority, explicit))
           )
             return;
           if (!explicit && e.upload.status.phase === "transfer_uncertain")

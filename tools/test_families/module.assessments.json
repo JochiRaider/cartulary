@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.assessments",
   "rows": [
     {
@@ -735,6 +735,57 @@
           "TestCreateRequestAdmissionCompatibility",
           "TestCreateRequestAdmissionEnforcesSupportReferenceLimit",
           "TestCreateRequestAdmissionRejectsNonContractualShapes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.assessments.unit.new_contribution_requires_source_26ecdba696",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.assessments.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments/workbookprojection",
+        "tests": [
+          "TestAssessmentProjectionContractOwnsTypedImmutableFacts",
+          "TestAssessmentProjectionMutationValidation",
+          "TestNewContributionRequiresSource"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.assessments.unit.source_for_rollback_value_excludes_derived_confi_07ea307691",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.assessments.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments/internal/providers/rollback",
+        "tests": [
+          "TestProviderRejectsInvalidOwnerInvariants",
+          "TestSourceForRollbackValueExcludesDerivedConfidenceBand"
         ]
       },
       "evidence_class": "unit",

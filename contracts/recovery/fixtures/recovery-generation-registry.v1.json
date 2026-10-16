@@ -2,16 +2,16 @@
   "schema_id": "cartulary.recovery_generation_registry.v1",
   "generations": [
     {
-      "generation_id": "recovery.current.reference_pack_v2.graph_v4",
+      "generation_id": "recovery.current.reference_pack_v2.graph_v4.evidence_verify_v1",
       "capture_current": true,
       "catalog": {
         "artifact_path": "fixtures/recovery-state-catalog.v2.json",
         "schema_id": "cartulary.recovery_state_catalog.v2",
-        "canonical_sha256": "c7704fb14d7a4f328f9f5767291d226c4d6290b5caaaad7f29ac95c2ff6e9d52",
-        "catalog_digest_sha256": "75eb3c368cc34bced58d829bf0fe07d858464968f3cef62b9256d6f880e83e71",
+        "canonical_sha256": "e1f9ce41ffb4750e4a408a31a12e06d825581f6a82a62c3fc42f5d2e16e6188a",
+        "catalog_digest_sha256": "c433c2f2ab403e4a734b57ab73737ab8ee49c015e9d0bc57dff67fba73951068",
         "contribution_count": 30,
-        "authored_table_count": 143,
-        "required_table_count": 111,
+        "authored_table_count": 146,
+        "required_table_count": 113,
         "object_family_count": 6
       },
       "codec_registry": {
@@ -37,7 +37,7 @@
         "implementation_binding": {
           "artifact_path": "fixtures/graph-projection-restore-implementation-binding.v5.json",
           "schema_id": "cartulary.graph_projection_restore_implementation_binding.v5",
-          "canonical_sha256": "1006d1df55a273762d1986adcf541bac8b027e7a11894cf58f741deb12303afe"
+          "canonical_sha256": "ad87fb5eb04cafebcf02fca27fc9b3df10e504d497ab63d2b1c1bd005b1d8953"
         }
       }
     }

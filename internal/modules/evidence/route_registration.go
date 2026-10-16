@@ -15,6 +15,7 @@ import (
 
 type service struct {
 	operations     routeService
+	verification   *blobVerificationService
 	admission      routeAdmission
 	objects        routeObjectStoreAdapter
 	uploads        uploadCapabilityService
@@ -32,10 +33,11 @@ type Settings struct {
 }
 
 type routeDependencies struct {
-	objectStore objectstore.TypedStore
-	now         func() time.Time
-	operations  routeService
-	admission   routeAdmission
+	objectStore  objectstore.TypedStore
+	verification *blobVerificationService
+	now          func() time.Time
+	operations   routeService
+	admission    routeAdmission
 }
 
 type routeService interface {
@@ -45,8 +47,9 @@ type routeService interface {
 	ClaimUploadLease(context.Context, uuid.UUID, []byte, time.Time) error
 	CompleteUploadLease(context.Context, uuid.UUID, time.Time) error
 	PreflightAttachBlob(context.Context, authn.UserRecord, uuid.UUID, attachBlobRequest, []byte, time.Time) (attachBlobPreflightResult, error)
-	AttachBlob(context.Context, authn.UserRecord, uuid.UUID, attachBlobRequest, []byte, *observedObject, string, time.Time) (attachBlobResult, error)
+	AttachBlob(context.Context, authn.UserRecord, uuid.UUID, attachBlobRequest, []byte, string, time.Time) (attachBlobResult, error)
 	LoadEvidenceAccess(context.Context, uuid.UUID) (evidenceAccessRecord, error)
+	LoadEvidenceMetadata(context.Context, uuid.UUID, []uuid.UUID) ([]evidenceAccessRecord, error)
 	InsertHandle(context.Context, handleRecord, uuid.UUID) error
 	LoadHandle(context.Context, string) (handleRecord, error)
 	CheckHandleAccess(context.Context, handleRecord) (string, error)
@@ -64,8 +67,10 @@ func registerRoutes(settings Settings, captured routeDependencies) httpapi.Route
 		return httpapi.BindOwnerRoutes(mux, deps, "module.evidence", map[string]http.HandlerFunc{
 			"attachBlobToEvidenceRecord":  service.handleAttachBlob,
 			"createObjectBlobSlot":        service.handleCreateBlob,
+			"verifyObjectBlob":            service.handleVerifyBlob,
 			"issueEvidenceDownloadHandle": service.handleDownloadHandle,
 			"issueEvidencePreviewHandle":  service.handlePreviewHandle,
+			"queryEvidenceMetadata":       service.handleMetadataQuery,
 			"redeemEvidenceHandle":        service.handleRedeemHandle,
 			"uploadObjectBlobContent":     service.handleUploadTarget,
 		})
@@ -76,6 +81,9 @@ func newService(env map[string]string, settings Settings, dependencies routeDepe
 	keys, err := authn.LoadMasterKeys(env)
 	if err != nil {
 		return nil, err
+	}
+	if dependencies.verification == nil {
+		return nil, fmt.Errorf("compose Evidence routes: background verification is required")
 	}
 	if dependencies.objectStore == nil {
 		return nil, fmt.Errorf("compose Evidence routes: object store is required")
@@ -93,6 +101,7 @@ func newService(env map[string]string, settings Settings, dependencies routeDepe
 	admission.keys = keys
 	return &service{
 		operations:     dependencies.operations,
+		verification:   dependencies.verification,
 		admission:      admission,
 		objects:        routeObjectStoreAdapter{store: dependencies.objectStore},
 		uploads:        uploadCapabilityService{keys: keys},

@@ -1,6 +1,7 @@
 package reporting
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -8,30 +9,30 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
-	"github.com/JochiRaider/cartulary/internal/modules/reporting/graphsourcecontract"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/diagramcontract"
 )
 
 const (
-	RenderBundleManifestSchemaID = "cartulary.render_bundle_manifest.v2"
-	RenderBundleManifestVersion  = "2"
+	RenderBundleManifestSchemaID = "cartulary.render_bundle_manifest.v3"
+	RenderBundleManifestVersion  = "3"
 
-	renderBundleRendererID      = "cartulary.reporting.renderer.bundle_manifest_v2"
-	renderBundleRendererVersion = "1"
+	renderBundleRendererID      = "cartulary.reporting.renderer.bundle_manifest_v3"
+	renderBundleRendererVersion = "21"
 	renderBundleStorageInline   = "database_inline"
 
 	renderBundleRoleValidationSummary    = "validation_summary"
 	renderBundleRoleToolchainSnapshot    = "toolchain_snapshot"
-	renderBundleRoleSandboxObservation   = "sandbox_observation"
 	renderBundleRoleRedactionManifest    = "redaction_manifest"
 	renderBundleRoleRedactionProfileView = "redaction_profile_view"
 	renderBundleRoleTokenManifest        = "token_manifest"
-	renderBundleRoleSensitiveRevealMap   = "sensitive_reveal_map"
 	renderBundleRoleSourceSlidev         = "source_slidev"
 	renderBundleRoleSourceMermaid        = "source_mermaid"
 	renderBundleRoleRenderedPDF          = "rendered_pdf"
 	renderBundleRoleRenderedSVG          = "rendered_svg"
 	renderBundleRoleDeckModel            = "deck_model"
 	renderBundleRoleDiagramModel         = "diagram_model"
+	renderBundleRoleLocalAsset           = "local_asset"
+	renderBundleRoleLocalTheme           = "local_theme"
 )
 
 type RenderBundle struct {
@@ -44,7 +45,8 @@ type RenderBundle struct {
 }
 
 type RenderBundleManifest struct {
-	ExportModelSHA256 string `json:"export_model_sha256"`
+	AdmittedExportModelSHA256 string `json:"admitted_export_model_sha256"`
+	ExportModelSHA256         string `json:"export_model_sha256"`
 	RenderIdentity
 	SnapshotID                string                     `json:"snapshot_id"`
 	ExportModelID             string                     `json:"export_model_id"`
@@ -62,14 +64,13 @@ type RenderBundleManifest struct {
 	PrimaryPath               string                     `json:"primary_path"`
 	PrimaryMediaType          string                     `json:"primary_media_type"`
 	RedactionManifestSHA256   string                     `json:"redaction_manifest_sha256"`
-	TokenManifestSHA256       *string                    `json:"token_manifest_sha256,omitempty"`
+	TokenManifestSHA256       *string                    `json:"token_manifest_sha256"`
 	ValidationSummarySHA256   string                     `json:"validation_summary_sha256"`
 	GeneratedPresentation     bool                       `json:"generated_presentation"`
 	SelfContained             bool                       `json:"self_contained"`
 	Files                     []RenderBundleManifestFile `json:"files"`
 	ValidationArtifacts       []string                   `json:"validation_artifacts"`
 	ToolchainSnapshotSHA256   *string                    `json:"toolchain_snapshot_sha256"`
-	SandboxObservationSHA256  *string                    `json:"sandbox_observation_sha256"`
 	ExternalDeterminismSHA256 *string                    `json:"external_determinism_sha256"`
 }
 
@@ -93,23 +94,11 @@ type RedactionBundleArtifacts struct {
 	ProfileViewJSON       []byte
 	TokenManifestJSON     []byte
 	TokenManifestSHA256   string
-	RevealMapJSON         []byte
-}
-
-type renderOutputOptions struct {
-	SchemaID         string `json:"schema_id"`
-	SourceOnly       bool   `json:"source_only"`
-	PDF              bool   `json:"pdf"`
-	SVG              bool   `json:"svg"`
-	PNG              bool   `json:"png"`
-	PPTX             bool   `json:"pptx"`
-	RenderedDiagrams bool   `json:"rendered_diagrams"`
 }
 
 type renderBundleMetadata struct {
 	TemplateManifestSHA256    string
 	ToolchainSnapshotSHA256   string
-	SandboxObservationSHA256  string
 	ValidationSummarySHA256   string
 	TokenManifestSHA256       string
 	ExternalDeterminismSHA256 string
@@ -125,45 +114,25 @@ type renderPipelineResult struct {
 type renderValidationError struct {
 	FailureCode string
 	ReasonCode  string
+	Stage       string
+	SafeDetails map[string]any
+	cause       error
+	issues      *renderIssueSet
 }
+
+func (e *renderValidationError) Unwrap() error { return e.cause }
 
 func (e *renderValidationError) Error() string {
 	return e.FailureCode + ": " + e.ReasonCode
 }
 
-func newRenderValidationError(failureCode string, reasonCode string) error {
+func newRenderValidationError(failureCode string, reasonCode string) *renderValidationError {
 	return &renderValidationError{FailureCode: failureCode, ReasonCode: reasonCode}
 }
 
-type reportingToolchainSnapshot struct {
-	CreatedAt              string   `json:"created_at"`
-	SchemaID               string   `json:"schema_id"`
-	RendererID             string   `json:"renderer_id"`
-	RendererVersion        string   `json:"renderer_version"`
-	SlidevVersion          *string  `json:"slidev_version"`
-	MermaidVersion         *string  `json:"mermaid_version"`
-	ChromiumExecutablePath *string  `json:"chromium_executable_path"`
-	Locale                 string   `json:"locale"`
-	Timezone               string   `json:"timezone"`
-	ViewportCSSPX          string   `json:"viewport_css_px"`
-	DeviceScaleFactor      int      `json:"device_scale_factor"`
-	ColorScheme            string   `json:"color_scheme"`
-	BrowserLaunchArgs      []string `json:"browser_launch_args"`
-	EnvAllowlist           []string `json:"env_allowlist"`
-	NetworkPolicyID        string   `json:"network_policy_id"`
-}
-
-type reportingSandboxObservation struct {
-	SchemaID                string   `json:"schema_id"`
-	PolicyID                string   `json:"policy_id"`
-	NetworkPolicyID         string   `json:"network_policy_id"`
-	NetworkAccessObserved   bool     `json:"network_access_observed"`
-	RemoteAssetRefsObserved []string `json:"remote_asset_refs_observed"`
-	ProcessIsolation        string   `json:"process_isolation"`
-	FilesystemMode          string   `json:"filesystem_mode"`
-}
-
 type reportingRenderValidationSummary struct {
+	ReleaseID     *string                          `json:"release_id"`
+	SnapshotID    *string                          `json:"snapshot_id"`
 	CreatedAt     string                           `json:"created_at"`
 	SchemaID      string                           `json:"schema_id"`
 	Result        string                           `json:"result"`
@@ -173,7 +142,12 @@ type reportingRenderValidationSummary struct {
 	SafeDetails   map[string]any                   `json:"safe_details"`
 	IssueCount    int                              `json:"issue_count"`
 	Issues        []reportingRenderValidationIssue `json:"issues"`
-	FirstFailure  *reportingRenderValidationIssue  `json:"first_failure"`
+	FirstFailure  *reportingRenderFirstFailure     `json:"first_failure"`
+}
+
+type reportingRenderFirstFailure struct {
+	SchemaID string `json:"schema_id"`
+	reportingRenderValidationIssue
 }
 
 type reportingRenderValidationIssue struct {
@@ -188,52 +162,59 @@ type reportingRenderValidationIssue struct {
 
 type reportingDeckModel struct {
 	RenderIdentity
-	DeckID              string               `json:"deck_id"`
-	SnapshotID          string               `json:"snapshot_id"`
-	TemplateID          string               `json:"template_id"`
-	TemplateVersion     string               `json:"template_version"`
-	SchemaID            string               `json:"schema_id"`
-	DerivationAlgorithm string               `json:"derivation_algorithm"`
-	Title               string               `json:"title"`
-	Slides              []reportingDeckSlide `json:"slides"`
-	SlideCount          int                  `json:"slide_count"`
-	ClickStepCount      int                  `json:"click_step_count"`
-	ExpectedPageCount   int                  `json:"expected_export_page_count"`
-	CompositionApplied  bool                 `json:"composition_applied"`
-	CompositionSummary  map[string]any       `json:"composition_summary"`
+	DeckID            string               `json:"deck_id"`
+	SnapshotID        string               `json:"snapshot_id"`
+	TemplateID        string               `json:"template_id"`
+	TemplateVersion   string               `json:"template_version"`
+	SchemaID          string               `json:"schema_id"`
+	Title             string               `json:"title"`
+	OutputOptions     renderOutputOptions  `json:"output_options"`
+	Slides            []reportingDeckSlide `json:"slides"`
+	SlideCount        int                  `json:"slide_count"`
+	ClickStepCount    int                  `json:"click_step_count"`
+	ExpectedPageCount int                  `json:"expected_export_page_count"`
+	SourceRefs        []string             `json:"source_refs"`
+	SupportRefs       []string             `json:"support_refs"`
 }
 
 type reportingDeckSlide struct {
-	SlideID      string               `json:"slide_id"`
-	Ordinal      int                  `json:"ordinal"`
-	Layout       string               `json:"layout"`
-	Title        string               `json:"title"`
-	Blocks       []reportingDeckBlock `json:"blocks"`
-	SpeakerNotes []string             `json:"speaker_notes"`
+	// Semantic origin survives operations and chunking but is not a public
+	// structural identifier or part of the serialized deck contract.
+	sectionOrigin           *deckSectionOrigin
+	derivedBlockIDs         map[string]bool
+	recordAnchors           *deckRecordAnchors
+	includeSuperseded       bool
+	clickProfile            string
+	titlePartitions         []string
+	notePartitions          []string
+	titleSourceRefs         []string
+	titleSupportRefs        []string
+	noteSourceRefs          []string
+	noteSupportRefs         []string
+	SlideID                 string               `json:"slide_id"`
+	Ordinal                 int                  `json:"slide_ordinal"`
+	Layout                  string               `json:"layout_id"`
+	Title                   string               `json:"title"`
+	Blocks                  []ReportingBlock     `json:"blocks"`
+	ClickSteps              []reportingClickStep `json:"click_steps"`
+	SpeakerNotes            *string              `json:"speaker_notes"`
+	SourceRefs              []string             `json:"source_refs"`
+	SupportRefs             []string             `json:"support_refs"`
+	DisclosurePartitionRefs []string             `json:"disclosure_partition_refs"`
 }
 
-type reportingDeckBlock struct {
-	BlockID      string `json:"block_id"`
-	BlockKind    string `json:"block_kind"`
-	ContentClass string `json:"content_class"`
-	SourcePath   string `json:"source_path,omitempty"`
-	Text         string `json:"text"`
+type reportingClickStep struct {
+	ClickStepID        string   `json:"click_step_id"`
+	Ordinal            int      `json:"ordinal"`
+	Action             string   `json:"action"`
+	Targets            []string `json:"targets"`
+	InitialVisibility  string   `json:"initial_visibility"`
+	Component          string   `json:"component"`
+	At                 int      `json:"at"`
+	ResultingStateHash string   `json:"resulting_state_hash"`
 }
 
-type reportingDiagramModel struct {
-	SchemaID            string                  `json:"schema_id"`
-	DiagramID           string                  `json:"diagram_id"`
-	DiagramKind         string                  `json:"diagram_kind"`
-	DiagramSourceKind   string                  `json:"diagram_source_kind"`
-	LayoutMode          string                  `json:"layout_mode"`
-	SourceProjectionRef *sourceProjectionRef    `json:"source_projection_ref"`
-	SelectionRule       diagramSelectionRule    `json:"selection_rule"`
-	IncludedVertexRefs  []string                `json:"included_vertex_refs"`
-	IncludedEdgeRefs    []string                `json:"included_edge_refs"`
-	OverflowSummary     *diagramOverflowSummary `json:"overflow_summary"`
-	Nodes               []reportingDiagramNode  `json:"nodes"`
-	Edges               []reportingDiagramEdge  `json:"edges"`
-}
+type reportingDiagramModel = ReportingDiagram
 
 type diagramOverflowSummary struct {
 	SchemaID           string  `json:"schema_id"`
@@ -256,15 +237,21 @@ type reportingDiagramEdge struct {
 	Label  string `json:"label,omitempty"`
 }
 
-func renderReportBundle(contract TemplateContract, kind string, model RedactedExportModel, redactionManifestSHA256 string, releaseScope string, outputOptions json.RawMessage, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts, graphResults ...resolvedGraphResult) (RenderBundle, error) {
-	if err := validateTemplateContract(contract, kind, model, releaseScope); err != nil {
+func (r *Renderer) renderReportBundle(ctx context.Context, contract TemplateContract, kind string, model RedactedExportModel, profile RedactionProfileView, redactionManifestSHA256 string, releaseScope string, outputOptions json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts) (RenderBundle, error) {
+	if err := validateCompositionRenderBinding(compositionJSON, contract, model, releaseScope, profile); err != nil {
+		return RenderBundle{}, err
+	}
+	if err := validateTemplateContract(contract, kind, releaseScope); err != nil {
 		return RenderBundle{}, err
 	}
 	options, err := parseRenderOutputOptions(outputOptions, kind, releaseScope)
 	if err != nil {
 		return RenderBundle{}, err
 	}
-	pipeline, err := buildRenderPipeline(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts, graphResults)
+	if err := validateTemplateOutputOptions(contract, options, kind); err != nil {
+		return RenderBundle{}, err
+	}
+	pipeline, err := r.buildRenderPipeline(ctx, contract, kind, model, releaseScope, options, compositionJSON, artifacts)
 	if err != nil {
 		return RenderBundle{}, err
 	}
@@ -272,7 +259,7 @@ func renderReportBundle(contract TemplateContract, kind string, model RedactedEx
 		return RenderBundle{}, err
 	}
 	if releaseScope == ReleaseScopeExternal {
-		determinismSHA, err := validateExternalRenderDeterminism(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts, graphResults, pipeline)
+		determinismSHA, err := r.validateExternalRenderDeterminism(ctx, contract, kind, model, releaseScope, options, compositionJSON, artifacts, pipeline)
 		if err != nil {
 			return RenderBundle{}, err
 		}
@@ -281,25 +268,11 @@ func renderReportBundle(contract TemplateContract, kind string, model RedactedEx
 	return buildRenderBundle(contract, kind, releaseScope, pipeline.PrimaryPath, pipeline.PrimaryMedia, redactionManifestSHA256, pipeline.Files, pipeline.Metadata, model)
 }
 
-func parseRenderOutputOptions(raw json.RawMessage, kind string, releaseScope string) (renderOutputOptions, error) {
-	if len(raw) == 0 {
-		materialized, apiErr := materializeOutputOptions(nil, kind, releaseScope)
-		if apiErr != nil {
-			return renderOutputOptions{}, fmt.Errorf("invalid output options: %s", apiErr.Code)
-		}
-		raw = materialized
+func (r *Renderer) buildRenderPipeline(ctx context.Context, contract TemplateContract, kind string, model RedactedExportModel, releaseScope string, options renderOutputOptions, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts) (renderPipelineResult, error) {
+	limits, err := resolveRenderLimits(contract.DeclaredLimits)
+	if err != nil {
+		return renderPipelineResult{}, err
 	}
-	var options renderOutputOptions
-	if err := json.Unmarshal(raw, &options); err != nil {
-		return renderOutputOptions{}, err
-	}
-	if options.SchemaID != OutputOptionsSchemaID {
-		return renderOutputOptions{}, fmt.Errorf("invalid output options schema %q", options.SchemaID)
-	}
-	return options, nil
-}
-
-func buildRenderPipeline(contract TemplateContract, kind string, model RedactedExportModel, releaseScope string, options renderOutputOptions, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts, graphResults []resolvedGraphResult) (renderPipelineResult, error) {
 	if err := validateSourceValuesForRemoteAssets(model); err != nil {
 		return renderPipelineResult{}, err
 	}
@@ -307,91 +280,87 @@ func buildRenderPipeline(contract TemplateContract, kind string, model RedactedE
 	if err != nil {
 		return renderPipelineResult{}, err
 	}
-	templateManifestSHA := reportingObjectDigest("cartulary.reporting_template_pack_manifest.v1", templateManifestJSON)
-	toolchain := defaultReportingToolchainSnapshot(kind, options)
+	templateManifestSHA := reportingObjectDigest("cartulary.reporting_template_pack_manifest.v3", templateManifestJSON)
+	files := []RenderBundleFile{}
+	files = append(files, redactionArtifactFiles(artifacts)...)
+	primaryPath := ""
+	primaryMedia := ""
+	switch kind {
+	case OutputKindSlidev:
+		prepared, err := prepareSlidev(contract, model, options, compositionJSON, limits)
+		if err != nil {
+			return renderPipelineResult{}, err
+		}
+		files = append(files, prepared.Files...)
+		if options.RenderedDiagrams && !options.SourceOnly {
+			for _, d := range prepared.Diagrams {
+				if d.Model.LayoutMode == "manual" {
+					continue
+				}
+				svg, err := r.renderStage(ctx, renderStageRequest{SchemaID: renderStageRequestSchema, Operation: "mermaid_svg", Source: string(d.Source), AdmittedAt: model.RenderAdmittedAt, IdentitySHA256: hashHex(d.ModelJSON)}, limits)
+				if err != nil {
+					return renderPipelineResult{}, err
+				}
+				files = append(files, newBundleFile("diagrams/"+d.ID+".svg", renderBundleRoleRenderedSVG, "image/svg+xml", svg, true))
+			}
+		}
+		primaryPath = "slides.md"
+		primaryMedia = "text/markdown; charset=utf-8"
+		if options.PDF && !options.SourceOnly {
+			pdf, err := r.renderStage(ctx, renderStageRequest{SchemaID: renderStageRequestSchema, Operation: "slidev_pdf", Source: string(prepared.Source), AdmittedAt: model.RenderAdmittedAt, IdentitySHA256: hashHex(prepared.DeckJSON), ExpectedPages: &prepared.Deck.ExpectedPageCount, Assets: prepared.Assets}, limits)
+			if err != nil {
+				return renderPipelineResult{}, err
+			}
+			files = append(files, newBundleFile("deck.pdf", renderBundleRoleRenderedPDF, "application/pdf", pdf, true))
+		}
+	case OutputKindMermaid:
+		prepared, err := prepareDiagrams(contract, model, OutputKindMermaid, limits)
+		if err != nil {
+			return renderPipelineResult{}, err
+		}
+		files = append(files, prepared.Files...)
+		primaryPath = "diagrams/" + prepared.Diagrams[0].ID + ".mmd"
+		primaryMedia = "text/vnd.cartulary.mermaid; charset=utf-8"
+		for _, diagram := range prepared.Diagrams {
+			if options.SVG && !options.SourceOnly {
+				svg, err := r.renderStage(ctx, renderStageRequest{SchemaID: renderStageRequestSchema, Operation: "mermaid_svg", Source: string(diagram.Source), AdmittedAt: model.RenderAdmittedAt, IdentitySHA256: hashHex(diagram.ModelJSON)}, limits)
+				if err != nil {
+					return renderPipelineResult{}, err
+				}
+				files = append(files, newBundleFile("diagrams/"+diagram.ID+".svg", renderBundleRoleRenderedSVG, "image/svg+xml", svg, true))
+			}
+		}
+	default:
+		return renderPipelineResult{}, fmt.Errorf("unsupported output kind %q", kind)
+	}
+	toolchain, err := r.runtime.Toolchain()
+	if err != nil {
+		return renderPipelineResult{}, err
+	}
+	if err := bindTemplateFonts(&toolchain, files); err != nil {
+		return renderPipelineResult{}, err
+	}
+	if kind != OutputKindSlidev {
+		toolchain.SlidevVersion = nil
+	}
+	browserUsed, mermaidUsed := diagramToolUsage(files)
+	if !mermaidUsed {
+		toolchain.MermaidVersion = nil
+	}
+	if !browserUsed {
+		toolchain.ChromiumVersion, toolchain.ChromiumExecutablePath, toolchain.ChromiumExecutableSHA256 = nil, nil, nil
+		toolchain.BrowserLaunchArgs = []string{}
+	}
 	toolchain.CreatedAt = model.RenderAdmittedAt
 	toolchainJSON, err := canonicalJSON(toolchain)
 	if err != nil {
 		return renderPipelineResult{}, err
 	}
 	toolchainSHA := reportingObjectDigest(toolchain.SchemaID, toolchainJSON)
-	sandbox := reportingSandboxObservation{
-		SchemaID:                "cartulary.render_sandbox_observation.v1",
-		PolicyID:                "cartulary.reporting.render_sandbox_policy.v1",
-		NetworkPolicyID:         toolchain.NetworkPolicyID,
-		NetworkAccessObserved:   false,
-		RemoteAssetRefsObserved: []string{},
-		ProcessIsolation:        "in_process_deterministic_renderer",
-		FilesystemMode:          "bundle_write_only",
-	}
-	sandboxJSON, err := canonicalJSON(sandbox)
-	if err != nil {
-		return renderPipelineResult{}, err
-	}
-	sandboxSHA := reportingObjectDigest(sandbox.SchemaID, sandboxJSON)
-
-	files := []RenderBundleFile{
-		newBundleFile("validation/toolchain.json", renderBundleRoleToolchainSnapshot, "application/vnd.cartulary.reporting-toolchain+json", toolchainJSON, true),
-		newBundleFile("validation/sandbox-observation.json", renderBundleRoleSandboxObservation, "application/vnd.cartulary.reporting-sandbox-observation+json", sandboxJSON, true),
-	}
-	files = append(files, redactionArtifactFiles(artifacts)...)
-	primaryPath := ""
-	primaryMedia := ""
-	switch kind {
-	case OutputKindSlidev:
-		deckModel, err := deriveDeckModel(contract, model, compositionJSON)
-		if err != nil {
-			return renderPipelineResult{}, err
-		}
-		deckJSON, err := canonicalJSON(deckModel)
-		if err != nil {
-			return renderPipelineResult{}, err
-		}
-		files = append(files, newBundleFile("intermediate/deck-model.json", renderBundleRoleDeckModel, "application/vnd.cartulary.reporting-deck-model+json", deckJSON, true))
-		source := serializeSlidevMarkdown(deckModel)
-		files = append(files, newBundleFile("slides.md", renderBundleRoleSourceSlidev, "text/markdown; charset=utf-8", source, true))
-		primaryPath = "slides.md"
-		primaryMedia = "text/markdown; charset=utf-8"
-		if options.PDF && !options.SourceOnly {
-			files = append(files, newBundleFile("deck.pdf", renderBundleRoleRenderedPDF, "application/pdf", renderDeterministicPDF(deckJSON, source), true))
-		}
-	case OutputKindMermaid:
-		diagrams, err := deriveDiagramModels(model, graphProjectionRefs, compositionJSON, releaseScope, graphResults)
-		if err != nil {
-			return renderPipelineResult{}, err
-		}
-		if len(diagrams) == 0 {
-			return renderPipelineResult{}, fmt.Errorf("mermaid render failed: no_diagrams_selected")
-		}
-		for _, diagram := range diagrams {
-			diagramJSON, err := canonicalJSON(diagram)
-			if err != nil {
-				return renderPipelineResult{}, err
-			}
-			modelPath := "intermediate/diagrams/" + diagram.DiagramID + ".json"
-			files = append(files, newBundleFile(modelPath, renderBundleRoleDiagramModel, "application/vnd.cartulary.reporting-diagram+json", diagramJSON, true))
-			source, err := serializeMermaidSource(diagram)
-			if err != nil {
-				return renderPipelineResult{}, err
-			}
-			sourcePath := "diagrams/" + diagram.DiagramID + ".mmd"
-			files = append(files, newBundleFile(sourcePath, renderBundleRoleSourceMermaid, "text/vnd.cartulary.mermaid; charset=utf-8", source, true))
-			if primaryPath == "" {
-				primaryPath = sourcePath
-				primaryMedia = "text/vnd.cartulary.mermaid; charset=utf-8"
-			}
-			if options.SVG && !options.SourceOnly {
-				svg, err := renderDeterministicMermaidSVG(diagram)
-				if err != nil {
-					return renderPipelineResult{}, err
-				}
-				files = append(files, newBundleFile("diagrams/"+diagram.DiagramID+".svg", renderBundleRoleRenderedSVG, "image/svg+xml", svg, true))
-			}
-		}
-	default:
-		return renderPipelineResult{}, fmt.Errorf("unsupported output kind %q", kind)
-	}
+	files = append(files, newBundleFile("validation/toolchain.json", renderBundleRoleToolchainSnapshot, "application/vnd.cartulary.reporting-toolchain+json", toolchainJSON, true))
 	validationSummary := reportingRenderValidationSummary{
+		ReleaseID:     model.RenderIdentity.copy().ReleaseID,
+		SnapshotID:    &model.SnapshotID,
 		CreatedAt:     model.RenderAdmittedAt,
 		SchemaID:      "cartulary.reporting_render_validation_summary.v1",
 		Result:        "passed",
@@ -399,15 +368,17 @@ func buildRenderPipeline(contract TemplateContract, kind string, model RedactedE
 		FailureCode:   nil,
 		ReasonCode:    nil,
 		SafeDetails: map[string]any{
-			"output_kind":           kind,
-			"release_scope":         releaseScope,
-			"source_only":           options.SourceOnly,
-			"composition_present":   len(compositionJSON) > 0,
-			"graph_projection_refs": jsonArrayCount(graphProjectionRefs),
+			"output_kind":                         kind,
+			"release_scope":                       releaseScope,
+			"network_policy_id":                   toolchain.NetworkPolicyID,
+			"non_loopback_outbound_attempt_count": 0,
 		},
 		IssueCount:   0,
 		Issues:       []reportingRenderValidationIssue{},
 		FirstFailure: nil,
+	}
+	if model.ReleaseID == nil {
+		validationSummary.SafeDetails["pre_release"] = true
 	}
 	validationJSON, err := canonicalJSON(validationSummary)
 	if err != nil {
@@ -421,11 +392,10 @@ func buildRenderPipeline(contract TemplateContract, kind string, model RedactedE
 		PrimaryPath:  primaryPath,
 		PrimaryMedia: primaryMedia,
 		Metadata: renderBundleMetadata{
-			TemplateManifestSHA256:   templateManifestSHA,
-			ToolchainSnapshotSHA256:  toolchainSHA,
-			SandboxObservationSHA256: sandboxSHA,
-			ValidationSummarySHA256:  validationSHA,
-			TokenManifestSHA256:      artifacts.TokenManifestSHA256,
+			TemplateManifestSHA256:  templateManifestSHA,
+			ToolchainSnapshotSHA256: toolchainSHA,
+			ValidationSummarySHA256: validationSHA,
+			TokenManifestSHA256:     artifacts.TokenManifestSHA256,
 		},
 	}, nil
 }
@@ -451,10 +421,10 @@ func buildRenderBundle(contract TemplateContract, kind string, releaseScope stri
 		tokenManifestSHAPtr = &metadata.TokenManifestSHA256
 	}
 	toolchainSHA := metadata.ToolchainSnapshotSHA256
-	sandboxSHA := metadata.SandboxObservationSHA256
 	manifest := RenderBundleManifest{
-		ExportModelSHA256: model.ExportModelSHA256,
-		RenderIdentity:    model.RenderIdentity, SnapshotID: model.SnapshotID, ExportModelID: model.ExportModelID, BundleCreatedAt: model.RenderAdmittedAt,
+		AdmittedExportModelSHA256: model.admittedExportModelSHA256,
+		ExportModelSHA256:         model.assembly.modelSHA256,
+		RenderIdentity:            model.RenderIdentity, SnapshotID: model.SnapshotID, ExportModelID: model.ExportModelID, BundleCreatedAt: model.RenderAdmittedAt,
 		ReferencePacks:            model.ReferencePacks,
 		SchemaID:                  RenderBundleManifestSchemaID,
 		ManifestVersion:           RenderBundleManifestVersion,
@@ -473,9 +443,8 @@ func buildRenderBundle(contract TemplateContract, kind string, releaseScope stri
 		GeneratedPresentation:     true,
 		SelfContained:             true,
 		Files:                     manifestFiles,
-		ValidationArtifacts:       []string{"validation/summary.json", "validation/toolchain.json", "validation/sandbox-observation.json"},
+		ValidationArtifacts:       []string{"validation/summary.json", "validation/toolchain.json"},
 		ToolchainSnapshotSHA256:   &toolchainSHA,
-		SandboxObservationSHA256:  &sandboxSHA,
 		ExternalDeterminismSHA256: optionalRenderSHA(metadata.ExternalDeterminismSHA256),
 	}
 	manifestJSON, err := canonicalJSON(manifest)
@@ -492,8 +461,14 @@ func buildRenderBundle(contract TemplateContract, kind string, releaseScope stri
 	}, nil
 }
 
-func validateExternalRenderDeterminism(contract TemplateContract, kind string, model RedactedExportModel, releaseScope string, options renderOutputOptions, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts, graphResults []resolvedGraphResult, first renderPipelineResult) (string, error) {
-	second, err := buildRenderPipeline(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts, graphResults)
+func (r *Renderer) validateExternalRenderDeterminism(ctx context.Context, contract TemplateContract, kind string, model RedactedExportModel, releaseScope string, options renderOutputOptions, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts, first renderPipelineResult) (string, error) {
+	limits, err := resolveRenderLimits(contract.DeclaredLimits)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := withRenderDeadline(ctx, limits.rerenderTimeout(kind), "determinism", "timeout.determinism_rerender")
+	defer cancel()
+	second, err := r.buildRenderPipeline(ctx, contract, kind, model, releaseScope, options, compositionJSON, artifacts)
 	if err != nil {
 		return "", err
 	}
@@ -528,15 +503,14 @@ func renderPipelineDeterminismDigest(result renderPipelineResult) (string, error
 		})
 	}
 	payload := map[string]any{
-		"schema_id":                  "cartulary.reporting_render_determinism.v1",
-		"primary_path":               result.PrimaryPath,
-		"primary_media_type":         result.PrimaryMedia,
-		"files":                      fileDigests,
-		"template_manifest_sha256":   result.Metadata.TemplateManifestSHA256,
-		"toolchain_snapshot_sha256":  result.Metadata.ToolchainSnapshotSHA256,
-		"sandbox_observation_sha256": result.Metadata.SandboxObservationSHA256,
-		"validation_summary_sha256":  result.Metadata.ValidationSummarySHA256,
-		"token_manifest_sha256":      result.Metadata.TokenManifestSHA256,
+		"schema_id":                 "cartulary.reporting_render_determinism.v1",
+		"primary_path":              result.PrimaryPath,
+		"primary_media_type":        result.PrimaryMedia,
+		"files":                     fileDigests,
+		"template_manifest_sha256":  result.Metadata.TemplateManifestSHA256,
+		"toolchain_snapshot_sha256": result.Metadata.ToolchainSnapshotSHA256,
+		"validation_summary_sha256": result.Metadata.ValidationSummarySHA256,
+		"token_manifest_sha256":     result.Metadata.TokenManifestSHA256,
 	}
 	encoded, err := canonicalJSON(payload)
 	if err != nil {
@@ -552,201 +526,146 @@ func optionalRenderSHA(value string) *string {
 	return &value
 }
 
-func templateManifestView(contract TemplateContract) map[string]any {
-	return map[string]any{
-		"schema_id":                  "cartulary.reporting_template_pack_manifest.v1",
-		"template_id":                contract.TemplateID,
-		"template_version":           contract.TemplateVersion,
-		"manifest_version":           "1",
-		"deck_title":                 contract.DeckTitle,
-		"supported_output_kinds":     cloneStrings(contract.SupportedOutputKinds),
-		"supported_release_scopes":   cloneStrings(contract.SupportedReleaseScopes),
-		"allowed_bindings":           cloneStrings(contract.AllowedBindings),
-		"render_bindings":            contract.RenderBindings,
-		"required_field_paths":       cloneStrings(contract.RequiredFieldPaths),
-		"local_assets":               contract.LocalAssets,
-		"render_environment_profile": "cartulary.reporting.render_environment.default",
-	}
-}
+func templateManifestView(contract TemplateContract) TemplateContract { return contract }
 
-func defaultReportingToolchainSnapshot(kind string, options renderOutputOptions) reportingToolchainSnapshot {
-	slidevVersion := "cartulary-inprocess-slidev-source-v1"
-	mermaidVersion := "cartulary-inprocess-mermaid-v1"
-	chromium := "/usr/bin/chromium"
-	snapshot := reportingToolchainSnapshot{
-		SchemaID:          "cartulary.reporting_toolchain_snapshot.v1",
-		RendererID:        renderBundleRendererID,
-		RendererVersion:   renderBundleRendererVersion,
-		Locale:            "C.UTF-8",
-		Timezone:          "UTC",
-		ViewportCSSPX:     "1280x720",
-		DeviceScaleFactor: 1,
-		ColorScheme:       "light",
-		BrowserLaunchArgs: []string{},
-		EnvAllowlist:      []string{},
-		NetworkPolicyID:   "network_none",
-	}
-	if kind == OutputKindSlidev {
-		snapshot.SlidevVersion = &slidevVersion
-	}
-	if kind == OutputKindMermaid || options.RenderedDiagrams {
-		snapshot.MermaidVersion = &mermaidVersion
-	}
-	if (kind == OutputKindSlidev && options.PDF) || (kind == OutputKindMermaid && options.SVG) {
-		snapshot.ChromiumExecutablePath = &chromium
-	}
-	return snapshot
-}
-
-func deriveDeckModel(contract TemplateContract, model RedactedExportModel, compositionJSON json.RawMessage) (reportingDeckModel, error) {
+func deriveDeckModel(contract TemplateContract, model RedactedExportModel, options renderOutputOptions, compositionJSON json.RawMessage) (reportingDeckModel, error) {
 	composition, err := parseRenderComposition(compositionJSON)
 	if err != nil {
+		return reportingDeckModel{}, err
+	}
+	if err := bindCompositionPresentation(composition, model); err != nil {
 		return reportingDeckModel{}, err
 	}
 	title := contract.DeckTitle
 	if title == "" {
 		title = "Cartulary Report"
 	}
-	slide := reportingDeckSlide{
-		SlideID:      "sld-0001",
-		Ordinal:      1,
-		Layout:       "default",
-		Title:        "Snapshot Fields",
-		Blocks:       []reportingDeckBlock{},
-		SpeakerNotes: []string{},
+	model, err = readAssembledRenderModel(contract, model)
+	if err != nil {
+		return reportingDeckModel{}, err
 	}
-	for i, field := range sortedRedactedFields(model.Fields) {
-		slide.Blocks = append(slide.Blocks, reportingDeckBlock{
-			BlockID:      fmt.Sprintf("blk-%04d", i+1),
-			BlockKind:    "field_summary",
-			ContentClass: field.ContentClass,
-			SourcePath:   field.Path,
-			Text:         field.Path + ": " + formatFieldValue(field.Value),
-		})
+	diagrams := model.Diagrams
+	recordAnchors := newDeckRecordAnchors(model.Records, model.SourceIndex)
+	slides := []reportingDeckSlide{}
+	for _, section := range model.Sections {
+		origin, exists := model.assembly.sections[section.SectionID]
+		if !exists || origin.declarationIndex < 0 || origin.declarationIndex >= len(contract.Sections) {
+			return reportingDeckModel{}, newRenderValidationError("export_model_invalid", "invalid_scalar_value")
+		}
+		decl := contract.Sections[origin.declarationIndex]
+		if !decl.IncludeInDeck || section.SectionKind == "validation" && model.ReleaseScope == ReleaseScopeExternal {
+			continue
+		}
+		ordinal := len(slides) + 1
+		slide := reportingDeckSlide{SlideID: fmt.Sprintf("sld-%04d", ordinal), Ordinal: ordinal, Layout: "default", Title: section.Title,
+			Blocks: section.Blocks, ClickSteps: []reportingClickStep{}, clickProfile: decl.ClickProfile, includeSuperseded: decl.IncludeSuperseded,
+			titleSourceRefs: origin.titleRefs.source, titleSupportRefs: origin.titleRefs.support, titlePartitions: origin.titleRefs.partitions,
+			sectionOrigin: &deckSectionOrigin{DeclarationID: decl.DeclID, ExpansionKey: cloneStringPtr(origin.expansionKey), Required: decl.Required}, derivedBlockIDs: derivedDeckBlockIDs(section.Blocks), recordAnchors: recordAnchors}
+		if ordinal == 1 {
+			slide.Layout = "cover"
+		}
+		if decl.SlideLayoutID != nil {
+			slide.Layout = *decl.SlideLayoutID
+		}
+		slides = append(slides, slide)
 	}
-	slides := []reportingDeckSlide{slide}
 	if composition != nil {
-		if err := applyCompositionToDeck(&slides, composition); err != nil {
+		if err := applyCompositionToDeck(&slides, composition, contract, model.ReleaseScope, diagrams...); err != nil {
 			return reportingDeckModel{}, err
 		}
 	}
+	for _, slide := range slides {
+		if err := validateSlideLifecycle(slide, model); err != nil {
+			return reportingDeckModel{}, err
+		}
+		if _, err := resolveDeckLayout(contract, slide); err != nil {
+			return reportingDeckModel{}, err
+		}
+	}
+	limits, err := resolveRenderLimits(contract.DeclaredLimits)
+	if err != nil {
+		return reportingDeckModel{}, err
+	}
+	slides, err = chunkDeckSlides(slides, limits)
+	if err != nil {
+		return reportingDeckModel{}, err
+	}
 	for i := range slides {
-		slides[i].Ordinal = i + 1
-		slides[i].SlideID = fmt.Sprintf("sld-%04d", i+1)
+		if err := materializeSlideClicks(&slides[i], limits); err != nil {
+			return reportingDeckModel{}, err
+		}
 	}
 	deckID, err := model.RenderIdentity.generatedID("deck", "deck_", map[string]any{"template_id": contract.TemplateID, "template_version": contract.TemplateVersion, "export_model_id": model.ExportModelID})
 	if err != nil {
 		return reportingDeckModel{}, err
 	}
+	refs := emptyContainerRefs()
+	clickCount := 0
+	for _, slide := range slides {
+		refs.include(slide.SourceRefs, slide.SupportRefs, slide.DisclosurePartitionRefs)
+		clickCount += len(slide.ClickSteps)
+	}
+	refs = refs.normalized()
 	return reportingDeckModel{
 		RenderIdentity: model.RenderIdentity, DeckID: deckID, SnapshotID: model.SnapshotID, TemplateID: contract.TemplateID, TemplateVersion: contract.TemplateVersion,
-		SchemaID:            "cartulary.reporting_slide_deck.v2",
-		DerivationAlgorithm: deckDerivationAlgorithm(composition != nil),
-		Title:               title,
-		Slides:              slides,
-		SlideCount:          len(slides),
-		ClickStepCount:      0,
-		ExpectedPageCount:   len(slides),
-		CompositionApplied:  composition != nil,
-		CompositionSummary:  compositionSummary(composition),
+		SchemaID:          "cartulary.reporting_slide_deck.v2",
+		Title:             title,
+		OutputOptions:     options,
+		Slides:            slides,
+		SlideCount:        len(slides),
+		ClickStepCount:    clickCount,
+		ExpectedPageCount: len(slides) + clickCount,
+		SourceRefs:        refs.source,
+		SupportRefs:       refs.support,
 	}, nil
 }
 
-func applyCompositionToDeck(slides *[]reportingDeckSlide, composition *renderComposition) error {
-	authoredTexts := map[string]compositionAuthoredText{}
-	for _, text := range composition.AuthoredTexts {
-		authoredTexts[text.AuthoredTextID] = text
-		if strings.Contains(text.Body, "```mermaid") || strings.Contains(text.Body, "<script") || strings.Contains(text.Body, "<iframe") {
-			return newRenderValidationError("composition_invalid", "invalid_mermaid_construct")
-		}
-	}
-	for _, op := range composition.DeckOps {
-		switch op.OpKind {
-		case "override_title":
-			text, ok := authoredTexts[op.Payload.AuthoredTextRef]
-			if !ok || text.TextRole != "title_override" {
-				return newRenderValidationError("composition_invalid", "authored_subject_ref_unresolved")
-			}
-			if len(*slides) == 0 {
-				return newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
-			}
-			(*slides)[0].Title = text.Body
-		case "set_speaker_notes":
-			text, ok := authoredTexts[op.Payload.AuthoredTextRef]
-			if !ok || text.TextRole != "speaker_notes" {
-				return newRenderValidationError("composition_invalid", "authored_subject_ref_unresolved")
-			}
-			if len(*slides) == 0 {
-				return newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
-			}
-			(*slides)[0].SpeakerNotes = append((*slides)[0].SpeakerNotes, text.Body)
-		case "insert_authored_block":
-			text, ok := authoredTexts[op.Payload.AuthoredTextRef]
-			if !ok || text.TextRole != "authored_text" {
-				return newRenderValidationError("composition_invalid", "authored_subject_ref_unresolved")
-			}
-			if len(*slides) == 0 {
-				return newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
-			}
-			block := reportingDeckBlock{
-				BlockID:      fmt.Sprintf("blk-composition-%04d", len((*slides)[0].Blocks)+1),
-				BlockKind:    "authored_text",
-				ContentClass: ContentClassCuratedNarrative,
-				Text:         text.Body,
-			}
-			if op.Payload.Position == "before" {
-				(*slides)[0].Blocks = append([]reportingDeckBlock{block}, (*slides)[0].Blocks...)
-			} else {
-				(*slides)[0].Blocks = append((*slides)[0].Blocks, block)
-			}
-		case "exclude_section", "reorder_sections", "override_slide_layout", "exclude_block", "override_click_profile", "insert_diagram_slide", "exclude_diagram", "override_diagram_labels":
-			return newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
-		default:
-			return newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
-		}
-	}
-	return nil
-}
-
-func deriveDiagramModels(model RedactedExportModel, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, releaseScope string, graphResults []resolvedGraphResult) ([]reportingDiagramModel, error) {
+func deriveDiagramModels(contract TemplateContract, model RedactedExportModel, compositionJSON json.RawMessage, releaseScope, outputKind string, graphs map[string]selectedGraphDiagram) ([]reportingDiagramModel, error) {
 	composition, err := parseRenderComposition(compositionJSON)
 	if err != nil {
 		return nil, err
 	}
-	refs, err := decodeSourceProjectionRefs(graphProjectionRefs)
+	decls, owned, err := resolveDiagramDeclarations(contract, composition)
 	if err != nil {
-		return nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_bound")
+		return nil, err
 	}
 	diagrams := []reportingDiagramModel{}
-	if composition != nil {
-		for _, decl := range composition.DiagramDecls {
-			if decl.LayoutMode == "manual" {
-				return nil, newRenderValidationError("composition_invalid", "manual_layout_not_supported_for_output_kind")
-			}
-			if decl.DeclID == "" {
-				return nil, newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
-			}
-			if decl.DiagramSourceKind == "graph" {
-				ref, err := resolveGraphProjectionRef(refs, decl.SourceGraphViewID)
-				if err != nil {
-					return nil, err
-				}
-				result, err := resolveLoadedGraphResult(graphResults, ref)
-				if err != nil {
-					return nil, err
-				}
-				diagram, err := graphDiagramFromResult(decl, ref, result, releaseScope)
-				if err != nil {
-					return nil, err
-				}
-				diagrams = append(diagrams, diagram)
-				continue
-			}
-			diagrams = append(diagrams, defaultDiagramFromFields(decl.DeclID, sortedRedactedFields(model.Fields)))
+	for _, decl := range decls {
+		if decl.LayoutMode == "manual" && outputKind != OutputKindSlidev {
+			return nil, newRenderValidationError("composition_invalid", "manual_layout_not_supported_for_output_kind")
 		}
+		if decl.DeclID == "" {
+			return nil, newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
+		}
+		if decl.DiagramSourceKind == "graph" {
+			selection, exists := graphs[decl.DeclID]
+			if !exists {
+				return nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_bound")
+			}
+			diagram, err := graphDiagramFromSelection(decl, selection, model)
+			if err != nil {
+				return nil, err
+			}
+			if err := applyDiagramLabelOverrides(&diagram, decl.LabelOverrides); err != nil {
+				return nil, err
+			}
+			diagram.LayoutMode, diagram.CompositionLayout, diagram.compositionOwned = decl.LayoutMode, decl.Layout, owned[decl.DeclID]
+			diagrams = append(diagrams, diagram)
+			continue
+		}
+		events := eligibleDiagramEvents(model, diagramAllowsSuperseded(contract, composition, decl.DeclID))
+		diagram, err := timelineDiagramFromEvents(decl, events, releaseScope)
+		if err != nil {
+			return nil, err
+		}
+		if err := applyDiagramLabelOverrides(&diagram, decl.LabelOverrides); err != nil {
+			return nil, err
+		}
+		diagram.LayoutMode, diagram.CompositionLayout, diagram.compositionOwned = decl.LayoutMode, decl.Layout, owned[decl.DeclID]
+		diagrams = append(diagrams, diagram)
 	}
-	if len(diagrams) == 0 {
-		diagrams = append(diagrams, defaultDiagramFromFields("default", sortedRedactedFields(model.Fields)))
+	if err := applyCompositionDiagramOps(&diagrams, composition, releaseScope); err != nil {
+		return nil, err
 	}
 	sort.Slice(diagrams, func(i, j int) bool {
 		return diagrams[i].DiagramID < diagrams[j].DiagramID
@@ -766,109 +685,7 @@ func resolveLoadedGraphResult(results []resolvedGraphResult, ref sourceProjectio
 	return resolvedGraphResult{}, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_completed")
 }
 
-func graphDiagramFromResult(decl compositionDiagramDecl, ref sourceProjectionRef, resolved resolvedGraphResult, releaseScope string) (reportingDiagramModel, error) {
-	vertices, edges, overflow, err := selectGraphDiagramObjects(resolved.Result, decl.SelectionRule)
-	if err != nil {
-		return reportingDiagramModel{}, err
-	}
-	if releaseScope == ReleaseScopeExternal && (len(vertices) > 0 || len(edges) > 0) {
-		// Network Flow has not declared releasable disclosure partitions for raw
-		// graph values. External output therefore fails closed instead of
-		// guessing a classification or leaking a source-derived label.
-		return reportingDiagramModel{}, newRenderValidationError("redaction_manifest_invalid", "redaction_action_unresolved")
-	}
-	vertexNodeIDs := make(map[string]string, len(vertices))
-	vertexLabels := make(map[string]graphsourcecontract.VertexLabelCandidate, len(resolved.LabelCandidates.VertexLabelCandidates))
-	for _, candidate := range resolved.LabelCandidates.VertexLabelCandidates {
-		vertexLabels[candidate.ProjectedVertexID] = candidate
-	}
-	edgeLabels := make(map[string]graphsourcecontract.EdgeLabelCandidate, len(resolved.LabelCandidates.EdgeLabelCandidates))
-	for _, candidate := range resolved.LabelCandidates.EdgeLabelCandidates {
-		edgeLabels[candidate.ProjectedEdgeID] = candidate
-	}
-	nodes := make([]reportingDiagramNode, 0, len(vertices))
-	includedVertices := make([]string, 0, len(vertices))
-	for index, vertex := range vertices {
-		nodeID := fmt.Sprintf("n%04d", index+1)
-		vertexNodeIDs[vertex.VertexID] = nodeID
-		includedVertices = append(includedVertices, vertex.VertexID)
-		label := graphVertexLabel(vertexLabels[vertex.VertexID], index+1)
-		nodes = append(nodes, reportingDiagramNode{NodeID: nodeID, Label: label})
-	}
-	diagramEdges := make([]reportingDiagramEdge, 0, len(edges))
-	includedEdges := make([]string, 0, len(edges))
-	for index, edge := range edges {
-		from, fromPresent := vertexNodeIDs[edge.SrcVertexID]
-		to, toPresent := vertexNodeIDs[edge.DstVertexID]
-		if !fromPresent || !toPresent {
-			continue
-		}
-		includedEdges = append(includedEdges, edge.EdgeID)
-		diagramEdges = append(diagramEdges, reportingDiagramEdge{
-			EdgeID: fmt.Sprintf("e%04d", index+1), From: from, To: to,
-			Label: graphEdgeLabel(edgeLabels[edge.EdgeID], index+1),
-		})
-	}
-	refCopy := ref
-	return reportingDiagramModel{
-		SchemaID:            "cartulary.reporting_diagram.v1",
-		DiagramID:           decl.DeclID,
-		DiagramKind:         "flowchart",
-		DiagramSourceKind:   "graph",
-		LayoutMode:          "auto",
-		SourceProjectionRef: &refCopy,
-		SelectionRule:       decl.SelectionRule,
-		IncludedVertexRefs:  includedVertices,
-		IncludedEdgeRefs:    includedEdges,
-		OverflowSummary:     overflow,
-		Nodes:               nodes,
-		Edges:               diagramEdges,
-	}, nil
-}
-
-func graphVertexLabel(candidate graphsourcecontract.VertexLabelCandidate, ordinal int) string {
-	if value, ok := retainedGraphStringComponent(candidate.Endpoint); ok {
-		return value
-	}
-	return fmt.Sprintf("Vertex %04d", ordinal)
-}
-
-func graphEdgeLabel(candidate graphsourcecontract.EdgeLabelCandidate, ordinal int) string {
-	parts := make([]string, 0, 3)
-	if candidate.Kind == "time_bucket_v1" && candidate.BucketStartUTC != nil && candidate.BucketEndUTC != nil {
-		start, startOK := retainedGraphStringComponent(*candidate.BucketStartUTC)
-		end, endOK := retainedGraphStringComponent(*candidate.BucketEndUTC)
-		if startOK && endOK {
-			parts = append(parts, "["+start+","+end+")")
-		}
-	}
-	if protocol, ok := retainedGraphIntegerComponent(candidate.Protocol); ok {
-		parts = append(parts, fmt.Sprintf("protocol=%d", protocol))
-	}
-	if port, ok := retainedGraphIntegerComponent(candidate.DestinationPort); ok {
-		parts = append(parts, fmt.Sprintf("port=%d", port))
-	}
-	if len(parts) == 0 {
-		return fmt.Sprintf("Edge %04d", ordinal)
-	}
-	return strings.Join(parts, " ")
-}
-
-func retainedGraphStringComponent(component graphsourcecontract.LabelComponent) (string, bool) {
-	if component.State != graphsourcecontract.ComponentStatePresent || component.ValueKind != graphsourcecontract.ValueKindString || component.StringValue == "" {
-		return "", false
-	}
-	return component.StringValue, true
-}
-
-func retainedGraphIntegerComponent(component graphsourcecontract.LabelComponent) (int64, bool) {
-	if component.State != graphsourcecontract.ComponentStatePresent || component.ValueKind != graphsourcecontract.ValueKindInteger {
-		return 0, false
-	}
-	return component.IntegerValue, true
-}
-
-func selectGraphDiagramObjects(result graphprojection.CompletedResultV2, rule diagramSelectionRule) ([]graphprojection.ResultVertexV2, []graphprojection.ResultEdgeV2, *diagramOverflowSummary, error) {
+func selectGraphDiagramObjects(result graphprojection.CompletedResultV2, rule diagramSelectionRule, vertexLimit int) ([]graphprojection.ResultVertexV2, []graphprojection.ResultEdgeV2, *diagramOverflowSummary, error) {
 	vertexByID := make(map[string]graphprojection.ResultVertexV2, len(result.Vertices))
 	for _, vertex := range result.Vertices {
 		vertexByID[vertex.VertexID] = vertex
@@ -970,14 +787,14 @@ func selectGraphDiagramObjects(result graphprojection.CompletedResultV2, rule di
 		}
 	}
 	var overflow *diagramOverflowSummary
-	if len(vertices) > 80 || len(edges) > 160 {
+	if len(vertices) > vertexLimit || len(edges) > 160 {
 		if rule.OverflowPolicy != "summarize" {
 			return nil, nil, nil, newRenderValidationError("mermaid_invalid", "diagram_hard_limit_exceeded")
 		}
 		originalVertices := vertices
 		originalEdges := edges
-		if len(vertices) > 80 {
-			vertices = vertices[:80]
+		if len(vertices) > vertexLimit {
+			vertices = vertices[:vertexLimit]
 		}
 		kept := make(map[string]struct{}, len(vertices))
 		for _, vertex := range vertices {
@@ -1067,117 +884,8 @@ func resolveGraphProjectionRef(refs []sourceProjectionRef, sourceGraphViewID *st
 	return *matched, nil
 }
 
-func defaultDiagramFromFields(diagramID string, fields []RedactedField) reportingDiagramModel {
-	nodes := []reportingDiagramNode{{NodeID: "n0000", Label: "Snapshot"}}
-	edges := []reportingDiagramEdge{}
-	for i, field := range fields {
-		nodeID := fmt.Sprintf("n%04d", i+1)
-		nodes = append(nodes, reportingDiagramNode{NodeID: nodeID, Label: field.Path})
-		edges = append(edges, reportingDiagramEdge{EdgeID: fmt.Sprintf("e%04d", i+1), From: "n0000", To: nodeID})
-	}
-	if len(fields) == 0 {
-		nodes = append(nodes, reportingDiagramNode{NodeID: "n0001", Label: "Report"})
-		edges = append(edges, reportingDiagramEdge{EdgeID: "e0001", From: "n0000", To: "n0001"})
-	}
-	return reportingDiagramModel{
-		SchemaID:          "cartulary.reporting_diagram.v1",
-		DiagramID:         diagramID,
-		DiagramKind:       "flowchart",
-		DiagramSourceKind: "timeline",
-		LayoutMode:        "auto",
-		SelectionRule: diagramSelectionRule{
-			SchemaID: "diagram_selection_rule.v1", RuleID: "timeline_sequence",
-			VertexRefs: []string{}, EdgeRefs: []string{}, SeedVertexRefs: []string{},
-			EdgeKindFilter: []string{}, TimelineRecordIDs: []string{}, OverflowPolicy: "fail",
-		},
-		IncludedVertexRefs: []string{},
-		IncludedEdgeRefs:   []string{},
-		Nodes:              nodes,
-		Edges:              edges,
-	}
-}
-
-func serializeSlidevMarkdown(deck reportingDeckModel) []byte {
-	var b strings.Builder
-	b.WriteString("---\n")
-	b.WriteString("layout: cover\n")
-	b.WriteString("---\n\n")
-	b.WriteString("# ")
-	b.WriteString(escapeMarkdownText(deck.Title))
-	b.WriteString("\n")
-	for _, slide := range deck.Slides {
-		b.WriteString("\n---\n")
-		b.WriteString("layout: ")
-		b.WriteString(slide.Layout)
-		b.WriteString("\n---\n\n")
-		b.WriteString("## ")
-		b.WriteString(escapeMarkdownText(slide.Title))
-		b.WriteString("\n\n")
-		for _, block := range slide.Blocks {
-			b.WriteString("- ")
-			b.WriteString(escapeMarkdownText(block.Text))
-			b.WriteString("\n")
-		}
-		for _, note := range slide.SpeakerNotes {
-			b.WriteString("\n<!--\n")
-			b.WriteString(escapeMarkdownComment(note))
-			b.WriteString("\n-->\n")
-		}
-	}
-	return []byte(b.String())
-}
-
-func serializeMermaidSource(diagram reportingDiagramModel) ([]byte, error) {
-	var b strings.Builder
-	b.WriteString("flowchart TD\n")
-	for _, node := range diagram.Nodes {
-		if strings.ContainsAny(node.Label, "<>") {
-			return nil, newRenderValidationError("mermaid_invalid", "invalid_mermaid_construct")
-		}
-		b.WriteString("  ")
-		b.WriteString(node.NodeID)
-		b.WriteString("[\"")
-		b.WriteString(escapeMermaidLabel(node.Label))
-		b.WriteString("\"]\n")
-	}
-	for _, edge := range diagram.Edges {
-		b.WriteString("  ")
-		b.WriteString(edge.From)
-		b.WriteString(" --> ")
-		b.WriteString(edge.To)
-		if edge.Label != "" {
-			b.WriteString("|")
-			b.WriteString(escapeMermaidLabel(edge.Label))
-			b.WriteString("|")
-		}
-		b.WriteString("\n")
-	}
-	return []byte(b.String()), nil
-}
-
-func renderDeterministicPDF(deckJSON []byte, source []byte) []byte {
-	return []byte("%PDF-1.4\n% Cartulary deterministic render\n" + hashHex(deckJSON) + "\n" + hashHex(source) + "\n%%EOF\n")
-}
-
-func renderDeterministicMermaidSVG(diagram reportingDiagramModel) ([]byte, error) {
-	var b strings.Builder
-	width := 320 + len(diagram.Nodes)*20
-	height := 120 + len(diagram.Nodes)*30
-	b.WriteString(fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" role="img">`, width, height))
-	b.WriteString(`<rect x="0" y="0" width="100%" height="100%" fill="white"/>`)
-	for i, node := range diagram.Nodes {
-		label := escapeSVGText(node.Label)
-		if strings.Contains(label, "url(") {
-			return nil, fmt.Errorf("svg invalid: unsafe_svg")
-		}
-		y := 40 + i*36
-		b.WriteString(fmt.Sprintf(`<text x="24" y="%d" font-family="sans-serif" font-size="14" fill="black">%s</text>`, y, label))
-	}
-	b.WriteString(`</svg>`)
-	return []byte(b.String()), nil
-}
-
 func validateBundleFilesSelfContained(files []RenderBundleFile) error {
+	localCount, localBytes := 0, int64(0)
 	for _, file := range files {
 		switch file.Role {
 		case renderBundleRoleSourceSlidev:
@@ -1189,17 +897,29 @@ func validateBundleFilesSelfContained(files []RenderBundleFile) error {
 				return err
 			}
 		case renderBundleRoleRenderedSVG:
-			if strings.Contains(strings.ToLower(string(file.Bytes)), "<script") || strings.Contains(strings.ToLower(string(file.Bytes)), "url(") {
-				return ErrRemoteRuntimeAsset
+			if err := validateRenderedSVG(file.Bytes); err != nil {
+				return err
+			}
+		case renderBundleRoleLocalAsset, renderBundleRoleLocalTheme:
+			localCount++
+			localBytes += int64(len(file.Bytes))
+			if localCount > 500 {
+				return newRenderValidationError("asset_limit_exceeded", "local_asset_count_exceeded")
+			}
+			if localBytes > 250<<20 {
+				return newRenderValidationError("asset_limit_exceeded", "local_assets_total_bytes_exceeded")
+			}
+			if err := validateTemplateFileContent(file.MediaType, file.Bytes); err != nil {
+				return err
 			}
 		}
 	}
-	return nil
+	return validateThemeBundleFiles(files)
 }
 
 func validateSourceValuesForRemoteAssets(model RedactedExportModel) error {
-	for _, field := range model.Fields {
-		text := formatFieldValue(field.Value)
+	check := func(value any) error {
+		text := formatFieldValue(value)
 		if markdownRemoteImagePattern.MatchString(text) ||
 			htmlRemoteScriptSourcePattern.MatchString(text) ||
 			htmlRemoteLinkHrefPattern.MatchString(text) ||
@@ -1207,6 +927,31 @@ func validateSourceValuesForRemoteAssets(model RedactedExportModel) error {
 			htmlRemoteStylePattern.MatchString(text) ||
 			cssRemoteAssetPattern.MatchString(text) {
 			return ErrRemoteRuntimeAsset
+		}
+		return nil
+	}
+	var visit func([]ReportingBlock) error
+	visit = func(blocks []ReportingBlock) error {
+		for _, block := range blocks {
+			for _, field := range block.Fields {
+				if err := check(field.Value); err != nil {
+					return err
+				}
+			}
+			if err := visit(block.Children); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, section := range model.Sections {
+		if err := visit(section.Blocks); err != nil {
+			return err
+		}
+	}
+	for _, text := range model.PresentationTexts {
+		if err := check(text.Body.Value); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -1222,9 +967,6 @@ func redactionArtifactFiles(artifacts RedactionBundleArtifacts) []RenderBundleFi
 	}
 	if len(artifacts.TokenManifestJSON) > 0 {
 		files = append(files, newBundleFile("validation/token-manifest.json", renderBundleRoleTokenManifest, "application/vnd.cartulary.reporting-token-manifest+json", artifacts.TokenManifestJSON, true))
-	}
-	if len(artifacts.RevealMapJSON) > 0 {
-		files = append(files, newBundleFile("internal/reveal-map.json", renderBundleRoleSensitiveRevealMap, "application/vnd.cartulary.reporting-reveal-map+json", artifacts.RevealMapJSON, false))
 	}
 	return files
 }
@@ -1251,80 +993,18 @@ func sortBundleFiles(files []RenderBundleFile) {
 	})
 }
 
-func sortedRedactedFields(fields []RedactedField) []RedactedField {
-	out := append([]RedactedField(nil), fields...)
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].Path < out[j].Path
-	})
-	return out
-}
-
-func deckDerivationAlgorithm(compositionPresent bool) string {
-	if compositionPresent {
-		return "derive_deck_v2"
-	}
-	return "derive_deck_v1"
-}
-
-func compositionSummary(composition *renderComposition) map[string]any {
-	if composition == nil {
-		return map[string]any{"present": false}
-	}
-	return map[string]any{
-		"present":        true,
-		"deck_ops":       len(composition.DeckOps),
-		"diagram_decls":  len(composition.DiagramDecls),
-		"authored_texts": len(composition.AuthoredTexts),
-	}
-}
-
-func jsonArrayCount(raw json.RawMessage) int {
-	if len(raw) == 0 {
-		return 0
-	}
-	var values []any
-	if err := json.Unmarshal(raw, &values); err != nil {
-		return 0
-	}
-	return len(values)
-}
-
-func escapeMarkdownText(value string) string {
-	replacer := strings.NewReplacer(
-		`\`, `\\`,
-		"`", "\\`",
-		"*", "\\*",
-		"_", "\\_",
-		"{", "\\{",
-		"}", "\\}",
-		"[", "\\[",
-		"]", "\\]",
-		"(", "\\(",
-		")", "\\)",
-		"#", "\\#",
-		"+", "\\+",
-		"-", "\\-",
-		".", "\\.",
-		"!", "\\!",
-		"|", "\\|",
-		"<", "&lt;",
-		">", "&gt;",
-	)
-	return replacer.Replace(value)
-}
-
-func escapeMarkdownComment(value string) string {
-	return strings.ReplaceAll(value, "-->", "--&gt;")
-}
-
+// Mermaid's grammar does not admit backslash-escaped quote delimiters. V2
+// encodes syntax-sensitive characters once using Mermaid decimal entities.
 func escapeMermaidLabel(value string) string {
-	replacer := strings.NewReplacer("\\", "\\\\", "\"", "\\\"", "\n", " ", "\r", " ")
-	return replacer.Replace(value)
-}
-
-func escapeSVGText(value string) string {
-	replacer := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", `"`, "&quot;", "'", "&apos;")
-	return replacer.Replace(value)
+	var out strings.Builder
+	for index, ch := range value {
+		if strings.ContainsRune("\"#%&';\\`|", ch) || (ch == ' ' && (index == 0 || index == len(value)-1)) {
+			fmt.Fprintf(&out, "#%d;", ch)
+		} else {
+			out.WriteRune(ch)
+		}
+	}
+	return out.String()
 }
 
 type renderComposition struct {
@@ -1342,11 +1022,20 @@ type compositionDeckOp struct {
 }
 
 type compositionOpPayload struct {
-	AuthoredTextRef string `json:"authored_text_ref,omitempty"`
-	Position        string `json:"position,omitempty"`
+	AuthoredTextRef string                     `json:"authored_text_ref,omitempty"`
+	Position        string                     `json:"position,omitempty"`
+	SectionAnchor   *compositionSectionAnchor  `json:"section_anchor,omitempty"`
+	SectionAnchors  []compositionSectionAnchor `json:"section_anchors,omitempty"`
+	BlockAnchor     *compositionBlockAnchor    `json:"block_anchor,omitempty"`
+	DiagramAnchor   *compositionDiagramAnchor  `json:"diagram_anchor,omitempty"`
+	LayoutID        string                     `json:"layout_id,omitempty"`
+	ClickProfile    string                     `json:"click_profile,omitempty"`
+	LabelOverrides  []diagramLabelOverride     `json:"label_overrides,omitempty"`
 }
 
 type compositionAuthoredText struct {
+	omitted                bool
+	retainedBody           *ReportingField
 	AuthoredTextID         string `json:"authored_text_id"`
 	TextRole               string `json:"text_role"`
 	Body                   string `json:"body"`
@@ -1354,96 +1043,37 @@ type compositionAuthoredText struct {
 }
 
 type compositionDiagramDecl struct {
-	DeclID            string               `json:"decl_id"`
-	DiagramKind       string               `json:"diagram_kind"`
-	DiagramSourceKind string               `json:"diagram_source_kind"`
-	SourceGraphViewID *string              `json:"source_graph_view_id"`
-	SelectionRule     diagramSelectionRule `json:"selection_rule"`
-	LayoutMode        string               `json:"layout_mode"`
+	Layout            *compositionDiagramLayout `json:"layout"`
+	DeclID            string                    `json:"decl_id"`
+	ReplacesDeclID    *string                   `json:"replaces_decl_id"`
+	DiagramKind       string                    `json:"diagram_kind"`
+	DiagramSourceKind string                    `json:"diagram_source_kind"`
+	SourceGraphViewID *string                   `json:"source_graph_view_id"`
+	SelectionRule     diagramSelectionRule      `json:"selection_rule"`
+	LayoutMode        string                    `json:"layout_mode"`
+	LabelOverrides    []diagramLabelOverride    `json:"label_overrides"`
 }
 
-type diagramSelectionRule struct {
-	SchemaID          string   `json:"schema_id"`
-	RuleID            string   `json:"rule_id"`
-	VertexRefs        []string `json:"vertex_refs"`
-	EdgeRefs          []string `json:"edge_refs"`
-	SeedVertexRefs    []string `json:"seed_vertex_refs"`
-	Depth             *int     `json:"depth"`
-	EdgeKindFilter    []string `json:"edge_kind_filter"`
-	TimelineRecordIDs []string `json:"timeline_record_ids"`
-	OverflowPolicy    string   `json:"overflow_policy"`
-}
-
-func (rule *diagramSelectionRule) UnmarshalJSON(data []byte) error {
-	var members map[string]json.RawMessage
-	if err := json.Unmarshal(data, &members); err != nil {
-		return err
-	}
-	allowed := map[string]struct{}{
-		"schema_id": {}, "rule_id": {}, "vertex_refs": {}, "edge_refs": {},
-		"seed_vertex_refs": {}, "depth": {}, "edge_kind_filter": {},
-		"timeline_record_ids": {}, "overflow_policy": {},
-	}
-	if len(members) != len(allowed) {
-		return fmt.Errorf("selection_rule must contain the closed member set")
-	}
-	for key := range members {
-		if _, present := allowed[key]; !present {
-			return fmt.Errorf("selection_rule contains unknown member %q", key)
-		}
-	}
-	for _, key := range []string{"vertex_refs", "edge_refs", "seed_vertex_refs", "edge_kind_filter", "timeline_record_ids"} {
-		if bytesEqualJSONNull(members[key]) {
-			return fmt.Errorf("selection_rule member %q is not nullable", key)
-		}
-	}
-	type wireRule diagramSelectionRule
-	var decoded wireRule
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		return err
-	}
-	if decoded.SchemaID != "diagram_selection_rule.v1" ||
-		(decoded.OverflowPolicy != "fail" && decoded.OverflowPolicy != "summarize") ||
-		hasDuplicateStrings(decoded.EdgeKindFilter) || !sort.StringsAreSorted(decoded.EdgeKindFilter) {
-		return fmt.Errorf("selection_rule has invalid common members")
-	}
-	if hasDuplicateStrings(decoded.TimelineRecordIDs) {
-		return fmt.Errorf("selection_rule has duplicate timeline refs")
-	}
-	switch decoded.RuleID {
-	case "explicit_refs":
-		if decoded.Depth != nil || len(decoded.SeedVertexRefs) != 0 || len(decoded.EdgeKindFilter) != 0 || len(decoded.TimelineRecordIDs) != 0 || len(decoded.VertexRefs)+len(decoded.EdgeRefs) == 0 || hasDuplicateStrings(decoded.VertexRefs) || hasDuplicateStrings(decoded.EdgeRefs) {
-			return fmt.Errorf("selection_rule explicit_refs members are invalid")
-		}
-	case "neighborhood":
-		if decoded.Depth == nil || (*decoded.Depth != 1 && *decoded.Depth != 2) || len(decoded.SeedVertexRefs) == 0 || hasDuplicateStrings(decoded.SeedVertexRefs) || len(decoded.VertexRefs) != 0 || len(decoded.EdgeRefs) != 0 || len(decoded.TimelineRecordIDs) != 0 {
-			return fmt.Errorf("selection_rule neighborhood members are invalid")
-		}
-	case "timeline_sequence":
-		if decoded.Depth != nil || len(decoded.TimelineRecordIDs) == 0 || len(decoded.VertexRefs) != 0 || len(decoded.EdgeRefs) != 0 || len(decoded.SeedVertexRefs) != 0 || len(decoded.EdgeKindFilter) != 0 {
-			return fmt.Errorf("selection_rule timeline_sequence members are invalid")
-		}
-	case "all_with_bounds":
-		if decoded.Depth != nil || len(decoded.VertexRefs) != 0 || len(decoded.EdgeRefs) != 0 || len(decoded.SeedVertexRefs) != 0 || len(decoded.EdgeKindFilter) != 0 || len(decoded.TimelineRecordIDs) != 0 {
-			return fmt.Errorf("selection_rule all_with_bounds members are invalid")
-		}
-	default:
-		return fmt.Errorf("selection_rule rule_id is invalid")
-	}
-	*rule = diagramSelectionRule(decoded)
-	return nil
-}
+type diagramSelectionRule = diagramcontract.SelectionRule
 
 func parseRenderComposition(raw json.RawMessage) (*renderComposition, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
-	var composition renderComposition
-	if err := json.Unmarshal(raw, &composition); err != nil {
-		return nil, fmt.Errorf("composition invalid: %w", err)
+	source, err := decodeCompositionRenderInput(raw)
+	if err != nil {
+		return nil, err
 	}
-	if composition.SchemaID != "" && composition.SchemaID != "cartulary.report_composition.v1" && composition.SchemaID != "cartulary.report_composition_preview_source.v1" {
-		return nil, fmt.Errorf("composition invalid: unsupported schema %q", composition.SchemaID)
+	composition := renderComposition{SchemaID: source.SchemaID}
+	for _, projection := range []struct {
+		raw    json.RawMessage
+		target any
+	}{
+		{source.DeckOps, &composition.DeckOps}, {source.DiagramDecls, &composition.DiagramDecls}, {source.AuthoredTexts, &composition.AuthoredTexts},
+	} {
+		if err := json.Unmarshal(projection.raw, projection.target); err != nil {
+			return nil, newRenderValidationError("composition_invalid", "invalid_scalar_value")
+		}
 	}
 	for _, decl := range composition.DiagramDecls {
 		if decl.DiagramSourceKind != "" && decl.DiagramSourceKind != "graph" && decl.DiagramSourceKind != "timeline" {

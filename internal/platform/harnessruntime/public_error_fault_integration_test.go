@@ -136,14 +136,9 @@ func TestPublicErrorFaultRouteRejectsInvalidTargets(t *testing.T) {
 
 func TestPublicErrorFaultRegistryClearRemovesArmedFaults(t *testing.T) {
 	faults := NewPublicErrorFaultRegistry()
-	service := &publicErrorFaultService{
-		guard:  httpapi.TestRouteGuard{Token: testRuntimeResetToken},
-		faults: faults,
-	}
-	req := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, "/api/v1/test/runtime/public-error-faults", publicErrorFaultBody()))
-	recorder := httptest.NewRecorder()
-	service.handleArm(recorder, req)
-	requireTestRuntimeResetSuccessEnvelope(t, recorder.Result(), http.StatusCreated)
+	server := startPublicErrorFaultHTTPServer(t, testRuntimeEnabledEnv(), faults)
+	request := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/public-error-faults", publicErrorFaultBody()))
+	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), request), http.StatusCreated)
 	faults.Clear()
 	if _, ok := faults.ConsumePublicErrorFault("PATCH", "/api/v1/records/record-1"); ok {
 		t.Fatal("clear must remove armed public error faults")

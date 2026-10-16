@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/gen/performancefixtureprofile"
 	authfixture "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/performancefixture"
 	entitiesfixture "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport/performancefixture"
+	incidentsfixture "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/performancefixture"
 	linksfixture "github.com/JochiRaider/cartulary/internal/modules/links/testsupport/performancefixture"
 	projectionsfixture "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport/performancefixture"
 	timelinefixture "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/performancefixture"
@@ -150,7 +151,7 @@ type fakeApplications struct {
 	projectionSets int
 }
 
-func (f *fakeApplications) CreateBackgroundAnalyst(_ context.Context, request authfixture.CreateBackgroundAnalystRequest) (authfixture.Account, error) {
+func (f *fakeApplications) CreateFixtureAnalyst(_ context.Context, request authfixture.CreateFixtureAnalystRequest) (authfixture.Account, error) {
 	if f.failureAt == "auth" {
 		return authfixture.Account{}, errors.New("injected Auth failure")
 	}
@@ -161,7 +162,7 @@ func (f *fakeApplications) CreateBackgroundAnalyst(_ context.Context, request au
 	return authfixture.Account{UserID: fmt.Sprintf("private-user-%02d", f.accounts)}, nil
 }
 
-func (f *fakeApplications) CreateFixtureWorkspaceIncident(context.Context, int) (string, error) {
+func (f *fakeApplications) CreateFixtureWorkspaceIncident(context.Context, incidentsfixture.WorkspaceRequest) (string, error) {
 	if f.failureAt == "incidents" {
 		return "", errors.New("injected Incidents failure")
 	}
@@ -274,7 +275,7 @@ func (f *fakeApplications) ValidateFixtureSemantics(_ context.Context, incidentI
 func profileForTest(t *testing.T) performancefixtureprofile.Profile {
 	t.Helper()
 	for _, profile := range performancefixtureprofile.Profiles() {
-		if profile.Status == "active" {
+		if profile.Status == "active" && profile.FixtureProfileID == "timeline_large_grid_snapshot_v2" {
 			return profile
 		}
 	}
@@ -288,4 +289,45 @@ func semanticCountsForTest(profile performancefixtureprofile.Profile) map[string
 		result[expectation.ExpectationID] = expectation.Exact
 	}
 	return result
+}
+
+func TestEvidenceHeavyContractRejectsIncompatibleProfiles(t *testing.T) {
+	newProfile := func() performancefixtureprofile.Profile {
+		return performancefixtureprofile.Profile{
+			FixtureProfileID: "evidence_heavy_snapshot_v2", FixtureVersion: "cartulary.perf.evidence_heavy.v2", Seed: 20260405,
+			SourceContractRefs:    []performancefixtureprofile.SourceContractRef{{SchemaID: "cartulary.performance_evidence_inspector_contract.v1", ContractID: "cartulary.performance.ac045.v2"}},
+			RuntimeCredentialSets: []performancefixtureprofile.RuntimeCredentialSet{{SetID: "foreground_analysts", CredentialKind: "email_password", AccountCount: 1}},
+			ObjectPopulation:      performancefixtureprofile.ObjectPopulation{ObjectCount: 10000, TotalBytes: 20971520000},
+		}
+	}
+	workload, err := evidenceHeavyContract(newProfile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if workload.EvidenceRows != 10000 || workload.TimelineRows != 5000 || workload.LinkedEvidenceCount != 100 {
+		t.Fatal("wrong generated workload")
+	}
+	for name, mutate := range map[string]func(*performancefixtureprofile.Profile){
+		"missing source": func(p *performancefixtureprofile.Profile) { p.SourceContractRefs = nil },
+		"retired source": func(p *performancefixtureprofile.Profile) {
+			p.SourceContractRefs[0].ContractID = "cartulary.performance.ac045.v1"
+		},
+		"wrong schema":           func(p *performancefixtureprofile.Profile) { p.SourceContractRefs[0].SchemaID = "unknown" },
+		"retired fixture":        func(p *performancefixtureprofile.Profile) { p.FixtureVersion = "cartulary.perf.evidence_heavy.v1" },
+		"seed":                   func(p *performancefixtureprofile.Profile) { p.Seed++ },
+		"count":                  func(p *performancefixtureprofile.Profile) { p.ObjectPopulation.ObjectCount-- },
+		"bytes":                  func(p *performancefixtureprofile.Profile) { p.ObjectPopulation.TotalBytes-- },
+		"missing credential set": func(p *performancefixtureprofile.Profile) { p.RuntimeCredentialSets = nil },
+		"wrong credential set":   func(p *performancefixtureprofile.Profile) { p.RuntimeCredentialSets[0].SetID = "background_analysts" },
+		"wrong credential kind":  func(p *performancefixtureprofile.Profile) { p.RuntimeCredentialSets[0].CredentialKind = "token" },
+		"extra analyst":          func(p *performancefixtureprofile.Profile) { p.RuntimeCredentialSets[0].AccountCount++ },
+	} {
+		t.Run(name, func(t *testing.T) {
+			p := newProfile()
+			mutate(&p)
+			if _, err := evidenceHeavyContract(p); err == nil {
+				t.Fatal("incompatible profile admitted")
+			}
+		})
+	}
 }

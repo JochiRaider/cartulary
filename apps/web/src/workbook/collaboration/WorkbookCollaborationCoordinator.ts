@@ -334,6 +334,8 @@ class WorkbookCollaborationCoordinatorRuntime {
     };
     this.cancelPresenceTask();
     this.cancelReset();
+    if (this.authorizationRecoveryMachine.authorizationConfirmed)
+      this.markPresenceAcceptance();
     this.publishPresenceNow();
     this.emit();
   }
@@ -383,9 +385,14 @@ class WorkbookCollaborationCoordinatorRuntime {
 
   publishPresence(presence: WorkbookPresenceDraft): void {
     if (this.disposed) return;
+    const changed =
+      this.presenceDraft.mode !== presence.mode ||
+      this.presenceDraft.recordId !== presence.recordId ||
+      this.presenceDraft.fieldKey !== presence.fieldKey;
     this.editorPresenceGeneration += 1;
     this.presenceDraft = { ...presence };
     if (!this.authorizationRecoveryMachine.authorizationConfirmed) return;
+    if (changed) this.markPresenceAcceptance();
     const scheduled = scheduleWorkbookPresencePublication(
       this.presencePublicationMachine,
       this.options.clock.nowMs(),
@@ -405,6 +412,17 @@ class WorkbookCollaborationCoordinatorRuntime {
         this.publishPresenceNow();
       },
     );
+  }
+
+  private markPresenceAcceptance(): void {
+    performance.mark("cartulary.workbook.presence_change_accepted", {
+      detail: {
+        sheetRef: { ...this.activeSheetRef },
+        recordId: this.presenceDraft.recordId,
+        fieldKey: this.presenceDraft.fieldKey,
+        mode: this.presenceDraft.mode,
+      },
+    });
   }
 
   publishFocusedCell(recordId: string | null, fieldKey: string | null): void {

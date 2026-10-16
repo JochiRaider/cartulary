@@ -38,7 +38,7 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 		t.Fatalf("unexpected hash length: %d", len(hash))
 	}
 
-	t.Run("Host and Identity accept exactly eight ordinary patch fields", func(t *testing.T) {
+	t.Run("Host and Identity accept all scalar, alias, and party-assignment patch fields", func(t *testing.T) {
 		cases := []struct {
 			viewSchemaID string
 			fields       []string
@@ -46,6 +46,7 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 			{
 				viewSchemaID: entitycontract.HostsViewSchemaID,
 				fields: []string{
+					"host.subject_party_ids", "host.responsible_party_ids", "host.observer_party_ids",
 					"host.aliases", "host.business_owner", "host.containment_status", "host.criticality",
 					"host.display_name", "host.hostname", "host.location", "host.os_platform",
 				},
@@ -53,6 +54,7 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 			{
 				viewSchemaID: entitycontract.IdentitiesViewSchemaID,
 				fields: []string{
+					"identity.subject_party_ids", "identity.responsible_party_ids", "identity.observer_party_ids",
 					"identity.aliases", "identity.display_name", "identity.email", "identity.mfa_state",
 					"identity.privilege_level", "identity.reset_status", "identity.sam_account_name", "identity.upn",
 				},
@@ -60,6 +62,7 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc.viewSchemaID, func(t *testing.T) {
+				slices.Sort(tc.fields)
 				changes := make([]map[string]any, 0, len(tc.fields))
 				for _, fieldKey := range tc.fields {
 					change := map[string]any{"field_key": fieldKey, "value": "sentinel-" + fieldKey}
@@ -71,6 +74,9 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 								"actions": []map[string]any{{"op": "add_alias", "alias_text": "Sentinel Alias"}},
 							},
 						}
+					}
+					if isPartyAssignmentField(fieldKey) {
+						change = map[string]any{"field_key": fieldKey, "action_payload": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{{"op": "add_party_ref", "party_id": "00000000-0000-4000-8000-000000000777"}}}}
 					}
 					changes = append(changes, change)
 				}
@@ -85,7 +91,7 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 					t.Fatalf("marshal exact patch partition: %v", err)
 				}
 				decoded, apiErr := DecodePatchRequest(strings.NewReader(string(data)))
-				if apiErr != nil || len(decoded.Changes) != 8 {
+				if apiErr != nil || len(decoded.Changes) != len(tc.fields) {
 					t.Fatalf("decode exact patch partition: request=%#v error=%#v", decoded, apiErr)
 				}
 				gotKeys := make([]string, 0, len(decoded.Changes))
@@ -113,6 +119,7 @@ func TestPatchRequestDecodeSortsAndHashesEntityChanges(t *testing.T) {
 }
 
 func TestPatchRequestDecodeRejectsUnsupportedEntityChanges(t *testing.T) {
+	t.Run("party assignment admission", testPartyAssignmentAdmission)
 	nonpatchable := map[string][]string{
 		entitycontract.HostsViewSchemaID: {
 			"host.aad_device_id", "host.edited_at", "host.evidence_count", "host.fqdn",

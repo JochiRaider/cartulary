@@ -57,10 +57,9 @@ UPDATE parties
        primary_email = CASE WHEN $10 THEN $11::text ELSE primary_email END,
        timezone_name = CASE WHEN $12 THEN $13::text ELSE timezone_name END,
        external_ref = CASE WHEN $14 THEN $15::text ELSE external_ref END,
-       notes = CASE WHEN $16 THEN $17::text ELSE notes END,
-       updated_at = $18
+       notes = CASE WHEN $16 THEN $17::text ELSE notes END
  WHERE record_id = $1
-`, append([]any{request.RecordID}, append(values, request.Now.UTC())...)...)
+`, append([]any{request.RecordID}, values...)...)
 	return err
 }
 

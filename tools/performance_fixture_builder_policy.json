@@ -2,7 +2,34 @@
   "schema_id": "cartulary.performance_fixture_builder_policy.v1",
   "builders": [
     {
-      "fixture_profile_id": "ac043_large_grid_snapshot_v1",
+      "fixture_profile_id": "evidence_heavy_snapshot_v2",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "performance_fixture_builder",
+      "fixture_capability": "postgres_dedicated",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "fixture_profile_id": "timeline_large_grid_import_snapshot_v1",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "performance_fixture_builder",
+      "fixture_capability": "postgres_dedicated",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "performance_fixture_builder",
+      "fixture_capability": "postgres_dedicated",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
       "runtime_profile_id": "default",
       "resource_profile_id": "performance_fixture_builder",
       "fixture_capability": "postgres_dedicated",

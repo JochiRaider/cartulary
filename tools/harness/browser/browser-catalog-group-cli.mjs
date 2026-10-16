@@ -17,6 +17,7 @@ import {
 } from "../contract/index.mjs";
 import {
   adaptPlaywrightReport,
+  playwrightTestList,
   playwrightGroupExitCode,
 } from "../execution/runners/playwright.mjs";
 import { groupRowsByPerformanceFixture } from "../performance-fixture/index.mjs";
@@ -24,7 +25,7 @@ import { reportCommandFailure } from "../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
-import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { loadTestCatalog, resolvePlaywrightSelection } from "../test-catalog/index.mjs";
 import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
 import { selectedBrowserGroupRowIDs } from "./browser-group-selection.mjs";
 import { attachmentAssignments } from "./browser-session-evidence.mjs";
@@ -51,10 +52,6 @@ function parseArgs(argv) {
   }
   if (!options.manifest || !options.stage || !options.group) throw new Error(usage());
   return options;
-}
-
-function regexEscape(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function runRoot() {
@@ -178,9 +175,10 @@ function groupRows(catalog, group) {
   return rows;
 }
 
-function commandForGroup(rows, group, artifactRoot) {
+function commandForGroup(rows, selection, group, artifactRoot) {
   const pnpm = process.env.PNPM || path.join(root, `${workspaceLayout.node_runtime}/bin/pnpm`);
-  const titles = [...new Set(rows.flatMap((row) => row.selector.titles))].sort();
+  const selectionFile = path.join(artifactRoot, "playwright-test-list.txt");
+  secureWriteFile(selectionFile, playwrightTestList(selection));
   const projectIDs = [...new Set(rows.map((row) => row.selector.project_id))].sort();
   if (projectIDs.length !== 1) {
     throw new Error(`browser group ${group.name} must select exactly one Playwright project`);
@@ -199,8 +197,8 @@ function commandForGroup(rows, group, artifactRoot) {
     "--output",
     path.join(artifactRoot, "playwright-output"),
     ...group.specs,
-    "-g",
-    `(?:${titles.map(regexEscape).join("|")})`,
+    "--test-list",
+    selectionFile,
   ];
   if (group.workers !== "default") args.push(`--workers=${group.workers}`);
   if (group.kind === "visual" && process.env.CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS === "1") {
@@ -260,7 +258,8 @@ async function main() {
   const reportPath = path.join(artifactRoot, "playwright-report.json");
   const stdoutPath = path.join(artifactRoot, "stdout.log");
   const stderrPath = path.join(artifactRoot, "stderr.log");
-  const invocation = commandForGroup(rows, group, artifactRoot);
+  const selection = resolvePlaywrightSelection(root, rows);
+  const invocation = commandForGroup(rows, selection, group, artifactRoot);
   const rendererLease = await startVisualRendererLease({ root, environment: process.env });
   let captureProof, captureStop, signalCleanupError, interruptedSignal;
   const onSignal = (signal) => {
@@ -344,6 +343,7 @@ async function main() {
     report,
     child.status,
     child.signal,
+    selection,
   ); parsing.finish(!report || rowResults.some((row) => row.failure_class === "artifact" || row.failure_class === "harness") ? "failed" : "passed"); }
   catch (error) { parsing.finish("failed"); throw error; }
   let measurementEvidenceError = null;

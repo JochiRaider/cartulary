@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.anchor_trace_proof.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "kind",
+    "record_id",
+    "request_record_id",
+    "initial_row_version",
+    "committed_row_version",
+    "final_row_version",
+    "max_mounted_rows",
+    "frame_count",
+    "grid_replacements",
+    "violations",
+    "checkpoints"
+  ],
+  "properties": {
+    "kind": {
+      "const": "timeline_anchor_trace"
+    },
+    "record_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "request_record_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "initial_row_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "committed_row_version": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 2
+    },
+    "final_row_version": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 2
+    },
+    "max_mounted_rows": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "frame_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "violations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "editor_retargeted",
+          "draft_changed",
+          "row_version_regressed",
+          "full_sheet_mounted",
+          "anchor_missing",
+          "no_frames",
+          "request_retargeted",
+          "grid_missing",
+          "row_binding_invalid"
+        ]
+      }
+    },
+    "checkpoints": {
+      "type": "array",
+      "maxItems": 11,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "step",
+          "frame_count",
+          "row_version",
+          "mounted_rows"
+        ],
+        "properties": {
+          "step": {
+            "enum": [
+              "draft_open",
+              "scroll_away",
+              "scroll_return",
+              "pending_commit",
+              "sort_accepted",
+              "filter_accepted",
+              "group_accepted",
+              "commit_accepted",
+              "stale_refresh_released",
+              "live_update_applied",
+              "final_stable"
+            ]
+          },
+          "frame_count": {
+            "type": "integer",
+            "minimum": 2
+          },
+          "row_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mounted_rows": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "schema_id": {
+      "const": "cartulary.anchor_trace_proof.v1"
+    },
+    "grid_replacements": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

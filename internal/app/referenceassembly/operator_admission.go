@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/app/extensionassembly"
+	"github.com/JochiRaider/cartulary/internal/app/jobassembly"
 	"github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
@@ -36,7 +37,7 @@ func NewOperatorAdmission(ctx context.Context, pool *pgxpool.Pool, storage refer
 	if _, admitted := publication.Job("reference_pack.import_v2"); !admitted {
 		return nil, nil, errors.New("reference pack: operator import profile is not admitted")
 	}
-	definitions, err := extensionassembly.RecognizedJobDefinitions(coordinator.JobKindContracts(), coordinator.WorkerRuntimeContracts())
+	definitions, err := jobassembly.RecognizedDefinitions(coordinator.JobKindContracts(), coordinator.WorkerRuntimeContracts())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -44,11 +45,11 @@ func NewOperatorAdmission(ctx context.Context, pool *pgxpool.Pool, storage refer
 	if err != nil {
 		return nil, nil, err
 	}
-	admitted, err := extensionassembly.JobDefinitions(publication)
+	admitted, err := jobassembly.SelectedDefinitions(publication)
 	if err != nil {
 		return nil, nil, err
 	}
-	workers, err := extensionassembly.WorkerRuntimeContracts(publication)
+	workers, err := jobassembly.WorkerContracts(publication)
 	if err != nil {
 		return nil, nil, err
 	}

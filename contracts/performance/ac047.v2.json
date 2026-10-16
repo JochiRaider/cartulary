@@ -1,0 +1,40 @@
+{
+  "schema_id": "cartulary.performance_anchor_trace_contract.v1",
+  "contract_id": "cartulary.performance.ac047.v2",
+  "criterion_id": "AC-047",
+  "predicate_id": "perf.anchor_stability_under_live_updates.v2",
+  "fixture_contract_id": "cartulary.performance.large_grid.v1",
+  "measurement_policy_id": "cartulary.measurement.seeded_trace.v1",
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "device_scale_factor": 1
+  },
+  "seed": 20260405,
+  "product_retries": 0,
+  "field_key": "timeline.activity_synopsis_text",
+  "draft_value": "AC047 anchored draft",
+  "live_field_key": "timeline.data_source_text",
+  "live_value": "AC047 newer source",
+  "sort_field_key": "timeline.analyst_text",
+  "filter": {
+    "field_key": "timeline.has_evidence",
+    "value": "false"
+  },
+  "group_field_key": "timeline.capture_state",
+  "steps": [
+    "draft_open",
+    "scroll_away",
+    "scroll_return",
+    "pending_commit",
+    "sort_accepted",
+    "filter_accepted",
+    "group_accepted",
+    "commit_accepted",
+    "stale_refresh_released",
+    "live_update_applied",
+    "final_stable"
+  ],
+  "sort_value": "anchor-first"
+}

@@ -34,12 +34,12 @@ type Receipt struct {
 }
 
 type BuildState struct {
-	FixtureProfileID  string
-	SnapshotKey       string
-	Seed              int
-	RuntimeBundle     RuntimeBundle
-	BackgroundUserIDs []string
-	IncidentID        string
+	FixtureProfileID string
+	SnapshotKey      string
+	Seed             int
+	RuntimeBundle    RuntimeBundle
+	PrincipalUserIDs []string
+	IncidentID       string
 }
 
 type Contribution interface {

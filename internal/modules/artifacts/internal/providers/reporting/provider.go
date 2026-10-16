@@ -24,19 +24,6 @@ func New(derived artifactprojection.Reader) (*Provider, error) {
 
 func (*Provider) ProviderKey() string { return "artifacts" }
 
-func (provider *Provider) CollectFieldsTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	incidentID uuid.UUID,
-	supportRefs map[string][]string,
-) ([]exportprovider.Field, error) {
-	output, err := provider.CollectFactsTx(ctx, tx, incidentID, supportRefs)
-	if err != nil {
-		return nil, err
-	}
-	return output.Fields(), nil
-}
-
 func (provider *Provider) CollectFactsTx(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -50,23 +37,25 @@ func (provider *Provider) CollectFactsTx(
 	if err != nil {
 		return exportprovider.ProviderOutput{}, err
 	}
-	fields := make([]exportprovider.FieldFact, 0, len(facts))
+	fields := make([]exportprovider.BoundField, 0, len(facts))
 	for _, fact := range facts {
 		prefix, sourceFamily, contentClass, included := reportingSemantics(fact)
 		if !included {
 			continue
 		}
 		recordID := fact.RecordID.String()
-		fields = append(fields, exportprovider.FieldFact{
-			SchemaID:     exportprovider.FieldFactSchemaID,
-			Path:         "/" + prefix + "/" + recordID,
-			ContentClass: contentClass,
-			SourceFamily: sourceFamily,
-			Value:        fact.Value,
-			SupportRefs:  exportprovider.CloneStrings(supportRefs[recordID]),
-		})
+		fields = append(fields, exportprovider.BoundField{
+			RecordID: recordID, RecordType: "artifact",
+			FieldFact: exportprovider.FieldFact{
+				SchemaID:     exportprovider.FieldFactSchemaID,
+				Path:         "/" + prefix + "/" + recordID,
+				ContentClass: contentClass,
+				SourceFamily: sourceFamily,
+				Value:        fact.Value,
+				SupportRefs:  exportprovider.CloneStrings(supportRefs[recordID]),
+			}})
 	}
-	return exportprovider.NewProviderOutput(provider.ProviderKey(), fields)
+	return exportprovider.NewProviderOutput(provider.ProviderKey(), fields, nil)
 }
 
 func reportingSemantics(fact artifactprojection.DerivedFact) (string, string, string, bool) {

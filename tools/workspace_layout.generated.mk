@@ -36,3 +36,4 @@ LAYOUT_PACKAGE_VITE_DEPENDENCIES := packages/*/node_modules/.vite
 LAYOUT_PACKAGE_VITE_TEMP_DEPENDENCIES := packages/*/node_modules/.vite-temp
 LAYOUT_PNPM_STORE := .pnpm-store
 LAYOUT_EMBEDDED_ASSETS := internal/platform/httpapi/webassets/assets/generated
+LAYOUT_REPORT_RENDERER := build/report-renderer

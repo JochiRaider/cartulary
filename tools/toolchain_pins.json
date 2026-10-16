@@ -15,6 +15,7 @@
     "syft": "github.com/anchore/syft/cmd/syft@v1.44.0"
   },
   "shellcheck_version": "0.11.0",
+  "bubblewrap_version": "0.11.1",
   "testcontainers_go_version": "v0.42.0",
   "ui_review": {
     "playwright": "1.63.0",
@@ -36,5 +37,13 @@
     "url": "https://security.ubuntu.com/ubuntu/pool/main/n/nss/libnss3-tools_3.98-1ubuntu0.2_amd64.deb",
     "bytes": 615170,
     "sha256": "e5b42390b02c21851bc04e9557ec48539a913f9b09637220c4b1db0d1386b3fb"
+  },
+  "report_renderer": {
+    "@slidev/cli": "53.0.0",
+    "@slidev/theme-default": "0.25.0",
+    "markdown-it": "14.3.2",
+    "mermaid": "12.2.0",
+    "pdf-lib": "1.17.1",
+    "playwright-chromium": "1.63.0"
   }
 }

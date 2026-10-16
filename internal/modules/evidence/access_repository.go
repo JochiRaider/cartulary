@@ -22,8 +22,12 @@ func (repository accessHandleRepository) loadEvidence(
 	ctx context.Context,
 	recordID uuid.UUID,
 ) (evidenceAccessRecord, error) {
-	row := repository.db.QueryRow(ctx, `
-SELECT e.incident_id, e.record_id, r.row_version, e.object_blob_id::text, b.object_blob_id IS NOT NULL, b.storage_key,
+	row := repository.db.QueryRow(ctx, evidenceAccessSelect+` WHERE e.record_id = $1`, recordID)
+	return scanEvidenceAccess(row)
+}
+
+const evidenceAccessSelect = `
+SELECT e.incident_id, e.record_id, r.row_version, e.title, e.object_blob_id::text, b.object_blob_id IS NOT NULL, b.storage_key,
        e.lifecycle_state, COALESCE(b.upload_state, ''),
        COALESCE(b.filename_hint, e.title, ''),
        COALESCE(b.observed_content_type, b.content_type_hint, 'application/octet-stream'),
@@ -32,13 +36,42 @@ SELECT e.incident_id, e.record_id, r.row_version, e.object_blob_id::text, b.obje
   FROM evidence e
   JOIN records r ON r.record_id = e.record_id AND r.deleted_at IS NULL
   LEFT JOIN object_blobs b ON b.object_blob_id = e.object_blob_id
- WHERE e.record_id = $1
-`, recordID)
+`
+
+func (repository accessHandleRepository) loadMetadata(ctx context.Context, incidentID uuid.UUID, recordIDs []uuid.UUID) ([]evidenceAccessRecord, error) {
+	rows, err := repository.db.Query(ctx, evidenceAccessSelect+` WHERE e.incident_id = $1 AND e.record_id = ANY($2::uuid[])`, incidentID, recordIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	byID := make(map[uuid.UUID]evidenceAccessRecord, len(recordIDs))
+	for rows.Next() {
+		access, err := scanEvidenceAccess(rows)
+		if err != nil {
+			return nil, err
+		}
+		byID[access.RecordID] = access
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	result := make([]evidenceAccessRecord, len(recordIDs))
+	for i, id := range recordIDs {
+		access, exists := byID[id]
+		if !exists {
+			return nil, ErrEvidenceNotFound
+		}
+		result[i] = access
+	}
+	return result, nil
+}
+
+func scanEvidenceAccess(row interface{ Scan(...any) error }) (evidenceAccessRecord, error) {
 	var access evidenceAccessRecord
 	var objectBlobID sql.NullString
 	var storageKey sql.NullString
 	var sha256 sql.NullString
-	if err := row.Scan(&access.IncidentID, &access.RecordID, &access.RecordRowVersion, &objectBlobID, &access.BlobMetadataVisible, &storageKey,
+	if err := row.Scan(&access.IncidentID, &access.RecordID, &access.RecordRowVersion, &access.Title, &objectBlobID, &access.BlobMetadataVisible, &storageKey,
 		&access.EvidenceLifecycleState, &access.UploadState, &access.FilenameSource, &access.ContentType,
 		&access.SizeBytes, &sha256); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

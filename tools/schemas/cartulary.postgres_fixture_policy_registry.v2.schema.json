@@ -11,7 +11,7 @@
   ],
   "properties": {
     "schema_id": { "const": "cartulary.postgres_fixture_policy_registry.v2" },
-    "catalog_schema_id": { "const": "cartulary.test_family_manifest.v7" },
+    "catalog_schema_id": { "const": "cartulary.test_family_manifest.v8" },
     "capability_policies": {
       "type": "array",
       "minItems": 3,

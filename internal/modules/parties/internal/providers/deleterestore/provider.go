@@ -80,7 +80,11 @@ SELECT EXISTS (
      WHERE rl.incident_id = $1
        AND rl.dst_record_id = $2
        AND rl.link_type = 'references_record'
-       AND rl.field_key IN ('comm_log.audience_party_ids', 'comm_log.attendee_party_ids')
+       AND rl.field_key IN (
+           'comm_log.audience_party_ids', 'comm_log.attendee_party_ids',
+           'host.subject_party_ids', 'host.responsible_party_ids', 'host.observer_party_ids',
+           'identity.subject_party_ids', 'identity.responsible_party_ids', 'identity.observer_party_ids'
+       )
 )
 `, request.IncidentID, request.RecordID).Scan(&exists); err != nil {
 		return deleterestorecontract.StateTransitionPreparation{}, fmt.Errorf("validate party delete references: %w", err)

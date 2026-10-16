@@ -11,6 +11,7 @@ import test from "node:test";
 import { renderLayout, validateLayout } from "../../workspace/layout.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
+const fixtureEnvironment = (overrides = {}) => ({ PATH: process.env.PATH, HOME: process.env.HOME, LC_ALL: "C", GIT_OPTIONAL_LOCKS: "0", ...overrides });
 function fixture(t) {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-cleanup-"));
   t.after(() => {
@@ -24,7 +25,7 @@ function fixture(t) {
   git("init", "--quiet"); git("config", "user.email", "fixture@example.invalid"); git("config", "user.name", "Fixture");
   writeFileSync(path.join(root, "source"), "source\n"); git("add", "source"); git("-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "fixture");
   const write = (file, content = "fixture") => { mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); writeFileSync(path.join(root, file), content); };
-  const run = (args, env = {}) => spawnSync("make", ["--no-print-directory", ...args], { cwd: root, encoding: "utf8", timeout: 15000, env: { PATH: process.env.PATH, HOME: process.env.HOME, LC_ALL: "C", GIT_OPTIONAL_LOCKS: "0", ...env } });
+  const run = (args, env = {}) => spawnSync("make", ["--no-print-directory", ...args], { cwd: root, encoding: "utf8", timeout: 15000, env: fixtureEnvironment(env) });
   return { root, git, write, run };
 }
 function snapshot(root) {
@@ -192,7 +193,7 @@ test("mount boundaries reject before mutation", (t) => {
   const probe = spawnSync("unshare", ["--user", "--map-root-user", "--mount", "true"], { encoding: "utf8" });
   if (probe.status !== 0) { t.skip("this host does not allow an unprivileged mount namespace"); return; }
   const f = fixture(t); f.write("tmp/safe"); f.write("outside/keep"); mkdirSync(path.join(f.root, "tmp/mount"));
-  const result = spawnSync("unshare", ["--user", "--map-root-user", "--mount", "bash", "-c", 'mount --bind "$1/outside" "$1/tmp/mount" && cd "$1" && make --no-print-directory clean', "--", f.root], { encoding: "utf8" });
+  const result = spawnSync("unshare", ["--user", "--map-root-user", "--mount", "bash", "-c", 'mount --bind "$1/outside" "$1/tmp/mount" && cd "$1" && make --no-print-directory clean', "--", f.root], { encoding: "utf8", env: fixtureEnvironment() });
   rejected(result, "mount boundary"); assert.equal(readFileSync(path.join(f.root, "tmp/safe"), "utf8"), "fixture"); assert.equal(readFileSync(path.join(f.root, "outside/keep"), "utf8"), "fixture");
 });
 

@@ -73,6 +73,8 @@ copy_minimal_repo() {
   mkdir -p "${dest}/apps/web"
   cp "${ROOT_DIR}/apps/web/package.json" "${dest}/apps/web/package.json"
   cp "${ROOT_DIR}/package.json" "${dest}/package.json"
+  mkdir -p "${dest}/packages/report-renderer"
+  cp "${ROOT_DIR}/packages/report-renderer/package.json" "${dest}/packages/report-renderer/package.json"
   if [[ -d "${ROOT_DIR}/node_modules" ]]; then
     ln -s "${ROOT_DIR}/node_modules" "${dest}/node_modules"
   fi
@@ -307,6 +309,18 @@ mutate_bootstrap_shellcheck_version() {
   replace_text "$1/tools/harness/readiness/bootstrap-shellcheck.sh" 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version"'}"' 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version_alt"'}"'
 }
 
+mutate_renderer_version() {
+  local version
+  version="$(pin_value report_renderer.mermaid)"
+  replace_text "$1/packages/report-renderer/package.json" "\"mermaid\": \"$version\"" "\"mermaid\": \"^$version\""
+}
+
+mutate_renderer_pin() {
+  local version
+  version="$(pin_value report_renderer.mermaid)"
+  replace_text "$1/tools/toolchain_pins.json" "\"mermaid\": \"$version\"" '"mermaid": "latest"'
+}
+
 "$NODE_BIN" "$SCRIPT" --root "${ROOT_DIR}" >/dev/null
 toolchain_fixture="$(cartulary_harness_mktemp_dir "toolchain-pins-module.XXXXXX")"
 cleanup_paths+=("$toolchain_fixture")
@@ -365,6 +379,14 @@ expect_drift "shellcheck-version" \
 expect_drift "bootstrap-shellcheck-version" \
   "tools/harness/readiness/bootstrap-shellcheck.sh: SHELLCHECK_VERSION default mismatch: expected $shellcheck_version, got $shellcheck_version_alt" \
   mutate_bootstrap_shellcheck_version
+
+expect_drift "renderer-version" \
+  "packages/report-renderer/package.json: dependencies.mermaid mismatch" \
+  mutate_renderer_version
+
+expect_drift "renderer-pin" \
+  "tools/toolchain_pins.json: report_renderer.mermaid requires an exact version" \
+  mutate_renderer_pin
 
 preflight_dir="$(cartulary_harness_mktemp_dir "toolchain-pins-preflight.XXXXXX")"
 preflight_results_root="$(cartulary_harness_mktemp_dir "toolchain-pins-preflight-results.XXXXXX")"

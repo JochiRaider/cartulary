@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-import { validateSchemaSync } from "../contract/index.mjs";
+import { assertMachineEvidencePath, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
 import {
   canonicalJSONString,
   parseStrictJSON,
@@ -10,7 +10,7 @@ import {
 } from "../contract/index.mjs";
 export { validateProfileMeasurementObservation } from "./profile-adapters/index.mjs";
 
-const registrySchemaID = "cartulary.performance_fixture_snapshot_owner.v2";
+const registrySchemaID = "cartulary.performance_fixture_snapshot_owner.v3";
 const builderPolicySchemaID = "cartulary.performance_fixture_builder_policy.v1";
 const defaultRegistryPath = "tools/performance_fixture_snapshot_owner.json";
 const defaultBuilderPolicyPath = "tools/performance_fixture_builder_policy.json";
@@ -18,12 +18,12 @@ const migrationRunnerIdentity = "cartulary-postgres-migrate/goose/v3.27.0";
 const supportedArtifactPolicyGenerations = new Set([
   [
     "cartulary.performance_fixture_snapshot_key.v2",
-    "cartulary.performance_fixture_snapshot.v2",
-    "cartulary.performance_fixture_snapshot_lease.v2",
+    "cartulary.performance_fixture_snapshot.v3",
+    "cartulary.performance_fixture_snapshot_lease.v3",
     "cartulary.performance_fixture_runtime.v2",
-    "cartulary.frontend_measurement_observation.v2",
-    "cartulary.frontend_measurement_summary.v3",
-    "cartulary.frontend_measurement_aggregate.v3",
+    "cartulary.frontend_measurement_observation.v4",
+    "cartulary.frontend_measurement_summary.v5",
+    "cartulary.frontend_measurement_aggregate.v5",
   ].join("\u0000"),
 ]);
 const snapshotKeyEnvelopeFields = new Map([
@@ -64,7 +64,7 @@ function deepFreeze(value) {
 }
 
 function readStrictJSON(file) {
-  return parseStrictJSON(readFileSync(file, "utf8"), file);
+  return parseStrictJSON(readRetainedArtifactBytes(path.dirname(file), path.basename(file), 8 * 1024 * 1024).toString("utf8"), file);
 }
 
 function resolveContractFile(root, relativePath, label) {
@@ -75,17 +75,14 @@ function resolveContractFile(root, relativePath, label) {
   if (normalized !== relativePath || normalized.startsWith("../")) {
     throw new Error(label + " contains traversal or normalization drift");
   }
-  const candidate = path.resolve(root, relativePath);
-  if (!existsSync(candidate)) throw new Error(label + " does not exist: " + relativePath);
-  const stat = lstatSync(candidate);
-  if (!stat.isFile() || stat.isSymbolicLink()) {
-    throw new Error(label + " must reference a non-symlink regular file");
-  }
-  const contractsRoot = realpathSync(path.join(root, "contracts"));
-  const resolved = realpathSync(candidate);
-  if (!resolved.startsWith(contractsRoot + path.sep)) {
+  if (!relativePath.startsWith("contracts/")) {
     throw new Error(label + " must remain under contracts");
   }
+  const candidate = path.resolve(root, relativePath);
+  assertMachineEvidencePath(candidate);
+  // The subsequent read pins every directory and rejects aliases before access.
+  // Never stat or resolve an inadmissible document path to test containment.
+
   return candidate;
 }
 
@@ -185,7 +182,11 @@ function validateBindings(profile, label) {
   const verificationIDs = profile.verification_bindings.map((entry) => entry.verification_id);
   const predicateIDs = profile.verification_bindings.map((entry) => entry.predicate_id);
   assertSortedUnique(verificationIDs, label + ".verification_bindings.verification_id");
-  assertSortedUnique(predicateIDs, label + ".verification_bindings.predicate_id");
+  // Bindings have one canonical order. Independent opaque IDs need not sort in
+  // the same order as verification IDs, but both identities must be unique.
+  if (new Set(predicateIDs).size !== predicateIDs.length) {
+    throw new Error(label + ".verification_bindings.predicate_id must be duplicate-free");
+  }
 }
 
 function sourceContractProjection(profile) {
@@ -209,6 +210,7 @@ function sourceContractProjection(profile) {
     })),
     semantic_expectations: profile.semantic_expectations,
     runtime_credential_sets: profile.runtime_credential_sets,
+    object_population: profile.object_population,
   };
 }
 

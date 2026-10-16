@@ -41,12 +41,12 @@ func NewProductionApplication(pool postgres.DB, actor authn.UserRecord) (*Produc
 	}, nil
 }
 
-func (a *ProductionApplication) CreateFixtureWorkspaceIncident(ctx context.Context, seed int) (string, error) {
-	clientTxnID := fmt.Sprintf("performance-fixture-incident-%d", seed)
+func (a *ProductionApplication) CreateFixtureWorkspaceIncident(ctx context.Context, input WorkspaceRequest) (string, error) {
+	clientTxnID := fmt.Sprintf("performance-fixture-incident-%d", input.Seed)
 	request, err := admitIncidentCreate(map[string]any{
 		"client_txn_id": clientTxnID,
-		"incident_key":  fmt.Sprintf("AC043-PERF-%d", seed),
-		"title":         "Large-grid performance fixture",
+		"incident_key":  fmt.Sprintf("%s-%d", input.Identity.KeyPrefix, input.Seed),
+		"title":         input.Identity.Title,
 	})
 	if err != nil {
 		return "", err

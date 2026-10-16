@@ -32,7 +32,7 @@ func PreflightCutover(ctx context.Context, db *sql.DB) error {
 		return errors.New("reporting: cutover preflight database unavailable")
 	}
 	var current bool
-	if err := db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid=to_regclass('public.reporting_snapshots') AND conname='reporting_snapshot_identity_v1_ck')`).Scan(&current); err != nil {
+	if err := db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public' AND t.relname='reporting_job_payloads' AND c.conname='reporting_render_recipe_v1_ck')`).Scan(&current); err != nil {
 		return err
 	}
 	if current {
@@ -41,7 +41,10 @@ func PreflightCutover(ctx context.Context, db *sql.DB) error {
 	categories := []reportingCutoverCategory{}
 	for _, item := range []struct{ category, table, query string }{
 		{"historical_snapshots", "reporting_snapshots", `SELECT count(*) FROM public.reporting_snapshots`},
+		{"retired_snapshot_jobs", "jobs", `SELECT count(*) FROM public.jobs WHERE job_kind IN ('snapshot_reporting.snapshot_create_v2','snapshot_reporting.snapshot_create_v3')`},
+		{"retired_render_jobs", "jobs", `SELECT count(*) FROM public.jobs WHERE job_kind IN ('snapshot_reporting.release_create_v3','snapshot_reporting.composition_preview_v3')`},
 		{"retained_reporting_jobs", "reporting_job_payloads", `SELECT count(*) FROM public.reporting_job_payloads`},
+		{"rendered_bundles", "reporting_render_bundles", `SELECT count(*) FROM public.reporting_render_bundles`},
 		{"imported_reporting_artifacts", "reporting_imported_artifact_files", `SELECT count(*) FROM public.reporting_imported_artifact_files`},
 		{"retained_composition_previews", "report_composition_preview_attempts", `SELECT count(*) FROM public.report_composition_preview_attempts`},
 	} {

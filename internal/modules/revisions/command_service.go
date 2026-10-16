@@ -15,7 +15,8 @@ type CommandServiceDependencies struct {
 	Authorization               CommandAuthorizer
 	Idempotency                 IdempotencyPort
 	ImportedAttributionResolver ImportedAttributionResolver
-	Projections                 ProjectionRebuilder
+	Projections                 ProjectionRefresher
+	ProjectionDependencies      []ProjectionDependencyReader
 	LiveRecords                 LiveRecordReader
 	DeleteRestoreSources        *DeleteRestoreSourceCatalog
 	TargetSemantics             *TargetSemanticsCatalog
@@ -54,17 +55,26 @@ func NewCommandService(dependencies CommandServiceDependencies) (*CommandService
 			return nil, fmt.Errorf("%w: %s", errInvalidCommandServiceDependency, check.name)
 		}
 	}
+	if len(dependencies.ProjectionDependencies) == 0 {
+		return nil, fmt.Errorf("%w: projection dependencies", errInvalidCommandServiceDependency)
+	}
+	for _, reader := range dependencies.ProjectionDependencies {
+		if nilDependency(reader) {
+			return nil, fmt.Errorf("%w: projection dependency reader", errInvalidCommandServiceDependency)
+		}
+	}
 	store := &commandStore{
-		transactions:         dependencies.Transactions,
-		appender:             dependencies.Appender,
-		envelopes:            dependencies.RecordEnvelopes,
-		authorization:        dependencies.Authorization,
-		idempotency:          dependencies.Idempotency,
-		projections:          dependencies.Projections,
-		liveRecords:          dependencies.LiveRecords,
-		deleteRestoreSources: dependencies.DeleteRestoreSources,
-		targetSemantics:      dependencies.TargetSemantics,
-		recordPublications:   dependencies.RecordPublications,
+		projectionDependencies: append([]ProjectionDependencyReader(nil), dependencies.ProjectionDependencies...),
+		transactions:           dependencies.Transactions,
+		appender:               dependencies.Appender,
+		envelopes:              dependencies.RecordEnvelopes,
+		authorization:          dependencies.Authorization,
+		idempotency:            dependencies.Idempotency,
+		projections:            dependencies.Projections,
+		liveRecords:            dependencies.LiveRecords,
+		deleteRestoreSources:   dependencies.DeleteRestoreSources,
+		targetSemantics:        dependencies.TargetSemantics,
+		recordPublications:     dependencies.RecordPublications,
 	}
 	return &CommandService{
 		commands: store,

@@ -1772,6 +1772,7 @@ Contract tables. The tables in §3.3.5 through §3.3.5.5 are the compact owner-l
 | Route | Target scope | Request contract summary | Replay and idempotency | Success summary | Primary error codes |
 | --- | --- | --- | --- | --- | --- |
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/rows` | View-scoped row create | JSON object with required `client_txn_id` and zero or more create-time `field_key` members allowed by the addressed view | Keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | First success `201 Created`; replay returns the original committed row refresh | `invalid_mutation_payload`, `client_txn_conflict` |
+| `POST /api/v1/incidents/{incident_id}/evidence-metadata` | Explicit Evidence metadata window | Closed `record_ids` array; REQ-01-328a | Read-only; no idempotency receipt or handle issuance | Ordered current metadata and preview eligibility for every requested record | `invalid_evidence_metadata_request`, `evidence_record_not_found`, ordinary authorization failures |
 | `POST /api/v1/incidents/{incident_id}/views/{view_schema_id}/clipboard-paste` | View-scoped clipboard batch | Required `view_schema_id`, `client_txn_id`, `clipboard_text`, `start_field_key`, `columns[]`, and `targets[]`; `record` targets MUST identify active same-incident records for the addressed view; optional `format` | Keyed by `(actor_user_id, incident_id, view_schema_id, client_txn_id)` | `200 OK` with batch result containing `view_schema_id`, optional `change_set_id`, `rows[]`, and ordered `conflicts[]` | `invalid_mutation_payload`, `client_txn_conflict`, `row_version_conflict`, entity-match conflicts where applicable |
 | `GET /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings read | Singleton read; no body members | Read route | Returns the incident's `timeline_time_conversion_profile` resource, materialized with disabled defaults when absent | Ordinary authorization failures |
 | `PUT /api/v1/incidents/{incident_id}/timeline-time-conversion-profile` | Incident-scoped Timeline settings mutation | Required `base_profile_version`, `enabled`, `local_offset_minutes`, and `local_label` | Ordinary optimistic concurrency through `base_profile_version`; no route idempotency key | Returns the committed `timeline_time_conversion_profile` resource | `invalid_mutation_payload`, `row_version_conflict` |
@@ -2185,7 +2186,7 @@ Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
 **REQ-01-077**
-`POST /api/v1/records/{record_id}/restore` MUST participate in the base-profile destructive-operation concurrency contract defined by REQ-01-104. For restore, the protected set is exactly the target `record_id`.
+`POST /api/v1/records/{record_id}/restore` MUST participate in the base-profile destructive-operation concurrency contract defined by REQ-01-104. For restore, the protected set contains the target `record_id` and the direct projection dependents defined by REQ-01-351.
 Profiles: base
 Verified by: AC-125, AC-126, AC-181, AC-182, AC-183, AC-188, AC-189, AC-190, AC-200, AC-201, AC-202, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-209, AC-210, AC-211, AC-212, AC-213, AC-214, AC-215, AC-216, AC-217, AC-218, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
@@ -2453,7 +2454,7 @@ Profiles: base
 Verified by: AC-215, AC-216, AC-217, AC-218, AC-231
 
 **REQ-01-104**
-The base-profile destructive-operation family is exactly `POST /api/v1/records/{record_id}/restore`, `POST /api/v1/records/{record_id}/rollback`, and `POST /api/v1/records/{survivor_record_id}/merge`. Ordinary `PATCH`, ordinary `DELETE`, and ordinary soft-delete are outside this family, MUST remain on the ordinary optimistic-concurrency path, and MUST NOT acquire destructive-operation locks in the current profile. The server MUST use short-lived internal destructive-operation locks for every request in that family. The public contract includes no client-visible lock-acquire route, no lock-holder identity surface, no manual unlock route, and no server-side queueing of destructive requests. The server MUST attempt lock acquisition fail-fast and MUST NOT wait for a held lock to clear and then continue evaluating the same request. Lock acquisition MUST use canonical ascending `record_id` order across the full protected set. If any required lock is unavailable, the route MUST fail immediately with `409`, `error.code = record_locked`, and `error.retryable = true`. Only after the full protected set is acquired MAY the server re-read authoritative current state and evaluate `row_version_conflict`, restore eligibility such as `record_not_deleted`, `rollback_precondition_failed`, or `merge_precondition_failed`. Locks MUST be released on commit, rollback, or request termination. For restore, the protected set is exactly the target `record_id`. For rollback, the protected set is every first-class `record_id` whose authoritative state would be mutated if the selected rollback target were applied against current authoritative state. For merge, the protected set is the survivor record, the loser record, and every additional first-class `record_id` whose authoritative state the merge transaction mutates directly through repointing or deterministic recreation.
+The base-profile destructive-operation family is exactly `POST /api/v1/records/{record_id}/restore`, `POST /api/v1/records/{record_id}/rollback`, and `POST /api/v1/records/{survivor_record_id}/merge`. Ordinary `PATCH`, ordinary `DELETE`, and ordinary soft-delete are outside this family, MUST remain on the ordinary optimistic-concurrency path, and MUST NOT acquire destructive-operation locks in the current profile. The server MUST use short-lived internal destructive-operation locks for every request in that family. The public contract includes no client-visible lock-acquire route, no lock-holder identity surface, no manual unlock route, and no server-side queueing of destructive requests. The server MUST attempt lock acquisition fail-fast and MUST NOT wait for a held lock to clear and then continue evaluating the same request. Lock acquisition MUST use canonical ascending `record_id` order across the full protected set. If any required lock is unavailable, the route MUST fail immediately with `409`, `error.code = record_locked`, and `error.retryable = true`. Only after the full protected set is acquired MAY the server re-read authoritative current state and evaluate `row_version_conflict`, restore eligibility such as `record_not_deleted`, `rollback_precondition_failed`, or `merge_precondition_failed`. Locks MUST be released on commit, rollback, or request termination. For restore, the protected set contains the target `record_id` and the direct projection dependents defined by REQ-01-351. For rollback, the protected set contains every first-class `record_id` whose authoritative state would be mutated if the selected rollback target were applied against current authoritative state, together with the direct projection dependents defined by REQ-01-351. For merge, the protected set is the survivor record, the loser record, and every additional first-class `record_id` whose authoritative state the merge transaction mutates directly through repointing or deterministic recreation.
 Profiles: base
 Verified by: AC-182, AC-187, AC-215, AC-216, AC-217, AC-218, AC-231, AC-353
 
@@ -6096,7 +6097,7 @@ Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-
 - source record types: `host`
 - base projection: `host_grid_projection`
 - `default_visible_fields`: `host.display_name`, `host.hostname`, `host.aliases`, `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.location`, `host.os_platform`, `host.business_owner`, `host.criticality`, `host.containment_status`, `host.edited_at`
-- `default_hidden_fields`: `record_id`, `row_version`, `host.aad_device_id`, `host.fqdn`, `host.reusable_identifiers`
+- `default_hidden_fields`: `record_id`, `row_version`, `host.aad_device_id`, `host.fqdn`, `host.reusable_identifiers`, `host.subject_party_ids`, `host.responsible_party_ids`, `host.observer_party_ids`
 - `default_sort`: `host.display_name asc`, `record_id asc`
 - `sort_fields`: `host.display_name`, `host.hostname`, `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.location`, `host.os_platform`, `host.business_owner`, `host.criticality`, `host.containment_status`, `host.edited_at`
 - `filter_fields`: `host.host_state`, `host.business_owner`, `host.criticality`, `host.location`, `host.os_platform`, `host.containment_status`
@@ -6111,6 +6112,7 @@ Verified by: AC-119, AC-124, AC-125, AC-184, AC-191, AC-192, AC-193, AC-194, AC-
   - `host.business_owner`: read `business_owner`; write target the `business_owner` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
   - `host.criticality`: read `criticality`; write target the `criticality` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
   - `host.containment_status`: read `containment_status`; write target the `containment_status` field on the underlying `host` record; `conflict_resolution_class=atomic_replace`
+- `host.subject_party_ids`, `host.responsible_party_ids`, and `host.observer_party_ids`: default-hidden, writable party-reference collections under REQ-01-327a; `entity_binding_mode=entity_origin`; `conflict_resolution_class=collection_review`.
 - read-only computed fields: `host.host_state`, `host.linked_event_count`, `host.evidence_count`, `host.edited_at`, `host.reusable_identifiers`. `host.host_state` MUST be a projection-backed state that uses the exact tokens `stub` and `canonical`.
 Profiles: base
 Verified by: AC-097, AC-118, AC-124, AC-125, AC-231
@@ -6173,7 +6175,7 @@ Verified by: AC-097, AC-118, AC-124, AC-125, AC-231
 - source record types: `identity`
 - base projection: `identity_grid_projection`
 - `default_visible_fields`: `identity.display_name`, `identity.upn`, `identity.email`, `identity.sam_account_name`, `identity.aliases`, `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`, `identity.edited_at`
-- `default_hidden_fields`: `record_id`, `row_version`, `identity.aad_object_id`, `identity.sid`, `identity.reusable_identifiers`
+- `default_hidden_fields`: `record_id`, `row_version`, `identity.aad_object_id`, `identity.sid`, `identity.reusable_identifiers`, `identity.subject_party_ids`, `identity.responsible_party_ids`, `identity.observer_party_ids`
 - `default_sort`: `identity.display_name asc`, `record_id asc`
 - `sort_fields`: `identity.display_name`, `identity.upn`, `identity.email`, `identity.sam_account_name`, `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`, `identity.edited_at`
 - `filter_fields`: `identity.identity_state`, `identity.privilege_level`, `identity.mfa_state`, `identity.reset_status`
@@ -6188,6 +6190,7 @@ Verified by: AC-097, AC-118, AC-124, AC-125, AC-231
   - `identity.privilege_level`: read `privilege_level`; write target the `privilege_level` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
   - `identity.mfa_state`: read `mfa_state`; write target the `mfa_state` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
   - `identity.reset_status`: read `reset_status`; write target the `reset_status` field on the underlying `identity` record; `conflict_resolution_class=atomic_replace`
+- `identity.subject_party_ids`, `identity.responsible_party_ids`, and `identity.observer_party_ids`: default-hidden, writable party-reference collections under REQ-01-327a; `entity_binding_mode=entity_origin`; `conflict_resolution_class=collection_review`.
 - read-only computed fields: `identity.identity_state`, `identity.linked_event_count`, `identity.evidence_count`, `identity.edited_at`, `identity.reusable_identifiers`. `identity.identity_state` MUST be a projection-backed state that uses the exact tokens `stub` and `canonical`.
 Profiles: base
 Verified by: AC-098, AC-118, AC-124, AC-125, AC-231
@@ -6212,7 +6215,67 @@ The collection MUST include only active `exact_match_reuse` identifiers for the 
 Profiles: base
 Verified by: AC-098, AC-118, AC-124, AC-125, AC-231
 
+**REQ-01-327a — Entity party assignment writes**
+The six Host/Identity assignment fields above MUST use unordered
+`collection_value_v1` party-reference items and `collection_actions_v1` with
+only `add_party_ref {party_id}` and `remove_party_ref {item_ref}`. Each item
+contains `item_ref=party_ref:<party_id>`, `item_kind=party_ref`, `party_id`, and
+`display_text` from the current Party label. UUIDs MUST be canonical, lowercase,
+and non-nil. Unknown action or payload members MUST reject.
+
+The fields are not sortable, filterable, groupable, or directly grid-editable.
+They MUST be editable through the ordinary entity inspector and record-patch
+route. Create/upsert permits only additions alongside the existing minimum
+entity seed; assignments alone MUST NOT create or resolve an entity. Reuse adds
+missing assignments without removing existing membership. Duplicate additions
+coalesce, and a removal requires the active membership in that exact field.
+
+The entity owner MUST apply ordinary incident authorization, open-incident,
+row-version, idempotency, history, and publication rules atomically. Links owns
+membership and the source facts in Core 02 REQ-02-143a.2; destinations MUST be
+live Parties in the same incident. Failure MUST leave both membership and parent
+version unchanged. Membership changes advance the parent version once per
+operation and retain `record_link` mutations in the same change set. Assignment
+fields MUST NOT grant incident access or become live recipient-visibility checks.
+Profiles: base, snapshot_reporting
+Verified by: AC-097, AC-098, AC-124, AC-125, AC-233
+
 #### 7.4.4 `cartulary.view.evidence.v1`
+
+**REQ-01-328a — Bounded Evidence metadata reads**
+`POST /api/v1/incidents/{incident_id}/evidence-metadata` is an incident-member
+read operation for an explicitly selected Evidence window. Cookie sessions MUST
+pass the ordinary CSRF check. Its closed JSON request contains only
+`record_ids`, an ordered array of 1 through 100 distinct canonical lowercase,
+non-nil UUID strings. Unknown members, duplicate JSON members, trailing values,
+null, invalid identities, duplicate identities, and requests over 16 KiB MUST
+fail before metadata lookup with `400 invalid_evidence_metadata_request`.
+The closed reasons are `request_not_object`, `unknown_field`, and
+`invalid_record_ids`; `error.details.field` is present only for the latter two.
+
+An invisible incident uses the ordinary incident-not-found response. Every
+requested identity MUST be a live Evidence record in that incident; otherwise
+the whole request fails with `404 evidence_record_not_found` without naming
+the missing or foreign identity. Success is the common envelope with closed
+`data={incident_id, items}`. Items preserve request order and contain exactly
+`record_id`, positive integer `row_version`, nullable `title`, `lifecycle_state`,
+`has_blob`, nullable `upload_state`, and `preview_eligibility`. The latter is
+the closed object `{eligible, reason_code}`: eligible is boolean; reason is null
+iff eligible, otherwise an existing Evidence-access reason. Upload state is
+null without associated blob metadata and otherwise uses the existing blob-state
+vocabulary. The batch is read from one database statement snapshot.
+
+Preview eligibility applies the same metadata, lifecycle, media-kind and size
+rules as preview-handle admission. It is a metadata observation, not a handle,
+object-store availability proof, or promise of later access. This route MUST
+NOT mint handles, inspect or fetch blob bytes, expose physical keys or storage
+credentials, or mutate records, revisions, projections, idempotency, or custody
+history. Actual handle issuance and redemption retain their ordinary current
+authorization, object-availability, and version checks. No handle token is
+returned by metadata reads. Consumers MUST discard responses after incident,
+session, selected-source, or window identity changes.
+Profiles: base
+Verified by: AC-045, AC-097, AC-231
 
 **REQ-01-328**
 - surface: built-in `Evidence` sheet
@@ -6303,7 +6366,7 @@ For a non-replay Evidence create, evaluation order MUST be authentication,
 cookie CSRF, incident visibility and create role, view-schema resolution,
 strict closed-shape decode, field/input normalization, committed replay or
 divergent conflict, minimum-signal evaluation, concealed blob visibility and
-state, object-store verification, in-transaction incident and mutable-state
+state, retained background-verification observation, in-transaction incident and mutable-state
 recheck, atomic structured commit, then post-commit collaboration delivery and
 HTTP response.
 
@@ -6782,6 +6845,11 @@ Verified by: AC-013, AC-125, AC-231
 
 **REQ-01-351**
 Projection rows MUST be updated transactionally with the source write that changes them.
+
+Interactive rollback, row restore, soft-delete and restore MUST refresh an explicit, source-owner-derived set of affected projection rows. They MUST NOT rebuild every projection in the incident. The refresh set includes the mutated records and direct dependents whose projection reads those records or their authoritative relationships. Links owns relationship endpoint dependencies; Entities owns resolved-mention and alias-provenance dependencies in the current base profile. New cross-record derivations require an explicit dependency contribution from their source owner. Discovery MUST include retained relationships with inactive endpoints when needed for restore, MUST remain incident-scoped, and MUST NOT expand transitively through unrelated records.
+
+The coordinator MUST derive the refresh set before mutation, protect its record envelopes in canonical order, and revalidate the set after acquiring protection. Read-model dependents are separate from the selected authoritative mutation and retained-history identities; refreshing an unchanged source record MUST NOT manufacture a source mutation, actor attribution or history entry. Owner-defined effects that do change authoritative state or require an envelope advance remain part of the ordinary mutation, revision and publication contract. Ordinary soft-delete uses ordinary transaction locks, while rollback and restore use the fail-fast destructive-operation contract in REQ-01-104. Maintenance, import and recovery retain their explicit rebuild capabilities; interactive commands MUST NOT receive an incident-rebuild capability.
+
 Profiles: base
 Verified by: AC-032, AC-046, AC-210, AC-231
 
@@ -6792,8 +6860,16 @@ Verified by: AC-032, AC-046, AC-210, AC-231
 
 **REQ-01-353**
 The implementation MUST provide a deterministic rebuild command or equivalent maintenance operation that can regenerate projections from source tables.
+In the current profile, bulk projection rebuild is an internal maintenance
+capability invoked by its owning recovery or import operation. It is not a
+separately admitted browser action, public route, or standalone Common Job kind.
+Recovery invokes it through `RestoreProjectionRebuilder` and owns progress,
+cancellation, failure reporting and readiness under §§12.2–12.3. Import invokes
+its scoped rebuild within its already admitted Job. Ordinary interactive source
+mutations retain the bounded transactional refresh contract in REQ-01-351;
+they MUST NOT enqueue a whole-incident rebuild to complete a row edit.
 Profiles: base
-Verified by: AC-032, AC-046, AC-210, AC-231
+Verified by: AC-032, AC-210, AC-231, AC-472
 
 **REQ-01-621**
 Projection stores are derived state. They MUST be rebuildable from authoritative source state. Projection rebuilds MUST NOT mutate authoritative rows, source records, retained history, object storage contents, or recovery metadata except through recovery-owned status/reporting channels.
@@ -7117,7 +7193,21 @@ Re-rendering from the same release tuple MUST reproduce the same canonical expor
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-233
 
-Render admission MUST resolve `redaction_profile_id`, `redaction_profile_version`, and `redaction_profile_sha256` exactly once before redaction begins. That resolved profile digest MUST be recorded on the release record, the redaction manifest, each approval tuple, and the provenance used to compute `output_sha256`. A later change to profile bytes for the same id and version MUST NOT silently reuse an earlier approval or publication state.
+Render admission MUST resolve the exact `redaction_profile_id`, `redaction_profile_version`, authored policy bytes and independent authored-policy digest. Cancelable preparation MUST materialize and seal the snapshot-bound `redaction_profile_sha256` exactly once before redaction begins. That resolved profile digest MUST be recorded on the release record, the redaction manifest, each approval tuple, and the provenance used to compute `output_sha256`. A later change to profile bytes for the same id and version MUST NOT silently reuse an earlier approval or publication state.
+
+Release/preview Job admission MUST retain the exact authored policy bytes and
+digest before enqueue commits, with that digest also retained independently.
+Content-dependent materialization runs during cancelable worker preparation and
+seals the resulting model and materialized-policy digests as specified by
+Reporting §5. Shared Jobs and route idempotency preserve the normalized public
+request and existing final-receipt reconciliation contract. Execution, replay,
+completion and native recovery derive from the retained authored policy without
+resolving a selector again. An unsupported selector fails before admission with
+`invalid_release_request`, field `redaction_profile_id`, and reason
+`unsupported_redaction_profile`. Neither success nor failure may invent a
+profile digest. Failure before preparation retains Job diagnostics without a
+release; failure after preparation uses the sealed model and policy digests.
+Incompatible history requires the coordinated pre-production cutover.
 
 ### 10.2.1 Rendered artifact lifecycle
 
@@ -7165,7 +7255,7 @@ Verified by: AC-059, AC-060, AC-104, AC-105, AC-106, AC-233
 ### 10.3 Export-model classification and release scopes
 
 **REQ-01-377**
-Every exportable field or block in the canonical export model MUST carry exactly one `content_class` with one of the following values:
+Every exportable field or block materialized from case source content in the canonical export model MUST carry exactly one `content_class` with one of the following values:
 
 - `source_evidence` for direct evidence references, hashes, timestamps, filenames or media labels, and exported excerpts or thumbnails,
 - `derived_analytic` for deterministic transforms such as timelines, counts, ATT&CK rollups, graphs, and relationship summaries,
@@ -7188,6 +7278,16 @@ The snapshot and export subsystem MUST evaluate output eligibility against the c
 - `external_release`: `derived_analytic`, `curated_narrative`, and only selected `source_evidence` excerpts or thumbnails that are eligible for the chosen `release_scope`. Raw blob bytes and `working_material` MUST NOT appear.
 
 Eligibility filtering MUST operate on persisted `content_class`; `release_scope` MUST NOT rewrite classification.
+
+Reporting-generated presentation text, support-reference presentation,
+validation diagnostics and static template boilerplate use the four separate
+Reporting categories defined by REQ-RPT-041a. They do not replace the source
+classifications above. Source-derived values used in those categories MUST
+first pass this eligibility matrix, required support, partition filtering and
+redaction. Composition-authored text additionally requires Core 04's explicit
+permission and Reporting REQ-RPT-087f admission. The existence of a generated
+category never admits raw blob bytes, working material or unsupported curated
+narrative to external output.
 Profiles: snapshot_reporting
 Verified by: AC-057, AC-059, AC-060, AC-061, AC-062, AC-071, AC-091, AC-113, AC-114, AC-115, AC-233, AC-333
 
@@ -7247,6 +7347,18 @@ Verified by: AC-058, AC-091, AC-233
 
 The current Snapshot and Reporting profile MUST provide the exact template contract `cartulary.report.default@1`. It MUST be resolved from a versioned local registry before release render admission, MUST declare the supported `output_kind` and `release_scope` vocabularies, MUST declare all export-model bindings and required fields consumed by the renderer, and MUST declare only local embedded assets. Selectors such as `latest` and `current` are invalid.
 
+> **Proposed companion amendment for Reporting 1.4.0 / Composition 1.3.0;
+> adoption pending:** replace the required built-in template above with
+> `cartulary.report.default@4`. Its manifest v3 materializes template-owned
+> `author` and exact local `theme` metadata before admission. Canonical Slidev
+> source v2 emits only model slides, with first-slide layout in headmatter.
+> Retire template `@1`–`@3` and manifest v1/v2 without aliases or reconstruction.
+> The current source v2 framing remains unchanged. Retired aggregate declarations
+> and declassification settings are rejected; all contributor restrictions remain.
+> Apply the coordinated clean pre-production cutover, including rejection of
+> incompatible retained history before mutation. This paragraph does not adopt
+> the amendment or supersede the preceding adopted requirement on its own.
+
 **REQ-01-384**
 A template renderer MUST:
 
@@ -7276,13 +7388,63 @@ Each versioned redaction profile MUST declare, at minimum:
 Profiles: snapshot_reporting
 Verified by: AC-057, AC-060, AC-113, AC-114, AC-115, AC-233
 
-For each export-model field or block, rule selection MUST be deterministic:
+For each canonical export-model field, block or section reached by redaction,
+rule selection MUST be deterministic:
 
 - first, one exact stable export-model path rule, when present;
 - second, one exact `content_class` rule, when present;
 - third, the profile default action.
 
+Sections have no content class and skip class selection; implementations MUST
+NOT invent one. Selection visits a container before its descendants. A selected
+container `drop` excludes its entire canonical subtree before field actions,
+token assignment and all derived projections. Descendants are recorded as
+suppressed by that exact decision, not assigned fictitious rules. An `allow`
+container qualifies the union of retained descendants after their own actions;
+it does not grant disclosure permission. Container `mask`, `truncate` and
+`stub` fail when they cannot preserve the declared typed container schema.
+
 Profiles MUST be rejected before render admission when two rules at the same precedence match the same path or same `content_class`, unless a future owner spec defines an explicit tie-breaker.
+
+> **Proposed companion amendment for Reporting 1.4.0 / Composition 1.3.0;
+> adoption pending:** Core's authored profile projection is
+> `cartulary.redaction_profile.v3`. It explicitly binds lifecycle status,
+> allowed release scopes and superseded-record policy in addition to the
+> existing rule and presentation policies. Retired time-bucket granularity and
+> aggregate declassification members are rejected, including null or empty values.
+> Reporting consumes the normalized Tables 13-A through 13-A3 view; mask and
+> stub defaults are materialized as literals, and an explicit empty literal
+> remains empty. `rule_order` is the positive one-based position in Core's
+> authored rule list; the profile default has order `1`. Rule IDs break
+> ordering ties in the normalized interface, but duplicate selectors at the
+> same precedence remain invalid. Rule order never authorizes two competing
+> rules for one path or content class. Built-in profiles
+> `cartulary.redaction.internal`, `cartulary.redaction.tokenized_review`, and
+> `cartulary.redaction.external` advance to version `5`; their version `1`–`4`
+> tuples and authored profile schemas v1/v2 are unsupported under the coordinated
+> clean cutover. The first two permit only internal draft/review; the external
+> profile permits only external release. External use requires
+> `profile_status='adopted_current'`. Status and scopes must be explicit;
+> neither is inferred from an arbitrary profile identifier or retained hash.
+>
+> The Core `internal_passthrough` materialization is the exact
+> `cartulary.redaction.internal@5` profile, not a second selector or alias.
+> A new internal draft/review request may omit both profile ID and version;
+> Core fills that pair before request normalization and retains the exact
+> authored policy and independent digest with the authorized snapshot binding.
+> Cancelable worker preparation materializes and seals the snapshot-bound
+> profile and digest; admission does not expand the source to compute them.
+> An explicit partial pair, null or empty member remains invalid. External
+> requests require both members. This request default never repairs an
+> incomplete retained payload. All three built-ins freeze exact `allow` rules for every canonical section
+> and block. Their class policies transform fields, never implicitly replace
+> typed envelopes. Internal passthrough otherwise has no rules, default `allow`, and the ordered allowed set `{public, internal_only}` plus all
+> exact Party partitions in the snapshot. Tokenized review binds that same
+> snapshot-derived allowed set while preserving its explicit rules.
+> Every scope also applies Reporting's effective allowed set under REQ-RPT-059a;
+> a profile's declarations cannot admit `blocked`, an unknown Party, or an
+> unselected external recipient. Snapshot Party membership comes from exact
+> Party source-record identities, never labels or asserted field partitions.
 
 **REQ-01-387**
 When recipient-specific reporting is implemented, a versioned redaction profile MUST also be able to declare zero or more allowed stable incident-local `disclosure_partition_refs[]`.
@@ -7307,6 +7469,19 @@ The current-profile action semantics are exact:
 - `truncate` is valid only when `max_chars` is present, positive, and bounded by the profile schema. It emits the first `max_chars` Unicode scalar values followed by `[TRUNCATED]` only when truncation occurs.
 - `stub` replaces the value with the rule's `stub_text`, or `[STUB]` when that parameter is omitted.
 
+Action parameters are closed: `replacement_text` belongs only to non-token
+`mask`, `stub_text` only to non-token `stub`, and `max_chars` only to `truncate`.
+`allow`, `drop`, and token-backed actions accept none of these parameters.
+The implementation MUST reject unused or contradictory parameters rather than
+include ignored values in profile identity. Replacement and stub literals MUST
+be valid Unicode without C0/C1 controls, including line breaks and tabs; empty
+strings are valid explicit literals. `max_chars` MUST be an integer in `[1,240]`.
+The bound counts source Unicode scalar values; the fixed `[TRUNCATED]` marker is
+appended after that prefix only when truncation occurs. These constraints apply
+equally to the profile default, path overrides, and content-class rules, before
+profile admission or hash publication. They do not grant literals a Markdown,
+HTML, Vue, or executable role; renderer escaping remains mandatory.
+
 **REQ-01-388**
 Redaction MUST run after snapshot materialization and before template rendering.
 Profiles: snapshot_reporting
@@ -7330,7 +7505,7 @@ Profiles: snapshot_reporting
 Verified by: AC-057, AC-060, AC-113, AC-114, AC-115, AC-233
 
 **REQ-01-392**
-Each rendered artifact MUST emit or persist a `redaction_manifest.v1` keyed by stable export-model path and rule identifier. The manifest MUST include one entry for every export-model field or block processed by redaction, including fields that were allowed unchanged. Each entry MUST include stable export-model path, `content_class`, selected action, rule id, profile id, profile version, profile digest, disclosure-partition handling, and outcome. The release record MUST bind at least the manifest digest; if the full manifest is exposed separately, that manifest MUST byte-for-byte match the digest-bound artifact used for output generation.
+Each rendered artifact MUST emit or persist a versioned redaction manifest using the current Reporting-owned byte form, keyed by stable export-model path and rule identifier. The manifest MUST include one decision for every canonical export-model field, block or section reached by redaction, including unchanged decisions. Reporting owns the versioned byte form and separates field decisions, container decisions, subtree suppression and consequential pruning. Derived views do not select another action for the same canonical content. Each decision MUST bind its stable export-model path, declared `content_class` (null for a classless section), selected action and rule, profile identity/version/digest, disclosure-partition handling and outcome. Reporting may bind common profile identity at the manifest envelope and the selected rule in its typed trace. The release record MUST bind at least the manifest digest; if the full manifest is exposed separately, that manifest MUST byte-for-byte match the digest-bound artifact used for output generation.
 Profiles: snapshot_reporting
 Verified by: AC-057, AC-060, AC-113, AC-114, AC-115, AC-233
 
@@ -8448,7 +8623,7 @@ Profiles: incident_portability
 Verified by: AC-167, AC-168, AC-236
 
 **REQ-01-446**
-If `reference_pack_mode='embedded'`, pack payloads MAY be embedded under `ext/reference_packs/**`. The recognized format uses Reference Data's closed `reference_pack_content.v1` inventory at `ext/reference_packs/content.json`, deterministic container paths, and exact `(pack_set_id, pack_key)` requirements. This control manifest may be present in references-only mode without an optional-payload section token, so re-export cannot erase retained requirements. A missing optional container may degrade its references; an unresolved explicitly required member fails the `reference_pack_refs.degradation_bounded` invariant. Neither a capability token nor a source signature grants destination trust. If `optional_sections` contains `snapshots`, Reporting supplies immutable snapshot descriptors and rendered artifacts under `ext/snapshots/**` using Reporting REQ-RPT-046pa and its closed `cartulary.reporting_portable_artifacts.v1` catalog. A wholly absent optional section does not block core import. A present recognized section must satisfy its closed schema and exact inventory; malformed, unsupported-version or contradictory content fails before incident publication. Imported artifacts remain historical source evidence and never manufacture native reporting Jobs, approvals, destination trust or activation. Sensitive reveal maps are omitted only under the explicit Reporting omission inventory. Capability tokens MUST NOT alter these rules.
+If `reference_pack_mode='embedded'`, pack payloads MAY be embedded under `ext/reference_packs/**`. The recognized format uses Reference Data's closed `reference_pack_content.v1` inventory at `ext/reference_packs/content.json`, deterministic container paths, and exact `(pack_set_id, pack_key)` requirements. This control manifest may be present in references-only mode without an optional-payload section token, so re-export cannot erase retained requirements. A missing optional container may degrade its references; an unresolved explicitly required member fails the `reference_pack_refs.degradation_bounded` invariant. Neither a capability token nor a source signature grants destination trust. If `optional_sections` contains `snapshots`, Reporting supplies immutable snapshot descriptors and rendered artifacts under `ext/snapshots/**` using Reporting REQ-RPT-046pa and its closed `cartulary.reporting_portable_artifacts.v3` catalog with immutable source captures. A wholly absent optional section does not block core import. A present recognized section must satisfy its closed schema and exact inventory; malformed, unsupported-version or contradictory content fails before incident publication. Imported artifacts remain historical source evidence and never manufacture native reporting Jobs, approvals, destination trust or activation. Sensitive reveal maps are private Reporting adjuncts outside the shareable bundle and portability inventories; retired omission-based catalogs are not admitted. Capability tokens MUST NOT alter these rules.
 Profiles: incident_portability
 Verified by: AC-167, AC-168, AC-236
 
@@ -9256,7 +9431,7 @@ Profiles: incident_portability
 Verified by: AC-504, AC-505
 
 **REQ-01-670**
-For admitted Incident Bundle version `4`, source family `parties`, and
+For admitted Incident Bundle version `5`, source family `parties`, and
 source contract major `2`, every nonblank line of `data/parties.ndjson` MUST
 be one closed JSON object with exactly these ten required members:
 `record_id`, `incident_id`, `display_name`, `party_kind`,
@@ -9287,7 +9462,7 @@ Parties assigns every defect to exactly one invariant in this precedence:
 1. `parties.source_identity_admitted`: both identifiers are present,
    canonical, in scope, and unique;
 2. `parties.version_shape_exact`: the line and object have exactly the
-   version-4 member set, types, nullability, and framing;
+   version-5 member set, types, nullability, and framing;
 3. `parties.envelope_type_scope`: exactly one same-incident `party` Records
    envelope exists, with no orphan, wrong type, duplicate subtype, or
    cross-incident binding;
@@ -9312,7 +9487,7 @@ invariant when safe. They expose no row value, Party identity, SQL, relation,
 constraint, path, driver diagnostic, or storage topology. Cancellation or
 failure in prepare, apply, validation, claim validation, projection rebuild,
 or publication leaves no visible incident, Party, claim, projection,
-attribution, success result, or final object. Versions `1`, `2`, `3` and every integer other than `4`
+attribution, success result, or final object. Versions `1`, `2`, `3`, `4` and every integer other than `5`
 are unsupported; no version-2 reader, converter, translator, feature
 flag, alias, fallback, or dual decoder exists.
 Profiles: incident_portability
@@ -9440,10 +9615,73 @@ The implementation MUST execute the following long-running operations as backgro
 - reference-pack import, verification, and refresh,
 - snapshot generation,
 - report builds,
-- projection rebuilds,
 - evidence processing, including blob hashing, scanning, preview generation, thumbnailing, and metadata extraction.
+
+This rule applies to admitted interactive operations. Bulk projection rebuild
+has the maintenance boundary in REQ-01-353: a stopped-target restore phase is
+not an interactive Common Job and cannot satisfy or fail a browser-grid timing
+predicate. Import's projection work remains inside its Job and measured user
+workflow. Source-owned graph or other extension operations retain their own
+admission and Job contracts; the internal Graph Projection engine does not gain
+a public route or worker through this requirement.
 Profiles: base, snapshot_reporting, reference_pack
 Verified by: AC-030, AC-033, AC-046, AC-129, AC-169, AC-231, AC-233, AC-234
+
+**REQ-01-452a — Evidence blob verification**
+Before finalizing an uploaded blob, a client MUST submit
+`POST /api/v1/object-blobs/{object_blob_id}/verify` with exactly one required
+`client_txn_id` using the ordinary transaction-ID grammar. Authentication and
+cookie CSRF precede blob lookup. Missing and cross-incident blobs are concealed
+with `409 evidence_attach_rejected`, `reason_code=blob_not_visible`; an incident viewer receives `authorization_denied`.
+An editor, reviewer or incident admin may admit verification only for an open
+incident, an unassociated unexpired pending blob, and its completed one-use
+upload lease. Incomplete upload returns `evidence_attach_rejected` with
+`reason_code=blob_pending`; failed, quarantined and associated blobs retain the
+existing concealed/lifecycle denials. Deployment administration grants no
+incident bypass.
+
+Admission atomically retains a queued incident-scoped Common Job and the route
+idempotency result, returns `202`, and reads no object bytes. The route identity
+is `(actor_user_id, object_blob_id, client_txn_id)`; exact replay returns the
+original Job, and divergent request bytes reject. The Base Profile job kind is
+`evidence.verify_blob_v1`, progress unit `evidence.verify_blob.bytes.v1`, and
+worker kind `evidence.blob_verification_worker_v1`. The generated worker contract
+has profile `base` and maximum eight active attempts per process, subject also
+to the global Jobs capacity. It is always admitted independently of optional
+extension claims. Its closed handler payload contains schema ID
+`cartulary.evidence_blob_verification_request.v1`, blob ID, incident ID and exact
+completed upload-lease ID. It contains no object-store key or raw bytes.
+
+The worker MUST independently read and hash the stored object outside database
+transactions and Jobs transition locks. The read is bounded to declared size
+plus one byte; head size, read size and declared size must agree, and an explicit
+expected SHA-256 must match. Successful verification atomically publishes its
+bounded observed size, content type, SHA-256 and exact lease binding with the
+successful Job under the live execution fence. Verification does not mark the
+blob available, attach it, create an Evidence record or append custody history.
+The subsequent attach or initial-create transaction consumes only that retained
+observation and rechecks the exact completed lease, blob state, expiry and
+association before its existing atomic structured commit. Neither HTTP
+finalization path may read or hash object bytes. An unverified blob remains
+`blob_pending` without changing the pending slot.
+
+Each worker attempt has a 120-second total deadline including observation and
+publication; cancellation is observed at intervals no greater than 100 ms while
+reading. Cancellation, timeout or execution loss cancels and drains the object
+read before any terminal transition, and publishes no verification observation.
+A size/hash contract mismatch atomically marks the pending blob failed with the
+existing mismatch reason and fails the Job. Missing bytes or operational failure
+fail the Job without inventing a content verdict. Failed/canceled Jobs are
+immutable; an explicit new transaction ID may request a new verification while
+the pending slot remains eligible. Exact Job replay never starts another read.
+The generic Jobs recovery policy applies to process interruption; no observation
+from an expired execution may publish. Verification observations are security-ephemeral state bound to upload leases; restore invalidates both. Already available blobs retain their independently stored observed metadata. The current recovery generation is `recovery.current.reference_pack_v2.graph_v4.evidence_verify_v1`; earlier catalog generations are not translated. Successful summaries use
+`evidence_blob_verified`, cancellations use `job_canceled`, and owner failures
+use `evidence_blob_verification_failed` with one closed reason: `blob_pending`,
+`blob_failed`, `accepted_contract_mismatch`, `object_store_unavailable`, or
+`verification_timeout`. Summaries contain no storage paths, hashes or raw errors.
+Profiles: base
+Verified by: AC-016, AC-046, AC-129
 
 **REQ-01-453**
 Background jobs MUST expose:
@@ -10012,7 +10250,16 @@ result and resource references, source and mapping fingerprints, idempotency suc
 outcome, recoverable completion fact, and every required transaction participant. The
 import-session and common-job terminal state MUST be published by a separate idempotent finalizer
 that derives only from the frozen selected set and durable ordered unit outcomes and creates no
-owner resource. A precommit failure or cancellation leaves no authoritative unit effect. A crash
+owner resource. Unit preparation and owner writes remain uncommitted until the
+exact live execution and current actor are revalidated at a short commit
+barrier. The Jobs transition lock MUST NOT be held throughout expensive unit
+work: cancellation admission and lease renewal must remain available. Bounded
+execution observation interrupts uncommitted work when cancellation or execution
+loss is observed; observation failure never grants commit authority. The final
+Jobs-locked validation still decides a cancellation/commit race. An aborted
+unit rolls back with an independently bounded cleanup context even when its
+work context is canceled. A precommit failure or cancellation leaves no
+authoritative unit effect. A crash
 after unit commit recovers the committed outcome without repeating owner mutation. Earlier
 committed units remain applied when a later unit fails or is canceled, and finalization derives
 `partially_applied` when applicable.
@@ -10447,9 +10694,9 @@ Verified by: AC-266, AC-267, AC-268
 
 | Route | Request contract summary | Success resource or body | Long-running | Primary family errors |
 | --- | --- | --- | --- | --- |
-| `POST /api/v1/snapshots` | JSON object with required `incident_id`, required `client_txn_id`, and optional `source_change_set_high_watermark` resolved once at job admission when omitted | Common job resource; terminal success emits one `snapshot` ref | Yes | `invalid_snapshot_request` |
+| `POST /api/v1/snapshots` | JSON object with required `incident_id`, required `client_txn_id`, and optional `source_change_set_high_watermark` checked against the worker's consistent capture when supplied | Common job resource; terminal success emits one `snapshot` ref | Yes | `invalid_snapshot_request` |
 | `GET /api/v1/snapshots/{snapshot_id}` | Singleton read | `snapshot` resource | No | `snapshot_not_found`, `invalid_pagination_request` |
-| `POST /api/v1/releases` | JSON object with required `snapshot_id`, `client_txn_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, and `output_kind`; optional `release_scope` defaulting to `internal_draft`; optional non-null `recipient_partition_refs[]`, `output_options`, `graph_projection_refs[]`, and all-or-none composition tuple fields | Common job resource; terminal success emits one `release` ref; terminal render failure persists a `render_failed` release and completes the job failed | Yes | `invalid_release_request`, `release_render_failed` |
+| `POST /api/v1/releases` | JSON object with required `snapshot_id`, `client_txn_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, and `output_kind`; optional `release_scope` defaulting to `internal_draft`; optional non-null `recipient_partition_refs[]`, `output_options`, `graph_projection_refs[]`, and all-or-none composition tuple fields | Common job resource; terminal success emits one `release` ref; failure after preparation persists a `render_failed` release; failure before preparation retains Job diagnostics without a release | Yes | `invalid_release_request`, `release_render_failed` |
 | `GET /api/v1/releases/{release_id}` | Singleton read | `release` resource | No | `release_not_found`, `invalid_pagination_request` |
 | `POST /api/v1/releases/{release_id}/approve` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with the post-commit `release` resource | No | `invalid_release_request`, `release_state_conflict`, `release_approval_rejected` |
 | `POST /api/v1/releases/{release_id}/publish` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with the post-commit `release` resource | No | `invalid_release_request`, `release_state_conflict` |
@@ -10459,7 +10706,7 @@ Verified by: AC-266, AC-267, AC-268
 
 | Resource | Required members or properties |
 | --- | --- |
-| `snapshot` | `snapshot_id`, `incident_id`, `created_by_user_id`, `created_at`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, `export_model_sha256` |
+| `snapshot` | `snapshot_id`, `incident_id`, `created_by_user_id`, `created_at`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, `source_capture_sha256` |
 | `release` | `release_id`, `incident_id`, `snapshot_id`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, `export_model_sha256`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `redaction_profile_sha256`, `output_kind`, `output_options`, `output_media_type`, `release_scope`, `recipient_partition_refs`, `graph_projection_refs`, `composition_id`, `composition_version`, `composition_sha256`, `render_admitted_at`, `output_sha256`, `redaction_manifest_sha256`, `release_state`, `render_failed_reason_code`, `created_by_user_id`, `created_at`, `approved_at`, `invalidated_at`, `published_at`, `invalidation_reason` |
 | `release_scope` omission rule | Omitted `release_scope` resolves to `internal_draft`; explicit `null` is invalid; omission and explicit `internal_draft` compare equal for idempotency |
 | `recipient_partition_refs[]` rule | Omission resolves to `[]`; explicit `null` is invalid; order is non-semantic; duplicates coalesce; canonical form sorts exact tokens ascending; non-empty values are valid only for `release_scope='external_release'` |
@@ -10467,7 +10714,7 @@ Verified by: AC-266, AC-267, AC-268
 | `graph_projection_refs[]` rule | Omission resolves to `[]`; explicit `null` is invalid; order is canonical by `graph_view_id`; duplicate `graph_view_id` values are invalid |
 | Composition tuple rule | `composition_id`, `composition_version`, and `composition_sha256` are omitted-or-null together for no composition and non-null together for one immutable composition version; partial nullability, `latest`, and digest mismatch are invalid |
 | `render_admitted_at` rule | Server-assigned exactly once at durable render admission; this timestamp is the only Reporting-generated timestamp allowed to participate in release-byte hashes |
-| `output_sha256` rule | For Reporting multi-file bundles, equals the canonical `render_bundle_manifest.v1` SHA-256 rather than a single rendered-file hash |
+| `output_sha256` rule | For Reporting multi-file bundles, equals the canonical bundle-manifest SHA-256 rather than a single rendered-file hash; the exact current manifest schema and hash preimage are owned by the adopted Reporting NLSpec §22 |
 | `release_state` vocabulary | Exactly `pending_approval`, `approved`, `invalidated`, `published`, and `render_failed`; worker-phase tokens are forbidden |
 
 Durable release-resource schemas MUST encode `release_scope` as the same closed vocabulary accepted by `POST /api/v1/releases`: `internal_draft`, `internal_review`, and `external_release`.
@@ -10505,7 +10752,7 @@ The `snapshot resource` MUST expose exactly:
 - `snapshot_at`,
 - `source_change_set_high_watermark`,
 - `derivation_version`,
-- `export_model_sha256`.
+- `source_capture_sha256`.
 
 For `snapshot resource` serialization:
 
@@ -10513,9 +10760,9 @@ For `snapshot resource` serialization:
 - `source_change_set_high_watermark` MUST always serialize as the resolved committed boundary token, even when `POST /api/v1/snapshots` omitted it;
 - the `snapshot resource` MUST NOT include `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `release_state`, approval data, redaction manifests, or rendered-output bytes.
 
-`POST /api/v1/snapshots` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `source_change_set_high_watermark`. For this member, omission means the current committed incident head resolved once at snapshot-job admission, explicit JSON `null` is invalid, and any supplied value MUST be one exact committed source-boundary token for the addressed incident. The exact `cartulary.source_boundary.v1` object, selection, byte serialization, and digest rules are owned solely by Core 02 REQ-02-143b and MUST be used without a second local definition. Older incident-version-only tokens are not part of the current vocabulary and MUST NOT be accepted or translated. Omission and explicit transmission of that same resolved committed boundary MUST compare equal for idempotency and replay. Exact replay of a previously committed snapshot-create request MUST reuse the originally resolved committed boundary object bytes and token rather than re-resolving a later incident head. `POST /api/v1/releases` MUST accept a JSON object with required `snapshot_id`, required `template_id`, required `template_version`, required `redaction_profile_id`, required `redaction_profile_version`, required `output_kind`, and required `client_txn_id`. It MAY include optional `release_scope` and optional `recipient_partition_refs[]`. For `release_scope`, omission means `internal_draft`, explicit JSON `null` is invalid, the allowed current-profile values are exactly `internal_draft`, `internal_review`, and `external_release`, and omission and explicit `internal_draft` MUST compare equal for idempotency and replay. For `recipient_partition_refs[]`, omission means `[]`, explicit JSON `null` is invalid, order is non-semantic, duplicates coalesce, and the canonical form sorts exact tokens ascending. Non-empty `recipient_partition_refs[]` are valid only with `release_scope='external_release'`; internal scopes MUST reject them with `invalid_release_request` and `reason_code='recipient_partitions_not_allowed'`. The durable `release resource` MUST always serialize the resolved closed-vocabulary `output_kind`, resolved closed-vocabulary `release_scope`, and canonical `recipient_partition_refs[]`. Both routes MUST run as background jobs. The release-create route MUST fail closed if the request omits either version selector, attempts implicit latest-version resolution, or supplies a `release_scope`, output selector, redaction-profile selector, template selector, or recipient-partition shape outside the closed current-profile vocabulary. After successful authentication and structural request-body validation sufficient to identify `snapshot_id`, `POST /api/v1/releases` MUST resolve snapshot visibility before validating template, redaction-profile, output-kind, release-scope, or recipient-partition semantics. A caller who lacks visibility to the addressed snapshot MUST receive `snapshot_not_found`, not an incident-level error or a selector-validation error.
+`POST /api/v1/snapshots` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `source_change_set_high_watermark`. For this member, omission means the committed incident head selected in the worker's consistent capture transaction, explicit JSON `null` is invalid, and any supplied value MUST be one exact committed source-boundary token for the addressed incident. The exact `cartulary.source_boundary.v1` object, selection, byte serialization, and digest rules are owned solely by Core 02 REQ-02-143b and MUST be used without a second local definition. Older incident-version-only tokens are not part of the current vocabulary and MUST NOT be accepted or translated. Omission and an explicit source-boundary token are distinct requests for idempotency: omission requests a new consistent capture, while an explicit token requires that exact boundary. Exact replay MUST return the original Job. Once a complete capture is retained, execution and replay MUST reuse its exact boundary object, source facts and capture timestamp. Before a capture commits, recovery MAY restart capture for an omitted boundary; it MUST NOT fabricate a historical capture time or publish partial materialization. A supplied boundary that is stale at route admission returns `409 snapshot_source_boundary_conflict`; if it changes before worker capture, the admitted Job fails with that same error code and no snapshot. Request admission MUST persist the Job, exact request and Reference Pack pin before source materialization. The source boundary, incident metadata and all owner contributions MUST be read from one repeatable-read transaction. `snapshot_at` is that transaction's timestamp, distinct from Job submission time. No Jobs transition lock may remain held during incident-sized capture or model construction. Cancellation and execution fencing MUST prevent publication of interrupted work. This coordinated pre-production amendment retires `snapshot_reporting.snapshot_create_v2` and v3; only `snapshot_reporting.snapshot_create_v4` carries these semantics. `POST /api/v1/releases` MUST accept a JSON object with required `snapshot_id`, required `template_id`, required `template_version`, required `output_kind`, and required `client_txn_id`. The `redaction_profile_id` and `redaction_profile_version` pair is required for `external_release`. For `internal_draft` and `internal_review`, omitting both selects the exact current `internal_passthrough` identity and built-in version from Reporting; supplying only one member or explicit null is invalid. The normalized pair participates in request identity. This default does not permit implicit latest-version lookup. It MAY include optional `release_scope` and optional `recipient_partition_refs[]`. For `release_scope`, omission means `internal_draft`, explicit JSON `null` is invalid, the allowed current-profile values are exactly `internal_draft`, `internal_review`, and `external_release`, and omission and explicit `internal_draft` MUST compare equal for idempotency and replay. For `recipient_partition_refs[]`, omission means `[]`, explicit JSON `null` is invalid, order is non-semantic, duplicates coalesce, and the canonical form sorts exact tokens ascending. Non-empty `recipient_partition_refs[]` are valid only with `release_scope='external_release'`; internal scopes MUST reject them with `invalid_release_request` and `reason_code='recipient_partitions_not_allowed'`. The durable `release resource` MUST always serialize the resolved closed-vocabulary `output_kind`, resolved closed-vocabulary `release_scope`, and canonical `recipient_partition_refs[]`. Both routes MUST run as background jobs. Release admission MUST retain the exact recipe and immutable dependencies defined by Reporting §5 without source expansion. Content-dependent recipient membership and materialized-policy checks run during cancelable preparation. The recipe and independently sealed preparation govern release/preview v4 Jobs; retired v2/v3 full-model Jobs are not translated. A failure before preparation cannot create a release with fabricated model or profile digests. Candidate validation runs before the final Jobs transition lock; publication rechecks its retained bindings and execution fence. The release-create route MUST fail closed if the request omits the template version or a required redaction-profile version, attempts implicit latest-version resolution, or supplies a `release_scope`, output selector, redaction-profile selector, template selector, or recipient-partition shape outside the closed current-profile vocabulary. After successful authentication and structural request-body validation sufficient to identify `snapshot_id`, `POST /api/v1/releases` MUST resolve snapshot visibility before validating template, redaction-profile, output-kind, release-scope, or recipient-partition semantics. A caller who lacks visibility to the addressed snapshot MUST receive `snapshot_not_found`, not an incident-level error or a selector-validation error.
 
-`POST /api/v1/releases` MAY also include optional `output_options`, optional `graph_projection_refs[]`, and optional composition tuple members `composition_id`, `composition_version`, and `composition_sha256`. For `output_options`, omission means the Reporting §7.5 default object, explicit JSON `null` is invalid, and the materialized object participates in idempotency comparison and release tuple hashing. For `graph_projection_refs[]`, omission means `[]`, explicit JSON `null` is invalid, duplicate `graph_view_id` values are invalid, and the canonical form sorts by exact `graph_view_id`. For composition tuple members, omission and explicit JSON `null` are equivalent only when all three members are absent or null. Supplying any one non-null composition member requires all three members to be non-null; `composition_version='latest'` is invalid; `composition_sha256` MUST be the digest byte form for `cartulary.report_composition.v1` declared by `docs/report-composition-nlspec.md`; and Core MUST freeze the referenced composition version at release binding. A partial composition tuple fails with `invalid_release_request` and `reason_code='composition_tuple_incomplete'`. A digest mismatch found before render admission fails with `invalid_release_request`; a mismatch found after render admission fails the durable render with `release_render_failed`. At durable render admission, Core MUST assign `render_admitted_at` exactly once, persist it on the release record, and pass it unchanged to Reporting.
+`POST /api/v1/releases` MAY also include optional `output_options`, optional `graph_projection_refs[]`, and optional composition tuple members `composition_id`, `composition_version`, and `composition_sha256`. For `output_options`, omission means the Reporting §7.5 default object, explicit JSON `null` is invalid, and the materialized object participates in idempotency comparison and release tuple hashing. For `graph_projection_refs[]`, omission means `[]`, explicit JSON `null` is invalid, duplicate `graph_view_id` values are invalid, and the canonical form sorts by exact `graph_view_id`. For composition tuple members, omission and explicit JSON `null` are equivalent only when all three members are absent or null. Supplying any one non-null composition member requires all three members to be non-null; `composition_version='latest'` is invalid; `composition_sha256` MUST be the digest byte form for `cartulary.report_composition.v1` declared by `docs/report-composition-nlspec.md`; and Core MUST freeze the referenced composition version at release binding. A partial composition tuple fails with `invalid_release_request` and `reason_code='composition_tuple_incomplete'`. A digest mismatch found before render admission fails with `invalid_release_request`; a mismatch found after render admission fails the durable render with `release_render_failed`. At durable render admission, Core MUST assign `render_admitted_at` exactly once, persist it in the independently bound render admission, and pass it unchanged to Reporting. A subsequently published release record MUST copy that same instant; an unprepared failed attempt MUST NOT create a release record with invented model or profile facts.
 
 For terminal common-job summaries produced by this family:
 

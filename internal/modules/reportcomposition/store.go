@@ -163,7 +163,7 @@ func (s *Store) UpdateDraft(ctx context.Context, incidentID uuid.UUID, compositi
 	if request.AuthoredTexts != nil {
 		next.AuthoredTexts = cloneRaw(*request.AuthoredTexts)
 	}
-	if summary := validateDraft(next.DeckOps, next.DiagramDecls, next.AuthoredTexts, nil); !summaryValid(summary) {
+	if summary := validateDraft(next.DeckOps, next.DiagramDecls, next.AuthoredTexts); !summaryValid(summary) {
 		return MutationResult{}, &validationStoreError{Status: http.StatusBadRequest, Code: "invalid_request", Summary: summary}
 	}
 	row := tx.QueryRow(ctx, `
@@ -328,6 +328,7 @@ UPDATE report_compositions
 }
 
 func (s *Store) CreatePreviewAttempt(ctx context.Context, incidentID uuid.UUID, compositionID uuid.UUID, actorUserID uuid.UUID, request PreviewRequest, previewJobs PreviewJobPort, now time.Time) (PreviewResult, error) {
+	now = now.UTC().Truncate(time.Microsecond)
 	if previewJobs == nil {
 		return PreviewResult{}, errors.New("reportcomposition: preview job port is unavailable")
 	}
@@ -368,8 +369,21 @@ func (s *Store) CreatePreviewAttempt(ctx context.Context, incidentID uuid.UUID, 
 	if err != nil {
 		return PreviewResult{}, err
 	}
+	previewAttemptID := uuid.New()
+	source := PreviewRenderSource{
+		PreviewAttemptID: previewAttemptID, IncidentID: incidentID, CompositionID: compositionID,
+		SourceKind: request.SourceKind, DraftVersion: draftVersion, CompositionVersion: request.CompositionVersion,
+		PreviewSourceSHA256: sourceSHA, CompositionSHA256: compositionSHA, PreviewSourceJSON: sourceJSON,
+		SnapshotID: request.SnapshotID, DerivationVersion: request.DerivationVersion,
+		TemplateID: request.TemplateID, TemplateVersion: request.TemplateVersion,
+		RedactionProfileID: request.RedactionProfileID, RedactionProfileVersion: request.RedactionProfileVersion,
+		RedactionProfileSHA256: request.RedactionProfileSHA256, RenderEnvironmentProfile: request.RenderEnvironmentProfile,
+		OutputKind: request.OutputKind, OutputOptions: request.OutputOptions, RecipientPartitionRefs: request.RecipientPartitionRefs,
+		GraphProjectionRefs: request.GraphProjectionRefs, CreatedByUserID: actorUserID, CreatedAt: now,
+	}
 	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID}
 	renderAttempt, err := previewJobs.AdmitPreviewJob(ctx, tx, PreviewJobAdmission{
+		Source:         source,
 		IdempotencyKey: key,
 		Scope:          scope,
 		ActorUserID:    actorUserID,
@@ -389,16 +403,20 @@ INSERT INTO report_composition_preview_attempts (
     preview_source_sha256, composition_sha256, preview_source_json, preview_source_bytes, snapshot_id, derivation_version,
     template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
     render_environment_profile_id, output_kind, output_options, recipient_partition_refs, graph_projection_refs,
-    render_attempt_id, created_by_user_id, created_at
+    render_attempt_id, created_by_user_id, created_at, preview_attempt_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
 RETURNING preview_attempt_id
-`, incidentID, compositionID, request.SourceKind, draftVersion, request.CompositionVersion, sourceSHA, compositionSHA, []byte(sourceJSON), []byte(sourceJSON), request.SnapshotID, request.DerivationVersion, request.TemplateID, request.TemplateVersion, request.RedactionProfileID, request.RedactionProfileVersion, request.RedactionProfileSHA256, request.RenderEnvironmentProfile, request.OutputKind, []byte(request.OutputOptions), []byte(request.RecipientPartitionRefs), []byte(request.GraphProjectionRefs), renderAttemptID, actorUserID, now.UTC())
-	var previewAttemptID uuid.UUID
-	if err := row.Scan(&previewAttemptID); err != nil {
+`, incidentID, compositionID, request.SourceKind, draftVersion, request.CompositionVersion, sourceSHA, compositionSHA, []byte(sourceJSON), []byte(sourceJSON), request.SnapshotID, request.DerivationVersion, request.TemplateID, request.TemplateVersion, request.RedactionProfileID, request.RedactionProfileVersion, request.RedactionProfileSHA256, request.RenderEnvironmentProfile, request.OutputKind, []byte(request.OutputOptions), []byte(request.RecipientPartitionRefs), []byte(request.GraphProjectionRefs), renderAttemptID, actorUserID, now.UTC(), previewAttemptID)
+	var persistedPreviewID uuid.UUID
+	if err := row.Scan(&persistedPreviewID); err != nil {
 		return PreviewResult{}, err
 	}
-	payload := previewView(previewAttemptID, renderAttemptID, resource, version, request, sourceSHA, draftVersion, compositionSHA)
+	if persistedPreviewID != previewAttemptID {
+		return PreviewResult{}, errors.New("reportcomposition: changed preview admission identity")
+	}
+	source.RenderAttemptID = renderAttemptID
+	payload := previewView(source)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, payload); err != nil {
 		return PreviewResult{}, err
 	}
@@ -408,8 +426,7 @@ RETURNING preview_attempt_id
 	return PreviewResult{Payload: payload, StatusCode: http.StatusAccepted, IncidentID: incidentID}, nil
 }
 
-func (s *Store) PreviewSourceForRender(ctx context.Context, renderAttemptID uuid.UUID) (PreviewRenderSource, error) {
-	row := s.db.QueryRow(ctx, `
+const previewRenderSourceQuery = `
 SELECT preview_attempt_id, render_attempt_id, incident_id, composition_id, source_kind,
        draft_version, composition_version, preview_source_sha256, composition_sha256,
        preview_source_bytes, snapshot_id, derivation_version, template_id, template_version,
@@ -417,8 +434,29 @@ SELECT preview_attempt_id, render_attempt_id, incident_id, composition_id, sourc
        render_environment_profile_id, output_kind, output_options,
        recipient_partition_refs, graph_projection_refs, created_by_user_id, created_at
   FROM report_composition_preview_attempts
- WHERE render_attempt_id = $1
-`, renderAttemptID)
+`
+
+func (s *Store) PreviewSourceForRender(ctx context.Context, renderAttemptID uuid.UUID) (PreviewRenderSource, error) {
+	return decodePreviewRenderSourceRow(s.db.QueryRow(ctx, previewRenderSourceQuery+" WHERE render_attempt_id=$1", renderAttemptID))
+}
+
+// PreviewSourceForRenderTx supplies the immutable Composition-owned source in
+// the caller's consistent read; it neither reselects a draft nor creates state.
+func PreviewSourceForRenderTx(ctx context.Context, tx pgx.Tx, renderAttemptID uuid.UUID) (PreviewRenderSource, error) {
+	return decodePreviewRenderSourceRow(tx.QueryRow(ctx, previewRenderSourceQuery+" WHERE render_attempt_id=$1", renderAttemptID))
+}
+
+// NextRetainedPreviewTx enumerates Composition-owned immutable admissions in a
+// bounded caller-owned read. Missing payloads must not hide an admitted source.
+func NextRetainedPreviewTx(ctx context.Context, tx pgx.Tx, after *uuid.UUID) (PreviewRenderSource, bool, error) {
+	source, err := decodePreviewRenderSourceRow(tx.QueryRow(ctx, previewRenderSourceQuery+" WHERE ($1::uuid IS NULL OR render_attempt_id>$1) ORDER BY render_attempt_id LIMIT 1", after))
+	if errors.Is(err, ErrNotFound) {
+		return PreviewRenderSource{}, false, nil
+	}
+	return source, err == nil, err
+}
+
+func decodePreviewRenderSourceRow(row pgx.Row) (PreviewRenderSource, error) {
 	var source PreviewRenderSource
 	if err := row.Scan(
 		&source.PreviewAttemptID,
@@ -450,6 +488,21 @@ SELECT preview_attempt_id, render_attempt_id, incident_id, composition_id, sourc
 			return PreviewRenderSource{}, ErrNotFound
 		}
 		return PreviewRenderSource{}, err
+	}
+	document, err := DecodeRenderSource(source.PreviewSourceJSON)
+	if err != nil {
+		return PreviewRenderSource{}, err
+	}
+	if document.SchemaID != PreviewSourceSchemaID || document.IncidentID != source.IncidentID.String() || document.CompositionID != source.CompositionID.String() || document.TemplateID != source.TemplateID || document.TemplateVersion != source.TemplateVersion || document.SourceKind != source.SourceKind || document.PreviewSourceSHA256 != source.PreviewSourceSHA256 || !sameOptionalString(document.CompositionSHA256, source.CompositionSHA256) || !sameOptionalInt64(document.DraftVersion, source.DraftVersion) {
+		return PreviewRenderSource{}, &RenderSourceError{ReasonCode: "composition_digest_mismatch"}
+	}
+	var version *string
+	if source.CompositionVersion != nil {
+		value := formatCompositionVersion(*source.CompositionVersion)
+		version = &value
+	}
+	if !sameOptionalString(document.CompositionVersion, version) {
+		return PreviewRenderSource{}, &RenderSourceError{ReasonCode: "composition_digest_mismatch"}
 	}
 	source.PreviewSourceJSON = cloneRaw(source.PreviewSourceJSON)
 	source.OutputOptions = cloneRaw(source.OutputOptions)
@@ -543,6 +596,9 @@ SELECT DISTINCT composition_version
 }
 
 func replayMutation(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey, requestHash []byte) (MutationResult, bool, error) {
+	if err := authn.LockRouteIdempotencyTx(ctx, tx, key); err != nil {
+		return MutationResult{}, false, err
+	}
 	existing, err := lookupRouteIdempotencyTx(ctx, tx, key)
 	if errors.Is(err, authn.ErrNotFound) {
 		return MutationResult{}, false, nil
@@ -712,33 +768,29 @@ func versionView(version VersionRecord) map[string]any {
 	}
 }
 
-func previewView(previewAttemptID uuid.UUID, renderAttemptID uuid.UUID, resource ResourceRecord, version *VersionRecord, request PreviewRequest, previewSHA string, draftVersion *int64, compositionSHA *string) map[string]any {
-	var compositionVersion any
-	if version != nil {
-		compositionVersion = formatCompositionVersion(version.CompositionVersion)
-	}
+func previewView(source PreviewRenderSource) map[string]any {
 	return map[string]any{
-		"preview_attempt_id":            previewAttemptID.String(),
-		"render_attempt_id":             renderAttemptID.String(),
-		"incident_id":                   resource.IncidentID.String(),
-		"composition_id":                resource.CompositionID.String(),
-		"source_kind":                   request.SourceKind,
-		"draft_version":                 draftVersion,
-		"composition_version":           compositionVersion,
-		"preview_source_sha256":         previewSHA,
-		"composition_sha256":            optionalStringForJSON(compositionSHA),
-		"snapshot_id":                   request.SnapshotID,
-		"derivation_version":            request.DerivationVersion,
-		"template_id":                   request.TemplateID,
-		"template_version":              request.TemplateVersion,
-		"redaction_profile_id":          request.RedactionProfileID,
-		"redaction_profile_version":     request.RedactionProfileVersion,
-		"redaction_profile_sha256":      request.RedactionProfileSHA256,
-		"render_environment_profile_id": request.RenderEnvironmentProfile,
-		"output_kind":                   request.OutputKind,
-		"output_options":                rawJSONValue(request.OutputOptions),
-		"recipient_partition_refs":      rawJSONValue(request.RecipientPartitionRefs),
-		"graph_projection_refs":         rawJSONValue(request.GraphProjectionRefs),
+		"preview_attempt_id":            source.PreviewAttemptID.String(),
+		"render_attempt_id":             source.RenderAttemptID.String(),
+		"incident_id":                   source.IncidentID.String(),
+		"composition_id":                source.CompositionID.String(),
+		"source_kind":                   source.SourceKind,
+		"draft_version":                 source.DraftVersion,
+		"composition_version":           optionalVersionForJSON(source.CompositionVersion),
+		"preview_source_sha256":         source.PreviewSourceSHA256,
+		"composition_sha256":            optionalStringForJSON(source.CompositionSHA256),
+		"snapshot_id":                   source.SnapshotID,
+		"derivation_version":            source.DerivationVersion,
+		"template_id":                   source.TemplateID,
+		"template_version":              source.TemplateVersion,
+		"redaction_profile_id":          source.RedactionProfileID,
+		"redaction_profile_version":     source.RedactionProfileVersion,
+		"redaction_profile_sha256":      source.RedactionProfileSHA256,
+		"render_environment_profile_id": source.RenderEnvironmentProfile,
+		"output_kind":                   source.OutputKind,
+		"output_options":                rawJSONValue(source.OutputOptions),
+		"recipient_partition_refs":      rawJSONValue(source.RecipientPartitionRefs),
+		"graph_projection_refs":         rawJSONValue(source.GraphProjectionRefs),
 		"release_scope":                 ReleaseScopeInternalDraft,
 	}
 }

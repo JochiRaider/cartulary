@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-
 import type {
   QueryWorkbookViewRequest,
   QueryWorkbookViewResponse,
@@ -7,7 +6,14 @@ import type {
 } from "@cartulary/protocol-ts/http";
 import {
   type CartularyAc043PredicateId,
-  cartularyAc043PerformanceContract,
+  type CartularyAc044PredicateId,
+  type CartularyHistoryPredicateId,
+  type CartularyImportApplyPredicateId,
+  type CartularyImportDiscoveryPredicateId,
+  type CartularyPresencePredicateId,
+  type CartularyReferencePackProgressPredicateId,
+  type CartularyReportingProgressPredicateId,
+  cartularyLargeGridFixture,
 } from "@cartulary/ui-contracts";
 import {
   hostsViewSchemaId,
@@ -15,7 +21,6 @@ import {
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
-
 import { csrfHeaders } from "../auth/browserSession";
 import {
   loginBootstrapControlPlaneContext,
@@ -28,10 +33,15 @@ import { apiBase, webBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
+import { parseFixtureRuntimeBundle } from "./runtimeBundle";
 
-const fixture = cartularyAc043PerformanceContract.fixture;
+const fixture = cartularyLargeGridFixture;
 const fixtureIncidentKey = `AC043-PERF-${fixture.seed}`;
-const fixtureProfileId = "ac043_large_grid_snapshot_v1";
+type LargeGridProfileId =
+  | "timeline_large_grid_snapshot_v2"
+  | "timeline_large_grid_import_snapshot_v1"
+  | "timeline_large_grid_reporting_snapshot_v1";
+const fixtureProfileId: LargeGridProfileId = "timeline_large_grid_snapshot_v2";
 const pageLimit = 500;
 
 type BackgroundAccount = {
@@ -51,12 +61,13 @@ export type Ac043Snapshot = {
   timelineRows: ViewRow[];
   runtime: {
     backgroundAccounts: BackgroundAccount[];
-    fixtureProfileId: typeof fixtureProfileId;
+    fixtureProfileId: LargeGridProfileId;
     snapshotKey: string;
   };
 };
 
 export type Ac043TrafficDriver = {
+  observerPage: Page | null;
   qualifiedBackgroundSessions: number;
   sessionCount: number;
   updatesPerSecond: number;
@@ -79,91 +90,30 @@ export function parseAc043RuntimeBundle(
   contents: string,
   expected: { fixtureProfileId: string; snapshotKey: string },
 ) {
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(contents);
-  } catch {
-    throw new Error("AC-043 private runtime bundle contains invalid JSON");
-  }
-  const bundle = requireRecord(decoded, "AC-043 private runtime bundle");
-  requireExactKeys(
-    bundle,
-    ["schema_id", "fixture_profile_id", "snapshot_key", "credential_sets"],
-    "AC-043 private runtime bundle",
-  );
-  if (
-    bundle.schema_id !== "cartulary.performance_fixture_runtime.v2" ||
-    bundle.fixture_profile_id !== expected.fixtureProfileId ||
-    bundle.snapshot_key !== expected.snapshotKey ||
-    !/^[a-f0-9]{64}$/u.test(expected.snapshotKey)
-  ) {
-    throw new Error("AC-043 private runtime bundle identity is inconsistent");
-  }
-  if (
-    !Array.isArray(bundle.credential_sets) ||
-    bundle.credential_sets.length !== 1
-  ) {
-    throw new Error(
-      "AC-043 private runtime bundle credential sets are inconsistent",
-    );
-  }
-  const credentialSet = requireRecord(
-    bundle.credential_sets[0],
-    "AC-043 private runtime credential set",
-  );
-  requireExactKeys(
-    credentialSet,
-    ["set_id", "credential_kind", "credentials"],
-    "AC-043 private runtime credential set",
-  );
-  if (
-    credentialSet.set_id !== "background_analysts" ||
-    credentialSet.credential_kind !== "email_password" ||
-    !Array.isArray(credentialSet.credentials)
-  ) {
-    throw new Error("AC-043 private runtime credential set is incompatible");
-  }
-  const emails = new Set<string>();
-  const accounts = credentialSet.credentials.map((rawAccount, index) => {
-    const label = `AC-043 private runtime account ${index + 1}`;
-    const account = requireRecord(rawAccount, label);
-    requireExactKeys(account, ["principal", "secret"], label);
-    const email = requirePrivateString(account.principal, `${label} email`);
-    const password = requirePrivateString(account.secret, `${label} password`);
-    if (!email.includes("@") || email.length > 254) {
-      throw new Error(`${label} email is invalid`);
-    }
-    if (password.length < 24 || password.length > 256) {
-      throw new Error(`${label} password is invalid`);
-    }
-    if (emails.has(email)) {
-      throw new Error(
-        "AC-043 private runtime bundle contains duplicate accounts",
-      );
-    }
-    emails.add(email);
-    return { email, password };
+  const parsed = parseFixtureRuntimeBundle(contents, {
+    ...expected,
+    credentialSetId: "background_analysts",
+    accountCount: fixture.backgroundSessions,
   });
-  if (accounts.length !== fixture.backgroundSessions) {
-    throw new Error(
-      `AC-043 private runtime bundle expected ${fixture.backgroundSessions} accounts, got ${accounts.length}`,
-    );
-  }
   return {
-    backgroundAccounts: accounts,
-    fixtureProfileId,
-    snapshotKey: expected.snapshotKey,
+    backgroundAccounts: parsed.accounts,
+    fixtureProfileId: expected.fixtureProfileId as LargeGridProfileId,
+    snapshotKey: parsed.snapshotKey,
   } as const;
 }
 
 export async function prepareAc043Snapshot(
   page: Page,
   workerAdmin: WorkerAdminEntry,
+  options: {
+    foregroundRole?: "editor" | "reviewer";
+    fixtureProfileId?: LargeGridProfileId;
+  } = {},
 ): Promise<Ac043Snapshot> {
   const fixtureProfile = requiredEnvironment("CARTULARY_FIXTURE_PROFILE_ID");
   const snapshotKey = requiredEnvironment("CARTULARY_FIXTURE_SNAPSHOT_KEY");
   if (
-    fixtureProfile !== fixtureProfileId ||
+    fixtureProfile !== (options.fixtureProfileId ?? fixtureProfileId) ||
     !/^[a-f0-9]{64}$/u.test(snapshotKey)
   ) {
     throw new Error(
@@ -177,7 +127,10 @@ export async function prepareAc043Snapshot(
     ),
     { fixtureProfileId: fixtureProfile, snapshotKey },
   );
-  const incidentId = await admitForegroundWorker(workerAdmin);
+  const incidentId = await admitForegroundWorker(
+    workerAdmin,
+    options.foregroundRole ?? "editor",
+  );
   await validateDefaultView(page, incidentId);
   const [timelineRows, hostRows, identityRows] = await Promise.all([
     queryAllViewRows(page, incidentId, timelineViewSchemaId, {
@@ -207,7 +160,18 @@ export async function startAc043SnapshotTraffic(
   incidentId: string,
   rows: readonly ViewRow[],
   accounts: readonly BackgroundAccount[],
-  predicateId: CartularyAc043PredicateId,
+  predicateId:
+    | CartularyAc043PredicateId
+    | CartularyAc044PredicateId
+    | CartularyPresencePredicateId
+    | CartularyHistoryPredicateId
+    | CartularyImportDiscoveryPredicateId
+    | CartularyImportApplyPredicateId
+    | CartularyReportingProgressPredicateId
+    | CartularyReferencePackProgressPredicateId
+    | "perf.timeline_paste_20x5.v2"
+    | "perf.anchor_stability_under_live_updates.v2",
+  options: { workbookObserver?: boolean } = {},
 ): Promise<Ac043TrafficDriver> {
   if (rows.length < fixture.backgroundSessions) {
     throw new Error("AC-043 background row pool is undersized");
@@ -223,6 +187,7 @@ export async function startAc043SnapshotTraffic(
   const trafficSessions: Array<{ page: Page; rowState: ViewRow }> = [];
   let trafficFailure: Error | null = null;
   let stopped = false;
+  let observerPage: Page | null = null;
   const update = async (backgroundPage: Page, rowState: ViewRow) => {
     if (stopped) return;
     const cookies = await backgroundPage.context().cookies(apiBase);
@@ -269,7 +234,12 @@ export async function startAc043SnapshotTraffic(
         purpose: `AC-043 traffic session ${index + 1}`,
         userId: session.user_id,
       });
-      await establishPresenceClient(backgroundPage, incidentId, index);
+      if (options.workbookObserver && index === 0) {
+        await backgroundPage.setViewportSize({ width: 1920, height: 1080 });
+        await backgroundPage.goto(`${webBase}/?incident_id=${incidentId}`);
+      } else {
+        await establishPresenceClient(backgroundPage, incidentId, index);
+      }
       const assignedRow = rows[index];
       if (assignedRow === undefined) {
         throw new Error(`AC-043 background row ${index + 1} is missing`);
@@ -319,6 +289,11 @@ export async function startAc043SnapshotTraffic(
         `AC-043 traffic qualification expected ${fixture.backgroundSessions} sessions, got ${firstUpdates.length}`,
       );
     }
+    if (options.workbookObserver) {
+      observerPage = trafficSessions[0]?.page ?? null;
+      if (observerPage === null)
+        throw new Error("Large-grid observer session is missing");
+    }
   } catch (error) {
     stopped = true;
     for (const timer of timers) clearTimeout(timer);
@@ -326,6 +301,7 @@ export async function startAc043SnapshotTraffic(
     throw error;
   }
   return {
+    observerPage,
     qualifiedBackgroundSessions: firstUpdates.length,
     sessionCount: contexts.length + 1,
     updatesPerSecond: fixture.backgroundUpdatesPerSecond,
@@ -341,7 +317,10 @@ export async function startAc043SnapshotTraffic(
   };
 }
 
-async function admitForegroundWorker(workerAdmin: WorkerAdminEntry) {
+async function admitForegroundWorker(
+  workerAdmin: WorkerAdminEntry,
+  role: "editor" | "reviewer",
+) {
   const controlPlane = await loginBootstrapControlPlaneContext();
   try {
     const incidents = await publicHttpOperation({
@@ -370,7 +349,7 @@ async function admitForegroundWorker(workerAdmin: WorkerAdminEntry) {
       body: {
         client_txn_id: uniqueTxn("ac043-foreground-membership"),
         email: workerAdmin.email,
-        role: "editor",
+        role,
       },
       operationID: "createIncidentMembership",
       pathParameters: { incident_id: incidentId },
@@ -637,33 +616,6 @@ function requiredEnvironment(name: string) {
   const value = process.env[name]?.trim() ?? "";
   if (value === "") {
     throw new Error(`AC-043 snapshot execution requires ${name}`);
-  }
-  return value;
-}
-
-function requireRecord(value: unknown, label: string) {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} must be an object`);
-  }
-  return value as Record<string, unknown>;
-}
-
-function requireExactKeys(
-  value: Record<string, unknown>,
-  keys: readonly string[],
-  label: string,
-) {
-  if (
-    JSON.stringify(Object.keys(value).sort()) !==
-    JSON.stringify([...keys].sort())
-  ) {
-    throw new Error(`${label} has an invalid field set`);
-  }
-}
-
-function requirePrivateString(value: unknown, label: string) {
-  if (typeof value !== "string" || value === "") {
-    throw new Error(`${label} is invalid`);
   }
   return value;
 }

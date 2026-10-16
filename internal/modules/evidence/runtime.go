@@ -43,9 +43,8 @@ type OwnerRuntime struct {
 	objectStore  objectstore.TypedStore
 	now          func() time.Time
 	routes       routeService
-	workbook     MutationContribution
-	attachments  TimelineAttachmentContribution
-	importCreate ownerfacade.ImportOwnerCreateFacade
+	verification *blobVerificationService
+	source       *SourceRuntime
 	cleanup      *CleanupDispatcher
 }
 
@@ -58,10 +57,15 @@ type OwnerRuntimeDependencies struct {
 	Mutation        MutationDependencies
 	CleanupObserver CleanupObserver
 	Now             func() time.Time
+	JobTransactions blobVerificationTransactions
+	JobManager      blobVerificationManager
+	JobRunner       blobVerificationRunner
 }
 
 func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, error) {
 	switch {
+	case isNilMutationCapability(dependencies.JobTransactions) || isNilMutationCapability(dependencies.JobManager) || isNilMutationCapability(dependencies.JobRunner):
+		return nil, fmt.Errorf("compose Evidence owner runtime: Jobs dependencies are required")
 	case dependencies.Postgres == nil:
 		return nil, fmt.Errorf("compose Evidence owner runtime: Postgres is required")
 	case dependencies.ConflictTokens == nil:
@@ -80,14 +84,7 @@ func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, erro
 	if err := dependencies.Mutation.validate(); err != nil {
 		return nil, fmt.Errorf("compose Evidence owner runtime: %w", err)
 	}
-	sourceMutations, err := newSourceMutationService(
-		dependencies.Postgres,
-		dependencies.Mutation.ProjectionRows,
-		dependencies.Revisions,
-		dependencies.Collaboration,
-		dependencies.Mutation.IncidentState,
-		dependencies.Mutation.RecordEnvelopes,
-	)
+	source, err := NewSourceRuntime(SourceRuntimeDependencies{Postgres: dependencies.Postgres, ConflictTokens: dependencies.ConflictTokens, Revisions: dependencies.Revisions, Collaboration: dependencies.Collaboration, Mutation: dependencies.Mutation})
 	if err != nil {
 		return nil, err
 	}
@@ -112,20 +109,6 @@ func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, erro
 	if err != nil {
 		return nil, err
 	}
-	workbook, err := newMutationFacade(
-		dependencies.Postgres,
-		*dependencies.ConflictTokens,
-		sourceMutations,
-		dependencies.ObjectStore,
-		dependencies.Mutation,
-	)
-	if err != nil {
-		return nil, err
-	}
-	importCreate, err := newImportCreateFacade("evidence.import_create", sourceMutations)
-	if err != nil {
-		return nil, err
-	}
 	cleanupService, err := newCleanupService(dependencies.Postgres)
 	if err != nil {
 		return nil, err
@@ -143,23 +126,27 @@ func NewOwnerRuntime(dependencies OwnerRuntimeDependencies) (*OwnerRuntime, erro
 	if err != nil {
 		return nil, err
 	}
+	verification := &blobVerificationService{db: dependencies.Postgres, objects: blobVerificationObjectReader{store: dependencies.ObjectStore}, transactions: dependencies.JobTransactions, manager: dependencies.JobManager, runner: dependencies.JobRunner, now: dependencies.Now}
+	if err := dependencies.JobRunner.RegisterHandler(blobVerificationWorkerKind, verification.handle); err != nil {
+		return nil, err
+	}
 	return &OwnerRuntime{
+		verification: verification,
 		postgres:     dependencies.Postgres,
 		objectStore:  dependencies.ObjectStore,
 		now:          dependencies.Now,
 		routes:       routes,
-		workbook:     workbook,
-		attachments:  timelineAttachmentReader{projections: dependencies.Mutation.ProjectionRows},
-		importCreate: importCreate,
+		source:       source,
 		cleanup:      cleanup,
 	}, nil
 }
 
 func (runtime *OwnerRuntime) RouteRegistrar(settings Settings) httpapi.RouteRegistrar {
 	return registerRoutes(settings, routeDependencies{
-		objectStore: runtime.objectStore,
-		now:         runtime.now,
-		operations:  runtime.routes,
+		objectStore:  runtime.objectStore,
+		verification: runtime.verification,
+		now:          runtime.now,
+		operations:   runtime.routes,
 		admission: routeAdmission{
 			incidents: admission.NewChecker(runtime.postgres),
 			auth:      authn.NewStore(runtime.postgres),
@@ -169,15 +156,15 @@ func (runtime *OwnerRuntime) RouteRegistrar(settings Settings) httpapi.RouteRegi
 }
 
 func (runtime *OwnerRuntime) MutationContribution() MutationContribution {
-	return runtime.workbook
+	return runtime.source.MutationContribution()
 }
 
 func (runtime *OwnerRuntime) TimelineAttachmentContribution() TimelineAttachmentContribution {
-	return runtime.attachments
+	return runtime.source.TimelineAttachmentContribution()
 }
 
 func (runtime *OwnerRuntime) ImportCreateFacade() ownerfacade.ImportOwnerCreateFacade {
-	return runtime.importCreate
+	return runtime.source.ImportCreateFacade()
 }
 
 func (runtime *OwnerRuntime) CleanupDispatcher() *CleanupDispatcher {

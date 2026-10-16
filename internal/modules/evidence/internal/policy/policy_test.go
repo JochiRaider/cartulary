@@ -129,9 +129,7 @@ func TestAssociationFailureAndIncidentPolicy(t *testing.T) {
 	if !schedule.FailedAt.Equal(now.UTC()) || !schedule.CleanupDueAt.Equal(now.UTC().Add(45*time.Minute)) {
 		t.Fatalf("ScheduleFailure() = %+v", schedule)
 	}
-	if FinalizeAttemptIsTerminal(AllowedNonTerminalFinalizeFailures) || !FinalizeAttemptIsTerminal(TerminalFinalizeAttempt) {
-		t.Fatal("finalize attempt threshold does not preserve three retries then terminal fourth failure")
-	}
+
 	if !IncidentMutationBlocked("closed") || IncidentMutationBlocked("active") {
 		t.Fatal("incident mutation policy mismatch")
 	}

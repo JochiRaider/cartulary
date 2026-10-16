@@ -326,7 +326,7 @@ The schema sketch keeps blob upload and evidence lifecycle separate:
 - `evidence_records.lifecycle_state` holds states equivalent to `requested`, `pending_receipt`, `received`, `available`, `quarantined`, or `released`,
 - the bridge between them is the optional `object_blob_id` plus custody events.
 
-The core now also requires `object_blobs` to persist the incident anchor, the route-scoped blob-create idempotency key, the accepted upload contract, the observed object metadata used for finalization checks, and the structured timeout and cleanup fields `target_expires_at`, `pending_expires_at`, `finalize_attempt_count`, `terminal_reason`, `failed_at`, `cleanup_due_at`, and `cleaned_up_at`.
+The core now also requires `object_blobs` to persist the incident anchor, the route-scoped blob-create idempotency key, the accepted upload contract, the observed object metadata used for finalization checks, and the structured timeout and cleanup fields `target_expires_at`, `pending_expires_at`, `terminal_reason`, `failed_at`, `cleanup_due_at`, and `cleaned_up_at`.
 
 Timeout, retry exhaustion, and terminal contract mismatch remain instances of `upload_state='failed'`; the sketch does not need a separate expired state. The base-profile blob slot behaves as a single-upload lease with a short-lived upload target and a longer pending-slot timeout.
 
@@ -1012,7 +1012,6 @@ CREATE TABLE object_blobs (
     ),
     target_expires_at timestamptz,
     pending_expires_at timestamptz,
-    finalize_attempt_count integer NOT NULL DEFAULT 0 CHECK (finalize_attempt_count >= 0),
     terminal_reason text,
     failed_at timestamptz,
     cleanup_due_at timestamptz,

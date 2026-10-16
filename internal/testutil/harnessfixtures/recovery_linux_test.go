@@ -26,6 +26,7 @@ func fixtureReference(t *testing.T, runtime *harnesssession.Runtime, kind string
 	return reference
 }
 func TestFixtureRecovery(t *testing.T) {
+	testRecoveryCommand(t)
 	testCleanupDependencies(t)
 	for _, mode := range []string{"ordinary", "recovery"} {
 		t.Run("diagnostic_dependency_blocks_suite_"+mode, func(t *testing.T) {

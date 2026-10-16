@@ -7,6 +7,7 @@ import path from "node:path";
 
 import {
   WorkGraphCompiler,
+  availableGoWorkerBudget,
   assertFixtureServiceDependencies,
   assertServiceDependencies,
   buildWorkGraph,
@@ -63,8 +64,69 @@ function assertCanonicalCurrentRunOutputs(unitValue, rowIDs, label) {
 }
 
 function assertGraphCutover() {
+  assert.equal(availableGoWorkerBudget(19, {}), 19);
+  assert.equal(availableGoWorkerBudget(19, { CARTULARY_UNIT_CPU_TOKENS: "4" }), 19, "unleased ambient values cannot alter planning");
+  const parent = { CARTULARY_HOST_ADMISSION_LEASE: "opaque-parent", CARTULARY_UNIT_CPU_TOKENS: "4" };
+  assert.equal(availableGoWorkerBudget(19, parent), 4);
+  assert.equal(availableGoWorkerBudget(2, parent), 2);
+  for (const budget of [undefined, "", "0", "-1", "1.5", "4x", "9007199254740992"]) {
+    assert.throws(() => availableGoWorkerBudget(19, { ...parent, CARTULARY_UNIT_CPU_TOKENS: budget }), /inherited Go CPU budget/u);
+  }
   const compiler = new WorkGraphCompiler(root);
+  const inputs = new WorkGraphCompiler(root, { targetInputs: {
+    "test-evidence-audit": { OWNER: "platform.pagination", EVIDENCE_ROOTS_FILE: ".cartulary/audit-inputs/selected.json", UNDECLARED: "must-not-forward" },
+  } });
+  const audit = inputs.compileTarget("test-evidence-audit").units.find((unit) => unit.unit_id === "target:test-evidence-audit");
+  assert.equal(audit.command.executable, "node");
+  assert.deepEqual(audit.command.args, ["tools/harness/execution/run-make-node-tool-cli.mjs", "test-evidence-audit"]);
+  assert.equal(audit.command.environment.OWNER, "platform.pagination");
+  assert.equal(audit.command.environment.EVIDENCE_ROOTS_FILE, ".cartulary/audit-inputs/selected.json");
+  assert.equal(JSON.stringify(audit).includes("must-not-forward"), false);
+  assert.notEqual(audit.semantic_digest, compiler.compileTarget("test-evidence-audit").units.find((unit) => unit.unit_id === audit.unit_id).semantic_digest);
+  assert.deepEqual(inputs.compileTarget("frontend-install"), compiler.compileTarget("frontend-install"), "explicit audit input must not reach another command");
+  const rendererRows = compiler.catalog.rows.filter((row) => row.runner === "vitest" && row.selector.project_id === "renderer-node");
+  assert.ok(rendererRows.some((row) => row.evidence_class === "integration"));
+  assert.ok(rendererRows.some((row) => row.evidence_class === "unit"));
+  for (const row of rendererRows) {
+    const graph = compiler.compileRows([row.row_id]);
+    assert.ok(graph.units.some((unit) => unit.unit_id === "target:frontend-install"));
+    assert.equal(graph.units.some((unit) => unit.unit_id === "target:playwright-install"), row.evidence_class === "integration");
+    assert.ok(graph.units.every((unit) => unit.service_dependencies.length === 0), "standalone renderer must not acquire product services");
+    const consumer = graph.units.find((unit) => unit.current_run_evidence_outputs.includes(`rows/${row.row_id}.json`));
+    assert.equal(consumer.fixture_lease, "none");
+    assert.equal(consumer.resource_claims.postgres, undefined);
+    if (row.evidence_class === "integration") {
+      assert.equal(consumer.resource_claims.browser_stack, 1);
+      assert.equal(consumer.command.environment.CARTULARY_TEST_ROWS, row.row_id);
+    }
+  }
   const frontendRows = compiler.catalog.rows.filter((row) => row.runner === "vitest");
+  const prepared = compiler.catalog.rows.find((row) => row.runner === "go" && row.preparation_targets?.includes("playwright-install"));
+  assert.ok(prepared, "cross-language renderer has an explicit preparation contract");
+  const preparedGraph = compiler.compileRows([prepared.row_id]);
+  const preparedConsumer = preparedGraph.units.find((unit) => unit.current_run_evidence_outputs.includes(`rows/${prepared.row_id}.json`));
+  for (const target of prepared.preparation_targets) {
+    assert.ok(preparedGraph.units.some((unit) => unit.unit_id === `target:${target}`));
+    assert.ok(preparedConsumer.needs.includes(`target:${target}`), "preparation failure must block the consumer");
+  }
+  compiler.catalog.rowByID.set(prepared.row_id, { ...prepared, preparation_targets: undefined });
+  try {
+    const unprepared = compiler.compileRows([prepared.row_id]);
+    const consumer = unprepared.units.find((unit) => unit.current_run_evidence_outputs.includes(`rows/${prepared.row_id}.json`));
+    assert.notEqual(consumer.semantic_digest, preparedConsumer.semantic_digest, "preparation changes execution identity");
+    assert.equal(unprepared.units.some((unit) => unit.unit_id === "target:playwright-install"), false, "capacity must not infer preparation");
+  } finally { compiler.catalog.rowByID.set(prepared.row_id, prepared); }
+  const installedRows = compiler.catalog.rows.filter((row) => row.preparation_targets?.includes("build-report-renderer"));
+  assert.deepEqual([...new Set(installedRows.map((row) => row.runner))].sort(), ["go", "vitest"]);
+  for (const installed of installedRows) {
+    const installedGraph = compiler.compileRows([installed.row_id]);
+    const installation = installedGraph.units.find((unit) => unit.unit_id === "target:build-report-renderer");
+    const installedConsumer = installedGraph.units.find((unit) => unit.current_run_evidence_outputs.includes(`rows/${installed.row_id}.json`));
+    assert.ok(installation.needs.includes("target:frontend-install"));
+    assert.ok(installation.needs.includes("target:playwright-install"));
+    assert.ok(installedConsumer.needs.includes(installation.unit_id));
+    assert.ok(installedGraph.units.every((unit) => unit.service_dependencies.length === 0));
+  }
   const firstFrontend = frontendRows.find((row) => frontendRows.filter((other) => other.selector.file === row.selector.file &&
     other.owner_id === row.owner_id && other.evidence_class === row.evidence_class && other.resource_profile_id === row.resource_profile_id).length > 1);
   const pair = frontendRows.filter((row) => row.selector.file === firstFrontend.selector.file && row.owner_id === firstFrontend.owner_id &&

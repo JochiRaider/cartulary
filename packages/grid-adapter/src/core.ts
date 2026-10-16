@@ -596,6 +596,13 @@ export type GridCellPasteIntent = {
   readonly target: GridCellTarget;
 };
 
+/** A recordless insertion target never fabricates a record or range identity. */
+export type GridDraftPasteIntent = {
+  readonly input: Extract<GridClipboardInput, { readonly kind: "table" }>;
+  readonly fieldKey: string;
+  readonly targetResolution: GridPasteTargetResolution;
+};
+
 export type GridClipboardPasteContract = {
   readonly decode: (
     offered: import("./clipboardCodec").ClipboardRepresentations,
@@ -603,6 +610,7 @@ export type GridClipboardPasteContract = {
   readonly onPaste: (
     intent: GridCellPasteIntent,
   ) => boolean | undefined | Promise<boolean | undefined>;
+  readonly onDraftPaste?: (intent: GridDraftPasteIntent) => boolean;
   readonly onError?: (message: string) => void;
 };
 

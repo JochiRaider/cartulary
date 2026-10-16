@@ -50,7 +50,7 @@ Profiles: claim_publication
 Verified by: PC-001, PC-002
 
 **REQ-05-007**
-Unless a criterion declares another benchmark profile explicitly, the current claim-bearing benchmark profile is `cartulary.perf.desktop_ref.v2`.
+Unless a criterion declares another benchmark profile explicitly, the current claim-bearing benchmark profile is `cartulary.perf.desktop_ref.v3`.
 Profiles: claim_publication
 Verified by: PC-002
 
@@ -105,37 +105,62 @@ Profiles: claim_publication
 Verified by: PC-002
 
 **REQ-05-009**
-Claim-bearing benchmark runs MUST emit one durable `benchmark_manifest` conforming to `cartulary.benchmark_manifest.v1`. The manifest MUST be retained with the benchmark artifact bundle and MUST include, at minimum:
+Claim-bearing benchmark runs MUST retain a closed
+`cartulary.benchmark_manifest.v2` envelope with exactly `schema_id`,
+`claim_bearing=true`, `benchmark_profile_id`, `environment`, `source_digest`,
+`criterion_ids`, `security_controls_state`, and `bundle`. The environment MUST
+match the current profile exactly. Security controls MUST be explicit Boolean
+`true` values for authentication, session handling, CSRF protection,
+sanitization, safe-preview restrictions, and integrity checks. Unknown members,
+duplicate JSON members, retired schemas/profiles and unknown criteria MUST fail.
 
-- `benchmark_manifest_schema_id`
-- `benchmark_profile_id`
-- `criterion_ids[]`
-- `measurement_predicate_ids[]`
-- `fixture_ids[]`
-- `traffic_trace_id`
-- `seed`
-- `warmup_passes`
-- `browser_engine`
-- `browser_build`
-- `client_runner_id`
-- `client_os_image_id`
-- `app_runner_id`
-- `app_os_image_id`
-- `postgres_runner_id`
-- `postgres_os_image_id`
-- `postgres_storage_class`
-- `object_store_runner_id`
-- `object_store_os_image_id`
-- `object_store_storage_class`
-- `benchmark_harness_id`
-- `benchmark_harness_version`
-- `run_started_at`
-- `run_completed_at`
-- `sample_count`
-- `artifact_bundle_sha256`
-- `security_controls_state`
+`bundle` contains a normalized relative `path` and a `sha256:<hex>` digest of
+the actual retained `cartulary.benchmark_evidence_bundle.v1` JSON bytes. This
+bundle is a closed index with `schema_id` and nonempty `runs[]`. Each run has
+`root`, `manifest`, `summary`, and nonempty `measurements[]`. `root` is relative
+to the bundle directory. `manifest` and `summary` are digested relative file
+references to the canonical run manifest and run summary. Each measurement
+contains digested relative `summary`, `report`, and `browser_environment`
+references within that run. Every referenced digest MUST be recomputed from
+actual bytes; the same rule applies recursively to the observation, physical
+fixture build and clone/cleanup evidence referenced by a measurement summary.
+The envelope stays beside the bundle and is excluded from its own hash.
+There is no metadata-only hash substitute or archive-path fallback.
 
-A timed or fixture-sensitive claim without a conformant `benchmark_manifest` is non-conformant.
+All runs MUST be successful, fresh, complete and bound to the envelope's exact
+source digest. Each selected measurement MUST qualify under the current
+owner-controlled predicate/fixture binding, current physical snapshot contract,
+independently recomputed retained samples/statistics, required cleanup and zero
+scheduler overlap. The corresponding Playwright result MUST be a single passed
+execution without retries, joined by the shared result adapter to the exact
+catalog project, file and full suite/test title path. Its observation and browser-environment attachment
+MUST match the referenced retained artifacts. A
+`cartulary.browser_execution_environment.v1` receipt records the actual
+`browser_engine`, `browser_build`, `browser_mode`, `playwright_version`,
+`node_version`, `platform`, and `architecture` from the executing measurement
+fixtures. Browser build MUST match the managed renderer attestation. Browser mode MUST
+come from the browser-level `Browser.getVersion` product/user-agent tokens of
+that pinned Chromium runtime, with unknown or inconsistent identities rejected.
+Page/context user-agent overrides and local launch-option defaults cannot attest
+a connected browser. Raw user-agent strings MUST NOT be retained in the receipt. A manifest assertion cannot override a headless or mismatched receipt.
+
+Every current predicate required for each declared criterion MUST occur exactly
+once. A missing, extra, unknown, duplicated or retired predicate, mismatched
+fixture or criterion, incomplete sample set, failed threshold or unqualified
+run MUST fail. A criterion without an admitted current exercising binding is
+blocked from publication. No default global sample count, warm-up count,
+fixture ID or traffic trace may substitute for the criterion's own contract.
+
+Readers MUST reject documentation and Markdown paths before filesystem access,
+reject symlinks in every ancestor and at the leaf, reject hard-linked or
+non-regular files, and reject mutation during a read. Paths MUST be normalized
+and contained in their declared root; absolute artifact references, traversal
+and repository-relative fallbacks are unsupported. Envelope and bundle-index
+reads are bounded to 1 MiB each; referenced machine evidence retains its owning
+reader's declared size bound. These checks MUST NOT read specifications,
+document hashes, adoption status or human review records. Machine evidence
+validation does not establish the human fidelity or implementation-claim
+prerequisite of REQ-05-002 and PC-006.
 Profiles: claim_publication
 Verified by: PC-001, PC-005
 
@@ -157,10 +182,12 @@ Verified by: PC-003
 For the current profile, the timed or fixture-sensitive criteria are `AC-003`, `AC-008`, `AC-011`, `AC-016`, `AC-027`, `AC-030`, `AC-033`, `AC-043`, `AC-044`, `AC-045`, `AC-046`, `AC-047`, and `AC-132`.
 
 **REQ-05-012**
-The claim-bearing benchmark profile MUST use the Core 04 large-grid fixture's
-`traffic_trace_id='cartulary.perf.live_updates_25sessions.v1'`, seed, and warm
-state, and MUST declare `warmup_passes=1`. Publication bindings MUST preserve
-the fixture and predicate selected by the implementation criterion.
+Claim-bearing publication MUST use the fixture, geometry, seed, traffic,
+warm state and sampling policy selected by each current Core 04 predicate.
+The environment profile MUST NOT impose large-grid traffic on Evidence-heavy
+criteria or add a warm-up to a single observation. The existing owner-controlled
+typed fixture and predicate contracts are the executable projection; publication
+MUST NOT introduce another product workload or predicate catalog.
 Profiles: claim_publication
 Verified by: PC-002, PC-003
 
@@ -170,16 +197,32 @@ Profiles: claim_publication
 Verified by: PC-002
 
 **REQ-05-014**
-`cartulary.perf.desktop_ref.v2` MUST be a closed benchmark-profile object with
-all exact values of `cartulary.perf.desktop_ref.v1` except
-`benchmark_profile_id='cartulary.perf.desktop_ref.v2'` and
-`postgres_os_image_id='cartulary.bench.ubuntu_24_04_postgres_18_6.2026q3'`.
-The machine projection MUST identify exactly one current profile, preserve v1
-as historical, reject duplicate or unknown profile identities, and prevent a
-historical profile from satisfying a current claim. Claim-bearing publication
-MUST compare every current-profile field by exact value match. `Equivalent
-hardware`, `equivalent browser`, `similar LAN`, or similar open-ended language
-is non-conformant for claim-bearing publication.
+`cartulary.perf.desktop_ref.v2` is immutable historical evidence: it has the
+v1 values with only its profile ID and PostgreSQL image changed to
+`cartulary.bench.ubuntu_24_04_postgres_18_6.2026q3`. The exact v1/v2 machine
+objects remain recoverable at commit
+`00d24aa5354284dfcf6533b8f650e9eb0291ad44`; current execution MUST NOT load a
+legacy manifest reader or silently upgrade those objects.
+
+The current `cartulary.perf.desktop_ref.v3` uses the v2 hardware, OS-image,
+storage, network, security and warm-state values. Its browser build is
+`153.0.8010.12`, its benchmark harness ID is
+`cartulary.bench.harness.playwright.v2`, and its harness version is the pinned
+Playwright version `1.63.0`. The harness source is separately bound by the
+canonical source digest. Headed mode, no browser extensions and 100% zoom
+remain mandatory. Product viewport, device scale factor, traffic trace, seed
+and warm-up are removed from the global environment object and come from the
+selected Core 04 contracts. The machine owner is the closed
+`cartulary.benchmark_profile.v1` object for v3, with `schema_id`,
+`benchmark_profile_id`, `benchmark_manifest_schema_id`, and `environment`.
+The only current manifest generation is v2. Historical profiles remain human
+historical references and cannot satisfy a current claim.
+
+Claim-bearing publication MUST compare every environment field by exact value.
+Hardware and deployment environment qualification remains part of the retained
+publication review; a browser receipt alone does not attest cloud hardware,
+OS images, network conditions or implementation conformance. Equivalent hardware,
+equivalent browser, or similar LAN language is insufficient.
 Profiles: claim_publication
 Verified by: PC-002
 
@@ -193,15 +236,15 @@ Definition of Done:
 - requirement selector: `profile:claim_publication`
 - required publication criteria: `PC-001..PC-006`
 
-- **PC-001**: A claim-bearing timed or fixture-sensitive result is non-conformant if no `benchmark_manifest` exists, if `benchmark_profile_id` is missing, or if any required field in `cartulary.benchmark_manifest.v1` is absent.
+- **PC-001**: A claim-bearing timed or fixture-sensitive result is non-conformant if no `benchmark_manifest` exists, if `benchmark_profile_id` is missing, or if any required field in `cartulary.benchmark_manifest.v2` is absent, or an unknown member is supplied.
   - Verifies: REQ-05-003, REQ-05-006, REQ-05-009
-- **PC-002**: A current claim-bearing timed or fixture-sensitive result is non-conformant if it names the historical `cartulary.perf.desktop_ref.v1` profile or if the emitted benchmark profile, browser build, browser mode, runner IDs, storage classes, network values, `traffic_trace_id`, `seed`, `warmup_passes`, or declared warm state differ from `cartulary.perf.desktop_ref.v2`; such a run MAY be reported only as informative.
+- **PC-002**: A current claim is non-conformant if its profile is historical or unknown, its closed environment differs from `cartulary.perf.desktop_ref.v3`, its actual browser receipt differs from that environment, or its fixture, geometry, traffic, seed, warm state or sampling differs from the current Core 04 predicate. Historical results remain informative only.
   - Verifies: REQ-05-003, REQ-05-006..REQ-05-008, REQ-05-012..REQ-05-014
 - **PC-003**: For each timed or fixture-sensitive criterion in the current profile, the result binds to an exact current Core 04 `measurement_predicate_id` and fixture ID and preserves their start state, action, stop predicate, threshold, and sampling mode without local reinterpretation.
   - Verifies: REQ-05-004..REQ-05-005, REQ-05-011..REQ-05-012
 - **PC-004**: A claim-bearing benchmark run is non-conformant if authentication, session handling, CSRF protection, sanitization, safe-preview restrictions, or integrity checks are disabled, or if a claim-bearing visible-state result is produced from headless browser mode.
   - Verifies: REQ-05-010
-- **PC-005**: The benchmark artifact bundle retains the emitted `benchmark_manifest`, raw timing samples or event logs, harness identifier and version, environment identifiers, and an `artifact_bundle_sha256` sufficient to replay and audit the claim.
+- **PC-005**: The bundle retains the envelope, recursively digested run/measurement/fixture/cleanup artifacts, raw timing samples, Playwright results and actual browser receipts needed to replay and audit the claim. Tampering, aliases, documentation paths, mismatched source, retries, missing bindings, incomplete criteria or invalid measurement qualification reject before a claim can qualify.
   - Verifies: REQ-05-009
 - **PC-006**: A claim-bearing benchmark publication is conformant only when every requirement selected by `profile:claim_publication` is implemented, every applicable publication criterion listed in this manifest passes, and the underlying implementation claim already passes for each published timed or fixture-sensitive criterion.
   - Verifies: `profile:claim_publication`

@@ -51,6 +51,7 @@ type hostUpsertInput struct {
 	Criticality            *string
 	ContainmentStatus      *string
 	AliasAdds              []CollectionAction
+	PartyAdds              map[string][]CollectionAction
 	EntityOrigin           string
 	SeedMentionID          *uuid.UUID
 	AllowDisplayNameUpdate bool
@@ -67,6 +68,7 @@ type identityUpsertInput struct {
 	MFAState               *string
 	ResetStatus            *string
 	AliasAdds              []CollectionAction
+	PartyAdds              map[string][]CollectionAction
 	EntityOrigin           string
 	SeedMentionID          *uuid.UUID
 	AllowDisplayNameUpdate bool
@@ -223,6 +225,7 @@ func hostInputFromCreateRequest(request CreateRequest) (hostUpsertInput, error) 
 		Criticality:            optionalValue(request.Values, "host.criticality"),
 		ContainmentStatus:      optionalValue(request.Values, "host.containment_status"),
 		AliasAdds:              append([]CollectionAction(nil), request.AliasAdds["host.aliases"]...),
+		PartyAdds:              request.PartyAdds,
 		EntityOrigin:           entityOriginEntitySheet,
 		AllowDisplayNameUpdate: true,
 	}
@@ -253,6 +256,7 @@ func identityInputFromCreateRequest(request CreateRequest) (identityUpsertInput,
 		MFAState:               optionalValue(request.Values, "identity.mfa_state"),
 		ResetStatus:            optionalValue(request.Values, "identity.reset_status"),
 		AliasAdds:              append([]CollectionAction(nil), request.AliasAdds["identity.aliases"]...),
+		PartyAdds:              request.PartyAdds,
 		EntityOrigin:           entityOriginEntitySheet,
 		AllowDisplayNameUpdate: true,
 	}

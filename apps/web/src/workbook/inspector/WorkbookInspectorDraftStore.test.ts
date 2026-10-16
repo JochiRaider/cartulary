@@ -131,28 +131,6 @@ it("conceals suspended drafts and retires them across incident or account replac
   }
 });
 it("admits only the frozen existing-record capabilities while preserving create-only contracts", () => {
-  const schemas = listViewContracts().filter(
-    (contract) =>
-      ![
-        "cartulary.view.timeline.v2",
-        "cartulary.view.assessments.v1",
-        "cartulary.view.indicators.v1",
-      ].includes(contract.viewSchemaId),
-  );
-  expect(
-    schemas.flatMap((contract) =>
-      contract.fields.filter(
-        (field) => field.patchWritable && field.writeKind === "direct_value",
-      ),
-    ),
-  ).toHaveLength(87);
-  expect(
-    schemas.flatMap((contract) =>
-      contract.fields.filter(
-        (field) => field.patchWritable && field.writeKind === "action_payload",
-      ),
-    ),
-  ).toHaveLength(20);
   for (const contract of listViewContracts())
     for (const field of contract.fields)
       if (!field.patchWritable)

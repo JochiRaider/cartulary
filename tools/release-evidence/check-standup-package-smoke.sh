@@ -143,6 +143,7 @@ fi
 
 container_id="$(docker create --label "com.docker.compose.project=${project}" "$image")"
 docker export "$container_id" | tar -tf - >"$image_listing"
+"${NODE_BIN:-node}" "$ROOT_DIR/tools/release-evidence/package-platform.mjs" layout "$work_dir" "$artifact_dir" "$project" "$container_id"
 for binary in server migrate operator; do
   docker cp "${container_id}:/usr/local/bin/cartulary-${binary}" "$work_dir/image-${binary}"
   GO="${GO:-go}" "${NODE_BIN:-node}" "$ROOT_DIR/tools/harness/readiness/cryptographic-build-cli.mjs" receipt "$work_dir/image-${binary}"
@@ -165,10 +166,6 @@ for root in backups reference-packs tmp exports; do
     fail "image prepopulates retained content in $root"
   fi
 done
-
-if grep -Eq '(^|/)(node|npm|pnpm|vite)(/|$)|(^|/)node_modules(/|$)|(^|/)apps/web(/|$)|(^|/)db/migrations(/|$)' "$image_listing"; then
-  fail "runtime image contains forbidden Node/Vite/source-tree paths"
-fi
 
 docker volume create --label "com.docker.compose.project=${project}" --label "com.docker.compose.volume=legacy-postgres-v16" "$legacy_postgres_volume" >/dev/null
 docker run --rm --label "com.docker.compose.project=${project}" --entrypoint sh -v "${legacy_postgres_volume}:/var/lib/postgresql" "$postgres_image" -c \

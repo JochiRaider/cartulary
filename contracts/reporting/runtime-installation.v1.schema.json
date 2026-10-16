@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reporting_runtime_installation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "platform",
+    "node_version",
+    "package_manager",
+    "chromium_version",
+    "bubblewrap_version",
+    "lockfile_sha256",
+    "package_store_digest",
+    "font_manifest_sha256",
+    "chromium_executable_sha256",
+    "chromium_executable_path",
+    "packages",
+    "files"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.reporting_runtime_installation.v1"
+    },
+    "platform": {
+      "const": "linux/amd64"
+    },
+    "node_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "package_manager": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^pnpm@[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "chromium_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[ -~]+$"
+    },
+    "bubblewrap_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "lockfile_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "package_store_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "font_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "chromium_executable_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "chromium_executable_path": {
+      "const": "runtime/browser/chrome-headless-shell"
+    },
+    "packages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "@slidev/cli",
+        "@slidev/theme-default",
+        "markdown-it",
+        "mermaid",
+        "pdf-lib",
+        "playwright-chromium"
+      ],
+      "properties": {
+        "@slidev/cli": {
+          "type": "string",
+          "pattern": "^[0-9]+[.][0-9]+[.][0-9]+$",
+          "maxLength": 128
+        },
+        "@slidev/theme-default": {
+          "type": "string",
+          "pattern": "^[0-9]+[.][0-9]+[.][0-9]+$",
+          "maxLength": 128
+        },
+        "markdown-it": {
+          "type": "string",
+          "pattern": "^[0-9]+[.][0-9]+[.][0-9]+$",
+          "maxLength": 128
+        },
+        "mermaid": {
+          "type": "string",
+          "pattern": "^[0-9]+[.][0-9]+[.][0-9]+$",
+          "maxLength": 128
+        },
+        "pdf-lib": {
+          "type": "string",
+          "pattern": "^[0-9]+[.][0-9]+[.][0-9]+$",
+          "maxLength": 128
+        },
+        "playwright-chromium": {
+          "type": "string",
+          "pattern": "^[0-9]+[.][0-9]+[.][0-9]+$",
+          "maxLength": 128
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  }
+}

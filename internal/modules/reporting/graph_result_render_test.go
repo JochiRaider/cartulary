@@ -38,7 +38,7 @@ func TestGraphResultSelectionRulesPreserveExactProjectionOrder_Unit(t *testing.T
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			vertices, edges, overflow, err := selectGraphDiagramObjects(result, tc.rule)
+			vertices, edges, overflow, err := selectGraphDiagramObjects(result, tc.rule, 80)
 			if err != nil || overflow != nil {
 				t.Fatalf("select graph result: overflow=%#v err=%v", overflow, err)
 			}
@@ -51,28 +51,29 @@ func TestGraphResultSelectionRulesPreserveExactProjectionOrder_Unit(t *testing.T
 		})
 	}
 
-	_, _, _, err := selectGraphDiagramObjects(result, diagramSelectionRule{RuleID: "explicit_refs", VertexRefs: []string{"v1", "v1"}, OverflowPolicy: "fail"})
+	_, _, _, err := selectGraphDiagramObjects(result, diagramSelectionRule{RuleID: "explicit_refs", VertexRefs: []string{"v1", "v1"}, OverflowPolicy: "fail"}, 80)
 	var renderErr *renderValidationError
 	if !errors.As(err, &renderErr) || renderErr.ReasonCode != "diagram_selection_duplicate_ref" {
 		t.Fatalf("duplicate selection error = %#v", err)
 	}
-	_, _, _, err = selectGraphDiagramObjects(result, diagramSelectionRule{RuleID: "explicit_refs", VertexRefs: []string{"missing"}, OverflowPolicy: "fail"})
+	_, _, _, err = selectGraphDiagramObjects(result, diagramSelectionRule{RuleID: "explicit_refs", VertexRefs: []string{"missing"}, OverflowPolicy: "fail"}, 80)
 	if !errors.As(err, &renderErr) || renderErr.ReasonCode != "diagram_selection_missing_ref" {
 		t.Fatalf("missing selection error = %#v", err)
 	}
 }
 
 func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T) {
+	t.Run("profile redaction before canonical graph labels", testGraphProfileRedaction)
 	bounded := graphprojection.CompletedResultV2{}
 	for index := 1; index <= 81; index++ {
 		bounded.Vertices = append(bounded.Vertices, graphprojection.ResultVertexV2{VertexID: fmt.Sprintf("v%03d", index), SortKey: fmt.Sprintf("%03d", index)})
 	}
-	_, _, _, err := selectGraphDiagramObjects(bounded, diagramSelectionRule{RuleID: "all_with_bounds", OverflowPolicy: "fail"})
+	_, _, _, err := selectGraphDiagramObjects(bounded, diagramSelectionRule{RuleID: "all_with_bounds", OverflowPolicy: "fail"}, 80)
 	var renderErr *renderValidationError
 	if !errors.As(err, &renderErr) || renderErr.ReasonCode != "diagram_hard_limit_exceeded" {
 		t.Fatalf("hard-limit error = %#v", err)
 	}
-	vertices, edges, overflow, err := selectGraphDiagramObjects(bounded, diagramSelectionRule{RuleID: "all_with_bounds", OverflowPolicy: "summarize"})
+	vertices, edges, overflow, err := selectGraphDiagramObjects(bounded, diagramSelectionRule{RuleID: "all_with_bounds", OverflowPolicy: "summarize"}, 80)
 	if err != nil || len(vertices) != 80 || len(edges) != 0 || overflow == nil || overflow.OmittedVertexCount != 1 || overflow.FirstOmittedRef == nil || *overflow.FirstOmittedRef != "v081" {
 		t.Fatalf("bounded summary = vertices=%d edges=%d overflow=%#v err=%v", len(vertices), len(edges), overflow, err)
 	}
@@ -81,8 +82,8 @@ func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T)
 	result := reportingGraphSelectionFixture()
 	result.Binding = ref.binding()
 	resolved := resolvedGraphResult{Ref: ref, Result: result, LabelCandidates: graphLabelCandidatesForResult(result)}
-	diagram, err := graphDiagramFromResult(compositionDiagramDecl{
-		DeclID: "diagram-graph", DiagramSourceKind: "graph",
+	diagram, err := fixtureGraphDiagramFromResult(compositionDiagramDecl{
+		DeclID: "diagram-graph", DiagramSourceKind: "graph", DiagramKind: "flowchart",
 		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "explicit_refs", VertexRefs: []string{"v1", "v2"}, EdgeRefs: []string{"e12"}, OverflowPolicy: "fail"},
 	}, ref, resolved, ReleaseScopeInternalReview)
 	if err != nil {
@@ -93,7 +94,7 @@ func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T)
 		t.Fatalf("serialize exact graph topology: %v", err)
 	}
 	if len(diagram.Nodes) != 2 || len(diagram.Edges) != 1 || diagram.Nodes[0].Label != "192.0.2.1" ||
-		diagram.Edges[0].Label != "protocol=6 port=443" || !strings.Contains(string(source), "n0001 --> n0002") || strings.Contains(string(source), "gv-render") {
+		diagram.Edges[0].Label != "protocol=6 port=443" || !strings.Contains(string(source), `n0001 -->|"protocol=6 port=443"| n0002`) || strings.Contains(string(source), "gv-render") {
 		t.Fatalf("rendered graph topology is not exact or disclosed identity: diagram=%#v source=%s", diagram, source)
 	}
 	redacted := resolved
@@ -104,8 +105,8 @@ func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T)
 	redacted.LabelCandidates.EdgeLabelCandidates[0].Protocol.IntegerValue = 0
 	redacted.LabelCandidates.EdgeLabelCandidates[0].DestinationPort.State = graphsourcecontract.ComponentStateRemoved
 	redacted.LabelCandidates.EdgeLabelCandidates[0].DestinationPort.IntegerValue = 0
-	redactedDiagram, err := graphDiagramFromResult(compositionDiagramDecl{
-		DeclID: "diagram-redacted", DiagramSourceKind: "graph",
+	redactedDiagram, err := fixtureGraphDiagramFromResult(compositionDiagramDecl{
+		DeclID: "diagram-redacted", DiagramSourceKind: "graph", DiagramKind: "flowchart",
 		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "explicit_refs", VertexRefs: []string{"v1", "v2"}, EdgeRefs: []string{"e12"}, OverflowPolicy: "fail"},
 	}, ref, redacted, ReleaseScopeInternalReview)
 	if err != nil || redactedDiagram.Nodes[0].Label != "Vertex 0001" || redactedDiagram.Edges[0].Label != "Edge 0001" {
@@ -119,20 +120,49 @@ func TestGraphResultSelectionBoundsAndActualTopologyRendering_Unit(t *testing.T)
 	end := testGraphLabelComponent("bucket_end_utc", "/graph/edges/0001/bucket_end_utc", graphsourcecontract.ValueKindString, "2026-08-16T12:05:00Z", 0)
 	temporalEdge.BucketStartUTC = &start
 	temporalEdge.BucketEndUTC = &end
-	temporalDiagram, err := graphDiagramFromResult(compositionDiagramDecl{
-		DeclID: "diagram-temporal", DiagramSourceKind: "graph",
+	temporalDiagram, err := fixtureGraphDiagramFromResult(compositionDiagramDecl{
+		DeclID: "diagram-temporal", DiagramSourceKind: "graph", DiagramKind: "flowchart",
 		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "explicit_refs", VertexRefs: []string{"v1", "v2"}, EdgeRefs: []string{"e12"}, OverflowPolicy: "fail"},
 	}, ref, temporal, ReleaseScopeInternalReview)
 	if err != nil || temporalDiagram.Edges[0].Label != "[2026-08-16T12:00:00Z,2026-08-16T12:05:00Z) protocol=6 port=443" {
 		t.Fatalf("temporal graph label = %#v err=%v", temporalDiagram.Edges, err)
 	}
-	_, err = graphDiagramFromResult(compositionDiagramDecl{
-		DeclID: "diagram-external", DiagramSourceKind: "graph",
+	_, err = fixtureGraphDiagramFromResult(compositionDiagramDecl{
+		DeclID: "diagram-external", DiagramSourceKind: "graph", DiagramKind: "flowchart",
 		SelectionRule: diagramSelectionRule{SchemaID: "diagram_selection_rule.v1", RuleID: "all_with_bounds", OverflowPolicy: "fail"},
 	}, ref, resolved, ReleaseScopeExternal)
 	if !errors.As(err, &renderErr) || renderErr.ReasonCode != "redaction_action_unresolved" {
 		t.Fatalf("unclassified external graph values must fail closed, got %#v", err)
 	}
+}
+
+// Low-level topology cases still pass typed source components through the
+// production selector. They do not mark raw Graph labels as safe fixtures.
+func fixtureGraphDiagramFromResult(decl compositionDiagramDecl, ref sourceProjectionRef, resolved resolvedGraphResult, scope string) (reportingDiagramModel, error) {
+	selection := graphRedactionSelection{diagrams: map[string]selectedGraphDiagram{}, sources: map[string]reportingFieldSource{}}
+	if err := selection.include(decl, ref, resolved, scope); err != nil {
+		return reportingDiagramModel{}, err
+	}
+	profile := internalRedactionProfile()
+	digest, _ := ValidateRedactionProfile(profile)
+	view, _, _, err := BuildRedactionProfileView(profile, digest)
+	if err != nil {
+		return reportingDiagramModel{}, err
+	}
+	model := RedactedExportModel{admittedFieldPaths: map[string]string{}}
+	for _, field := range selection.fields {
+		model.admittedFieldPaths[field.Path] = field.Path
+	}
+	decisions, err := selectRedactionFields(selection.fields, model.admittedFieldPaths, view, scope, []string{"public", "internal_only"})
+	if err != nil {
+		return reportingDiagramModel{}, err
+	}
+	for _, decision := range decisions {
+		if decision.Include {
+			model.Fields = append(model.Fields, RedactedField{Path: decision.Field.Path, Value: decision.Value})
+		}
+	}
+	return graphDiagramFromSelection(decl, selection.diagrams[decl.DeclID], model)
 }
 
 func TestDiagramSelectionRuleSchemaIsClosed_Unit(t *testing.T) {

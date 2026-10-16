@@ -238,6 +238,23 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer publisher.Abort()
+	contextBytes, err := os.ReadFile(filepath.Join(root, "execution-context.json"))
+	if err != nil {
+		t.Fatal("context was not published before child execution", err)
+	}
+	var retained map[string]any
+	if err := json.Unmarshal(contextBytes, &retained); err != nil {
+		t.Fatal(err)
+	}
+	if retained["manifest_digest"] != p.context["manifest_digest"] || retained["graph"] == nil || retained["projections"] == nil || len(retained["source_inputs"].([]any)) == 0 {
+		t.Fatal("incomplete retained execution context")
+	}
+	if strings.Contains(string(contextBytes), "/private/node") || retained["bindings"] != nil || retained["cache_inputs"] != nil {
+		t.Fatal("private launch state was retained")
+	}
+	if err := writeEvidence(root, "execution-context.json", "cartulary.harness_execution_context.v1", retained, false); err == nil {
+		t.Fatal("immutable context was replaced")
+	}
 	publisher.Forbidden = func() ([]string, error) { return []string{"private-sentinel"}, nil }
 	prefixes := make(chan string, len(p.facts.Graph.Units))
 	result, err := executeGraph(context.Background(), p, enginePorts{Event: publisher.Event, Terminal: publisher.Terminal, Execute: func(context.Context, executionRequest) unitResult {

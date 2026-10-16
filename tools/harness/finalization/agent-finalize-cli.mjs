@@ -5,8 +5,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  unlinkSync,
-  writeFileSync,
 } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +22,9 @@ import {
   selectedActions as plannedActions,
 } from "./agent-finalize-action-plan.mjs";
 import { createRetainedRunPreflight } from "./agent-finalize-retained-run.mjs";
+import { snapshotTrackedWorkspace, restoreTrackedWorkspace } from "./tracked-workspace-snapshot.mjs";
+import { captureFinalizationSubstep } from "./captured-substep.mjs";
+import { executableInputPathspec, restrictedExecutableInputRoots } from "../test-catalog/index.mjs";
 import { normalizeOutputMode } from "../output/index.mjs";
 
 const schemaID = "cartulary.agent_finalize_summary.v3";
@@ -275,7 +276,7 @@ function selectedActions() {
 function gitStatusMap() {
   const result = spawnSync(
     "git",
-    ["status", "--porcelain=v1", "--untracked-files=no"],
+    ["status", "--porcelain=v1", "--untracked-files=no", "--", ...executableInputPathspec(restrictedExecutableInputRoots(repoRoot))],
     {
       cwd: repoRoot,
       encoding: "utf8",
@@ -306,93 +307,11 @@ function changedFilesSince(before) {
   return changed.sort((left, right) => left.localeCompare(right));
 }
 
-function gitTrackedFiles() {
-  const result = spawnSync("git", ["ls-files", "-z"], {
-    cwd: repoRoot,
-    encoding: "buffer",
-  });
-  if (result.status !== 0) {
-    return [];
-  }
-  return result.stdout
-    .toString("utf8")
-    .split("\0")
-    .filter(Boolean)
-    .sort((left, right) => left.localeCompare(right));
-}
 
-function snapshotTrackedFiles() {
-  const snapshot = new Map();
-  for (const file of gitTrackedFiles()) {
-    const absolute = path.join(repoRoot, file);
-    try {
-      snapshot.set(file, readFileSync(absolute));
-    } catch {
-      snapshot.set(file, null);
-    }
-  }
-  return snapshot;
-}
-
-function bufferEqualsSnapshot(file, expected) {
-  const absolute = path.join(repoRoot, file);
-  if (expected === null) {
-    return !existsSync(absolute);
-  }
-  try {
-    return readFileSync(absolute).equals(expected);
-  } catch {
-    return false;
-  }
-}
-
-function restoreTrackedSnapshot(snapshot) {
-  const changed = [];
-  for (const [file, expected] of snapshot.entries()) {
-    if (!bufferEqualsSnapshot(file, expected)) {
-      changed.push(file);
-    }
-  }
-  if (changed.length === 0) {
-    return {
-      status: "not_needed",
-      restored_files: [],
-      error: null,
-    };
-  }
-  const restored = [];
-  try {
-    for (const file of changed.sort((left, right) => left.localeCompare(right))) {
-      const expected = snapshot.get(file);
-      const absolute = path.join(repoRoot, file);
-      if (expected === null) {
-        if (existsSync(absolute)) {
-          unlinkSync(absolute);
-        }
-      } else {
-        mkdirSync(path.dirname(absolute), { recursive: true });
-        writeFileSync(absolute, expected);
-      }
-      restored.push(file);
-    }
-  } catch (error) {
-    return {
-      status: "failed",
-      restored_files: restored,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-  return {
-    status: "restored",
-    restored_files: restored,
-    error: null,
-  };
-}
-
-function failureFromChild(action, substep, status, stderr) {
+function failureFromChild(action, substep, status, stderr, failure) {
   const summaryFile = substep.target ? childSummaryPath(substep.target) : "";
   const summary = summaryFile ? readJSON(summaryFile) : null;
-  if (summary?.failure_class && summary?.failure_reason) {
+  if (!failure && summary?.failure_class && summary?.failure_reason) {
     return {
       action_id: action.action_id,
       substep_id: substep.id,
@@ -409,8 +328,8 @@ function failureFromChild(action, substep, status, stderr) {
     action_id: action.action_id,
     substep_id: substep.id,
     target: substep.target,
-    failure_class: "harness",
-    failure_reason: "child_target_failure",
+    failure_class: failure?.failure_class ?? "harness",
+    failure_reason: failure?.failure_reason ?? "child_target_failure",
     headline: `${substep.target ?? substep.id} failed with status ${status}${stderr ? `: ${stderr.split(/\r?\n/u).find(Boolean) ?? ""}` : ""}`,
     summary_json:
       summaryFile && existsSync(summaryFile) ? relToRepo(summaryFile) : null,
@@ -511,7 +430,7 @@ function writeSummary({
   return summary;
 }
 
-function runMakeSubstep(definition, substep) {
+async function runMakeSubstep(definition, substep) {
   if (deniedTargets.has(definition.target)) {
     throw new Error(`agent-finalize action substep uses denied target ${definition.target}`);
   }
@@ -546,26 +465,21 @@ function runMakeSubstep(definition, substep) {
   const makeVarArgs = Object.entries(definition.makeVars ?? {}).map(
     ([key, value]) => `${key}=${value}`,
   );
-  const result = spawnSync(makeBin, [
-    "--no-print-directory",
-    definition.target,
-    ...makeVarArgs,
-  ], {
-    cwd: repoRoot,
-    env: childEnv,
-    stdio: "ignore",
+  const result = await captureFinalizationSubstep({
+    command: makeBin,
+    args: ["--no-print-directory", definition.target, ...makeVarArgs],
+    repoRoot, runRoot: runRootAbs(), env: childEnv,
+    logDirectory: childStepDir(definition.target),
   });
   const completedAt = now();
   const summaryFile = childSummaryPath(definition.target);
-  const stdoutLog = path.join(childStepDir(definition.target), "stdout.log");
-  const stderrLog = path.join(childStepDir(definition.target), "stderr.log");
   substep.started_at = startedAt;
   substep.completed_at = completedAt;
   substep.duration_ms = durationMs(startedMs);
   substep.exit_code = result.status ?? 1;
   substep.summary_json = existsSync(summaryFile) ? relToRepo(summaryFile) : null;
-  substep.stdout_log = existsSync(stdoutLog) ? relToRepo(stdoutLog) : null;
-  substep.stderr_log = existsSync(stderrLog) ? relToRepo(stderrLog) : null;
+  substep.stdout_log = result.stdoutLog ? relToRepo(result.stdoutLog) : null;
+  substep.stderr_log = result.stderrLog ? relToRepo(result.stderrLog) : null;
   substep.status = substep.exit_code === 0 ? "pass" : "fail";
   if (substep.status === "fail") {
     if (result.stdout) {
@@ -578,6 +492,8 @@ function runMakeSubstep(definition, substep) {
   return {
     status: substep.exit_code,
     stderr: result.stderr || result.stdout || "",
+    failure: result.failure,
+    cleanupFailure: result.cleanupFailure,
   };
 }
 
@@ -674,7 +590,7 @@ async function main() {
   const startedAt = now();
   const startedMs = Date.now();
   const beforeStatus = gitStatusMap();
-  const trackedSnapshot = snapshotTrackedFiles();
+  const trackedSnapshot = snapshotTrackedWorkspace(repoRoot);
   const actions = selectedActions();
   const definitions = selectedActionDefinitions();
   const failures = [];
@@ -735,9 +651,12 @@ async function main() {
         throw new Error(`missing substep definition for ${action.action_id}:${substep.id}`);
       }
 
-      const result = runMakeSubstep(substepDefinition, substep);
+      const result = await runMakeSubstep(substepDefinition, substep);
       if (result.status !== 0) {
-        failures.push(failureFromChild(action, substep, result.status, result.stderr));
+        failures.push(failureFromChild(action, substep, result.status, result.stderr, result.failure));
+        if (result.cleanupFailure && result.failure?.failure_reason !== "cleanup_error") {
+          failures.push(failureFromChild(action, substep, 12, "private substep resource cleanup failed", result.cleanupFailure));
+        }
         failed = true;
       }
     }
@@ -757,7 +676,7 @@ async function main() {
   }
 
   if (failed) {
-    const rollback = restoreTrackedSnapshot(trackedSnapshot);
+    const rollback = restoreTrackedWorkspace(repoRoot, trackedSnapshot);
     mutationRollback = {
       status: rollback.status,
       restored_file_count: rollback.restored_files.length,

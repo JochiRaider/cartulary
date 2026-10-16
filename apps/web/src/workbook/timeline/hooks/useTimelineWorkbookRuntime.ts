@@ -10,6 +10,7 @@ import {
   type WorkbookQueryState,
 } from "../../models/workbookQuery";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
+import { useWorkbookQueryActionTiming } from "../../query/useWorkbookQueryActionTiming";
 import {
   initialWorkbookLifecycleState,
   reduceWorkbookLifecycle,
@@ -29,6 +30,8 @@ export function useTimelineWorkbookRuntime({
   queryState,
   setQueryState,
 }: TimelineWorkbookRuntimeInput) {
+  const recordQueryAcceptance =
+    useWorkbookQueryActionTiming(timelineViewSchemaId);
   const [lifecycle, dispatchLifecycle] = useReducer(
     reduceWorkbookLifecycle,
     initialWorkbookLifecycleState,
@@ -65,11 +68,12 @@ export function useTimelineWorkbookRuntime({
 
   const handleQuerySortChange = useCallback(
     (sort: WorkbookQueryState["sort"]) => {
+      recordQueryAcceptance("sort");
       setQueryState((current) =>
         replaceWorkbookSort(timelineRuntimeContract, current, sort),
       );
     },
-    [setQueryState],
+    [setQueryState, recordQueryAcceptance],
   );
 
   return {

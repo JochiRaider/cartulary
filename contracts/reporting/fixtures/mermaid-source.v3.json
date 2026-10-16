@@ -1,0 +1,109 @@
+{
+  "serializer_id": "mermaid_source_serialize_v3",
+  "cases": [
+    {
+      "diagram": {
+        "diagram_kind": "flowchart",
+        "nodes": [
+          {
+            "node_id": "opaque:left",
+            "label": "First \"quote\" \\n & #34; % ' ` |"
+          },
+          {
+            "node_id": "opaque:right",
+            "label": "Second café"
+          }
+        ],
+        "edges": [
+          {
+            "edge_id": "opaque:edge",
+            "from": "opaque:left",
+            "to": "opaque:right",
+            "label": "Connects \\ path"
+          }
+        ]
+      },
+      "source_lines": [
+        "flowchart TD",
+        "  n0001[\"First #34;quote#34; #92;n #38; #35;34#59; #37; #39; #96; #124;\"]",
+        "  n0002[\"Second café\"]",
+        "  n0001 -->|\"Connects #92; path\"| n0002",
+        ""
+      ],
+      "visible_labels": [
+        "First \"quote\" \\n & #34; % ' ` |",
+        "Second café",
+        "Connects \\ path"
+      ]
+    },
+    {
+      "diagram": {
+        "diagram_kind": "sequence",
+        "nodes": [
+          {
+            "node_id": "opaque:left",
+            "label": "First \"quote\" \\n & #34; % ' ` |"
+          },
+          {
+            "node_id": "opaque:right",
+            "label": "Second café"
+          }
+        ],
+        "edges": [
+          {
+            "edge_id": "opaque:edge",
+            "from": "opaque:left",
+            "to": "opaque:right",
+            "label": "Connects \\ path"
+          }
+        ]
+      },
+      "source_lines": [
+        "sequenceDiagram",
+        "  participant p0001 as First #34;quote#34; #92;n #38; #35;34#59; #37; #39; #96; #124;",
+        "  participant p0002 as Second café",
+        "  p0001->>p0002: Connects #92; path",
+        ""
+      ],
+      "visible_labels": [
+        "First \"quote\" \\n & #34; % ' ` |",
+        "Second café",
+        "Connects \\ path"
+      ]
+    },
+    {
+      "diagram": {
+        "diagram_kind": "flowchart",
+        "nodes": [
+          {
+            "node_id": "opaque:left",
+            "label": "First /incident/url(evil)"
+          },
+          {
+            "node_id": "opaque:right",
+            "label": "Second node"
+          }
+        ],
+        "edges": [
+          {
+            "edge_id": "opaque:edge",
+            "from": "opaque:left",
+            "to": "opaque:right",
+            "label": ""
+          }
+        ]
+      },
+      "source_lines": [
+        "flowchart TD",
+        "  n0001[\"First /incident/url(evil)\"]",
+        "  n0002[\"Second node\"]",
+        "  n0001 --> n0002",
+        ""
+      ],
+      "visible_labels": [
+        "First /incident/url(evil)",
+        "Second node"
+      ]
+    }
+  ]
+}

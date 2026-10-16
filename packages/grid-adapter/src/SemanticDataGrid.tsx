@@ -8,6 +8,7 @@ import type {
   CSSProperties,
   ForwardedRef,
   MutableRefObject,
+  ClipboardEvent as ReactClipboardEvent,
   ReactElement,
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
@@ -65,6 +66,7 @@ import {
   isInteractiveCellActionTarget,
   visibleGridPageSize,
 } from "./domInteraction";
+import { draftClipboardHandlers } from "./draftClipboard";
 import {
   type ActiveEditorSession,
   editorSeedForTarget,
@@ -2092,6 +2094,13 @@ function useSemanticDataGrid<Row>(
     summaryRowHeight: workbookGridRowHeightPx(density),
   };
 
+  const draftClipboard = draftClipboardHandlers({
+    editable: editable && !gridDataStateBlocksInteraction(dataState),
+    draftVisible: draftRow !== undefined,
+    clipboardPaste,
+    presentation: () => semanticPresentationRef.current,
+    announce: setKeyboardAnnouncement,
+  });
   return (
     <GridBindingFrame
       accessibleLabel={accessibleLabel}
@@ -2104,7 +2113,11 @@ function useSemanticDataGrid<Row>(
       interactionMode={effectiveInteractionMode}
       keyboardAnnouncement={keyboardAnnouncement}
       onDoubleClickCapture={onDoubleClickCapture}
-      onKeyDownCapture={onHeaderSizingKeyDown}
+      onKeyDownCapture={(event) => {
+        onHeaderSizingKeyDown(event);
+        if (!event.defaultPrevented) draftClipboard.onKeyDownCapture(event);
+      }}
+      onPasteCapture={draftClipboard.onPasteCapture}
       positionMap={semanticPresentationRef.current}
       range={cellRange}
       selectedRecordCount={selectedRows.size}
@@ -2188,6 +2201,7 @@ function GridBindingFrame<Row>({
   keyboardAnnouncement,
   onDoubleClickCapture,
   onKeyDownCapture,
+  onPasteCapture,
   positionMap,
   range,
   selectedRecordCount,
@@ -2212,6 +2226,9 @@ function GridBindingFrame<Row>({
   readonly onKeyDownCapture?:
     | ((event: ReactKeyboardEvent<HTMLDivElement>) => void)
     | undefined;
+  readonly onPasteCapture?:
+    | ((event: ReactClipboardEvent<HTMLDivElement>) => void)
+    | undefined;
   readonly positionMap: GridSemanticPresentationModel<Row>;
   readonly range: GridCellRange | null;
   readonly selectedRecordCount: number;
@@ -2232,6 +2249,7 @@ function GridBindingFrame<Row>({
       }
       onDoubleClickCapture={onDoubleClickCapture}
       onKeyDownCapture={onKeyDownCapture}
+      onPasteCapture={onPasteCapture}
       onKeyDown={(event) => {
         // RDG passes a copy of the React event to onCellKeyDown. Its native
         // cancellation survives, but React's propagation flag stays on the

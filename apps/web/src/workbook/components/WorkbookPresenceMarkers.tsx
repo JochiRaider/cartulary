@@ -34,6 +34,8 @@ function PresenceGlyphs({
         <span
           aria-hidden="true"
           key={presence.user_id}
+          data-presence-user-id={presence.user_id}
+          data-presence-mode={presence.mode}
           style={row ? rowIdentityStyle : cellIdentityStyle}
         >
           {row

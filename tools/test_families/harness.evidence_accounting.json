@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "harness.evidence_accounting",
   "rows": [
     {
@@ -193,6 +193,33 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.evidence_accounting.unit.string_uses_shared_harness_rules_7f2757c83f",
+      "owner_id": "harness.evidence_accounting",
+      "family_id": "harness.evidence_accounting.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.evidence_accounting.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/harnessredact",
+        "tests": [
+          "TestStringRedactsClosedRawFamilies",
+          "TestStringUsesSharedHarnessRules",
+          "TestStructuredStringDecodesJSONBeforeRedaction",
+          "TestValueRedactsStructuredKeysAndCLIArgs"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
       "service_dependencies": []
     },
     {

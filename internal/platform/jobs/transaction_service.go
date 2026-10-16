@@ -211,7 +211,7 @@ SELECT status
   FROM jobs
  WHERE job_id = $1
    AND handler_attempt_id = $2
-   AND handler_lease_expires_at > now()
+   AND handler_lease_expires_at > clock_timestamp()
    AND status IN ('running', 'cancel_requested')
  FOR UPDATE
 `, execution.jobID, execution.attemptID).Scan(&status)

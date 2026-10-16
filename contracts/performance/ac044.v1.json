@@ -1,0 +1,78 @@
+{
+  "schema_id": "cartulary.performance_view_change_contract.v1",
+  "contract_id": "cartulary.performance.ac044.v1",
+  "criterion_id": "AC-044",
+  "fixture_contract_id": "cartulary.performance.large_grid.v1",
+  "measurement_policy_id": "cartulary.measurement.interactive_p95.v1",
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "device_scale_factor": 1
+  },
+  "workloads": {
+    "sort": {
+      "field_key": "timeline.activity_synopsis_text",
+      "direction": "asc"
+    },
+    "filter": {
+      "field_key": "timeline.capture_state",
+      "operator": "eq",
+      "value": "rough"
+    },
+    "group": {
+      "field_key": "timeline.activity_time_pair_state",
+      "value": "disabled"
+    }
+  },
+  "predicates": [
+    {
+      "predicate_id": "perf.timeline_sort.first_useful_viewport.v1",
+      "operation": "sort",
+      "completion": "first_useful_viewport",
+      "start_mark": "cartulary.workbook.sort_change_accepted",
+      "stop_mark": "cartulary.workbook.sort_first_useful_viewport",
+      "threshold_ms": 250
+    },
+    {
+      "predicate_id": "perf.timeline_sort.stable_viewport.v1",
+      "operation": "sort",
+      "completion": "stable_viewport",
+      "start_mark": "cartulary.workbook.sort_change_accepted",
+      "stop_mark": "cartulary.workbook.sort_stable_viewport",
+      "threshold_ms": 1000
+    },
+    {
+      "predicate_id": "perf.timeline_filter.first_useful_viewport.v1",
+      "operation": "filter",
+      "completion": "first_useful_viewport",
+      "start_mark": "cartulary.workbook.filter_change_accepted",
+      "stop_mark": "cartulary.workbook.filter_first_useful_viewport",
+      "threshold_ms": 250
+    },
+    {
+      "predicate_id": "perf.timeline_filter.stable_viewport.v1",
+      "operation": "filter",
+      "completion": "stable_viewport",
+      "start_mark": "cartulary.workbook.filter_change_accepted",
+      "stop_mark": "cartulary.workbook.filter_stable_viewport",
+      "threshold_ms": 1000
+    },
+    {
+      "predicate_id": "perf.timeline_group.first_useful_viewport.v1",
+      "operation": "group",
+      "completion": "first_useful_viewport",
+      "start_mark": "cartulary.workbook.group_change_accepted",
+      "stop_mark": "cartulary.workbook.group_first_useful_viewport",
+      "threshold_ms": 250
+    },
+    {
+      "predicate_id": "perf.timeline_group.stable_viewport.v1",
+      "operation": "group",
+      "completion": "stable_viewport",
+      "start_mark": "cartulary.workbook.group_change_accepted",
+      "stop_mark": "cartulary.workbook.group_stable_viewport",
+      "threshold_ms": 1000
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_fixture_objects.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "snapshot_key",
+    "objects"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.performance_fixture_objects.v1"
+    },
+    "snapshot_key": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "objects": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "byte_size",
+          "content_type",
+          "sha256"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1073741824
+          },
+          "content_type": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_sha256",
+        "object_count",
+        "total_bytes"
+      ],
+      "properties": {
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "object_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "total_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 137438953472
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "object_count": {
+                "const": 0
+              }
+            },
+            "required": [
+              "object_count"
+            ]
+          },
+          "then": {
+            "properties": {
+              "total_bytes": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

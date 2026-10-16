@@ -1,7 +1,9 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import type { GridCellAnchor, GridHandle } from "@cartulary/grid-adapter";
+import * as ts from "typescript";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 const workbookDirectory = path.dirname(fileURLToPath(import.meta.url));
 
@@ -11,6 +13,54 @@ const roots = [
   "components/AssessmentWorkbookSurface.tsx",
 ] as const;
 
+function syntax(source: string) {
+  return ts.createSourceFile(
+    "boundary.tsx",
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TSX,
+  );
+}
+
+function runtimeImports(source: string) {
+  return syntax(source).statements.flatMap((statement) => {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      statement.importClause?.isTypeOnly
+    )
+      return [];
+    const bindings = statement.importClause?.namedBindings;
+    const names =
+      bindings && ts.isNamedImports(bindings)
+        ? bindings.elements
+            .filter((element) => !element.isTypeOnly)
+            .map((element) => (element.propertyName ?? element.name).text)
+        : ["*"];
+    const module = statement.moduleSpecifier.text;
+    return names.map((name) => ({ module, name }));
+  });
+}
+
+function forbiddenConstruction(source: string) {
+  const forbidden = new Set([
+    "buildWorkbookInspectorSubject",
+    "useWorkbookInspectorCoordinator",
+    "useInspectorCreateRelatedWorkflow",
+    "GenericWorkbookInspector",
+    "EntityWorkbookInspector",
+    "AssessmentWorkbookInspector",
+  ]);
+  return runtimeImports(source).filter(
+    ({ module, name }) =>
+      forbidden.has(name) ||
+      /\/(?:useWorkbookInspectorCoordinator|useInspectorCreateRelatedWorkflow|(?:Generic|Entity|Assessment)WorkbookInspector)$/u.test(
+        module,
+      ),
+  );
+}
+
 describe("Workbook inspector owner boundaries", () => {
   it.each(roots)("keeps inspector construction out of %s", (relativePath) => {
     const source = readFileSync(
@@ -18,19 +68,22 @@ describe("Workbook inspector owner boundaries", () => {
       "utf8",
     );
 
-    for (const forbidden of [
-      "buildWorkbookInspectorSubject",
-      "useWorkbookInspectorCoordinator",
-      "useInspectorCreateRelatedWorkflow",
-      "<GenericWorkbookInspector",
-      "<EntityWorkbookInspector",
-      "<AssessmentWorkbookInspector",
-      "workflowContent=",
-      "relationshipsContent=",
-      "detailsContent=",
-    ]) {
-      expect(source, `${relativePath}: ${forbidden}`).not.toContain(forbidden);
-    }
+    expect(forbiddenConstruction(source), relativePath).toEqual([]);
+    expect(
+      forbiddenConstruction(
+        'import { useWorkbookInspectorCoordinator as local } from "../inspector/useWorkbookInspectorCoordinator";',
+      ),
+    ).toHaveLength(1);
+    expect(
+      forbiddenConstruction(
+        'import * as local from "../inspector/useWorkbookInspectorCoordinator";',
+      ),
+    ).toHaveLength(1);
+    expect(
+      forbiddenConstruction(
+        '// useWorkbookInspectorCoordinator\nimport { useOwnerComposition as renamed } from "../features/owner/composition"; function extracted() { return renamed(); }',
+      ),
+    ).toEqual([]);
   });
 
   it("keeps Timeline inspector sections and model assembly in its owner unit", () => {
@@ -41,22 +94,23 @@ describe("Workbook inspector owner boundaries", () => {
       ),
       "utf8",
     );
-    const inspectorPresentation = readFileSync(
-      path.join(
-        workbookDirectory,
-        "timeline/presentation/useTimelineInspectorPresentation.tsx",
+    // The boundary is dependency direction. Local names, the call expression,
+    // argument spelling and model-property placement are private realization.
+    const sectionDependencies = (source: string) =>
+      runtimeImports(source).filter(({ module }) =>
+        module.endsWith("/TimelineWorkbookInspectorSections"),
+      );
+    expect(sectionDependencies(broadPresentation)).toEqual([]);
+    expect(
+      sectionDependencies(
+        'import { useTimelineWorkbookInspectorSections as local } from "../components/TimelineWorkbookInspectorSections";',
       ),
-      "utf8",
-    );
-
-    expect(broadPresentation).not.toContain(
-      "useTimelineWorkbookInspectorSections",
-    );
-    expect(broadPresentation).not.toContain("rowHistoryRecordId:");
-    expect(inspectorPresentation).toContain(
-      "useTimelineWorkbookInspectorSections(sections)",
-    );
-    expect(inspectorPresentation).toContain("rowHistoryRecordId:");
+    ).toHaveLength(1);
+    expect(
+      sectionDependencies(
+        'import { useTimelineInspectorPresentation as local } from "./useTimelineInspectorPresentation"; function extracted(input) { return local(input); }',
+      ),
+    ).toEqual([]);
   });
 
   it("keeps inspector focus and geometry on semantic owner registries", () => {
@@ -74,7 +128,20 @@ describe("Workbook inspector owner boundaries", () => {
         path.join(workbookDirectory, relativePath),
         "utf8",
       );
-      expect(source, relativePath).not.toContain("dataTestIdSelector");
+      // Row/editor identity must come from semantic registries. Shell fallback
+      // controls have separate fixed identities and are outside this boundary.
+      const gridTestSelectors = new Set([
+        "rowCellTestId",
+        "draftCellTestId",
+        "timelineScalarEditorTestId",
+        "rowInspectTestId",
+      ]);
+      expect(
+        runtimeImports(source).filter(({ name }) =>
+          gridTestSelectors.has(name),
+        ),
+        relativePath,
+      ).toEqual([]);
     }
 
     const editorRegistry = readFileSync(
@@ -84,21 +151,45 @@ describe("Workbook inspector owner boundaries", () => {
       ),
       "utf8",
     );
-    expect(editorRegistry).not.toContain("inputTestId");
-    expect(editorRegistry).not.toContain("dataTestId");
-
-    const gridHandle = readFileSync(
-      path.resolve(
-        workbookDirectory,
-        "../../../../packages/grid-adapter/src/core.ts",
+    expect(
+      runtimeImports(editorRegistry).filter(({ name }) =>
+        /TestId|dataTestId/u.test(name),
       ),
-      "utf8",
-    );
-    expect(gridHandle).toContain("readonly requestFocus:");
-    expect(gridHandle).toContain(
-      "readonly getAnchorRect: (anchor: GridCellAnchor) => DOMRectReadOnly | null",
-    );
-    expect(gridHandle).not.toContain("readonly requestFocus?:");
-    expect(gridHandle).not.toContain("readonly getAnchorRect?:");
+    ).toEqual([]);
+    expectTypeOf<GridHandle["getAnchorRect"]>().toEqualTypeOf<
+      (anchor: GridCellAnchor) => DOMRectReadOnly | null
+    >();
+    expectTypeOf<
+      Extract<GridHandle["requestFocus"], undefined>
+    >().toEqualTypeOf<never>();
+  });
+  it("keeps presentation source free of state orchestration hooks", () => {
+    const directory = path.join(workbookDirectory, "inspector/presentation");
+    // Presentation-local disclosure/highlight state is legitimate. Domain
+    // orchestration belongs to the owning coordinator and mutation adapters.
+    const stateHooks = (source: string) => [
+      ...forbiddenConstruction(source),
+      ...runtimeImports(source).filter(({ module }) =>
+        /\/(?:services|mutations|runtime)\//u.test(module),
+      ),
+    ];
+    for (const filename of readdirSync(directory)) {
+      if (!/\.tsx?$/u.test(filename) || /\.test\.tsx?$/u.test(filename))
+        continue;
+      expect(
+        stateHooks(readFileSync(path.join(directory, filename), "utf8")),
+        filename,
+      ).toEqual([]);
+    }
+    expect(
+      stateHooks(
+        'import { useWorkbookInspectorCoordinator as local } from "../inspector/useWorkbookInspectorCoordinator";',
+      ),
+    ).toHaveLength(1);
+    expect(
+      stateHooks(
+        'import { useState as local } from "react"; // useWorkbookInspectorCoordinator',
+      ),
+    ).toEqual([]);
   });
 });

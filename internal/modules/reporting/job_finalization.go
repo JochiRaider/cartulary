@@ -24,11 +24,23 @@ type JobFailureFinalization struct {
 	Execution  jobs.Execution
 	Completion jobs.FailureCompletion
 	Mutate     JobSuccessMutation
+	TimedOut   bool
+}
+
+type JobCancellationFinalization struct {
+	Execution  jobs.Execution
+	Completion jobs.CancellationCompletion
+	Mutate     JobSuccessMutation
 }
 
 // JobSuccessFinalizer is Reporting's narrow port to the shared extension job
 // finalization transaction.
+// Success publication uses the supplied work deadline. A context error may be
+// returned only when no commit occurred. A proven commit returns success even
+// after the deadline; an indeterminate commit returns an opaque error that does
+// not wrap a context error, leaving reconciliation to the shared Jobs owner.
 type JobSuccessFinalizer interface {
 	FinalizeReportingJobSuccess(context.Context, JobSuccessFinalization) (jobs.Resource, error)
 	FinalizeReportingJobFailure(context.Context, JobFailureFinalization) (jobs.Resource, error)
+	FinalizeReportingJobCancellation(context.Context, JobCancellationFinalization) (jobs.Resource, error)
 }

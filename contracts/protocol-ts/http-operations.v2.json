@@ -25,6 +25,8 @@
     "createManualIndicatorObservation",
     "createObjectBlobSlot",
     "createRecordLinkedNote",
+    "createRelease",
+    "createSnapshot",
     "createViewRow",
     "deleteIncidentMembership",
     "deleteIncidentSavedView",
@@ -48,6 +50,8 @@
     "getRecordHistory",
     "getReferencePackValidationSummary",
     "getReferencePackVersion",
+    "getRelease",
+    "getSnapshot",
     "getTimelineTimeConversionProfile",
     "getViewSchema",
     "importIncidentBundle",
@@ -89,6 +93,7 @@
     "putImportUnitMapping",
     "putIncidentDefaultWorkbookPreferences",
     "putTimelineTimeConversionProfile",
+    "queryEvidenceMetadata",
     "queryWorkbookView",
     "redeemEvidenceHandle",
     "refreshReferencePacks",
@@ -109,7 +114,8 @@
     "selectImportUnit",
     "skipImportUnit",
     "supersedeRecord",
-    "uploadObjectBlobContent"
+    "uploadObjectBlobContent",
+    "verifyObjectBlob"
   ],
   "response_validation_policies": [
     {

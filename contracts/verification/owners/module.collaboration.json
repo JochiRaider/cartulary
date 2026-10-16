@@ -11,6 +11,46 @@
         "playwright",
         "vitest"
       ]
+    },
+    {
+      "verification_id": "module.collaboration.verification.presence_cell_measurement",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.collaboration.verification.presence_paint_qualification",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "vitest"
+      ]
+    },
+    {
+      "verification_id": "module.collaboration.verification.presence_row_measurement",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.collaboration.verification.presence_surface_measurement",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ]
+    },
+    {
+      "verification_id": "module.collaboration.verification.source_contracts",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

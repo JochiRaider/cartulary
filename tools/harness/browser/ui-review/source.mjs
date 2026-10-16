@@ -25,7 +25,7 @@ export function containedFile(root, ref) {
 export function catalogRow(binding, read = readJSON) {
   const catalog = read(path.join(repoRoot, "tools/test_catalog_owner.json"), "cartulary.test_owner_registry.v1").value;
   const owner = one(catalog.owners.filter((entry) => entry.owner_id === binding.owner_id && entry.status === "active"));
-  const family = read(containedFile(repoRoot, owner.manifest_path), "cartulary.test_family_manifest.v7").value;
+  const family = read(containedFile(repoRoot, owner.manifest_path), "cartulary.test_family_manifest.v8").value;
   const row = one(family.rows.filter((entry) => entry.row_id === binding.row_id && entry.owner_id === binding.owner_id && entry.status === "active" && entry.runner === "playwright" && entry.selector.stage === "visual"));
   const index = row.selector.scenario_ids.indexOf(binding.scenario_id);
   if (index < 0) throw new ReviewFailure("invalid_artifact");

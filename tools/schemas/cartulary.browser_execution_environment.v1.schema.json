@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.browser_execution_environment.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "browser_engine",
+    "browser_build",
+    "browser_mode",
+    "playwright_version",
+    "node_version",
+    "platform",
+    "architecture"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.browser_execution_environment.v1"
+    },
+    "browser_engine": {
+      "enum": [
+        "chromium",
+        "firefox",
+        "webkit"
+      ]
+    },
+    "browser_build": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "browser_mode": {
+      "enum": [
+        "headed",
+        "headless"
+      ]
+    },
+    "playwright_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "node_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "architecture": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { scrollGridTargetIntoView } from "@cartulary/test-utils/grid";
 import {
-  cartularyAc043PerformanceContract,
+  cartularyLargeGridFixture,
   gridSortHeaderTestId,
   rowCellTestId,
   saveStateTestId,
@@ -8,7 +8,6 @@ import {
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, TestInfo } from "@playwright/test";
-import { expect, test } from "../fixtures";
 import type { WorkerAdminEntry } from "../support/auth/workerAdmin";
 import {
   type Ac043Snapshot,
@@ -18,6 +17,7 @@ import {
 } from "../support/performance/ac043Snapshot";
 import { uniqueTxn } from "../support/runtime/fixtureIdentity";
 import { activateCommittedGridCell } from "../support/workbook/rowMutations";
+import { expect, test } from "./fixtures";
 import {
   ac043FixtureDigest,
   attachMeasurementObservation,
@@ -113,8 +113,10 @@ function assertObservation(
 ) {
   const predicate = performancePredicate(predicateId);
   expect(summary.outcome).toBe("passed");
-  expect(summary.p95_ms).not.toBeNull();
-  expect(summary.p95_ms as number).toBeLessThanOrEqual(predicate.thresholdMs);
+  expect(summary.statistics.p95_ms).not.toBeNull();
+  expect(summary.statistics.p95_ms as number).toBeLessThanOrEqual(
+    predicate.thresholdMs,
+  );
 }
 
 test("measures paint-qualified Timeline summary ArrowDown selection within AC-043", async ({
@@ -146,13 +148,13 @@ test("measures paint-qualified Timeline summary ArrowDown selection within AC-04
           "perf.timeline_summary_selection_down.v1",
         ));
     expect(traffic.sessionCount).toBe(
-      cartularyAc043PerformanceContract.fixture.analystSessions,
+      cartularyLargeGridFixture.analystSessions,
     );
     expect(traffic.updatesPerSecond).toBe(
-      cartularyAc043PerformanceContract.fixture.backgroundUpdatesPerSecond,
+      cartularyLargeGridFixture.backgroundUpdatesPerSecond,
     );
     expect(traffic.qualifiedBackgroundSessions).toBe(
-      cartularyAc043PerformanceContract.fixture.backgroundSessions,
+      cartularyLargeGridFixture.backgroundSessions,
     );
     const source = page.getByTestId(
       rowCellTestId(fromRecordId, "timeline.activity_synopsis_text"),

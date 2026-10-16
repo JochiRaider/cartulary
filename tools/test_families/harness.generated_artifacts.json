@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "harness.generated_artifacts",
   "rows": [
     {
@@ -65,6 +65,237 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "standard",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.generated_artifacts.unit.collaboration_contract_rejects_compatibility_and_5e312f0753",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/contractgen",
+        "tests": [
+          "TestCollaborationContractRejectsCompatibilityAndInvalidResultShapes"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.generated_artifacts.unit.decode_contract_rejects_duplicate_jsonmembers_005d1b3b94",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/contractgen",
+        "tests": [
+          "TestDecodeContractRejectsDuplicateJSONMembers",
+          "TestDeriveExtensionArtifactsIsDeterministicAndPhaseFree",
+          "TestExtensionCanonicalDigestIncludesRequiredFinalLF",
+          "TestGenerationPlanRejectsUnsafeOrAmbiguousTypeScriptProjections",
+          "TestLoadFamiliesRejectsUnsafeOrAmbiguousRegistry",
+          "TestLoadFamiliesUsesActiveRegistryEntries",
+          "TestTypeScriptProjectionSourcesAreExactAndDeeplyReadonly",
+          "TestValidateErrorRegistryRejectsDuplicateCodes",
+          "TestValidateErrorRegistryRejectsInvalidReasonRegistries",
+          "TestValidateExtensionBindingSourcesRejectsUnsortedContributions",
+          "TestValidateExtensionConfigurationReferencesRejectsUnresolvedSchema",
+          "TestValidateExtensionConfigurationRequiresClosedCanonicalRows",
+          "TestValidateExtensionConfigurationRequiresInertSchemaReference",
+          "TestValidateExtensionDependencyDeclarationsRejectsOmittedAndNullArrays",
+          "TestValidateExtensionOwnerFragmentRejectsCapabilities",
+          "TestValidateExtensionParticipantContractEnforcesAggregateCeiling",
+          "TestValidateExtensionParticipantSpecializationRejectsWrongSharedResult",
+          "TestValidateExtensionProfileFactClosureRejectsStaleConfigurationDigest",
+          "TestValidateRecoveryRegistryRejectsUnsortedSchemaIDs",
+          "TestValidateViewSchemaAcceptsCanonicalArtifactSourceFilter",
+          "TestValidateViewSchemaIndexRejectsStaleArtifactPaths",
+          "TestValidateViewSchemaRejectsDuplicateFieldKeys",
+          "TestValidateViewSchemaRejectsInvalidCanonicalSourceFilter",
+          "TestValidateViewSchemaRejectsInvalidCreateOnlyOverride",
+          "TestValidateViewSchemaRejectsInvalidFieldReferences",
+          "TestValidateViewSchemaRejectsInvalidInspectorConfig",
+          "TestValidateViewSchemaRejectsMismatchedEnumMetadata",
+          "TestValidateViewSchemaRejectsMissingRequiredFields",
+          "TestValidateViewSchemaRejectsUnknownKeys"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.generated_artifacts.unit.import_target_registry_derivation_is_determinist_50c76524f5",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/contractgen",
+        "tests": [
+          "TestDeriveImportTargetArtifactsProducesIntegrityBoundProjections",
+          "TestImportTargetAvailabilityValidationFailsClosed",
+          "TestImportTargetCatalogValidationRejectsAmbiguity",
+          "TestImportTargetRegistryDerivationIsDeterministicAndComplete",
+          "TestImportTargetRowDigestExcludesOnlyDigestMember",
+          "TestResolveImportTargetContributionRejectsMissingAndDuplicateBindings"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.generated_artifacts.unit.runtime_go_files_do_not_import_internal_testutil_f162342f15",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/codegenboundary",
+        "tests": [
+          "TestOnlyApprovedGeneratedContractBoundariesImportGeneratedContracts",
+          "TestRuntimeGoFilesDoNotImportInternalTestutil"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.generated_artifacts.unit.sqlcimports_stay_behind_persistence_adapters_61a4cd5750",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/codegenboundary",
+        "tests": [
+          "TestSQLCImportsStayBehindPersistenceAdapters"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.generated_artifacts.unit.validate_canonical_artifact_source_catalog_famil_ad826b0a16",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/contractgen",
+        "tests": [
+          "TestArtifactSourceCatalogGeneratorRejectsInvalidFixtures",
+          "TestValidateCanonicalArtifactSourceCatalogFamily"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.generated_artifacts.unit.validate_canonical_tasks_decisions_source_catalo_946e23109a",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/contractgen",
+        "tests": [
+          "TestTasksDecisionsSourceCatalogGeneratorRejectsInvalidFixtures",
+          "TestValidateCanonicalTasksDecisionsSourceCatalogFamily"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.generated_artifacts.unit.write_client_build_contracts_binds_exact_static_26b5141e93",
+      "owner_id": "harness.generated_artifacts",
+      "family_id": "harness.generated_artifacts.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.generated_artifacts.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./tools/embedwebassets",
+        "tests": [
+          "TestWriteArchiveIsDeterministicAndServesRootEntries",
+          "TestWriteArchiveRejectsSymlinks",
+          "TestWriteArchiveRequiresIndexInsideSource",
+          "TestWriteClientBuildContractsBindsExactStaticMapping"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
       "service_dependencies": []
     }
   ]

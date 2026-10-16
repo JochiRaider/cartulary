@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.collaboration",
   "rows": [
     {
@@ -285,6 +285,34 @@
       ]
     },
     {
+      "row_id": "module.collaboration.frontend.presence_paint_qualification",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.presence_paint_qualification"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/presenceTimingSupport.test.ts",
+        "titles": [
+          "rejects stale, unbound and nonvisible presence and invalid cross-context timing"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.collaboration.frontend.save_state_labels_use_only_syncing_saved_and_con_b9c4789169",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.frontend",
@@ -487,6 +515,33 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.collaboration.integration.closed_incident_socket_terminates_before_writabl_8057ea1833",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestClosedIncidentSocketTerminatesBeforeWritableAck"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.collaboration.integration.cookie_authenticated_browser_socket_upgrades_rej_73faec66da",
       "owner_id": "module.collaboration",
       "family_id": "module.collaboration.integration",
@@ -625,6 +680,117 @@
       "status": "active",
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.collaboration.measurement.presence_cell",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.presence_cell_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-presence.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_presence_cell_measurement"
+        ],
+        "titles": [
+          "measures Timeline cell presence acceptance to remote paint within AC-008"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.collaboration.measurement.presence_row",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.presence_row_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-presence.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_presence_row_measurement"
+        ],
+        "titles": [
+          "measures Timeline row presence acceptance to remote paint within AC-008"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.collaboration.measurement.presence_surface",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.presence_surface_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-presence.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_presence_surface_measurement"
+        ],
+        "titles": [
+          "measures Timeline surface presence acceptance to remote paint within AC-008"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -897,6 +1063,132 @@
         "tests": [
           "TestReplayValidationCoversEveryFamilyAndAcceptsAdditiveMembers",
           "TestReplayValidationFailsClosed"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.collaboration.unit.event_intent_exports_no_mutable_fields_unit_1d9b83aca1",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestEventIntentExportsNoMutableFields_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.collaboration.unit.postgres_stream_and_dispatcher_reject_incomplete_ebc5bcb855",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration/internal/stream",
+        "tests": [
+          "TestDispatcherSupervisorClassifiesGracefulReturnUnexpectedReturnAndPanic_Unit",
+          "TestPostgresStreamAndDispatcherRejectIncompleteConstruction_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.collaboration.unit.publication_catalog_rejects_incomplete_and_ambig_858f5dab4f",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestPublicationAppendersCannotBeWidenedAcrossFamilies",
+          "TestPublicationCatalogCopiesItsOwnerDeclarations",
+          "TestPublicationCatalogRejectsIncompleteAndAmbiguousContributions",
+          "TestRecordChangedPublicationRejectsUndeclaredEffects"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.collaboration.unit.replayable_intent_validation_admits_owner_additi_39345aa09a",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestReplayableIntentValidationAdmitsOwnerAdditiveMembers"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.collaboration.unit.runtime_construction_rejects_every_missing_depen_eb9cd9aca2",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.collaboration.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/collaboration",
+        "tests": [
+          "TestRuntimeConstructionRejectsEveryMissingDependency_Unit",
+          "TestRuntimeConstructionResolvesOneTelemetryVersion_Unit",
+          "TestRuntimeDispatcherStartupLossIsTerminalAndReportedOnce_Unit"
         ]
       },
       "evidence_class": "unit",

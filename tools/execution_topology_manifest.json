@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v10",
+  "schema_id": "cartulary.execution_topology.v11",
   "runtime_profiles": [
     {
       "id": "default",
@@ -132,6 +132,17 @@
         "io": 1,
         "memory_mb": 256,
         "postgres": 4,
+        "process": 1
+      }
+    },
+    {
+      "id": "renderer_browser",
+      "resource_claims": {
+        "browser_stack": 1,
+        "cpu": 1,
+        "io": 1,
+        "memory_mb": 1024,
+        "port_lane": 1,
         "process": 1
       }
     },
@@ -446,18 +457,6 @@
           "server-harness"
         ]
       }
-    ],
-    "catalog_packages": [
-      "./internal/testutil/configtest",
-      "./internal/testutil/harnessruntime/boundary",
-      "./internal/testutil/httptestx",
-      "./internal/testutil/pgtest",
-      "./internal/testutil/processtest",
-      "./internal/testutil/s3test",
-      "./internal/testutil/suiteservices",
-      "./internal/testutil/testcontainersx",
-      "./internal/testutil/testfailure",
-      "./internal/testutil/wstest"
     ]
   },
   "browser_e2e_batch": {

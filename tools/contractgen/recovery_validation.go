@@ -244,7 +244,7 @@ func validateRecoveryGenerationRegistry(base string) error {
 	if err != nil {
 		return err
 	}
-	if generationID != "recovery.current.reference_pack_v2.graph_v4" || !captureCurrent {
+	if generationID != "recovery.current.reference_pack_v2.graph_v4.evidence_verify_v1" || !captureCurrent {
 		return fmt.Errorf("%s is not the exact current generation", generationID)
 	}
 	catalog, err := asObject(generation["catalog"], label+".catalog")
@@ -648,8 +648,8 @@ func validateRecoveryCatalog(root string, catalog map[string]any) ([]string, err
 	if err != nil {
 		return nil, err
 	}
-	if len(tables) != 143 {
-		return nil, fmt.Errorf("recovery catalog must classify exactly 143 authored tables, got %d", len(tables))
+	if len(tables) != 146 {
+		return nil, fmt.Errorf("recovery catalog must classify exactly 146 authored tables, got %d", len(tables))
 	}
 	catalogNames := make([]string, 0, len(tables))
 	requiredNames := []string{}
@@ -671,8 +671,8 @@ func validateRecoveryCatalog(root string, catalog map[string]any) ([]string, err
 	if err := requireSortedUniqueStrings(catalogNames, "recovery catalog tables"); err != nil {
 		return nil, err
 	}
-	if len(requiredNames) != 111 {
-		return nil, fmt.Errorf("recovery catalog must contain exactly 111 authoritative_required tables, got %d", len(requiredNames))
+	if len(requiredNames) != 113 {
+		return nil, fmt.Errorf("recovery catalog must contain exactly 113 authoritative_required tables, got %d", len(requiredNames))
 	}
 	authoredNames, err := authoredMigrationTableNames(root)
 	if err != nil {
@@ -744,8 +744,8 @@ func validateRecoverySnapshotFixture(snapshot map[string]any, requiredTables []s
 	if err != nil {
 		return err
 	}
-	if len(units) != 111 {
-		return fmt.Errorf("postgres snapshot fixture must contain exactly 111 units, got %d", len(units))
+	if len(units) != 113 {
+		return fmt.Errorf("postgres snapshot fixture must contain exactly 113 units, got %d", len(units))
 	}
 	names := make([]string, 0, len(units))
 	for index, unit := range units {

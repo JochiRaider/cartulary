@@ -130,7 +130,10 @@ function setup(
     },
   };
 }
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 describe("Workbook history operation owner", () => {
   it("keeps history authority for an unavailable related projection and still suspends genuine session loss", async () => {
@@ -233,6 +236,8 @@ describe("Workbook history operation owner", () => {
                   : { kind, restore_to_revision_no: 2 },
           };
     const t = setup(pending);
+    const mark = vi.spyOn(performance, "mark");
+    mark.mockClear();
     t.send.mockResolvedValueOnce({ kind: "uncertain" });
     const attempt = t.owner.admit(t.intent, t.binding);
     expect(attempt).not.toBeNull();
@@ -251,6 +256,17 @@ describe("Workbook history operation owner", () => {
     expect(t.ids.create).toHaveBeenCalledTimes(1);
     expect(t.send.mock.calls[0]?.[0]).toBe(t.send.mock.calls[1]?.[0]);
     expect(t.owner.getSnapshot()[0]?.receipt).toEqual(t.receipt);
+    const accepted = mark.mock.calls.filter(
+      ([name]) => name === "cartulary.workbook.history_action_accepted",
+    );
+    expect(accepted).toHaveLength(pending.kind === "rollback" ? 1 : 0);
+    if (pending.kind === "rollback")
+      expect(accepted[0]?.[1]?.detail).toEqual({
+        recordId: "record",
+        rowVersion: 4,
+        action: pending.action,
+        viewSchemaId: "cartulary.view.timeline.v2",
+      });
   });
   it("invalidates confirmed versions and selectors instead of rebasing", async () => {
     const t = setup();

@@ -132,7 +132,7 @@ describe("TimelineEvidencePanel", () => {
     ).toContain("Attached evidence count: 1");
   });
 
-  it("lists a saved linked record with explicit file actions", () => {
+  it("withholds linked file actions until metadata is admitted", () => {
     const row = workbookRow("record-1");
     render(
       <TimelineEvidencePanel
@@ -162,17 +162,17 @@ describe("TimelineEvidencePanel", () => {
         onFilesSelected={vi.fn()}
       />,
     );
-    expect(screen.getByText("Synthetic acquisition notes")).toBeTruthy();
+    expect(screen.getByText("Linked evidence: 1")).toBeTruthy();
     expect(
-      screen.getByRole("button", {
+      screen.queryByRole("button", {
         name: /Preview.*Synthetic acquisition notes/u,
       }),
-    ).toBeTruthy();
+    ).toBeNull();
     expect(
-      screen.getByRole("button", {
+      screen.queryByRole("button", {
         name: /Download.*Synthetic acquisition notes/u,
       }),
-    ).toBeTruthy();
+    ).toBeNull();
   });
 
   it("keeps collection identity and count separate from unavailable observation", () => {
@@ -229,7 +229,8 @@ describe("TimelineEvidencePanel", () => {
       />,
     );
     expect(screen.getByText(/Attached evidence count: 3/u)).toBeTruthy();
-    expect(screen.getByText("Long original title")).toBeTruthy();
+    expect(screen.getByText("Linked evidence: 1")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Preview/u })).toBeNull();
     cleanup();
     render(
       <TimelineEvidencePanel

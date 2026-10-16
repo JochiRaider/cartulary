@@ -1,0 +1,44 @@
+{
+  "schema_id": "cartulary.performance_reporting_progress_contract.v1",
+  "contract_id": "cartulary.performance.reporting_progress.v1",
+  "criterion_id": "AC-030",
+  "fixture_contract_id": "cartulary.performance.large_grid.v1",
+  "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1",
+  "measurement_policy_id": "cartulary.measurement.single_observation.v1",
+  "warmup_passes": 0,
+  "measured_samples": 1,
+  "product_retries": 0,
+  "threshold_ms": 1000,
+  "threshold_comparison": "lte",
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "device_scale_factor": 1
+  },
+  "start_mark": "cartulary.workbook.reporting_accepted",
+  "dispatch_mark": "cartulary.workbook.reporting_dispatched",
+  "admission_mark": "cartulary.workbook.reporting_admitted",
+  "predicates": [
+    {
+      "predicate_id": "perf.reporting_snapshot.visible_with_cancel.v1",
+      "kind": "snapshot"
+    },
+    {
+      "predicate_id": "perf.reporting_render.visible_with_cancel.v1",
+      "kind": "report"
+    }
+  ],
+  "workload": {
+    "foreground_role": "editor",
+    "field_key": "timeline.analyst_text",
+    "draft_suffix": "x",
+    "action_driver": "keyboard_enter",
+    "grid_driver": "pointer_select_keyboard_edit",
+    "template_id": "cartulary.report.default",
+    "template_version": "4",
+    "output_kind": "slidev",
+    "release_scope": "internal_draft",
+    "redaction_selection": "admission_default"
+  }
+}

@@ -2,14 +2,14 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { repoRoot, validateSchemaSync } from "../contract/index.mjs";
 import { compareRunMetadata } from "./run-comparison.mjs";
+import { readLocalFile } from "../runtime/secure-local-files.mjs";
+import { parseStrictJSON } from "../contract/strict-json.mjs";
 import { resourceProjection } from "./resource-projection.mjs";
 import { analyzePerformance } from "./performance-analysis.mjs";
-import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { validateCanonicalRun } from "./canonical-evidence.mjs";
 import { formatPerformanceExplanation } from "./performance-presentation.mjs";
 import { readTerminalReceipt, receiptDigest } from "./terminal-receipt.mjs";
 import { readExecutionIndex } from "./execution-reader.mjs";
-import { parseStrictJSON } from "../contract/strict-json.mjs";
 
 function isCanonicalRun(dir) {
   return ["run-manifest.json", "run-summary.json", "unit-events.ndjson"].every(
@@ -53,6 +53,7 @@ function immutableFacts(value, seen = new WeakMap()) {
   return Object.freeze(value);
 }
 
+
 function readEnvelope(runDir, run) {
   let envelope, bytes;
   try {
@@ -69,6 +70,7 @@ function readEnvelope(runDir, run) {
   }
   return { value: envelope, digest: receiptDigest(bytes) };
 }
+
 
 export async function loadRetainedObservability(runDir) {
   const run = await validateCanonicalRun(runDir);

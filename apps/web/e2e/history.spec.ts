@@ -49,7 +49,10 @@ import {
   patchRecord,
   queryViewRows,
 } from "./support/workbook/query";
-import { clickTimelineRowAction } from "./support/workbook/rowMutations";
+import {
+  activateCommittedGridCell,
+  clickTimelineRowAction,
+} from "./support/workbook/rowMutations";
 
 function historyActionTestId(
   item: RecordHistoryItem,
@@ -214,28 +217,34 @@ test("retargets open inspector history when row focus changes", async ({
     firstRow.record_id,
     rowHistoryOpenButtonTestId(firstRow.record_id),
   );
-  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
-    `Record ${firstRow.record_id}`,
+  const historyPanel = page.getByTestId(rowHistoryPanelTestId());
+  const presentedRecord = historyPanel.locator(
+    '[data-generated-metadata="technical-record-id"]',
   );
+  await expect(presentedRecord).toHaveText(firstRow.record_id);
+  await expect(historyPanel).toContainText("revision-retarget first updated");
 
   const secondHistoryResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
-      response.url().endsWith(`/api/v1/records/${secondRow.record_id}/history`),
+      new URL(response.url()).pathname.endsWith(
+        `/api/v1/records/${secondRow.record_id}/history`,
+      ),
   );
-  await page
-    .getByTestId(
-      rowCellTestId(secondRow.record_id, "timeline.activity_synopsis_text"),
-    )
-    .focus();
+  await activateCommittedGridCell(
+    page
+      .getByTestId(
+        rowCellTestId(secondRow.record_id, "timeline.activity_synopsis_text"),
+      )
+      .locator('xpath=ancestor::*[@role="gridcell"][1]'),
+  );
   const response = await secondHistoryResponse;
   expect(response.ok()).toBeTruthy();
 
-  await expect(page.getByTestId(rowHistoryPanelTestId())).toContainText(
-    `Record ${secondRow.record_id}`,
-  );
-  await expect(page.getByTestId(rowHistoryPanelTestId())).not.toContainText(
-    `Record ${firstRow.record_id}`,
+  await expect(presentedRecord).toHaveText(secondRow.record_id);
+  await expect(historyPanel).toContainText("revision-retarget second updated");
+  await expect(historyPanel).not.toContainText(
+    "revision-retarget first updated",
   );
 });
 

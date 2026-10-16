@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.reporting_runtime_receipt_path.v1",
+  "type": "string",
+  "minLength": 20,
+  "maxLength": 4096,
+  "pattern": "^/(?!.*(?:/\\.{1,2}/|//))[^/\\u0000]+/(?:[^/\\u0000]+/)*installation\\.json$"
+}

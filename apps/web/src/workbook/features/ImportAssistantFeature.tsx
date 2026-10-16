@@ -115,12 +115,19 @@ export function ImportAssistantFeature({
               />
             ) : null}
             {state.job ? (
-              <section aria-label="Import job" style={importSectionStyle}>
+              <section
+                aria-label="Import job"
+                data-job-id={state.job.job_id}
+                data-job-purpose={state.jobPurpose}
+                data-job-status={state.job.status}
+                data-job-cancelable={state.job.cancelable}
+                style={importSectionStyle}
+              >
                 <h4 style={{ margin: 0 }}>
                   {state.jobPurpose === "apply" ? "Apply job" : "Discovery job"}
                   : {state.job.status.replaceAll("_", " ")}
                 </h4>
-                <p style={{ margin: 0 }}>
+                <p data-job-progress="true" style={{ margin: 0 }}>
                   Progress: {state.job.progress.completed}/
                   {state.job.progress.total ?? "unknown"}.{" "}
                   {state.observing
@@ -166,6 +173,7 @@ export function ImportAssistantFeature({
                     <button
                       type="button"
                       disabled={!controller.canCancel()}
+                      data-job-cancel="true"
                       onClick={() => void controller.cancel()}
                     >
                       {state.cancellation?.phase === "pending"
@@ -185,6 +193,31 @@ export function ImportAssistantFeature({
               </section>
             ) : null}
           </section>
+          {state.session && !terminal ? (
+            <section aria-label="Apply review" style={importSectionStyle}>
+              <h3 style={{ margin: 0 }}>Apply</h3>
+              <p id="import-apply-readiness">
+                {applyBlocker ??
+                  "Selected units are ready to apply. The server will recheck mapping, selection, overlap, and duplicate imports."}
+              </p>
+              <button
+                type="button"
+                aria-describedby="import-apply-readiness"
+                disabled={applyBlocker !== null}
+                onClick={() => void controller.apply()}
+              >
+                Apply {selected.length} selected unit
+                {selected.length === 1 ? "" : "s"}
+              </button>
+              {state.operation?.attempt.kind === "apply" ? (
+                <ImportOperationNotice
+                  operation={state.operation}
+                  controller={controller}
+                  canRetry={state.canWrite}
+                />
+              ) : null}
+            </section>
+          ) : null}
           {state.loading || state.loadFailure || state.session ? (
             <section
               aria-label="Import session review"
@@ -259,31 +292,6 @@ export function ImportAssistantFeature({
                   controller={controller}
                 />
               ))}
-            </section>
-          ) : null}
-          {state.session && !terminal ? (
-            <section aria-label="Apply review" style={importSectionStyle}>
-              <h3 style={{ margin: 0 }}>Apply</h3>
-              <p id="import-apply-readiness">
-                {applyBlocker ??
-                  "Selected units are ready to apply. The server will recheck mapping, selection, overlap, and duplicate imports."}
-              </p>
-              <button
-                type="button"
-                aria-describedby="import-apply-readiness"
-                disabled={applyBlocker !== null}
-                onClick={() => void controller.apply()}
-              >
-                Apply {selected.length} selected unit
-                {selected.length === 1 ? "" : "s"}
-              </button>
-              {state.operation?.attempt.kind === "apply" ? (
-                <ImportOperationNotice
-                  operation={state.operation}
-                  controller={controller}
-                  canRetry={state.canWrite}
-                />
-              ) : null}
             </section>
           ) : null}
           {importOutcomeViews(state).length ? (

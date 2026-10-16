@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "platform.viewquery",
   "rows": [
     {
@@ -168,6 +168,35 @@
       "service_dependencies": []
     },
     {
+      "row_id": "platform.viewquery.unit.decode_defaults_to_schema_meta_0c64ab2f71",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewquery.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/viewquery",
+        "tests": [
+          "TestDecode_AcceptsBodyPaginationMembers",
+          "TestDecode_DefaultsToSchemaMeta",
+          "TestDecode_NormalizesFiltersSortAndGrouping",
+          "TestDecode_RejectsDuplicateFilterField",
+          "TestDecode_RejectsInvalidPaginationMembers",
+          "TestDecode_RejectsOversizeSortAndInvalidGroupBy"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "platform.viewquery.unit.list_query_duplicate_precedence_and_normalization_c36fa08271",
       "owner_id": "platform.viewquery",
       "family_id": "platform.viewquery.unit",
@@ -221,6 +250,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "platform.viewquery.unit.normalize_alias_text_v1_122b8c996b",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewquery.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/fieldnorm",
+        "tests": [
+          "TestNormalizeAliasTextV1"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "platform.viewquery.unit.sort_and_filter_ceilings_canonical_normalization_4ca84c1e10",
       "owner_id": "platform.viewquery",
       "family_id": "platform.viewquery.unit",
@@ -233,6 +286,30 @@
         "package": "./internal/platform/viewquery",
         "tests": [
           "TestQueryNormalizationMeta_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.viewquery.unit.timeline_grouping_whitelist_rejects_non_contract_cc76ac6675",
+      "owner_id": "platform.viewquery",
+      "family_id": "platform.viewquery.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.viewquery.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/viewquery",
+        "tests": [
+          "TestTimelineGroupingWhitelistRejectsNonContractKeys"
         ]
       },
       "evidence_class": "unit",

@@ -15,7 +15,7 @@ function exactAlternation(values) {
   return `^(?:${values.map(regexEscape).join("|")})$`;
 }
 
-export function buildGoInvocations(rows, workers, command = process.env.GO || "go") {
+export function buildGoInvocations(rows, workers, command, context) {
   const byPackage = new Map();
   for (const row of rows) {
     const values = byPackage.get(row.selector.package) ?? [];
@@ -26,6 +26,7 @@ export function buildGoInvocations(rows, workers, command = process.env.GO || "g
     .sort(([left], [right]) => asciiCompare(left, right))
     .map(([packageName, packageRows]) => ({
       command,
+      environment: context.environment,
       args: [
         "test",
         "-json",

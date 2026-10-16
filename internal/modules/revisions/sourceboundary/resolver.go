@@ -1,6 +1,7 @@
 package sourceboundary
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -8,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -108,4 +111,53 @@ type canonicalState struct {
 	IncidentVersion          int64   `json:"incident_version"`
 	LatestChangeSetID        *string `json:"latest_change_set_id"`
 	LatestChangeSetCreatedAt *string `json:"latest_change_set_created_at"`
+}
+
+// ValidateRetained verifies a stored boundary without resolving current state.
+// JSONB formatting is allowed; missing, unknown or changed values are not.
+// The token continues to hash the owner's ordered bytes, never a JSONB or JCS
+// serialization. Keep this codec beside the producer rather than in consumers.
+func ValidateRetained(boundary Boundary, incidentID uuid.UUID) error {
+	invalid := errors.New("revisions: invalid retained source boundary")
+	value, err := canonicaljson.DecodeStrict(boundary.CanonicalJSON)
+	if err != nil {
+		return invalid
+	}
+	var state canonicalState
+	if json.Unmarshal(boundary.CanonicalJSON, &state) != nil || incidentID == uuid.Nil || state.IncidentID != incidentID.String() {
+		return invalid
+	}
+	var latestID *uuid.UUID
+	var latestAt *time.Time
+	if state.LatestChangeSetID != nil || state.LatestChangeSetCreatedAt != nil {
+		if state.LatestChangeSetID == nil || state.LatestChangeSetCreatedAt == nil {
+			return invalid
+		}
+		id, err := uuid.Parse(*state.LatestChangeSetID)
+		if err != nil {
+			return invalid
+		}
+		at, err := time.Parse(time.RFC3339Nano, *state.LatestChangeSetCreatedAt)
+		if err != nil || at.IsZero() {
+			return invalid
+		}
+		latestID, latestAt = &id, &at
+	}
+	expected, err := buildBoundary(ResolveInput{IncidentID: incidentID, IncidentVersion: state.IncidentVersion}, latestID, latestAt)
+	if err != nil || expected.Token != boundary.Token {
+		return invalid
+	}
+	expectedValue, err := canonicaljson.DecodeStrict(expected.CanonicalJSON)
+	if err != nil {
+		return invalid
+	}
+	actualJSON, err := json.Marshal(value)
+	if err != nil {
+		return invalid
+	}
+	expectedJSON, err := json.Marshal(expectedValue)
+	if err != nil || !bytes.Equal(actualJSON, expectedJSON) {
+		return invalid
+	}
+	return nil
 }

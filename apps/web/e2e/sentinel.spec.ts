@@ -209,7 +209,7 @@ async function expectWorkbookSaved(page: Page) {
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
 }
 
-test("pastes a representative 20x5 Timeline clipboard range", async ({
+test("pastes 20 rows of two-column TSV starting at an existing Timeline row", async ({
   page,
 }) => {
   const incidentId = await createIncident(
@@ -4063,7 +4063,20 @@ async function expectWorkbookInspectorWorkAreaGeometry(
     snapshot.workArea.bottom,
   );
   expectWithinOneCssPixel(snapshot.gridShell.top, snapshot.workArea.top);
-  expectWithinOneCssPixel(snapshot.gridShell.bottom, snapshot.workArea.bottom);
+  const browsing = activeWorkbookSlot(
+    page,
+    "primary-grid",
+    viewSchemaId,
+  ).getByRole("group", { name: "Workbook browsing", exact: true });
+  await expect(browsing).toBeVisible();
+  const browsingBounds = await browsing.boundingBox();
+  if (browsingBounds === null)
+    throw new Error("Workbook browsing has no layout bounds");
+  expectWithinOneCssPixel(snapshot.gridShell.bottom, browsingBounds.y);
+  expectWithinOneCssPixel(
+    browsingBounds.y + browsingBounds.height,
+    snapshot.workArea.bottom,
+  );
   expectWithinOneCssPixel(snapshot.statusStrip.top, snapshot.workArea.bottom);
   expectWithinOneCssPixel(
     snapshot.statusStrip.bottom,

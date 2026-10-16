@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "web.architecture",
   "rows": [
     {
@@ -231,7 +231,7 @@
       "service_dependencies": []
     },
     {
-      "row_id": "web.architecture.boundary_support.workbook_layout_policy_suite_5f8fee9a2f",
+      "row_id": "web.architecture.boundary_support.workbook_geometry_contract",
       "owner_id": "web.architecture",
       "family_id": "web.architecture.boundary_support",
       "collaborator_ids": [
@@ -245,7 +245,7 @@
         "file": "apps/web/src/workbook/layout/workbookLayoutPolicy.test.ts",
         "titles": [
           "workbook layout policy keeps surface geometry in the shared layout owner",
-          "workbook layout policy keeps viewport and row-count geometry behind semantic layout rules"
+          "workbook layout policy preserves exactly the supplied record population without layout filler"
         ],
         "project_id": "browser-unit"
       },

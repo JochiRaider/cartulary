@@ -197,7 +197,7 @@ async function exercise(scenario) {
       };
       if (scenario === "snapshot-caller") {
         const { loadPerformanceFixtureSnapshotRegistry, postgresMigrationDigest, snapshotKey } = await import("../performance-fixture/index.mjs");
-        const profile = loadPerformanceFixtureSnapshotRegistry(root).profiles.get("ac043_large_grid_snapshot_v1");
+        const profile = loadPerformanceFixtureSnapshotRegistry(root).profiles.get("timeline_large_grid_snapshot_v2");
         const key = snapshotKey(profile, postgresMigrationDigest(root));
         const executable = path.join(fixture, "fixture-builder");
         for (const status of [0, 7]) {

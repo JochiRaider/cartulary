@@ -64,6 +64,7 @@ import {
 const incidentControlsSections = [
   "summary",
   "import-assistant",
+  "snapshot-reports",
   "incident-fields",
   "memberships",
   "membership-audit",
@@ -141,6 +142,7 @@ describe("@cartulary/ui-contracts application selectors", () => {
     expect(incidentControlsSections).toEqual([
       "summary",
       "import-assistant",
+      "snapshot-reports",
       "incident-fields",
       "memberships",
       "membership-audit",

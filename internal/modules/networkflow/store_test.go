@@ -90,7 +90,7 @@ func (testNetworkFlowSafeDigester) Digest(valueClass string, canonicalValue stri
 	return SafeDigest("test-safe-v1", []byte("0123456789abcdef0123456789abcdef"), valueClass, canonicalValue)
 }
 
-func TestNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testing.T) {
+func assertNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testing.T) {
 	t.Run("functional table entropy", assertNetworkFlowTableEntropyTransactions)
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-create")
 	sessionID, unitID := seedImportSessionUnit(t, harness.DB, incidentID, actor.ID, "C:\\tmp\\flows.csv")
@@ -159,7 +159,7 @@ func TestNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testing.
 	}
 }
 
-func TestNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse(t *testing.T) {
+func assertNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-lifecycle")
 	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
 	first := createTestTable(t, harness.DB, store, actor.ID, incidentID, "flows.csv", nil, 1)
@@ -297,7 +297,7 @@ func TestNetworkFlowResourceIntentFailureRollsBackSourceMutation_Integration(t *
 	}
 }
 
-func TestNetworkFlowStoreLimitsUseActiveAndRetainedCounts(t *testing.T) {
+func assertNetworkFlowStoreLimitsUseActiveAndRetainedCounts(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-limits")
 	store := newTestNetworkFlowStore(
 		t,
@@ -348,7 +348,7 @@ func TestNetworkFlowStoreLimitsUseActiveAndRetainedCounts(t *testing.T) {
 	}
 }
 
-func TestNetworkFlowStoreRejectsInvalidExplicitDisplayNames(t *testing.T) {
+func assertNetworkFlowStoreRejectsInvalidExplicitDisplayNames(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-invalid-names")
 	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
 
@@ -372,7 +372,7 @@ func TestNetworkFlowStoreRejectsInvalidExplicitDisplayNames(t *testing.T) {
 	}
 }
 
-func TestNetworkFlowCommittedRowsAreImmutable(t *testing.T) {
+func assertNetworkFlowCommittedRowsAreImmutable(t *testing.T) {
 	harness, actor, incidentID := startNetworkFlowStoreTest(t, "network-flow-immutable")
 	store := newTestNetworkFlowStore(t, harness.DB, revisionsupport.MustAppender(t))
 	table := createTestTable(t, harness.DB, store, actor.ID, incidentID, "immutable.csv", nil, 1)
@@ -387,7 +387,7 @@ func TestNetworkFlowCommittedRowsAreImmutable(t *testing.T) {
 	}
 }
 
-func TestNetworkFlowDisplayNameAlgorithmsAndLifecycleVocabulary(t *testing.T) {
+func assertNetworkFlowDisplayNameAlgorithmsAndLifecycleVocabulary(t *testing.T) {
 	cases := []struct {
 		input      string
 		sourceName string
@@ -435,12 +435,12 @@ func TestNetworkFlow_TableLifecycleVocabularyHasNoRenamedState_Unit(t *testing.T
 }
 
 func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) {
-	t.Run("create_rows_counts", TestNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts)
-	t.Run("rename_soft_delete_reuse", TestNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse)
-	t.Run("limits", TestNetworkFlowStoreLimitsUseActiveAndRetainedCounts)
-	t.Run("invalid_names", TestNetworkFlowStoreRejectsInvalidExplicitDisplayNames)
-	t.Run("immutable_rows", TestNetworkFlowCommittedRowsAreImmutable)
-	t.Run("vocabulary", TestNetworkFlowDisplayNameAlgorithmsAndLifecycleVocabulary)
+	t.Run("create_rows_counts", assertNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts)
+	t.Run("rename_soft_delete_reuse", assertNetworkFlowStoreRenameSoftDeleteAndRetainedNameReuse)
+	t.Run("limits", assertNetworkFlowStoreLimitsUseActiveAndRetainedCounts)
+	t.Run("invalid_names", assertNetworkFlowStoreRejectsInvalidExplicitDisplayNames)
+	t.Run("immutable_rows", assertNetworkFlowCommittedRowsAreImmutable)
+	t.Run("vocabulary", assertNetworkFlowDisplayNameAlgorithmsAndLifecycleVocabulary)
 }
 
 func startNetworkFlowStoreTest(t testing.TB, prefix string) (*storetest.StoreHarness, authn.UserRecord, uuid.UUID) {

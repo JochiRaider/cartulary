@@ -4,12 +4,67 @@ import { spawnSync } from "node:child_process";
 import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { assertPackagedRendererLayout, stageRendererInstallation } from "../../report-renderer/stage-installation.mjs";
+import { restrictedExecutableInputRoots } from "../../harness/test-catalog/restricted-input-boundary.mjs";
 const root=path.resolve(import.meta.dirname,"../../..");
 const work=mkdtempSync(path.join(tmpdir(),"cartulary-release-contract-"));
 const release=path.join(work,"release"), bin=path.join(work,"bin");
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 function write(relative,value,mode=0o644) { const f=path.join(release,relative);mkdirSync(path.dirname(f),{recursive:true});writeFileSync(f,typeof value==="object" && !Buffer.isBuffer(value)?JSON.stringify(value):value,{mode}); }
 try {
+ const seccomp=JSON.parse(readFileSync(path.join(root,"deploy/mvp/application-seccomp.v1.json"),"utf8"));
+ assert.equal(seccomp.defaultAction,"SCMP_ACT_ERRNO");assert.equal(seccomp.defaultErrnoRet,1);
+ assert.deepEqual(seccomp.architectures,["SCMP_ARCH_X86_64"]);
+ const decision=(name,args=[])=>seccomp.syscalls.find(rule=>rule.names.includes(name) && (rule.args || []).every(test=>{
+  const value=BigInt(args[test.index] || 0),expected=BigInt(test.value);
+  if(test.op==="SCMP_CMP_EQ") return value===expected;
+  assert.equal(test.op,"SCMP_CMP_MASKED_EQ");return (value&expected)===BigInt(test.valueTwo || 0);
+ })) || {action:seccomp.defaultAction,errnoRet:seccomp.defaultErrnoRet};
+ for(const syscall of ["bpf","ptrace","setns","io_uring_enter","io_uring_register","keyctl","open_by_handle_at","init_module","userfaultfd"]) assert.equal(decision(syscall).action,"SCMP_ACT_ERRNO",syscall);
+ for(const domain of [17,38,40]) assert.equal(decision("socket",[domain]).action,"SCMP_ACT_ERRNO");
+ for(const syscall of ["clone3","io_uring_setup"]) assert.equal(decision(syscall).errnoRet,38);
+ assert.equal(decision("clone",[17]).action,"SCMP_ACT_ALLOW");
+ assert.equal(decision("clone",[2114060305]).action,"SCMP_ACT_ALLOW");
+ assert.equal(decision("clone",[1073741841]).action,"SCMP_ACT_ERRNO");
+ assert.equal(decision("unshare",[268435456]).action,"SCMP_ACT_ERRNO");
+ assert.equal(decision("unshare",[1073741824]).action,"SCMP_ACT_ERRNO");
+ // Shipping is an exact file-set copy. No retired installation, unrelated file,
+ // documentation, linked entry or altered byte can enter the build context.
+ for (const mutation of ["none", "extra", "missing", "changed", "symlink", "hardlink", "human", "duplicate_receipt", "receipt_escape"]) {
+  const source=path.join(work,`renderer-${mutation}`), destination=path.join(work,`context-${mutation}`);
+  mkdirSync(source);
+  const bytes=Buffer.from("synthetic runtime bytes");
+  const manifest={schema_id:"cartulary.reporting_runtime_installation.v1",platform:"linux/amd64",node_version:"1.0.0",package_manager:"pnpm@1.0.0",chromium_version:"synthetic",bubblewrap_version:"1.0.0",lockfile_sha256:hash(bytes),package_store_digest:hash(bytes),font_manifest_sha256:hash(bytes),chromium_executable_sha256:hash(bytes),chromium_executable_path:"runtime/browser/chrome-headless-shell",packages:Object.fromEntries(["@slidev/cli","@slidev/theme-default","markdown-it","mermaid","pdf-lib","playwright-chromium"].map(name=>[name,"1.0.0"])),files:[{path:"runtime/executable",sha256:hash(bytes)}]};
+  const encoded=Buffer.from(JSON.stringify(manifest)), identity=hash(encoded), selected=path.join(source,`${identity}.root`);
+  mkdirSync(path.join(selected,"runtime"),{recursive:true});
+  const executable=path.join(selected,"runtime/executable");
+  writeFileSync(executable,bytes,{mode:0o555});
+  writeFileSync(path.join(source,`${identity}.json`),encoded);
+  const receipt={schema_id:"cartulary.reporting_runtime_receipt.v1",manifest_sha256:identity,root:`${identity}.root`,manifest:`${identity}.json`};
+  if(mutation==="receipt_escape") receipt.root="../elsewhere";
+  let receiptBytes=JSON.stringify(receipt);
+  if(mutation==="duplicate_receipt") receiptBytes=receiptBytes.replace('{','{"root":"unexpected",');
+  writeFileSync(path.join(source,"installation.json"),receiptBytes);
+  if(mutation==="extra") writeFileSync(path.join(selected,"unexpected"),"unbound");
+  if(mutation==="changed") {rmSync(executable);writeFileSync(executable,"altered");}
+  if(mutation==="missing") rmSync(executable);
+  if(mutation==="symlink") {rmSync(executable);symlinkSync(path.join(work,"absent"),executable);}
+  if(mutation==="hardlink") linkSync(executable,path.join(source,"alias"));
+  if(mutation==="human") for(const restricted of restrictedExecutableInputRoots(root)) symlinkSync(path.join(work,"absent"),path.join(selected,restricted));
+  if(mutation==="none") {
+   const prefix="opt/cartulary/report-renderer/";
+   const entries=[prefix,`${prefix}installation.json`,`${prefix}${identity}.json`,`${prefix}${identity}.root/`,`${prefix}${identity}.root/runtime/`,`${prefix}${identity}.root/runtime/executable`];
+   assert.equal(assertPackagedRendererLayout(entries,Buffer.from(receiptBytes),encoded),identity);
+   for(const extra of ["usr/bin/node","usr/bin/npm","opt/other/node_modules/unbound.js",`${prefix}${"b".repeat(64)}.root/`,`${prefix}${identity}.root/runtime/unbound.js`]) assert.throws(()=>assertPackagedRendererLayout([...entries,extra],Buffer.from(receiptBytes),encoded));
+   assert.throws(()=>assertPackagedRendererLayout(entries.slice(0,-1),Buffer.from(receiptBytes),encoded));
+   assert.throws(()=>assertPackagedRendererLayout([...entries,entries.at(-1)],Buffer.from(receiptBytes),encoded));
+   mkdirSync(path.join(source,"retired.root"));
+   writeFileSync(path.join(source,"retired.root/never-ship"),"retired");
+   assert.equal(stageRendererInstallation(source,destination),identity);
+   assert.deepEqual(readdirSync(destination).sort(),[`${identity}.json`,`${identity}.root`,"installation.json"].sort());
+   assert.equal(statSync(path.join(destination,`${identity}.root/runtime/executable`)).mode&0o777,0o555);
+  } else assert.throws(()=>stageRendererInstallation(source,destination),undefined,mutation);
+ }
  mkdirSync(bin); mkdirSync(release);
  for(const name of ["install.sh","release-verify.sh"]) { write(`assets/scripts/${name}`,readFileSync(path.join(root,"deploy/mvp/scripts",name)),0o755); }
  write("assets/.env.example","SETTING=literal\n"); write("assets/config.toml.example","# supplied installation state\n");

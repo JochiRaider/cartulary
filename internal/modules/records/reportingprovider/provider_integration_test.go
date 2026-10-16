@@ -2,6 +2,7 @@ package reportingprovider
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ func TestReportingEnvelopeFactsContract_Integration(t *testing.T) {
 	incidentID := uuid.New()
 	activeID := uuid.MustParse("20000000-0000-4000-8000-000000000001")
 	deletedID := uuid.MustParse("20000000-0000-4000-8000-000000000002")
+	foreignIncident := uuid.MustParse("20000000-0000-4000-8000-000000000003")
 	now := time.Date(2026, time.July, 29, 18, 0, 0, 987654000, time.UTC)
 	if _, err := db.Exec(ctx, `
 INSERT INTO users (id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
@@ -31,8 +33,9 @@ VALUES ($1, $2, 'Records reporting actor', 'test-only', false, true, true)
 INSERT INTO incidents (
     id, incident_key, incident_key_canonical, title, status,
     created_by_user_id, updated_by_user_id
-) VALUES ($1, $2, $2, 'Records reporting incident', 'active', $3, $3)
-`, incidentID, "RECORDS-REPORTING-"+incidentID.String(), actorID); err != nil {
+) VALUES ($1, $2, $2, 'Records reporting incident', 'active', $3, $3),
+    ($4, $5, $5, 'Other reporting incident', 'active', $3, $3)
+`, incidentID, "RECORDS-REPORTING-"+incidentID.String(), actorID, foreignIncident, "RECORDS-FOREIGN-"+foreignIncident.String()); err != nil {
 		t.Fatalf("seed reporting incident: %v", err)
 	}
 	if _, err := db.Exec(ctx, `
@@ -42,8 +45,9 @@ INSERT INTO records (
     deleted_at, deleted_by_user_id
 ) VALUES
     ($1, $3, 'artifact', $4, $5, $4, $5, 3, NULL, NULL),
-    ($2, $3, 'evidence', $4, $5, $4, $5, 2, $5, $4)
-`, activeID, deletedID, incidentID, actorID, now); err != nil {
+    ($2, $3, 'evidence', $4, $5, $4, $5, 2, $5, $4),
+    ('20000000-0000-4000-8000-000000000004', $6, 'evidence', $4, $5, $4, $5, 2, $5, $4)
+`, activeID, deletedID, incidentID, actorID, now, foreignIncident); err != nil {
 		t.Fatalf("seed reporting envelopes: %v", err)
 	}
 	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
@@ -83,7 +87,7 @@ INSERT INTO records (
 	}
 	if value["record_id"] != activeID.String() ||
 		value["record_type"] != "artifact" ||
-		value["row_version"] != float64(3) ||
+		value["row_version"] != json.Number("3") ||
 		value["deleted_at"] != nil ||
 		value["deleted_by_user_id"] != nil {
 		t.Fatalf("field value = %#v", value)
@@ -92,8 +96,11 @@ INSERT INTO records (
 		t.Fatalf("record fact count = %d; want 1", len(output.RecordFacts))
 	}
 	recordFact := output.RecordFacts[0]
+	if !reflect.DeepEqual(output.SourceFacts.DeletedRecords, []exportprovider.DeletedRecordFact{{RecordID: deletedID.String(), RecordType: "evidence"}}) {
+		t.Fatal("deleted record identity was omitted or exposed as case content")
+	}
 	if recordFact.RecordID != activeID.String() ||
-		recordFact.RecordType != "record_envelope" ||
+		recordFact.RecordType != "artifact" ||
 		recordFact.SourceFamily != "record_envelope" ||
 		!reflect.DeepEqual(recordFact.FieldPaths, []string{field.Path}) ||
 		!reflect.DeepEqual(recordFact.SupportRefs, []string{"support:alpha", "support:beta"}) {

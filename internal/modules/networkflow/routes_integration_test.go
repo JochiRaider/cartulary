@@ -33,12 +33,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/renderprocess"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/reportingfixture"
 )
 
 func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
@@ -1319,7 +1321,8 @@ func TestNetworkFlowTimeBucketSavedGraphLifecycle_Integration(t *testing.T) {
 func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	t.Run("functional worker faults", assertNetworkFlowWorkerFaultConsumers)
 	runtime := appsupport.StartRuntime(t)
-	harness := claimedNetworkFlowServerForRouteTest(t, runtime, "network-flow-saved-graph-routes")
+	renderer := &restoredReportingRuntime{started: make(chan struct{}, 1)}
+	harness := claimedNetworkFlowServerWithControlsForRouteTest(t, runtime, "network-flow-saved-graph-routes", "", nil, func(options *server.Options) { options.ReportingRuntime = renderer })
 	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
@@ -1518,7 +1521,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	if _, err := harness.Pool.Exec(context.Background(), `DELETE FROM network_flow_graph_views WHERE graph_view_id = $1`, unsupportedGraphViewID); err != nil {
 		t.Fatalf("remove intentionally unsupported declaration before current restore proof: %v", err)
 	}
-	reportingJobID := seedRestoredReportingGraphJob(t, harness, incidentID, adminID, projection)
+	reportingJobID := seedRestoredReportingGraphJob(t, harness, incidentID, adminLogin, projection, renderer)
 	networkFlowJobID := seedRestoredNetworkFlowGraphJob(t, harness, incidentID, adminID, projection)
 	t.Run("NF restore changes only attempt fields and rolls back", func(t *testing.T) {
 		ctx := context.Background()
@@ -1712,7 +1715,7 @@ func TestNetworkFlowSavedGraphLifecycleRoutes_Integration(t *testing.T) {
 	if err := harness.Pool.QueryRow(context.Background(), `SELECT request_json FROM reporting_job_payloads WHERE job_id = $1`, reportingJobID).Scan(&reportingPayload); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := harness.Pool.Exec(context.Background(), `UPDATE reporting_job_payloads SET request_json = '{"graph_projection_refs":[{}]}'::jsonb WHERE job_id = $1`, reportingJobID); err != nil {
+	if _, err := harness.Pool.Exec(context.Background(), `UPDATE reporting_job_payloads SET request_json = jsonb_set(request_json, '{graph_projection_refs}', '[{}]'::jsonb) WHERE job_id = $1`, reportingJobID); err != nil {
 		t.Fatal(err)
 	}
 	const graphStateSnapshot = `SELECT jsonb_build_array((SELECT jsonb_agg(r ORDER BY projection_result_id) FROM graph_projection_results r), (SELECT jsonb_agg(l ORDER BY lease_id) FROM graph_projection_result_leases l))::text`
@@ -1912,58 +1915,60 @@ func restoreContainsExactGraphBinding(views []graphrestore.RestoreRebuiltView, g
 	return false
 }
 
-func seedRestoredReportingGraphJob(
-	t testing.TB,
-	harness *appsupport.ServerHarness,
-	incidentID uuid.UUID,
-	actorID uuid.UUID,
-	projection map[string]any,
-) uuid.UUID {
+// Block only the declared render protocol. Admission, snapshot capture, retained
+// recipe binding and the Jobs execution fence remain ordinary production paths.
+// This fixture supplies no rendering or sandbox-conformance evidence.
+type restoredReportingRuntime struct {
+	reportingfixture.Runtime
+	started chan struct{}
+}
+
+func (r *restoredReportingRuntime) Run(ctx context.Context, _ []byte, _ []renderprocess.Output) (renderprocess.Result, error) {
+	select {
+	case r.started <- struct{}{}:
+	default:
+	}
+	<-ctx.Done()
+	return renderprocess.Result{}, ctx.Err()
+}
+
+func seedRestoredReportingGraphJob(t testing.TB, harness *appsupport.ServerHarness, incidentID uuid.UUID, actor flowtest.LoginResult, projection map[string]any, renderer *restoredReportingRuntime) uuid.UUID {
 	t.Helper()
-	scope := jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID}
-	admission, err := jobs.NewExtensionJobAdmission(
-		reporting.ProfileID,
-		jobs.NewRouteIdempotencyKey("POST /api/v1/releases", actorID, incidentID.String(), "txn-network-flow-restore-report"),
-		scope,
-		[]byte(`{"graph_projection_refs":"restore-reconciliation"}`),
-	)
-	if err != nil {
-		t.Fatalf("construct restored Reporting job admission: %v", err)
+	post := func(path string, body map[string]any) map[string]any {
+		return httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+path, body,
+			httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value)), http.StatusAccepted)["data"].(map[string]any)
 	}
-	resource, err := harness.Jobs.Create(context.Background(), jobs.EnqueueParams{
-		JobKind: reporting.ReleaseCreateJobKind, Scope: scope, SubmittedByUserID: actorID,
-		Cancelable: true, Progress: jobs.Progress{Completed: 0}, Extension: admission,
-	})
-	if err != nil {
-		t.Fatalf("create restored Reporting Graph job: %v", err)
+	snapshot := post("/api/v1/snapshots", map[string]any{"incident_id": incidentID.String(), "client_txn_id": "txn-network-flow-restore-snapshot"})
+	snapshotJobID := snapshot["job_id"].(string)
+	waitForNetworkFlowJob(t, harness.Server.HTTP.URL, actor, snapshotJobID, "succeeded")
+	completed := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJobID, nil, httptestx.WithCookies(actor.SessionCookie)), http.StatusOK)["data"].(map[string]any)
+	refs := completed["result_summary"].(map[string]any)["resource_refs"].([]any)
+	if len(refs) != 1 || refs[0].(map[string]any)["kind"] != "snapshot" {
+		t.Fatal("snapshot admission did not publish its exact resource")
 	}
-	jobID := uuid.MustParse(resource.JobID)
+	snapshotID := refs[0].(map[string]any)["id"].(string)
 	graphRefs := []map[string]any{{
 		"source_owner_id": projection["source_owner_id"], "graph_view_id": projection["graph_view_id"],
 		"projection_result_id": projection["projection_result_id"], "source_snapshot_id": projection["source_snapshot_id"],
 		"projection_schema_id": projection["projection_schema_id"], "projection_version": projection["projection_version"],
 		"normalized_configuration_sha256": projection["normalized_configuration_sha256"],
-		"normalized_source_sha256":        projection["normalized_source_sha256"],
-		"canonical_output_sha256":         projection["canonical_output_sha256"],
+		"normalized_source_sha256":        projection["normalized_source_sha256"], "canonical_output_sha256": projection["canonical_output_sha256"],
 	}}
-	payload, err := json.Marshal(map[string]any{"graph_projection_refs": graphRefs})
-	if err != nil {
-		t.Fatalf("encode restored Reporting Graph payload: %v", err)
+	resource := post("/api/v1/releases", map[string]any{
+		"snapshot_id": snapshotID, "client_txn_id": "txn-network-flow-restore-report", "template_id": reporting.DefaultTemplateID,
+		"template_version": reporting.DefaultTemplateVersion, "output_kind": reporting.OutputKindSlidev,
+		"release_scope": reporting.ReleaseScopeInternalReview, "graph_projection_refs": graphRefs,
+	})
+	jobID := uuid.MustParse(resource["job_id"].(string))
+	select {
+	case <-renderer.started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("admitted Reporting job did not reach its controlled render boundary")
 	}
-	now := time.Date(2026, 7, 10, 12, 40, 0, 0, time.UTC)
-	if _, err := harness.Pool.Exec(context.Background(), `
-INSERT INTO reporting_job_payloads (job_id, job_kind, incident_id, actor_user_id, request_json, created_at, updated_at)
-VALUES ($1, 'release_create', $2, $3, $4::jsonb, $5, $5)
-`, jobID, incidentID, actorID, payload, now); err != nil {
-		t.Fatalf("persist restored Reporting Graph payload: %v", err)
-	}
-	if _, err := harness.Pool.Exec(context.Background(), `
-UPDATE jobs
-   SET status = 'running', started_at = $2, updated_at = $2,
-       handler_attempt_id = $3, handler_lease_expires_at = $4
- WHERE job_id = $1
-`, jobID, now, uuid.MustParse("00000000-0000-0000-0000-000000009104"), time.Now().UTC().Add(time.Hour)); err != nil {
-		t.Fatalf("seed restored Reporting execution lease: %v", err)
+	var status string
+	var attempt *uuid.UUID
+	if err := harness.Pool.QueryRow(context.Background(), `SELECT status,handler_attempt_id FROM jobs WHERE job_id=$1`, jobID).Scan(&status, &attempt); err != nil || status != "running" || attempt == nil {
+		t.Fatalf("Reporting fixture has no actual running attempt: %s %v %v", status, attempt, err)
 	}
 	return jobID
 }
@@ -2056,7 +2061,7 @@ func claimedNetworkFlowServerWithLimitsForRouteTest(
 ) *appsupport.ServerHarness {
 	return claimedNetworkFlowServerWithControlsForRouteTest(t, runtime, prefix, resourceLimits, nil)
 }
-func claimedNetworkFlowServerWithControlsForRouteTest(t testing.TB, runtime *appsupport.Runtime, prefix, resourceLimits string, controls *hc.Controls) *appsupport.ServerHarness {
+func claimedNetworkFlowServerWithControlsForRouteTest(t testing.TB, runtime *appsupport.Runtime, prefix, resourceLimits string, controls *hc.Controls, configure ...func(*server.Options)) *appsupport.ServerHarness {
 	t.Helper()
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	rings, err := ParseKeyRings([]byte(`{
@@ -2091,7 +2096,14 @@ func claimedNetworkFlowServerWithControlsForRouteTest(t testing.TB, runtime *app
 	if controls != nil {
 		options.TestRouteMode = httptestx.TestRouteModeHarnessOwned
 		options.AdditionalRoutes = controls.Contribution().Routes
-		options.ConfigureRuntime = func(o *server.Options) { o.NetworkFlowComposition = controls }
+	}
+	options.ConfigureRuntime = func(o *server.Options) {
+		if controls != nil {
+			o.NetworkFlowComposition = controls
+		}
+		for _, apply := range configure {
+			apply(o)
+		}
 	}
 	return runtime.StartServer(t, options)
 }

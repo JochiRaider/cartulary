@@ -15,7 +15,7 @@
       "logical_ref": "backup/00000000-0000-0000-0000-000000000201/graph/implementation-binding",
       "content_type": "application/json",
       "plaintext_bytes": 1461,
-      "plaintext_sha256": "1006d1df55a273762d1986adcf541bac8b027e7a11894cf58f741deb12303afe",
+      "plaintext_sha256": "ad87fb5eb04cafebcf02fca27fc9b3df10e504d497ab63d2b1c1bd005b1d8953",
       "envelope_ref": "backup/00000000-0000-0000-0000-000000000201/envelopes/graph-implementation-binding",
       "envelope_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
     },

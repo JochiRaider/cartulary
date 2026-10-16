@@ -42,6 +42,6 @@ func (p rollbackPublicationService) appendRecordChangedTx(ctx context.Context, t
 	return p.store.recordPublications.AppendRecordChangedTx(ctx, tx, effect)
 }
 
-func (p rollbackPublicationService) rebuildProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return p.store.rebuildProjectionsTx(ctx, tx, incidentID)
+func (p rollbackPublicationService) refreshProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, records []uuid.UUID) error {
+	return p.store.refreshProjectionsTx(ctx, tx, incidentID, records)
 }

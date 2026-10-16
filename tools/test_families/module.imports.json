@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.imports",
   "rows": [
     {
@@ -178,6 +178,34 @@
       ]
     },
     {
+      "row_id": "module.imports.frontend.apply_paint_qualification",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.imports.verification.apply_paint_qualification"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/jobProgressPaint.test.ts",
+        "titles": [
+          "requires one fresh apply job with visible cancel and a stable editable Timeline binding"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.imports.frontend.bounded_observation",
       "owner_id": "module.imports",
       "family_id": "module.imports.frontend",
@@ -197,6 +225,34 @@
           "Import job observation ignores late reads after observation abort and rejects regressions"
         ],
         "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.imports.frontend.discovery_paint_qualification",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.imports.verification.discovery_paint_qualification"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/jobProgressPaint.test.ts",
+        "titles": [
+          "requires one fresh discovery job with visible cancel and a stable editable Timeline binding"
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -254,10 +310,13 @@
         "titles": [
           "Workbook import lifecycle admits once synchronously and retains the exact uncertain upload for replay",
           "Workbook import lifecycle creates only the returned durable region without approving or selecting it",
+          "Workbook import lifecycle does not dispatch or admit apply when current persisted selection changes",
           "Workbook import lifecycle fences late writes at every command stage across role closure claim and incident boundaries",
           "Workbook import lifecycle fences stale resource loads after a mutation and gates every write on current authority",
+          "Workbook import lifecycle includes current selection preflight in apply timing and retains exact replay identity",
           "Workbook import lifecycle keeps empty discovery and preview failure distinct and bounds previews to one request",
           "Workbook import lifecycle keeps header suggestions advisory and associates duplicate destinations with both columns",
+          "Workbook import lifecycle marks accepted discovery separately from dispatch replay and exact job admission",
           "Workbook import lifecycle pauses sensitive presentation on unresolved authentication without replaying restored writes",
           "Workbook import lifecycle reconciles changed selection before apply and blocks overlap and terminal sessions",
           "Workbook import lifecycle reconciles current late acknowledgement and fences a replaced lifetime",
@@ -734,6 +793,36 @@
       ]
     },
     {
+      "row_id": "module.imports.integration.uncommitted_unit_cancellation",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.integration",
+      "collaborator_ids": [
+        "module.jobapi",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.imports.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports",
+        "tests": [
+          "TestCancellationInterruptsUncommittedImportUnit_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.imports.integration.unit_commit_crash_recovery_108cd054a6",
       "owner_id": "module.imports",
       "family_id": "module.imports.integration",
@@ -870,6 +959,154 @@
       "status": "active",
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.imports.measurement.csv_apply",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.csv_apply_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/import-apply.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_import_csv_apply_measurement"
+        ],
+        "titles": [
+          "measures CSV apply progress and cancel while Timeline accepts editing"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_import_snapshot_v1",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.imports.measurement.csv_discovery",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.csv_discovery_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/import-discovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_import_csv_discovery_measurement"
+        ],
+        "titles": [
+          "measures CSV discovery progress and cancel while Timeline accepts editing"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_import_snapshot_v1",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.imports.measurement.xlsx_apply",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.xlsx_apply_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/import-apply.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_import_xlsx_apply_measurement"
+        ],
+        "titles": [
+          "measures XLSX apply progress and cancel while Timeline accepts editing"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_import_snapshot_v1",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.imports.measurement.xlsx_discovery",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.imports.verification.xlsx_discovery_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/import-discovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_import_xlsx_discovery_measurement"
+        ],
+        "titles": [
+          "measures XLSX discovery progress and cancel while Timeline accepts editing"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_import_snapshot_v1",
+      "minimum_tier": "release",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -1056,6 +1293,30 @@
           "TestImportMutationSequencerAllocatesContiguousOwnerEffects",
           "TestImportOwnerCreateRegistryFailsClosed",
           "TestImportOwnerCreateRegistryRequiresExactBindings"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.imports.unit.party_match_conflict_detail_is_closed_sorted_and_6bee3a519d",
+      "owner_id": "module.imports",
+      "family_id": "module.imports.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.imports.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/imports/ownerfacade",
+        "tests": [
+          "TestPartyMatchConflictDetailIsClosedSortedAndValueFree"
         ]
       },
       "evidence_class": "unit",

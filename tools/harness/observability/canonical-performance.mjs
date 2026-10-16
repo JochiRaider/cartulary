@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { canonicalJSONString, validateSchemaSync } from "../contract/index.mjs";
-import { intervalUnion, reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
+import { canonicalJSONString, parseStrictJSON, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
+import { validateCanonicalRun } from "./canonical-evidence.mjs";
+import { validateExecutionContext } from "./canonical-context.mjs";
 
 const evidenceSchemaID = "cartulary.harness_performance_evidence_roots.v3";
 export const baselineSchemaID = "cartulary.harness_public_target_duration_baselines.v3";
@@ -26,7 +26,7 @@ function withoutPrefix(value) {
 }
 
 function readJSON(file) {
-  return JSON.parse(readFileSync(file, "utf8"));
+  return parseStrictJSON(readRetainedArtifactBytes(path.dirname(file), path.basename(file), 16 * 1024 * 1024).toString("utf8"));
 }
 
 export function median(values) {
@@ -68,6 +68,9 @@ export function performanceRoster(surface) {
       command_id: command.command_id,
       measurement_profile_id: profile.profile_id,
       canonical_inputs: profile.canonical_inputs,
+      input_defaults: Object.fromEntries((command.input_contract?.inputs ?? [])
+        .filter((input) => input.default !== null && input.default !== undefined)
+        .map((input) => [input.name, String(input.default)])),
       observation_eligibility: profile.observation_eligibility,
       gate: improvement ? "required_improvement" : "no_regression",
       allowed_policy_transition:
@@ -89,77 +92,29 @@ function rootReference(repositoryRoot, runRoot, fallback) {
     : fallback;
 }
 
-async function readCanonicalRoot(repositoryRoot, baseDirectory, reference, target, expectedCacheMode) {
+async function readCanonicalRoot(repositoryRoot, baseDirectory, reference, target, expectedCacheMode, retained) {
   const runRoot = resolveRoot(baseDirectory, reference);
-  const files = {
-    manifest: path.join(runRoot, "run-manifest.json"),
-    summary: path.join(runRoot, "run-summary.json"),
-    events: path.join(runRoot, "unit-events.ndjson"),
-    target: path.join(runRoot, "target-summaries", `${target}.json`),
-  };
-  for (const file of Object.values(files)) {
-    if (!existsSync(file)) throw new Error(`${reference} is missing canonical evidence ${path.basename(file)}`);
-  }
-  const manifest = readJSON(files.manifest);
-  const summary = readJSON(files.summary);
-  const targetSummary = readJSON(files.target);
-  validateSchemaSync("cartulary.harness_run_manifest.v2", manifest);
-  validateSchemaSync("cartulary.harness_run_summary.v1", summary);
-  validateSchemaSync("cartulary.harness_target_summary.v1", targetSummary);
+  if (!retained.has(runRoot)) retained.set(runRoot, (async () => {
+    const canonical = await validateCanonicalRun(runRoot);
+    const context = readJSON(path.join(runRoot, "execution-context.json"));
+    const cleanup = readJSON(path.join(runRoot, "cleanup-results.json"));
+    const bindings = validateExecutionContext(context, canonical, cleanup);
+    const scan = readJSON(path.join(runRoot, "retained-secret-scan.json"));
+    validateSchemaSync("cartulary.harness_retained_secret_scan.v1", scan);
+    if (scan.policy_digest !== canonical.manifest.instrumentation.policy_digest) throw new Error("retained scan policy differs from execution");
+    return { ...canonical, ...bindings, context };
+  })());
+  const canonical = await retained.get(runRoot);
+  const { manifest, summary, targetSummaries, terminal } = canonical;
+  const targetSummary = targetSummaries.get(target);
+  if (!targetSummary) throw new Error(`${reference} has no retained ${target} projection`);
   if (manifest.source_state !== "clean") throw new Error(`${reference} has dirty_source`);
-  if (manifest.cache_mode !== expectedCacheMode) {
-    throw new Error(`${reference} cache mode ${manifest.cache_mode} does not match ${expectedCacheMode}`);
-  }
-  if (summary.status !== "pass" || targetSummary.status !== "pass") {
+  if (manifest.cache_mode !== expectedCacheMode) throw new Error(`${reference} cache mode ${manifest.cache_mode} does not match ${expectedCacheMode}`);
+  if (summary.status !== "pass" || targetSummary.status !== "pass" || targetSummary.unit_ids.some((id) => terminal.get(id)?.status !== "passed")) {
     throw new Error(`${reference} does not contain successful ${target} evidence`);
   }
-  const eventState = await reduceCanonicalUnitIntervals(files.events);
-  if (eventState.runStarted === null || eventState.runCompleted === null) {
-    throw new Error(`${reference} does not have one run envelope`);
-  }
-  if (
-    eventState.runCompleted.status !== "passed" ||
-    eventState.runCompleted.monotonic_ms !== summary.wall_duration_ms ||
-    eventState.runCompleted.seq !== eventState.eventCount
-  ) {
-    throw new Error(`${reference} run envelope does not close its summary`);
-  }
-  const accounted = ["setup_ms", "fixture_ms", "execution_ms", "collation_ms", "wrapper_ms", "unattributed_ms"]
-    .reduce((total, field) => total + summary.timing_accounting[field], 0);
-  if (accounted !== summary.wall_duration_ms) {
-    throw new Error(`${reference} timing buckets do not close the invocation envelope`);
-  }
-  const { starts, terminals } = eventState;
-  const terminalCounts = { passed: 0, failed: 0, skipped: 0, cancelled: 0 };
-  for (const event of terminals.values()) terminalCounts[event.status] += 1;
-  if (
-    terminals.size !== summary.unit_counts.total ||
-    Object.entries(terminalCounts).some(([status, count]) => summary.unit_counts[status] !== count)
-  ) {
-    throw new Error(`${reference} terminal-event roster does not close unit counts`);
-  }
-  const intervals = [];
-  for (const unitID of targetSummary.unit_ids) {
-    const terminal = terminals.get(unitID);
-    const start = starts.get(unitID);
-    if (!terminal || terminal.status !== "passed" || start === undefined || terminal.monotonic_ms < start) {
-      throw new Error(`${reference} ${target} unit ${unitID} lacks one successful interval`);
-    }
-    intervals.push({ start, end: terminal.monotonic_ms });
-  }
-  const inclusiveWallMs = intervalUnion(intervals);
-  if (inclusiveWallMs !== targetSummary.inclusive_wall_ms) {
-    throw new Error(`${reference} ${target} interval union does not close its projection`);
-  }
-  return {
-    runRoot,
-    root: rootReference(repositoryRoot, runRoot, reference),
-    manifest,
-    summary,
-    targetSummary,
-    eventCount: eventState.eventCount,
-    inclusive_wall_ms: inclusiveWallMs,
-  };
+  return { runRoot, root: rootReference(repositoryRoot, runRoot, reference), manifest, summary, targetSummary,
+    systemProfileDigest: canonical.systemProfileDigest, eventCount: canonical.eventCount, inclusive_wall_ms: targetSummary.inclusive_wall_ms };
 }
 
 function semanticDeclaredInputs(inputs) {
@@ -174,7 +129,7 @@ function semanticDeclaredInputs(inputs) {
   );
 }
 
-function assertCanonicalInputs(target, expected, actual) {
+function assertCanonicalInputs(target, expected, actual, defaults = {}) {
   const normalized = { ...actual };
   for (const [name, value] of Object.entries(expected)) {
     if (value === "omitted") {
@@ -186,6 +141,9 @@ function assertCanonicalInputs(target, expected, actual) {
       delete normalized[name];
     }
   }
+  for (const [name, value] of Object.entries(normalized)) {
+    if (Object.hasOwn(defaults, name) && value === defaults[name]) delete normalized[name];
+  }
   if (Object.keys(normalized).length > 0) {
     throw new Error(`${target} has non-canonical inputs ${Object.keys(normalized).sort(compareASCII).join(",")}`);
   }
@@ -196,7 +154,7 @@ function observation(record, target, timingSource, providerTarget) {
     if (target !== providerTarget || record.manifest.target !== target) {
       throw new Error(`${target} invocation-envelope timing requires a direct provider`);
     }
-    return record.summary.wall_duration_ms;
+    throw new Error(`${target} has no qualified complete public invocation envelope; graph duration is not public invocation duration`);
   }
   if (timingSource === "canonical_unit_interval_union") return record.inclusive_wall_ms;
   if (timingSource === "canonical_timing_bucket_union") {
@@ -209,7 +167,15 @@ function observation(record, target, timingSource, providerTarget) {
 
 function assertSameWindow(target, records) {
   const identity = records[0];
+  if (new Set(records.map((record) => record.manifest.run_id)).size !== records.length ||
+      new Set(records.map((record) => record.runRoot)).size !== records.length) throw new Error(`${target} performance window repeats an observation`);
+  for (let index = 1; index < records.length; index++) {
+    const prior = records[index - 1];
+    const end = Date.parse(prior.manifest.started_at) + prior.summary.wall_duration_ms;
+    if (!Number.isFinite(end) || Date.parse(records[index].manifest.started_at) < end) throw new Error(`${target} performance window is overlapping or out of order`);
+  }
   for (const record of records.slice(1)) {
+    if (record.systemProfileDigest !== identity.systemProfileDigest) throw new Error(`${target} performance window mixes host profiles`);
     for (const field of ["source_commit", "source_digest", "system_digest", "toolchain_digest", "graph_digest"]) {
       if (record.manifest[field] !== identity.manifest[field]) {
         throw new Error(`${target} performance window mixes ${field}`);
@@ -284,6 +250,7 @@ async function buildQualifiedBaseline({
   role = "reference",
 }) {
   const roster = performanceRoster(surface);
+  const retained = new Map();
   assertUnique(windows, "window_id", `${role} windows`);
   assertUnique(bindings, "target", `${role} bindings`);
   const byWindow = new Map(windows.map((window) => [window.window_id, window]));
@@ -307,10 +274,10 @@ async function buildQualifiedBaseline({
       if (effective.observation_eligibility === "direct_only" && window.provider_target !== binding.target) {
         throw new Error(`${binding.target} requires a direct performance provider`);
       }
-      const cold = await readCanonicalRoot(repositoryRoot, baseDirectory, window.cold_root, binding.target, "cold");
-      const warmup = await readCanonicalRoot(repositoryRoot, baseDirectory, window.warmup_root, binding.target, "normal");
+      const cold = await readCanonicalRoot(repositoryRoot, baseDirectory, window.cold_root, binding.target, "cold", retained);
+      const warmup = await readCanonicalRoot(repositoryRoot, baseDirectory, window.warmup_root, binding.target, "normal", retained);
       const samples = await Promise.all(window.measured_roots.map((rootRef) =>
-        readCanonicalRoot(repositoryRoot, baseDirectory, rootRef, binding.target, "normal"),
+        readCanonicalRoot(repositoryRoot, baseDirectory, rootRef, binding.target, "normal", retained),
       ));
       const records = [cold, warmup, ...samples];
       if (records.some((record) => record.manifest.target !== window.provider_target)) {
@@ -321,6 +288,7 @@ async function buildQualifiedBaseline({
         binding.target,
         effective.canonical_inputs,
         semanticDeclaredInputs(cold.manifest.declared_inputs),
+        roster.get(window.provider_target)?.input_defaults,
       );
       if (effective.command_id && cold.targetSummary.command_id !== effective.command_id) {
         throw new Error(`${binding.target} retained command ID does not match the owner binding`);
@@ -331,8 +299,8 @@ async function buildQualifiedBaseline({
       const p50 = median(samplesMs);
       const p90 = nearestRankP90(samplesMs);
       const mad = median(samplesMs.map((sample) => Math.abs(sample - p50)));
-      if (samples.length === 5 && mad > p50 * 0.1) {
-        throw new Error(`${binding.target} requires a sixth observation because MAD exceeds ten percent of p50`);
+      if (mad > p50 * 0.1) {
+        throw new Error(samples.length === 5 ? `${binding.target} requires a sixth observation because MAD exceeds ten percent of p50` : `${binding.target} remains unstable after six observations`);
       }
       const executionPolicy = {
         target: binding.target,
@@ -341,6 +309,7 @@ async function buildQualifiedBaseline({
         workload_digest: cold.targetSummary.workload_digest,
         unit_ids: cold.targetSummary.unit_ids,
         instrumentation: cold.manifest.instrumentation,
+        declared_inputs: semanticDeclaredInputs(cold.manifest.declared_inputs),
       };
       return {
         target: binding.target,
@@ -351,7 +320,7 @@ async function buildQualifiedBaseline({
         timing_source: binding.timing_source,
         source_commit: cold.manifest.source_commit,
         source_snapshot_sha256: withoutPrefix(cold.manifest.source_digest),
-        system_profile_sha256: withoutPrefix(cold.manifest.system_digest),
+        system_profile_sha256: withoutPrefix(cold.systemProfileDigest),
         toolchain_profile_sha256: withoutPrefix(cold.manifest.toolchain_digest),
         workload_evidence_profile_sha256: withoutPrefix(cold.targetSummary.workload_digest),
         execution_policy: executionPolicy,
@@ -404,7 +373,8 @@ async function buildQualifiedBaseline({
 
 export function assertBaselineClosure(baseline, surface) {
   validateSchemaSync(baselineSchemaID, baseline);
-  const expected = [...performanceRoster(surface).keys()];
+  const roster = performanceRoster(surface);
+  const expected = [...roster.keys()];
   const names = baseline.targets.map((row) => row.target);
   if (!sameJSON(names, expected)) throw new Error("baseline target rows do not close the public roster");
   const portfolio = baseline.public_entrypoint_portfolio;
@@ -417,9 +387,22 @@ export function assertBaselineClosure(baseline, surface) {
     throw new Error("baseline source-window roster does not close");
   }
   for (const row of [...baseline.targets, ...baseline.internal_diagnostics]) {
+    const policy = roster.get(row.target);
+    if (policy) {
+      if (row.gate !== policy.gate || row.measurement_profile_id !== policy.measurement_profile_id ||
+          !sameJSON(row.canonical_inputs, policy.canonical_inputs) || row.allowed_policy_transition !== policy.allowed_policy_transition) {
+        throw new Error(`${row.target} baseline differs from the reviewed measurement policy`);
+      }
+      assertReviewedSuccessor(row.target, row.command_id, policy.command_id);
+    }
+    const roots = [row.cold_root, row.warmup_root, ...row.sample_roots].map((root) => path.normalize(root));
+    if (new Set(roots).size !== roots.length) throw new Error(`${row.target} baseline repeats an observation`);
     const p50 = median(row.samples_ms);
     const p90 = nearestRankP90(row.samples_ms);
     const mad = median(row.samples_ms.map((sample) => Math.abs(sample - p50)));
+    if (mad > p50 * 0.1) throw new Error(row.sample_count === 5
+      ? `${row.target} requires a sixth observation because MAD exceeds ten percent of p50`
+      : `${row.target} remains unstable after six observations`);
     if (
       row.sample_count !== row.samples_ms.length ||
       row.sample_count !== row.sample_roots.length ||
@@ -470,6 +453,12 @@ function assertReviewedSuccessor(target, before, after) {
 export function compareQualifiedBaselines(reference, candidate, surface) {
   assertBaselineClosure(reference, surface);
   assertBaselineClosure(candidate, surface);
+  const referenceRoots = new Set([...reference.targets, ...reference.internal_diagnostics]
+    .flatMap((row) => [row.cold_root, row.warmup_root, ...row.sample_roots]).map((root) => path.normalize(root)));
+  if ([...candidate.targets, ...candidate.internal_diagnostics].some((row) =>
+    [row.cold_root, row.warmup_root, ...row.sample_roots].some((root) => referenceRoots.has(path.normalize(root))))) {
+    throw new Error("reference and candidate reuse an observation");
+  }
   const before = new Map(reference.targets.map((row) => [row.target, row]));
   const after = new Map(candidate.targets.map((row) => [row.target, row]));
   const rows = [];

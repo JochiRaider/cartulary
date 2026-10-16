@@ -23,6 +23,7 @@ export function referencePlatform(command) {
   const cpu_features = readFileSync("/proc/cpuinfo", "utf8").match(/^flags\s*:\s*(.+)$/m)?.[1]?.split(/\s+/);
   const docker_context = docker("context", "show");
   const engine_client = JSON.parse(docker("version", "--format", "{{json .Client}}"));
-  return { filesystem, networking_mode, guest_memory_bytes, cpu_features, docker_context, engine_client, windows, wsl, guest: readFileSync("/etc/os-release", "utf8"), kernel: os.release(), cpus: os.cpus().map(({ model }) => model), load_before: os.loadavg(), docker: { id: info.ID, name: info.Name, operating_system: info.OperatingSystem, architecture: info.Architecture, cpu_count: info.NCPU, memory_bytes: info.MemTotal, server_version: info.ServerVersion, kernel: info.KernelVersion }, desktop, compose: docker("compose", "version") };
+  const security_options = info.SecurityOptions;
+  return { filesystem, networking_mode, guest_memory_bytes, cpu_features, docker_context, engine_client, windows, wsl, guest: readFileSync("/etc/os-release", "utf8"), kernel: os.release(), cpus: os.cpus().map(({ model }) => model), load_before: os.loadavg(), docker: { id: info.ID, name: info.Name, operating_system: info.OperatingSystem, architecture: info.Architecture, cpu_count: info.NCPU, memory_bytes: info.MemTotal, server_version: info.ServerVersion, kernel: info.KernelVersion, security_options }, desktop, compose: docker("compose", "version") };
 
 }

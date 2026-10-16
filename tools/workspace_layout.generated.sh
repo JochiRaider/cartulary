@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # Shared declarations are consumed by sourced callers.
 # shellcheck disable=SC2034
-CARTULARY_LAYOUT_DIGESTS='4925b4b2962bc1c48d5b945ac3158993580be82c27cc890a5c615f6113558dd3  tools/workspace_layout.json
+CARTULARY_LAYOUT_DIGESTS='2b862e6306c144244bf3b09db5e4d634267dfc9f6db64283817449c2c821c9df  tools/workspace_layout.json
 1d16e52b2bf2f26e091dd6b65771e2180257854318c4413617b9e6652c65c603  tools/schemas/cartulary.workspace_layout.v1.schema.json
 e1066bcfecafdae0255a5d737e377b5835c180c1acdea0730b76b1d320357961  tools/harness/workspace/layout.mjs'
 CARTULARY_LAYOUT_SCRATCH='tmp'
@@ -42,6 +42,7 @@ CARTULARY_LAYOUT_PACKAGE_VITE_DEPENDENCIES='packages/*/node_modules/.vite'
 CARTULARY_LAYOUT_PACKAGE_VITE_TEMP_DEPENDENCIES='packages/*/node_modules/.vite-temp'
 CARTULARY_LAYOUT_PNPM_STORE='.pnpm-store'
 CARTULARY_LAYOUT_EMBEDDED_ASSETS='internal/platform/httpapi/webassets/assets/generated'
+CARTULARY_LAYOUT_REPORT_RENDERER='build/report-renderer'
 declare -a CARTULARY_CLEANUP_ENTRIES=(
   'scratch|clean|tmp'
   'binaries|clean|build/bin'
@@ -89,4 +90,5 @@ declare -a CARTULARY_CLEANUP_ENTRIES=(
   'legacy_fallow|distclean|.fallow'
   'embedded_assets|clean|internal/platform/httpapi/webassets/assets/generated'
   'legacy_embedded_assets|clean|internal/platform/httpapi/webassets/dist'
+  'report_renderer|clean|build/report-renderer'
 )

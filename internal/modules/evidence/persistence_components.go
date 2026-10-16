@@ -246,15 +246,6 @@ func (blobLifecycleRepository) failTx(
 	return failBlobTx(ctx, tx, objectBlobID, reason, now)
 }
 
-func (blobLifecycleRepository) recordFinalizeFailureTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	objectBlobID uuid.UUID,
-	now time.Time,
-) (bool, error) {
-	return recordNonTerminalFinalizeFailureTx(ctx, tx, objectBlobID, now)
-}
-
 func (blobLifecycleRepository) markAvailableTx(
 	ctx context.Context,
 	tx pgx.Tx,

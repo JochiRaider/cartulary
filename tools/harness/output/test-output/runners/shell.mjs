@@ -100,7 +100,13 @@ function catalogOwnerFromEnvironment() {
   return optionalEnv("CARTULARY_CATALOG_OWNER_ID");
 }
 
-function firstActionableLine(lines) {
+export function firstActionableLine(lines) {
+  // Node prints a source location and source excerpt before the actual error.
+  // Prefer the explicit diagnostic to that incidental stack context.
+  const diagnostic = lines.map((line) => line.trim()).find((line) =>
+    /^(?:Error|[A-Z][A-Za-z]*(?:Error|Exception))(?: \[[A-Z0-9_]+\])?:\s+\S/u.test(line),
+  );
+  if (diagnostic) return diagnostic;
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (line === "") {

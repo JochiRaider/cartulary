@@ -224,6 +224,11 @@
   outline-offset: calc(-1 * var(--ct-component-focus-ring-offset));
 }
 
+.cartulary-grid [data-cartulary-grid-draft-row="true"] [role="gridcell"]:focus {
+  outline: var(--ct-component-focus-ring-border);
+  outline-offset: calc(-1 * var(--ct-component-focus-ring-offset));
+}
+
 .cartulary-grid-header-row,
 .cartulary-grid-header-cell {
   background: var(--ct-colors-surface-2);

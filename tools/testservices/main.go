@@ -38,6 +38,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/leaseproof"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/performancefixturelifecycle"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -181,6 +182,7 @@ type suiteContainerClient interface {
 }
 
 type webE2EFixture struct {
+	ObjectSnapshot        *performancefixturelifecycle.ObjectSnapshotSummary
 	DatabaseName          string
 	DSN                   string
 	Bucket                string
@@ -201,17 +203,18 @@ type webE2EFixture struct {
 }
 
 type webE2EMetadata struct {
-	DatabaseName      string `json:"database_name"`
-	Bucket            string `json:"bucket"`
-	Target            string `json:"target,omitempty"`
-	FixtureProfileID  string `json:"fixture_profile_id,omitempty"`
-	SnapshotKey       string `json:"snapshot_key,omitempty"`
-	BuilderUnitID     string `json:"builder_unit_id,omitempty"`
-	RowID             string `json:"row_id,omitempty"`
-	PredicateID       string `json:"predicate_id,omitempty"`
-	CloneLeaseID      string `json:"clone_lease_id,omitempty"`
-	CloneOrdinal      int    `json:"clone_ordinal,omitempty"`
-	RuntimeBundleRoot string `json:"runtime_bundle_root,omitempty"`
+	ObjectSnapshot    *performancefixturelifecycle.ObjectSnapshotSummary `json:"object_snapshot,omitempty"`
+	DatabaseName      string                                             `json:"database_name"`
+	Bucket            string                                             `json:"bucket"`
+	Target            string                                             `json:"target,omitempty"`
+	FixtureProfileID  string                                             `json:"fixture_profile_id,omitempty"`
+	SnapshotKey       string                                             `json:"snapshot_key,omitempty"`
+	BuilderUnitID     string                                             `json:"builder_unit_id,omitempty"`
+	RowID             string                                             `json:"row_id,omitempty"`
+	PredicateID       string                                             `json:"predicate_id,omitempty"`
+	CloneLeaseID      string                                             `json:"clone_lease_id,omitempty"`
+	CloneOrdinal      int                                                `json:"clone_ordinal,omitempty"`
+	RuntimeBundleRoot string                                             `json:"runtime_bundle_root,omitempty"`
 }
 
 type childProcess interface {
@@ -788,14 +791,25 @@ func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) i
 		return 1
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), templateStartupTimeout)
+	preparationTimeout, err := browserFixturePreparationTimeout(env)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "prepare-web-e2e requires an admitted fixture profile")
+		return 2
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), preparationTimeout)
 	defer cancel()
 
 	prepareStart := time.Now().UTC()
 	fixture, err := deps.prepareWebE2E(ctx, env)
 	recordTimingSpanStatus(deps, env, bucketMigration, "test-services prepare browser e2e fixture", prepareStart, err)
 	if err != nil {
-		_ = writeFailedPerformanceFixtureCloneArtifact(env, "clone_failed")
+		if writeErr := writeFailedPerformanceFixtureCloneArtifact(env, "clone_failed", err); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "retain failed browser fixture admission: %v\n", writeErr)
+		}
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			fmt.Fprintln(os.Stderr, "browser fixture preparation exceeded its admitted deadline")
+			return 13
+		}
 		fmt.Fprintf(os.Stderr, "prepare browser e2e fixture: %v\n", err)
 		return 1
 	}
@@ -812,6 +826,7 @@ func runPrepareWebE2E(args []string, env map[string]string, deps dependencies) i
 		CloneLeaseID:      fixture.CloneLeaseID,
 		CloneOrdinal:      fixture.CloneOrdinal,
 		RuntimeBundleRoot: fixture.RuntimeBundleRoot,
+		ObjectSnapshot:    fixture.ObjectSnapshot,
 	}
 	if err := writeWebE2EMetadata(metadataFile, metadata); err != nil {
 		_ = cleanupPreparedWebE2EFixture(context.Background(), deps, env, metadata)

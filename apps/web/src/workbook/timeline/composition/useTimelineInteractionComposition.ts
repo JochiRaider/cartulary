@@ -18,6 +18,7 @@ import { useTimelineKeyboardController } from "../hooks/useTimelineKeyboardContr
 import type { useTimelineMutationCommands } from "../hooks/useTimelineMutationCommands";
 import { decodeTimelineClipboardInput } from "../models/timelineClipboardPastePlan";
 import { timelineScalarBindingForField } from "../models/timelineFieldRegistry";
+import type { TimelinePendingSavesRefs } from "../models/timelinePendingSaves";
 import type { WorkbookRow } from "../models/timelineRowModel";
 import type { TimelineWorkbookSurfaceRuntime } from "../models/timelineWorkbookSurfaceRuntime";
 
@@ -37,7 +38,7 @@ type TimelineInteractionCompositionInput = {
     readonly bulkTagAuthoring: BulkInput["authoring"];
     readonly bulkTagReadiness: BulkInput["readiness"];
     readonly clipboardPastePort: ClipboardInput["clipboardPaste"];
-    readonly pendingSavesRefs: ClipboardInput["pendingSavesRefs"];
+    readonly pendingSavesRefs: TimelinePendingSavesRefs;
     readonly recordTiming: KeyboardInput["recordTiming"];
     readonly rows: readonly WorkbookRow[];
     readonly rowsRef: BulkInput["rowsRef"];
@@ -47,12 +48,14 @@ type TimelineInteractionCompositionInput = {
     readonly setSelectedMentionRef: KeyboardInput["setSelectedMentionRef"];
   };
   readonly grid: {
+    readonly captureCreatedPasteReveal: ClipboardInput["captureCreatedPasteReveal"];
     readonly currentTimelineAnchorFor: KeyboardInput["currentTimelineAnchorFor"];
     readonly focusDraftRow: () => void;
     readonly prepareTimelineCollectionNavigation: KeyboardInput["prepareTimelineCollectionNavigation"];
     readonly navigateTimelineDraftFocus: KeyboardInput["navigateTimelineDraftFocus"];
     readonly navigateTimelineFocusAnchor: KeyboardInput["navigateTimelineFocusAnchor"];
     readonly resolveTimelinePasteTargetResolution: ClipboardInput["resolveTimelinePasteTargetResolution"];
+    readonly resolveTimelineDraftPasteTargetResolution: ClipboardInput["resolveTimelineDraftPasteTargetResolution"];
     readonly restoreTimelineFocusAnchor: (
       anchor: GridCellAnchor | WorkbookContinuityAnchor,
     ) => Promise<boolean>;
@@ -77,6 +80,7 @@ type TimelineInteractionCompositionInput = {
   readonly interactionMode: WorkbookSurfaceLayoutOwner["snapshot"]["interactionMode"];
   readonly loadAccessLost: boolean;
   readonly mutation: {
+    readonly captureCreatedBatchPresentation: ClipboardInput["captureCreatedBatchPresentation"];
     readonly activateConflict: (key: string | null) => void;
     readonly commitScalarGridEdit: MutationCommandOutput["commitScalarGridEdit"];
     readonly mutationCommands: TimelineWorkbookSurfaceRuntime["mutationCommands"];
@@ -195,13 +199,17 @@ export function useTimelineInteractionComposition({
     [foundation.setOperationError],
   );
   const clipboard = useTimelineClipboardPasteController({
+    captureCreatedBatchPresentation: mutation.captureCreatedBatchPresentation,
+    captureCreatedPasteReveal: grid.captureCreatedPasteReveal,
     canCreateRows: canEdit,
     clipboardPaste: foundation.clipboardPastePort,
-    editable: canEdit,
+    editable: canEdit && !loadAccessLost,
     grouped: queryState.groupBy !== null,
     pendingSavesRefs: foundation.pendingSavesRefs,
     resolveTimelinePasteTargetResolution:
       grid.resolveTimelinePasteTargetResolution,
+    resolveTimelineDraftPasteTargetResolution:
+      grid.resolveTimelineDraftPasteTargetResolution,
     setError: setPasteError,
   }).commands;
   const handleTimelineGridPaste = useCallback(
@@ -231,8 +239,9 @@ export function useTimelineInteractionComposition({
       decode: decodeTimelineClipboardInput,
       onError: setPasteError,
       onPaste: handleTimelineGridPaste,
+      onDraftPaste: clipboard.handleDraftPaste,
     }),
-    [handleTimelineGridPaste, setPasteError],
+    [handleTimelineGridPaste, clipboard.handleDraftPaste, setPasteError],
   );
   const fill = useTimelineFillController({
     contract: timelineContract,

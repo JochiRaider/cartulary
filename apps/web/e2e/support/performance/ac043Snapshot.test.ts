@@ -1,4 +1,4 @@
-import { cartularyAc043PerformanceContract } from "@cartulary/ui-contracts";
+import { cartularyLargeGridFixture } from "@cartulary/ui-contracts";
 import { describe, expect, it } from "vitest";
 
 import { parseAc043RuntimeBundle } from "./ac043Snapshot";
@@ -8,7 +8,7 @@ const snapshotKey = "a".repeat(64);
 function runtimeBundle() {
   return {
     schema_id: "cartulary.performance_fixture_runtime.v2",
-    fixture_profile_id: "ac043_large_grid_snapshot_v1",
+    fixture_profile_id: "timeline_large_grid_snapshot_v2",
     snapshot_key: snapshotKey,
     credential_sets: [
       {
@@ -25,7 +25,7 @@ function runtimeBundle() {
 
 describe("AC-043 snapshot runtime bundle", () => {
   it("preserves the typed supported-envelope fixture and traffic shape", () => {
-    expect(cartularyAc043PerformanceContract.fixture).toEqual({
+    expect(cartularyLargeGridFixture).toEqual({
       fixtureId: "cartulary.perf.large_grid.v1",
       seed: 20260405,
       timelineRows: 20_000,
@@ -44,12 +44,12 @@ describe("AC-043 snapshot runtime bundle", () => {
 
   it("accepts exactly 24 private accounts for the admitted snapshot", () => {
     const parsed = parseAc043RuntimeBundle(JSON.stringify(runtimeBundle()), {
-      fixtureProfileId: "ac043_large_grid_snapshot_v1",
+      fixtureProfileId: "timeline_large_grid_snapshot_v2",
       snapshotKey,
     });
 
     expect(parsed.backgroundAccounts).toHaveLength(24);
-    expect(parsed.fixtureProfileId).toBe("ac043_large_grid_snapshot_v1");
+    expect(parsed.fixtureProfileId).toBe("timeline_large_grid_snapshot_v2");
     expect(parsed.snapshotKey).toBe(snapshotKey);
   });
 
@@ -58,7 +58,7 @@ describe("AC-043 snapshot runtime bundle", () => {
     stale.snapshot_key = "b".repeat(64);
     expect(() =>
       parseAc043RuntimeBundle(JSON.stringify(stale), {
-        fixtureProfileId: "ac043_large_grid_snapshot_v1",
+        fixtureProfileId: "timeline_large_grid_snapshot_v2",
         snapshotKey,
       }),
     ).toThrow(/identity is inconsistent/u);
@@ -75,7 +75,7 @@ describe("AC-043 snapshot runtime bundle", () => {
     };
     expect(() =>
       parseAc043RuntimeBundle(JSON.stringify(duplicate), {
-        fixtureProfileId: "ac043_large_grid_snapshot_v1",
+        fixtureProfileId: "timeline_large_grid_snapshot_v2",
         snapshotKey,
       }),
     ).toThrow(/duplicate accounts/u);
@@ -84,7 +84,7 @@ describe("AC-043 snapshot runtime bundle", () => {
       parseAc043RuntimeBundle(
         JSON.stringify({ ...runtimeBundle(), runtime_path: "/private" }),
         {
-          fixtureProfileId: "ac043_large_grid_snapshot_v1",
+          fixtureProfileId: "timeline_large_grid_snapshot_v2",
           snapshotKey,
         },
       ),

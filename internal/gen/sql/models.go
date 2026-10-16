@@ -561,6 +561,16 @@ type EvidenceBlobCleanupClaim struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
+type EvidenceBlobVerification struct {
+	ObjectBlobID        pgtype.UUID        `json:"object_blob_id"`
+	UploadLeaseID       pgtype.UUID        `json:"upload_lease_id"`
+	JobID               pgtype.UUID        `json:"job_id"`
+	VerifiedAt          pgtype.Timestamptz `json:"verified_at"`
+	ObservedSize        int64              `json:"observed_size"`
+	ObservedContentType string             `json:"observed_content_type"`
+	ObservedSha256Hex   string             `json:"observed_sha256_hex"`
+}
+
 type EvidenceCustodyEvent struct {
 	CustodyEventID   pgtype.UUID        `json:"custody_event_id"`
 	IncidentID       pgtype.UUID        `json:"incident_id"`
@@ -1292,28 +1302,27 @@ type NetworkFlowTable struct {
 }
 
 type ObjectBlob struct {
-	ObjectBlobID         pgtype.UUID        `json:"object_blob_id"`
-	IncidentID           pgtype.UUID        `json:"incident_id"`
-	CreatedByUserID      pgtype.UUID        `json:"created_by_user_id"`
-	StorageKey           string             `json:"storage_key"`
-	UploadState          string             `json:"upload_state"`
-	ByteSize             int64              `json:"byte_size"`
-	FilenameHint         pgtype.Text        `json:"filename_hint"`
-	ContentTypeHint      pgtype.Text        `json:"content_type_hint"`
-	ExpectedSha256Hex    pgtype.Text        `json:"expected_sha256_hex"`
-	ObservedSize         pgtype.Int8        `json:"observed_size"`
-	ObservedContentType  pgtype.Text        `json:"observed_content_type"`
-	ObservedSha256Hex    pgtype.Text        `json:"observed_sha256_hex"`
-	TargetExpiresAt      pgtype.Timestamptz `json:"target_expires_at"`
-	PendingExpiresAt     pgtype.Timestamptz `json:"pending_expires_at"`
-	FinalizedAt          pgtype.Timestamptz `json:"finalized_at"`
-	TerminalReason       pgtype.Text        `json:"terminal_reason"`
-	FailedAt             pgtype.Timestamptz `json:"failed_at"`
-	FinalizeAttemptCount int32              `json:"finalize_attempt_count"`
-	CleanupDueAt         pgtype.Timestamptz `json:"cleanup_due_at"`
-	CleanedUpAt          pgtype.Timestamptz `json:"cleaned_up_at"`
-	CreatedAt            pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	ObjectBlobID        pgtype.UUID        `json:"object_blob_id"`
+	IncidentID          pgtype.UUID        `json:"incident_id"`
+	CreatedByUserID     pgtype.UUID        `json:"created_by_user_id"`
+	StorageKey          string             `json:"storage_key"`
+	UploadState         string             `json:"upload_state"`
+	ByteSize            int64              `json:"byte_size"`
+	FilenameHint        pgtype.Text        `json:"filename_hint"`
+	ContentTypeHint     pgtype.Text        `json:"content_type_hint"`
+	ExpectedSha256Hex   pgtype.Text        `json:"expected_sha256_hex"`
+	ObservedSize        pgtype.Int8        `json:"observed_size"`
+	ObservedContentType pgtype.Text        `json:"observed_content_type"`
+	ObservedSha256Hex   pgtype.Text        `json:"observed_sha256_hex"`
+	TargetExpiresAt     pgtype.Timestamptz `json:"target_expires_at"`
+	PendingExpiresAt    pgtype.Timestamptz `json:"pending_expires_at"`
+	FinalizedAt         pgtype.Timestamptz `json:"finalized_at"`
+	TerminalReason      pgtype.Text        `json:"terminal_reason"`
+	FailedAt            pgtype.Timestamptz `json:"failed_at"`
+	CleanupDueAt        pgtype.Timestamptz `json:"cleanup_due_at"`
+	CleanedUpAt         pgtype.Timestamptz `json:"cleaned_up_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 }
 
 type OperatorRecoveryJournal struct {
@@ -1333,18 +1342,16 @@ type OperatorRecoveryJournal struct {
 }
 
 type Party struct {
-	RecordID         pgtype.UUID        `json:"record_id"`
-	IncidentID       pgtype.UUID        `json:"incident_id"`
-	DisplayName      pgtype.Text        `json:"display_name"`
-	PartyKind        pgtype.Text        `json:"party_kind"`
-	OrganizationName pgtype.Text        `json:"organization_name"`
-	RoleTitle        pgtype.Text        `json:"role_title"`
-	PrimaryEmail     pgtype.Text        `json:"primary_email"`
-	TimezoneName     pgtype.Text        `json:"timezone_name"`
-	ExternalRef      pgtype.Text        `json:"external_ref"`
-	Notes            pgtype.Text        `json:"notes"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	RecordID         pgtype.UUID `json:"record_id"`
+	IncidentID       pgtype.UUID `json:"incident_id"`
+	DisplayName      pgtype.Text `json:"display_name"`
+	PartyKind        pgtype.Text `json:"party_kind"`
+	OrganizationName pgtype.Text `json:"organization_name"`
+	RoleTitle        pgtype.Text `json:"role_title"`
+	PrimaryEmail     pgtype.Text `json:"primary_email"`
+	TimezoneName     pgtype.Text `json:"timezone_name"`
+	ExternalRef      pgtype.Text `json:"external_ref"`
+	Notes            pgtype.Text `json:"notes"`
 }
 
 type PartyActiveKeyClaim struct {
@@ -1830,13 +1837,30 @@ type ReportingImportedArtifactFile struct {
 }
 
 type ReportingJobPayload struct {
-	JobID       pgtype.UUID        `json:"job_id"`
-	JobKind     string             `json:"job_kind"`
-	IncidentID  pgtype.UUID        `json:"incident_id"`
-	ActorUserID pgtype.UUID        `json:"actor_user_id"`
-	RequestJson []byte             `json:"request_json"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	JobID                          pgtype.UUID        `json:"job_id"`
+	JobKind                        string             `json:"job_kind"`
+	IncidentID                     pgtype.UUID        `json:"incident_id"`
+	ActorUserID                    pgtype.UUID        `json:"actor_user_id"`
+	RequestJson                    []byte             `json:"request_json"`
+	CreatedAt                      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                      pgtype.Timestamptz `json:"updated_at"`
+	AdmittedProfileSha256          pgtype.Text        `json:"admitted_profile_sha256"`
+	RenderFailureSummary           []byte             `json:"render_failure_summary"`
+	RenderFailureSha256            pgtype.Text        `json:"render_failure_sha256"`
+	AdmittedGraphSourcesSha256     pgtype.Text        `json:"admitted_graph_sources_sha256"`
+	AdmittedTemplateManifestSha256 pgtype.Text        `json:"admitted_template_manifest_sha256"`
+	SnapshotAdmissionJson          []byte             `json:"snapshot_admission_json"`
+	SnapshotAdmissionSha256        pgtype.Text        `json:"snapshot_admission_sha256"`
+	RenderAdmissionSha256          pgtype.Text        `json:"render_admission_sha256"`
+	RenderPreparationJson          []byte             `json:"render_preparation_json"`
+	RenderPreparationSha256        pgtype.Text        `json:"render_preparation_sha256"`
+}
+
+type ReportingPreviewRevealMap struct {
+	PreviewAttemptID pgtype.UUID        `json:"preview_attempt_id"`
+	RevealMapSha256  string             `json:"reveal_map_sha256"`
+	CanonicalBytes   []byte             `json:"canonical_bytes"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
 type ReportingRelease struct {
@@ -1891,6 +1915,13 @@ type ReportingReleaseApproval struct {
 	CreatedAt               pgtype.Timestamptz `json:"created_at"`
 }
 
+type ReportingReleaseRevealMap struct {
+	ReleaseID       pgtype.UUID        `json:"release_id"`
+	RevealMapSha256 string             `json:"reveal_map_sha256"`
+	CanonicalBytes  []byte             `json:"canonical_bytes"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type ReportingRenderBundle struct {
 	ReleaseID            pgtype.UUID        `json:"release_id"`
 	BundleManifestSha256 string             `json:"bundle_manifest_sha256"`
@@ -1922,8 +1953,7 @@ type ReportingSnapshot struct {
 	SourceChangeSetHighWatermark string             `json:"source_change_set_high_watermark"`
 	SourceBoundaryJson           []byte             `json:"source_boundary_json"`
 	DerivationVersion            string             `json:"derivation_version"`
-	ExportModelSha256            string             `json:"export_model_sha256"`
-	ExportModelJson              []byte             `json:"export_model_json"`
+	SourceCaptureSha256          string             `json:"source_capture_sha256"`
 	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
 	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
 }

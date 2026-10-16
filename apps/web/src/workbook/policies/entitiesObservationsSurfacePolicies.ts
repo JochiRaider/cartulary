@@ -14,7 +14,12 @@ export const entitiesObservationsSurfacePolicies = [
     ownerId: "entities_observations",
     renderer: "entity_hosts",
     policy: defineWorkbookSurfacePolicy({
-      collectionActions: { "host.aliases": "alias" },
+      collectionActions: {
+        "host.aliases": "alias",
+        "host.subject_party_ids": "party",
+        "host.responsible_party_ids": "party",
+        "host.observer_party_ids": "party",
+      },
     }),
   },
   {
@@ -22,7 +27,12 @@ export const entitiesObservationsSurfacePolicies = [
     ownerId: "entities_observations",
     renderer: "entity_identities",
     policy: defineWorkbookSurfacePolicy({
-      collectionActions: { "identity.aliases": "alias" },
+      collectionActions: {
+        "identity.aliases": "alias",
+        "identity.subject_party_ids": "party",
+        "identity.responsible_party_ids": "party",
+        "identity.observer_party_ids": "party",
+      },
     }),
   },
   {

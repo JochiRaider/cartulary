@@ -15,8 +15,18 @@
       "verification_id": "module.links.verification.incident_portability",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
+      "evidence_kinds": [
+        "go_test"
+      ],
       "public_target": "test"
+    },
+    {
+      "verification_id": "module.links.verification.source_contracts",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

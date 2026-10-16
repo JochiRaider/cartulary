@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_view_change_contract.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "contract_id",
+    "criterion_id",
+    "fixture_contract_id",
+    "measurement_policy_id",
+    "view_schema_id",
+    "viewport",
+    "workloads",
+    "predicates"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.performance_view_change_contract.v1"
+    },
+    "contract_id": {
+      "const": "cartulary.performance.ac044.v1"
+    },
+    "criterion_id": {
+      "const": "AC-044"
+    },
+    "fixture_contract_id": {
+      "const": "cartulary.performance.large_grid.v1"
+    },
+    "measurement_policy_id": {
+      "const": "cartulary.measurement.interactive_p95.v1"
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "viewport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "device_scale_factor"
+      ],
+      "properties": {
+        "width": {
+          "const": 1920
+        },
+        "height": {
+          "const": 1080
+        },
+        "device_scale_factor": {
+          "const": 1
+        }
+      }
+    },
+    "workloads": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sort",
+        "filter",
+        "group"
+      ],
+      "properties": {
+        "sort": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field_key",
+            "direction"
+          ],
+          "properties": {
+            "field_key": {
+              "const": "timeline.activity_synopsis_text"
+            },
+            "direction": {
+              "const": "asc"
+            }
+          }
+        },
+        "filter": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field_key",
+            "operator",
+            "value"
+          ],
+          "properties": {
+            "field_key": {
+              "const": "timeline.capture_state"
+            },
+            "operator": {
+              "const": "eq"
+            },
+            "value": {
+              "const": "rough"
+            }
+          }
+        },
+        "group": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field_key",
+            "value"
+          ],
+          "properties": {
+            "field_key": {
+              "const": "timeline.activity_time_pair_state"
+            },
+            "value": {
+              "const": "disabled"
+            }
+          }
+        }
+      }
+    },
+    "predicates": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "operation",
+            "completion",
+            "start_mark",
+            "stop_mark",
+            "threshold_ms"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_sort.first_useful_viewport.v1"
+            },
+            "operation": {
+              "const": "sort"
+            },
+            "completion": {
+              "const": "first_useful_viewport"
+            },
+            "start_mark": {
+              "const": "cartulary.workbook.sort_change_accepted"
+            },
+            "stop_mark": {
+              "const": "cartulary.workbook.sort_first_useful_viewport"
+            },
+            "threshold_ms": {
+              "const": 250
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "operation",
+            "completion",
+            "start_mark",
+            "stop_mark",
+            "threshold_ms"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_sort.stable_viewport.v1"
+            },
+            "operation": {
+              "const": "sort"
+            },
+            "completion": {
+              "const": "stable_viewport"
+            },
+            "start_mark": {
+              "const": "cartulary.workbook.sort_change_accepted"
+            },
+            "stop_mark": {
+              "const": "cartulary.workbook.sort_stable_viewport"
+            },
+            "threshold_ms": {
+              "const": 1000
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "operation",
+            "completion",
+            "start_mark",
+            "stop_mark",
+            "threshold_ms"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_filter.first_useful_viewport.v1"
+            },
+            "operation": {
+              "const": "filter"
+            },
+            "completion": {
+              "const": "first_useful_viewport"
+            },
+            "start_mark": {
+              "const": "cartulary.workbook.filter_change_accepted"
+            },
+            "stop_mark": {
+              "const": "cartulary.workbook.filter_first_useful_viewport"
+            },
+            "threshold_ms": {
+              "const": 250
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "operation",
+            "completion",
+            "start_mark",
+            "stop_mark",
+            "threshold_ms"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_filter.stable_viewport.v1"
+            },
+            "operation": {
+              "const": "filter"
+            },
+            "completion": {
+              "const": "stable_viewport"
+            },
+            "start_mark": {
+              "const": "cartulary.workbook.filter_change_accepted"
+            },
+            "stop_mark": {
+              "const": "cartulary.workbook.filter_stable_viewport"
+            },
+            "threshold_ms": {
+              "const": 1000
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "operation",
+            "completion",
+            "start_mark",
+            "stop_mark",
+            "threshold_ms"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_group.first_useful_viewport.v1"
+            },
+            "operation": {
+              "const": "group"
+            },
+            "completion": {
+              "const": "first_useful_viewport"
+            },
+            "start_mark": {
+              "const": "cartulary.workbook.group_change_accepted"
+            },
+            "stop_mark": {
+              "const": "cartulary.workbook.group_first_useful_viewport"
+            },
+            "threshold_ms": {
+              "const": 250
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predicate_id",
+            "operation",
+            "completion",
+            "start_mark",
+            "stop_mark",
+            "threshold_ms"
+          ],
+          "properties": {
+            "predicate_id": {
+              "const": "perf.timeline_group.stable_viewport.v1"
+            },
+            "operation": {
+              "const": "group"
+            },
+            "completion": {
+              "const": "stable_viewport"
+            },
+            "start_mark": {
+              "const": "cartulary.workbook.group_change_accepted"
+            },
+            "stop_mark": {
+              "const": "cartulary.workbook.group_stable_viewport"
+            },
+            "threshold_ms": {
+              "const": 1000
+            }
+          }
+        }
+      ],
+      "items": false
+    }
+  }
+}

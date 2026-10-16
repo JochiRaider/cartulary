@@ -3,12 +3,20 @@ package reporting
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/google/uuid"
 	"math"
 	"testing"
 )
 
 func testReportingCanonicalBytes(t *testing.T) {
 	t.Helper()
+	id := uuid.MustParse("12345678-1234-4ABC-9ABC-123456789ABC")
+	if raw, err := canonicalJSON(id); err != nil || string(raw) != `"12345678-1234-4abc-9abc-123456789abc"` {
+		t.Fatal("UUID lost canonical text identity", err)
+	}
+	if _, err := canonicalJSON([16]byte(id)); err == nil {
+		t.Fatal("raw binary array admitted as identity")
+	}
 	// The UTF-8 byte order here differs from RFC 8785's UTF-16 order.
 	raw := []byte("{\"𐀀\":1,\"\":2,\"a\":\"\\u003c\\u003e\\u0026\\u2028\\u000b\\n\"}")
 	want := []byte("{\"a\":\"<>&\u2028\\u000b\\n\",\"\":2,\"𐀀\":1}")

@@ -21,7 +21,7 @@ var projectionExportAllowlists = map[string]exportAllowance{
 	".": newExportAllowance(`
 		Dependencies MaintenanceRebuilder Ports SourceTextRows New
 		Ports.DescriptorSet Ports.WorkbookQueryProvider Ports.RecoveryPorts
-		Ports.MaintenanceRebuilder Ports.RestoreProbeQuery Ports.RevisionRebuilder
+		Ports.MaintenanceRebuilder Ports.RestoreProbeQuery Ports.RevisionRows
 		Ports.RevisionLiveRecords Ports.SourceTextRows Ports.ImportRebuilder
 		Ports.Timeline Ports.EntityMutationRows Ports.EntityQueryReader
 		Ports.EntityReportingReader Ports.Indicators Ports.Assessments

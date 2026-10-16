@@ -35,3 +35,7 @@ first_admin_manifest_path = "/etc/cartulary/bootstrap-admin.json"
 
 [revisions]
 conflict_token_key_ring_manifest_path = "/etc/cartulary/revisions-conflict-token-key-ring.json"
+
+[snapshot_reporting]
+claimed = true
+runtime_receipt_path = "/opt/cartulary/report-renderer/installation.json"

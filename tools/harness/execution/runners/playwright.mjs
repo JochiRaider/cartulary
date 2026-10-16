@@ -1,3 +1,4 @@
+import path from "node:path";
 import { browserFixtureDiagnostic } from "../../contract/index.mjs";
 import {
   primaryPublicFailure,
@@ -14,13 +15,26 @@ function normalizeFile(value) {
   return normalized.startsWith("apps/web/") || normalized === "" ? normalized : `apps/web/e2e/${normalized}`;
 }
 
-function flattenSuites(suites, specs = [], inheritedFile = "") {
+function flattenSuites(suites, specs = [], inheritedFile = "", ancestors = [], depth = 0) {
   for (const suite of suites ?? []) {
     const suiteFile = suite.file || inheritedFile;
-    flattenSuites(suite.suites, specs, suiteFile);
-    for (const spec of suite.specs ?? []) specs.push({ ...spec, file: spec.file || suiteFile });
+    const titlePath = depth === 0 ? [] : [...ancestors, suite.title];
+    flattenSuites(suite.suites, specs, suiteFile, titlePath, depth + 1);
+    for (const spec of suite.specs ?? []) specs.push({ ...spec, file: spec.file || suiteFile, titlePath: [...titlePath, spec.title] });
   }
   return specs;
+}
+
+export function playwrightTestList(selection) {
+  if (!selection.length) throw new Error("browser test list must not be empty");
+  return selection.map(entry => {
+    const file = path.posix.relative("apps/web/e2e", entry.file);
+    const parts = [`[${entry.project_id}]`, file, ...entry.title_path];
+    if (!file || file.startsWith("../") || parts.some(part => !part || part.trim() !== part || /[\r\n\u203a]/u.test(part))) {
+      throw new Error("invalid exact browser test-list identity");
+    }
+    return parts.join(" › ");
+  }).join("\n") + "\n";
 }
 
 function resultStatus(test) {
@@ -120,17 +134,23 @@ export function adaptPlaywrightReport(
   report,
   processStatus = 0,
   processSignal = null,
+  selection,
 ) {
   const specs = flattenSuites(report?.suites).map((spec) => ({
     ...spec,
     normalizedFile: normalizeFile(spec.file),
   }));
+  if (!Array.isArray(selection) || rows.some(row => selection.filter(entry => entry.row_id === row.row_id).length !== row.selector.titles.length)) {
+    throw new Error("browser report requires its exact resolved selection");
+  }
   const selected = [...rows]
     .sort((left, right) => asciiCompare(left.row_id, right.row_id))
     .map((row) => {
-      const observations = row.selector.titles.map((title) => {
+      const observations = selection.filter(entry => entry.row_id === row.row_id).map((entry) => {
         const matches = specs.filter(
-          (spec) => spec.normalizedFile === normalizeFile(row.selector.file) && spec.title === title,
+          (spec) => spec.normalizedFile === normalizeFile(entry.file) &&
+            JSON.stringify(spec.titlePath) === JSON.stringify(entry.title_path) &&
+            spec.tests?.length === 1 && spec.tests[0].projectName === entry.project_id,
         );
         return matches.length === 1
           ? selectorObservation(matches[0])
@@ -138,7 +158,10 @@ export function adaptPlaywrightReport(
       });
       return { observations, row };
     });
-  const childFailure = selected.every(({ observations }) =>
+  const unexpected = specs.some(spec => !selection.some(entry =>
+    spec.normalizedFile === normalizeFile(entry.file) && JSON.stringify(spec.titlePath) === JSON.stringify(entry.title_path) &&
+    spec.tests?.length === 1 && spec.tests[0].projectName === entry.project_id));
+  const childFailure = unexpected ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" } : selected.every(({ observations }) =>
     observations.every((observation) => observation.status === "passed")
   )
     ? processFailure(processStatus, processSignal)

@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
+import { canonicalJSONString, parseStrictJSON, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
 import { readCanonicalUnitEvents } from "../evidence-accounting/index.mjs";
 
-const forbiddenKey = /^(?:bucket_name|credential|credentials|database_name|dsn|email|entered_text|password|payload|record_id|runtime_path|secret|token|transaction_id|txn_id|user_id)$/iu;
+const forbiddenKey = /^(?:bucket_name|cookie|credential|credentials|database_name|dsn|email|entered_text|password|payload|record_id|runtime_path|secret|session|token|transaction_id|txn_id|user_id)$/iu;
 const reportByteLimit = 32 * 1024 * 1024;
 const attachmentByteLimit = 8 * 1024 * 1024;
 
@@ -36,12 +36,9 @@ export function currentUnitEventSource(runRoot) {
   return { file: resolved, prefix };
 }
 
-function readBoundedJSON(file, label, maxBytes) {
-  const stat = lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > maxBytes) {
-    throw new Error(`${label} must be a non-symlink regular file of at most ${maxBytes} bytes`);
-  }
-  return JSON.parse(readFileSync(file, "utf8"));
+function readBoundedJSON(runRoot, file, label, maxBytes) {
+  const bytes = readRetainedArtifactBytes(runRoot, path.relative(runRoot, file), maxBytes);
+  return parseStrictJSON(bytes.toString("utf8"), label);
 }
 
 function flattenSuites(suites, output = []) {
@@ -61,15 +58,13 @@ function containedAttachment(runRoot, reportPath, attachmentPath) {
   if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
     throw new Error(`measurement attachment escapes run root: ${attachmentPath}`);
   }
-  if (!existsSync(resolved)) {
-    throw new Error(`measurement attachment is missing: ${relative}`);
-  }
   return resolved;
 }
 
 function parseAttachment(runRoot, reportPath, attachment) {
   if (typeof attachment.path === "string" && attachment.path !== "") {
     return readBoundedJSON(
+      runRoot,
       containedAttachment(runRoot, reportPath, attachment.path),
       "measurement attachment",
       attachmentByteLimit,
@@ -82,24 +77,51 @@ function parseAttachment(runRoot, reportPath, attachment) {
   if (bytes.length > attachmentByteLimit) {
     throw new Error(`measurement attachment exceeds ${attachmentByteLimit} bytes`);
   }
-  return JSON.parse(bytes.toString("utf8"));
+  return parseStrictJSON(bytes.toString("utf8"), "measurement attachment");
 }
 
-function rejectSensitiveKeys(value, location = "summary") {
-  if (Array.isArray(value)) {
-    value.forEach((entry, index) => rejectSensitiveKeys(entry, `${location}[${index}]`));
-    return;
-  }
-  if (!value || typeof value !== "object") return;
-  for (const [key, entry] of Object.entries(value)) {
-    if (forbiddenKey.test(key)) {
-      throw new Error(`${location} contains forbidden key ${key}`);
+function rejectSensitiveKeys(value) {
+  // Only an independently schema-validated observation admits synthetic IDs.
+  // Derive the policy here so collection and retained-artifact validation cannot
+  // disagree about either the proof kind or its exact location.
+  const proof = value?.schema_id === "cartulary.frontend_measurement_observation.v4" ? value.predicate_evidence : null;
+  const syntheticProof = value?.predicate_id === "perf.evidence_verification.visible_with_cancel.v1" && proof?.kind === "evidence_verification" ? "evidence_verification" : value?.predicate_id === "perf.evidence_inspector.metadata_shell.v2" && proof?.kind === "evidence_inspector" ? "evidence_inspector" : value?.predicate_id === "perf.anchor_stability_under_live_updates.v2" && proof?.kind === "timeline_anchor_trace" ? "anchor" : value?.predicate_id === "perf.timeline_paste_20x5.v2" && proof?.kind === "timeline_paste_20x5" ? "paste" :
+    /^perf\.timeline_presence_(?:surface|row|cell)\.rendered\.v1$/u.test(value?.predicate_id ?? "") && proof?.kind === "timeline_presence" ? "presence" :
+      /^perf\.timeline_(?:history_entry_rollback|change_set_rollback|row_restore)\.rendered\.v2$/u.test(value?.predicate_id ?? "") && proof?.kind === "timeline_history" ? "history" :
+      /^perf\.import_(?:csv|xlsx)_discovery\.visible_with_cancel\.v1$/u.test(value?.predicate_id ?? "") && proof?.kind === "import_discovery" ? "import" :
+      /^perf\.import_(?:csv|xlsx)_apply\.visible_with_cancel\.v1$/u.test(value?.predicate_id ?? "") && proof?.kind === "import_apply" ? "import" :
+        /^perf\.reporting_(?:snapshot|render)\.visible_with_cancel\.v1$/u.test(value?.predicate_id ?? "") && proof?.kind === "reporting_progress" ? "reporting" :
+        /^perf\.reference_pack_(?:import|reverify|refresh)\.visible_with_cancel\.v1$/u.test(value?.predicate_id ?? "") && proof?.kind === "reference_pack_progress" ? "reference_pack" : null;
+  function inspect(entry, location) {
+    if (Array.isArray(entry)) {
+      entry.forEach((item, index) => inspect(item, `${location}[${index}]`));
+      return;
     }
-    rejectSensitiveKeys(entry, `${location}.${key}`);
+    if (!entry || typeof entry !== "object") return;
+    for (const [key, child] of Object.entries(entry)) {
+      const admittedSyntheticID = (syntheticProof === "evidence_verification" && ["record_id", "source_record_id"].includes(key) && location === "summary.predicate_evidence") || (syntheticProof === "anchor" && ["record_id", "request_record_id"].includes(key) && location === "summary.predicate_evidence") || key === "record_id" && (
+        syntheticProof === "paste" && /^summary\.predicate_evidence\.created_records\[\d+\]$/u.test(location) ||
+        ["presence", "history", "import", "reporting", "reference_pack"].includes(syntheticProof) && location === "summary.predicate_evidence" ||
+        syntheticProof === "evidence_inspector" && (location === "summary.predicate_evidence.target" || /^summary\.predicate_evidence\.items\[\d+\]$/u.test(location))
+      );
+      if (forbiddenKey.test(key) && !admittedSyntheticID) {
+        throw new Error(`${location} contains forbidden key ${key}`);
+      }
+      inspect(child, `${location}.${key}`);
+    }
   }
+  inspect(value, "summary");
 }
 
 function validateSampleCardinality(summary) {
+  if (summary.statistics.kind === "seeded_trace") {
+    if (summary.samples.length !== 0 || summary.measured_samples !== 0 || summary.warmup_samples !== 0 || summary.threshold_ms !== null ||
+        summary.statistics.completed_steps !== summary.predicate_evidence?.checkpoints?.length ||
+        summary.statistics.completed_steps > summary.statistics.expected_steps) {
+      throw new Error("seeded trace cannot contain timing samples or inconsistent step counts");
+    }
+    return;
+  }
   const warmupSamples = summary.samples.filter((sample) => sample.warmup).length;
   const measuredSamples = summary.samples.length - warmupSamples;
   if (
@@ -120,6 +142,20 @@ function validateSampleCardinality(summary) {
       );
     }
   });
+  if (["passed", "threshold_failed"].includes(summary.outcome)) {
+    const values = summary.samples.filter((sample) => !sample.warmup).map((sample) => sample.total_ms).sort((a, b) => a - b);
+    const statistics = summary.statistics;
+    if (statistics.kind === "single") {
+      if (summary.warmup_samples !== 0 || values.length !== 1 || statistics.elapsed_ms !== values[0]) {
+        throw new Error("single-observation statistics differ from retained samples");
+      }
+    } else {
+      const percentile = (p) => values[Math.ceil(p / 100 * values.length) - 1];
+      if (values.length === 0 || statistics.p50_ms !== percentile(50) || statistics.p95_ms !== percentile(statistics.percentile)) {
+        throw new Error("percentile statistics differ from retained samples");
+      }
+    }
+  }
 }
 
 export function collectFrontendMeasurementObservations({
@@ -131,7 +167,7 @@ export function collectFrontendMeasurementObservations({
   const attachmentPrefix = `${observationSchemaID}.`;
   const summaries = [];
   for (const reportPath of reportPaths) {
-    const report = readBoundedJSON(reportPath, "Playwright JSON report", reportByteLimit);
+    const report = readBoundedJSON(runRoot, reportPath, "Playwright JSON report", reportByteLimit);
     for (const spec of flattenSuites(report.suites)) {
       for (const playwrightTest of spec.tests ?? []) {
         for (const result of playwrightTest.results ?? []) {
@@ -141,6 +177,9 @@ export function collectFrontendMeasurementObservations({
               !attachment.name.startsWith(attachmentPrefix)
             ) {
               continue;
+            }
+            if ((playwrightTest.results?.length ?? 0) !== 1 || (result.retry ?? 0) !== 0) {
+              throw new Error("retried browser measurement cannot qualify");
             }
             const summary = parseAttachment(runRoot, reportPath, attachment);
             validateSchemaSync(observationSchemaID, summary);
@@ -181,17 +220,13 @@ function readReferencedArtifact(runRoot, reference, schemaID, expectedRole) {
     throw new Error("measurement artifact reference is malformed");
   }
   const file = containedAttachment(runRoot, path.join(runRoot, "reference.json"), reference.path);
-  const stat = lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > attachmentByteLimit) {
-    throw new Error(`measurement artifact is not a bounded regular file: ${reference.path}`);
-  }
-  const bytes = readFileSync(file);
+  const bytes = readRetainedArtifactBytes(runRoot, path.relative(runRoot, file), attachmentByteLimit);
   if (digest(bytes) !== reference.sha256) {
     throw new Error(`measurement artifact digest or size is invalid: ${reference.path}`);
   }
-  const artifact = JSON.parse(bytes.toString("utf8"));
+  const artifact = parseStrictJSON(bytes.toString("utf8"), "measurement artifact");
   validateSchemaSync(schemaID, artifact);
-  rejectSensitiveKeys(artifact, schemaID);
+  rejectSensitiveKeys(artifact);
   return { artifact, bytes, file, reference };
 }
 
@@ -208,6 +243,7 @@ function cleanupOutcomes(lease) {
 
 export function collectFinalizedMeasurementSummaries({
   buildSchemaID,
+  objectPopulation,
   expectedPredicateIDs,
   leaseSchemaID,
   observationSchemaID,
@@ -220,15 +256,8 @@ export function collectFinalizedMeasurementSummaries({
     throw new Error("finalized measurement summary paths are duplicated");
   }
   const summaries = summaryPaths.map((summaryPath) => {
-    if (!existsSync(summaryPath)) {
-      throw new Error("finalized measurement summary is missing");
-    }
-    const stat = lstatSync(summaryPath);
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.size > attachmentByteLimit) {
-      throw new Error("measurement summary is not a bounded regular file");
-    }
-    const bytes = readFileSync(summaryPath);
-    const summary = JSON.parse(bytes.toString("utf8"));
+    const bytes = readRetainedArtifactBytes(runRoot, path.relative(runRoot, summaryPath), attachmentByteLimit);
+    const summary = parseStrictJSON(bytes.toString("utf8"), "measurement summary");
     validateSchemaSync(summarySchemaID, summary);
     rejectSensitiveKeys(summary);
     const observation = readReferencedArtifact(
@@ -252,6 +281,7 @@ export function collectFinalizedMeasurementSummaries({
     const cleanup = cleanupOutcomes(lease.artifact);
     validateSampleCardinality(observation.artifact);
     validateObservation?.(observation.artifact);
+    if (build.artifact.object_snapshot?.object_count !== objectPopulation?.object_count || build.artifact.object_snapshot?.total_bytes !== objectPopulation?.total_bytes) throw new Error("measurement object population diverges from its profile");
     if (
       summary.scheduler_overlap_count !== 0 ||
       build.artifact.state !== "sealed" ||
@@ -268,8 +298,8 @@ export function collectFinalizedMeasurementSummaries({
     const expectedQualification =
       observation.artifact.outcome === "passed"
         ? "qualified"
-        : observation.artifact.outcome === "threshold_failed"
-          ? "threshold_failed"
+        : ["threshold_failed", "predicate_failed"].includes(observation.artifact.outcome)
+          ? observation.artifact.outcome
           : "environment_not_qualified";
     if (summary.qualification_outcome !== expectedQualification) {
       throw new Error(
@@ -283,6 +313,7 @@ export function collectFinalizedMeasurementSummaries({
     }
     if (
       summary.fixture_profile_id !== observation.artifact.fixture_profile_id ||
+      canonicalJSONString(build.artifact.object_snapshot) !== canonicalJSONString(lease.artifact.object_snapshot) ||
       summary.snapshot_key !== build.artifact.snapshot_key ||
       summary.snapshot_key !== lease.artifact.snapshot_key ||
       summary.fixture_profile_id !== build.artifact.fixture_profile_id ||
@@ -291,8 +322,7 @@ export function collectFinalizedMeasurementSummaries({
       summary.clone_ordinal !== lease.artifact.clone_ordinal ||
       summary.rollup.predicate_id !== observation.artifact.predicate_id ||
       summary.rollup.sample_count !== observation.artifact.measured_samples ||
-      summary.rollup.p50_ms !== observation.artifact.p50_ms ||
-      summary.rollup.p95_ms !== observation.artifact.p95_ms ||
+      canonicalJSONString(summary.rollup.statistics) !== canonicalJSONString(observation.artifact.statistics) ||
       summary.rollup.threshold_ms !== observation.artifact.threshold_ms ||
       summary.rollup.outcome !== observation.artifact.outcome
     ) {

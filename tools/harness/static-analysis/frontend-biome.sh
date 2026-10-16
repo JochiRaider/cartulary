@@ -45,6 +45,7 @@ scope=(
   "apps/web/playwright.config.ts"
   "apps/web/playwright.shared.config.ts"
   "apps/web/playwright.webserver-backed.config.ts"
+  "packages/report-renderer/src"
   "packages/grid-adapter/src"
   "packages/ui-contracts/src"
   "packages/view-contracts/src"
@@ -53,7 +54,7 @@ scope=(
 )
 
 if [[ "${mode}" == "format" || "${mode}" == "write" ]]; then
-  command=("${PNPM_BIN}" --dir "${ROOT_DIR}" exec biome check --write "${biome_root_flags[@]}")
+  command=("${PNPM_BIN}" --dir "${ROOT_DIR}" exec biome check --write --diagnostic-level=warn "${biome_root_flags[@]}")
 else
   command=("${PNPM_BIN}" --dir "${ROOT_DIR}" exec biome check --error-on-warnings "${biome_root_flags[@]}")
 fi

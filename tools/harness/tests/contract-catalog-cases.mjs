@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import childProcess, { execFileSync } from "node:child_process";
 import fs, { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createRowSelectorResolver, validatePostgresFixturePolicy } from "../test-support/owner-fixtures.mjs";
+import { createRowSelectorResolver, discoverRunnerSources, validatePostgresFixturePolicy } from "../test-support/owner-fixtures.mjs";
 import { groupRowsByPerformanceFixture, postgresMigrationDigest, snapshotKey } from "../performance-fixture/index.mjs";
 import { buildSourceSnapshot, loadSelectedTestRows, loadTestCatalog } from "../test-catalog/index.mjs";
 
@@ -32,6 +32,41 @@ export function assertSourceSnapshotIdentity() {
     assert.equal(result.digest, hash(Buffer.from(JSON.stringify({ entries, schema_id: "cartulary.source_snapshot_digest.v2" }))));
     assert.equal(result.file_count, entries.length);
 
+    // Check admission before Git enumeration, then prohibit filesystem probes
+    // of excluded material. Include an executable-looking untracked file under
+    // a restricted root and mixed-case Markdown beside ordinary source.
+    const excludedRoot = "human-material";
+    mkdirSync(path.join(root, excludedRoot, "untracked"), { recursive: true });
+    writeFileSync(path.join(root, excludedRoot, "untracked", "hidden.test.ts"), "throw new Error('not executable');");
+    writeFileSync(path.join(root, "owner.Md"), "not executable");
+    writeFileSync(path.join(root, "README"), "not executable");
+    const originalExec = childProcess.execFileSync;
+    const originalStat = fs.lstatSync;
+    const originalOpen = fs.openSync;
+    const assertAdmitted = (file) => assert.ok(!String(file).startsWith(path.join(root, excludedRoot)) && !/\/(?:owner\.Md$|README$)/u.test(String(file)), `probed excluded input: ${file}`);
+    let checkedEnumeration = false;
+    childProcess.execFileSync = (command, args, options) => {
+      if (command === "git" && args[0] === "ls-files") {
+        const pathspec = args.slice(args.indexOf("--") + 1);
+        for (const excluded of [`:(top,exclude,literal)${excludedRoot}`, ":(exclude,icase)*.md", ":(exclude,icase)README"])
+          assert.ok(pathspec.includes(excluded), `missing pre-enumeration exclusion ${excluded}`);
+        checkedEnumeration = true;
+      }
+      return originalExec(command, args, options);
+    };
+    fs.lstatSync = (file, ...args) => { assertAdmitted(file); return originalStat(file, ...args); };
+    fs.openSync = (file, ...args) => { assertAdmitted(file); return originalOpen(file, ...args); };
+    syncBuiltinESMExports();
+    try {
+      assert.deepEqual(buildSourceSnapshot(root, { restrictedRoots: [excludedRoot] }), result);
+      assert.equal(checkedEnumeration, true);
+    } finally {
+      childProcess.execFileSync = originalExec; fs.lstatSync = originalStat; fs.openSync = originalOpen;
+      syncBuiltinESMExports();
+      rmSync(path.join(root, excludedRoot), { recursive: true });
+      rmSync(path.join(root, "owner.Md")); rmSync(path.join(root, "README"));
+    }
+
     for (const mutate of [
       () => fs.appendFileSync(target, "growth"),
       () => fs.truncateSync(target, 1),
@@ -57,6 +92,26 @@ export function assertSourceSnapshotIdentity() {
         rmSync(`${target}.old`, { force: true });
         writeFileSync(target, large); chmodSync(target, 0o600);
       }
+    }
+
+    // A tracked descendant remains in Git's index after its directory becomes
+    // a link. Reject the ancestor before any stat/open of that descendant.
+    mkdirSync(path.join(root, "nested"));
+    writeFileSync(path.join(root, "nested", "source.ts"), "export const value = 1;");
+    execFileSync("git", ["add", "nested/source.ts"], { cwd: root });
+    renameSync(path.join(root, "nested"), path.join(root, "original-nested"));
+    symlinkSync("original-nested", path.join(root, "nested"));
+    const ancestorOriginalStat = fs.lstatSync;
+    fs.lstatSync = (file, ...args) => {
+      assert.notEqual(String(file), path.join(root, "nested", "source.ts"), "probed a descendant through a symbolic link");
+      return ancestorOriginalStat(file, ...args);
+    };
+    syncBuiltinESMExports();
+    try {
+      assert.throws(() => buildSourceSnapshot(root, { restrictedRoots: [] }), /ancestor.*symbolic links/u);
+    } finally {
+      fs.lstatSync = ancestorOriginalStat;
+      syncBuiltinESMExports();
     }
   } finally {
     fs.readSync = originalRead; syncBuiltinESMExports();
@@ -87,6 +142,7 @@ export function assertPrivateRowSelection(context) {
       "tools/scheduler_resource_registry.json", "tools/performance_fixture_snapshot_owner.json",
       "tools/task_surface_owner.json", "tools/test_catalog_row_migrations.json",
       "tools/postgres_fixture_policy_registry.json", "tools/toolchain_pins.json",
+      "tools/generated_artifact_policy.json",
       ...catalog.registry.owners.map((owner) => owner.manifest_path),
       ...catalog.verification.registry.owners.map((owner) => owner.contract_path),
       ...catalog.runners.runners.map((runner) => runner.adapter_path),
@@ -144,18 +200,32 @@ export function assertPrivateRowSelection(context) {
 
 export function assertSelectorResolutionScope(context) {
   const directory = mkdtempSync(path.join(tmpdir(), "cartulary-selector-scope."));
-  const webDirectory = mkdtempSync(path.join(context.root, "apps/web/selector-scope."));
+  const webDirectory = path.join(directory, "apps/web/src");
   try {
+    mkdirSync(webDirectory, { recursive: true });
     const tools = path.join(directory, "tools"), packageRoot = path.join(directory, "internal/fixture");
     mkdirSync(tools); mkdirSync(packageRoot, { recursive: true });
     const pins = path.join(tools, "toolchain_pins.json");
     writeFileSync(pins, JSON.stringify({ go_version: "1.27.2" }));
+    writeFileSync(path.join(tools, "generated_artifact_policy.json"), JSON.stringify({ generated_roots: [], generated_files: [] }));
     const source = path.join(packageRoot, "fixture_test.go");
     writeFileSync(source, "//go:build go1.27\n\npackage fixture\nfunc TestCurrent() {}\n");
     const goSelection = { row: { row_id: "fixture.go", runner: "go", selector: { package: "./internal/fixture", tests: ["TestCurrent"] } }, runner: { approved_roots: ["internal"] }, taskSurfaceCommandIDs: new Set() };
     const resolveGo = createRowSelectorResolver(directory);
     assert.deepEqual(resolveGo(goSelection), ["go:./internal/fixture:TestCurrent"]);
     assert.deepEqual(resolveGo(goSelection), ["go:./internal/fixture:TestCurrent"]);
+
+    for (const expression of ["cgo", "amd64.v2", "race", "private"]) {
+      writeFileSync(source, `//go:build ${expression}\n\npackage fixture\nfunc TestCurrent() {}\n`);
+      assert.throws(() => createRowSelectorResolver(directory)(goSelection), /excluded from the Go runner build context/u);
+    }
+    writeFileSync(source, "//go:build linux && amd64.v1 && gc && !cgo && !race\n\npackage fixture\nfunc TestCurrent() {}\n");
+    assert.deepEqual(createRowSelectorResolver(directory)(goSelection), ["go:./internal/fixture:TestCurrent"]);
+    for (const expression of ["goexperiment.jsonv2", "!goexperiment.jsonv2", "linux || goexperiment.jsonv2"]) {
+      writeFileSync(source, `//go:build ${expression}\n\npackage fixture\nfunc TestCurrent() {}\n`);
+      assert.throws(() => createRowSelectorResolver(directory)(goSelection), /unsupported experimental Go build context/u);
+    }
+    writeFileSync(source, "//go:build go1.27\n\npackage fixture\nfunc TestCurrent() {}\n");
 
     // A new load must observe pin changes, not a process-global build context.
     writeFileSync(pins, JSON.stringify({ go_version: "1.26.0" }));
@@ -176,19 +246,135 @@ export function assertSelectorResolutionScope(context) {
     mkdirSync(path.dirname(suite));
     writeFileSync(main, 'import { registerFixtureSuite } from "./suite/register";\nregisterFixtureSuite();\n');
     writeFileSync(suite, 'export function registerFixtureSuite() { it("before", () => {}); }\n');
-    const webSelection = (title) => ({ row: { row_id: "fixture.web", runner: "vitest", selector: { file: path.relative(context.root, main), titles: [title] } }, runner: { approved_roots: ["apps/web"] }, taskSurfaceCommandIDs: new Set() });
-    const resolveWeb = createRowSelectorResolver(context.root);
-    assert.deepEqual(resolveWeb(webSelection("before")), [`vitest::${path.relative(context.root, main)}:before`]);
+    const webSelection = (title) => ({ row: { row_id: "fixture.web", runner: "vitest", selector: { file: path.relative(directory, main), titles: [title] } }, runner: { approved_roots: ["apps/web"] }, taskSurfaceCommandIDs: new Set() });
+    const resolveWeb = createRowSelectorResolver(directory);
+    assert.deepEqual(resolveWeb(webSelection("before")), [`vitest::${path.relative(directory, main)}:before`]);
     // Only the imported suite changes. Main-source-keyed global caches are stale.
     writeFileSync(suite, 'export function registerFixtureSuite() { it("after", () => {}); }\n');
-    assert.deepEqual(createRowSelectorResolver(context.root)(webSelection("after")), [`vitest::${path.relative(context.root, main)}:after`]);
-    assert.throws(() => createRowSelectorResolver(context.root)(webSelection("before")), /must resolve exactly once/u);
+    assert.deepEqual(createRowSelectorResolver(directory)(webSelection("after")), [`vitest::${path.relative(directory, main)}:after`]);
+    assert.throws(() => createRowSelectorResolver(directory)(webSelection("before")), /must resolve exactly once/u);
+    for (const calls of ["", "registerFixtureSuite(); registerFixtureSuite();", "if (enabled) registerFixtureSuite();", "registerFixtureSuite(options);"]) {
+      writeFileSync(main, `import { registerFixtureSuite } from "./suite/register";\n${calls}`);
+      assert.throws(() => createRowSelectorResolver(directory)(webSelection("after")), /exactly one unconditional/u);
+    }
+    writeFileSync(main, 'import { registerFixtureSuite as install } from "./suite/register"; install();');
+    assert.deepEqual(createRowSelectorResolver(directory)(webSelection("after")), [`vitest::${path.relative(directory, main)}:after`]);
+    writeFileSync(suite, 'export function wrongExport() { it("after", () => {}); }');
+    assert.throws(() => createRowSelectorResolver(directory)(webSelection("after")), /indirect test registration|missing registration suite/u);
     rmSync(main); symlinkSync(suite, main);
     assert.throws(() => resolveWeb(webSelection("before")), /symbolic link/u);
   } finally {
     rmSync(directory, { recursive: true, force: true });
-    rmSync(webDirectory, { recursive: true, force: true });
   }
+  assertSourceDiscoveryBoundary();
+}
+
+function assertSourceDiscoveryBoundary() {
+  const root = mkdtempSync(path.join(tmpdir(), "cartulary-source-discovery."));
+  const write = (relative, source) => {
+    mkdirSync(path.dirname(path.join(root, relative)), { recursive: true });
+    writeFileSync(path.join(root, relative), source);
+  };
+  const go = { runner: "go", approved_roots: ["internal"] };
+  const web = { runner: "vitest", approved_roots: ["apps/web"] };
+  const selection = { row: { row_id: "fixture.web", runner: "vitest", selector: { file: "apps/web/src/fixture.test.ts", project_id: "browser-unit", titles: ["suite row alpha", "suite row beta"] } }, runner: web, taskSurfaceCommandIDs: new Set() };
+  try {
+    write("tools/generated_artifact_policy.json", JSON.stringify({ generated_roots: [{ path: "internal/projected" }], generated_files: [{ path: "internal/fixture/generated_test.go" }] }));
+    write("tools/toolchain_pins.json", JSON.stringify({ go_version: "1.27.2" }));
+    write("internal/fixture/new_test.go", "package fixture\nfunc TestNew() {}\nfunc TestMain() {}\n");
+    symlinkSync("/unreachable-discovery-sentinel", path.join(root, "internal/fixture/generated_test.go"));
+    write("internal/fixture/excluded_windows_test.go", "package fixture\nfunc TestWindows() {}\n");
+    write("internal/fixture/_ignored_test.go", "package fixture\nfunc TestIgnored() {}\n");
+    write("internal/_ignored/unreachable_test.go", "package fixture\nfunc TestIgnoredPackage() {}\n");
+    write("apps/web/src/fixture.test.ts", 'const rows = ["alpha", "beta"] as const satisfies readonly string[]; describe("suite", () => { it.each(rows)("row %s", () => {}); });');
+    for (const excluded of ["docs", "README.md", "node_modules", "vendor", "generated", "projected"]) {
+      symlinkSync("/unreachable-discovery-sentinel", path.join(root, "internal", excluded));
+    }
+    for (const excluded of ["dist", "dist-measurement", ".frontend-publish-fixture"]) {
+      symlinkSync("/unreachable-discovery-sentinel", path.join(root, "apps/web", excluded));
+    }
+    assert.deepEqual(discoverRunnerSources(root, web), ["apps/web/src/fixture.test.ts"]);
+    assert.deepEqual(discoverRunnerSources(root, go), ["internal/fixture/excluded_windows_test.go", "internal/fixture/new_test.go"]);
+    const runners = new Map([["go", go], ["vitest", web]]);
+    const resolver = createRowSelectorResolver(root);
+    const keys = resolver(selection);
+    assert.deepEqual(keys, ["vitest:browser-unit:apps/web/src/fixture.test.ts:suite row alpha", "vitest:browser-unit:apps/web/src/fixture.test.ts:suite row beta"]);
+    assert.throws(() => resolver.assertSourceCoverage(runners, new Set(keys)), /go:.\/internal\/fixture:TestNew/u);
+    const selected = new Set([...keys, "go:./internal/fixture:TestNew"]);
+    resolver.assertSourceCoverage(runners, selected);
+    write("internal/fixture/unicode_test.go", "package fixture\nfunc Test界() {}\n");
+    assert.throws(() => createRowSelectorResolver(root).assertSourceCoverage(runners, selected), /unsupported Go test identity/u);
+    rmSync(path.join(root, "internal/fixture/unicode_test.go"));
+    write("internal/fixture/bare_test.go", "package fixture\nfunc Test() {}\nfunc TestlowerHelper() {}\n");
+    assert.throws(() => createRowSelectorResolver(root).assertSourceCoverage(runners, selected), /go:.\/internal\/fixture:Test(?:\n|$)/u);
+    rmSync(path.join(root, "internal/fixture/bare_test.go"));
+    selected.delete(keys[1]);
+    assert.throws(() => resolver.assertSourceCoverage(runners, selected), /suite row beta/u);
+
+    const old = fs.lstatSync;
+    fs.lstatSync = (file, ...args) => {
+      if (String(file).includes("/docs") || String(file).endsWith(".md")) throw new Error("prohibited metadata read");
+      return old(file, ...args);
+    };
+    syncBuiltinESMExports();
+    try {
+      discoverRunnerSources(root, go);
+      // Negative selector values belong to the external scratch repository;
+      // they are not executable input references to repository documentation.
+      for (const file of [path.posix.join("apps/web", "docs", "missing.test.ts"), path.posix.join("apps/web", "README.md"), "../outside.test.ts"]) {
+        assert.throws(() => resolver({ ...selection, row: { ...selection.row, selector: { ...selection.row.selector, file } } }), /excluded source|traversal/u);
+      }
+    } finally { fs.lstatSync = old; syncBuiltinESMExports(); }
+
+    for (const source of ['it(runtimeTitle(), () => {});', 'it.each(runtimeRows())("row %s", () => {});', 'describe(runtimeTitle(), () => { it("child", () => {}); });']) {
+      write("apps/web/src/fixture.test.ts", source);
+      assert.throws(() => createRowSelectorResolver(root)(selection), /unresolved/u);
+    }
+    const resolveTitles = (source, titles) => {
+      write("apps/web/src/fixture.test.ts", source);
+      return createRowSelectorResolver(root)({ ...selection, row: { ...selection.row, selector: { ...selection.row.selector, titles } } });
+    };
+    assert.deepEqual(resolveTitles('import { it as check, describe as group } from "vitest"; const prefix = "outer"; const title = prefix; group("suite", () => { const prefix = "inner"; check(title, () => {}); });', ["suite outer"]), ["vitest:browser-unit:apps/web/src/fixture.test.ts:suite outer"]);
+    assert.deepEqual(resolveTitles('import { it as check } from "vitest"; const another = check; another("aliased", () => {});', ["aliased"]), ["vitest:browser-unit:apps/web/src/fixture.test.ts:aliased"]);
+    assert.deepEqual(resolveTitles('it.each([["12.5units", "$untouched"]])("%i %s %# %$", () => {});', ["12 $untouched 0 1"]), ["vitest:browser-unit:apps/web/src/fixture.test.ts:12 $untouched 0 1"]);
+    for (const source of [
+      'if (enabled) it("hidden", () => {});',
+      'function registerHidden() { it("hidden", () => {}); }',
+      '[1, 2].forEach(() => it("hidden", () => {}));',
+      'it.skipIf(enabled)("hidden", () => {});',
+      'it.for([1])("hidden", () => {});',
+      'it.each([1])("hidden %o", () => {});',
+      'it.each([1])("hidden %% %s", () => {});',
+      'it.each([{ value: "known" }])("hidden $missing", () => {});',
+      'let title = "hidden"; it(title, () => {});',
+      'const it = unknownFactory(); it("hidden", () => {});',
+      'it["each"]([1])("hidden", () => {});',
+      'const { only: check } = it; check("hidden", () => {});',
+      'const holder = { register: it }; holder.register("hidden", () => {});',
+      'registerUnknown(it);',
+    ]) assert.throws(() => resolveTitles(source, ["hidden"]), /unsupported|unresolved|runner aliases/u);
+    write("apps/web/src/fixture.test.ts", 'it("duplicate", () => {}); it("duplicate", () => {});');
+    assert.throws(() => createRowSelectorResolver(root)({ ...selection, row: { ...selection.row, selector: { ...selection.row.selector, titles: ["duplicate"] } } }), /exactly once/u);
+    const browserFile = "apps/web/e2e/fixture.spec.ts";
+    const browserRunner = { runner: "playwright", approved_roots: ["apps/web/e2e"], project_ids: ["chromium"], stages: ["measurement"] };
+    const browserSelection = { row: { row_id: "fixture.browser", runner: "playwright", selector: { file: browserFile, project_id: "chromium", stage: "measurement", titles: ["outer same"], scenario_ids: ["fixture_case"] } }, runner: browserRunner, taskSurfaceCommandIDs: new Set() };
+    const resolveBrowser = (source, title = "outer same") => {
+      write(browserFile, `import { test } from "@playwright/test"; ${source}`);
+      return createRowSelectorResolver(root)({ ...browserSelection, row: { ...browserSelection.row, selector: { ...browserSelection.row.selector, titles: [title] } } });
+    };
+    assert.deepEqual(resolveBrowser('test.describe("outer", () => { test("same", { tag: "@fast" }, () => {}); });'), [
+      "playwright:chromium:measurement:fixture_case", `playwright-source:chromium:${browserFile}:outer same`,
+    ]);
+    for (const title of [" leading", "trailing ", "line\nbreak", "delimiter › component"]) {
+      assert.throws(() => resolveBrowser(`test(${JSON.stringify(title)}, () => {});`, title), /test-list interface/u);
+    }
+    assert.throws(() => resolveBrowser('test("outer", () => {}); test.describe("outer", () => { test("child", () => {}); });', "outer"), /suite prefix/u);
+    write("apps/web/e2e/suites/register.ts", 'import { test } from "@playwright/test"; export function registerSharedSuite() { test("shared", () => {}); }');
+    assert.throws(() => resolveBrowser('import { registerSharedSuite } from "./suites/register"; registerSharedSuite();', "shared"), /imported registration suites/u);
+    symlinkSync("fixture", path.join(root, "internal/linked"));
+    assert.throws(() => discoverRunnerSources(root, go), /symbolic link/u);
+    assert.throws(() => discoverRunnerSources(root, { ...go, approved_roots: ["internal/../outside"] }), /invalid discovery root/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 }
 
 export function assertPostgresCatalogClosure(context) {

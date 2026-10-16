@@ -26,7 +26,7 @@ func TestQuarantineLifecycleService_Integration(t *testing.T) {
 		ObservedSHA:         ptrString(strings.Repeat("a", 64)),
 	})
 	request := attachBlobRequest{ObjectBlobID: blobID, BaseRowVersion: 1, ClientTxnID: "txn-evidence-quarantine-attach"}
-	if _, err := service.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), nil, "req-evidence-quarantine-attach", time.Now().UTC()); err != nil {
+	if _, err := service.AttachBlob(context.Background(), actor, recordID, request, attachBlobRequestHash(request), "req-evidence-quarantine-attach", time.Now().UTC()); err != nil {
 		t.Fatalf("attach available blob: %v", err)
 	}
 	before := DurableAttachCounts(t, harness, recordID)

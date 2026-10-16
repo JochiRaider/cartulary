@@ -45,9 +45,9 @@ func TestArtifactCollectionMutationContractMatrix(t *testing.T) {
 	targetRecordID := seedArtifactContractRecord(t, harness, incident.ID, actor.ID, "evidence", now)
 	partyRecordID := seedArtifactContractRecord(t, harness, incident.ID, actor.ID, "party", now)
 	if _, err := harness.DB.Exec(ctx, `
-INSERT INTO parties (record_id, incident_id, display_name, party_kind, created_at, updated_at)
-VALUES ($1, $2, 'Synthetic responder', 'person', $3, $3)
-`, partyRecordID, incident.ID, now); err != nil {
+INSERT INTO parties (record_id, incident_id, display_name, party_kind)
+VALUES ($1, $2, 'Synthetic responder', 'person')
+`, partyRecordID, incident.ID); err != nil {
 		t.Fatalf("seed party subtype: %v", err)
 	}
 

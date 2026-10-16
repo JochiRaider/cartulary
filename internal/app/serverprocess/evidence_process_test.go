@@ -2,6 +2,7 @@ package serverprocess
 
 import (
 	"bytes"
+	evidenceflow "github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/cryptography"
 	"io"
 	"net/http"
@@ -49,6 +50,7 @@ func TestEvidenceUploadAttachProjection_Process(t *testing.T) {
 	blobData := httptestx.RequireSuccessEnvelope(t, blobCreate, http.StatusCreated)["data"].(map[string]any)
 	uploadTarget := blobData["upload_target"].(map[string]any)
 	putObject(t, server, uploadTarget, payload, adminLogin)
+	evidenceflow.VerifyUploadedBlob(t, server.Client, server.BaseURL, adminLogin.SessionCookie, adminLogin.CSRFCookie, blobData["object_blob_id"].(string), "txn-verify-uploaded-"+blobData["object_blob_id"].(string))
 
 	attach := doJSON(t, server, http.MethodPost, "/api/v1/evidence-records/"+evidenceRecordID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],

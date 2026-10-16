@@ -7,7 +7,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { DeploymentAdministration } from "../pages/deploymentAdministration";
 import { rewriteSessionPresentation } from "./auth/sessionPresentation";
 
-export { referencePackBundle } from "./referencePackFixture.mjs";
+export { referencePackBundle } from "../../../../tools/harness/browser/reference-pack-fixture.mjs";
 
 type Pack = ListReferencePacksResponse["data"]["pack_versions"][number];
 type Job = GetJobResponse["data"];

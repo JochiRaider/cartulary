@@ -3,46 +3,175 @@
   "owner_id": "module.timeline",
   "verifications": [
     {
+      "verification_id": "module.timeline.verification.ac003_paint_qualification",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "public_target": "frontend-unit"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac003_paste_20x5_v2",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
       "verification_id": "module.timeline.verification.ac043_blank_row_create",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["playwright"],
+      "evidence_kinds": [
+        "playwright"
+      ],
       "public_target": "browser-e2e-measurement"
     },
     {
       "verification_id": "module.timeline.verification.ac043_fixture_shape",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["vitest"],
+      "evidence_kinds": [
+        "vitest"
+      ],
       "public_target": "frontend-unit"
     },
     {
       "verification_id": "module.timeline.verification.ac043_focus_edit",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["playwright"],
+      "evidence_kinds": [
+        "playwright"
+      ],
       "public_target": "browser-e2e-measurement"
     },
     {
       "verification_id": "module.timeline.verification.ac043_paint_qualification",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["vitest"],
+      "evidence_kinds": [
+        "vitest"
+      ],
       "public_target": "frontend-unit"
     },
     {
       "verification_id": "module.timeline.verification.ac043_selection_down",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["playwright"],
+      "evidence_kinds": [
+        "playwright"
+      ],
       "public_target": "browser-e2e-measurement"
     },
     {
       "verification_id": "module.timeline.verification.ac043_typing_ack",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["playwright"],
+      "evidence_kinds": [
+        "playwright"
+      ],
       "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac044_filter_first_useful_viewport",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac044_filter_stable_viewport",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac044_group_first_useful_viewport",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac044_group_stable_viewport",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac044_paint_qualification",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "public_target": "frontend-unit"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac044_sort_first_useful_viewport",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac044_sort_stable_viewport",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac045_evidence_inspector_v2",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac045_paint_qualification",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "public_target": "frontend-unit"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac047_anchor_trace",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "playwright"
+      ],
+      "public_target": "browser-e2e-measurement"
+    },
+    {
+      "verification_id": "module.timeline.verification.ac047_trace_qualification",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "vitest"
+      ],
+      "public_target": "frontend-unit"
     },
     {
       "verification_id": "module.timeline.verification.behavior_contract",
@@ -58,44 +187,66 @@
       "verification_id": "module.timeline.verification.capability_boundary",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"]
+      "evidence_kinds": [
+        "go_test"
+      ]
     },
     {
       "verification_id": "module.timeline.verification.cleanup",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"]
+      "evidence_kinds": [
+        "go_test"
+      ]
     },
     {
       "verification_id": "module.timeline.verification.collection_facts",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"]
+      "evidence_kinds": [
+        "go_test"
+      ]
     },
     {
       "verification_id": "module.timeline.verification.incident_portability",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
+      "evidence_kinds": [
+        "go_test"
+      ],
       "public_target": "test"
     },
     {
       "verification_id": "module.timeline.verification.policy_contract",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"]
+      "evidence_kinds": [
+        "go_test"
+      ]
     },
     {
       "verification_id": "module.timeline.verification.presentation_bytes",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"]
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
+      "verification_id": "module.timeline.verification.source_contracts",
+      "behavior_class": "product",
+      "profile": "base",
+      "evidence_kinds": [
+        "go_test"
+      ]
     },
     {
       "verification_id": "module.timeline.verification.version_identifier",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"]
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

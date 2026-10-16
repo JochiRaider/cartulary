@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_reference_pack_progress_contract.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "contract_id",
+    "fixture_contract_id",
+    "fixture_profile_id",
+    "measurement_policy_id",
+    "warmup_passes",
+    "measured_samples",
+    "product_retries",
+    "threshold_ms",
+    "threshold_comparison",
+    "view_schema_id",
+    "viewport",
+    "start_mark",
+    "dispatch_mark",
+    "admission_mark",
+    "predicates",
+    "workload",
+    "criterion_ids"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.performance_reference_pack_progress_contract.v1"
+    },
+    "contract_id": {
+      "const": "cartulary.performance.reference_pack_progress.v1"
+    },
+    "fixture_contract_id": {
+      "const": "cartulary.performance.large_grid.v1"
+    },
+    "fixture_profile_id": {
+      "const": "timeline_large_grid_snapshot_v2"
+    },
+    "measurement_policy_id": {
+      "const": "cartulary.measurement.single_observation.v1"
+    },
+    "warmup_passes": {
+      "const": 0
+    },
+    "measured_samples": {
+      "const": 1
+    },
+    "product_retries": {
+      "const": 0
+    },
+    "threshold_ms": {
+      "const": 1000
+    },
+    "threshold_comparison": {
+      "const": "lte"
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "viewport": {
+      "const": {
+        "width": 1920,
+        "height": 1080,
+        "device_scale_factor": 1
+      }
+    },
+    "start_mark": {
+      "const": "cartulary.reference_pack.action_accepted"
+    },
+    "dispatch_mark": {
+      "const": "cartulary.reference_pack.action_dispatched"
+    },
+    "admission_mark": {
+      "const": "cartulary.reference_pack.action_admitted"
+    },
+    "predicates": {
+      "const": [
+        {
+          "predicate_id": "perf.reference_pack_import.visible_with_cancel.v1",
+          "kind": "import"
+        },
+        {
+          "predicate_id": "perf.reference_pack_reverify.visible_with_cancel.v1",
+          "kind": "reverify"
+        },
+        {
+          "predicate_id": "perf.reference_pack_refresh.visible_with_cancel.v1",
+          "kind": "refresh"
+        }
+      ]
+    },
+    "workload": {
+      "const": {
+        "foreground_role": "editor",
+        "deployment_admin": true,
+        "field_key": "timeline.analyst_text",
+        "draft_value": "x",
+        "action_driver": "keyboard_enter",
+        "grid_driver": "pointer_select_keyboard_edit",
+        "grid_location": "opener",
+        "pack_key": "type_registry.host",
+        "pack_version": "browser-1",
+        "base_version": "base-2026-10-02.1",
+        "payload_sha256": "afaae18a960bf0d7f75365494966403333706ee4b7f680ca789c5cad8a237b8f",
+        "trust_repository_id": "browser.fixture.repo",
+        "activation_policy": "staged_only",
+        "selected_pack_keys": [
+          "type_registry.host"
+        ]
+      }
+    },
+    "criterion_ids": {
+      "const": [
+        "AC-033",
+        "AC-046"
+      ]
+    }
+  }
+}

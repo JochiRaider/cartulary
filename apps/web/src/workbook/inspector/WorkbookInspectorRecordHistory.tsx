@@ -278,6 +278,7 @@ export function WorkbookRecordHistoryPanel({
   return (
     <section
       data-testid={rowHistoryPanelTestId()}
+      data-history-record-id={presentedRecordId}
       ref={focus.panelRef}
       style={panelStyle}
       tabIndex={-1}

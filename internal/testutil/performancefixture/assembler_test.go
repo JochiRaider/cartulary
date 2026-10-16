@@ -204,8 +204,8 @@ func testState() *BuildState {
 				}},
 			}},
 		},
-		BackgroundUserIDs: []string{"secret-user-id"},
-		IncidentID:        "secret-incident-id",
+		PrincipalUserIDs: []string{"secret-user-id"},
+		IncidentID:       "secret-incident-id",
 	}
 }
 

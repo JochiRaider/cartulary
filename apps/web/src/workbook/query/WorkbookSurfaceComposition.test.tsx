@@ -121,11 +121,22 @@ it("query presentation cleanup fences replaced mounts and retires changed surfac
   }
   const mounted = render(<Subject earlier view="composition" />);
   expect(registry?.presentationReady("composition")).toBe(true);
+  const current = registry?.presentationState("composition");
+  const oldToken = Symbol("retired presentation");
+  act(() =>
+    registry?.updatePresentation("composition", oldToken, false, () => {}),
+  );
+  expect(registry?.presentationState("composition")).toBe(current);
   mounted.rerender(<Subject earlier={false} view="composition" />);
   expect(registry?.presentationReady("composition")).toBe(true);
   mounted.rerender(<Subject earlier={false} view="replacement" />);
   expect(registry?.presentationReady("composition")).toBe(false);
   expect(registry?.presentationReady("replacement")).toBe(true);
+  if (!current) throw new Error("Expected the committed presentation");
+  act(() =>
+    registry?.updatePresentation("composition", current.token, true, () => {}),
+  );
+  expect(registry?.presentationReady("composition")).toBe(false);
   act(() => mounted.unmount());
   expect(registry?.presentationReady("replacement")).toBe(false);
 });

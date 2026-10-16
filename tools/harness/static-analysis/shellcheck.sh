@@ -6,6 +6,7 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/../../workspace_layout.generated.sh"
 
 DEFAULT_ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 ROOT_DIR="${CARTULARY_SHELLCHECK_ROOT:-$DEFAULT_ROOT_DIR}"
+NODE_BIN="${NODE_BIN:-node}"
 SHELLCHECK_BIN="${SHELLCHECK_BIN:-${ROOT_DIR}/${CARTULARY_LAYOUT_TOOLBIN}/shellcheck-v0.11.0}"
 LINT_SHELL_STRICT="${LINT_SHELL_STRICT:-0}"
 CACHE_ARTIFACT_SCRIPT="$DEFAULT_ROOT_DIR/tools/harness/readiness/cache-artifact.sh"
@@ -81,7 +82,7 @@ discover_shell_files() {
     if [[ "$rel" == *.sh ]] || has_shell_shebang "$path"; then
       shell_files+=("$rel")
     fi
-  done < <(git -C "$ROOT_DIR" ls-files -z --cached --others --exclude-standard)
+  done <"$discovery_file"
 
   if [[ "${#shell_files[@]}" -eq 0 ]]; then
     return 0
@@ -91,6 +92,9 @@ discover_shell_files() {
 
 shellcheck_bin="$(resolve_shellcheck_bin "$SHELLCHECK_BIN")"
 shell_files=()
+discovery_file="$(mktemp "${TMPDIR:-/tmp}/cartulary-shell-inputs.XXXXXX")"
+trap 'rm -f "$discovery_file"' EXIT
+"$NODE_BIN" "$DEFAULT_ROOT_DIR/tools/harness/test-catalog/executable-files-cli.mjs" "$ROOT_DIR" . >"$discovery_file"
 mapfile -d '' -t shell_files < <(discover_shell_files)
 inventory_artifact=""
 if [[ -n "${CARTULARY_STEP_ARTIFACT_DIR:-}" ]]; then
@@ -148,7 +152,7 @@ fi
 
 shellcheck_version="$("$shellcheck_bin" --version 2>/dev/null | tr '\n' ' ' || true)"
 file_list="$(mktemp "${TMPDIR:-/tmp}/cartulary-lint-shell.XXXXXX")"
-trap 'rm -f "$file_list"' EXIT
+trap 'rm -f "$file_list" "$discovery_file"' EXIT
 printf '%s\0' "${shell_files[@]}" >"$file_list"
 
 cache_args=(
@@ -159,6 +163,9 @@ cache_args=(
   --force-env CARTULARY_STATIC_ANALYSIS_FORCE
   --input "$DEFAULT_ROOT_DIR/tools/harness/static-analysis/shellcheck.sh"
   --input "$DEFAULT_ROOT_DIR/tools/harness/static-analysis/shellcheck-runner.sh"
+  --input "$DEFAULT_ROOT_DIR/tools/harness/test-catalog/executable-files-cli.mjs"
+  --input "$DEFAULT_ROOT_DIR/tools/harness/test-catalog/restricted-input-boundary.mjs"
+  --input "$DEFAULT_ROOT_DIR/tools/executable_input_policy.json"
   --input "$DEFAULT_ROOT_DIR/tools/harness/generated-artifacts/generated-artifacts.sh"
   --input "$DEFAULT_ROOT_DIR/tools/harness/readiness/cache-artifact.sh"
   --output "$CACHE_STAMP"

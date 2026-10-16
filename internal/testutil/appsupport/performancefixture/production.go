@@ -15,6 +15,7 @@ import (
 	projectionsfixture "github.com/JochiRaider/cartulary/internal/modules/projections/testsupport/performancefixture"
 	timelinefixture "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/performancefixture"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/conflicttest"
 	fixture "github.com/JochiRaider/cartulary/internal/testutil/performancefixture"
@@ -22,6 +23,7 @@ import (
 
 func NewProduction(
 	pool postgres.DB,
+	objects objectstore.Store,
 	actor authn.UserRecord,
 	conflictTokenSeed string,
 	profile performancefixtureprofile.Profile,
@@ -29,9 +31,16 @@ func NewProduction(
 	if len(conflictTokenSeed) < 16 {
 		return nil, errors.New("performance fixture conflict token seed is incomplete")
 	}
-	owners, err := NewOwners(pool, conflicttest.NewCodec(conflictTokenSeed[:16]))
+	typedObjects, ok := objects.(objectstore.TypedStore)
+	if !ok {
+		return nil, errors.New("performance fixture requires the typed object store capability")
+	}
+	owners, err := NewOwners(pool, typedObjects, conflicttest.NewCodec(conflictTokenSeed[:16]))
 	if err != nil {
 		return nil, err
+	}
+	if profile.FixtureProfileID == "evidence_heavy_snapshot_v2" {
+		return newEvidenceHeavyProduction(pool, actor, profile, owners)
 	}
 	authApplication, err := authfixture.NewProductionApplication(pool, actor)
 	if err != nil {

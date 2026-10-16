@@ -38,6 +38,9 @@ func newGraphPublication(plan *Plan, runRoot string) (*graphPublication, error) 
 	if err := harnesslocal.PublishNew(filepath.Join(runRoot, "run-manifest.json"), append(manifest, '\n')); err != nil {
 		return nil, err
 	}
+	if err := writeEvidence(runRoot, "execution-context.json", "cartulary.harness_execution_context.v1", plan.context, false); err != nil {
+		return nil, err
+	}
 	stream, err := harnesslocal.NewStream(filepath.Join(runRoot, "unit-events.ndjson"), 64*1024)
 	if err != nil {
 		return nil, err
@@ -354,7 +357,7 @@ func (p *graphPublication) Finish(result graphResult) (map[string]any, error) {
 		}
 	}
 	counts := map[string]int{"total": len(p.plan.facts.Graph.Units), "passed": 0, "failed": 0, "skipped": 0, "cancelled": 0}
-	ids, refs := []string{}, []string{"run-manifest.json", "unit-events.ndjson", "cleanup-results.json"}
+	ids, refs := []string{}, []string{"run-manifest.json", "execution-context.json", "unit-events.ndjson", "cleanup-results.json"}
 	for _, u := range p.plan.facts.Graph.Units {
 		ids = append(ids, u.ID)
 		counts[result.States[u.ID]]++

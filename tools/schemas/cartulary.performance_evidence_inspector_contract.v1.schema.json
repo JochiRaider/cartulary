@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.performance_evidence_inspector_contract.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "contract_id",
+    "criterion_id",
+    "predicate_id",
+    "measurement_policy_id",
+    "warmup_passes",
+    "measured_samples",
+    "percentile",
+    "estimator",
+    "product_retries",
+    "threshold_ms",
+    "threshold_comparison",
+    "view_schema_id",
+    "viewport",
+    "start_mark",
+    "stop_mark",
+    "fixture",
+    "workload"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.performance_evidence_inspector_contract.v1"
+    },
+    "contract_id": {
+      "const": "cartulary.performance.ac045.v2"
+    },
+    "criterion_id": {
+      "const": "AC-045"
+    },
+    "predicate_id": {
+      "const": "perf.evidence_inspector.metadata_shell.v2"
+    },
+    "measurement_policy_id": {
+      "const": "cartulary.measurement.interactive_p95.v1"
+    },
+    "warmup_passes": {
+      "const": 1
+    },
+    "measured_samples": {
+      "const": 100
+    },
+    "percentile": {
+      "const": 95
+    },
+    "estimator": {
+      "const": "nearest_rank"
+    },
+    "product_retries": {
+      "const": 0
+    },
+    "threshold_ms": {
+      "const": 300
+    },
+    "threshold_comparison": {
+      "const": "lte"
+    },
+    "view_schema_id": {
+      "const": "cartulary.view.timeline.v2"
+    },
+    "viewport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "device_scale_factor"
+      ],
+      "properties": {
+        "width": {
+          "const": 1920
+        },
+        "height": {
+          "const": 1080
+        },
+        "device_scale_factor": {
+          "const": 1
+        }
+      }
+    },
+    "start_mark": {
+      "const": "cartulary.workbook.timeline_inspector_open_accepted"
+    },
+    "stop_mark": {
+      "const": "cartulary.workbook.evidence_inspector_metadata_visible_paint"
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "seed",
+        "timeline_rows",
+        "evidence_rows",
+        "object_count",
+        "object_bytes",
+        "total_object_bytes",
+        "content_type",
+        "image_width",
+        "image_height",
+        "evidence_title_prefix",
+        "target_summary",
+        "linked_evidence_count",
+        "analyst_sessions",
+        "background_sessions"
+      ],
+      "properties": {
+        "fixture_id": {
+          "const": "cartulary.perf.evidence_heavy.v2"
+        },
+        "seed": {
+          "const": 20260405
+        },
+        "timeline_rows": {
+          "const": 5000
+        },
+        "evidence_rows": {
+          "const": 10000
+        },
+        "object_count": {
+          "const": 10000
+        },
+        "object_bytes": {
+          "const": 2097152
+        },
+        "total_object_bytes": {
+          "const": 20971520000
+        },
+        "content_type": {
+          "const": "image/png"
+        },
+        "image_width": {
+          "const": 2
+        },
+        "image_height": {
+          "const": 2
+        },
+        "evidence_title_prefix": {
+          "const": "Performance Evidence"
+        },
+        "target_summary": {
+          "const": "Evidence inspector performance target"
+        },
+        "linked_evidence_count": {
+          "const": 100
+        },
+        "analyst_sessions": {
+          "const": 1
+        },
+        "background_sessions": {
+          "const": 0
+        }
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "foreground_role",
+        "filter_field_key",
+        "filter_operator",
+        "filter_value",
+        "inspector_section",
+        "metadata_window_size",
+        "consecutive_frames",
+        "owning_viewport",
+        "preview_preflight_records",
+        "preview_preflight_body_verification",
+        "measured_access_handle_requests",
+        "fresh_metadata_request_each_open",
+        "expected_lifecycle_state",
+        "expected_upload_state",
+        "expected_preview_eligible"
+      ],
+      "properties": {
+        "foreground_role": {
+          "const": "editor"
+        },
+        "filter_field_key": {
+          "const": "timeline.has_evidence"
+        },
+        "filter_operator": {
+          "const": "eq"
+        },
+        "filter_value": {
+          "const": true
+        },
+        "inspector_section": {
+          "const": "evidence"
+        },
+        "metadata_window_size": {
+          "const": 5
+        },
+        "consecutive_frames": {
+          "const": 2
+        },
+        "owning_viewport": {
+          "const": "inspector"
+        },
+        "preview_preflight_records": {
+          "const": 100
+        },
+        "preview_preflight_body_verification": {
+          "const": "complete_size_and_sha256"
+        },
+        "measured_access_handle_requests": {
+          "const": 0
+        },
+        "fresh_metadata_request_each_open": {
+          "const": true
+        },
+        "expected_lifecycle_state": {
+          "const": "available"
+        },
+        "expected_upload_state": {
+          "const": "available"
+        },
+        "expected_preview_eligible": {
+          "const": true
+        }
+      }
+    }
+  }
+}

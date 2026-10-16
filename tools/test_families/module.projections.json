@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.projections",
   "rows": [
     {
@@ -615,6 +615,54 @@
       "service_dependencies": [
         "postgres"
       ]
+    },
+    {
+      "row_id": "module.projections.unit.host_page_sqlis_keyset_bounded_and_projection_ow_d9e98c6e8c",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.projections.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections/internal/queryengine",
+        "tests": [
+          "TestHostPageSQLIsKeysetBoundedAndProjectionOwned"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.projections.unit.identity_page_sqlis_keyset_bounded_and_projectio_d3964a85d6",
+      "owner_id": "module.projections",
+      "family_id": "module.projections.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.projections.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/projections/internal/queryengine",
+        "tests": [
+          "TestIdentityPageSQLIsKeysetBoundedAndProjectionOwned"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.workbook",
   "rows": [
     {
@@ -662,6 +662,44 @@
         ],
         "titles": [
           "a11y.references native popup preserves keyboard focus and fits narrow zoomed and spaced layouts"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.accessibility.source_workbook_inspector_edit_spec_ts_34633fc46b",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook-inspector-edit.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "titles": [
+          "a11y.generic reference summaries keep Party and Evidence shortcuts semantic and draft-safe",
+          "a11y.generic reference summary viewer actions remain disabled"
+        ],
+        "scenario_ids": [
+          "scenario_0fe4f9a6d477",
+          "scenario_b900363cc653"
         ]
       },
       "evidence_class": "accessibility",
@@ -4245,7 +4283,7 @@
           "scenario_ae2c87691cbc"
         ],
         "titles": [
-          "pastes a representative 20x5 Timeline clipboard range"
+          "pastes 20 rows of two-column TSV starting at an existing Timeline row"
         ]
       },
       "evidence_class": "browser",
@@ -5205,6 +5243,41 @@
         ],
         "titles": [
           "Timeline Sort editor keeps focus through a continuous keyboard session"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.workbook.browser.source_sentinel_spec_ts_38af00ea72",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/sentinel.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "titles": [
+          "Workbook inspector fills the shell work area across row counts"
+        ],
+        "scenario_ids": [
+          "scenario_38af00ea7280"
         ]
       },
       "evidence_class": "browser",
@@ -7588,8 +7661,8 @@
         "titles": [
           "does not render draft rows as row-bound inspector evidence",
           "keeps collection identity and count separate from unavailable observation",
-          "lists a saved linked record with explicit file actions",
-          "uses row-specific file inputs for committed row evidence"
+          "uses row-specific file inputs for committed row evidence",
+          "withholds linked file actions until metadata is admitted"
         ],
         "project_id": "browser-unit"
       },
@@ -7934,6 +8007,7 @@
         "file": "apps/web/src/services/clientTransactionId.test.ts",
         "titles": [
           "fails locally when Web Crypto is unavailable",
+          "keeps the browser mutation facade bound to secure entropy and fails closed without it",
           "retains the prefix and uses the platform UUID generator",
           "uses RFC 4122 v4 formatting with secure random bytes as fallback"
         ],
@@ -8042,33 +8116,6 @@
           "drives WorkbookShell retry and success settlement from the shared pending queue model",
           "drives WorkbookShell terminal halt presentation from the shared pending queue model",
           "recovers a Timeline client transaction conflict with a fresh opaque request ID"
-        ],
-        "project_id": "browser-unit"
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "minimum_tier": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_f313f22abb",
-      "owner_id": "module.workbook",
-      "family_id": "module.workbook.frontend_unit",
-      "collaborator_ids": [
-        "web.application"
-      ],
-      "verification_ids": [
-        "module.workbook.verification.behavior_contract"
-      ],
-      "runner": "vitest",
-      "selector": {
-        "file": "apps/web/src/services/clientTransactionIdPolicy.test.ts",
-        "titles": [
-          "keeps browser mutation IDs independent of counters, clocks, and insecure randomness"
         ],
         "project_id": "browser-unit"
       },

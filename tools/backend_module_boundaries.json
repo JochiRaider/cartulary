@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.backend_module_boundaries.v3",
+  "schema_id": "cartulary.backend_module_boundaries.v4",
   "scan_roots": [
     "cmd",
     "db/queries",
@@ -309,7 +309,9 @@
         "internal/app/server/runtime_assembly.go",
         "internal/modules/reporting/evidence_provider_validation_test.go",
         "internal/modules/reporting/export_materializer.go",
+        "internal/modules/reporting/render_request_admission.go",
         "internal/modules/reporting/routes.go",
+        "internal/modules/reporting/snapshot_payload.go",
         "internal/modules/revisions/sourceboundary/**"
       ]
     },
@@ -340,6 +342,7 @@
       "import": "github.com/JochiRaider/cartulary/internal/modules/extensions",
       "allowed_importers": [
         "internal/app/extensionassembly/**",
+        "internal/app/jobassembly/**",
         "internal/app/recoveryassembly/state_catalog.go",
         "internal/app/referenceassembly/operator_admission.go",
         "internal/app/server/**",
@@ -476,14 +479,27 @@
         "internal/modules/recovery/operatortest/portable_restore_process_test.go",
         "internal/modules/recovery/restore_projection_contract_test.go",
         "internal/modules/reference_data/**",
+        "internal/modules/reporting/backup_recovery_integration_test.go",
+        "internal/modules/reporting/composition_preview_port.go",
+        "internal/modules/reporting/model_isolation_test.go",
         "internal/modules/reporting/portable_artifacts.go",
         "internal/modules/reporting/portable_export.go",
         "internal/modules/reporting/portable_recovery.go",
         "internal/modules/reporting/portable_references.go",
+        "internal/modules/reporting/preview_recovery.go",
         "internal/modules/reporting/redaction.go",
         "internal/modules/reporting/reference_binding_integration_test.go",
+        "internal/modules/reporting/release_payload_test.go",
+        "internal/modules/reporting/release_recovery.go",
+        "internal/modules/reporting/render_admission.go",
         "internal/modules/reporting/render_bundle.go",
+        "internal/modules/reporting/render_preparation_store.go",
+        "internal/modules/reporting/render_request_admission.go",
         "internal/modules/reporting/routes.go",
+        "internal/modules/reporting/snapshot_admission.go",
+        "internal/modules/reporting/snapshot_capture.go",
+        "internal/modules/reporting/snapshot_capture_test.go",
+        "internal/modules/reporting/snapshot_payload_test.go",
         "internal/modules/reporting/store.go",
         "internal/modules/revisions/delete_restore_test.go",
         "internal/modules/revisions/history_source_paging_test.go",
@@ -1840,7 +1856,9 @@
       "production_only": true,
       "allowed_prefixes": [],
       "allowed_imports": [
-        "github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
+        "github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider",
+        "github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract",
+        "github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
       ]
     },
     {
@@ -1920,6 +1938,30 @@
         "github.com/JochiRaider/cartulary/internal/modules/incidents/admission",
         "github.com/JochiRaider/cartulary/internal/modules/revisions/conflicts",
         "github.com/JochiRaider/cartulary/internal/modules/tabularingest"
+      ]
+    },
+    {
+      "id": "render-sandbox-command-production-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": [
+        "cmd/render-sandbox/main.go"
+      ],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/app/rendersandbox"
+      ]
+    },
+    {
+      "id": "render-sandbox-assembly-production-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": [
+        "internal/app/rendersandbox/**"
+      ],
+      "production_only": true,
+      "allowed_prefixes": [],
+      "allowed_imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/renderprocess"
       ]
     }
   ],
@@ -2388,10 +2430,12 @@
         "internal/modules/links/internal/sourcestate/**",
         "internal/modules/links/internal/revisionprovider/provider.go",
         "internal/modules/links/store.go",
+        "internal/modules/parties/cutover.go",
         "internal/modules/parties/internal/providers/deleterestore/provider.go",
         "internal/modules/parties/internal/providers/incidentbundle/portability.go",
         "internal/modules/parties/internal/providers/incidentbundle/source_port.go",
         "internal/modules/parties/internal/source/facts.go",
+        "internal/modules/parties/references/labels.go",
         "internal/modules/parties/internal/providers/projection/source.go",
         "internal/modules/parties/internal/providers/reporting/provider.go",
         "internal/modules/projections/internal/queryengine/**",
@@ -2516,7 +2560,8 @@
     "allowed_go_files": [
       "cmd/server/main.go",
       "cmd/migrate/main.go",
-      "cmd/operator/main.go"
+      "cmd/operator/main.go",
+      "cmd/render-sandbox/main.go"
     ]
   },
   "forbidden_source_tokens": [
@@ -2529,7 +2574,8 @@
         "internal/modules/entities/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "artifact-mutation-idempotency-lookup-is-centralized",
@@ -2542,7 +2588,8 @@
       "allowed_paths": [
         "internal/modules/artifacts/mutation_idempotency.go"
       ],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "artifact-import-no-peer-store-construction-or-user-query",
@@ -2556,7 +2603,8 @@
         "internal/modules/artifacts/import_create.go"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "platform-config-no-owner-profile-registry",
@@ -2573,7 +2621,8 @@
         "internal/platform/config/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "platform-config-no-retired-document-snapshot-access",
@@ -2591,7 +2640,8 @@
         "internal/platform/config/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "platform-config-no-in-memory-toml-snapshot-admission",
@@ -2602,7 +2652,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "configassembly-no-in-memory-admission-definition",
@@ -2613,7 +2664,8 @@
         "internal/app/configassembly/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "application-no-configassembly-in-memory-admission-callers",
@@ -2625,7 +2677,8 @@
         "tools/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "configassembly-deployment-no-wire-tags",
@@ -2636,7 +2689,8 @@
         "internal/app/configassembly/deployment.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "workbook-assembly-no-evidence-construction",
@@ -2648,7 +2702,8 @@
         "internal/app/workbookassembly/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-no-broad-store-or-free-intent-writer",
@@ -2661,7 +2716,8 @@
         "internal/modules/collaboration/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-no-retired-root-lifecycle-or-forwarding-exports",
@@ -2685,7 +2741,8 @@
         "internal/modules/collaboration/internal/**",
         "internal/modules/collaboration/protocol/**"
       ],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "platform-ws-no-collaboration-semantic-symbols",
@@ -2702,7 +2759,8 @@
         "internal/platform/ws/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-fact-ports-have-no-retired-or-combined-api",
@@ -2722,7 +2780,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "source-owners-have-no-aggregate-revision-publication-finalizer",
@@ -2741,7 +2800,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-recovery-facade-has-no-persistence-or-transaction-mechanics",
@@ -2758,7 +2818,8 @@
         "internal/modules/collaboration/recovery.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-no-retired-root-recovery-service",
@@ -2770,7 +2831,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-table-sql-is-owner-or-physical-evidence-only",
@@ -2792,7 +2854,8 @@
         "internal/platform/recoverystate/**",
         "internal/testutil/collaborationsupport/**"
       ],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-no-retired-owner-local-test-support-import",
@@ -2804,7 +2867,8 @@
         "tools/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "jobs-and-network-flow-no-collaboration-table-sql",
@@ -2819,7 +2883,8 @@
         "internal/platform/jobs/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "jobs-consumers-use-narrow-capabilities",
@@ -2835,7 +2900,8 @@
         "internal/platform/httpapi/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "transaction-bound-job-callers-use-configured-service",
@@ -2847,7 +2913,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-store-api",
@@ -2861,7 +2928,8 @@
         "internal/modules/incidents/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-iteration2-dead-leaves",
@@ -2877,7 +2945,8 @@
         "internal/modules/incidents/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-caller-owned-idempotency-and-helper-api",
@@ -2895,7 +2964,8 @@
         "internal/modules/incidents/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-application-construction-and-commit-seam",
@@ -2910,7 +2980,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-positional-application-constructor",
@@ -2921,7 +2992,8 @@
         "internal/modules/incidents/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-http-options-and-exported-mechanics",
@@ -2940,7 +3012,8 @@
         "internal/modules/incidents/httpapi/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-root-terminal-coordinator-port",
@@ -2951,7 +3024,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-root-import-finalizer-port-and-request-id",
@@ -2966,7 +3040,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-exported-bundle-codec-helpers",
@@ -2978,7 +3053,8 @@
         "internal/modules/incidents/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "incidents-cannot-reclaim-workbook-recovery-tables",
@@ -2990,7 +3066,8 @@
         "internal/modules/incidents/recovery_state.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-recovery-current-basis-due-selector",
@@ -3003,7 +3080,8 @@
         "internal/modules/recovery/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-closed-sentinel-and-classifiers",
@@ -3014,7 +3092,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-closed-sentinel-definition",
@@ -3025,7 +3104,8 @@
         "internal/modules/incidents/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-admission-api",
@@ -3043,7 +3123,8 @@
         "internal/modules/incidents/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-iteration3-command-and-hash-surfaces",
@@ -3064,7 +3145,8 @@
         "internal/modules/incidents/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-iteration3-audit-terminal-and-facade-surfaces",
@@ -3082,7 +3164,8 @@
         "internal/modules/incidents/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "incidents-iteration3-source-codec-remains-explicit-and-fallible",
@@ -3101,7 +3184,8 @@
       "allowed_paths": [
         "internal/modules/incidents/incident_bundle_source_codec_test.go"
       ],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "incidents-iteration3-no-hidden-mutation-clock",
@@ -3117,7 +3201,8 @@
         "internal/modules/incidents/membership_application.go"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "incidents-iteration3-no-open-lifecycle-action-boundary",
@@ -3134,7 +3219,8 @@
         "internal/modules/incidents/membership_application.go"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-effect-routing-api",
@@ -3149,7 +3235,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-http-root-api",
@@ -3163,7 +3250,8 @@
         "internal/modules/incidents/*.go"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-incidents-owner-adapters",
@@ -3177,7 +3265,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "incidents-no-revisions-source-boundary-storage",
@@ -3189,7 +3278,8 @@
         "internal/modules/incidents/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "incident-create-commit-seam-not-in-production-assembly",
@@ -3202,7 +3292,8 @@
         "internal/platform/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-assessments-store-definition",
@@ -3214,7 +3305,8 @@
         "internal/modules/assessments/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-assessments-store-consumers",
@@ -3228,7 +3320,8 @@
         "internal/testutil/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "assessments-retired-incident-bundle-helpers",
@@ -3240,7 +3333,8 @@
         "internal/modules/assessments/*.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "root-capability-consumers-no-raw-filesystem-mutation",
@@ -3261,7 +3355,8 @@
         "internal/platform/objectstore/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "app-server-no-raw-filesystem-effects",
@@ -3287,7 +3382,8 @@
         "internal/app/server/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "app-server-claim-resolution-single-construction",
@@ -3300,7 +3396,8 @@
       "allowed_paths": [
         "internal/app/server/runtime_assembly.go"
       ],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "network-flow-no-deployment-admin-bypass",
@@ -3311,7 +3408,8 @@
         "internal/modules/networkflow/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "network-flow-no-third-party-egress-primitives",
@@ -3326,7 +3424,8 @@
         "internal/modules/networkflow/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-extensions-facades",
@@ -3347,7 +3446,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-extension-http-epoch-and-global-defaults",
@@ -3365,7 +3465,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-extension-profile-handler-identities",
@@ -3384,7 +3485,8 @@
         "internal/platform/jobs/lifecycle_persistence.go",
         "internal/modules/extensions/extension_job_cutover_migration_test.go"
       ],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-contextless-cli-wrappers",
@@ -3399,7 +3501,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-operator-recovery-cli-import",
@@ -3411,7 +3514,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-recovery-top-level-token",
@@ -3423,7 +3527,8 @@
         "internal/app/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "recovery-application-no-operator-transport-imports",
@@ -3435,7 +3540,8 @@
         "internal/modules/recovery/application/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "recovery-application-no-error-text-routing",
@@ -3447,7 +3553,8 @@
         "internal/modules/recovery/application/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "recovery-sqlc-confined-to-private-store-adapter",
@@ -3460,7 +3567,8 @@
       "allowed_paths": [
         "internal/modules/recovery/store.go"
       ],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "recovery-no-raw-evidence-persistence-access",
@@ -3473,7 +3581,8 @@
         "internal/modules/recovery/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "recovery-application-no-audit-adapter-import",
@@ -3484,7 +3593,8 @@
         "internal/modules/recovery/application/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "recovery-runtime-no-documentation-or-harness-inputs",
@@ -3498,7 +3608,8 @@
         "internal/app/operator/internal/recoverycli/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "recovery-current-verification-no-timeline-view-constant",
@@ -3509,7 +3620,8 @@
         "internal/modules/recovery/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-browser-runtime-opt-in",
@@ -3521,7 +3633,8 @@
         "cmd/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-timeline-facade-calls",
@@ -3536,7 +3649,8 @@
       ],
       "exact_file_set_id": "imports-transport-bindings",
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-timeline-facade-shims",
@@ -3553,7 +3667,8 @@
         "internal/modules/timeline/facade.go"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-workbook-dispatch-and-composition-authority",
@@ -3569,7 +3684,8 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-workbook-legacy-mutation-surfaces",
@@ -3598,7 +3714,8 @@
         "internal/app/workbookassembly/*.go"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-workbook-provider-callback-and-restore-aliases",
@@ -3631,7 +3748,8 @@
         "internal/modules/workbook/restoreprobe/*.go"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-workbook-admission-and-command-hash-contracts",
@@ -3652,7 +3770,8 @@
         "internal/modules/workbook/contribution_catalog.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-workbook-adapter-admission-dispatch-and-hash-override",
@@ -3664,7 +3783,8 @@
         "internal/app/workbookassembly/*_adapters.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-workbook-route-test-hash-override",
@@ -3675,7 +3795,8 @@
         "internal/testutil/workbookroutetest/catalog.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-workbook-permissive-startup-construction",
@@ -3691,7 +3812,8 @@
         "internal/modules/workbook/startup/store.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "retired-workbook-startup-assembly-nonfailing-constructor",
@@ -3702,7 +3824,8 @@
         "internal/app/workbookassembly/startup.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "source-owners-no-workbook-implementation-imports",
@@ -3719,7 +3842,8 @@
         "internal/modules/projections/adapters/adapters.go",
         "internal/modules/workbook/**"
       ],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "tasks-decisions-retired-forwarders-and-dead-surfaces",
@@ -3750,7 +3874,8 @@
         "internal/modules/tasksdecisions/internal/providers/reporting/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "tasks-decisions-no-kitchen-sink-store",
@@ -3765,7 +3890,8 @@
         "internal/modules/tasksdecisions/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "tasks-decisions-no-auth-or-raw-replay-leakage",
@@ -3782,7 +3908,8 @@
         "internal/modules/tasksdecisions/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "tasks-decisions-no-http-transport-imports",
@@ -3795,7 +3922,8 @@
         "internal/modules/tasksdecisions/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "tasks-decisions-retired-composition-surfaces",
@@ -3810,7 +3938,8 @@
         "internal/modules/tasksdecisions/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "timeline-store-surface-private",
@@ -3826,7 +3955,8 @@
       "allowed_paths": [
         "internal/modules/timeline/**"
       ],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "workbook-no-timeline-store-error-classification",
@@ -3843,7 +3973,8 @@
         "internal/modules/workbook/routes.go"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "delete-restore-sources-no-generic-sql-metadata",
@@ -3864,7 +3995,8 @@
         "internal/modules/timeline/deleterestore/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "evidence-owner-runtime-only-server-constructed",
@@ -3877,7 +4009,8 @@
       "allowed_paths": [
         "internal/app/server/runtime_assembly.go"
       ],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "evidence-store-no-cross-package-production-construction",
@@ -3895,7 +4028,8 @@
         "internal/app/server/evidence_composition_characterization_test.go",
         "internal/modules/evidence/**"
       ],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "entities-obsolete-workbookprojection-path-remains-retired",
@@ -3906,7 +4040,8 @@
         "internal/modules/entities/workbookprojection/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "entities-obsolete-projection-aggregate-accessors-remain-retired",
@@ -3922,7 +4057,8 @@
         "internal/modules/projections/adapters/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "entities-retired-schema-forwarders",
@@ -3935,7 +4071,8 @@
         "internal/modules/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "entities-retired-dead-and-compatibility-declarations",
@@ -3956,7 +4093,8 @@
         "internal/app/timelineassembly/relationship_adapters.go"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "entities-retired-reporting-wrappers-and-concrete-provider",
@@ -3970,7 +4108,8 @@
         "internal/modules/entities/mentions/reportingprovider/**"
       ],
       "allowed_paths": [],
-      "production_only": true
+      "production_only": true,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-retired-observer-and-compatibility-surfaces",
@@ -4002,19 +4141,21 @@
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-no-retired-mutable-runtime-lifecycle-state",
       "tokens": [
-        "ConfigureTelemetry(",
+        "ConfigureTelemetry",
         "collaboration_dispatcher"
       ],
       "scan_paths": [
         "internal/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "go_identifier"
     },
     {
       "id": "collaboration-protocol-no-fixture-only-exports-or-codec-carrier",
@@ -4032,7 +4173,8 @@
         "internal/modules/collaboration/protocol/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-postgres-stream-has-no-clock",
@@ -4043,7 +4185,8 @@
         "internal/modules/collaboration/internal/stream/store.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-session-handler-has-no-unused-client-instance",
@@ -4054,7 +4197,8 @@
         "internal/modules/collaboration/socket_session.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-private-hub-subscription-owned-by-session-and-owner-tests",
@@ -4069,7 +4213,8 @@
         "internal/modules/collaboration/hub_state_test.go",
         "internal/modules/collaboration/socket_session.go"
       ],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-obsolete-source-paths-remain-retired",
@@ -4087,7 +4232,8 @@
         "internal/modules/collaboration/internal/stream/record_payload.go"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-runtime-state-has-one-owner-definition",
@@ -4100,7 +4246,8 @@
       "allowed_paths": [
         "internal/modules/collaboration/runtime.go"
       ],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-postgres-stream-state-has-one-owner-definition",
@@ -4113,7 +4260,8 @@
       "allowed_paths": [
         "internal/modules/collaboration/internal/stream/store.go"
       ],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     },
     {
       "id": "collaboration-owner-tests-use-shared-runtime-harness",
@@ -4127,7 +4275,8 @@
         "internal/modules/collaboration/**"
       ],
       "allowed_paths": [],
-      "production_only": false
+      "production_only": false,
+      "match_kind": "source_text"
     }
   ],
   "forbidden_test_build_tokens": [

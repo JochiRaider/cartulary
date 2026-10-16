@@ -18,6 +18,14 @@
         "static_check"
       ],
       "public_target": "json-shape-check"
+    },
+    {
+      "verification_id": "harness.generated_artifacts.verification.source_contracts",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ]
     }
   ]
 }

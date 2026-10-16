@@ -92,7 +92,11 @@ func (c rollbackCoordinator) execute(ctx context.Context, command RollbackComman
 			}
 		}
 	}
-	if err := c.locker.lockTx(ctx, tx, protected.Affected); err != nil {
+	projectionRecords, err := c.store.projectionScopeTx(ctx, tx, record.IncidentID, protected.Affected)
+	if err != nil {
+		return RollbackResult{}, err
+	}
+	if err := c.locker.lockTx(ctx, tx, projectionRecords); err != nil {
 		return RollbackResult{}, err
 	}
 	record, err = c.repository.loadRollbackRecordEnvelopeTx(ctx, tx, recordID, true)
@@ -136,6 +140,14 @@ func (c rollbackCoordinator) execute(ctx context.Context, command RollbackComman
 			return RollbackResult{}, err
 		}
 	}
+	currentProjectionRecords, err := c.store.projectionScopeTx(ctx, tx, record.IncidentID, plan.Affected)
+	if err != nil {
+		return RollbackResult{}, err
+	}
+	if !slices.Equal(projectionRecords, currentProjectionRecords) {
+		return RollbackResult{}, &RollbackPreconditionError{ReasonCode: "stale_target"}
+	}
+	plan.ProjectionRecords = projectionRecords
 	if claimPrepareErr != nil {
 		return RollbackResult{}, claimPrepareErr
 	}

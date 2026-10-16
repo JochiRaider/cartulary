@@ -24,6 +24,12 @@ export function workbookHistoryEventPresentation(
     })),
   }));
   return {
+    binding: {
+      actorId: item.actor_user_id,
+      changeSetId: item.change_set_id,
+      operation: item.operation,
+      revision: item.revision_no ?? null,
+    },
     actorLabel:
       actorLabel?.trim() ||
       `Identifier ${item.source_actor_id ?? item.actor_user_id}`,

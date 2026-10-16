@@ -42,6 +42,16 @@
   ],
   "generated_files": [
     {
+      "path": "tools/migration_history_manifest.json",
+      "allowed_extensions": [".json"],
+      "required_marker": "^\\{\\n  \"schema_id\": \"cartulary\\.migration_history_manifest\\.v1\""
+    },
+    {
+      "path": "tools/schema_object_ownership_manifest.json",
+      "allowed_extensions": [".json"],
+      "required_marker": "^\\{\\n  \"schema_id\": \"cartulary\\.schema_object_ownership_manifest\\.v2\""
+    },
+    {
       "path": "contracts/openapi/cartulary.openapi.yaml",
       "allowed_extensions": [
         ".yaml"

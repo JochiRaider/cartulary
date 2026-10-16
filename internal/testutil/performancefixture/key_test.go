@@ -141,7 +141,7 @@ func activeTestProfile(t *testing.T) performancefixtureprofile.Profile {
 	t.Helper()
 	profiles := performancefixtureprofile.Profiles()
 	for _, profile := range profiles {
-		if profile.Status == "active" {
+		if profile.Status == "active" && profile.FixtureProfileID == "timeline_large_grid_snapshot_v2" {
 			return profile
 		}
 	}

@@ -177,6 +177,8 @@ export function WorkbookPresenceSummary({
           <span
             key={presence.user_id}
             aria-hidden="true"
+            data-presence-user-id={presence.user_id}
+            data-presence-mode={presence.mode}
             style={presenceAvatarStyle}
           >
             {displayInitials(presence.display_name)}

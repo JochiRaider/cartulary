@@ -34,15 +34,6 @@ func (f *mutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 	if err := validateCreateParams(createParams); err != nil {
 		return MutationResult{}, err
 	}
-	var observed *observedObject
-	var observationFailure initialBlobObservationFailure
-	if request.InitialObjectBlobID != nil {
-		var observeErr error
-		observed, observeErr = f.observeInitialBlob(ctx, command.IncidentID, *request.InitialObjectBlobID, command.Now.UTC())
-		if observeErr != nil && !errors.As(observeErr, &observationFailure) {
-			return f.reconcileInitialBlobCreate(ctx, idempotencyKey, requestHash, observeErr)
-		}
-	}
 
 	tx, err := f.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -59,7 +50,6 @@ func (f *mutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 			tx,
 			command.IncidentID,
 			*request.InitialObjectBlobID,
-			observed,
 			command.Now.UTC(),
 		)
 		if finalizeErr != nil {
@@ -67,11 +57,6 @@ func (f *mutationFacade) Create(ctx context.Context, command CreateCommand) (Mut
 				if err := tx.Commit(ctx); err != nil {
 					return MutationResult{}, fmt.Errorf("commit rejected evidence blob finalization: %w", err)
 				}
-			}
-			var rejected AttachRejectedError
-			if observationFailure.error != nil && commitRejection &&
-				errors.As(finalizeErr, &rejected) && rejected.ReasonCode == attachReasonBlobPending {
-				return MutationResult{}, observationFailure.error
 			}
 			if !commitRejection {
 				// A concurrent exact create may have committed while this request

@@ -86,4 +86,5 @@ VALUES ($1, $2, $3, 'hash', false, true, false)
 			t.Fatalf("lookup returned actor %s, want %s", record.ActorUserID, tc.actorID)
 		}
 	}
+	assertRepeatableRouteAdmissionLifecycle(t, pool, actorA, actorB)
 }

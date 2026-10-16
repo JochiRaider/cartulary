@@ -184,9 +184,9 @@
       "reference_pack.import_v2",
       "reference_pack.refresh_v2",
       "reference_pack.reverify_v2",
-      "snapshot_reporting.composition_preview_v2",
-      "snapshot_reporting.release_create_v2",
-      "snapshot_reporting.snapshot_create_v2"
+      "snapshot_reporting.composition_preview_v4",
+      "snapshot_reporting.release_create_v4",
+      "snapshot_reporting.snapshot_create_v4"
     ],
     "graph_object_kind": [
       "vertex",

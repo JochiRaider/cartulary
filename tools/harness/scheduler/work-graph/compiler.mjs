@@ -136,6 +136,7 @@ function boundedGoClaims(claims, requestedParallelism, availablePostgresLanes) {
 }
 
 function policyEvidenceOutputs(target) {
+  if (target === "test-evidence-audit") return ["test-evidence-audit/audit.json"];
   if (target === "build-web" || target === "build-web-measurement") {
     return [`${target}/frontend-artifact.json`];
   }
@@ -226,8 +227,9 @@ function goShardUnit(
 }
 
 export class WorkGraphCompiler {
-  constructor(root) {
+  constructor(root, { targetInputs = {} } = {}) {
     this.root = root;
+    this.targetInputs = targetInputs;
     this.owner = loadWorkGraphOwner(root);
     const topology = loadExecutionTopology({
       root,
@@ -293,8 +295,11 @@ export class WorkGraphCompiler {
       for (const group of stage.groups) for (const rowID of group.selectedRowIDs) browserArtifactsByRow.set(rowID, artifact);
     }
     const prerequisiteTargetsForRow = (row) => {
-      const targets = new Set();
+      const targets = new Set(row.preparation_targets ?? []);
       if (row.runner === "vitest") targets.add("frontend-install");
+      if (row.runner === "vitest" && row.selector.project_id === "renderer-node" && row.evidence_class === "integration") {
+        targets.add("playwright-install");
+      }
       if (row.runner === "playwright") {
         for (const target of [
           "playwright-install",
@@ -392,6 +397,7 @@ export class WorkGraphCompiler {
             fixture_profile_id: row.fixture_profile_id ?? null,
             process_isolation: goRowProcessIsolation(row),
             service_dependencies: row.service_dependencies,
+            preparation_targets: row.preparation_targets ?? [],
             runtime_binary_ids: this.familyRuntimeBinaries.get(row.family_id) ?? [],
           },
           // Dedicated databases, migration databases, and ordinary object-store
@@ -526,6 +532,11 @@ export class WorkGraphCompiler {
       ? "artifact"
       : "policy";
     const policy = this.owner.policy_units[target];
+    const forwardedInputs = Object.fromEntries((taskTarget.input_contract?.inputs ?? [])
+      .filter((input) => input.binding === "make_variable" && input.child_forwarding === "argv" &&
+        input.summary_emission !== "redacted_value" && Object.hasOwn(this.targetInputs[target] ?? {}, input.name))
+      .map((input) => [input.name, this.targetInputs[target][input.name]]));
+    const nodeTool = recipe?.type === "node_tool" || recipe?.type === "owner_command";
     const fixtureLease = policy?.fixture_lease ?? "none";
     const serviceDependencies = policy?.service_dependencies ?? [];
     assertFixtureServiceDependencies(fixtureLease, serviceDependencies, `policy ${target}`);
@@ -541,9 +552,10 @@ export class WorkGraphCompiler {
         owner_id: "harness.command_surface",
         kind,
         command: {
-          executable: "make",
-          args: ["--silent", "--no-print-directory", target],
+          executable: nodeTool ? "node" : "make",
+          args: nodeTool ? ["tools/harness/execution/run-make-node-tool-cli.mjs", target] : ["--silent", "--no-print-directory", target],
           environment: {
+            ...forwardedInputs,
             CARTULARY_TEST_TARGET: target,
             CARTULARY_HARNESS_SERVICE_DEPENDENCIES: serviceDependencies.join(","),
             ...(recipe?.type === "artifact_binding"

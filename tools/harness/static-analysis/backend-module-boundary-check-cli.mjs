@@ -16,7 +16,7 @@ import { sqlRelationAccesses } from "./sql-relations.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "../../..");
-const manifestSchemaID = "cartulary.backend_module_boundaries.v3";
+const manifestSchemaID = "cartulary.backend_module_boundaries.v4";
 const summarySchemaID = "cartulary.backend_module_boundary_summary.v1";
 const sourceExtensions = new Set([".go", ".mjs", ".js", ".sh", ".sql"]);
 const ignoredDirectoryNames = new Set([
@@ -433,6 +433,7 @@ function normalizeManifest(raw) {
       }
       return {
         id: requireString(rule?.id, `${label}.id`),
+        matchKind: requireSourceTokenMatchKind(rule, label),
         tokens: requireStringArray(rule?.tokens ?? [], `${label}.tokens`),
         scanPaths: hasScanPaths
           ? requireStringArray(rule.scan_paths, `${label}.scan_paths`).map(normalizePath)
@@ -1894,6 +1895,47 @@ function checkCommandRootShape(files, rule) {
     .map((file) => violation("command_root_shape", file, "unexpected_go_file"));
 }
 
+function requireSourceTokenMatchKind(rule, label) {
+  if (!["source_text", "go_identifier"].includes(rule?.match_kind)) {
+    throw new Error(`${label}.match_kind must be source_text or go_identifier`);
+  }
+  if (rule.match_kind === "go_identifier" &&
+    (!Array.isArray(rule.tokens) || rule.tokens.some((token) =>
+      typeof token !== "string" || !/^[\p{L}_][\p{L}\p{Nd}_]*$/u.test(token)))) {
+    throw new Error(`${label}.tokens must contain Go identifiers`);
+  }
+  return rule.match_kind;
+}
+
+function assertSourceTokenMatchFixtures(manifest) {
+  const rule = manifest.forbiddenSourceTokens.find((entry) =>
+    entry.id === "collaboration-no-retired-mutable-runtime-lifecycle-state");
+  if (rule?.matchKind !== "go_identifier") {
+    throw new Error("retired runtime lifecycle names require Go identifier matching");
+  }
+  for (const [source, expected] of [
+    ["func ConfigureTelemetry () {}", 1],
+    ["func f() { runtime.ConfigureTelemetry /* comment */ () }", 1],
+    ["var collaboration_dispatcher int", 1],
+    ['const fixture = "func ConfigureTelemetry() {}"', 0],
+    ['const fixture = `ConfigureTelemetry()`', 0],
+    ['// ConfigureTelemetry()\n/* collaboration_dispatcher */', 0],
+    ['const fixture = "escaped \\\" ConfigureTelemetry()"', 0],
+    ["var ConfigureTelemetrySuffix, πConfigureTelemetry int", 0],
+  ]) {
+    const result = checkForbiddenSourceTokens([{
+      relative: "internal/platform/jobs/fixture_test.go", content: `package jobs\n${source}`,
+    }], [rule]);
+    if (result.length !== expected) throw new Error("Go identifier boundary characterization failed");
+  }
+  for (const match_kind of [undefined, "unknown"]) {
+    let rejected = false;
+    try { requireSourceTokenMatchKind({ match_kind, tokens: ["field"] }, "fixture"); }
+    catch { rejected = true; }
+    if (!rejected) throw new Error("missing or unknown match kind was admitted");
+  }
+}
+
 function checkForbiddenSourceTokens(files, rules, exactFilesByID = new Map()) {
   const violations = [];
   for (const rule of rules) {
@@ -1910,8 +1952,11 @@ function checkForbiddenSourceTokens(files, rules, exactFilesByID = new Map()) {
       if (pathMatchesAny(file.relative, rule.allowedPaths)) {
         continue;
       }
+      const identifiers = rule.matchKind === "go_identifier"
+        ? new Set(sanitizeGoStructure(file.content).match(/[\p{L}_][\p{L}\p{Nd}_]*/gu) ?? [])
+        : null;
       for (const token of rule.tokens) {
-        if (file.content.includes(token)) {
+        if (identifiers === null ? file.content.includes(token) : file.relative.endsWith(".go") && identifiers.has(token)) {
           violations.push(violation("forbidden_source_token", file, `${rule.id}:${token}`));
         }
       }
@@ -1958,6 +2003,7 @@ function main() {
     rule.id.endsWith("-projection-storage-access"),
   );
   assertBoundaryFixtures(manifest);
+  assertSourceTokenMatchFixtures(manifest);
   assertMigrationSourceBoundaryFixtures(manifest.migrationSourceBoundary);
   const violations = [
     ...checkOwnerPortOnlyImports(files, manifest.ownerPortOnlyImports),

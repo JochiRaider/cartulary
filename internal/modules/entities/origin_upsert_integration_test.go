@@ -589,6 +589,11 @@ UPDATE incident_memberships
 		incidentID := appsupport.MustUUID(t, incident["incident_id"].(string))
 		login := appsupport.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
 
+		party := createEntityRow(t, harness.Server.HTTP.URL, incidentID.String(), "cartulary.view.parties.v1", login, map[string]any{
+			"client_txn_id": "entity-patch-partition-party", "party.display_name": "Assigned organization", "party.party_kind": "organization",
+		}, http.StatusCreated)
+		partyID := party["row"].(map[string]any)["record_id"].(string)
+
 		type entityCase struct {
 			name             string
 			viewSchemaID     string
@@ -655,13 +660,18 @@ UPDATE incident_memberships
 				row := created["row"].(map[string]any)
 				recordID := appsupport.MustUUID(t, row["record_id"].(string))
 				cells := row["cells"].(map[string]any)
-				if len(cells) != 15 || len(row) != 4 {
-					t.Fatalf("%s create row must expose exactly 15 cells and root technical members, got %#v", tc.name, row)
+				if len(cells) != 18 || len(row) != 4 {
+					t.Fatalf("%s create row must expose exactly 18 cells and root technical members, got %#v", tc.name, row)
 				}
 				for fieldKey, want := range tc.createOnlyValues {
 					if got := cells[fieldKey].(map[string]any)["value"]; got != want {
 						t.Fatalf("%s create-only field %s not visible after create: got %#v want %q", tc.name, fieldKey, got, want)
 					}
+				}
+
+				for _, assignment := range []string{"subject", "responsible", "observer"} {
+					field := strings.ToLower(tc.name) + "." + assignment + "_party_ids"
+					tc.patchChanges = append(tc.patchChanges, map[string]any{"field_key": field, "action_payload": map[string]any{"kind": "collection_actions_v1", "actions": []map[string]any{{"op": "add_party_ref", "party_id": partyID}}}})
 				}
 
 				type patchSnapshot struct {
@@ -704,7 +714,7 @@ UPDATE incident_memberships
 				)
 				patchData := appsupport.RequireSuccessData(t, patchResp, http.StatusOK)
 				if got := int64(patchData["row"].(map[string]any)["row_version"].(float64)); got != 2 {
-					t.Fatalf("%s exact eight-field patch row_version = %d, want 2", tc.name, got)
+					t.Fatalf("%s exact eleven-field patch row_version = %d, want 2", tc.name, got)
 				}
 				incidentwstest.RequireRecordChanged(t, socket, recordID.String(), 2)
 				afterPatch := snapshot()

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.reportcomposition",
   "rows": [
     {
@@ -32,6 +32,60 @@
       ]
     },
     {
+      "row_id": "module.reportcomposition.integration.public_lifecycle_authority",
+      "owner_id": "module.reportcomposition",
+      "family_id": "module.reportcomposition.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reportcomposition.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reportcomposition",
+        "tests": [
+          "TestCompositionPublicLifecycleAndAuthority_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.reportcomposition.integration.resolve_release_tuple_tx_reason_matrix_ad31a02455",
+      "owner_id": "module.reportcomposition",
+      "family_id": "module.reportcomposition.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.reportcomposition.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reportcomposition",
+        "tests": [
+          "TestBindReleaseTupleTxRecordsReleaseBoundVersion",
+          "TestResolveReleaseTupleTxReasonMatrix"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.reportcomposition.unit.canonical_digests",
       "owner_id": "module.reportcomposition",
       "family_id": "module.reportcomposition.unit",
@@ -45,7 +99,10 @@
       "selector": {
         "package": "./internal/modules/reportcomposition",
         "tests": [
-          "TestCompositionCanonicalDigests_Unit"
+          "TestCompositionCanonicalDigests_Unit",
+          "TestCompositionLocalValidationScopeAndOrdering",
+          "TestCompositionPreviewOutputOptionsAdmission",
+          "TestCompositionRenderSourceAdmission_Unit"
         ]
       },
       "evidence_class": "unit",

@@ -1,0 +1,170 @@
+{
+  "schema_id": "cartulary.performance_paste_contract.v1",
+  "contract_id": "cartulary.performance.ac003.v2",
+  "criterion_id": "AC-003",
+  "predicate_id": "perf.timeline_paste_20x5.v2",
+  "fixture_contract_id": "cartulary.performance.large_grid.v1",
+  "measurement_policy_id": "cartulary.measurement.single_observation.v1",
+  "warmup_passes": 0,
+  "measured_samples": 1,
+  "product_retries": 0,
+  "threshold_ms": 2000,
+  "threshold_comparison": "lt",
+  "view_schema_id": "cartulary.view.timeline.v2",
+  "start_mark": "cartulary.workbook.timeline_paste_accepted",
+  "stop_mark": "cartulary.workbook.timeline_paste_visible_paint",
+  "clipboard_format": "tsv",
+  "clipboard_mime": "text/plain",
+  "viewport_width": 1920,
+  "viewport_height": 1080,
+  "device_scale_factor": 1,
+  "field_keys": [
+    "timeline.date_entered_text",
+    "timeline.analyst_text",
+    "timeline.mitre_stage_text",
+    "timeline.device_object_text",
+    "timeline.ip_address_text"
+  ],
+  "rows": [
+    [
+      "2026-04-05",
+      "analyst-01",
+      "stage-01",
+      "device-01",
+      "192.0.2.1"
+    ],
+    [
+      "2026-04-05",
+      "analyst-02",
+      "stage-02",
+      "device-02",
+      "192.0.2.2"
+    ],
+    [
+      "2026-04-05",
+      "analyst-03",
+      "stage-03",
+      "device-03",
+      "192.0.2.3"
+    ],
+    [
+      "2026-04-05",
+      "analyst-04",
+      "stage-04",
+      "device-04",
+      "192.0.2.4"
+    ],
+    [
+      "2026-04-05",
+      "analyst-05",
+      "stage-05",
+      "device-05",
+      "192.0.2.5"
+    ],
+    [
+      "2026-04-05",
+      "analyst-06",
+      "stage-06",
+      "device-06",
+      "192.0.2.6"
+    ],
+    [
+      "2026-04-05",
+      "analyst-07",
+      "stage-07",
+      "device-07",
+      "192.0.2.7"
+    ],
+    [
+      "2026-04-05",
+      "analyst-08",
+      "stage-08",
+      "device-08",
+      "192.0.2.8"
+    ],
+    [
+      "2026-04-05",
+      "analyst-09",
+      "stage-09",
+      "device-09",
+      "192.0.2.9"
+    ],
+    [
+      "2026-04-05",
+      "analyst-10",
+      "stage-10",
+      "device-10",
+      "192.0.2.10"
+    ],
+    [
+      "2026-04-05",
+      "analyst-11",
+      "stage-11",
+      "device-11",
+      "192.0.2.11"
+    ],
+    [
+      "2026-04-05",
+      "analyst-12",
+      "stage-12",
+      "device-12",
+      "192.0.2.12"
+    ],
+    [
+      "2026-04-05",
+      "analyst-13",
+      "stage-13",
+      "device-13",
+      "192.0.2.13"
+    ],
+    [
+      "2026-04-05",
+      "analyst-14",
+      "stage-14",
+      "device-14",
+      "192.0.2.14"
+    ],
+    [
+      "2026-04-05",
+      "analyst-15",
+      "stage-15",
+      "device-15",
+      "192.0.2.15"
+    ],
+    [
+      "2026-04-05",
+      "analyst-16",
+      "stage-16",
+      "device-16",
+      "192.0.2.16"
+    ],
+    [
+      "2026-04-05",
+      "analyst-17",
+      "stage-17",
+      "device-17",
+      "192.0.2.17"
+    ],
+    [
+      "2026-04-05",
+      "analyst-18",
+      "stage-18",
+      "device-18",
+      "192.0.2.18"
+    ],
+    [
+      "2026-04-05",
+      "analyst-19",
+      "stage-19",
+      "device-19",
+      "192.0.2.19"
+    ],
+    [
+      "2026-04-05",
+      "analyst-20",
+      "stage-20",
+      "device-20",
+      "192.0.2.20"
+    ]
+  ]
+}

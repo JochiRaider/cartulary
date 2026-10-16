@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "platform.httpruntime",
   "rows": [
     {
@@ -31,6 +31,149 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.httpruntime.unit.new_handler_serves_embedded_root_and_assets_41dd7a2589",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.httpruntime.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi",
+        "tests": [
+          "TestExplicitExtensionProfilesMatchExtensionContractRegistry",
+          "TestNewHandlerRequiresExplicitExtensionProjections",
+          "TestNewHandler_HealthzRemainsLivenessAndReadyzIsStructured",
+          "TestNewHandler_KeepsReservedExtensionRouting",
+          "TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable",
+          "TestNewHandler_ReadyzDegradedStatusAndRedactsDependencyDetails",
+          "TestNewHandler_ServesEmbeddedRootAndAssets"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.httpruntime.unit.new_test_route_guard_requires_harness_owned_runt_bade7ee617",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.httpruntime.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi",
+        "tests": [
+          "TestNewTestRouteGuardRequiresHarnessOwnedRuntime",
+          "TestTestRouteGuardAuthorization",
+          "TestTestRouteGuardProtectWritesForbiddenWithoutCORS",
+          "TestValidTestRouteTokenRejectsClosedWeakAttachTokens"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.httpruntime.unit.route_registry_diagnostics_are_deterministic_and_c8853a971c",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.httpruntime.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi",
+        "tests": [
+          "TestRouteRegistryDiagnosticsAreDeterministicAndPayloadFree"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.httpruntime.unit.test_clock_fixed_time_and_advance_85620b92a3",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.httpruntime.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi",
+        "tests": [
+          "TestRegisterTestClockRoutesParsesRFC3339NanoFixedNow",
+          "TestRegisterTestClockRoutesRejectsInvalidPayloads",
+          "TestRegisterTestClockRoutesRejectsInvalidResetPayloads",
+          "TestRegisterTestClockRoutesRejectsUnauthenticatedMutation",
+          "TestRegisterTestClockRoutesRequiresHarnessOwnedRuntime",
+          "TestRegisterTestClockRoutesResetClearsClock",
+          "TestRegisterTestClockRoutesSetFixedPayloadPinsClock",
+          "TestRegisterTestClockRoutesSetOffsetPayloadClearsFixedClock",
+          "TestRegisterTestClockRoutesStateReportsWithoutMutation",
+          "TestTestClockFixedTimeAndAdvance",
+          "TestTestClockResetClearsFixedAndOffset",
+          "TestTestClockSetOffsetClearsFixedTime"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "platform.httpruntime.unit.upload_envelope_accepts_exact_metadata_and_file_b6ba5249df",
+      "owner_id": "platform.httpruntime",
+      "family_id": "platform.httpruntime.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "platform.httpruntime.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/httpapi",
+        "tests": [
+          "TestUploadEnvelopeAcceptsExactMetadataAndFileParts",
+          "TestUploadEnvelopeClosedReasonRegistry",
+          "TestUploadEnvelopeInvalidPartContentTypeDetails",
+          "TestUploadEnvelopeRejectsClosedEnvelopeFailures"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
       "service_dependencies": []
     }
   ]

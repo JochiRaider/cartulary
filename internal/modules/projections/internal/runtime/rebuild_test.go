@@ -123,17 +123,17 @@ func TestPartyProjectionSourceEnumerationIsDeterministicCompleteAndActiveOnly(t 
 		if _, err := harness.DB.Exec(ctx, `
 INSERT INTO records (
     record_id, incident_id, record_type, created_by_user_id, updated_by_user_id,
-    row_version
-) VALUES ($1, $2, 'party', $3, $3, 7)
-`, recordID, incident.ID, actor.ID); err != nil {
+    row_version, updated_at
+) VALUES ($1, $2, 'party', $3, $3, 7, $4)
+`, recordID, incident.ID, actor.ID, updatedAt); err != nil {
 			t.Fatalf("seed Party projection envelope %s: %v", recordID, err)
 		}
 		if _, err := harness.DB.Exec(ctx, `
 INSERT INTO parties (
     record_id, incident_id, display_name, party_kind, organization_name,
-    role_title, primary_email, timezone_name, external_ref, notes, updated_at
-) VALUES ($1, $2, $3, 'organization', $4, $5, $6, $7, $8, $9, $10)
-`, recordID, incident.ID, "Party "+recordID.String(), nil, nil, nil, nil, nil, nil, updatedAt); err != nil {
+    role_title, primary_email, timezone_name, external_ref, notes
+) VALUES ($1, $2, $3, 'organization', $4, $5, $6, $7, $8, $9)
+`, recordID, incident.ID, "Party "+recordID.String(), nil, nil, nil, nil, nil, nil); err != nil {
 			t.Fatalf("seed Party projection source %s: %v", recordID, err)
 		}
 	}
@@ -199,7 +199,7 @@ VALUES ($1, $2, 'Foreign Party', 'team')
 		input.TimezoneName == nil || *input.TimezoneName != "US/Eastern" ||
 		input.ExternalRef == nil || *input.ExternalRef != "EXT-Party" ||
 		input.Notes == nil || *input.Notes != "Line one\nLine two" ||
-		input.UpdatedAt.Location() != time.UTC {
+		input.UpdatedAt.Location() != time.UTC || !input.UpdatedAt.Equal(updatedAt) {
 		t.Fatalf("Party projection source lost typed values: %#v", input)
 	}
 	second, err := source.ListProjectionInputsTx(ctx, tx, incident.ID, first.NextRecordID, 1)

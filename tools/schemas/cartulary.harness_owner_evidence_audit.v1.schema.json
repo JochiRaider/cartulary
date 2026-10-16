@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_owner_evidence_audit.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "owner_id",
+    "status",
+    "selection",
+    "compatibility",
+    "required_partitions",
+    "accepted",
+    "rejected",
+    "unused_inputs"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_owner_evidence_audit.v1"
+    },
+    "owner_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "selection": {
+      "enum": [
+        "complete_owner",
+        "target_partitions"
+      ]
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_digest",
+        "test_catalog_digest",
+        "verification_routing_digest"
+      ],
+      "properties": {
+        "source_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "test_catalog_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "verification_routing_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "required_partitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target",
+          "row_ids"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "row_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "cartulary.test_catalog_defs.v1#/$defs/row_id"
+            }
+          }
+        }
+      }
+    },
+    "accepted": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target",
+          "run_root",
+          "run_id",
+          "graph_digest",
+          "row_ids"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "run_root": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "run_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "graph_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "row_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "cartulary.test_catalog_defs.v1#/$defs/row_id"
+            }
+          }
+        }
+      }
+    },
+    "rejected": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target",
+          "run_root",
+          "reason"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "run_root": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      }
+    },
+    "unused_inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target",
+          "run_root"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "run_root": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      }
+    }
+  }
+}

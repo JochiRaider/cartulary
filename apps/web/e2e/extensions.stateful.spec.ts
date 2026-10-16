@@ -84,6 +84,12 @@ test("Verify extension availability bootstrap, no-store startup, lazy Network An
         workspace_keys: ["network_analysis"],
         capability_ids: [],
       },
+      {
+        profile_id: "snapshot_reporting",
+        supported_contract_majors: [1],
+        workspace_keys: [],
+        capability_ids: [],
+      },
     ],
   });
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();

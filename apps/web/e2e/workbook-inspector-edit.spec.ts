@@ -31,6 +31,7 @@ import {
 import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
+import { collectionItems } from "./support/entities/mentions";
 import { createUploadedEvidenceFixture } from "./support/evidence/fixtures";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
@@ -98,8 +99,7 @@ async function expectReferenceDefinitionList(
   ).toEqual([]);
 }
 
-async function expectReachableReferenceAction(page: Page, actionName: string) {
-  const action = page.getByRole("button", { name: actionName, exact: true });
+async function expectReachableReferenceAction(action: Locator) {
   await action.scrollIntoViewIfNeeded();
   await expect(action).toBeVisible();
   const geometry = await action.evaluate((element) => {
@@ -662,7 +662,23 @@ test("a11y.generic reference summaries keep Party and Evidence shortcuts semanti
     workbookInspectorPanelTestId(lessonViewSchemaId, "evidence"),
   );
   await expect(evidencePanel.getByRole("term")).toHaveText(["Evidence"]);
-  await expect(evidencePanel).toContainText(evidenceTitle);
+  const acceptedLesson = (
+    await queryViewRows(page, incident, lessonViewSchemaId)
+  ).find((row) => row.record_id === lesson.record_id);
+  if (!acceptedLesson) throw new Error("Lesson was missing from its query");
+  const reference = collectionItems(
+    acceptedLesson,
+    "lesson.evidence_refs",
+  ).find((item) => item.linked_record_id === evidence.record_id);
+  if (
+    typeof reference?.display_text !== "string" ||
+    reference.display_text.length === 0
+  ) {
+    throw new Error("Lesson did not return its accepted Evidence display text");
+  }
+  await expect(evidencePanel.getByRole("definition").first()).toHaveText(
+    reference.display_text,
+  );
   await expectReferenceDefinitionList(page, lessonViewSchemaId, "evidence");
   const manage = evidencePanel.getByRole("button", {
     name: "Manage Evidence",
@@ -693,8 +709,10 @@ test("a11y.generic reference summaries keep Party and Evidence shortcuts semanti
       document.body.style.letterSpacing = "0.12em";
       document.body.style.wordSpacing = "0.16em";
     }, zoom);
-    await expectReachableReferenceAction(page, "Manage Evidence");
-    await expect(evidencePanel).toContainText(evidenceTitle);
+    await expectReachableReferenceAction(manage);
+    await expect(evidencePanel.getByRole("definition").first()).toHaveText(
+      reference.display_text,
+    );
   }
   expect(writes).toHaveLength(0);
 });

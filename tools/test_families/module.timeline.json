@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.timeline",
   "rows": [
     {
@@ -3613,6 +3613,34 @@
       ]
     },
     {
+      "row_id": "module.timeline.frontend.ac003_paint_qualification",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac003_paint_qualification"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/pasteTimingSupport.test.ts",
+        "titles": [
+          "requires 100 visible cells on 20 new stable records across two accepted frames"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.frontend.ac043_paint_qualification_rejects_invalid_state_0a20837e7b",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.frontend",
@@ -3658,6 +3686,121 @@
           "preserves the typed supported-envelope fixture and traffic shape"
         ],
         "project_id": "harness-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.ac044_paint_qualification",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac044_paint_qualification"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/viewChangeTimingSupport.test.ts",
+        "titles": [
+          "rejects stale query bindings, invalid windows, missing acceptance and unstable paint"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.ac045_paint_qualification",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.evidence",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac045_paint_qualification"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/evidenceInspectorTimingSupport.test.ts",
+        "titles": [
+          "binds private fixture credentials to their exact profile and account cardinality",
+          "requires fresh metadata and five exact visible Evidence bindings across two frames"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.ac047_trace_qualification",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac047_trace_qualification"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/anchorTraceSupport.test.ts",
+        "titles": [
+          "follows viewport replacement and detects full-sheet mounting without changing the grid",
+          "retains frame evidence and detects retargeting, draft changes and version rollback"
+        ],
+        "project_id": "harness-node"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.clipboard_presentation_admission",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac003_paint_qualification"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/hooks/useTimelineClipboardPasteController.test.ts",
+        "project_id": "browser-unit",
+        "titles": [
+          "reserves creation presentation only for an admitted paste gesture"
+        ]
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -3789,6 +3932,35 @@
           "coordinates an evicted original source and refuses its retained unsubmitted draft without scanning query pages"
         ],
         "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.frontend.source_ac043snapshot_test_ts_f08ef1d7fa",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.frontend",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac043_fixture_shape"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/support/performance/ac043Snapshot.test.ts",
+        "project_id": "harness-node",
+        "titles": [
+          "AC-043 snapshot runtime bundle accepts exactly 24 private accounts for the admitted snapshot",
+          "AC-043 snapshot runtime bundle rejects stale identity, duplicate accounts, and extra fields"
+        ]
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4332,10 +4504,10 @@
           "useTimelineRowMutationCoordinator admits conflict server state without collapsing its local draft",
           "useTimelineRowMutationCoordinator invalidates an in-flight query generation when an action advances the row",
           "useTimelineRowMutationCoordinator keeps old-scope partial receipts from promoting current saved fields",
-          "useTimelineRowMutationCoordinator pins only the latest locally created row within its query presentation scope",
+          "useTimelineRowMutationCoordinator pins only the latest creation operation within its query presentation scope",
           "useTimelineRowMutationCoordinator prevents stale action and mutation results from regressing a live high-water row",
           "useTimelineRowMutationCoordinator reconciles same-version query grouping after a lifecycle receipt while retaining local drafts",
-          "useTimelineRowMutationCoordinator retains one query-scoped created row when a refresh omits it",
+          "useTimelineRowMutationCoordinator retains a bounded creation block without duplicates or stale versions",
           "useTimelineRowMutationCoordinator reveals a committed draft row without restoring the pre-create scroll",
           "useTimelineRowMutationCoordinator settles accepted work after unmount without committing or focusing a detached projection"
         ],
@@ -4629,6 +4801,258 @@
       ]
     },
     {
+      "row_id": "module.timeline.measurement.ac044_filter_first_useful_viewport",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac044_filter_first_useful_viewport"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-view-change.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_ac044_filter_first_useful_viewport"
+        ],
+        "titles": [
+          "measures Timeline filter first useful viewport within AC-044"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.measurement.ac044_filter_stable_viewport",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac044_filter_stable_viewport"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-view-change.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_ac044_filter_stable_viewport"
+        ],
+        "titles": [
+          "measures Timeline filter stable viewport within AC-044"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.measurement.ac044_group_first_useful_viewport",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac044_group_first_useful_viewport"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-view-change.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_ac044_group_first_useful_viewport"
+        ],
+        "titles": [
+          "measures Timeline group first useful viewport within AC-044"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.measurement.ac044_group_stable_viewport",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac044_group_stable_viewport"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-view-change.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_ac044_group_stable_viewport"
+        ],
+        "titles": [
+          "measures Timeline group stable viewport within AC-044"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.measurement.ac044_sort_first_useful_viewport",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac044_sort_first_useful_viewport"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-view-change.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_ac044_sort_first_useful_viewport"
+        ],
+        "titles": [
+          "measures Timeline sort first useful viewport within AC-044"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.measurement.ac044_sort_stable_viewport",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac044_sort_stable_viewport"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-view-change.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_ac044_sort_stable_viewport"
+        ],
+        "titles": [
+          "measures Timeline sort stable viewport within AC-044"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.measurement.ac047_anchor_trace",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac047_anchor_trace"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-anchor-trace.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_ac047_anchor_trace"
+        ],
+        "titles": [
+          "traces anchored Timeline edits through large-grid refresh and live updates within AC-047"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.measurement",
@@ -4657,7 +5081,80 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "fixture_profile_id": "ac043_large_grid_snapshot_v1",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.measurement.evidence_inspector_v2",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.evidence",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac045_evidence_inspector_v2"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/evidence-inspector.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_ac045_evidence_inspector_v2"
+        ],
+        "titles": [
+          "measures the fresh Evidence inspector metadata shell within AC-045"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "evidence_heavy_snapshot_v2",
+      "minimum_tier": "release",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.timeline.measurement.paste_20x5_v2",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.ac003_paste_20x5_v2"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/timeline-paste.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_ac003_paste_v2"
+        ],
+        "titles": [
+          "measures 20 new Timeline rows and 100 visible TSV cells within AC-003"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
       "minimum_tier": "release",
       "service_dependencies": [
         "object_store",
@@ -4693,7 +5190,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "fixture_profile_id": "ac043_large_grid_snapshot_v1",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
       "minimum_tier": "release",
       "service_dependencies": [
         "object_store",
@@ -4729,7 +5226,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "fixture_profile_id": "ac043_large_grid_snapshot_v1",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
       "minimum_tier": "release",
       "service_dependencies": [
         "object_store",
@@ -4765,7 +5262,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "fixture_profile_id": "ac043_large_grid_snapshot_v1",
+      "fixture_profile_id": "timeline_large_grid_snapshot_v2",
       "minimum_tier": "release",
       "service_dependencies": [
         "object_store",
@@ -5168,6 +5665,32 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.timeline.support_unit.reporting_sort_facts_v2",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.support_unit",
+      "collaborator_ids": [
+        "module.reporting"
+      ],
+      "verification_ids": [
+        "module.timeline.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline/reportingprovider",
+        "tests": [
+          "TestTimelineReportingSortFacts"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.timeline.support_unit.rollback_provider_mapping_dafe7d4b5c",
       "owner_id": "module.timeline",
       "family_id": "module.timeline.support_unit",
@@ -5316,6 +5839,30 @@
           "TestReaderMapsFactsLosslesslyInOrder",
           "TestReaderRequiresAllDependenciesBeforeReading",
           "TestReaderStopsAtFirstFailure"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.unit.new_contribution_requires_source_f36f970e83",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline/workbookprojection",
+        "tests": [
+          "TestNewContributionRequiresSource"
         ]
       },
       "evidence_class": "unit",
@@ -5548,6 +6095,30 @@
         "package": "./internal/modules/timeline/versionid",
         "tests": [
           "TestFormatUsesTimelineRecordIdentityAndExactRowVersion"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.timeline.unit.workbook_projection_contribution_owns_typed_runt_729aeb2b34",
+      "owner_id": "module.timeline",
+      "family_id": "module.timeline.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.timeline.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/timeline",
+        "tests": [
+          "TestWorkbookProjectionContributionOwnsTypedRuntimeFacts_Unit"
         ]
       },
       "evidence_class": "unit",

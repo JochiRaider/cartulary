@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { replaceFileAtomically } from "../design-tokens/design-tokens.mjs";
+import { renderEvidenceInspectorContract } from "./evidence-inspector-contract.mjs";
 import {
   loadPerformanceContracts,
   loadPerformanceFixtureProfiles,
@@ -14,7 +15,7 @@ import {
 const root = path.resolve(import.meta.dirname, "../../../..");
 const performancePath = path.join(
   root,
-  "contracts/performance/ac043.v1.json",
+  "contracts/performance/ac043.v2.json",
 );
 const policyPath = path.join(root, "tools/measurement_policy_owner.json");
 const outputPath = path.join(
@@ -33,9 +34,28 @@ const fixtureKeyVectorsOutputPath = path.join(
 try {
   const outputs = [
     {
+      path: path.join(root, "packages/ui-contracts/src/generated/evidence-inspector-contract.ts"),
+      content: renderEvidenceInspectorContract(root),
+    },
+    {
       path: outputPath,
       content: renderPerformanceContractsTypeScript(
-        loadPerformanceContracts(performancePath, policyPath),
+        loadPerformanceContracts({
+          performancePath, policyPath,
+          referencePackProgressPath: path.join(root, "contracts/performance/reference-pack-progress.v1.json"),
+          evidenceVerificationPath: path.join(root, "contracts/performance/evidence-verification.v1.json"),
+          evidenceInspectorPath: path.join(root, "contracts/performance/ac045.v2.json"),
+          pastePath: path.join(root, "contracts/performance/ac003.v2.json"),
+          fixturePath: path.join(root, "contracts/performance/large-grid.v1.json"),
+          viewChangePath: path.join(root, "contracts/performance/ac044.v1.json"),
+          viewSchemaPath: path.join(root, "contracts/view-schemas/cartulary.view.timeline.v2.json"),
+          presencePath: path.join(root, "contracts/performance/presence.v2.json"),
+          anchorPath: path.join(root, "contracts/performance/ac047.v2.json"),
+          importDiscoveryPath: path.join(root, "contracts/performance/import-discovery.v1.json"),
+          reportingProgressPath: path.join(root, "contracts/performance/reporting-progress.v1.json"),
+          importApplyPath: path.join(root, "contracts/performance/import-apply.v1.json"),
+          historyPath: path.join(root, "contracts/performance/history.v2.json"),
+        }),
       ),
     },
     {

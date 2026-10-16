@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v7",
+  "schema_id": "cartulary.test_family_manifest.v8",
   "owner_id": "module.evidence",
   "rows": [
     {
@@ -24,6 +24,42 @@
         ],
         "titles": [
           "a11y.evidence-file-recovery keeps stage recovery local reachable and keyboard operable"
+        ]
+      },
+      "evidence_class": "accessibility",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.accessibility.verification_progress",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.accessibility",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.design",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/workbook.a11y.spec.ts",
+        "project_id": "chromium",
+        "stage": "accessibility",
+        "scenario_ids": [
+          "scenario_cd142c3c92e8"
+        ],
+        "titles": [
+          "a11y.evidence-verification exposes compact progress and keyboard cancellation across narrow layouts"
         ]
       },
       "evidence_class": "accessibility",
@@ -715,6 +751,44 @@
       ]
     },
     {
+      "row_id": "module.evidence.browser.linked_metadata_window",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_evidence_linked_metadata_window",
+          "scenario_evidence_linked_metadata_window_large"
+        ],
+        "titles": [
+          "pages real linked Evidence metadata without issuing access handles",
+          "reopens fresh bounded metadata for a filtered Timeline row with 100 available Evidence links"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.evidence.browser.linked_preview_recovery_6065aad8d8",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.browser",
@@ -1072,6 +1146,41 @@
       ]
     },
     {
+      "row_id": "module.evidence.browser.verification_cancellation_race",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.browser",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.application"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/evidence.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_29fdd138eee0"
+        ],
+        "titles": [
+          "keeps verification cancel visible and honors cancellation when completion races observation"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "minimum_tier": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.evidence.browser.verify_attach_flow_uses_generated_protocol_types_7a778c9178",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.browser",
@@ -1194,6 +1303,89 @@
         "file": "apps/web/src/workbook/WorkbookShell.evidence.test.tsx",
         "titles": [
           "reflects attached evidence counts on the workbook surface without forcing navigation"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.evidence.frontend.metadata_query_binding",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/adapters/createWorkbookEvidenceMetadataAdapter.test.ts",
+        "titles": [
+          "bounds Evidence metadata requests and validates the exact ordered response binding",
+          "discards Evidence metadata on abort or changed read authority without sending unscoped reads"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.evidence.frontend.metadata_window_lifetime",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/hooks/useTimelineEvidenceMetadata.test.tsx",
+        "titles": [
+          "reads only the current Evidence window and suppresses late page source and authority outcomes",
+          "requires explicit metadata retry and forwards current authority loss"
+        ],
+        "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.evidence.frontend.metadata_window_presentation",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend",
+      "collaborator_ids": [
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/src/workbook/timeline/components/TimelineEvidenceMetadata.test.tsx",
+        "titles": [
+          "renders bounded linked Evidence metadata and distinct preview download eligibility without issuing handles"
         ],
         "project_id": "browser-unit"
       },
@@ -1377,8 +1569,11 @@
           "retained Evidence file recovery projects Timeline completion refresh debt and new work identities without changing retained receipts",
           "retained Evidence file recovery recovers operation authorization denial only after current authority and explicit source review",
           "retained Evidence file recovery rejects multiple files without choosing or discarding one",
+          "retained Evidence file recovery requires an explicit new verification after a failed Job and fences observation on retirement",
           "retained Evidence file recovery requires displayed source review after edits and never links a missing source",
+          "retained Evidence file recovery requires verified stored bytes before finalization and preserves uncertain admission identity",
           "retained Evidence file recovery retains an exact uncertain slot and never repeats an uncertain transfer",
+          "retained Evidence file recovery retains cancellation identity and ignores a stale running read after cancellation",
           "retained Evidence file recovery retains existing-Evidence acceptance across detachment and failed refresh",
           "retained Evidence file recovery retains timed-out finalization through replay denial and accepts its late receipt",
           "retained Evidence file recovery retires an unused capability after issuing-session replacement",
@@ -1443,6 +1638,33 @@
           "uses one authenticated CSRF-bound upload attempt without reading response bodies"
         ],
         "project_id": "browser-unit"
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.evidence.frontend_unit.verification_progress_paint",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.frontend_unit",
+      "collaborator_ids": [
+        "harness.browser"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "vitest",
+      "selector": {
+        "file": "apps/web/e2e/measurement/jobProgressPaint.test.ts",
+        "titles": [
+          "requires one fresh Evidence verification job with exact blob binding and editable grid"
+        ],
+        "project_id": "harness-node"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1620,6 +1842,35 @@
       ]
     },
     {
+      "row_id": "module.evidence.integration.background_verification_cancellation",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceVerificationCancelsAndDrainsStoredRead_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.evidence.integration.blob_association_concurrent_race_has_one_winner_9d6a5c2e1b",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.integration",
@@ -1690,6 +1941,34 @@
         "package": "./internal/modules/evidence",
         "tests": [
           "TestEvidenceDurableCleanupClaimEngine_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.integration.evidence_handle_issuance_reports_registered_unav_e4474a6987",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceHandleIssuanceReportsRegisteredUnavailableReasons",
+          "TestEvidenceHandleRedemptionReportsRegisteredUnavailableReasons"
         ]
       },
       "evidence_class": "integration",
@@ -1789,6 +2068,33 @@
       ]
     },
     {
+      "row_id": "module.evidence.integration.public_evidence_responses_do_not_leak_object_sto_9e5c545bd7",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestPublicEvidenceResponsesDoNotLeakObjectStoreIdentifiers"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
       "row_id": "module.evidence.integration.the_object_blob_create_route_enforces_request_sh_17b6e1b674",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.integration",
@@ -1803,6 +2109,35 @@
           "TestEvidenceAuthorizationMatrixAC543_Integration",
           "TestObjectBlobCreate_Integration",
           "TestObjectUploadCapabilityRoute_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.integration.verification_cutover",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.integration",
+      "collaborator_ids": [
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceVerificationCutoverRejectsLegacyHistoryWithoutMutation_Integration"
         ]
       },
       "evidence_class": "integration",
@@ -1841,6 +2176,43 @@
       "status": "active",
       "fixture_capability": "postgres_dedicated",
       "minimum_tier": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    {
+      "row_id": "module.evidence.measurement.verification_progress",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.measurement",
+      "collaborator_ids": [
+        "harness.browser",
+        "module.timeline",
+        "web.workbook"
+      ],
+      "verification_ids": [
+        "module.evidence.verification.verification_progress_measurement"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/measurement/evidence-verification.spec.ts",
+        "project_id": "chromium",
+        "stage": "measurement",
+        "scenario_ids": [
+          "scenario_evidence_verification_progress_v1"
+        ],
+        "titles": [
+          "measures Evidence verification progress and cancel while another Timeline row accepts editing"
+        ]
+      },
+      "evidence_class": "measurement",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_measurement_quiet",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "fixture_profile_id": "evidence_heavy_snapshot_v2",
+      "minimum_tier": "release",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -2165,6 +2537,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.evidence.unit.bounded_metadata_admission_f99b626064",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceMetadataQueryAdmission"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.evidence.unit.canonical_evidence_view_row_mapping_preserves_ri_1550a3228d",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.unit",
@@ -2324,6 +2720,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.evidence.unit.evidence_handle_request_rejects_unknown_members_e3ebd53914",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceHandleRequestRejectsUnknownMembers"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.evidence.unit.evidence_lifecycle_reference_and_failure_policy_d38e1adcdb",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.unit",
@@ -2377,6 +2797,30 @@
       "service_dependencies": []
     },
     {
+      "row_id": "module.evidence.unit.evidence_open_apiincludes_route_family_866f0d0acf",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence",
+        "tests": [
+          "TestEvidenceOpenAPIIncludesRouteFamily"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
       "row_id": "module.evidence.unit.evidence_rollback_validates_shared_lifecycle_bri_5be78560c9",
       "owner_id": "module.evidence",
       "family_id": "module.evidence.unit",
@@ -2392,6 +2836,31 @@
         "tests": [
           "TestProviderRejectsInvalidLifecycleAndReferences",
           "TestSourceForRollbackValuePreservesPresenceAndAssociations"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.evidence.unit.object_blob_storage_key_contract_39027d143c",
+      "owner_id": "module.evidence",
+      "family_id": "module.evidence.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.evidence.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/evidence/blobref",
+        "tests": [
+          "TestObjectBlobStorageKeyContract",
+          "TestObjectBlobStorageRefContract"
         ]
       },
       "evidence_class": "unit",
