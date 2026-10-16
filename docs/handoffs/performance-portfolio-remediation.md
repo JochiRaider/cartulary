@@ -291,3 +291,73 @@ unchanged. A second finalization, `remediation-source-freeze-finalize-20261016-0
 passed with native exit 0 in 21.402 s after the latter cleanup. Retained-run maintenance
 was skipped because `RESULTS_DIR` was unset. A clean local freeze commit follows;
 the subsequent cost roots must retain that exact commit and executable snapshot.
+
+## Frozen acquisition checkpoint
+
+The initial reference source is local commit
+`b4830d0732ead2002e684504cb1cf4c29efc03cd` on
+`codex/specification-remediation-20261016`. The complete worktree was clean at
+freeze. Subsequent supporting-document edits are outside executable provenance;
+do not change executable files or move HEAD within a provider window.
+The retained upstream OFL license preserves its original trailing whitespace;
+the remaining staged diff passed whitespace inspection. Final documentation
+lint passed in `remediation-freeze-records-markdown-20261016-02`, native exit 0,
+9.680 s.
+
+Acquisition began with public `make check`, explicit
+`CARTULARY_HARNESS_CACHE_MODE=cold`, `CARTULARY_OUTPUT_MODE=ci` and physical-fixture
+scratch root `/home/jochi/.cache/cartulary/remediation-harness-scratch`.
+Run ID: `remediation-cost-reference-check-20261016-01-cold`. Its native session
+is 98967 while this checkpoint is live. No outcome is established by launch.
+After a successful cold observation, run the manifest's exact warm-up and five
+measured roots with cache mode `normal`, preserving the same command, source and
+inputs. A failed observation stays rejected; investigate before further work.
+The twelve provider windows and fifty target bindings remain prospective until
+the sole writer qualifies their retained evidence.
+
+### Qualification guards found during the first cold run
+
+The first frozen `check` remains running while this issue is recorded; let it
+drain without changing executable source. Review of
+`canonical-performance.mjs` found two remaining enforcement gaps under
+REQ-377: the `stability_extension_reason` token is schema-checked but its stated
+cause is never reconstructed, and leave-one-out analysis removes corresponding
+reference/candidate observations together rather than each single observation
+independently. Stable five-sample windows could therefore claim an unearned
+sixth, and paired removal could conceal a gate-sensitive individual observation.
+
+Before continuing acquisition, enforce the actual first-five trigger and its
+exact declared reason, including matched comparison windows and shared aggregate
+bindings. For comparison sensitivity, remove each reference observation with the
+candidate unchanged, then each candidate observation with the reference unchanged.
+Keep sixth-window instability rejection and the existing statistical gates.
+Add adversarial contract fixtures, run the public harness contract, finalize,
+and create a successor clean freeze. Retain the first cold root as correctness
+evidence if successful and as superseded cost evidence; do not mix it into the
+successor window. No threshold, count limit or retry policy is relaxed.
+
+The initial cold check completed successfully: native exit 0, 707.449 s,
+799/799 work units, all 1,080 cleanup operations completed, and retained-secret
+scan passed over 5,383 files. Its clean source snapshot is
+`e50407fac1489b4ac9d04b58b088f1cb17f10f79be37ea92b0e24a8c2c405c4a`
+at the frozen commit above; graph
+`01038448d002f6e15ad1cd371db15e61e5686391bb7e86ae14ff9b5b53918fab`.
+It is correctness evidence for that source, excluded from the successor cost
+window as `superseded_validation_policy`. The replacement validator reconstructs
+the first-five trigger, propagates matching requirements through aggregate
+provider bindings and tests individual-observation sensitivity. Public
+`make harness-contract` passed in
+`remediation-performance-stability-contract-20261016-01` (53.018 s) and its
+successor `remediation-performance-stability-contract-20261016-02` (53.170 s),
+both native exit 0. The successor includes complete retained comparison fixtures:
+an individual outlier triggers a matched sixth even when paired removal would
+hide it; the stabilizing sixth is accepted; an unearned sixth and false extension
+reasons reject. The standalone high-MAD extension is independently exercised.
+
+`remediation-performance-stability-finalize-20261016-01` passed with native
+exit 0 in 21.320 s. Retained-run maintenance was skipped because `RESULTS_DIR`
+was unset; the earlier cold check is not a compatible full warm-check root.
+Documentation lint passed in `remediation-performance-stability-markdown-20261016-01`
+with native exit 0 in 9.880 s before this result entry. The successor freeze
+starts with the complete `release-check` provider to expose integration defects
+before collecting the remaining portfolio windows.

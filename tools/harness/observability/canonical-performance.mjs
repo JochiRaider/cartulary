@@ -440,6 +440,88 @@ function evaluateGate(referenceRow, candidateRow, before, after) {
   };
 }
 
+function leaveOneOutChangesGate(referenceRow, candidateRow, before, after) {
+  const expected = evaluateGate(referenceRow, candidateRow, before, after).passed;
+  // Removing a matched pair can conceal sensitivity to either observation.
+  return before.some((_, index) => evaluateGate(referenceRow, candidateRow,
+    before.filter((__, sampleIndex) => sampleIndex !== index), after).passed !== expected) ||
+    after.some((_, index) => evaluateGate(referenceRow, candidateRow,
+      before, after.filter((__, sampleIndex) => sampleIndex !== index)).passed !== expected);
+}
+
+function hasHighMAD(samples) {
+  const p50 = median(samples);
+  return median(samples.map((sample) => Math.abs(sample - p50))) > p50 * 0.1;
+}
+
+function assertStabilityExtensions(manifest, reference, candidate) {
+  const nodes = [];
+  const targetsByRole = new Map();
+  for (const [role, baseline] of [["reference", reference], ["candidate", candidate]]) {
+    if (!baseline) continue;
+    const publicTargets = new Map();
+    targetsByRole.set(role, publicTargets);
+    for (const internal of [false, true]) {
+      const prefix = `${role}${internal ? "_internal" : ""}`;
+      const windows = new Map((manifest[`${prefix}_windows`] ?? []).map((window) => {
+        const node = { role, window, peers: new Set(), highMAD: false, sensitive: false };
+        nodes.push(node);
+        return [window.window_id, node];
+      }));
+      const rows = new Map((internal ? baseline.internal_diagnostics : baseline.targets)
+        .map((row) => [row.target, row]));
+      for (const binding of manifest[`${prefix}_bindings`] ?? []) {
+        const node = windows.get(binding.window_id);
+        const row = rows.get(binding.target);
+        node.highMAD ||= hasHighMAD(row.samples_ms.slice(0, 5));
+        if (!internal) publicTargets.set(binding.target, { node, row });
+      }
+    }
+  }
+  if (candidate) {
+    for (const [target, before] of targetsByRole.get("reference")) {
+      const after = targetsByRole.get("candidate").get(target);
+      before.node.peers.add(after.node);
+      after.node.peers.add(before.node);
+      const sensitive = leaveOneOutChangesGate(before.row, after.row,
+        before.row.samples_ms.slice(0, 5), after.row.samples_ms.slice(0, 5));
+      before.node.sensitive ||= sensitive;
+      after.node.sensitive ||= sensitive;
+    }
+  }
+  // Aggregate providers can group targets differently on each side. Every
+  // connected window must extend together to preserve matched sample counts.
+  const visited = new Set();
+  for (const node of nodes) {
+    if (visited.has(node)) continue;
+    const group = [];
+    const pending = [node];
+    while (pending.length > 0) {
+      const next = pending.pop();
+      if (visited.has(next)) continue;
+      visited.add(next);
+      group.push(next);
+      pending.push(...next.peers);
+    }
+    const highMAD = group.some((entry) => entry.highMAD);
+    const sensitive = group.some((entry) => entry.sensitive);
+    const reason = highMAD && sensitive ? "high_mad_and_leave_one_out_gate_change"
+      : highMAD ? "high_mad" : sensitive ? "leave_one_out_gate_change" : null;
+    for (const { role, window } of group) {
+      const label = `${role} window ${window.window_id}`;
+      if (window.measured_roots.length === 6 && reason === null) {
+        throw new Error(`${label} has an unearned sixth observation`);
+      }
+      if (reason !== null && window.measured_roots.length !== 6) {
+        throw new Error(`${label} requires one matched sixth observation`);
+      }
+      if (reason !== null && window.stability_extension_reason !== reason) {
+        throw new Error(`${label} stability extension reason does not match its first five observations: ${reason}`);
+      }
+    }
+  }
+}
+
 function assertReviewedSuccessor(target, before, after) {
   if (before === after) return;
   const pattern = /^(cartulary\.harness\.command\.[a-z][a-z0-9_]*\.v)([1-9][0-9]*)$/u;
@@ -498,11 +580,8 @@ export function compareQualifiedBaselines(reference, candidate, surface) {
     const result = evaluateGate(referenceRow, candidateRow, referenceRow.samples_ms, candidateRow.samples_ms);
     const highMAD = result.referenceMAD > result.referenceP50 * 0.1 ||
       result.candidateMAD > result.candidateP50 * 0.1;
-    const leaveOneOutChanges = referenceRow.samples_ms.some((_, index) => {
-      const reducedReference = referenceRow.samples_ms.filter((__, sampleIndex) => sampleIndex !== index);
-      const reducedCandidate = candidateRow.samples_ms.filter((__, sampleIndex) => sampleIndex !== index);
-      return evaluateGate(referenceRow, candidateRow, reducedReference, reducedCandidate).passed !== result.passed;
-    });
+    const leaveOneOutChanges = leaveOneOutChangesGate(referenceRow, candidateRow,
+      referenceRow.samples_ms, candidateRow.samples_ms);
     if (referenceRow.sample_count === 5 && (highMAD || leaveOneOutChanges)) {
       throw new Error(`${target} requires one matched sixth observation`);
     }
@@ -564,7 +643,10 @@ export async function buildFromManifest(repositoryRoot, manifestFile, surface) {
     rejectedRoots: manifest.reference_rejected_roots ?? [],
     role: "reference",
   });
-  if (manifest.mode === "baseline") return { manifest, reference };
+  if (manifest.mode === "baseline") {
+    assertStabilityExtensions(manifest, reference);
+    return { manifest, reference };
+  }
   const candidate = await buildQualifiedBaseline({
     repositoryRoot,
     baseDirectory,
@@ -576,6 +658,7 @@ export async function buildFromManifest(repositoryRoot, manifestFile, surface) {
     rejectedRoots: manifest.candidate_rejected_roots ?? [],
     role: "candidate",
   });
+  assertStabilityExtensions(manifest, reference, candidate);
   return {
     manifest,
     reference,

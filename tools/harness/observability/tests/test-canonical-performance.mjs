@@ -190,6 +190,29 @@ row.p90_ms = 200;
 regressed.public_entrypoint_portfolio.total_p50_ms = regressed.targets.reduce((sum, entry) => sum + entry.p50_ms, 0);
 assert.ok(compareQualifiedBaselines(reference, regressed, surface).failures.includes(row.target));
 
+function setSamples(baseline, target, samples) {
+  const row = baseline.targets.find((entry) => entry.target === target);
+  row.samples_ms = samples;
+  row.sample_count = samples.length;
+  row.sample_roots = samples.map((_, index) => `${row.cold_root}-measured-${index}`);
+  row.p50_ms = median(samples);
+  row.p90_ms = nearestRankP90(samples);
+  row.mad_ms = median(samples.map((value) => Math.abs(value - row.p50_ms)));
+  baseline.public_entrypoint_portfolio.total_p50_ms = baseline.targets.reduce((sum, entry) => sum + entry.p50_ms, 0);
+}
+
+const sensitiveReference = structuredClone(reference);
+const sensitiveCandidate = structuredClone(candidate);
+for (const baseline of [sensitiveReference, sensitiveCandidate]) {
+  setSamples(baseline, "test-slice", [100, 100, 100, 100, 110]);
+}
+assert.throws(() => compareQualifiedBaselines(sensitiveReference, sensitiveCandidate, surface),
+  /requires one matched sixth/u, "removing the two maxima together must not hide sensitivity to one reference maximum");
+for (const baseline of [sensitiveReference, sensitiveCandidate]) {
+  setSamples(baseline, "test-slice", [100, 100, 100, 100, 110, 110]);
+}
+assert.deepEqual(compareQualifiedBaselines(sensitiveReference, sensitiveCandidate, surface).failures, []);
+
 
 // Complete retained fixtures exercise admission independently of current source
 // reconstruction. Each mutation preserves unrelated bindings where necessary.
@@ -203,8 +226,8 @@ try {
     { path: "tools/harness_instrumentation_policy.json", kind: "file", mode: "0644", byte_digest: byteHash(policyBytes) },
     { path: "tools/toolchain_pins.json", kind: "file", mode: "0644", byte_digest: byteHash("toolchain fixture") },
   ];
-  const roots = ["cold", "warmup", "m1", "m2", "m3", "m4", "m5"];
-  for (const [index, name] of roots.entries()) {
+  const roots = ["cold", "warmup", "m1", "m2", "m3", "m4", "m5", "m6"];
+  const writeRoot = (name, index) => {
     const dir = path.join(portfolioDirectory, name);
     const { manifest, summary } = writeCanonicalFixture(dir);
     const unit = { unit_id: "a", owner_id: "harness.evidence_accounting", kind: "runner",
@@ -231,16 +254,83 @@ try {
     const targetFile = path.join(dir, "target-summaries/test-slice.json"), target = JSON.parse(readFileSync(targetFile));
     target.workload_digest = hash({ target: "test-slice", evidence_outputs: [] });
     write(targetFile, target);
-  }
+  };
+  roots.forEach((name, index) => writeRoot(name, index));
   const focusedSurface = structuredClone(surface);
   focusedSurface.observability_policy.required_targets = ["test-slice"];
   const evidenceFile = path.join(portfolioDirectory, "evidence.json");
   write(evidenceFile, { schema_id: "cartulary.harness_performance_evidence_roots.v3", mode: "baseline",
-    reference_windows: [{ window_id: "fixture", provider_target: "test-slice", cold_root: "cold", warmup_root: "warmup", measured_roots: roots.slice(2) }],
+    reference_windows: [{ window_id: "fixture", provider_target: "test-slice", cold_root: "cold", warmup_root: "warmup", measured_roots: roots.slice(2, 7) }],
     reference_bindings: [{ target: "test-slice", window_id: "fixture", timing_source: "canonical_unit_interval_union" }] });
   const valid = await buildFromManifest(root, evidenceFile, focusedSurface);
   assert.equal(valid.reference.targets[0].p50_ms, 7);
   const evidence = readFileSync(evidenceFile);
+  const setRetainedDuration = (name, duration) => {
+    const dir = path.join(portfolioDirectory, name);
+    const summaryFile = path.join(dir, "run-summary.json");
+    const targetFile = path.join(dir, "target-summaries/test-slice.json");
+    const eventsFile = path.join(dir, "unit-events.ndjson");
+    const summary = JSON.parse(readFileSync(summaryFile));
+    const target = JSON.parse(readFileSync(targetFile));
+    const events = readFileSync(eventsFile, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+    const previous = target.inclusive_wall_ms;
+    for (const event of events) {
+      if (event.monotonic_ms >= 2 + previous) event.monotonic_ms += duration - previous;
+    }
+    summary.wall_duration_ms = duration + 3;
+    summary.actual_dependency_critical_path_ms = duration + 2;
+    summary.timing_accounting.execution_ms = duration;
+    target.inclusive_wall_ms = duration;
+    target.exclusive_wall_ms = duration;
+    target.actual_dependency_critical_path_ms = duration + 2;
+    target.timing_accounting.execution_ms = duration;
+    write(summaryFile, summary); write(targetFile, target);
+    writeFileSync(eventsFile, events.map((event) => JSON.stringify(event)).join("\n") + "\n");
+  };
+  try {
+    const extended = JSON.parse(evidence);
+    extended.reference_windows[0].measured_roots.push("m6");
+    extended.reference_windows[0].stability_extension_reason = "high_mad";
+    write(evidenceFile, extended);
+    await assert.rejects(buildFromManifest(root, evidenceFile, focusedSurface), /unearned sixth/u);
+    [6, 7, 7, 8, 9, 7].forEach((duration, index) => setRetainedDuration(`m${index + 1}`, duration));
+    assert.equal((await buildFromManifest(root, evidenceFile, focusedSurface)).reference.targets[0].sample_count, 6);
+    for (const reason of ["leave_one_out_gate_change", "high_mad_and_leave_one_out_gate_change"]) {
+      extended.reference_windows[0].stability_extension_reason = reason;
+      write(evidenceFile, extended);
+      await assert.rejects(buildFromManifest(root, evidenceFile, focusedSurface), /reason does not match its first five/u);
+    }
+  } finally {
+    for (const name of roots.slice(2)) setRetainedDuration(name, 7);
+    writeFileSync(evidenceFile, evidence);
+  }
+  try {
+    roots.forEach((name, index) => writeRoot(`candidate-${name}`, index));
+    const paired = JSON.parse(evidence);
+    paired.mode = "comparison";
+    paired.candidate_windows = [{ window_id: "candidate", provider_target: "test-slice",
+      cold_root: "candidate-cold", warmup_root: "candidate-warmup",
+      measured_roots: roots.slice(2, 7).map((name) => `candidate-${name}`) }];
+    paired.candidate_bindings = [{ ...paired.reference_bindings[0], window_id: "candidate" }];
+    for (const prefix of ["", "candidate-"]) {
+      [100, 100, 100, 100, 110, 110].forEach((duration, index) => setRetainedDuration(`${prefix}m${index + 1}`, duration));
+    }
+    write(evidenceFile, paired);
+    await assert.rejects(buildFromManifest(root, evidenceFile, focusedSurface), /requires one matched sixth/u);
+    paired.reference_windows[0].measured_roots.push("m6");
+    paired.candidate_windows[0].measured_roots.push("candidate-m6");
+    for (const window of [...paired.reference_windows, ...paired.candidate_windows]) {
+      window.stability_extension_reason = "leave_one_out_gate_change";
+    }
+    write(evidenceFile, paired);
+    assert.deepEqual((await buildFromManifest(root, evidenceFile, focusedSurface)).comparison.failures, []);
+    paired.candidate_windows[0].stability_extension_reason = "high_mad";
+    write(evidenceFile, paired);
+    await assert.rejects(buildFromManifest(root, evidenceFile, focusedSurface), /reason does not match its first five/u);
+  } finally {
+    for (const name of roots.slice(2)) setRetainedDuration(name, 7);
+    writeFileSync(evidenceFile, evidence);
+  }
   try {
     const invalid = JSON.parse(evidence);
     invalid.reference_bindings[0].timing_source = "public_invocation_envelope";
