@@ -635,3 +635,44 @@ Broader harness validation passed in
 `remediation-registration-diagnostic-markdown-20261016-01`, native exit 0,
 10.650 s. The next frozen provider is `test-fast`; its observations must stop
 for diagnosis on any failure, not continue as a retry policy.
+
+### Complete test-fast window and capture investigation
+
+All seven `remediation-cost-reference-test-fast-20261016-01-*` invocations
+completed with native exit 0 at clean commit
+`4dd7d3b8fceb7164227ef40a8263ea69c8105afa`, executable source digest
+`6fc8b6b5057f89135a449380b4760a29140c2cf92728ac78e7c58d446d609c88`
+and graph digest
+`f8289e3d8dae59385dd0ee78cfe88de7f7870b0c9bbe3b6cd4111de623853785`.
+Each passed all 581 work units and its retained-secret scan. The cold run
+completed all 590 cleanup operations; each normal-cache run completed all 12.
+The cold run
+recorded 578 misses and three bypasses; each normal-cache run recorded 578 hits
+and three bypasses. These are cache-policy observations, not 581 fresh
+executions per warm run.
+
+| Observation suffix | Canonical invocation wall (ms) | Selected interval union (ms) |
+| --- | --- | --- |
+| `cold` | 396663 | 396080 |
+| `warmup` | 114019 | 113473 |
+| `measured-1` | 104727 | 104370 |
+| `measured-2` | 111059 | 110539 |
+| `measured-3` | 103978 | 103625 |
+| `measured-4` | 110623 | 110256 |
+| `measured-5` | 114557 | 114002 |
+
+The public `explain-run DETAIL=performance JSON=1` reader supplied these
+intervals. For the five selected-interval observations, p50 is 110256 ms,
+nearest-rank p90 is 114002 ms and MAD is 3746 ms, below ten percent of p50.
+No sixth observation is earned by baseline variability. This is the second
+collected provider window; qualification and publication still require the
+existing v3 writer to validate the complete portfolio.
+
+The application-assembly row executed freshly in the smaller warm batch;
+the OpenAPI row was cached. Neither capture failure recurred in this window.
+That result does not identify or repair either historical failure mechanism.
+The incident remains explicitly unresolved, with bounded native diagnostics
+installed and validated for the next occurrence. The full `check` window at
+suffix `05` is the next required context; any failure stops acquisition for
+diagnosis. Successful full normal-cache evidence is also required for actual
+retained-run maintenance.

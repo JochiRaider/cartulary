@@ -76,8 +76,13 @@ At `f338b0c35`, the cold check again passed all 799 work units. The full warm
 context passed the repaired Auth search row but failed a separate application-
 assembly capture before row-result publication. The diagnostic identifies
 `process_registration`; native rejection/transport classification is being
-validated before a focused batch reproduction. Cost collection and actual
-retained maintenance remain open; the failed warm root cannot satisfy either.
+validated before a focused batch reproduction. The subsequent bounded diagnostic
+fixtures and smaller `test-fast` batch passed. All seven cost-window invocations
+at clean `4dd7d3b8f` passed, with five measured intervals at p50 110.256 s and
+MAD 3.746 s. No capture failure recurred; its cause remains unresolved. Cost
+collection and actual retained maintenance remain open; the failed warm root
+cannot satisfy either. The performance review records exact identities,
+cleanup, cache posture and the next full-check context.
 
 ## Workstream status
 
