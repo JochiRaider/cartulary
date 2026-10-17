@@ -1,6 +1,5 @@
 .codex
-/temp/*.md
-/temp/*.json
+/temp/*
 .cache/
 .vscode/
 tmp/
