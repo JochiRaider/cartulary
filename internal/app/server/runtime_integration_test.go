@@ -102,21 +102,19 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 		"CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH", fixtures.Path("bootstrap-admin", "canonical.json"),
 	)), testDB.Env())
 
-	restoreAdmission, err := processlease.Acquire(
-		ctx,
-		processlease.PostgresBackend{
-			Pool:        pool,
-			AdvisoryKey: processlease.ServingAdvisoryKey,
-			Purpose:     "restore target",
-			Mode:        processlease.LockExclusive,
-		},
-		100*time.Millisecond,
-		40*time.Millisecond,
-	)
+	restoreAdmission, err := (processlease.PostgresBackend{
+		Pool:        pool,
+		AdvisoryKey: processlease.ServingAdvisoryKey,
+		Purpose:     "restore target",
+		Mode:        processlease.LockExclusive,
+	}).Open(ctx)
 	if err != nil {
 		t.Fatalf("acquire restore admission fixture: %v", err)
 	}
 	defer restoreAdmission.Close()
+	if acquired, err := restoreAdmission.TryAcquire(ctx); err != nil || !acquired {
+		t.Fatalf("hold restore admission fixture: acquired=%t error=%v", acquired, err)
+	}
 	if blockedRuntime, err := NewRuntime(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store}); err == nil {
 		blockedRuntime.Close()
 		t.Fatal("server runtime started while restore held the exclusive serving lease")
@@ -155,25 +153,24 @@ func TestSingleActiveProcessAndRecoveryServingFencing_Integration(t *testing.T) 
 	}
 	counters.RequireNotStarted(t)
 
-	if _, err := processlease.Acquire(
-		ctx,
-		processlease.PostgresBackend{
-			Pool:        pool,
-			AdvisoryKey: processlease.ServingAdvisoryKey,
-			Purpose:     "restore target",
-			Mode:        processlease.LockExclusive,
-		},
-		20*time.Millisecond,
-		40*time.Millisecond,
-	); !errors.Is(err, processlease.ErrApplicationProcessActive) {
+	// Observe the actual shared/exclusive exclusion. Acquisition timeout policy
+	// is separate from this assembly invariant and must not bound a database
+	// round trip to a few milliseconds on a shared verification host.
+	if acquired, err := restoreAdmission.TryAcquire(ctx); err != nil || acquired {
 		first.Close()
-		t.Fatalf("active application serving lease did not block Recovery admission: %v", err)
+		t.Fatalf("active application serving lease did not block Recovery admission: acquired=%t error=%v", acquired, err)
 	}
 	if err := first.ActivatePublication(); err != nil {
 		first.Close()
 		t.Fatalf("activate first single-active runtime: %v", err)
 	}
 	first.Close()
+	if acquired, err := restoreAdmission.TryAcquire(ctx); err != nil || !acquired {
+		t.Fatalf("closed application still blocked Recovery admission: acquired=%t error=%v", acquired, err)
+	}
+	if err := restoreAdmission.Release(ctx); err != nil {
+		t.Fatalf("release post-shutdown restore fixture: %v", err)
+	}
 
 	later, err := NewRuntime(ctx, cfg, Options{ReportingRuntime: reportingfixture.Runtime{}, Postgres: admittedPool, ObjectStore: store})
 	if err != nil {

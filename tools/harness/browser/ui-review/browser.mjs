@@ -204,11 +204,12 @@ export class ReviewBrowser {
   version() { return this.browser.version(); }
   async bindDiagnostic(session, directory) {
     if (!this.renderer) return this.browser.bind(session, { host: "127.0.0.1", port: 0, workspaceDir: directory });
-    const port = this.renderer.diagnosticPort;
-    const { endpoint } = await this.browser.bind(session, { host: "0.0.0.0", port, workspaceDir: "/home/pwuser/review-diagnostic" });
+    const { containerPort, hostPort } = this.renderer.diagnosticBinding;
+    const { endpoint } = await this.browser.bind(session, { host: "0.0.0.0", port: containerPort, workspaceDir: "/home/pwuser/review-diagnostic" });
     const url = new URL(endpoint);
-    if (url.protocol !== "ws:" || url.hostname !== "0.0.0.0" || url.port !== String(port) || !/^\/[A-Za-z0-9_-]+$/u.test(url.pathname) || url.search || url.hash || url.username || url.password) throw new ReviewFailure("target_unavailable");
+    if (url.protocol !== "ws:" || url.hostname !== "0.0.0.0" || url.port !== String(containerPort) || !/^\/[A-Za-z0-9_-]+$/u.test(url.pathname) || url.search || url.hash || url.username || url.password) throw new ReviewFailure("target_unavailable");
     url.hostname = "127.0.0.1";
+    url.port = String(hostPort);
     return { endpoint: url.href };
   }
   async capture(request, context, operationID, stage) {

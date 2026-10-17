@@ -11,6 +11,76 @@ This handoff is human review material, never executable input. Specification
 adoption, implementation completion and assurance completion are separate.
 No unexecuted test or historical passing run proves current conformance.
 
+## Current final-release repair checkpoint
+
+`remediation-final-release-20261017-01` ran `make release-check` from clean
+`dfa95e49a3c3cdca8120d979cc0fc92f084e8ae1`, executable snapshot
+`58db062dcc1905ac09a665d4b8d773cd4484a5df7f40a2c325c00196c645a536`.
+The native command exited 2 after 6,378.056 s: 1,272 passed and three failed
+work units, no skipped or cancelled units, 128 cache hits. All 1,853 cleanup
+operations completed, and the retained-secret scan passed over 12,000 files.
+This invocation is failed evidence, not final release acceptance. Remaining
+execution-cost qualification remains waived; this was a correctness invocation.
+
+The failures have two independent mechanisms:
+
+- `app.server.integration.single_active_process_fencing_6a57fb3221` failed
+  while identifying a PostgreSQL session under the test's 20 ms acquisition
+  deadline, before observing lock exclusion. The assembly test now holds a
+  real exclusive serving session, verifies application-start denial, releases
+  it, directly observes exclusion while the application serves, and proves
+  acquisition becomes possible after application shutdown. Application overlap
+  still checks `ErrApplicationProcessActive`; the platform's acquisition-policy
+  integration tests retain that classification. The same test identity, real
+  PostgreSQL/object-store fixture and runner remain. This removes an incidental
+  round-trip timing assumption, not the serving-fence obligation. No product
+  timeout, retry or denial behavior changes.
+- The `web.design.visual.incident_import_workflow` renderer failed at Docker
+  start, before producing group evidence. The visual aggregate consequently
+  failed with missing group results; there was no screenshot mismatch. The
+  old diagnostic retained no cause, so port collision is unconfirmed for that
+  historical failure. Review nevertheless found a concrete check-then-bind
+  race: a host port was released before Docker could reserve it. Docker now
+  atomically assigns host ports, and the harness admits only exact, unique
+  IPv4 loopback bindings for the requested container ports. Ordinary Playwright
+  and optional diagnostic endpoints translate the admitted container/host pair.
+  Invalid binding, startup failure and partial acquisition still fail closed
+  with owned cleanup, and bounded diagnostics expose closed reason tokens.
+  No retry or golden refresh was added. Docker's
+  [published-port contract](https://docs.docker.com/get-started/docker-concepts/running-containers/publishing-ports/)
+  supplies the ephemeral host-port mechanism; the harness owns admission and
+  lifecycle under TH-HARNESS-REQ-255/552/853.
+
+Both behavioral and execution reviews above were performed by Codex under the
+user-authorized plan. Narrow checks passed with native exit 0:
+`remediation-serving-fencing-focused-20261017-01` (17.147 s) and
+`remediation-renderer-ports-contract-20261017-01` (3.416 s). The latter covers
+ordinary/diagnostic bindings, malformed/non-loopback/duplicate ports, partial
+acquisition cleanup, exact endpoint translation and value-free diagnostics.
+Actual renderer and diagnostic-path checks also passed with native exit 0:
+`remediation-renderer-ports-visual-20261017-01` (90.459 s) and
+`remediation-renderer-ports-diagnostic-20261017-01` (93.328 s). The former
+compares the unchanged incident-import golden; the latter exercises the seeded
+public review workflow and its translated diagnostic endpoint. Both bind
+executable snapshot `5d43ae800c41e121451d40f7a69d457a0e19c16572c551ffbfbe01512705c4c5`.
+The historical Docker-start cause remains unconfirmed. Coordinated adoption
+and final integrated source applicability remain open.
+
+All four focused runs completed cleanup (14, 11, 23 and 12 operations,
+respectively) and passed retained-secret scans (24, 14, 74 and 17 files).
+Finalization attempt `remediation-final-release-repairs-finalize-20261017-01`
+exited 2 because the authored harness changes made the generated topology
+index stale. `remediation-renderer-ports-generate-20261017-01` then passed
+`make generate`, native exit 0, 10.970 s, updating that index through its owner.
+The failed finalizer root remains retained; no generated file was hand-edited.
+The successor `remediation-final-release-repairs-finalize-20261017-02` passed
+with native exit 0 in 22.194 s. Retained-run maintenance was skipped because
+`RESULTS_DIR` was unset; there is no compatible successful full warm check root
+for this executable revision. The earlier successful maintenance checkpoint
+remains retained. These repairs are ready for final integrated verification.
+
+## Historical implementation checkpoints
+
 Latest implementation: Reporting production PDF/SVG rendering, confinement, frozen
 assets and render recipes have qualified owner and packaged evidence in the
 [Reporting review](reporting-cutover-adoption-review.md#render-recipe-owner-qualification).
@@ -116,6 +186,18 @@ native fixture/review, System views and change-set measurement slices passed
 with cache disabled and completed cleanup. Borrowed-suite and historical
 change-set cleanup causes remain unattributed. No finite pass streak is treated
 as proof of stability.
+
+The native cleanup repair implements Harness TH-HARNESS-REQ-804's single
+physical cleanup attempt and TH-HARNESS-REQ-853's exact ownership/settlement
+proof. `TestSessionRuntimeProof` reaches the temporary and persistent procfs
+denial cases through `testDiagnosticAuthority`, under
+`harness.evidence_accounting.behavior.native_session`. The native fixture and
+review contexts remain `harness.browser.integration.native_fixture_lifecycle`
+and `harness.browser.unit.native_review`. Their ordinary fixtures, Linux native
+runner and retained cleanup outcomes are preserved. Reobservation within the
+original deadline is not another cleanup attempt or proof of absence. The
+existing failed incident remains retained; new passing evidence does not
+attribute every historical cleanup failure to this mechanism.
 
 The repair finalizer `remediation-full-test-repairs-finalize-20261016-01`
 passed with native exit 0 in 22.789 s and no generated changes. Retained-run
@@ -262,7 +344,7 @@ The tables linked below are detail views of this register, not executable catalo
 | 4 / Harness REQ-377–380 and adopted Section 4.3 membership | Canonical performance owner, v3 writer and exact provider/target bindings | `test-canonical-performance.mjs` validates statistics, gates and closure; canonical-event cases validate ordering, interval accounting and hostile input; retained run manifest/summary/event inputs use protected reads | Validator assertions pass and eight provider windows are retained. Remaining qualification/publication explicitly waived by the user; no qualified portfolio or speedup claim |
 | 5 / Harness §§8–11: outcome, cause and evidence comparability | Actual product/test/fixture/runtime owner of each incident | Incident tables below name failed roots, cause, repairs and fresh successor roots; no cached success enters a fresh-execution denominator | Attributed expectation and fixture failures have focused repairs. Historical instability and isolated cleanup failure remain explicitly unconfirmed; no disablement or skip is inferred |
 | 6 / architecture ownership and Harness REQ-020 implementation freedom | Inspector composition imports and semantic capability interfaces | `workbookInspectorOwnershipArchitecture.test.ts`, `WorkbookInspectorDeclaredPanelList.test.tsx`: forbidden ownership dependencies fail, declared panel order/ref/focus and concealed/deleted/creation cases survive harmless call refactors | Demonstrated for this candidate. Other structural assertions require invariant-level review before retirement; exact public identities remain legitimate checks |
-| 7 / Core 03, Design and dedicated evidence owners | Workbook/Timeline pure model, storage/transport, component and real-browser layers | Mechanism register below identifies contexts that cannot be replaced merely by shared choreography | Reviewed distinct mechanisms remain. Only the redundant SavedView API scenario is removed under the completed equivalence review below; fresh survivor checks are pending. Reference cost qualification is waived, with no savings claim |
+| 7 / Core 03, Design and dedicated evidence owners | Workbook/Timeline pure model, storage/transport, component and real-browser layers | Mechanism register below identifies contexts that cannot be replaced merely by shared choreography | Reviewed distinct mechanisms remain. Only the redundant SavedView API scenario is removed under the completed equivalence review below; all three fresh survivors passed after removal. Final integrated applicability remains open. Reference cost qualification is waived, with no savings claim |
 | 8 / Harness REQ-053 reachability; Domain authority boundary | Current target-plan suite and source-discovery pruning | Named target-plan survivor and external-reference provenance above; predecessor obligations reviewed before deleting wrapper | Implemented and exercised. No alias, new runner or incidental external-test execution |
 | 9 / Reporting 1.4.0, Composition 1.3.0 candidate; immutable adopted 1.3.0 / 1.2.0 bases | Reporting/Composition admission, storage, rendering and companion owners | [Clause and promotion register](reporting-cutover-adoption-review.md) maps every changed clause, identity/pack/canonical/portability assertion and adoption condition | Production rendering, template/deck derivation, confinement and selected recovery/portability have retained qualification. Direct Composition review repaired ignored validation context through explicit local validation v2, strict immutable validation, stage ordering and ordinary lifecycle/authority evidence; the full Composition owner passes. Final integrated validation and coordinated adoption remain open |
 
@@ -299,6 +381,16 @@ before removal. The user subsequently waived remaining timing qualification,
 removing the reference-portfolio prerequisite. The single duplicate scenario and
 its catalog row are now removed. Generated projections were refreshed through
 Make, and the fresh survivor checks below passed.
+
+The governing Base Profile obligations are Core 01 REQ-01-138–145 and
+Core 03 REQ-03-012/013/022/023 for resource identity, visible listing and
+canonical create defaults (AC-146–153/231); Core 03 REQ-03-295 owns saved layout
+application/capture. Core 01 REQ-01-146/147 and Core 03 REQ-03-024–026 own the
+retained update/delete/duplicate behavior (AC-152/231/480). The initial empty
+list is fixture characterization through the public route, not a new product
+requirement. The versions are the adopted Core text at the implementation
+baseline together with this remediation's recorded amendments. Codex reviewed
+both behavior and execution/evidence equivalence under the authorized plan.
 
 | Existing assertion | Named survivor and actual mechanism | Decision |
 | --- | --- | --- |

@@ -4,7 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import { resolvePlaywrightPackages } from "../../readiness/playwright-packages.mjs";
 import { loadVisualRendererProfile, verifyRendererFonts, validateRendererAttestation, sha256 } from "../visual-renderer-profile.mjs";
-import { rendererRelease, verifyRendererImage, startVisualRendererLease } from "../visual-renderer-lease.mjs";
+import { rendererRelease, verifyRendererImage, startVisualRendererLease, rendererPublishedPorts, rendererLifecycleFailureReason } from "../visual-renderer-lease.mjs";
 import { removePlaywrightWorkingTraces } from "../playwright-output-cleanup.mjs";
 import { removeOwnedRenderer, validateRendererProof } from "../../runtime/owned-renderer.mjs";
 
@@ -101,7 +101,23 @@ for (const fault of [null, "absent", "daemon", "ambiguous", "image", "label", "n
   assert.equal(removals, fault === null || fault === "removal" ? 1 : 0);
 }
 
-for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "browser", "package", "revision"]) {
+const publishedPorts = { "3000/tcp": [{ HostIp: "127.0.0.1", HostPort: "43121" }] };
+assert.deepEqual(rendererPublishedPorts(publishedPorts, false), { renderer: { containerPort: 3000, hostPort: 43121 }, diagnostic: null });
+for (const invalid of [null, [], {}, { ...publishedPorts, "3001/tcp": publishedPorts["3000/tcp"] }, { "3000/tcp": null }, { "3000/tcp": [] }, { "3000/tcp": [...publishedPorts["3000/tcp"], ...publishedPorts["3000/tcp"]] }]) assert.throws(() => rendererPublishedPorts(invalid, false));
+for (const binding of [{ HostIp: "0.0.0.0", HostPort: "43121" }, { HostIp: "::1", HostPort: "43121" }, { HostIp: "127.0.0.1", HostPort: 43121 }, ...["0", "01", "65536", "-1", "12.5", "123/private"].map((HostPort) => ({ HostIp: "127.0.0.1", HostPort }))]) assert.throws(() => rendererPublishedPorts({ "3000/tcp": [binding] }, false));
+assert.throws(() => rendererPublishedPorts({ ...publishedPorts, "3001/tcp": publishedPorts["3000/tcp"] }, true), /duplicate/u);
+for (const [result, reason] of [
+  [{ error: { code: "ETIMEDOUT" } }, "command_timeout"],
+  [{ error: { code: "ENOENT" } }, "command_unavailable"],
+  [{ signal: "SIGTERM" }, "command_signalled"],
+  [{ stderr: "secret payload: port is already allocated" }, "port_unavailable"],
+  [{ stderr: "secret payload: Cannot connect to the Docker daemon" }, "daemon_unavailable"],
+  [{ stderr: "secret payload: permission denied" }, "permission_denied"],
+  [{ stderr: "secret payload: no space left on device" }, "storage_exhausted"],
+  [{ stderr: "secret payload: unknown error" }, "command_failed"],
+]) assert.equal(rendererLifecycleFailureReason(result), reason);
+
+for (const diagnostics of [false, true]) for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "ports", "browser", "package", "revision"]) {
   calls = []; present = false;
   const run = (args) => {
     calls.push(args);
@@ -111,16 +127,18 @@ for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "browser
     if (args[0] === "image") return JSON.stringify([{ Id: `sha256:${"a".repeat(64)}`, Os: "linux", Architecture: "amd64", RepoDigests: [profile.container_image] }]);
     if (args[0] === "create") { present = true; return "owned-id"; }
     if (args[0] === "exec") return JSON.stringify({ playwright: profile.playwright_version, core: failAt === "package" ? "0.0.0" : profile.playwright_version, revision: failAt === "revision" ? "0" : profile.chromium_revision, version: profile.chromium_version });
+    if (args[0] === "inspect" && args.at(-1) === "{{json .NetworkSettings.Ports}}") return JSON.stringify(failAt === "ports" ? { "3000/tcp": [{ HostIp: "0.0.0.0", HostPort: "43121" }] } : { ...publishedPorts, ...(diagnostics ? { "3001/tcp": [{ HostIp: "127.0.0.1", HostPort: "43122" }] } : {}) });
     if (args[0] === "inspect") return `sha256:${"a".repeat(64)}`;
     if (args[0] === "rm") present = false;
     if (args[0] === "ps" && present && failAt === "create") return "a".repeat(64);
     return "";
   };
   const resources = [];
-  const start = () => startVisualRendererLease({ root, environment: {}, onOwnedResource: (resource) => resources.push(resource), run, trust: () => ({ attestation: { schema_id: "cartulary.browser_tls_trust.v1" }, initialize() {} }), endpointReady: async () => "ws://127.0.0.1:1/private", connect: async () => failAt === "browser" ? "0.0.0.0" : profile.chromium_version });
-  if (failAt) await assert.rejects(start, /injected acquisition failure|mismatch/u);
+  const start = () => startVisualRendererLease({ root, environment: {}, diagnostics, onOwnedResource: (resource) => resources.push(resource), run, trust: () => ({ attestation: { schema_id: "cartulary.browser_tls_trust.v1" }, initialize() {} }), endpointReady: async (_containerID, binding) => { assert.deepEqual(binding, { containerPort: 3000, hostPort: 43121 }); return "ws://127.0.0.1:43121/private"; }, connect: async (_packages, endpoint) => { assert.equal(endpoint, "ws://127.0.0.1:43121/private"); return failAt === "browser" ? "0.0.0.0" : profile.chromium_version; } });
+  if (failAt) await assert.rejects(start, /injected acquisition failure|mismatch|renderer.*port/u);
   else {
     const lease = await start(); assert.equal(lease.attestation.observed.chromium_version, profile.chromium_version); assert.ok(lease.attestation.observed.font_files.length);
+    assert.deepEqual(lease.diagnosticBinding, diagnostics ? { containerPort: 3001, hostPort: 43122 } : null);
     const reordered = structuredClone(lease.attestation);
     reordered.profile = Object.fromEntries(Object.entries(reordered.profile).reverse());
     reordered.observed.font_files = reordered.observed.font_files.map((file) => Object.fromEntries(Object.entries(file).reverse()));
@@ -134,7 +152,9 @@ for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "browser
   assert.equal(resources[0].state, "pending");
   assert.equal(resources.at(-1).state, "released");
   const create = calls.find((args) => args[0] === "create");
-  assert.match(create[create.indexOf("--publish") + 1], /^127\.0\.0\.1:/u);
+  assert.equal(create[create.indexOf("--publish") + 1], "127.0.0.1::3000");
+  assert.equal(create.includes("127.0.0.1::3001"), diagnostics);
+  assert.equal(create[create.indexOf("--port") + 1], "3000");
   assert.equal(create[create.indexOf("--user") + 1], "pwuser");
   assert.ok(!create.includes("--volume") && !create.includes("--network"));
 }

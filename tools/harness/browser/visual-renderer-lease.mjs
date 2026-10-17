@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { createServer } from "node:net";
 import path from "node:path";
 import { spawnSync } from "../workspace/child-process.mjs";
 import { pathToFileURL } from "node:url";
@@ -18,6 +17,21 @@ export const visualRendererEnvironmentKeys = Object.freeze([
   "CARTULARY_VISUAL_RENDERER_WS_ENDPOINT",
 ]);
 
+const rendererContainerPort = 3000;
+const diagnosticContainerPort = 3001;
+
+export function rendererLifecycleFailureReason(result) {
+  if (result.error?.code === "ETIMEDOUT") return "command_timeout";
+  if (result.error?.code === "ENOENT") return "command_unavailable";
+  if (result.signal) return "command_signalled";
+  const diagnostic = String(result.stderr ?? "").slice(-8192).toLowerCase();
+  if (/port is already allocated|address already in use|failed to bind host port/u.test(diagnostic)) return "port_unavailable";
+  if (/cannot connect to the docker daemon|daemon is not running/u.test(diagnostic)) return "daemon_unavailable";
+  if (/permission denied|access is denied/u.test(diagnostic)) return "permission_denied";
+  if (diagnostic.includes("no space left on device")) return "storage_exhausted";
+  return "command_failed";
+}
+
 function docker(args, options = {}) {
   const result = spawnSync("docker", args, {
     encoding: "utf8",
@@ -28,7 +42,7 @@ function docker(args, options = {}) {
   if (result.status !== 0) {
     const operation = args[0] === "exec" ? `exec ${path.basename(args[2] ?? "")}` : args[0];
     const diagnostic = args[0] === "exec" && ["dpkg-deb", "certutil", "mkdir"].includes(path.basename(args[2] ?? "")) ? `: ${redactString(String(result.stderr ?? "").slice(-2048))}` : "";
-    throw new Error(`pinned browser renderer lifecycle failed at docker ${operation} (exit ${result.status})${diagnostic}`);
+    throw new Error(`pinned browser renderer lifecycle failed at docker ${operation} (exit ${result.status}, reason ${rendererLifecycleFailureReason(result)})${diagnostic}`);
   }
   return String(result.stdout ?? "").trim();
 }
@@ -61,23 +75,28 @@ export function rendererRelease(containerID, run = docker) {
   };
 }
 
-async function allocateLoopbackPort() {
-  return await new Promise((resolve, reject) => {
-    const server = createServer();
-    server.unref();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      const port = typeof address === "object" && address ? address.port : 0;
-      server.close((error) => (error ? reject(error) : resolve(port)));
-    });
-  });
+export function rendererPublishedPorts(value, diagnostics) {
+  const expected = [rendererContainerPort, ...(diagnostics ? [diagnosticContainerPort] : [])];
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid renderer published ports");
+  const published = Object.entries(value).filter(([, bindings]) => bindings !== null);
+  if (published.length !== expected.length) throw new Error("unexpected renderer published ports");
+  const ports = new Map();
+  for (const [key, bindings] of published) {
+    const containerPort = expected.find((port) => key === `${port}/tcp`);
+    if (!containerPort || !Array.isArray(bindings) || bindings.length !== 1) throw new Error("invalid renderer port binding");
+    const binding = bindings[0];
+    if (!binding || Object.keys(binding).sort().join(",") !== "HostIp,HostPort" || binding.HostIp !== "127.0.0.1" || typeof binding.HostPort !== "string" || !/^[1-9][0-9]{0,4}$/u.test(binding.HostPort) || Number(binding.HostPort) > 65535) throw new Error("renderer port binding is not exact loopback");
+    const hostPort = Number(binding.HostPort);
+    if ([...ports.values()].includes(hostPort)) throw new Error("duplicate renderer host port");
+    ports.set(containerPort, hostPort);
+  }
+  return { renderer: { containerPort: rendererContainerPort, hostPort: ports.get(rendererContainerPort) }, diagnostic: diagnostics ? { containerPort: diagnosticContainerPort, hostPort: ports.get(diagnosticContainerPort) } : null };
 }
 
-async function waitForEndpoint(containerID, port, run = docker) {
+async function waitForEndpoint(containerID, { containerPort, hostPort }, run = docker) {
   const deadline = Date.now() + 30_000;
   const endpointPattern = new RegExp(
-    `ws://0\\.0\\.0\\.0:${port}/[A-Za-z0-9_-]+`,
+    `ws://0\\.0\\.0\\.0:${containerPort}/[A-Za-z0-9_-]+`,
     "u",
   );
   while (Date.now() < deadline) {
@@ -92,7 +111,7 @@ async function waitForEndpoint(containerID, port, run = docker) {
     }
     const logs = run(["logs", containerID]);
     const match = logs.match(endpointPattern);
-    if (match) return match[0].replace("ws://0.0.0.0", "ws://127.0.0.1");
+    if (match) return match[0].replace(`ws://0.0.0.0:${containerPort}`, `ws://127.0.0.1:${hostPort}`);
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error("pinned visual renderer did not become ready");
@@ -122,9 +141,6 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
   const packages = resolvePlaywrightPackages(root);
   if (packages.version !== profile.playwright_version || packages.chromium.revision !== profile.chromium_revision || packages.chromium.browserVersion !== profile.chromium_version) throw new Error("renderer package descriptor mismatch");
   const fonts = verifyRendererFonts(root, profile);
-  const port = await allocateLoopbackPort();
-  let diagnosticPort = diagnostics ? await allocateLoopbackPort() : null;
-  while (diagnosticPort === port) diagnosticPort = await allocateLoopbackPort();
   const endpointToken = randomUUID().replaceAll("-", "");
   const containerName = `cartulary-visual-${process.pid}-${endpointToken.slice(0, 12)}`;
   const proof = validateRendererProof({ name: containerName, token: endpointToken, image_id: image.image_id, daemon_id: run(["info", "--format", "{{.ID}}"]) });
@@ -157,8 +173,8 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
       "--platform",
       profile.platform,
       "--publish",
-      `127.0.0.1:${port}:${port}`,
-      ...(diagnosticPort ? ["--publish", `127.0.0.1:${diagnosticPort}:${diagnosticPort}`] : []),
+      `127.0.0.1::${rendererContainerPort}`,
+      ...(diagnostics ? ["--publish", `127.0.0.1::${diagnosticContainerPort}`] : []),
       "--ipc",
       "host",
       "--init",
@@ -177,7 +193,7 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
       "--host",
       "0.0.0.0",
       "--port",
-      String(port),
+      String(rendererContainerPort),
       "--path",
       `/${endpointToken}`,
     ]);
@@ -187,12 +203,13 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
     run(["cp", packages.corePath, `${containerID}:/home/pwuser/playwright-core`]);
     const stagedTrust = trust({ root, environment, containerID, run });
     run(["start", containerID]);
+    const ports = rendererPublishedPorts(JSON.parse(run(["inspect", containerID, "--format", "{{json .NetworkSettings.Ports}}"])), diagnostics);
     stagedTrust.initialize();
     const observed = JSON.parse(run(["exec", containerID, "node", "-e", `const p=require('/home/pwuser/playwright/package.json'); const c=require('/home/pwuser/playwright-core/package.json'); const b=require('/home/pwuser/playwright-core/browsers.json').browsers.find(x=>x.name==='chromium'); process.stdout.write(JSON.stringify({playwright:p.version,core:c.version,revision:b.revision,version:b.browserVersion}));`]));
     if (observed.playwright !== profile.playwright_version || observed.core !== profile.playwright_version || observed.revision !== profile.chromium_revision || observed.version !== profile.chromium_version) throw new Error("container package identity mismatch");
     if (run(["inspect", containerID, "--format", "{{.Image}}"]) !== image.image_id) throw new Error("container image mismatch");
     const trustAttestation = stagedTrust.attestation;
-    const endpoint = await endpointReady(containerID, port, run);
+    const endpoint = await endpointReady(containerID, ports.renderer, run);
     const browserVersion = await connect(packages, endpoint, profile);
     const attestation = validateRendererAttestation({ schema_id: "cartulary.frontend_visual_renderer_attestation.v1", profile, observed: {
       ...image, playwright_version: observed.playwright, core_version: observed.core, chromium_revision: observed.revision, chromium_version: browserVersion,
@@ -202,7 +219,7 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
       profile,
       attestation,
       trustAttestation,
-      diagnosticPort,
+      diagnosticBinding: ports.diagnostic,
       environment: {
         CARTULARY_VISUAL_RENDERER_ATTESTED: "1",
         CARTULARY_VISUAL_RENDERER_PROFILE_ID: profile.profile_id,
