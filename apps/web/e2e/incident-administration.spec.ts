@@ -100,7 +100,11 @@ async function enterDesktopSurfaceSelector(page: Page) {
   });
   await expect(tabs).toBeVisible();
   // The footer has one roving entry; its navigation journey uses keyboard input.
-  await tabs.locator('[role="tab"][tabindex="0"]').focus();
+  const entry = tabs.locator('[role="tab"][tabindex="0"]');
+  // Shell mounting precedes incident-access admission; focus() does not wait
+  // for a disabled control to become focusable.
+  await expect(entry).toBeEnabled();
+  await entry.focus();
   await expect(tabs.locator('[role="tab"]:focus')).toHaveCount(1);
 }
 

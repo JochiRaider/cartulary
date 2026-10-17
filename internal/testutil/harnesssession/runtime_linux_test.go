@@ -43,6 +43,15 @@ func TestSessionRuntimeProof(t *testing.T) {
 			os.Exit(2)
 		}
 		fmt.Fprintln(os.Stdout, "ready")
+		if os.Getenv("CARTULARY_SCOPE_TEST_RESUME") == "1" {
+			var release [1]byte
+			if n, err := os.Stdin.Read(release[:]); err != nil || n != 1 || release[0] != 'r' {
+				os.Exit(3)
+			}
+			if err := unix.Prctl(unix.PR_SET_DUMPABLE, 1, 0, 0, 0); err != nil {
+				os.Exit(4)
+			}
+		}
 		time.Sleep(time.Minute)
 		os.Exit(0)
 	}

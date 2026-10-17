@@ -272,8 +272,20 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 				t.Fatal("unresolved resources", len(resources), err)
 			}
 			if variant == "borrowed" {
-				if _, err := invoke(`import assert from 'node:assert/strict';import {localSessionStatus} from './tools/harness/services/local-session.mjs';const state=localSessionStatus({root:process.cwd(),binary:process.env.CARTULARY_TEST_SERVICES_BIN,sessionFile:process.argv[1]});assert.equal(state.state,'active');assert.equal(state.borrower_count,0);assert.ok(state.services.length>0);`, sessionFile); err != nil {
-					t.Fatal("borrowed suite did not survive", err)
+				out, err := invoke(`import {localSessionStatus} from './tools/harness/services/local-session.mjs';const state=localSessionStatus({root:process.cwd(),binary:process.env.CARTULARY_TEST_SERVICES_BIN,sessionFile:process.argv[1]});process.stdout.write(JSON.stringify({state:state.state,reason:state.reason??'',compatible:state.compatible,borrowers:state.borrower_count,services:state.services.length,running:state.services.filter(service=>service.running).length}));`, sessionFile)
+				if err != nil {
+					t.Fatal("borrowed suite status query", err)
+				}
+				var state struct {
+					State, Reason                string
+					Compatible                   bool
+					Borrowers, Services, Running int
+				}
+				if json.Unmarshal(out, &state) != nil {
+					t.Fatal("invalid borrowed suite status projection")
+				}
+				if state.State != "active" || !state.Compatible || state.Borrowers != 0 || state.Services == 0 || state.Running != state.Services {
+					t.Fatalf("borrowed suite did not survive: state=%s reason=%s compatible=%t borrowers=%d services=%d running=%d", state.State, state.Reason, state.Compatible, state.Borrowers, state.Services, state.Running)
 				}
 			}
 		})

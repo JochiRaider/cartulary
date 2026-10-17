@@ -6411,6 +6411,13 @@ proof, incomplete discovery or conflicting identity MUST remain unresolved;
 unrelated processes MUST NOT be signaled. Node adapters may consume bounded
 inspection facts but MUST NOT implement a second discovery or signaling policy.
 
+Temporary permission denial while reading relevant process proof MAY remain
+pending within the same physical-settlement attempt and its existing deadline.
+The native owner MUST reobserve complete scope membership and revalidate identity
+before signaling; denied proof is neither absence nor authority. Persistent
+denial MUST terminate as unresolved at that deadline. Reobservation MUST NOT
+start another cleanup attempt, reset the deadline, or relax ownership checks.
+
 Cleanup dependencies are explicit lifecycle edges, separate from files retained
 as recovery authority. A failed resource blocks its dependencies, while proven
 independent releases continue. Unknown edges remain unresolved. Each physical

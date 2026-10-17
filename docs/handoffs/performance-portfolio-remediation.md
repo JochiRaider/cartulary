@@ -873,3 +873,70 @@ is earned by baseline variability. Eight provider windows are collected. The
 remaining windows are `test`, `ci`, `browser-e2e` and `release-check`; the full
 portfolio remains unqualified and unpublished until the existing writer
 validates every named binding and retained observation.
+
+### Rejected full-test cold observation and targeted repairs
+
+The next frozen provider window started at clean
+`051cdb1e59216b6a22d189c964a9ef1fd1f31e34` with executable
+digest `6fc8b6b5057f89135a449380b4760a29140c2cf92728ac78e7c58d446d609c88`:
+`remediation-cost-reference-test-20261016-01-cold`, public `make test`, forced-cold
+cache, CI output and the same external physical-fixture scratch root. Its graph is
+`88085d7c0eabd501c8f6977f292c30f87ef683b5baa15f285b596b2059934601`.
+
+The completed row `harness.browser.integration.native_fixture_lifecycle` failed
+with `product/test_assertion_failure`, normalized row/unit exit 10. The exact unit
+is `go:874f3be29c25ce14:0fffc159bbf9`. `TestNativeFixturePhysicalLifecycle/borrowed`
+reported `borrowed suite did not survive exit status 1` at
+`internal/testutil/harnessruntime/boundary/fixtures_linux_test.go:276`; the owned
+and failed-cleanup cases and `TestStandaloneNativeSession` passed within the same
+unit. The failing assertion combines active state, zero live borrowers and a
+nonempty service inventory, but the current diagnostic does not identify which
+predicate failed. Actual service termination, compatibility change and status
+inspection failure remain unconfirmed alternatives. No lifecycle fix or
+intermittency claim follows from this error alone.
+
+The native command (session `81884`) completed with outer Make exit 2 after
+5,142,670 ms. Its 1,235 work units comprise 1,228 passed, six failed and one
+skipped; no work was cancelled. The primary classification is
+`product/test_assertion_failure`. Of 1,938 cleanup operations, three failed and
+one was blocked; the retained-secret scan passed over 11,641 files. Independent
+work and finalizers drained without cancellation. Earlier compact observations
+omitted `publication_mode`; this failed root is excluded from performance
+qualification and must not be used to claim uncontaminated measurement evidence.
+
+The other failures have distinct dispositions:
+
+| Affected context | Observed mechanism and remediation |
+| --- | --- |
+| `harness.browser.unit.native_review`, `TestReviewIPC/unresponsive_initialize_write_deadline` | Native settlement returned unresolved after permission denial reading relevant `/proc` ownership proof. Settlement now reobserves within its existing deadline, without signaling an uncertain identity, extending the budget or starting another cleanup attempt. Persistent denial remains unresolved. The historical process's precise exec/exit transition is not established. |
+| `module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956` | Setup called Playwright `focus()` on the roving tab after shell mount without waiting for incident-access admission. Tabs are disabled during that admission, and `focus()` does not wait for enabled state. The helper now asserts enabled state before one focus operation; keyboard journey assertions and deadlines remain unchanged. The original report does not record the tab's disabled state at the instant of failure, so the historical causal attribution remains a supported setup explanation rather than a captured browser fact. |
+| `module.revisions.measurement.change_set` | The product row and browser group passed, but fixture release for `lease-000040` failed, provider close failed and service close was blocked. Measurement rollup and target failures are downstream effects. The retained cleanup projection contains no detailed cause, so this incident is not attributed to the proof-read failure by association. |
+
+Exact-owner recovery used `make test-run-recover` with the original run root and
+its verified runtime root/lease binding. It completed with native exit 0 in
+2,220 ms as `remediation-full-test-cleanup-recovery-20261016-01`. No service-wide
+reset was performed; the original failed result remains unchanged.
+
+Fresh targeted validation of the settlement mechanism passed with cache disabled:
+`remediation-scope-settlement-focused-20261016-01`, public `test-slice` for
+`harness.evidence_accounting.behavior.native_session`, native exit 0, 1,222 ms.
+It exercises both a real temporary Linux proof-read denial and persistent denial
+that exhausts the existing deadline while leaving the uncertain process alive.
+The two affected native browser-harness rows then passed as
+`remediation-native-lifecycle-focused-20261016-01`, native exit 0, 123,297 ms.
+The borrowed-suite assertion now emits only the schema's closed state/reason,
+compatibility, borrower count and service counts; its historical failure remains
+unattributed despite this fresh pass. Neither focused run establishes full-suite
+stability.
+
+The exact System views row passed in
+`remediation-system-views-entry-focused-20261016-01`, native exit 0, 82,386 ms,
+12/12 work units, all 23 cleanup operations completed and 76 files scanned.
+The exact change-set measurement passed in
+`remediation-change-set-cleanup-focused-20261016-01`, native exit 0, 205,200 ms,
+15/15 work units, all 28 cleanup operations completed and 91 files scanned.
+Both used cache-disabled execution and passed retained-secret scanning. These
+are separate fresh context observations; they do not establish the cause of the
+historical cleanup failure. The two native-harness rows completed all 11 cleanup
+operations with a passing 96-file scan; the native-session regression completed
+all ten cleanup operations with a passing 14-file scan.

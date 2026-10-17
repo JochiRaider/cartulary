@@ -103,12 +103,63 @@ func testDiagnosticAuthority(t *testing.T) {
 		if _, err := r.InspectDiagnosticScope(raw); !errors.Is(err, ErrUnresolved) {
 			t.Fatal("inaccessible proof ignored", err)
 		}
-		if err := r.SettleDiagnosticScope(ctx, raw); !errors.Is(err, ErrUnresolved) {
-			t.Fatal("inaccessible scope accepted", err)
+		settlement, cancelSettlement := context.WithTimeout(ctx, 100*time.Millisecond)
+		defer cancelSettlement()
+		if err := r.SettleDiagnosticScope(settlement, raw); !errors.Is(err, ErrUnresolved) || !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatal("inaccessible scope did not retain uncertainty until its deadline", err)
 		}
 		current, err := readProcess(cmd.Process.Pid)
 		if err != nil || current.state == "Z" || current.state == "X" {
 			t.Fatal("uncertain process signaled", err)
+		}
+	})
+	t.Run("temporary_proof_denial_settles_within_the_same_deadline", func(t *testing.T) {
+		r, _, _ := runtimeFixture(t)
+		scope, err := r.CreateDiagnosticScope([]string{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.RecordResource("diagnostic_scope", scope, "released")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestSessionRuntimeProof$")
+		cmd.Env = append(os.Environ(), "CARTULARY_SCOPE_TEST_PROTECTED=1", "CARTULARY_SCOPE_TEST_RESUME=1", "CARTULARY_DIAGNOSTIC_TOKEN="+scope.Token)
+		input, err := cmd.StdinPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer input.Close()
+		output, err := cmd.StdoutPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := cmd.Start(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = cmd.Process.Kill(); _ = cmd.Wait() }()
+		if line, err := bufio.NewReader(output).ReadString('\n'); err != nil || line != "ready\n" {
+			t.Fatal("protected fixture failed", line, err)
+		}
+		if _, marked, _, err := diagnosticMember(scope, cmd.Process.Pid); marked || !errors.Is(err, os.ErrPermission) {
+			t.Fatal("fixture proof was not inaccessible", marked, err)
+		}
+		raw, _ := json.Marshal(scope)
+		done := make(chan error, 1)
+		go func() { done <- r.SettleDiagnosticScope(ctx, raw) }()
+		select {
+		case err := <-done:
+			t.Fatal("temporary denial prematurely ended settlement", err)
+		case <-time.After(50 * time.Millisecond):
+		}
+		if _, err := input.Write([]byte{'r'}); err != nil {
+			t.Fatal("release proof-read barrier", err)
+		}
+		if err := <-done; err != nil {
+			t.Fatal("readable marked process did not settle", err)
+		}
+		current, err := readProcess(cmd.Process.Pid)
+		if !processGone(err) && (err != nil || current.state != "Z" && current.state != "X") {
+			t.Fatal("settlement returned before marked process exited", err)
 		}
 	})
 }

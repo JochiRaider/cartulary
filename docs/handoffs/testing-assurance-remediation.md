@@ -103,6 +103,25 @@ in the performance review. Eight of the twelve provider windows are collected;
 `test`, `ci`, `browser-e2e` and `release-check` remain. This is acquisition
 progress, not portfolio qualification or closure of the remaining findings.
 
+The first full-test cold observation was rejected after native fixture/review,
+System views setup and change-set cleanup failures. The
+[performance incident record](performance-portfolio-remediation.md#rejected-full-test-cold-observation-and-targeted-repairs)
+retains all failures, exact-owner recovery and applicability limits. Temporary
+native ownership-proof denial now stays pending within the existing settlement
+deadline; persistent uncertainty remains fail-closed. The browser setup waits
+for incident-access admission before focusing its entry tab. Native ownership,
+native fixture/review, System views and change-set measurement slices passed
+with cache disabled and completed cleanup. Borrowed-suite and historical
+change-set cleanup causes remain unattributed. No finite pass streak is treated
+as proof of stability.
+
+The repair finalizer `remediation-full-test-repairs-finalize-20261016-01`
+passed with native exit 0 in 22.789 s and no generated changes. Retained-run
+maintenance was skipped because `RESULTS_DIR` was unset: the prior successful
+full warm check has the earlier executable digest. Its earlier successful
+maintenance checkpoint remains retained. Harness evidence contracts and Markdown
+lint passed before the new frozen performance window.
+
 ## Workstream status
 
 | Finding | Owner | Status | Exit evidence |

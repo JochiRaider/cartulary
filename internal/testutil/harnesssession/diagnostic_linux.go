@@ -221,10 +221,10 @@ func diagnosticReadSettled(previous processState) bool {
 }
 
 func inspectDiagnostic(scope diagnosticScope) (DiagnosticInspection, []processState, error) {
-	return inspectScope(scope, "CARTULARY_DIAGNOSTIC_TOKEN", nil)
+	return inspectScope(context.Background(), scope, "CARTULARY_DIAGNOSTIC_TOKEN", nil)
 }
 
-func inspectScope(scope diagnosticScope, marker string, excluded map[int]ProcessProof) (DiagnosticInspection, []processState, error) {
+func inspectScope(ctx context.Context, scope diagnosticScope, marker string, excluded map[int]ProcessProof) (DiagnosticInspection, []processState, error) {
 	result := DiagnosticInspection{Processes: []ProcessProof{}}
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
@@ -235,6 +235,9 @@ func inspectScope(scope diagnosticScope, marker string, excluded map[int]Process
 	}
 	var members []processState
 	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return result, nil, errors.Join(ErrUnresolved, err)
+		}
 		pid, err := strconv.Atoi(entry.Name())
 		if err != nil || pid < 2 {
 			continue
@@ -303,14 +306,37 @@ func settleScope(ctx context.Context, scope diagnosticScope, marker string, excl
 	}
 	escalate := time.Now().Add(200 * time.Millisecond)
 	known := map[int]ProcessProof{}
+	var uncertainty error
+	observeAgain := func() error {
+		timer := time.NewTimer(10 * time.Millisecond)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return errors.Join(ctx.Err(), uncertainty)
+		case <-timer.C:
+			return nil
+		}
+	}
+observation:
 	for {
 		if err := ctx.Err(); err != nil {
-			return err
+			return errors.Join(err, uncertainty)
 		}
-		_, members, err := inspectScope(scope, marker, excluded)
+		_, members, err := inspectScope(ctx, scope, marker, excluded)
 		if err != nil {
+			// Exec/exit can temporarily deny an otherwise relevant proof read.
+			// Settlement owns an existing deadline: uncertainty stays pending
+			// inside that attempt, without signaling or inventing absence.
+			if errors.Is(err, os.ErrPermission) {
+				uncertainty = err
+				if err := observeAgain(); err != nil {
+					return err
+				}
+				continue
+			}
 			return err
 		}
+		uncertainty = nil
 		observed := map[int]bool{}
 		for _, member := range members {
 			observed[member.PID] = true
@@ -341,6 +367,13 @@ func settleScope(ctx context.Context, scope diagnosticScope, marker string, excl
 				continue
 			}
 			if err != nil {
+				if errors.Is(err, os.ErrPermission) {
+					uncertainty = errors.Join(ErrUnresolved, err)
+					if err := observeAgain(); err != nil {
+						return err
+					}
+					continue observation
+				}
 				return errors.Join(ErrUnresolved, err)
 			}
 			if !marked {
@@ -357,12 +390,8 @@ func settleScope(ctx context.Context, scope diagnosticScope, marker string, excl
 				return err
 			}
 		}
-		timer := time.NewTimer(10 * time.Millisecond)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
+		if err := observeAgain(); err != nil {
+			return err
 		}
 	}
 }
