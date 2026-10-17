@@ -29,8 +29,10 @@ passed all 799 work units at its recorded source checkpoint. The
 [performance evidence review](performance-portfolio-remediation.md) records the
 additional retained-context corrections before qualified windows are collected.
 
-Coordinated Reporting adoption, final source applicability, the qualified cost
-portfolio and reviewed browser consolidation remain open. Earlier implementation
+Coordinated Reporting adoption, final source applicability and reviewed browser
+consolidation remain open. The user waived remaining execution-cost qualification;
+the partial portfolio is retained without a publication or speedup claim.
+Earlier implementation
 checkpoints retain their own source identities and do not automatically qualify
 later source states. All nine findings are not yet closed.
 
@@ -129,7 +131,7 @@ lint passed before the new frozen performance window.
 | 1: discovery and selection | Harness catalog and source owners | CLOSED for admitted execution profiles | Bidirectional supported-source closure, reviewed source dispositions and fresh catalog-owner validation in `remediation-template-assets-catalog-20261015-01`; behavior coverage and release qualification remain separate |
 | 2: timed assurance | Timeline and Core 04 | IN_PROGRESS | AC-003 v2 and reviewed timed-predicate evidence |
 | 3: obligation traceability | Behavior and harness owners | IN_PROGRESS | Reviewed assertions, contexts and removal survivors |
-| 4: execution cost | Harness observability | IN_PROGRESS | Reconciled normative roster and qualified retained portfolio |
+| 4: execution cost | Harness observability | QUALIFICATION WAIVED BY USER | Roster and validator repairs implemented; eight provider windows retained. Remaining windows/publication were explicitly waived. No qualified portfolio or speedup claim. |
 | 5: stability evidence | Incident-specific behavior/harness owner | CLOSED for reviewed incidents | Local-asset imports and embedded-entrypoint CommonJS preparation reproduced the native PDF failure mechanism. Content-sensitive negative tests and fresh native/full-owner execution passed after repair; see the Reporting renderer-contract-15 checkpoint. Earlier allegations retain their recorded dispositions; no general stability guarantee is inferred. |
 | 6: structural assertions | Workbook and architecture owners | CLOSED for identified assertions | Identified spelling guards retired after reviewed survivors; fresh owner/detector checks in the structural closure record below; no claim that static checks prove arbitrary runtime behavior |
 | 7: browser consolidation | Workbook, Timeline and harness browser | IN_PROGRESS | Obligation matrix and evidence-preserving survivor decisions |
@@ -257,10 +259,10 @@ The tables linked below are detail views of this register, not executable catalo
 | 2 / Core 04 REQ-157–159, AC-003 v2: insertion, exact mapped cells, real acceptance-to-paint time | Timeline paste owner and single-observation adapter, ordinary browser stack and 25-session large grid | `module.timeline.measurement.paste_20x5_v2`; `timeline-paste.spec.ts` checks 20 new IDs and all 100 values; observer negatives reject stale/offscreen/one-frame completion and threshold equality; exact roots in timed assurance review | Demonstrated for retained source. Synthesized clipboard event only. No Excel application or Core 05 publication claim |
 | 2 / other timed Core 04 criteria | Each owner retains its distinct predicate, fixture, start/stop and sampling | [Timed assurance review](timed-product-assurance-review.md) contains one row per timed criterion, exact AC-043 tests and missing mechanism-specific evidence | AC-043, AC-044, presence, rollback and anchored-trace predicates demonstrated for their retained sources. Mechanism-specific Job predicates now have retained qualified observations; the Evidence metadata-shell v2 physical workload qualified in the retained run recorded below; frozen-source integrated applicability still requires review |
 | 3 / Harness REQ-800 removal rule and REQ-013 metadata boundary | Human review; behavior and execution/evidence evaluated separately | Every actual removal is in the preceding table or the six named Network Flow helper conversions in source reconciliation. No machine contract consumes this register | Demonstrated for removals already made; future consolidation requires its own surviving assertions and contexts. Unmapped tests remain retained for review |
-| 4 / Harness REQ-377–380 and adopted Section 4.3 membership | Canonical performance owner, v3 writer and exact provider/target bindings | `test-canonical-performance.mjs` validates statistics, gates and closure; canonical-event cases validate ordering, interval accounting and hostile input; retained run manifest/summary/event inputs use protected reads | Validator assertions pass; qualified clean-source portfolio is missing. Dirty full-check and measurement roots cannot fill it |
+| 4 / Harness REQ-377–380 and adopted Section 4.3 membership | Canonical performance owner, v3 writer and exact provider/target bindings | `test-canonical-performance.mjs` validates statistics, gates and closure; canonical-event cases validate ordering, interval accounting and hostile input; retained run manifest/summary/event inputs use protected reads | Validator assertions pass and eight provider windows are retained. Remaining qualification/publication explicitly waived by the user; no qualified portfolio or speedup claim |
 | 5 / Harness §§8–11: outcome, cause and evidence comparability | Actual product/test/fixture/runtime owner of each incident | Incident tables below name failed roots, cause, repairs and fresh successor roots; no cached success enters a fresh-execution denominator | Attributed expectation and fixture failures have focused repairs. Historical instability and isolated cleanup failure remain explicitly unconfirmed; no disablement or skip is inferred |
 | 6 / architecture ownership and Harness REQ-020 implementation freedom | Inspector composition imports and semantic capability interfaces | `workbookInspectorOwnershipArchitecture.test.ts`, `WorkbookInspectorDeclaredPanelList.test.tsx`: forbidden ownership dependencies fail, declared panel order/ref/focus and concealed/deleted/creation cases survive harmless call refactors | Demonstrated for this candidate. Other structural assertions require invariant-level review before retirement; exact public identities remain legitimate checks |
-| 7 / Core 03, Design and dedicated evidence owners | Workbook/Timeline pure model, storage/transport, component and real-browser layers | Mechanism register below identifies contexts that cannot be replaced merely by shared choreography | Partial review; no large browser matrix removed. Qualified reference cost and complete equivalence reviews remain prerequisites |
+| 7 / Core 03, Design and dedicated evidence owners | Workbook/Timeline pure model, storage/transport, component and real-browser layers | Mechanism register below identifies contexts that cannot be replaced merely by shared choreography | Reviewed distinct mechanisms remain. Only the redundant SavedView API scenario is removed under the completed equivalence review below; fresh survivor checks are pending. Reference cost qualification is waived, with no savings claim |
 | 8 / Harness REQ-053 reachability; Domain authority boundary | Current target-plan suite and source-discovery pruning | Named target-plan survivor and external-reference provenance above; predecessor obligations reviewed before deleting wrapper | Implemented and exercised. No alias, new runner or incidental external-test execution |
 | 9 / Reporting 1.4.0, Composition 1.3.0 candidate; immutable adopted 1.3.0 / 1.2.0 bases | Reporting/Composition admission, storage, rendering and companion owners | [Clause and promotion register](reporting-cutover-adoption-review.md) maps every changed clause, identity/pack/canonical/portability assertion and adoption condition | Production rendering, template/deck derivation, confinement and selected recovery/portability have retained qualification. Direct Composition review repaired ignored validation context through explicit local validation v2, strict immutable validation, stage ordering and ordinary lifecycle/authority evidence; the full Composition owner passes. Final integrated validation and coordinated adoption remain open |
 
@@ -269,7 +271,8 @@ The tables linked below are detail views of this register, not executable catalo
 All browser rows below use the catalog-owned Chromium context with ordinary
 application authentication, PostgreSQL and object storage. Owner manifests remain
 authoritative for exact fixtures, isolation and service dependencies. Component
-survivors do not replace these contexts. No row below is approved for deletion yet.
+survivors do not replace these contexts. These distinct mechanisms are retained;
+the separate SavedView review below authorizes only its named duplicate's removal.
 
 | Observable obligation / coverage dimensions | Smallest preserving layer and exact existing coverage | Consolidation decision / required evidence |
 | --- | --- | --- |
@@ -291,8 +294,11 @@ performs public HTTP calls after opening Workbook; it does not exercise saved-vi
 interaction. Behavior-owner review recommends consolidating it into the existing
 HTTP/storage and actual UI contexts below. Harness-owner review preserves their
 ordinary authentication/CSRF, real persistence, catalog reachability and browser
-integration. Removal is **not yet performed**: add the one missing initial-empty
-assertion, pass the named survivors, and freeze the reference cost portfolio first.
+integration. The missing initial-empty assertion and named survivors passed
+before removal. The user subsequently waived remaining timing qualification,
+removing the reference-portfolio prerequisite. The single duplicate scenario and
+its catalog row are now removed. Generated projections were refreshed through
+Make, and the fresh survivor checks below passed.
 
 | Existing assertion | Named survivor and actual mechanism | Decision |
 | --- | --- | --- |
@@ -314,7 +320,20 @@ survivor rows above through `make test-slice OWNER=module.savedviews` and passed
 with outer exit 0 in 82.466 seconds. The source snapshot is
 `9988fd0ba8a1ff90e52290bb5758215fde5dd2c937f40695dbbf42d3f0a125b4`.
 This is fresh assertion/context evidence, not a qualified execution-cost window.
-The duplicate scenario still awaits the reference portfolio before removal.
+This evidence precedes removal. The timing waiver permits the reviewed
+consolidation to proceed without claiming a measured saving or equivalent
+selection for the earlier cost windows.
+
+After removal, the same three exact survivor rows passed in
+`remediation-saved-view-consolidation-survivors-20261016-01`, outer exit 0,
+76.592 s, 15/15 work units and all 30 cleanup operations completed. The retained
+secret scan passed over 109 files. The executable snapshot is
+`58db062dcc1905ac09a665d4b8d773cd4484a5df7f40a2c325c00196c645a536`.
+`make generate` and `make format` passed in the matching `consolidation-generate`
+and `consolidation-format` roots (11.210 s and 7.015 s). This closes the reviewed
+removal's behavior and execution equivalence; integrated source applicability
+remains the final release check's responsibility. No unique security, focus,
+concurrency, clipboard, visual, accessibility or timing context was removed.
 
 The upstream UI/UX reference source is `ui-ux-pro-max` release `v2.15.0`, commit
 `a38d04c3d5c298c851dbe5e6ee1965ee3de42cb5`, retained with the MIT license and

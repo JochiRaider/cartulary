@@ -4,6 +4,18 @@ Baseline: `00d24aa5354284dfcf6533b8f650e9eb0291ad44`. This human inventory recor
 
 ## Integrated companion fixture repairs
 
+The reviewed duplicate browser scenario
+`saved-view route foundation persists canonical state while browser lifecycle affordances remain pending`
+in `apps/web/e2e/workbook.spec.ts` and row
+`module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58`
+are removed. Disposition: replaced by the exact three survivors in the
+[SavedView equivalence review](testing-assurance-remediation.md#saved-view-consolidation-candidate-review).
+Both behavior and execution/evidence reviews are recorded there. The initial-empty
+public-list assertion was added and exercised before removal; all three survivors
+passed again afterward. This retires one duplicate scenario, not a runner or
+assurance context. Generated batch and topology projections were updated through
+Make. No alias or catalog exemption remains.
+
 The retained-maintenance correction adds helper-only
 `tools/harness/observability/retained-selection.mjs` and
 `tools/harness/tests/retained-finalizer-cases.mjs`. The existing finalizer command

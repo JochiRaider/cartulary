@@ -1,6 +1,23 @@
 # Performance portfolio remediation
 
-Status: implementation validation in progress; no qualified portfolio published.
+Status: remaining execution-cost qualification waived by the user; no qualified
+portfolio published and no comparative speedup claim.
+
+The user instructed: “Skip the rest of the timing qualifications.” This ends
+the remaining execution-cost windows and publication work. It does not change
+the adopted validation protocol or turn partial evidence into a pass. The eight
+collected windows below remain retained observations. Product acceptance
+evidence, ordinary correctness checks, consolidation equivalence and coordinated
+adoption remain separate obligations.
+
+The active `remediation-cost-reference-test-20261016-02-cold` invocation at
+`07fa08cc668e3b2b9fd0f185eb2f49566ab24464` was interrupted through its owning
+native session. Outer exit was 130; the result is `cancelled` /
+`interrupted/cancelled_or_interrupted`, 81,123 ms, with 84 passed and 1,151
+cancelled work units. All 136 cleanup operations completed and the retained-secret
+scan passed over 4,495 files. This is an intentional cancellation, not failed
+product evidence or a qualified cold observation. No further performance windows
+or baseline publication will be launched under this remediation.
 
 This is supporting review material. Harness REQ-277–281 and REQ-377–380 own
 execution evidence and qualification. The reviewed Section 4.3 named membership

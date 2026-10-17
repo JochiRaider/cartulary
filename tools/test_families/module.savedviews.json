@@ -250,41 +250,6 @@
       ]
     },
     {
-      "row_id": "module.savedviews.browser.the_browser_authenticated_public_saved_view_list_3ccd8d0d58",
-      "owner_id": "module.savedviews",
-      "family_id": "module.savedviews.browser",
-      "collaborator_ids": [
-        "harness.browser",
-        "web.workbook"
-      ],
-      "verification_ids": [
-        "module.savedviews.verification.behavior_contract"
-      ],
-      "runner": "playwright",
-      "selector": {
-        "file": "apps/web/e2e/workbook.spec.ts",
-        "project_id": "chromium",
-        "stage": "webserver_backed",
-        "scenario_ids": [
-          "scenario_60428a3dde9b"
-        ],
-        "titles": [
-          "saved-view route foundation persists canonical state while browser lifecycle affordances remain pending"
-        ]
-      },
-      "evidence_class": "browser",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_functional",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
-    },
-    {
       "row_id": "module.savedviews.browser.timestamp_saved_queries_reload_and_reopen_withou_6a98a26dd7",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.browser",
