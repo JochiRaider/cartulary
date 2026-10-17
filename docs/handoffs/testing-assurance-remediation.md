@@ -13,6 +13,55 @@ No unexecuted test or historical passing run proves current conformance.
 
 ## Current final-release repair checkpoint
 
+The follow-up owner review found a production failure-classification race in
+the same serving-lease incident. Core 04 REQ-04-113 and Extensions EXT-REQ-213
+retain the serving fence and exact acquisition-expiry outcome. A driver's
+socket deadline can expire before `context.Err()` publishes cancellation;
+checking only that publication returned the transport error instead of the
+required active-process reason. Both session-open and lock-attempt failures
+now use the same absolute acquisition deadline at error observation. Failures
+before that boundary remain unchanged; cleanup time cannot alter the observed
+classification. No acquisition/loss-detection timeout or retry policy changes.
+`TestLeaseAcquisitionDeadlineClassification`, under the new ordinary Go unit
+row `app.server.unit.process_lease_acquisition_deadline`, covers delayed
+cancellation publication at equality/after the deadline, pre-deadline transport
+failure and cancellation, explicit deadline causes, and unrelated timeouts.
+These cases use deterministic observation instants, without sleeps.
+
+The already-started `remediation-final-release-20261017-02` was cancelled
+before changing that production source. Native exit was 130, with 135 passed,
+1,140 cancelled and zero failed work units after 238.077 s. All 176 cleanup
+operations completed; the retained-secret scan passed over 4,849 files. Its
+source was clean `ea42436b198437d65b822a02b0e813255e2a2431`, executable snapshot
+`8ad29eada03a31cbd3ef9c588f3ff89c665e5b1287e14abd7de3257de090dbec`.
+This cancellation avoids qualifying an obsolete source; it is not a failed
+test retry or passing evidence. The deadline repair passed
+`remediation-lease-deadline-focused-20261017-01`, native exit 0, 16.204 s,
+five work units, all 18 cleanup operations and a passing retained-secret scan
+over 35 files. It selects the new deadline unit row, both existing PostgreSQL
+process/serving-lease integration rows, and the assembly fencing row. Source:
+`db35c15ecda29425cf1e5538ee0c443a93ca39eb3ab27b92d03da21974a000f7`.
+The existing real database acquisition tests retain their 20 ms deadlines.
+The direct assembly assertions and deadline classifier have distinct
+responsibilities; neither replaces the other's mechanism. Final integrated
+validation remains required before coordinated adoption.
+`remediation-lease-deadline-finalize-20261017-01` passed with native exit 0
+in 22.049 s. Retained-run maintenance was skipped because `RESULTS_DIR` was
+unset; no compatible successful full warm check root exists for this revision.
+
+Final review removed the asynchronous context-status/error-type fallback as
+well: a shorter dependency timeout must not impersonate the acquisition
+deadline. `remediation-lease-deadline-focused-20261017-02` passed the same four
+rows, native exit 0, 17.131 s, five work units, all 18 cleanup operations and
+the 35-file retained-secret scan. The final executable snapshot is
+`e137355bf5225450bc98bd4bb21767937613e5ce4502ebbbc86cc6c8c4e2e06e`.
+Failure classification now depends on the actual acquisition deadline at
+observation, preserving every earlier transport/cancellation failure. This
+fix changes no deadline, retry policy, lease identity or mutation boundary.
+Finalization `remediation-lease-deadline-finalize-20261017-02` passed, native
+exit 0, 22.228 s. Retained-run maintenance was skipped because `RESULTS_DIR`
+was unset. The implementation is frozen for the next integrated release check.
+
 `remediation-final-release-20261017-01` ran `make release-check` from clean
 `dfa95e49a3c3cdca8120d979cc0fc92f084e8ae1`, executable snapshot
 `58db062dcc1905ac09a665d4b8d773cd4484a5df7f40a2c325c00196c645a536`.
@@ -33,8 +82,9 @@ The failures have two independent mechanisms:
   still checks `ErrApplicationProcessActive`; the platform's acquisition-policy
   integration tests retain that classification. The same test identity, real
   PostgreSQL/object-store fixture and runner remain. This removes an incidental
-  round-trip timing assumption, not the serving-fence obligation. No product
-  timeout, retry or denial behavior changes.
+  round-trip timing assumption, not the serving-fence obligation. That
+  assertion consolidation changes no production code; the separate owner
+  repair above preserves the required acquisition-expiry failure reason.
 - The `web.design.visual.incident_import_workflow` renderer failed at Docker
   start, before producing group evidence. The visual aggregate consequently
   failed with missing group results; there was no screenshot mismatch. The

@@ -4,6 +4,15 @@ Baseline: `00d24aa5354284dfcf6533b8f650e9eb0291ad44`. This human inventory recor
 
 ## Integrated companion fixture repairs
 
+`TestLeaseAcquisitionDeadlineClassification` in
+`internal/platform/processlease/lease_test.go` is active under
+`app.server.unit.process_lease_acquisition_deadline`: ordinary Go unit runner,
+fast tier, no fixture or service dependencies. It covers the exact
+acquisition-deadline failure classification independently of database latency.
+The existing assembly fencing entrypoint and catalog row retain real
+PostgreSQL/object-store admission and exclusion assertions. No test identity
+or supported context is retired by that repair.
+
 The reviewed duplicate browser scenario
 `saved-view route foundation persists canonical state while browser lifecycle affordances remain pending`
 in `apps/web/e2e/workbook.spec.ts` and row

@@ -3,11 +3,43 @@ package processlease
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func TestLeaseAcquisitionDeadlineClassification(t *testing.T) {
+	deadline := time.Now().Add(time.Hour)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+	transportTimeout := &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded}
+	transportFailure := errors.New("connection failed")
+	explicitDeadline := fmt.Errorf("driver: %w", context.DeadlineExceeded)
+	for _, err := range []error{transportTimeout, transportFailure, explicitDeadline} {
+		if got := acquisitionFailure(ctx, err, deadline.Add(-time.Nanosecond)); got != err {
+			t.Fatalf("pre-deadline transport failure was hidden: %v", got)
+		}
+		for _, observedAt := range []time.Time{deadline, deadline.Add(time.Nanosecond)} {
+			if ctx.Err() != nil {
+				t.Fatal("fixture must precede context cancellation publication")
+			}
+			if got := acquisitionFailure(ctx, err, observedAt); !errors.Is(got, ErrApplicationProcessActive) {
+				t.Fatalf("elapsed acquisition deadline lost its required classification: %v", got)
+			}
+		}
+	}
+	if got := acquisitionFailure(context.Background(), transportTimeout, deadline); got != transportTimeout {
+		t.Fatalf("unrelated transport timeout became acquisition expiry: %v", got)
+	}
+	cancel()
+	if got := acquisitionFailure(ctx, context.Canceled, deadline.Add(-time.Second)); !errors.Is(got, context.Canceled) {
+		t.Fatalf("pre-deadline cancellation became acquisition expiry: %v", got)
+	}
+}
 
 type drainingProofSession struct {
 	started  chan context.Context

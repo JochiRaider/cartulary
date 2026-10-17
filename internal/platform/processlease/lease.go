@@ -84,20 +84,14 @@ func Acquire(ctx context.Context, backend Backend, timeout time.Duration, lossDe
 	defer cancel()
 	session, err := backend.Open(acquireCtx)
 	if err != nil {
-		if errors.Is(acquireCtx.Err(), context.DeadlineExceeded) ||
-			errors.Is(err, context.DeadlineExceeded) {
-			return nil, ErrApplicationProcessActive
-		}
-		return nil, err
+		return nil, acquisitionFailure(acquireCtx, err, time.Now())
 	}
 	for {
 		acquired, acquireErr := session.TryAcquire(acquireCtx)
 		if acquireErr != nil {
+			failure := acquisitionFailure(acquireCtx, acquireErr, time.Now())
 			session.Close()
-			if errors.Is(acquireCtx.Err(), context.DeadlineExceeded) {
-				return nil, ErrApplicationProcessActive
-			}
-			return nil, acquireErr
+			return nil, failure
 		}
 		if acquired {
 			lease.mu.Lock()
@@ -114,6 +108,16 @@ func Acquire(ctx context.Context, backend Backend, timeout time.Duration, lossDe
 		case <-time.After(minDuration(50*time.Millisecond, timeout)):
 		}
 	}
+}
+
+func acquisitionFailure(ctx context.Context, err error, observedAt time.Time) error {
+	// A driver's socket deadline can expire before the context timer publishes
+	// cancellation. Classify against the same absolute acquisition deadline at
+	// error observation, before session cleanup can change the elapsed interval.
+	if deadline, ok := ctx.Deadline(); ok && !observedAt.Before(deadline) {
+		return ErrApplicationProcessActive
+	}
+	return err
 }
 
 func (l *Lease) State() State {
