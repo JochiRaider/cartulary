@@ -11,7 +11,73 @@ This handoff is human review material, never executable input. Specification
 adoption, implementation completion and assurance completion are separate.
 No unexecuted test or historical passing run proves current conformance.
 
-## Current final-release repair checkpoint
+## Current release cleanup blocker and remaining work
+
+The remaining execution-cost windows and baseline publication are waived by the
+user. They are not a performance pass. Production rendering and sandboxing are
+implemented; coordinated adoption remains unapplied while final assurance is
+incomplete.
+
+`remediation-final-release-20261017-04` ran public `make release-check` with
+normal cache and CI output at clean implementation commit
+`810069fe610fcc29f9bb27ecfaab73d98f1dffb9`. Its executable snapshot is
+`59068a74158462c1b9bb3c42ea86fab124dedbb551f41c35e46b5feaec47e10e` and its graph is
+`103d9845dcd21fbf9a8bbadb276e541b8a917fcf2ee2deba203dcc10b3462b83`.
+The native command returned exit 2 after 6,214,884 ms: 1,272 work units passed,
+two failed and one was dependency-skipped. Cache accounting is 236 hits,
+447 misses and 591 bypasses; a hit is not fresh execution.
+
+The exact product row `module.imports.measurement.xlsx_discovery` and its browser
+group passed. Its owned browser fixture, `lease-000049`, then failed release
+with `harness/cleanup_error`, unit exit 12. The corresponding measurement-summary
+unit failed with `artifact/artifact_error`, exit 11, because the retained
+observation was absent. The measurement target summary was dependency-skipped.
+The aggregate therefore reports `artifact/artifact_error`; these are downstream
+effects of one cleanup incident, not two independent product assertion failures.
+
+Of 1,743 cleanup records, 1,739 completed, three failed and one was blocked.
+The retained-secret scan passed over 11,992 files. Every component target
+projection except `browser-e2e-measurement` passed, including native fixture
+lifecycle, production rendering/confinement, migrations, portability and recovery.
+Those projections do not turn the failed release invocation into a pass or supply
+a successful full-owner audit root.
+
+The exact retained acquisition had closed producer and frontend launches; its
+backend launch lacked a closure receipt, and no terminal settlement receipt was
+present. That locates the unresolved teardown stage but does not establish the
+original native process adapter's error. Historical cleanup incidents remain
+unattributed; neither a permission-denial cause nor an intermittent failure rate
+is inferred by association. Review found that ordinary process settlement fails
+immediately on a proof-read error while diagnostic settlement can reobserve
+permission denial within its existing deadline. The adopted rule permits bounded
+reobservation; this difference alone does not prove the recorded incident's cause
+or justify changing lifecycle behavior without a reproducer.
+
+Exact-owner recovery used public `make test-run-recover` with this original result
+root and the validated private runtime/lease binding. The separate root
+`remediation-release04-recover-20261017-01` returned native exit 0 in 2,360 ms.
+Recovery settled the resources and leaves the original release result failed.
+No broad service reset or timing qualification was performed by recovery.
+
+Remaining work is:
+
+1. Establish the cleanup failure mechanism, implement any justified correction,
+   and validate the affected lifecycle and required release acceptance.
+2. Complete the 23 prepared full-owner evidence audits using successful,
+   source-compatible roots. The release04 manifests were prepared but not audited
+   because that invocation failed.
+3. Apply coordinated Reporting 1.4.0, Composition 1.3.0 and Core companion adoption
+   after the applicable conditions are satisfied; pin the immutable adoption
+   commit separately from the implementation commit.
+4. Finish the current closure matrix and reproducible handoff, retaining the
+   timing waiver and all failed-run dispositions.
+
+No implementation or adoption edits were made during this status continuation.
+The documentation checkpoint uses `make lint-markdown`; the previous implementation
+finalizer's retained-run maintenance remains skipped because `RESULTS_DIR` was
+unset. No cost portfolio or speed-up claim is made.
+
+## Earlier final-release repair checkpoint
 
 `remediation-final-release-20261017-03` completed at clean
 `a3d33e127ee04e96751ee7ee83067aea4b3bad07`, executable snapshot
