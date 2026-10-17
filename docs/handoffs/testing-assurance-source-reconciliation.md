@@ -2,6 +2,18 @@
 
 Baseline: `00d24aa5354284dfcf6533b8f650e9eb0291ad44`. This human inventory records authored selections and reviewed fixture requirements. Rows below distinguish retained fresh execution from enrollment-only work. Enrollment is not demonstrated coverage, and a pass establishes only its recorded source and actual assertions. It is not consumed by the harness.
 
+## Borrowed fixture executable lifetime
+
+`physicalFixtureExecutable` in
+`internal/testutil/harnessruntime/boundary/fixtures_linux_test.go` is a support
+helper reached only by `TestNativeFixturePhysicalLifecycle` under the existing
+`harness.browser.integration.native_fixture_lifecycle` row. It gives the borrowed
+fixture an owned prepared executable instead of depending on a mutable shared
+build-output path. It adds no test entrypoint, catalog, runner or product claim.
+The exact lifecycle row passed in
+`remediation-borrowed-tool-lifetime-20261017-01`; the main handoff retains the
+failed release root, observed `tool_changed` reason and scope of the repair.
+
 ## Integrated companion fixture repairs
 
 `TestLeaseAcquisitionDeadlineClassification` in

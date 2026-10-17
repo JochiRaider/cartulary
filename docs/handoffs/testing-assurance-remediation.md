@@ -13,6 +13,58 @@ No unexecuted test or historical passing run proves current conformance.
 
 ## Current final-release repair checkpoint
 
+`remediation-final-release-20261017-03` completed at clean
+`a3d33e127ee04e96751ee7ee83067aea4b3bad07`, executable snapshot
+`e137355bf5225450bc98bd4bb21767937613e5ce4502ebbbc86cc6c8c4e2e06e`.
+The native `make release-check` command exited 2 after 6,279.139 s: 1,274
+passed and one failed work unit, zero skipped/cancelled units, and 13 cache hits.
+All 1,967 cleanup operations completed and the retained-secret scan passed over
+12,050 files. Every component target projection except `backend-integration` passed,
+including browser acceptance, visuals/accessibility, installed rendering,
+packaging, security and independent recovery. This remains a failed aggregate;
+passing projections do not authorize an owner evidence audit of this root.
+
+The single failing row was
+`harness.browser.integration.native_fixture_lifecycle`, unit
+`go:874f3be29c25ce14:0fffc159bbf9`. The borrowed subcase reported
+`state=stale reason=tool_changed compatible=false borrowers=0 services=2 running=2`.
+Both services survived and the borrower count settled, but the shared workspace
+test-services executable changed. The exact publishing invocation was not
+retained. Review found that this test's ordinary Go context disables CGO while
+other preparation contexts can rebuild the same workspace output with different
+build settings. The strict compatibility rejection is correct; the fixture's
+assumption that a shared build output remains unchanged throughout its lease is
+not. This explains this observed mismatch without attributing every earlier
+borrowed-suite allegation to it.
+
+The borrowed fixture now owns a copy of the prepared executable for its complete
+lease lifetime. `physicalFixtureExecutable` opens one prepared file, checks that
+it is a regular executable, copies it to an exclusively created private test
+file, and checks the copy length and completion. The test-owned directory lasts
+through cleanup. The existing suite compatibility checks, assertions, owner,
+runner and real services remain unchanged; no retry, timeout, skip or product
+behavior changes. This isolates a test input under TH-HARNESS-REQ-018/853 rather
+than weakening `tool_changed` rejection. The helper has no independent entrypoint.
+
+`remediation-borrowed-tool-lifetime-20261017-01` passed the exact lifecycle row
+with cache disabled, native exit 0, 117.069 s, one work unit, all ten cleanup
+operations complete and a passing 95-file retained-secret scan. It includes the
+borrowed, owned and failed-cleanup cases plus standalone native-session coverage.
+Executable snapshot:
+`59068a74158462c1b9bb3c42ea86fab124dedbb551f41c35e46b5feaec47e10e`.
+Final integrated validation and coordinated adoption remain pending. Remaining
+execution-cost qualification is still waived; no new cost window is collected.
+
+`remediation-borrowed-tool-format-20261017-01` and
+`remediation-borrowed-tool-finalize-20261017-01` passed with native exit 0
+in 7.389 s and 22.343 s. Finalization changed no generated artifact.
+Retained-run maintenance was skipped because `RESULTS_DIR` was unset; no
+compatible successful full warm check root exists at this executable revision.
+Review of the actual release projections confirms that all fifteen target
+partitions for the 75-row `harness.browser` owner are present. Its complete
+owner audit can therefore use the next successful release root; the earlier
+assumption that optional review partitions were absent does not apply.
+
 The follow-up owner review found a production failure-classification race in
 the same serving-lease incident. Core 04 REQ-04-113 and Extensions EXT-REQ-213
 retain the serving fence and exact acquisition-expiry outcome. A driver's

@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"io/fs"
 	"net/url"
 	"os"
@@ -103,6 +104,10 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 			environment = prepared
 			var sessionFile string
 			if variant == "borrowed" {
+				// A persistent suite binds exact tool bytes. Other preparation
+				// owners may rebuild the workspace tool for a different Go build
+				// context, so this fixture owns its executable for the whole lease.
+				environment["CARTULARY_TEST_SERVICES_BIN"] = physicalFixtureExecutable(t, environment["CARTULARY_TEST_SERVICES_BIN"])
 				sessionFile = filepath.Join(r.Root, "persistent-owner", "session.json")
 				source := `import {createLocalSession} from './tools/harness/services/local-session.mjs';createLocalSession({root:process.cwd(),binary:process.env.CARTULARY_TEST_SERVICES_BIN,sessionFile:process.argv[1],environment:{}});`
 				if _, err := invoke(source, sessionFile); err != nil {
@@ -290,4 +295,28 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func physicalFixtureExecutable(t *testing.T, source string) string {
+	t.Helper()
+	input, err := os.Open(source)
+	if err != nil {
+		t.Fatal("open prepared fixture executable", err)
+	}
+	defer input.Close()
+	info, err := input.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0111 == 0 {
+		t.Fatal("prepared fixture executable is not a regular executable", err)
+	}
+	name := filepath.Join(t.TempDir(), "cartulary-test-services")
+	output, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0700)
+	if err != nil {
+		t.Fatal("create owned fixture executable", err)
+	}
+	size, copyErr := io.Copy(output, input)
+	closeErr := output.Close()
+	if copyErr != nil || closeErr != nil || size != info.Size() {
+		t.Fatal("copy prepared fixture executable", copyErr, closeErr)
+	}
+	return name
 }
