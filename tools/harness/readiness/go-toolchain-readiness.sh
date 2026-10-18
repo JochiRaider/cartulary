@@ -2,6 +2,7 @@
 set -euo pipefail
 
 mode="${1:-}"
+requested_mode="$mode"
 resolve_only=0
 if [[ "$mode" == "resolve" ]]; then resolve_only=1; mode=diagnose; fi
 if [[ "${CARTULARY_PREPARATION_POLICY:-}" == "installed_only" && "$mode" == "ensure" ]]; then
@@ -140,11 +141,21 @@ markers_match() {
   cmp -s -- "$source_marker" "$activation_marker"
 }
 
+report_ready() {
+  local source="$1"
+  local executable="$2"
+  if [[ "$resolve_only" == 1 ]]; then
+    printf '%s\n' "$executable"
+  elif [[ "$requested_mode" == diagnose && "${CARTULARY_OUTPUT_MODE:-}" != machine ]]; then
+    printf 'ok go: launcher=%s effective=%s source=%s\n' "$local_toolchain" "$expected_toolchain" "$source"
+  fi
+}
+
 if [[ "$local_toolchain" == "$expected_toolchain" ]]; then
   if [[ "$mode" == "ensure" ]]; then
     ensure_machine_state_paths
   fi
-  if [[ "$resolve_only" == 1 ]]; then printf '%s\n' "$go_bin"; else printf 'ok go: launcher=%s effective=%s source=local\n' "$local_toolchain" "$expected_toolchain"; fi
+  report_ready local "$go_bin"
   exit 0
 fi
 
@@ -181,7 +192,7 @@ if [[ "$mode" == "diagnose" ]]; then
     exit 2
   fi
 
-  if [[ "$resolve_only" == 1 ]]; then printf '%s\n' "$cached_go"; else printf 'ok go: launcher=%s effective=%s source=automatic-cache\n' "$local_toolchain" "$expected_toolchain"; fi
+  report_ready automatic-cache "$cached_go"
   exit 0
 fi
 
@@ -203,4 +214,4 @@ if [[ "$effective_prefix" != "go" || "$effective_word" != "version" || "$effecti
   exit 2
 fi
 
-printf 'ok go: launcher=%s effective=%s source=selected\n' "$local_toolchain" "$effective_toolchain"
+report_ready selected "$go_bin"

@@ -9,7 +9,7 @@ NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/${CARTULARY_LAYOUT_NODE_RUNTIM
 PNPM_BIN="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
 
 if [[ ! -x "${PNPM_BIN}" ]]; then
-  echo "repo-local pnpm was not found at ${PNPM_BIN}; run make frontend-toolchain" >&2
+  echo "repo-local pnpm was not found at ${PNPM_BIN}; run make bootstrap PART=frontend" >&2
   exit 1
 fi
 

@@ -414,7 +414,7 @@ replace_text "${preflight_dir}/package.json" '"node": "'"$node_version"'"' '"nod
 const fs = require("node:fs");
 const [file] = process.argv.slice(2);
 const owner = JSON.parse(fs.readFileSync(file, "utf8"));
-owner.policy_units["toolchain-drift"].needs = [];
+owner.policy_units["harness.toolchain_drift"].needs = [];
 fs.writeFileSync(file, `${JSON.stringify(owner, null, 2)}\n`);
 EOF
 git -C "${preflight_dir}" add --all
@@ -427,7 +427,7 @@ env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET \
   CARTULARY_HARNESS_SKIP_PREREQUISITES=1 \
   NODE_BIN="${NODE_BIN}" \
   make --no-print-directory -C "${preflight_dir}" \
-  toolchain-drift \
+  source-check CHECK=toolchain \
   >"${preflight_log}" 2>&1
 preflight_status=$?
 set -e
@@ -439,7 +439,7 @@ if ! "${NODE_BIN}" "${ROOT_DIR}/tools/harness/test-support/harness-artifact-asse
   --repo-root "${preflight_dir}" \
   --results-root "${preflight_results_root}" \
   --run-id "${preflight_run_id}" \
-  --target "toolchain-drift" \
+  --target "source-check" \
   --needle "package.json: engines.node mismatch: expected $node_version, got $node_version_alt" \
   --label "Make toolchain-drift diagnostic"; then
   printf '%s\n' 'toolchain-drift Make output:' >&2

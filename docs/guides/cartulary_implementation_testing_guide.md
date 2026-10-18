@@ -24,7 +24,7 @@ Before changing behavior:
    artifacts, cleanup, and audit behavior.
 4. Inspect `tools/test_catalog_owner.json` and the applicable authored family in
    `tools/test_families/`; do not infer ownership from test names or directories.
-5. Use `make task-guide ROLE=module-author OWNER=<owner-id>` to obtain the
+5. Use `make task-guide OWNER=<owner-id>` to obtain the
    current narrow workflow for that owner.
 
 Supporting guides under `docs/guides/` help implement an adopted contract but do
@@ -56,7 +56,7 @@ catalog inputs, then regenerate through Make.
 `make check` retains product coverage, current-artifact validation, static and
 security gates, and the three required harness smoke roles. Broad harness
 self-regression suites, including seeded UI-review tests and shared test-helper
-suites, run at the `full` aggregate tier through `make test`, CI, and release
+suites, run at the `full` aggregate tier through `make ci`, CI, and release
 verification. Harness smoke tiers are a separate selection surface.
 
 For harness changes, use the owning slice recommended by `make task-guide`;
@@ -70,9 +70,9 @@ See TH-HARNESS-REQ-800, 053, and 054 for the placement contract.
 Start with read-only discovery:
 
 ```sh
-make task-guide ROLE=module-author OWNER=<owner-id>
-make explain-test-owner OWNER=<owner-id>
-make explain-target TARGET=<target-id> DETAIL=summary
+make task-guide OWNER=<owner-id>
+make task-guide DETAIL=coverage OWNER=<owner-id>
+make target-plan TARGET=<target-id> DETAIL=summary
 ```
 
 Choose the smallest owner and row set that proves the intended change. If the
@@ -107,7 +107,7 @@ Use this loop:
 4. When the runtime profile requires managed services, run:
 
    ```sh
-   make service-backed-test-slice OWNER=<owner-id> ROWS=<row-id,...>
+   make test-slice SCOPE=services OWNER=<owner-id> ROWS=<row-id,...>
    ```
 
 5. Inspect failures and retained artifacts with:
@@ -146,9 +146,9 @@ schema, task-surface, or topology changes:
 
 ```sh
 make generate
-make generate-drift
-make generated-artifact-policy-check
-make json-shape-check
+make source-check CHECK=generated
+make source-check CHECK=generated
+make source-check CHECK=schema
 ```
 
 Never hand-edit generated roots, generated topology or task-surface outputs,
@@ -210,7 +210,7 @@ target, and stop the session when finished:
 ```sh
 make test-services-session-up
 make test-services-session-status
-make service-backed-test-slice \
+make test-slice SCOPE=services \
   OWNER=<owner-id> \
   ROWS=<row-id,...> \
   CARTULARY_TEST_SERVICES_MODE=attach
@@ -222,7 +222,7 @@ The default descriptor is
 `CARTULARY_TEST_SERVICES_SESSION_FILE=/absolute/path/session.json` on every
 command only when an explicit alternate location is required. A descriptor is
 never attached merely because it exists. `attach` is accepted only by
-`service-backed-test-slice`, `browser-e2e-webserver-backed`, and
+`test-slice SCOPE=services`, `browser-e2e-webserver-backed`, and
 `browser-e2e-stateful`; aggregate, measurement, accessibility, visual, CI, and
 release targets always own fresh services.
 
@@ -245,8 +245,8 @@ attachment before rerunning a failed restore. Startup stdout contains private
 credentials and must never be copied into retained diagnostics. Cleanup-only
 failure is `harness/cleanup_error`; an accompanying product failure keeps its
 primary classification while the cleanup observation remains in the report and
-failure dossiers. Current row results use `cartulary.harness_row_result.v3` and
-browser-group results use `cartulary.browser_group_result.v7`; prior versions are
+failure dossiers. Current row results use `cartulary.harness_row_result.v4` and
+browser-group results use `cartulary.browser_group_result.v8`; prior versions are
 archival inputs, not active-run fallbacks. Forced termination or missing terminal
 evidence cannot pass.
 
@@ -372,7 +372,7 @@ cleared or republished.
 ## Harness Evidence and Cache Cutover
 
 Current harness runs emit `cartulary.harness_unit_event.v2`, compile
-`cartulary.harness_work_graph.v5`, and read or write only
+`cartulary.harness_work_graph.v6`, and read or write only
 `cartulary.harness_cache_record.v2`. There are no compatibility readers or dual
 writes for the retired event v1, graph v3, or cache-record v1 formats. Historical
 result roots remain manually inspectable archives, but cannot be retained as
@@ -542,10 +542,11 @@ output is bounded; the JSON view and terminal index provide additional retained
 facts with explicit omission counts. Execution details describe the whole
 invocation even when canonical timing selects one target projection.
 
-This iteration uses execution-index v1, resource-index v2, performance-explanation
-v2 and reset-attempt v2. Incompatible historical formats have no translation
+The current readers use execution-index v2, resource-index v3,
+performance-explanation v4 and reset-attempt v2. Incompatible historical formats have no translation
 reader. Missing optional evidence is unavailable; malformed published evidence
 fails inspection without changing retained test results. Export remains an
 explicit separate operation and does not include these local execution or
-resource records. Container/full-wrapper coverage, cross-clock joins and total
-observer qualification remain deferred.
+resource records. Counter availability and coverage remain explicit in each
+retained run. Harness performance qualification and baseline publication are
+retired; descriptive observations do not establish a total-cost or overhead claim.

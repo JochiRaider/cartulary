@@ -18,7 +18,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "test"
+      "public_target": "ci"
     },
     {
       "verification_id": "app.server.verification.source_contracts",

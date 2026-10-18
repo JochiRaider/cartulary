@@ -338,7 +338,7 @@ Validation table:
 | Target | Purpose | Required? | Expected artifact | Failure handling |
 | --- | --- | --- | --- | --- |
 | `make check` | Default local correctness gate | TODO | TODO | TODO |
-| `make test` | Broad test sweep | TODO | TODO | TODO |
+| `make ci` | Comprehensive CI scope | TODO | TODO | TODO |
 | module-specific target | Fast slice check | TODO | TODO | TODO |
 | browser/visual/a11y target | UI readiness only unless owner says otherwise | TODO | TODO | TODO |
 

@@ -9,7 +9,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "test"
+      "public_target": "ci"
     },
     {
       "verification_id": "module.incidentbundles.verification.behavior_contract",
@@ -44,7 +44,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "test"
+      "public_target": "ci"
     },
     {
       "verification_id": "module.incidentbundles.verification.safe_failures",
@@ -83,7 +83,7 @@
         "artifact_audit",
         "static_check"
       ],
-      "public_target": "json-shape-check"
+      "public_target": "source-check"
     }
   ]
 }

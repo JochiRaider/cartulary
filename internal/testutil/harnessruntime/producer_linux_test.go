@@ -96,9 +96,9 @@ func TestRuntimeProducerInterop(t *testing.T) {
 			mode, reason string
 			code         int
 		}{{"diagnostic", "artifact_error", 11}, {"contradictory", "scheduler_accounting_error", 11}, {"conflict", "scheduler_accounting_error", 11}, {"assertion", "test_assertion_failure", 10}} {
-			u := engineUnit("target:build-web", 1)
+			u := engineUnit("target:build", 1)
 			u.TimeoutMS = 10000
-			u.Command = command{Executable: "make", Args: []string{"--silent", "-f", makefile, c.mode}, Environment: map[string]string{"CARTULARY_TEST_TARGET": "build-web"}}
+			u.Command = command{Executable: "make", Args: []string{"--silent", "-f", makefile, c.mode}, Environment: map[string]string{"CARTULARY_TEST_TARGET": "build"}}
 			if c.mode == "assertion" {
 				u.Command.Executable = node
 				u.Command.Args = []string{fixture, c.mode}
@@ -157,18 +157,22 @@ func TestRuntimeProducerInterop(t *testing.T) {
 		}
 		defer rt.Close()
 		ready := filepath.Join(scratch, "ready")
+		registered := filepath.Join(scratch, "registered")
 		env := rt.Environment()
 		env["NODE_BIN"], env["PATH"] = node, "/usr/bin:/bin"
 		env["CAPTURE_READY"], env["CAPTURE_RUN"] = ready, run
+		env["CAPTURE_REGISTERED"] = registered
 		p := processRunner{Root: root, Environment: env, KillGrace: time.Second}
 		u := engineUnit("test:capture-cancel", 1)
 		u.TimeoutMS = 10000
 		u.Command = command{Executable: node, Args: []string{"--input-type=module", "--eval", `
 import {runPrivateCapturedProcess} from './tools/harness/runtime/private-child-process.mjs';
+import {writeFileSync} from 'node:fs';
 process.on('SIGTERM', () => {});
 await runPrivateCapturedProcess(process.execPath, ['--input-type=module', '--eval',
   "import {writeFileSync} from 'node:fs'; process.stdout.write('private cancellation output'); writeFileSync(process.env.CAPTURE_READY, String(process.pid)); setInterval(() => {}, 1000);"],
-  {repoRoot: process.cwd(), runRoot: process.env.CAPTURE_RUN, cwd: process.cwd(), env: process.env, dependencies: []});
+  {repoRoot: process.cwd(), runRoot: process.env.CAPTURE_RUN, cwd: process.cwd(), env: process.env, dependencies: [],
+   onSpawn() { writeFileSync(process.env.CAPTURE_REGISTERED, 'registered'); }});
 `}, Environment: map[string]string{}}
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -178,15 +182,20 @@ await runPrivateCapturedProcess(process.execPath, ['--input-type=module', '--eva
 		tick := time.NewTicker(5 * time.Millisecond)
 		defer tick.Stop()
 		var pid int
-		for pid == 0 {
+		for {
 			if data, err := os.ReadFile(ready); err == nil {
 				pid, _ = strconv.Atoi(string(data))
+			}
+			// Payload readiness alone can precede ownership registration. This
+			// case cancels only after the capture owner has installed handlers.
+			if data, err := os.ReadFile(registered); err == nil && string(data) == "registered" && pid > 0 {
+				break
 			}
 			select {
 			case r := <-done:
 				t.Fatalf("capture exited before cancellation: %+v %s", r, r.Stderr)
 			case <-deadline:
-				t.Fatal("captured child did not become ready")
+				t.Fatal("captured child and registered owner did not become ready")
 			case <-tick.C:
 			}
 		}

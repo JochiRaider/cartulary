@@ -92,7 +92,7 @@
     {
       "concept": "harness.visual task-guide owner",
       "status": "NOT PRESENT",
-      "qualification": "contracts/verification/owners/harness.visual.json owns the fixture contract, but tools/test_catalog_owner.json does not list harness.visual as an active task-guide owner; use make browser-e2e-visual."
+      "qualification": "contracts/verification/owners/harness.visual.json owns the fixture contract, but tools/test_catalog_owner.json does not list harness.visual as an active task-guide owner; use make browser-e2e SUITE=visual."
     },
     {
       "concept": "functional packages/ui implementation",

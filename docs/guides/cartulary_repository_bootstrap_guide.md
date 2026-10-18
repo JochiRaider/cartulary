@@ -49,7 +49,7 @@ Use the repository's pinned toolchain and public Make surface:
 ```sh
 make doctor
 make bootstrap
-make toolchain-drift
+make source-check CHECK=toolchain
 ```
 
 Do not invoke package managers or language tools as substitute automation when a
@@ -133,9 +133,7 @@ store through repository-owned service targets:
 
 ```sh
 make services-up
-make db-up
 make db-migrate
-make object-store-init
 ```
 
 Local development keeps its object-store CORS proxy on
@@ -162,9 +160,9 @@ contracts:
 
 ```sh
 make generate
-make generate-drift
-make generated-artifact-policy-check
-make json-shape-check
+make source-check CHECK=generated
+make source-check CHECK=generated
+make source-check CHECK=schema
 ```
 
 Generated roots declared by `tools/generated_artifact_policy.json`, generated
@@ -215,9 +213,9 @@ Discover the current owner surface instead of copying row IDs into a guide:
 
 ```sh
 make help
-make help-all
-make task-guide ROLE=module-author OWNER=<owner-id>
-make explain-test-owner OWNER=<owner-id>
+make help ALL=1
+make task-guide OWNER=<owner-id>
+make task-guide DETAIL=coverage OWNER=<owner-id>
 ```
 
 For each small owner change:
@@ -249,7 +247,7 @@ verification. A separate CI-only registry or reader is not permitted.
 Bootstrap is complete when:
 
 - the repository boundaries above exist and compile;
-- `make doctor`, `make generate-drift`, and the generated-artifact checks pass;
+- `make doctor`, `make source-check CHECK=generated`, and the generated-artifact checks pass;
 - managed PostgreSQL and object-store services start, report readiness, and
   clean up through public targets;
 - migrations apply to an empty database and expose current history evidence;
@@ -307,7 +305,7 @@ Git repositories. It covers input/preview parity, directory tiers, rejected
 plans, worktrees, symlinks, I/O failure, admission, and projection drift. Build,
 frontend typecheck, generated-policy, schema, shell/script lint, harness, and
 release-shape checks complete the integration evidence. Consult `make
-task-guide ROLE=module-author OWNER=harness.command_surface` before selecting
+task-guide OWNER=harness.command_surface` before selecting
 verification.
 
 Rollback restores the implementation, authored owner, generated projections,

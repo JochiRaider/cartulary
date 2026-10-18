@@ -14,7 +14,7 @@ export async function publishIndependentFrontendBuild(measurement: boolean) {
   return await new Promise<string>((resolveResult, reject) => {
     const child = spawn(
       "make",
-      [measurement ? "build-web-measurement" : "build-web"],
+      ["build", measurement ? "COMPONENT=web-measurement" : "COMPONENT=web"],
       {
         cwd: resolve(import.meta.dirname, "../../../../.."),
         env,

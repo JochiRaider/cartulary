@@ -9,7 +9,7 @@ import { buildSourceSnapshot } from "../../test-catalog/index.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 const scratch = mkdtempSync(path.join(os.tmpdir(), "frontend-artifact-test-"));
 const runtimes = [];
-const profile = { id: "production", producer_target: "build-web", entries: ["index.html"] };
+const profile = { id: "production", producer_report_key: "build-web", producer_operation: "harness.build_web", entries: ["index.html"] };
 function fixture(runID, version) {
   const runRoot = path.join(scratch, runID);
   mkdirSync(runRoot, { mode: 0o700 });

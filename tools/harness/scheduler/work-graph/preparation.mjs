@@ -1,11 +1,12 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { resolveDeclaredTargetInputs } from "../../contract/index.mjs";
 import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 import { resolveGraphNodeBinary, assertGraphNodeLaunch } from "./launch-binding.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 function usage() {
-  return "usage: cartulary-harness graph --selection target|aggregate|owner|rows --target <target> [--owner <owner-id>] [--rows <row-id,...>] [--service-backed-only]";
+  return "usage: cartulary-harness graph --selection command|target|aggregate|owner|rows --target <target> [--owner <owner-id>] [--rows <row-id,...>] [--service-backed-only]";
 }
 
 export function parseArgs(argv) {
@@ -22,10 +23,10 @@ export function parseArgs(argv) {
     else if (arg === "--selection") options.selection = argv[++index] ?? "";
     else if (arg === "--target") options.target = argv[++index] ?? "";
     else if (arg === "--owner") options.owner = argv[++index] ?? "";
-    else if (arg === "--rows") options.rows = (argv[++index] ?? "").split(",").filter(Boolean);
+    else if (arg === "--rows") options.rows = (argv[++index] ?? "").split(",");
     else throw new Error(usage());
   }
-  if (!new Set(["target", "aggregate", "owner", "rows"]).has(options.selection)) {
+  if (!new Set(["command", "target", "aggregate", "owner", "rows"]).has(options.selection)) {
     throw new Error(usage());
   }
   if (!options.target) throw new Error(usage());
@@ -61,40 +62,59 @@ export function commandEntry(target) {
   return entry;
 }
 
-export function declaredInputs(entry) {
-  return Object.fromEntries(
-    (entry.input_contract?.inputs ?? [])
-      .filter((input) => process.env[input.name] !== undefined && process.env[input.name] !== "")
-      .map((input) => [
-        input.name,
-        input.summary_emission === "redacted_value"
-          ? "<redacted>"
-          : String(process.env[input.name]),
-      ])
-      .sort(([left], [right]) => left.localeCompare(right)),
-  );
+export function commandInputContext(entry, selected = {}, { environment: parent = process.env, surface = readJSON("tools/task_surface_owner.json") } = {}) {
+  // Native graph selectors are admitted arguments, independent of an enclosing
+  // Make invocation's artifact identity. Resolve only this command's inputs.
+  const sources = (parent.CARTULARY_MAKE_INPUT_SOURCES || "").split(/\s+/u)
+    .filter((token) => token && !Object.hasOwn(selected, token.split("=")[0]));
+  const environment = { ...parent, ...selected, CARTULARY_MAKE_INPUT_SOURCES:
+    [...sources, ...Object.keys(selected).map((name) => `${name}=cli`)].join(" ") };
+  const resolved = resolveDeclaredTargetInputs(entry.name, entry, surface, environment);
+  const inputs = Object.fromEntries(Object.entries(resolved).sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, input]) => [name, input.summary_emission === "redacted_value" ? "<redacted>" : input.value]));
+  // Public controls are consumed by selection or explicit private arguments.
+  // Clear the complete authored input set, including inputs of other commands,
+  // then forward only this command's admitted runtime values. The native owner
+  // applies this projection without loading a second command registry.
+  const clear = [...new Set(["CARTULARY_MAKE_INPUT_SOURCES", ...surface.targets
+    .filter((target) => target.target_class === "public")
+    .flatMap((target) => target.input_contract?.inputs ?? []).map((input) => input.name)])].sort();
+  const forward = {};
+  for (const input of entry.input_contract?.inputs ?? []) {
+    if (!["runtime_env", "argv_and_runtime_env"].includes(input.child_forwarding) || !Object.hasOwn(resolved, input.name)) continue;
+    if (input.summary_emission === "redacted_value") throw new Error("credential inputs require an owned private runtime binding");
+    const value = resolved[input.name].value;
+    forward[input.name] = input.type === "exact_1_bool" ? value === "1" || value === "true" ? "1" : "" : value;
+  }
+  return { inputs, input_environment: { clear, forward } };
+}
+
+// Defaults are already canonical in retained manifests. Do not reinterpret
+// normalized false flags as user-supplied command-line tokens during replay.
+export function replayInputs(entry, inputs) {
+  const definitions = new Map((entry.input_contract?.inputs ?? []).map((input) => [input.name, input]));
+  return Object.fromEntries(Object.entries(inputs).filter(([name, value]) => {
+    const input = definitions.get(name);
+    return !input || input.default === null || input.default === undefined || String(input.default) !== value;
+  }));
 }
 
 export function selectionInputs(options) {
+  // Private exact-row subgraphs retain their selection in the manifest; they do
+  // not manufacture public forwarding inputs for their enclosing command.
+  if (options.selection === "rows") return {};
   return {
     ...(options.owner ? { OWNER: options.owner } : {}),
-    ...(options.rows ? { ROWS: options.rows.join(",") } : {}),
-    ...(options.serviceBackedOnly ? { SERVICE_BACKED_ONLY: "1" } : {}),
+    ...(options.rows ? { ROWS: [...options.rows].sort().join(",") } : {}),
+    ...(options.serviceBackedOnly ? { SCOPE: "services" } : {}),
   };
 }
 
 export function resolvedRuntimeEnvironment(compiler) {
-  const environment = Object.fromEntries(
-    compiler.topology.runtime_binaries
-      .map((binary) => [
-        binary.consumer_env,
-        path.resolve(
-          root,
-          process.env[binary.output_make_variable] || binary.default_output_path,
-        ),
-      ])
-      .sort(([left], [right]) => left.localeCompare(right)),
-  );
+  const environment = Object.fromEntries(compiler.topology.runtime_binaries.flatMap((binary) => {
+    const output = path.resolve(root, process.env[binary.output_make_variable] || binary.default_output_path);
+    return [[binary.consumer_env, output], [binary.output_make_variable, output]];
+  }));
   environment.CARTULARY_TEST_SERVICES_BIN = path.resolve(
     root,
     process.env.CARTULARY_TEST_SERVICES_BIN ||
@@ -118,6 +138,10 @@ export function resolvedRuntimeEnvironment(compiler) {
 }
 
 export function selectionFor(options, compiler) {
+  if (options.selection === "command") {
+    const compiled = compiler.compileCommand(options.target, compiler.targetInputs[options.target] ?? {});
+    return { graph: compiled.graph, projections: compiler.aggregateProjections(options.target, compiled.graph) };
+  }
   if (options.selection === "aggregate") {
     const plan = compiler.compileAggregatePlan(options.target);
     return { graph: plan.graph, projections: plan.projections };
@@ -136,9 +160,13 @@ export function selectionFor(options, compiler) {
       compiler.catalog.rows.map((row) => [row.row_id, row.service_dependencies]),
     );
     const ownerRows = compiler.catalog.rows.filter((row) => row.owner_id === options.owner);
-    rowIDs = (rowIDs ?? ownerRows.map((row) => row.row_id)).filter(
-      (rowID) => (serviceDependencies.get(rowID)?.length ?? 0) > 0,
-    );
+    if (rowIDs) {
+      if (new Set(rowIDs).size !== rowIDs.length) throw new Error("row selection contains duplicate values");
+      for (const rowID of rowIDs) {
+        if (!ownerRows.some((row) => row.row_id === rowID)) throw new Error(`${rowID} does not belong to ${options.owner}`);
+        if (serviceDependencies.get(rowID).length === 0) throw new Error(`${rowID} is outside service-backed scope`);
+      }
+    } else rowIDs = ownerRows.filter((row) => row.service_dependencies.length > 0).map((row) => row.row_id);
     if (rowIDs.length === 0) throw new Error(`${options.owner} has no service-backed rows`);
   }
   const graph = compiler.compile({ kind: "owner", owner_id: options.owner, row_ids: rowIDs });

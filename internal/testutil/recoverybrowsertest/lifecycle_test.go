@@ -7,26 +7,28 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 )
 
 func TestLifecyclePreservesEveryCleanupFailure(t *testing.T) {
 	t.Run("drop_wait_diagnostics_exclude_private_values", func(t *testing.T) {
-		if got := dropWaitDescription("IPC", "ProcSignalBarrier", 0); got != "type=IPC event=ProcSignalBarrier blockers=0" {
+		if got := postgrescleanup.DropWaitDescription("IPC", "ProcSignalBarrier", 0); got != "type=IPC event=ProcSignalBarrier blockers=0" {
 			t.Fatal(got)
 		}
 		for _, input := range [][2]string{{"private_type", "ProcSignalBarrier"}, {"Extension", "PrivateCredentialAlpha123"}, {"Lock", "postgres://private:secret@host"}} {
-			got := dropWaitDescription(input[0], input[1], 1)
+			got := postgrescleanup.DropWaitDescription(input[0], input[1], 1)
 			if strings.Contains(got, "private") || strings.Contains(got, "PrivateCredential") || strings.Contains(got, "secret") {
 				t.Fatalf("private wait leaked: %s", got)
 			}
 		}
-		if got := dropWaitDescription("IO", "DataFileSync", 0); got != "type=IO event=DataFileSync blockers=0" {
+		if got := postgrescleanup.DropWaitDescription("IO", "DataFileSync", 0); got != "type=IO event=DataFileSync blockers=0" {
 			t.Fatal(got)
 		}
-		if got := checkpointProgressDescription(-1, 0, 0); got != "progress_unavailable" {
+		if got := postgrescleanup.CheckpointProgressDescription(-1, 0, 0); got != "progress_unavailable" {
 			t.Fatal(got)
 		}
-		if got := checkpointProgressDescription(7, 6, 200); got != "requested=7 done=6 buffers=200" {
+		if got := postgrescleanup.CheckpointProgressDescription(7, 6, 200); got != "requested=7 done=6 buffers=200" {
 			t.Fatal(got)
 		}
 	})

@@ -673,7 +673,7 @@ func (h *Harness) registerDatabaseCleanupT(t testing.TB, name string, reuseScope
 	t.Helper()
 	t.Cleanup(func() {
 		if err := h.dropDatabase(context.Background(), name, reuseScope, attribution); err != nil {
-			t.Fatalf("drop postgres database: %v", err)
+			testfailure.CleanupFailure(t, "pgtest", "postgres", "delete", err)
 		}
 	})
 }
@@ -1159,30 +1159,36 @@ func pingAdminDSN(ctx context.Context, dsn string) error {
 
 func createDatabase(ctx context.Context, adminDSN string, name string, templateDB string) error {
 	var err error
+	created := false
 	if templateDB != "" {
-		err = postgrescatalog.CloneDatabase(ctx, adminDSN, name, templateDB, postgresCatalogAdmissionTimeout)
+		created, err = postgrescatalog.CloneDatabase(ctx, adminDSN, name, templateDB, postgresCatalogAdmissionTimeout)
 	} else {
 		err = postgrescatalog.WithMutation(
 			ctx,
 			adminDSN,
 			name,
 			postgresCatalogAdmissionTimeout,
-			func(admin *sql.DB) error {
+			func(admin *sql.Conn) error {
 				statement := fmt.Sprintf(`CREATE DATABASE "%s"`, name)
 				if _, err := admin.ExecContext(ctx, statement); err != nil {
 					return fmt.Errorf("create test database %s: %w", name, err)
 				}
+				created = true
 				return nil
 			},
 		)
 	}
-	if err != nil {
-		return err
+	if err == nil {
+		err = ProvisionDatabase(ctx, adminDSN, name)
 	}
-	if err := ProvisionDatabase(ctx, adminDSN, name); err != nil {
-		return err
+	if err != nil && created {
+		// Setup cancellation must not suppress disposal of our committed CREATE.
+		// Each cleanup stage keeps the common owner's separate existing bound.
+		_, cleanupErr := postgrescleanup.DropOwnedDatabase(context.Background(), adminDSN, name,
+			postgresDatabaseNormalDropTimeout, postgresDatabaseForcedDropTimeout)
+		return errors.Join(err, cleanupErr)
 	}
-	return nil
+	return err
 }
 
 // OpenPurposeDatabase opens a test-only database handle through the same
@@ -1376,7 +1382,7 @@ func markTemplateDatabase(ctx context.Context, adminDSN string, name string) err
 		adminDSN,
 		name,
 		postgresCatalogAdmissionTimeout,
-		func(admin *sql.DB) error {
+		func(admin *sql.Conn) error {
 			if _, err := admin.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, name); err != nil {
 				return fmt.Errorf("terminate template database connections: %w", err)
 			}

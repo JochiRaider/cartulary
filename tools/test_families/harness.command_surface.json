@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v8",
+  "schema_id": "cartulary.test_family_manifest.v9",
   "owner_id": "harness.command_surface",
   "rows": [
     {
@@ -12,7 +12,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_boundary_contract.v1"
+        "operation_id": "harness.harness_boundary_contract"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -33,7 +33,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_command_surface_contract.v2"
+        "operation_id": "harness.harness_command_surface_contract"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -54,7 +54,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_scheduler_contract.v1"
+        "operation_id": "harness.harness_scheduler_contract"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -184,8 +184,32 @@
           "TestRuntimeProducerInterop",
           "TestRuntimePublicationRollback",
           "TestRuntimeRequiredPublication",
-          "TestRuntimeScheduling",
-          "TestRuntimeSelectedGraphExecution"
+          "TestRuntimeSelectedGraphExecution",
+          "TestRuntimeUnitInputEnvironment"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "full",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "harness.command_surface.unit.scheduler_smoke",
+      "owner_id": "harness.command_surface",
+      "family_id": "harness.command_surface.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.command_surface.verification.scheduler_smoke"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/harnessruntime",
+        "tests": [
+          "TestRuntimeScheduling"
         ]
       },
       "evidence_class": "unit",
@@ -195,7 +219,11 @@
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "process_isolation": "exclusive",
+      "preparation_operations": [
+        "harness.toolchain_drift"
+      ]
     }
   ]
 }

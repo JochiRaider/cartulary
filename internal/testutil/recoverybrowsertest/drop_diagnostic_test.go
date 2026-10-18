@@ -3,6 +3,7 @@ package recoverybrowsertest
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -77,7 +78,7 @@ func TestDatabaseDropObservation_Integration(t *testing.T) {
 		}
 	}
 	observationCtx, cancelObservation := context.WithTimeout(ctx, 2200*time.Millisecond)
-	observation := observeDatabaseDrop(observationCtx, h.AdminDSN(), database.Name)
+	observation := postgrescleanup.ObserveDatabaseDrop(observationCtx, h.AdminDSN(), database.Name, true).String()
 	cancelObservation()
 	for _, expected := range []string{"type=Lock event=object blockers=1", "checkpointer={", "requested=", "done=", "buffers="} {
 		if !strings.Contains(observation, expected) {
@@ -98,4 +99,49 @@ func TestDatabaseDropObservation_Integration(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}
+	t.Run("failed_drop_retains_shared_observation", func(t *testing.T) {
+		held := h.NewDatabaseT(t, "drop_failure_observer")
+		blocker, err := admin.BeginTx(t.Context(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = blocker.Rollback() })
+		quoted, err := pgIdentifier(held.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		renamed, err := pgIdentifier(held.Name + "_held")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := blocker.ExecContext(t.Context(), "ALTER DATABASE "+quoted+" RENAME TO "+renamed); err != nil {
+			t.Fatal(err)
+		}
+		deadline, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		defer cancel()
+		failure := postgrescleanup.ForceDropDatabase(deadline, h.AdminDSN(), held.Name)
+		if !errors.Is(failure, context.DeadlineExceeded) {
+			t.Fatal("failed drop lost its original deadline")
+		}
+		var observed interface {
+			CleanupWait() postgrescleanup.DropObservation
+		}
+		if !errors.As(failure, &observed) {
+			t.Fatal("failed drop lost the shared wait observation")
+		}
+		value := observed.CleanupWait()
+		if err := value.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		if value.Status != "sampled" || value.Last.Type != "Lock" || value.Last.Event != "object" || value.Last.Blockers != 1 {
+			t.Fatalf("unexpected structural observation: %s", value.String())
+		}
+		if strings.Contains(value.String(), held.Name) || strings.Contains(value.String(), h.AdminDSN()) {
+			t.Fatal("private drop identity escaped")
+		}
+		if err := blocker.Rollback(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 }

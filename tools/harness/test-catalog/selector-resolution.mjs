@@ -671,7 +671,7 @@ function goSymbols(root, directory, scope, discovery = false) {
   return symbols;
 }
 
-function resolveScopedRowSelector({ root, row, runner, taskSurfaceCommandIDs }, scope) {
+function resolveScopedRowSelector({ root, row, runner, operationIDs }, scope) {
   const label = `${row.row_id}.selector`;
   if (row.runner === "go") {
     const directory = packageDirectory(root, row.selector.package, runner.approved_roots, `${label}.package`);
@@ -718,10 +718,10 @@ function resolveScopedRowSelector({ root, row, runner, taskSurfaceCommandIDs }, 
     return row.selector.titles.map((title) => `vitest:${row.selector.project_id ?? ""}:${row.selector.file}:${[...titles.fullTitles.get(title)][0]}`);
   }
   if (row.runner === "shell") {
-    if (!taskSurfaceCommandIDs.has(row.selector.command_id)) {
-      throw new Error(`${label}.command_id is not registered`);
+    if (!operationIDs.has(row.selector.operation_id)) {
+      throw new Error(`${label}.operation_id is not registered`);
     }
-    return [`shell:${row.selector.command_id}`];
+    return [`shell:${row.selector.operation_id}`];
   }
   throw new Error(`${row.row_id}.runner is unsupported`);
 }

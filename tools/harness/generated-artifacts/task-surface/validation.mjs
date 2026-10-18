@@ -3,11 +3,10 @@ import path from "node:path";
 import { hasMakeNodeTool } from "../../command-surface/make-node-tools.mjs";
 import { collectExplicitSummaryProjectionErrors, loadSummaryTopologyContext, resolveSummaryGroups } from "../../execution/summary-topology.mjs";
 import {
-  canonicalInternalMakeValues, compactHelpEntries, harnessCheckEntries, harnessTierChecks, helpTiers, makeRecipeEntries, nonCanonicalPublicMakeVariables, readJSON, repoRoot, requiredRecipeBackingScripts, restrictedInternalMakeVariables, sequenceDefinition, summaryEntryMap, targetEntries, targetEntryMap, taskSurfaceSchemaID,
+  canonicalInternalMakeValues, compactHelpEntries, harnessCheckEntries, helpTiers, makeRecipeEntries, nonCanonicalPublicMakeVariables, readJSON, repoRoot, requiredRecipeBackingScripts, restrictedInternalMakeVariables, sequenceDefinition, summaryEntryMap, targetEntries, targetEntryMap, taskSurfaceSchemaID,
 } from "./model.mjs";
 import {
   validateCompactHelp,
-  validateCommandTokens,
   validateHarnessTiers,
   validateHelpTiers,
   validateMakeRecipes,
@@ -16,7 +15,7 @@ import {
   validateRootScriptPathPolicy,
   validateSummaryGroups,
 } from "./recipe-validation.mjs";
-import { validateGlobalInputContract, validatePublicInputContract } from "./input-validation.mjs";
+import { validateGlobalInputContract, validatePublicInputContract, validateCommandSelectionBinding } from "./input-validation.mjs";
 
 const validTargetClasses = new Set([
   "public",
@@ -322,6 +321,7 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
       validatePublicSideEffects(errors, entry);
       validateOutputPolicy(errors, entry);
       validatePublicInputContract(errors, entry);
+      validateCommandSelectionBinding(errors, entry);
     }
   }
 
@@ -401,75 +401,7 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
       }
     }
 
-    const profileIDs = new Set();
-    if (!Array.isArray(observabilityPolicy.measurement_profiles) || observabilityPolicy.measurement_profiles.length === 0) {
-      errors.push("observability_policy.measurement_profiles must be a non-empty array");
-    } else {
-      for (const [index, profile] of observabilityPolicy.measurement_profiles.entries()) {
-        const label = `observability_policy.measurement_profiles[${index + 1}]`;
-        if (!profile || typeof profile !== "object" || Array.isArray(profile)) {
-          errors.push(`${label} must be an object`);
-          continue;
-        }
-        if (profileIDs.has(profile.profile_id)) {
-          errors.push(`${label}.profile_id duplicates ${profile.profile_id}`);
-        }
-        profileIDs.add(profile.profile_id);
-      }
-    }
-    const measurementTargets = new Set();
-    const usedProfiles = new Set();
-    if (!Array.isArray(observabilityPolicy.target_measurement_profiles)) {
-      errors.push("observability_policy.target_measurement_profiles must be an array");
-    } else {
-      for (const [index, binding] of observabilityPolicy.target_measurement_profiles.entries()) {
-        const label = `observability_policy.target_measurement_profiles[${index + 1}]`;
-        const target = targets.get(binding?.target);
-        if (!target || !new Set(["public", "check_internal"]).has(target.target_class)) {
-          errors.push(`${label}.target must name a public or check-internal target`);
-        }
-        if (target?.target_class === "check_internal") {
-          if (typeof target.command_id !== "string" || !commandIDPattern.test(target.command_id)) {
-            errors.push(`${label}.target must declare a valid command_id`);
-          } else if (commandIDs.has(target.command_id)) {
-            errors.push(`${label}.target command_id duplicates ${commandIDs.get(target.command_id)}`);
-          } else {
-            commandIDs.set(target.command_id, target.name);
-          }
-        }
-        if (measurementTargets.has(binding?.target)) {
-          errors.push(`${label}.target duplicates ${binding?.target}`);
-        }
-        measurementTargets.add(binding?.target);
-        if (!profileIDs.has(binding?.profile_id)) {
-          errors.push(`${label}.profile_id references unknown profile ${binding?.profile_id}`);
-        }
-        const allowedTargetTransition =
-          (binding?.target === "browser-e2e-webserver-backed" &&
-            binding.allowed_policy_transition === "browser_webserver_stage_capacity_1_to_2") ||
-          (binding?.target === "backend-process" &&
-            binding.allowed_policy_transition === "backend_process_shard_consolidation");
-        if (binding?.allowed_policy_transition !== undefined && !allowedTargetTransition) {
-          errors.push(`${label}.allowed_policy_transition is not valid for ${binding?.target}`);
-        }
-        usedProfiles.add(binding?.profile_id);
-      }
-    }
-    for (const target of requiredObservabilityTargets) {
-      if (!measurementTargets.has(target)) {
-        errors.push(`observability_policy required target ${target} lacks a measurement profile`);
-      }
-    }
-    for (const target of measurementTargets) {
-      if (!requiredObservabilityTargets.has(target)) {
-        errors.push(`observability_policy measurement target ${target} is not required`);
-      }
-    }
-    for (const profileID of profileIDs) {
-      if (!usedProfiles.has(profileID)) {
-        errors.push(`observability_policy measurement profile ${profileID} is unused`);
-      }
-    }
+
   }
 
   const harnessChecks = new Map();
@@ -495,6 +427,10 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         continue;
       }
       harnessChecks.set(entry.name, entry);
+      if (entry.gate_smoke_role) {
+        const selection = entry.selection;
+        if (!selection || Object.keys(selection).length !== 1 || !["row_id", "operation_id"].some((key) => typeof selection[key] === "string" && /^harness\.[a-z][a-z0-9_.]*$/u.test(selection[key]))) errors.push(`${label}.selection must bind its smoke assertion to one canonical row or operation`);
+      }
       if (
         !Array.isArray(entry.backing_scripts) ||
         entry.backing_scripts.length === 0
@@ -511,9 +447,9 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
           }
         }
       }
-      validateCommandTokens(errors, entry.command, `${entry.name}.command`, {
-        required: false,
-      });
+      if (Object.hasOwn(entry, "command")) {
+        errors.push(`${entry.name}.command is forbidden in logical reporting metadata; canonical operations own execution`);
+      }
       if (entry.gate_smoke_role !== undefined) {
         if (
           typeof entry.gate_smoke_role !== "string" ||

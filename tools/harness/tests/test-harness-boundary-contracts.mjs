@@ -156,3 +156,33 @@ test("frontend owner boundaries survive aliasing extraction and comments", () =>
     }
   } finally { rmSync(scratch, { recursive: true, force: true }); }
 });
+
+
+test("physical cleanup diagnostics remain bounded and cannot authorize success", async (t) => {
+  const { stopOwnedProcess } = await import("../runtime/owned-process.mjs");
+  const { findCleanupDiagnostic, withCleanupDiagnostic } = await import("../runtime/cleanup-diagnostic.mjs");
+  const scratch = mkdtempSync(path.join(os.tmpdir(), "cleanup-diagnostic-"));
+  t.after(() => rmSync(scratch, {recursive:true,force:true}));
+  const valid = {schema_id:"cartulary.harness_cleanup_diagnostic.v1",stage:"process_signal",cause:"io",errno:13};
+  const cases = [
+    [JSON.stringify(valid), "process_signal"],
+    [JSON.stringify({...valid,process_id:123}), "process_protocol"],
+    [JSON.stringify({...valid,cause:"credential-sentinel"}), "process_protocol"],
+    [JSON.stringify(valid)+JSON.stringify(valid), "process_protocol"],
+    [" ".repeat(4097), "process_protocol"],
+  ];
+  for (const [index,[stderr,stage]] of cases.entries()) {
+    const binary = path.join(scratch,`physical-${index}`);
+    writeFileSync(binary, `#!${process.execPath}\nprocess.stdin.resume();process.stdin.on("end",()=>{process.stderr.write(${JSON.stringify(stderr)});process.exitCode=12;});\n`, {mode:0o700});
+    await assert.rejects(stopOwnedProcess({}, {environment:{...process.env,CARTULARY_HARNESS_RUNTIME_BIN:binary}}), error => {
+      const diagnostic=findCleanupDiagnostic(new AggregateError([error],"private-path-sentinel"));
+      assert.equal(diagnostic.stage,stage);
+      assert.equal(JSON.stringify(diagnostic).includes("sentinel"),false);
+      return true;
+    });
+  }
+  const privateFailure = new Error("private-path-sentinel");
+  Object.defineProperty(privateFailure,"privateDiagnostic",{value:{reason:"unsafe",errno:null,process_id:123,proof_file:"environ"}});
+  const projected=findCleanupDiagnostic(withCleanupDiagnostic(privateFailure,"browser_acknowledgement"));
+  assert.deepEqual(projected,{schema_id:valid.schema_id,stage:"browser_acknowledgement",cause:"unsafe",errno:0});
+});

@@ -2,6 +2,7 @@ package postgrescleanup
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"reflect"
 	"sync"
@@ -312,6 +313,7 @@ func TestDropOwnedDatabaseForcedFallbackWaitsForNormalAdmission(t *testing.T) {
 }
 
 func TestDropOwnedDatabaseRejectsIncompleteInputsBeforeLock(t *testing.T) {
+	t.Run("barrier_notice_is_closed_and_transient", testBarrierNoticeDiagnostics)
 	lockCalls := 0
 	operations := dropOperations{
 		withNormalAdmission: func(_ context.Context, _ string, _ string, _ func(databaseDropExecutor)) error {
@@ -350,5 +352,49 @@ func TestDropOwnedDatabaseRejectsIncompleteInputsBeforeLock(t *testing.T) {
 	}
 	if lockCalls != 0 {
 		t.Fatalf("invalid inputs acquired catalog lock %d times", lockCalls)
+	}
+}
+
+func testBarrierNoticeDiagnostics(t *testing.T) {
+	for query, want := range map[string]string{"": "none", "CREATE DATABASE secret": "create_database", "DROP DATABASE secret WITH (FORCE)": "drop_database", " select secret from private ": "select", "/* private */ SELECT hidden": "other", "DO $$ private $$": "do", "none secret": "other", "create_database secret": "other"} {
+		if got := barrierOperation(query); got != want {
+			t.Fatalf("operation category: got %s want %s", got, want)
+		}
+	}
+	valid := pgconn.Notice{SeverityUnlocalized: "LOG", Code: "00000", Routine: "WaitForProcSignalBarrier", Message: "still waiting for backend with PID 123 to accept ProcSignalBarrier"}
+	if barrierNoticePID(&valid) != 123 || barrierNoticePID(nil) != 0 {
+		t.Fatal("notice admission failed")
+	}
+	for _, mutate := range []func(*pgconn.Notice){
+		func(n *pgconn.Notice) { n.Routine = "exec_stmt_raise" },
+		func(n *pgconn.Notice) { n.Code = "P0001" },
+		func(n *pgconn.Notice) { n.SeverityUnlocalized = "WARNING" },
+		func(n *pgconn.Notice) { n.Message = "private server text" },
+		func(n *pgconn.Notice) {
+			n.Message = "still waiting for backend with PID -1 to accept ProcSignalBarrier"
+		},
+		func(n *pgconn.Notice) {
+			n.Message = "still waiting for backend with PID 2147483648 to accept ProcSignalBarrier"
+		},
+		func(n *pgconn.Notice) { n.Message += " private suffix" },
+	} {
+		notice := valid
+		mutate(&notice)
+		if barrierNoticePID(&notice) != 0 {
+			t.Fatal("unrecognized notice admitted")
+		}
+	}
+	if got := sampleBarrierParticipant(context.Background(), nil, "target", nil); got.Status != "not_observed" || !got.valid() {
+		t.Fatal("absent notice performed a query")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	db, err := sql.Open("pgx", "postgres://unused")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if got := sampleBarrierParticipant(ctx, db, "target", func() int64 { return 123 }); got.Status != "unavailable" || !got.valid() {
+		t.Fatal("failed sample did not close")
 	}
 }

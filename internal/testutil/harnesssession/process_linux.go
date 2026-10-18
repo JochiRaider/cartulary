@@ -89,7 +89,7 @@ func processMembers(p ProcessProof) ([]processState, error) {
 			return nil, err
 		}
 		if !sameProcess(v.ProcessProof, p) {
-			return nil, ErrUnresolved
+			return nil, atCleanupStage("process_identity", ErrUnresolved)
 		}
 		return []processState{v}, nil
 	}
@@ -115,7 +115,7 @@ func processMembers(p ProcessProof) ([]processState, error) {
 		}
 		if v.PGID == p.PGID {
 			if v.SID != p.SID {
-				return nil, ErrUnresolved
+				return nil, atCleanupStage("process_identity", ErrUnresolved)
 			}
 			members = append(members, v)
 		}
@@ -125,7 +125,8 @@ func processMembers(p ProcessProof) ([]processState, error) {
 
 // StopProcess uses pidfds for each verified member, never a reusable negative
 // PID. An unreaped leader or an already observed surviving member anchors each
-// subsequent discovery sweep. Unknown leaderless groups fail closed.
+// subsequent discovery sweep. Unanchored groups are never signaled; a bounded
+// attempt may observe their disappearance, otherwise settlement fails closed.
 func StopProcess(ctx context.Context, p ProcessProof, grace time.Duration) error {
 	if p.PID < 2 || p.PGID < 1 || p.SID < 1 || !regexpDigits.MatchString(p.Start) || p.Group != (p.PGID == p.PID) {
 		return harnesslocal.ErrUnsafe
@@ -143,15 +144,24 @@ func StopProcess(ctx context.Context, p ProcessProof, grace time.Duration) error
 func signalProcess(m processState, sig unix.Signal) error {
 	fd, err := unix.PidfdOpen(m.PID, 0)
 	if err != nil {
-		return err
+		// A reaped group leader can still have a kernel PID object held by its
+		// surviving group. pidfd_open then reports EINVAL, not ESRCH. Only a
+		// fresh absence observation permits the enclosing discovery to continue;
+		// EINVAL itself never proves absence or authorizes signaling another PID.
+		if errors.Is(err, unix.EINVAL) {
+			if _, observed := readProcess(m.PID); processGone(observed) {
+				return observed
+			}
+		}
+		return atCleanupStage("process_handle", err)
 	}
 	defer unix.Close(fd)
 	current, err := readProcess(m.PID)
 	if err != nil {
-		return err
+		return atCleanupStage("process_identity", err)
 	}
 	if !sameProcess(current.ProcessProof, m.ProcessProof) {
-		return ErrUnresolved
+		return atCleanupStage("process_identity", ErrUnresolved)
 	}
 	return unix.PidfdSendSignal(fd, sig, nil, 0)
 }
@@ -162,7 +172,7 @@ func settleProcess(ctx context.Context, p ProcessProof, grace time.Duration, ins
 	for {
 		members, err := inspect(p)
 		if err != nil {
-			return err
+			return atCleanupStage("process_discovery", err)
 		}
 		if len(members) == 0 {
 			return nil
@@ -173,34 +183,41 @@ func settleProcess(ctx context.Context, p ProcessProof, grace time.Duration, ins
 			anchored = anchored || ok && sameProcess(old, m.ProcessProof)
 			live = live || (m.state != "Z" && m.state != "X")
 		}
+		var pending error
 		if !anchored {
-			return ErrUnresolved
-		}
-		if !live {
+			pending = atCleanupStage("process_group_anchor", ErrUnresolved)
+			if _, bounded := ctx.Deadline(); !bounded {
+				return pending
+			}
+		} else if !live {
 			return nil
 		}
 		if err := ctx.Err(); err != nil {
-			return err
+			return errors.Join(pending, err)
 		}
-		sig := unix.SIGTERM
-		if !time.Now().Before(escalate) {
-			sig = unix.SIGKILL
-		}
-		for _, m := range members {
-			known[m.PID] = m.ProcessProof
-			if m.state == "Z" || m.state == "X" {
-				continue
+		if anchored {
+			sig := unix.SIGTERM
+			if !time.Now().Before(escalate) {
+				sig = unix.SIGKILL
 			}
-			e := signal(m, sig)
-			if e != nil && !processGone(e) {
-				return e
+			for _, m := range members {
+				known[m.PID] = m.ProcessProof
+				if m.state == "Z" || m.state == "X" {
+					continue
+				}
+				e := signal(m, sig)
+				if e != nil && !processGone(e) {
+					return atCleanupStage("process_signal", e)
+				}
 			}
 		}
+		// Unanchored observations neither signal nor enter the known set.
+		// Reobserve in this attempt; keep its original deadline and grace clock.
 		timer := time.NewTimer(10 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return ctx.Err()
+			return errors.Join(pending, ctx.Err())
 		case <-timer.C:
 		}
 	}
@@ -209,7 +226,13 @@ func settleProcess(ctx context.Context, p ProcessProof, grace time.Duration, ins
 // ProcessMain is a closed physical adapter over private stdin. It accepts no
 // command or PID arguments. Authority is a live descendant of the invoking
 // parent, or an exact proof in the bound runtime's resource/dependency journal.
-func ProcessMain(args []string, input io.Reader) int {
+func ProcessMain(args []string, input io.Reader, diagnostic io.Writer) int {
+	var failure error
+	defer func() {
+		if failure != nil {
+			_ = json.NewEncoder(diagnostic).Encode(DescribeCleanupFailure(failure))
+		}
+	}()
 	if len(args) != 0 {
 		return 2
 	}
@@ -238,10 +261,12 @@ func ProcessMain(args []string, input io.Reader) int {
 	}
 	members, err := processMembers(q.Proof)
 	if err != nil {
+		failure = atCleanupStage("process_discovery", err)
 		return 12
 	}
 	if len(members) == 0 {
-		if StopProcess(context.Background(), q.Proof, 0) != nil {
+		if err := StopProcess(context.Background(), q.Proof, 0); err != nil {
+			failure = atCleanupStage("process_settlement", err)
 			return 12
 		}
 		return 0
@@ -265,11 +290,13 @@ func ProcessMain(args []string, input io.Reader) int {
 		authorized = recordedProcess(q.Proof)
 	}
 	if !authorized {
+		failure = atCleanupStage("process_authority", ErrUnresolved)
 		return 12
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(q.Grace+q.Kill)*time.Millisecond)
 	defer cancel()
-	if StopProcess(ctx, q.Proof, time.Duration(q.Grace)*time.Millisecond) != nil {
+	if err := StopProcess(ctx, q.Proof, time.Duration(q.Grace)*time.Millisecond); err != nil {
+		failure = atCleanupStage("process_settlement", err)
 		return 12
 	}
 	return 0

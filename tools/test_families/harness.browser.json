@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v8",
+  "schema_id": "cartulary.test_family_manifest.v9",
   "owner_id": "harness.browser",
   "rows": [
     {
@@ -361,7 +361,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_local_session_contract.v1"
+        "operation_id": "harness.harness_local_session_contract"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -475,7 +475,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_playwright_adapter_contract.v1"
+        "operation_id": "harness.harness_playwright_adapter_contract"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -496,7 +496,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_browser_preparation_contract.v1"
+        "operation_id": "harness.harness_browser_preparation_contract"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -857,7 +857,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_ui_review_artifacts.v1"
+        "operation_id": "harness.harness_ui_review_artifacts"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -880,7 +880,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_ui_review_contract.v1"
+        "operation_id": "harness.harness_ui_review_contract"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -903,7 +903,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_ui_review_execution.v1"
+        "operation_id": "harness.harness_ui_review_execution"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -926,7 +926,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_ui_review_lifecycle.v1"
+        "operation_id": "harness.harness_ui_review_lifecycle"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -949,7 +949,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_ui_review_presentation.v1"
+        "operation_id": "harness.harness_ui_review_presentation"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -972,7 +972,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_ui_review_workflow.v1"
+        "operation_id": "harness.harness_ui_review_workflow"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -1506,7 +1506,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_ui_review_seeded_default.v1"
+        "operation_id": "harness.harness_ui_review_seeded_default"
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
@@ -1532,7 +1532,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_ui_review_seeded_network_flow_claimed.v1"
+        "operation_id": "harness.harness_ui_review_seeded_network_flow_claimed"
       },
       "evidence_class": "integration",
       "runtime_profile_id": "network_flow_claimed",
@@ -1571,6 +1571,34 @@
       "service_dependencies": [
         "object_store",
         "postgres"
+      ]
+    },
+    {
+      "row_id": "harness.browser.unit.fixture_broker_smoke",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.fixture_broker_smoke"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/harnessfixtures",
+        "tests": [
+          "TestFixtureBrokerOwnership"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "minimum_tier": "fast",
+      "service_dependencies": [],
+      "process_isolation": "exclusive",
+      "preparation_operations": [
+        "harness.toolchain_drift"
       ]
     },
     {
@@ -1638,7 +1666,6 @@
         "tests": [
           "TestFixtureBrokerConcurrency",
           "TestFixtureBrokerFaults",
-          "TestFixtureBrokerOwnership",
           "TestFixtureBrowserAdapter",
           "TestFixtureCommandLifecycle",
           "TestFixtureProxyLifecycle",
@@ -1652,7 +1679,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "minimum_tier": "full",
       "service_dependencies": []
     },
     {

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
+import { checkRetainedObservability } from "./retained-checks.mjs";
 import { otlpProjection } from "./otlp-projection.mjs";
 
-import { lstatSync, readFileSync } from "node:fs";
+import { readLocalFile } from "../runtime/secure-local-files.mjs";
+import { parseStrictJSON } from "../contract/index.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  loadRetainedObservability,
   resolveExactRunDir,
 } from "./observability.mjs";
 
@@ -73,13 +74,7 @@ export function signalURL(endpoint, signal) {
 export function headersFromFile(file) {
   if (!file) return {};
   const resolved = path.resolve(file);
-  const stats = lstatSync(resolved);
-  const ownedByCurrentUser = typeof process.getuid !== "function" || stats.uid === process.getuid();
-  if (!stats.isFile() || stats.isSymbolicLink() || !ownedByCurrentUser || (stats.mode & 0o777) !== 0o600) {
-    throw new Error("HARNESS_OTLP_HEADERS_FILE must be a regular owner-only 0600 JSON file");
-  }
-  if (stats.size > 65_536) throw new Error("HARNESS_OTLP_HEADERS_FILE exceeds 64 KiB");
-  const value = JSON.parse(readFileSync(resolved, "utf8"));
+  const value = parseStrictJSON(readLocalFile(resolved).toString("utf8"));
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("HARNESS_OTLP_HEADERS_FILE must contain one JSON object");
   }
@@ -138,7 +133,7 @@ export async function loadExporterInput(options) {
   const endpoint = validatedEndpoint(options.endpoint);
   const headers = headersFromFile(options.headersFile);
   const runDir = resolveExactRunDir(options.resultsDir, options.runID);
-  const retained = await loadRetainedObservability(runDir);
+  const { retained } = await checkRetainedObservability(runDir, "all");
   return { endpoint, headers, retained };
 }
 

@@ -23,7 +23,7 @@ export function commandTargetForEvidenceTarget(targetID) {
   return targetID;
 }
 
-export function targetForCatalogRow(row, { commandTargetByID = new Map() } = {}) {
+export function targetForCatalogRow(row) {
   if (row.runner === "go") {
     if (row.evidence_class === "unit" && row.runtime_profile_id === "none") {
       return "backend-unit";
@@ -41,13 +41,9 @@ export function targetForCatalogRow(row, { commandTargetByID = new Map() } = {})
     return target;
   }
   if (row.runner === "shell") {
-    const target = commandTargetByID.get(row.selector.command_id);
-    if (!target) {
-      throw new Error(
-        `catalog row ${row.row_id} has unresolved command ${row.selector.command_id}`,
-      );
-    }
-    return target;
+    if (!/^harness\.[a-z][a-z0-9_]*$/u.test(row.selector.operation_id ?? "")) throw new Error(`catalog row ${row.row_id} has no canonical operation`);
+    return row.selector.operation_id;
   }
+
   throw new Error(`catalog row ${row.row_id} has unsupported runner ${row.runner}`);
 }

@@ -8,22 +8,26 @@ import (
 	"time"
 )
 
-// CloneDatabase completes the physical template copy before returning it to
-// its owner. FILE_COPY checkpoints during preparation instead of leaving bulk
-// copy synchronization to an unrelated fixture's later DROP checkpoint.
-// Callers retain template authorization, target ownership and failed-acquisition
-// cleanup; this operation never replaces an existing database.
-func CloneDatabase(ctx context.Context, adminDSN, target, template string, admissionLimit time.Duration) error {
+// CloneDatabase publishes a WAL-backed copy after PostgreSQL's synchronous
+// CREATE commit. A separate checkpoint would flush unrelated cluster data and
+// is unnecessary for WAL durability. Unlike FILE_COPY's file-sync traversal,
+// this uses PostgreSQL's ordinary interrupt-aware block-copy path.
+// created reports successful CREATE even if lock release fails. The caller
+// owns subsequent provisioning and cleanup of that proven-created target.
+// Failed CREATE never grants ownership of an existing database.
+func CloneDatabase(ctx context.Context, adminDSN, target, template string, admissionLimit time.Duration) (created bool, err error) {
 	if !cloneIdentifier(target) || !cloneIdentifier(template) || target == template {
-		return errors.New("postgres template clone requires distinct safe database identities")
+		return false, errors.New("postgres template clone requires distinct safe database identities")
 	}
-	return WithMutation(ctx, adminDSN, target, admissionLimit, func(admin *sql.DB) error {
-		statement := fmt.Sprintf(`CREATE DATABASE "%s" TEMPLATE "%s" STRATEGY FILE_COPY`, target, template)
+	err = WithMutation(ctx, adminDSN, target, admissionLimit, func(admin *sql.Conn) error {
+		statement := fmt.Sprintf(`CREATE DATABASE "%s" TEMPLATE "%s" STRATEGY WAL_LOG`, target, template)
 		if _, err := admin.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("create postgres template clone: %w", err)
 		}
+		created = true
 		return nil
 	})
+	return created, err
 }
 
 func cloneIdentifier(value string) bool {

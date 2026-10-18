@@ -196,19 +196,21 @@ test("session mode is explicit, closed, and limited to approved leaf targets", (
   const sessionFile = path.join(tmpdir(), "cartulary-explicit-session.json");
   assert.deepEqual(
     resolveServiceSessionMode({
-      target: "service-backed-test-slice",
+      target: "test-slice", selection: { SCOPE: "services" },
       environment: {
+        SCOPE: "services",
         CARTULARY_TEST_SERVICES_MODE: "attach",
         CARTULARY_TEST_SERVICES_SESSION_FILE: sessionFile,
       },
     }),
     { mode: "attach", sessionFile },
   );
-  for (const target of ["service-backed-test-slice", "browser-e2e-webserver-backed", "browser-e2e-stateful"]) {
+  for (const [target, selection] of [["test-slice", { SCOPE: "services" }], ["browser-e2e", { SUITE: "functional" }], ["browser-e2e", { SUITE: "stateful" }]]) {
     assert.equal(
       resolveServiceSessionMode({
         target,
         environment: {
+          ...selection,
           CARTULARY_TEST_SERVICES_MODE: "attach",
           CARTULARY_TEST_SERVICES_SESSION_FILE: sessionFile,
         },
@@ -245,11 +247,10 @@ test("session mode is explicit, closed, and limited to approved leaf targets", (
     /absolute/u,
   );
 
-  const allowed = [
-    "browser-e2e-stateful",
-    "browser-e2e-webserver-backed",
-    "service-backed-test-slice",
-  ];
+  const allowed = ["browser-e2e", "test-slice"];
+  for (const [target, selection] of [["test-slice", { SCOPE: "all" }], ...["all", "measurement", "visual", "accessibility", "support"].map((SUITE) => ["browser-e2e", { SUITE }])]) {
+    assert.throws(() => resolveServiceSessionMode({ target, environment: { ...selection, CARTULARY_TEST_SERVICES_MODE: "attach" } }), /owned-only/u);
+  }
   const declared = taskSurface.targets
     .filter((entry) =>
       (entry.input_contract?.inputs ?? []).some(
@@ -297,7 +298,7 @@ test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", 
       root: repositoryRoot,
       binary: fixture.binary,
       sessionFile: fixture.sessionFile,
-      target: "service-backed-test-slice",
+      target: "test-slice", selection: { SCOPE: "services" },
       runID: "borrower-one",
       suiteRuntime: runtime("1"),
       dependencies: { ...fixture.dependencies, borrowerID: () => "borrower-one" },
@@ -306,7 +307,7 @@ test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", 
       root: repositoryRoot,
       binary: fixture.binary,
       sessionFile: fixture.sessionFile,
-      target: "browser-e2e-stateful",
+      target: "browser-e2e", selection: { SUITE: "stateful" },
       runID: "borrower-two",
       suiteRuntime: runtime("2"),
       dependencies: { ...fixture.dependencies, borrowerID: () => "borrower-two" },
@@ -320,7 +321,7 @@ test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", 
     });
     assert.equal(status.borrower_count, 2);
     const parent=processIdentity(process.ppid);
-    const nativeOptions={root:repositoryRoot,binary:fixture.binary,sessionFile:fixture.sessionFile,target:"service-backed-test-slice",runID:"borrower-native",suiteRuntime:runtime("3"),borrowerOwner:parent,dependencies:{...fixture.dependencies,borrowerID:()=>"f".repeat(32)}};
+    const nativeOptions={root:repositoryRoot,binary:fixture.binary,sessionFile:fixture.sessionFile,target:"test-slice",selection:{SCOPE:"services"},runID:"borrower-native",suiteRuntime:runtime("3"),borrowerOwner:parent,dependencies:{...fixture.dependencies,borrowerID:()=>"f".repeat(32)}};
     assert.throws(()=>attachLocalSession({...nativeOptions,borrowerOwner:{...parent,start:"0"}}),/invalid native borrower/u);
     const native=attachLocalSession(nativeOptions);
     assert.equal(native.borrower_proof.pid,process.ppid);

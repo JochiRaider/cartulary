@@ -12,7 +12,7 @@ if (mode === "compiler-failure") {
   const runRoot = path.resolve(process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
   const runtime = borrowRuntime({ repoRoot: root, runRoot });
   const id = process.argv[3] || "production";
-  const profile = { id, producer_target: id === "production" ? "build-web" : "build-web-measurement", entries: id === "production" ? ["index.html"] : ["index.html", "measurement.html", "presence.html"] };
+  const profile = { id, producer_operation: id === "production" ? "harness.build_web" : "harness.build_web_measurement", producer_report_key: id === "production" ? "build-web" : "build-web-measurement", entries: id === "production" ? ["index.html"] : ["index.html", "measurement.html", "presence.html"] };
   const admit = () => { try {
     const claim = claimFrontendProducer(runtime, profile);
     process.send({ state: "admitted" });

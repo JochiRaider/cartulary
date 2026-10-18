@@ -21,6 +21,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -90,6 +91,9 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 			source := `import {writeFileSync,readFileSync} from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';import {borrowRuntime} from './tools/harness/runtime/session-client.mjs';import {buildSourceSnapshot} from './tools/harness/test-catalog/index.mjs';import {goReadiness} from './tools/harness/readiness/installed-readiness.mjs';import {recipeEnvironment,buildReviewProducer} from './tools/harness/browser/review-recipes.mjs';const root=process.cwd(),runRoot=process.argv[1],runtime=borrowRuntime({repoRoot:root,runRoot});const input={preparation_policy:'installed_only',presentation:'design',profile:'default'};writeFileSync(path.join(runRoot,'run-manifest.json'),JSON.stringify({purpose:'interactive_design_review',source_digest:buildSourceSnapshot(root).digest,toolchain_digest:'sha256:'+createHash('sha256').update(readFileSync('tools/toolchain_pins.json')).digest('hex')}),{mode:0o600});const environment=recipeEnvironment(root,runRoot,runtime,input);environment.GO=goReadiness(environment,root);for(const target of (process.argv[2]==='borrowed'?['testservices-build']:['build-web','embedded-web-assets','build-server-harness','build-migrate','testservices-build'])) await buildReviewProducer({target,root,environment,input,runtime,signal:new AbortController().signal});process.stdout.write(JSON.stringify(environment));`
 			out, err := invoke(source, run, variant)
 			if err != nil {
+				if exit, ok := err.(*exec.ExitError); ok {
+					t.Fatalf("physical fixture preparation: %v: %s", err, exit.Stderr)
+				}
 				t.Fatal("physical fixture preparation", err)
 			}
 			// The recipe returns a complete child environment. Unmarshalling
@@ -118,7 +122,8 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 			}
 			target := "ui-review"
 			if variant == "borrowed" {
-				target = "service-backed-test-slice"
+				target = "test-slice"
+				environment["SCOPE"] = "services"
 			}
 			options := harnessfixtures.ProductionOptions{Root: root, RunRoot: run, Target: target, Runtime: r, Environment: environment}
 			owner := harnessfixtures.NewProduction(options, harnessfixtures.Options{})
@@ -187,8 +192,29 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 				if err := os.WriteFile(detail, []byte("unnecessary private detail"), 0600); err != nil {
 					t.Fatal(err)
 				}
+				proofFailures := func() map[string]int {
+					counts := map[string]int{}
+					resources, err := r.Resources(4096)
+					if err != nil {
+						counts["journal"]++
+						return counts
+					}
+					for _, resource := range resources {
+						files := append([]string{}, resource.RecoveryFiles...)
+						if file, err := resource.Path(); err == nil {
+							files = append(files, file)
+						}
+						for _, file := range files {
+							if _, err := harnesslocal.ReadFile(file, 1048576, false); err != nil {
+								counts[resource.Kind]++
+							}
+						}
+					}
+					return counts
+				}
+				before := proofFailures()
 				if err := r.PreserveRecovery(); err != nil {
-					t.Fatal("exact dependency preservation", err)
+					t.Fatal("exact dependency preservation", harnesssession.DescribeCleanupFailure(err), "unavailable proof by kind before", before, "after", proofFailures())
 				}
 				if _, err := os.Stat(detail); !os.IsNotExist(err) {
 					t.Fatal("sibling detail retained", err)

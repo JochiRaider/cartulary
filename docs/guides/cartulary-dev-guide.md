@@ -261,7 +261,7 @@ Geist and Geist Mono remain staged/inactive for future owner-backed `alternate-u
 
 The only implemented runtime theme target is `dark_graphite`. Light mode and high contrast are future targets, not implemented modes. High contrast cannot be claimed from a font change alone; it requires complete contrast tokens, contrast states, forced-color behavior where applicable, and tests for the affected runtime surfaces.
 
-Builds, documentation renders, screenshots, visual goldens, generated reports, and release artifacts MUST NOT fetch font files from remote CDNs. Deterministic validation paths SHOULD fail when active vendored UI/grid/mono fonts are missing. Use `tools/harness/frontend/font-bundle-check-cli.mjs` or `make frontend-unit` to validate manifest checksums, source metadata, license text, notice coverage, CSS `local(...)` exclusion, remote font CDN exclusion, font-role activation metadata, selector reachability, and dead `--font-*` variables.
+Builds, documentation renders, screenshots, visual goldens, generated reports, and release artifacts MUST NOT fetch font files from remote CDNs. Deterministic validation paths SHOULD fail when active vendored UI/grid/mono fonts are missing. Use `tools/harness/frontend/font-bundle-check-cli.mjs` or `make test-slice SUITE=frontend-unit` to validate manifest checksums, source metadata, license text, notice coverage, CSS `local(...)` exclusion, remote font CDN exclusion, font-role activation metadata, selector reachability, and dead `--font-*` variables.
 
 ### 2.4 Frontend dev and build tools
 
@@ -446,7 +446,7 @@ The path tree below is an intended baseline shape, not an independently verified
 ### Verification
 
 - The repository tree contains the path families declared above or explicit successor paths documented by a guide update.
-- `make generated-artifact-policy-check` verifies that checked-in generated source artifacts carry `DO NOT EDIT` markers and that authored lint wrappers do not accidentally include generated paths.
+- `make source-check CHECK=generated` verifies that checked-in generated source artifacts carry `DO NOT EDIT` markers and that authored lint wrappers do not accidentally include generated paths.
 - No domain logic is introduced directly under transport packages.
 - No workspace package other than `/packages/grid-adapter` imports `react-data-grid` directly.
 
@@ -513,12 +513,12 @@ The following paths are generated and MUST NOT be hand-edited:
 
 Contract drift is a build failure.
 
-`make generate-drift` owns regeneration-equivalence: it fails when current generated outputs differ from outputs regenerated from the current authoritative inputs. `make generated-artifact-policy-check` owns generated-source policy: it fails when declared generated source artifacts are missing generated markers, when undeclared file types appear under generated roots, or when authored lint scopes include generated paths.
+`make source-check CHECK=generated` owns regeneration-equivalence: it fails when current generated outputs differ from outputs regenerated from the current authoritative inputs. `make source-check CHECK=generated` owns generated-source policy: it fails when declared generated source artifacts are missing generated markers, when undeclared file types appear under generated roots, or when authored lint scopes include generated paths.
 
 At minimum, generated-artifact failure means one or more of the following:
 
 - `make generate` changes tracked generated files,
-- `make generated-artifact-policy-check` detects an unmarked or unsupported generated source artifact,
+- `make source-check CHECK=generated` detects an unmarked or unsupported generated source artifact,
 - a view-schema change is not propagated into TypeScript- or Go-consumable outputs,
 - a route or error-registry change is not propagated into generated protocol types,
 - a code change requires a contract update but leaves `/contracts/*` stale.
@@ -534,7 +534,7 @@ The implementation sequence for a behavior-affecting change MUST be:
 ### Verification
 
 - `make generate` followed by a clean `git diff` is part of developer verification.
-- `make generated-artifact-policy-check` is part of developer verification and must remain cheaper than full regeneration drift.
+- `make source-check CHECK=generated` is part of developer verification and must remain cheaper than full regeneration drift.
 - No pull request hand-edits generated paths.
 - Every change to `/contracts/*` is traceable to an owner-section change or a repo-local representational refinement that does not alter behavior.
 
@@ -1001,7 +1001,7 @@ Application tests whose postcondition is workbook behavior SHOULD explicitly moc
 - Grid changes in the fragility trigger list run the grid-adapter harness, focused browser tests, and visual-regression fixtures.
 - Every active frontend catalog row is scheduler-visible through its semantic
   family manifest, and generated topology matches the catalog owner inputs.
-- Every applicable semantic accessibility row maps to `make browser-e2e-a11y`
+- Every applicable semantic accessibility row maps to `make browser-e2e SUITE=accessibility`
   and appears in the target's per-owner evidence accounting and owner summary.
 - Non-Core design/support frontend rows do not claim Core requirements.
 
@@ -1015,51 +1015,50 @@ Application tests whose postcondition is workbook behavior SHOULD explicitly moc
 
 ### 7.1 Canonical commands
 
-If the repository exposes a root `Makefile`, it SHOULD remain the stable human-facing task surface. `make help` is the compact workflow surface, `make task-guide` is the module-owner decision surface, and `make help-all` is the exhaustive public workflow-tiered catalog.
+If the repository exposes a root `Makefile`, it SHOULD remain the stable human-facing task surface. `make help` is the compact workflow surface, `make task-guide` is the module-owner decision surface, and `make help ALL=1` is the exhaustive public workflow-tiered catalog.
 
 | Command              | Minimum responsibility                                                                                       |
 | -------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `make help`          | Print the compact workflow task surface without bootstrapping local toolchains                               |
-| `make task-guide ROLE=module-author OWNER=module.incidents` | Recommend focused, generated, broad, and release gates from one owner catalog snapshot |
+| `make task-guide OWNER=module.incidents` | Recommend focused, generated, broad, and release gates from one owner catalog snapshot |
 | `make test-slice OWNER=module.incidents` | Run every active executable row owned by the selected owner |
-| `make service-backed-test-slice OWNER=module.incidents` | Run every selected owner row whose runtime profile requires managed services |
-| `make help-all`      | Print the exhaustive public workflow task surface plus the `owner -> family -> row -> work unit -> artifact` reading model without bootstrapping local toolchains |
+| `make test-slice SCOPE=services OWNER=module.incidents` | Run every selected owner row whose runtime profile requires managed services |
+| `make help ALL=1`      | Print the exhaustive public workflow task surface plus the `owner -> family -> row -> work unit -> artifact` reading model without bootstrapping local toolchains |
 | `make doctor`        | Verify required local tools and pinned toolchain versions without installing them                            |
 | `make bootstrap`     | Install tools, install workspace dependencies, prepare local services                                        |
-| `make db-up`         | Start local Postgres and the S3-compatible object store                                                      |
+| `make services-up`         | Start local Postgres and the S3-compatible object store                                                      |
 | `make db-migrate`    | Apply local database migrations without resetting the database or object storage                              |
 | `make db-reset`      | Recreate the database and run migrations                                                                     |
 | `make postgres-baseline-reset POSTGRES_BASELINE_PROFILE=dev\|mvp` | Dry-run or perform one closed-profile PostgreSQL major-baseline replacement |
 | `make dev`           | Start the Go server and Vite dev server                                                                      |
 | `make generate`      | Regenerate Go and TypeScript artifacts derived from `/db/queries/*` and `/contracts/*`                       |
-| `make generated-artifact-policy-check` | Verify generated source markers and authored lint-scope exclusions                          |
+| `make source-check CHECK=generated` | Verify generated source markers and authored lint-scope exclusions                          |
 | `make format`        | Format authored Go sources with gofmt and authored frontend sources through the curated frontend Biome wrapper |
-| `make backend-store` | Run service-backed store-domain backend evidence while preserving semantic owner-row identity              |
-| `make target-plan`   | Print the backend Go target execution plan without running tests                                             |
-| `make target-plan-json` | Emit deterministic backend Go target-plan JSON for task-surface checks                                    |
-| `make fixture-report RESULTS_DIR=<root\|run-dir>` | Report thresholded fixture-cost hotspots from an existing results root or concrete run directory |
+| `make test-slice SUITE=backend-store` | Run service-backed store-domain backend evidence while preserving semantic owner-row identity              |
+| `make target-plan TARGET=check` | Print the selected command execution plan without running tests                                             |
+| `make target-plan TARGET=check JSON=1` | Emit the deterministic command plan, including canonical inputs and selection                                    |
+| `make explain-run DETAIL=fixtures RESULTS_DIR=<root\|run-dir>` | Report thresholded fixture-cost hotspots from an existing results root or concrete run directory |
 | `make explain-run RESULTS_DIR=<root\|run-dir>` | Inspect an existing run's summary, child, scheduler-progress, or scheduler-log artifacts without rerunning tests |
-| `make explain-test-owner OWNER=module.incidents` | Explain one owner's manifest, families, row inventory, evidence distribution, profiles, and narrow commands |
-| `make explain-target TARGET=backend-store DETAIL=rows` | Explain one backend, frontend, browser, aggregate, check, or release target, including scheduler paths and artifacts, without running tests |
-| `make test-fast`     | Run the narrower pure-unit, service-backed backend, frontend type-check, and frontend unit/process loop      |
-| `make test`          | Run the authoritative full test corpus with shared service-backed backend and webserver browser orchestration |
+| `make task-guide DETAIL=coverage OWNER=module.incidents` | Explain one owner's manifest, families, row inventory, evidence distribution, profiles, and narrow commands |
+| `make target-plan TARGET=test-slice INPUTS=<selection.json> DETAIL=rows` | Explain one backend, frontend, browser, aggregate, check, or release target, including scheduler paths and artifacts, without running tests |
+| `make test-fast` | Run fast product and architecture rows with their required preparation      |
 | `make lint`          | Run backend gofmt/vet/Staticcheck, authored frontend Biome, scripts Biome, structural Markdown lint, blocking ShellCheck, and frontend type checks |
 | `make go-vulncheck`  | Run Govulncheck over authored Go package roots and tests, excluding generated Go packages                    |
 | `make go-gosec-targeted` | Run focused Go security static analysis plus scoped blocking runtime file/path rules                    |
 | `make go-gosec-audit` | Run advisory Gosec audit profiles for goroutine context and scoped file/path rules outside default local check |
-| `make lint-scripts`  | Run check-only Biome lint over JavaScript orchestration scripts                                               |
+| `make lint CHECK=scripts`  | Run check-only Biome lint over JavaScript orchestration scripts                                               |
 | `make lint-markdown` | Run structural Markdown lint over authored active docs without wrapping or prose reflow                        |
-| `make lint-shell`    | Run blocking ShellCheck over the deterministic tracked shell-script inventory                                 |
+| `make lint CHECK=shell`    | Run blocking ShellCheck over the deterministic tracked shell-script inventory                                 |
 | `make check`         | Developer verification gate                                                                                  |
 | `make ci`            | Provider-neutral CI enforcement entrypoint                                                                   |
-| `make release-check` | Release verification gate that composes `check`, license report verification, SBOM verification, and build   |
+| `make release-check` | All tiers and inherited CI policy; qualify package, security, compatibility and installed scenarios against one package identity   |
 | `make build`         | Produce the app build with embedded frontend assets                                                          |
 | `make clean`         | Remove reproducible repo-local build and report artifacts                                                    |
 | `make distclean`     | Remove repo-local tool/runtime caches and frontend dependency install roots after printing the removal list  |
 
 If the repository uses both a root task-surface `Makefile` and `AGENTS.md`, both MUST be updated together when this task surface changes.
 
-The existing `frontend-fallow-static` target is required by `check` and inherited by CI. Its bounded web policy rejects unused files, value exports and type exports under `apps/web`; manual shared-package facades retain their separate consumer check. Production, measurement and presence HTML modules, Vitest tests/setup, browser scenarios and authored task backing scripts supply reachability roots. Actual shell/scheduler-launched Node helpers belong in their current task backing scripts; declared helper facades come from `tools/harness_helper_ownership.json`. Compile fixtures are derived from the actual TypeScript build project include/exclude rules, while ordinary project files remain subject to dead-code analysis. Keep this projection configured in `tools/fallow/reachability_owner.json`; do not add artificial imports or broad suppressions to keep dead code alive. Class-member, duplicate-name, complexity and out-of-scope cleanup findings remain advisory. Analyzer/configuration failures fail the target. JSON, SARIF and a Markdown summary retain review evidence; the Markdown summary is rendered from JSON without another scan and is never a verification input.
+`frontend-fallow-static` runs in CI and release. Local `check` retains blocking Fallow configuration integrity; it does not run advisory analysis. Its bounded web policy rejects unused files, value exports and type exports under `apps/web`; manual shared-package facades retain their separate consumer check. Production, measurement and presence HTML modules, Vitest tests/setup, browser scenarios and authored task backing scripts supply reachability roots. Actual shell/scheduler-launched Node helpers belong in their current task backing scripts; declared helper facades come from `tools/harness_helper_ownership.json`. Compile fixtures are derived from the actual TypeScript build project include/exclude rules, while ordinary project files remain subject to dead-code analysis. Keep this projection configured in `tools/fallow/reachability_owner.json`; do not add artificial imports or broad suppressions to keep dead code alive. Class-member, duplicate-name, complexity and out-of-scope cleanup findings remain advisory. Analyzer/configuration failures fail the target. JSON, SARIF and a Markdown summary retain review evidence; the Markdown summary is rendered from JSON without another scan and is never a verification input.
 
 `make harness-contract` enforces current helper ownership from `tools/harness_helper_ownership.json`. Cross-owner browser, backend, catalog and evidence-accounting callers use declared facades; scheduler browser calls use the scheduler adapter. Consumer permissions apply only to their declared boundary group. Private contract observations use declared test-support helpers. Missing or duplicate facades, forbidden imports and unknown executable owner roots fail harness validation. Ownership and imports are read from authored machine inputs and sources; specifications remain human-reviewed authority.
 
@@ -1069,10 +1068,10 @@ The exhaustive public help surface is grouped by operator workflow rather than i
 - `fast verification`: focused backend/frontend verification and lint helpers for the local loop.
 - `full gates`: authoritative test/check gates and browser evidence entrypoints.
 - `investigate a run`: owner guidance, task-surface, target-plan, owner, target, run-summary, and fixture-cost inspection without rerunning tests.
-- `evidence maintenance`: catalog, generated topology, benchmark claims, and Go, browser, and scheduler work-unit duration-baseline maintenance.
+- `evidence maintenance`: catalog, generated topology, benchmark claims, and read-only retained fixture and timing diagnostics.
 - `release`: CI, release gate, build outputs, and deep cleanup.
 
-Repo-control helper targets MAY expose narrower frontend or browser slices. When present, `make frontend-unit`, `make browser-e2e-support`, `make browser-e2e-a11y`, and `make browser-e2e-visual` SHOULD remain stable helper targets under the same root task surface. `make browser-e2e-a11y` is the dedicated implemented-row browser accessibility suite and belongs in the reset-bounded browser batch as a distinct stage from measurement and visual evidence. `make browser-e2e-visual` is the dedicated Playwright screenshot suite and belongs in the reset-bounded browser batch rather than the functional group.
+Repo-control helper targets MAY expose narrower frontend or browser slices. When present, `make test-slice SUITE=frontend-unit`, `make browser-e2e SUITE=support`, `make browser-e2e SUITE=accessibility`, and `make browser-e2e SUITE=visual` SHOULD remain stable helper targets under the same root task surface. `make browser-e2e SUITE=accessibility` is the dedicated implemented-row browser accessibility suite and belongs in the reset-bounded browser batch as a distinct stage from measurement and visual evidence. `make browser-e2e SUITE=visual` is the dedicated Playwright screenshot suite and belongs in the reset-bounded browser batch rather than the functional group.
 
 Owner-aware targets require an exact active `OWNER`. Optional `ROWS` values are exact comma-separated row IDs owned by that owner. Missing, unknown, duplicate, cross-owner, or zero-row selections fail before setup; runner type does not create a separate frontend ownership namespace.
 
@@ -1107,10 +1106,10 @@ This diagnostic is read-only. Any returned rows need incident-owner review befor
 
 | Verification tier      | Required checks                                                                                                                                                         | Blocking condition                                 |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| Developer verification | formatting, lint or vet, Staticcheck, targeted Gosec, Go build, Go tests, TypeScript build or type check, Vitest, browser E2E coverage, `make generate` drift check, migration application check | Any failure blocks ordinary development completion |
-| Release verification   | all developer verification checks, dependency license report, SBOM generation, release-artifact smoke build, any profile-specific release checks for claimed extensions | Any failure blocks release publication             |
+| Developer verification | blocking lint, static, security, source and evidence checks; fast and standard rows; exactly three smoke roles; builds required by selected consumers | Any failure blocks ordinary development completion |
+| Release verification   | inherited CI policy and all tiers; one package and inventory for compatibility, installed-package, security and profile-specific checks | Any failure blocks release publication             |
 
-`make check` is the required developer gate. The owner catalog assigns every active row one `minimum_tier`; `check` selects `fast` and `standard` rows, while static, boundary, generated-drift, security, and evidence checks come from the aggregate policy. `test-fast`, `test`, `ci`, and `release-check` select the monotonic tier closures defined by the Testing Harness NLSpec. Owner slices are independent of tiers: omitting `ROWS` selects the complete active owner inventory.
+`make check` is the required developer gate. The owner catalog assigns every active row one `minimum_tier`; `check` selects `fast` and `standard` rows, while static, boundary, generated-drift, security, and evidence checks come from the aggregate policy. `test-fast`, `ci`, and `release-check` select the monotonic tier closures defined by the Testing Harness NLSpec. Owner slices are independent of tiers: omitting `ROWS` selects the complete active owner inventory.
 
 All graph-backed public targets compile through the same work-graph owner, graph compiler, scheduler, capability snapshot, fixture broker, and canonical event writer. The scheduler uses critical-path rank, resource-fitting backfill, monotonic aging, and stable work-unit IDs. `CARTULARY_HARNESS_CAPACITY_OVERRIDE` is the only scheduler capacity override; it must name a schema-valid JSON declaration file. Inline JSON is unsupported. `PLAYWRIGHT_WORKERS` and `VITEST_MAX_WORKERS` remain runner-specific inputs, and their resource effects are represented in the affected work-unit claims.
 
@@ -1118,13 +1117,13 @@ Service-backed rows declare an explicit fixture capability rather than inheritin
 
 Aggregates are graph unions rather than nested Make or scheduler phases. A semantic unit selected by more than one target executes once per run and contributes to each applicable target projection. Registered cache policies are `none`, `same_run`, or `content_addressed`; graph commands support normal, cold, and off modes, with the selected mode recorded in `run-manifest.json`. Stateful, lifecycle, migration, measurement, drift, publication, and other registered non-cacheable work always executes.
 
-Canonical retained output is `run-manifest.json`, `unit-events.ndjson`, `run-summary.json`, and `target-summaries/<target>.json`. These files are the timing, failure, resource, cache, critical-path, and target-projection authority. Historical scheduler, wrapper, shard, and specialized duration artifacts are archival only and are not current inputs. Use `make explain-target`, `make explain-run`, and the canonical observability commands to inspect a run.
+Canonical retained output is `run-manifest.json`, `unit-events.ndjson`, `run-summary.json`, and `target-summaries/<target>.json`. These files are the timing, failure, resource, cache, critical-path, and target-projection authority. Historical scheduler, wrapper, shard, and specialized duration artifacts are archival only and are not current inputs. Use `make target-plan`, `make explain-run`, and the canonical observability commands to inspect a run.
 
-For performance maintenance, collect one forced-cold observation, discard one warm-up, and retain five warm observations per measured target, adding a matched sixth only under the adopted instability rule. `harness-public-target-duration-baselines` is the sole v3 baseline publisher. The retained specialized baseline target names now expose read-only canonical views; they no longer own separate baseline files or timing authorities. Publish a baseline only after the complete functional and performance acceptance ladders pass.
+Harness performance qualification and duration-baseline publication are retired. Use `make explain-run RESULTS_DIR=<exact-run> DETAIL=performance` for descriptive timings. Product measurement tests and ordinary Go scheduling estimates remain. Reduced command counts or selected workloads do not establish execution-speed improvements.
 
 `make agent-finalize` renders generated state once into scratch, validates it once, and publishes atomically only when refresh is required. Pass `RESULTS_DIR` only for a qualifying successful full warm `check` root; omit it when retained-run maintenance is not available. `make ci` and `make release-check` use the same graph and evidence contracts, with release-only policy work added by the release tier.
 
-The supported authored-source formatter command is `make format`. It formats authored Go through the curated gofmt wrapper and authored frontend code through the curated frontend Biome wrapper. Frontend Biome enforcement SHOULD use that authored-source scope rather than `biome check .` so generated artifacts, runtime outputs such as `dist/`, `test-results/`, coverage artifacts, and installed dependencies are not treated as formatter owners. JavaScript orchestration scripts are owned by `make lint-scripts`; that target is lint-only and MUST keep Biome formatting and assist disabled until script formatting is intentionally adopted. Markdown linting is owned by `make lint-markdown`; it is structural and MUST NOT enforce line length, broad wrapping, or prose reflow.
+The supported authored-source formatter command is `make format`. It formats authored Go through the curated gofmt wrapper and authored frontend code through the curated frontend Biome wrapper. Frontend Biome enforcement SHOULD use that authored-source scope rather than `biome check .` so generated artifacts, runtime outputs such as `dist/`, `test-results/`, coverage artifacts, and installed dependencies are not treated as formatter owners. JavaScript orchestration scripts are owned by `make lint CHECK=scripts`; that target is lint-only and MUST keep Biome formatting and assist disabled until script formatting is intentionally adopted. Markdown linting is owned by `make lint-markdown`; it is structural and MUST NOT enforce line length, broad wrapping, or prose reflow.
 
 Repo-local `tmp/` is reserved for reproducible tool caches, retained run artifacts, and operator-inspectable local outputs. Disposable harness fixtures, especially repo-shaped scratch trees used by smoke tests, MUST be created through `tools/harness/test-support/harness-scratch.sh` outside the checkout. `CARTULARY_HARNESS_SCRATCH_ROOT` MAY redirect that scratch root, but it MUST resolve outside the repository so parallel linters and future checks cannot index transient harness state as authored source.
 
@@ -1146,18 +1145,18 @@ The owner catalog has no generic policy-exception layer. An authorized verificat
 
 Backend verification distinguishes semantic evidence class from execution dependency. `backend-unit` remains pure backend work with no `pgtest`, `s3test`, or real runtime startup. `backend-store`, `backend-integration`, `backend-process`, and browser suites retain their runner-specific execution responsibilities, while catalog owner/family/row IDs remain stable across batching and service placement.
 
-The backend Go target plan is inspectable without executing tests. `make target-plan` renders the human execution plan, and `make target-plan-json` emits the deterministic owner/family/row projection consumed by task-surface checks. `tools/test_catalog_owner.json` and its family manifests are the only executable ownership source. `make help-all`, `make task-guide`, `make explain-test-owner`, and `make explain-target` present task evidence through one concept hierarchy: `owner -> family -> row -> scheduler work unit -> artifact`. `make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]` focuses on one backend, frontend, browser, aggregate, check, or release target. `make fixture-report RESULTS_DIR=<root|run-dir>` inspects existing fixture diagnostics without rerunning tests. `make explain-run RESULTS_DIR=<root|run-dir>` inspects current-schema run summaries, aggregate children, scheduler logs, and work-unit logs without rerunning tests.
+The execution plan is inspectable without running tests. `make target-plan TARGET=<target>` renders the human plan; add `JSON=1` for the deterministic machine projection or `DETAIL=graph|rows|artifacts` for a specific view. Commands with required selectors also need `INPUTS=<selection.json>` containing their declared inputs. `tools/test_catalog_owner.json` and its family manifests own executable row selection. `make help ALL=1` and `make task-guide OWNER=<owner> DETAIL=coverage` present evidence through one concept hierarchy: `owner -> family -> row -> scheduler work unit -> artifact`. `make explain-run DETAIL=fixtures RESULTS_DIR=<exact-run-dir>` inspects retained fixture diagnostics. `make explain-run RESULTS_DIR=<exact-run-dir>` inspects current-schema run summaries, aggregate children, scheduler logs, and work-unit logs. Both readers require an exact retained invocation and do not rerun tests.
 
 ### 7.3 Local development loop
 
 The default local loop is:
 
-1. `make db-up`
+1. `make services-up`
 2. `make db-migrate`
 3. `make dev`
 4. use the Vite-served browser app against the Go server and local Postgres plus the S3-compatible object store
 
-`make db-up` starts services and initializes the object-store bucket; it does
+`make services-up` starts services and initializes the object-store bucket; it does
 not migrate a retained database. Use `make db-migrate` for a non-destructive
 current-v2-line migration. `make db-migrate` preserves only an inherited
 `CARTULARY_POSTGRES_POSTGRES_PRIMARY_MIGRATION_DSN`; `make dev` preserves only
@@ -1240,7 +1239,7 @@ metric labels.
 
 **Backend unit tests** cover module-local behavior with no external service dependency.
 
-**Backend store tests** keep `U-*` evidence where the owner contract is still store-domain behavior, but they run against real Postgres rather than stubs. These tests execute through `make backend-store`, not `make backend-unit`.
+**Backend store tests** keep `U-*` evidence where the owner contract is still store-domain behavior, but they run against real Postgres rather than stubs. These tests execute through `make test-slice SUITE=backend-store`, not `make test-slice SUITE=backend-unit`.
 
 **Backend integration tests** use real Postgres and an S3-compatible object store through `testcontainers-go` or an equivalent real-service harness. Integration tests MUST exercise:
 

@@ -7,6 +7,7 @@ import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { acquireProcess } from "./acquire-process.mjs";
 import { normalizeFailureRecord } from "../contract/index.mjs";
+import { findCleanupDiagnostic } from "../runtime/cleanup-diagnostic.mjs";
 import { browserAcquisitionLaunchArguments, recordAcquisitionProcess, createBrowserAcquisition, createAcquisitionLaunch, closeAcquisitionLaunch,
   readBrowserAcquisition, settleBrowserAcquisition } from "./browser-acquisition.mjs";
 
@@ -59,6 +60,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   catch(error) {
     const failure=normalizeFailureRecord({failure_class:error.failure_class??"harness",failure_reason:error.failure_reason??"fixture_error"});
     process.stdout.write(`${JSON.stringify({failure_class:failure.failure_class,failure_reason:failure.failure_reason})}\n`);
-    process.stderr.write("fixture lifecycle rejected or failed\n");process.exitCode=failure.failure_class==="artifact"?11:12;
+    const diagnostic=findCleanupDiagnostic(error);
+    process.stderr.write(diagnostic ? `${JSON.stringify(diagnostic)}\n` : "fixture lifecycle rejected or failed\n");
+    process.exitCode=failure.failure_class==="artifact"?11:12;
   }
 }

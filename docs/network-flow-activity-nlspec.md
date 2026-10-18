@@ -3442,7 +3442,7 @@ This NLSpec may remain `adopted/current` only while the adoption checklist in Ta
 | `NF-BLOCK-015` | The adopted Graph Projection v2 contract accepts the exact semantic adapter input, property/metadata mappings, arbitrary-precision counter strings, and outcome mappings in §14.4. |
 | `NF-BLOCK-018` | Extensions, Common Jobs, Reporting, and Recovery owners admit the exact state migration, job/worker/resource, participant, lease, and rebuild contracts in §19.1 and §25. |
 | `NF-BLOCK-016` | The adopted Testing Harness contract can execute immutable fixture manifests, failure injection, fake clock, authorization transitions, and audit-count assertions required by §23. |
-| `NF-BLOCK-017` | `tzdb-2026c` fixture data and transition expectations are vendored or immutably identified for timestamp conformance, with the required provenance record validated by `make json-shape-check`. |
+| `NF-BLOCK-017` | `tzdb-2026c` fixture data and transition expectations are vendored or immutably identified for timestamp conformance, with the required provenance record validated by `make source-check CHECK=schema`. |
 
 ## 25. Extensions owner declarations
 

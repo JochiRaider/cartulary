@@ -160,7 +160,7 @@ The repo-control `otel_source_snapshot` object MUST contain exactly the top-leve
 
 Ordinary instrumentation code MUST NOT use ad hoc string literals for emitted standard attributes or metric names when a generated or pinned constant exists. Generated-constants drift is a conformance failure unless the normalized golden corpus proves `registry_equivalent` under §4.5.
 
-For `source_kind='repo_codegen'`, `generator_source_ref` is the repo-relative path to the OTel contract generator that materializes repo-control OTel contract metadata. It MUST NOT point at the conformance checker. `generator_source_sha` is the Git blob SHA of that generator source at the time the generated-constants provenance is materialized. The current generator source is `tools/otel/generate-otel-contracts.mjs`, and `make generate` MUST refresh the dependent OTel contract metadata before `make generate-drift` or `make otel-conformance` treats it as current.
+For `source_kind='repo_codegen'`, `generator_source_ref` is the repo-relative path to the OTel contract generator that materializes repo-control OTel contract metadata. It MUST NOT point at the conformance checker. `generator_source_sha` is the Git blob SHA of that generator source at the time the generated-constants provenance is materialized. The current generator source is `tools/otel/generate-otel-contracts.mjs`, and `make generate` MUST refresh the dependent OTel contract metadata before `make source-check CHECK=generated` or `make otel-conformance` treats it as current.
 
 #### 4.1.4 Language SDK package set
 
@@ -1570,6 +1570,15 @@ conformance pass, acceptance completion, release readiness, or
 NOT be consumed as permission for a later run to pass. Authored configuration
 and corpus fixtures MUST contain executable facts only and MUST omit copied
 owner-requirement prose and static conformance or acceptance status fields.
+
+The harness graph and conformance checker MUST consume the same explicit required
+row selection. It covers accessors/registries/sampler; configuration defaults and
+closed namespace, environment binding, validation and secret references;
+bootstrap activation/containment; exporter failure invariance; log mapping/queue
+behavior; privacy/redaction; qualified transports; and resource identity. Required
+runtime/security evidence remains selected even above an aggregate's ordinary
+tier. Adding an unrelated telemetry-owner row MUST NOT silently expand this
+selection; removing or deactivating a declared dependency fails validation.
 
 ## 15. Verification and acceptance criteria
 

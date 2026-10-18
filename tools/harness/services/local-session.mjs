@@ -25,11 +25,10 @@ import { recoverRuntime, borrowRuntime, createRuntime } from "../runtime/session
 const descriptorSchemaID = "cartulary.test_services.local_session.v1";
 const statusSchemaID = "cartulary.test_services.local_session_status.v1";
 const sessionDurationMS = 24 * 60 * 60 * 1000;
-const allowedAttachedTargets = new Set([
-  "browser-e2e-stateful",
-  "browser-e2e-webserver-backed",
-  "service-backed-test-slice",
-]);
+export function attachedSelectionAllowed(target, inputs) {
+  return target === "test-slice" && inputs.SCOPE === "services" ||
+    target === "browser-e2e" && ["functional", "stateful"].includes(inputs.SUITE);
+}
 const callerServiceInputs = new Set([
   "CARTULARY_TEST_SERVICES_BIN",
   "CARTULARY_TEST_SERVICES_MODE",
@@ -626,8 +625,9 @@ export function attachLocalSession({
   dependencies = {},
   onContainerProof = () => {},
   borrowerOwner,
+  selection = {},
 }) {
-  if (!allowedAttachedTargets.has(target)) {
+  if (!attachedSelectionAllowed(target, selection)) {
     throw new Error(`${target} is owned-only and rejects local service attachment`);
   }
   if (!identityPattern.test(runID)) throw new Error("local service borrower requires a safe run ID");
@@ -775,7 +775,7 @@ export function resolveServiceSessionMode({ target, environment = process.env })
   if (mode === "owned" && explicitFile) {
     throw new Error("CARTULARY_TEST_SERVICES_SESSION_FILE is accepted only in attach mode");
   }
-  if (mode === "attach" && !allowedAttachedTargets.has(target)) {
+  if (mode === "attach" && !attachedSelectionAllowed(target, environment)) {
     throw new Error(`${target} is owned-only and rejects local service attachment`);
   }
   return {

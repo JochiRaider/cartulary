@@ -165,7 +165,7 @@ export function validateBenchmarkManifest(manifest, manifestDir, { root = repoRo
       if (roots.has(runRoot)) throw new Error("duplicate benchmark evidence root");
       roots.add(runRoot);
       if (run.manifest.path !== "run-manifest.json" || run.summary.path !== "run-summary.json") throw new Error("noncanonical run evidence paths");
-      const identity = readReference(runRoot, run.manifest, "cartulary.harness_run_manifest.v2").value;
+      const identity = readReference(runRoot, run.manifest, "cartulary.harness_run_manifest.v3").value;
       const result = readReference(runRoot, run.summary, "cartulary.harness_run_summary.v1").value;
       if (runIDs.has(identity.run_id) || identity.run_id !== result.run_id || identity.target !== result.target ||
           identity.source_digest !== manifest.source_digest || result.status !== "pass" || result.cache.hit !== 0 ||

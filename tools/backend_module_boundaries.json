@@ -4282,9 +4282,7 @@
   "forbidden_test_build_tokens": [
     "go build",
     "go run ./cmd/",
-    "make build-server",
-    "make build-migrate",
-    "make build-operator"
+    "make build"
   ],
   "generated_root_writes": {
     "scan_roots": [

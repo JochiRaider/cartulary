@@ -75,5 +75,5 @@ replacement, cancellation and delayed attachment;
 `useWorkbookWorkbench.test.tsx` covers staged admission and presentation;
 `WorkbookSessionNavigation.test.ts` covers pins, trail and cancellation;
 `WorkbookNavigationStatus.test.tsx` covers feedback and keyboard access. Use
-`make task-guide ROLE=module-author OWNER=web.workbook` for current verification;
+`make task-guide OWNER=web.workbook` for current verification;
 browser evidence is routed through `module.workbook`.

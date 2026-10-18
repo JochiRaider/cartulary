@@ -21,7 +21,7 @@ fail() {
 }
 
 if [[ ! -f "$FALLOW_SCRIPT" ]]; then
-  fail "missing Fallow package script at $FALLOW_SCRIPT; run make frontend-install"
+  fail "missing Fallow package script at $FALLOW_SCRIPT; run make bootstrap PART=frontend"
 fi
 
 "$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'

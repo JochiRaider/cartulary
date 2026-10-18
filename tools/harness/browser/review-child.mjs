@@ -7,7 +7,7 @@ import { CommandFailure, createCommandFailureContext } from "../runtime/command-
 export async function reviewChild({ root, command, args, environment, signal, output = "ignore", onChildProcess = () => () => {}, commandID, context }) {
   const launch = createLaunchContext({ repoRoot: root, environment, unitID: `review:${context.subject_id}`, commandID, producer: "browser_review" });
   if (signal?.aborted) { launch.settle("cancelled"); signal.throwIfAborted(); }
-  const diagnostic = commandID ? createCommandFailureContext({ repoRoot: root, environment, launch }) : null;
+  const diagnostic = launch.identity.command_id ? createCommandFailureContext({ repoRoot: root, environment, launch }) : null;
   let primary;
   try {
     await new Promise((resolve, reject) => {

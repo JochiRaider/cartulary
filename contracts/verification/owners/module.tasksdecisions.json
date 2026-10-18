@@ -16,8 +16,10 @@
       "verification_id": "module.tasksdecisions.verification.incident_portability",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     }
   ]
 }

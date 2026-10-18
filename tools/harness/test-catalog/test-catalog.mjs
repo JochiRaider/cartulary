@@ -20,7 +20,7 @@ import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v8";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v9";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v3";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
@@ -128,7 +128,7 @@ function assertExactIDs(entries, expected, label) {
 function loadTopologyProfiles(root) {
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
   const topology = readStrictJSON(topologyPath);
-  validateSchemaSync("cartulary.execution_topology.v11", topology);
+  validateSchemaSync("cartulary.execution_topology.v12", topology);
   for (const [key, ids] of Object.entries(expectedProfiles)) {
     if (!Array.isArray(topology[key])) {
       throw new Error(`${topologyPath}.${key} must be an array`);
@@ -376,16 +376,16 @@ function validateRowSemantics({
   if (row.process_isolation !== undefined && !["go", "vitest"].includes(row.runner)) {
     throw new Error(`${label}.process_isolation is supported only for Go and Vitest rows`);
   }
-  if (row.preparation_targets !== undefined) {
-    assertSortedUnique(row.preparation_targets, `${label}.preparation_targets`);
+  if (row.preparation_operations !== undefined) {
+    assertSortedUnique(row.preparation_operations, `${label}.preparation_operations`);
     if (!["go", "vitest"].includes(row.runner)) {
-      throw new Error(`${label}.preparation_targets is supported only for Go and Vitest rows`);
+      throw new Error(`${label}.preparation_operations is supported only for Go and Vitest rows`);
     }
-    if (row.runner === "go" && row.preparation_targets.includes("playwright-install") &&
-      (!row.preparation_targets.includes("frontend-install") || row.resource_profile_id !== "renderer_browser" || row.process_isolation !== "exclusive")) {
+    if (row.runner === "go" && row.preparation_operations.includes("harness.playwright_install") &&
+      (!row.preparation_operations.includes("harness.frontend_install") || row.resource_profile_id !== "renderer_browser" || row.process_isolation !== "exclusive")) {
       throw new Error(`${label} Go renderer preparation requires frontend installation, exclusive process and renderer browser capacity`);
     }
-    if (row.preparation_targets.includes("build-report-renderer") &&
+    if (row.preparation_operations.includes("harness.build_report_renderer") &&
       ((row.runner !== "go" && !(row.runner === "vitest" && row.selector.project_id === "renderer-node" && row.evidence_class === "integration")) || row.resource_profile_id !== "renderer_browser" || row.process_isolation !== "exclusive")) {
       throw new Error(`${label} installed renderer preparation requires an exclusive admitted renderer browser context`);
     }
@@ -418,8 +418,8 @@ function readCatalogDefinition(root) {
   const runners = loadRunnerRegistry(root);
   const profiles = loadTopologyProfiles(root);
   const fixtureProfiles = loadPerformanceFixtureSnapshotRegistry(root);
-  const taskSurface = readStrictJSON(path.join(root, "tools/task_surface_owner.json"));
-  const taskSurfaceCommandIDs = new Set(taskSurface.targets.map((entry) => entry.command_id));
+  const graphOwner = readStrictJSON(path.join(root, "tools/harness_work_graph_owner.json"));
+  const operationIDs = new Set(Object.keys(graphOwner.operations));
   const manifests = [];
   const rows = [];
   const rowIDs = new Set();
@@ -436,6 +436,9 @@ function readCatalogDefinition(root) {
     );
     const manifest = readStrictJSON(manifestFile);
     validateSchemaSync(familyManifestSchemaID, manifest);
+    for (const row of manifest.rows) for (const operationID of row.preparation_operations ?? []) {
+      if (!operationIDs.has(operationID)) throw new Error(`${row.row_id} references unknown preparation operation ${operationID}`);
+    }
     if (manifest.owner_id !== owner.owner_id) {
       throw new Error(`${owner.manifest_path}.owner_id must equal ${owner.owner_id}`);
     }
@@ -556,15 +559,15 @@ function readCatalogDefinition(root) {
     rowMigrations,
     test_catalog_digest: catalogSemanticDigest,
   };
-  return { catalog, runners: runners.byID, taskSurfaceCommandIDs };
+  return { catalog, runners: runners.byID, operationIDs };
 }
 
-function resolveSelectors(root, rows, { runners, taskSurfaceCommandIDs }, complete = false) {
+function resolveSelectors(root, rows, { runners, operationIDs }, complete = false) {
   const resolveSelector = createRowSelectorResolver(root);
   const selectors = new Set();
   const overlaps = [];
   for (const row of rows) {
-    for (const selector of resolveSelector({ row, runner: runners.get(row.runner), taskSurfaceCommandIDs })) {
+    for (const selector of resolveSelector({ row, runner: runners.get(row.runner), operationIDs })) {
       if (selectors.has(selector)) overlaps.push(`${row.row_id}.selector overlaps ${selector}`);
       selectors.add(selector);
     }

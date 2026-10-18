@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.browser_e2e_batch_manifest.v11",
+  "schema_id": "cartulary.browser_e2e_batch_manifest.v12",
   "runtime_profiles": [
     {
       "id": "default",

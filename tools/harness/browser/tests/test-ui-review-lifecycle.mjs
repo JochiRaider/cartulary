@@ -2,9 +2,11 @@ import { closeReviewBrowser } from "./ui-review-browser-fixture.mjs";
 import assert from "node:assert/strict";
 import { chmodSync, existsSync, linkSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { once } from "node:events";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { createInterface } from "node:readline";
 import test from "node:test";
 import { acquireHostAdmission, inheritedHostLease, processIdentityAlive } from "../../runtime/host-admission.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
@@ -16,6 +18,7 @@ import { inputPath } from "../ui-review/input-files.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
 import { ownedProcess, stopOwnedProcess } from "../ui-review/ownership.mjs";
 import { createRuntime } from "../../runtime/session-client.mjs";
+import { findCleanupDiagnostic } from "../../runtime/cleanup-diagnostic.mjs";
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 test("failed runner acquisition publication reaps the child and preserves the primary error", async () => {
@@ -31,23 +34,64 @@ test("failed runner acquisition publication reaps the child and preserves the pr
     await assert.rejects(runPrivateCapturedProcess(path.join(root, "missing-executable"), [], { ...options, onSpawn() { assert.fail("failed spawn must not publish an owned process"); } }), (error) => error.cause?.code === "ENOENT");
   } finally { if (proof) await stopOwnedProcess(proof); runtime.close(); rmSync(scratchRoot, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true }); }
 });
-test("process recovery rejects PID reuse and preserves ambiguous leaderless ownership", async () => {
-  const child = spawn(process.execPath, ["--input-type=module", "--eval", `import {spawn} from 'node:child_process'; const child=spawn(process.execPath,['-e','process.on("SIGTERM",()=>{});setInterval(()=>{},1000)'],{stdio:'ignore'});process.stdout.write(String(child.pid));setTimeout(()=>process.exit(),200);`], { detached: true, stdio: ["ignore", "pipe", "ignore"] });
-  const proof = ownedProcess(child.pid); let descendant = "";
-  child.stdout.on("data", (bytes) => { descendant += bytes; });
-  const ended = new Promise((resolve) => child.once("exit", resolve));
-  try {
-    await assert.rejects(stopOwnedProcess({ ...proof, start: String(BigInt(proof.start) + 1n) }));
-    assert.equal(child.exitCode, null);
-    await ended; assert.ok(Number(descendant) > 1);
-    await assert.rejects(stopOwnedProcess(proof, { graceMS: 40 }));
-    const stat = existsSync(`/proc/${descendant}/stat`) ? readFileSync(`/proc/${descendant}/stat`, "utf8") : "";
-    assert.ok(stat && !stat.split(") ").at(-1).startsWith("Z "));
-  } finally {
-    // The fixture owns this exact child; an ambiguous production proof must not.
-    if (Number(descendant) > 1) process.kill(Number(descendant), "SIGKILL");
-    if (child.exitCode === null) child.kill("SIGKILL");
-  }
+test("process recovery rejects PID reuse and preserves ambiguous leaderless ownership", async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-process-recovery-"));
+  const scratchRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-process-recovery-private-"));
+  const runtime = createRuntime({ repoRoot, runRoot: root, runID: "process-recovery", scratchRoot });
+  const environment = { ...process.env, CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT: root,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID };
+  delete environment.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+  const child = spawn(process.execPath, ["--input-type=module", "--eval", `
+    import {spawn} from 'node:child_process';
+    const descendant=spawn(process.execPath,['-e','process.on("SIGTERM",()=>{});process.stdout.write("ready"+String.fromCharCode(10));setInterval(()=>{},1000)'],{stdio:['ignore','pipe','ignore']});
+    descendant.once('error',()=>process.exit(1));
+    descendant.once('exit',()=>process.exit(1));
+    descendant.stdout.once('data',()=>process.stdout.write(String(descendant.pid)+String.fromCharCode(10)));
+    process.stdin.once('data',()=>process.exit(0));
+  `], { detached: true, stdio: ["pipe", "pipe", "ignore"] });
+  const ended = once(child, "close");
+  const proof = ownedProcess(child.pid);
+  const lines = createInterface({ input: child.stdout });
+  let descendant, leaderRecorded = false, descendantRecorded = false;
+  t.after(async () => {
+    lines.close();
+    const failures = [];
+    // The exact descendant proof supplies independent teardown authority after
+    // the intentionally retired leader can no longer anchor its group.
+    if (descendant) {
+      try {
+        await stopOwnedProcess(descendant, { environment });
+        if (descendantRecorded) runtime.record({ kind: "helper_process", target: descendant, state: "released" });
+      } catch (error) { failures.push(error); }
+    }
+    try {
+      await stopOwnedProcess(proof, { environment });
+      await ended;
+      if (leaderRecorded) runtime.record({ kind: "helper_process", target: proof, state: "released" });
+    } catch (error) { failures.push(error); }
+    if (failures.length) throw new AggregateError(failures, "process fixture cleanup failed");
+    runtime.close(); rmSync(scratchRoot, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true });
+  });
+  runtime.record({ kind: "helper_process", target: proof, depends_on: [] }); leaderRecorded = true;
+  const [line] = await Promise.race([
+    once(lines, "line", { signal: AbortSignal.timeout(5000) }),
+    ended.then(() => { throw new Error("process fixture leader exited before readiness"); }),
+  ]);
+  assert.match(line, /^[1-9][0-9]*$/u);
+  descendant = ownedProcess(Number(line));
+  runtime.record({ kind: "helper_process", target: descendant, depends_on: [] }); descendantRecorded = true;
+  await assert.rejects(stopOwnedProcess({ ...proof, start: String(BigInt(proof.start) + 1n) }, { environment }),
+    (error) => findCleanupDiagnostic(error)?.stage === "process_group_anchor");
+  assert.equal(child.exitCode, null);
+  assert.equal(processIdentityAlive(proof), true);
+  assert.equal(processIdentityAlive(descendant), true);
+  // Rejection must finish before the fixture deliberately removes its anchor.
+  child.stdin.end("release\n");
+  assert.deepEqual(await ended, [0, null]);
+  await assert.rejects(stopOwnedProcess(proof, { graceMS: 40, environment }),
+    (error) => findCleanupDiagnostic(error)?.stage === "process_group_anchor");
+  assert.equal(processIdentityAlive(descendant), true);
 });
 test("private local reads reject links, permissive files and changed publication targets", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-private-files-"));

@@ -387,7 +387,6 @@ services_down() {
 
 db_up() {
   services_up
-  init_object_store
 }
 
 run_local_migrate() {

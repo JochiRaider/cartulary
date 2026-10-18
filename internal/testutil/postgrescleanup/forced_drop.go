@@ -8,9 +8,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
 )
@@ -26,40 +29,38 @@ type dropOperations struct {
 }
 
 var productionDropOperations = dropOperations{
-	withForcedAdmission: func(ctx context.Context, adminDSN string, name string, operation func(databaseDropExecutor)) error {
-		return postgrescatalog.WithMutation(
-			ctx,
-			adminDSN,
-			name,
-			databaseDropAdmissionLimit,
-			func(admin *sql.DB) error {
-				operation(func(operationCtx context.Context, database string, force bool) error {
-					return executeDatabaseDrop(operationCtx, admin, database, force)
-				})
-				return nil
-			},
-		)
-	},
-	withNormalAdmission: func(ctx context.Context, adminDSN string, name string, operation func(databaseDropExecutor)) error {
-		return postgrescatalog.WithMutation(
-			ctx,
-			adminDSN,
-			name,
-			databaseDropAdmissionLimit,
-			func(admin *sql.DB) error {
-				operation(func(operationCtx context.Context, database string, force bool) error {
-					return executeDatabaseDrop(operationCtx, admin, database, force)
-				})
-				return nil
-			},
-		)
-	},
+	withNormalAdmission: withDropAdmission,
+	withForcedAdmission: withDropAdmission,
+}
+
+func withDropAdmission(ctx context.Context, adminDSN, name string, operation func(databaseDropExecutor)) error {
+	config, err := pgx.ParseConfig(adminDSN)
+	if err != nil {
+		return &postgrescatalog.MutationError{Stage: "catalog_open", Err: err}
+	}
+	var participant atomic.Int64
+	config.RuntimeParams["client_min_messages"] = "log"
+	config.OnNotice = func(_ *pgconn.PgConn, notice *pgconn.Notice) {
+		if pid := barrierNoticePID(notice); pid > 0 {
+			participant.Store(pid)
+		}
+	}
+	// pgx owns this short-lived connection configuration token. It is never a
+	// retained identity and is unregistered after WithMutation closes its pool.
+	registered := stdlib.RegisterConnConfig(config)
+	defer stdlib.UnregisterConnConfig(registered)
+	return postgrescatalog.WithMutation(ctx, registered, name, databaseDropAdmissionLimit, func(admin *sql.Conn) error {
+		operation(func(operationCtx context.Context, database string, force bool) error {
+			return executeObservedDatabaseDrop(operationCtx, admin, adminDSN, database, force, participant.Load)
+		})
+		return nil
+	})
 }
 
 // DropOwnedDatabase attempts an ordinary drop with its own budget and uses one
 // separately bounded atomic forced drop only for an active database or an
-// expired ordinary operation. Each attempt independently acquires target and
-// stripe admission. The caller must prove exact ownership first.
+// expired ordinary operation. Each attempt independently acquires target
+// admission. The caller must prove exact ownership first.
 func DropOwnedDatabase(
 	ctx context.Context,
 	adminDSN string,
@@ -136,15 +137,15 @@ func ForceDropDatabase(ctx context.Context, adminDSN string, name string) error 
 	return errors.Join(dropErr, lockErr)
 }
 
-func executeDatabaseDrop(ctx context.Context, admin *sql.DB, name string, force bool) error {
+func executeDatabaseDrop(ctx context.Context, admin *sql.Conn, name string, force bool) error {
 	statement := fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, name)
-	action := "drop"
+	stage := "normal_drop"
 	if force {
 		statement += " WITH (FORCE)"
-		action = "force drop"
+		stage = "forced_drop"
 	}
 	if _, err := admin.ExecContext(ctx, statement); err != nil {
-		return fmt.Errorf("%s postgres database %s: %w", action, name, err)
+		return &postgrescatalog.MutationError{Stage: stage, Err: err}
 	}
 	return nil
 }

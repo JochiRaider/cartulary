@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -47,6 +48,32 @@ type processRunner struct {
 type boundedTail struct {
 	bytes []byte
 	limit int
+}
+
+// These diagnostics supplement the normalized failure without retaining raw
+// errors, paths, process identities or admission tokens.
+func executionDiagnostic(stage string, err error) []byte {
+	switch stage {
+	case "workspace_inherit", "host_bind":
+	default:
+		stage = "unknown"
+	}
+	cause := "unknown"
+	switch {
+	case errors.Is(err, harnessadmission.ErrConflict):
+		cause = "admission_conflict"
+	case errors.Is(err, context.Canceled):
+		cause = "cancelled"
+	case errors.Is(err, context.DeadlineExceeded):
+		cause = "deadline_exceeded"
+	case errors.Is(err, os.ErrPermission):
+		cause = "permission_denied"
+	case errors.Is(err, os.ErrNotExist), errors.Is(err, syscall.ESRCH):
+		cause = "identity_unavailable"
+	case errors.Is(err, os.ErrClosed), errors.Is(err, syscall.EBADF):
+		cause = "descriptor_closed"
+	}
+	return []byte(fmt.Sprintf("[RUNTIME-EXECUTION] stage=%s cause=%s\n", stage, cause))
 }
 
 func (t *boundedTail) Write(p []byte) (int, error) {
@@ -92,6 +119,7 @@ func freshLaunch(u unit, environment map[string]string, commands map[string]stri
 			context := inherited.(map[string]any)
 			if context["run_id"] == run {
 				parent = context["invocation_id"]
+				commandID = context["command_id"]
 			}
 		}
 	}
@@ -115,6 +143,12 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	}
 	maps.Copy(environment, request.Environment)
 	maps.Copy(environment, u.Command.Environment)
+	// Nested planning inherits this admitted unit's envelope, never the host
+	// capacity or a fixture/command override. The lease and budget are one binding.
+	if request.Host != nil {
+		environment["CARTULARY_HOST_ADMISSION_LEASE"] = request.Host.Token
+		environment["CARTULARY_UNIT_CPU_TOKENS"] = fmt.Sprint(u.Claims["cpu"])
+	}
 	result = unitResult{Status: "failed"}
 	fail := func(f *failure) {
 		result.Failure = f
@@ -219,6 +253,7 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	cmd.Stderr = stderr
 	closeDescriptors, err := inheritWorkspaceAdmission(cmd)
 	if err != nil {
+		result.Stderr = executionDiagnostic("workspace_inherit", err)
 		fail(failed("infra", "resource_conflict"))
 		return
 	}
@@ -242,8 +277,10 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	}
 	signalGroup := func(signal syscall.Signal) { _ = syscall.Kill(-cmd.Process.Pid, signal) }
 	processProof, proofErr := harnesssession.CaptureProcess(cmd.Process.Pid)
+	var diagnostic []byte
 	if request.Host != nil && request.Host.Bind != nil {
 		if err := request.Host.Bind(cmd.Process.Pid); err != nil {
+			diagnostic = executionDiagnostic("host_bind", err)
 			fail(failed("infra", "resource_conflict"))
 			signalGroup(syscall.SIGKILL)
 		}
@@ -310,6 +347,10 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	settleCancel()
 	cmd.WaitDelay = grace
 	waitErr := cmd.Wait()
+	// The child's stderr writer has settled; never write this tail concurrently.
+	if len(diagnostic) > 0 {
+		_, _ = stderr.Write(append([]byte("\n"), diagnostic...))
+	}
 	result.Stdout = stdout.bytes
 	result.Stderr = stderr.bytes
 	if cmd.ProcessState != nil {

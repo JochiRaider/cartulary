@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v8",
+  "schema_id": "cartulary.test_family_manifest.v9",
   "owner_id": "harness.generated_artifacts",
   "rows": [
     {
@@ -12,7 +12,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.generated_artifact_policy_check.v2"
+        "operation_id": "harness.generated_artifact_policy_check"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -35,7 +35,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.generate_drift.v2"
+        "operation_id": "harness.source_generated"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -56,7 +56,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.migration_input_drift.v2"
+        "operation_id": "harness.migration_input_drift"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",

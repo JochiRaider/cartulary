@@ -1,8 +1,6 @@
 export {
   collectTaskSurfaceManifestErrors,
   defaultTaskSurfaceManifestPath,
-  harnessCheck,
-  harnessTierChecks,
   loadTaskSurfaceManifest,
   makeRecipeEntries,
   renderTaskSurfaceMake,
@@ -16,3 +14,8 @@ export {
   renderTaskSurfaceManifest,
   serviceRequirementForRuntimeProfile,
 } from "./execution-topology.mjs";
+
+export async function validateSourceShapes(context) {
+  const validation = await import("./check-json-shapes.mjs");
+  return validation.validateSourceShapes(context);
+}

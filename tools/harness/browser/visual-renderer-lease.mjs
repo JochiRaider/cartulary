@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { redactString } from "../contract/index.mjs";
 import { stageBrowserTrust } from "./browser-trust.mjs";
 import { validateRendererProof, removeOwnedRenderer } from "../runtime/owned-renderer.mjs";
+import { CommandFailure } from "../runtime/command-failure.mjs";
 
 import { resolvePlaywrightPackages } from "../readiness/playwright-packages.mjs";
 import { loadVisualRendererProfile, verifyRendererFonts, validateRendererAttestation, sha256 } from "./visual-renderer-profile.mjs";
@@ -132,6 +133,18 @@ async function verifyRemoteBrowser(packages, endpoint, profile) {
   }
 }
 
+// Read only the container owned by this acquisition, before cleanup removes it.
+// The daemon's error text, endpoint, process identity and logs stay private.
+function rendererStateBeforeCleanup(containerID, run) {
+  try {
+    const state = JSON.parse(run(["inspect", containerID, "--format", "{{json .State}}"], { timeout: 3000 }));
+    if (!["created", "running", "paused", "restarting", "removing", "exited", "dead"].includes(state?.Status) ||
+        typeof state.Running !== "boolean" || typeof state.OOMKilled !== "boolean" ||
+        !Number.isInteger(state.ExitCode) || state.ExitCode < 0 || state.ExitCode > 255) throw new Error("invalid renderer state");
+    return Object.freeze({ status: state.Status, running: state.Running, oom_killed: state.OOMKilled, exit_code: state.ExitCode });
+  } catch { return Object.freeze({ status: "unavailable" }); }
+}
+
 export function recoverVisualRenderer(proof, run = docker) { removeOwnedRenderer(proof, run); }
 
 export async function startVisualRendererLease({ root, environment, diagnostics = false, onOwnedResource = () => {}, run = docker, connect = verifyRemoteBrowser, endpointReady = waitForEndpoint, trust = stageBrowserTrust }) {
@@ -210,7 +223,15 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
     if (run(["inspect", containerID, "--format", "{{.Image}}"]) !== image.image_id) throw new Error("container image mismatch");
     const trustAttestation = stagedTrust.attestation;
     const endpoint = await endpointReady(containerID, ports.renderer, run);
-    const browserVersion = await connect(packages, endpoint, profile);
+    let browserVersion;
+    try { browserVersion = await connect(packages, endpoint, profile); }
+    catch (cause) {
+      const state = rendererStateBeforeCleanup(containerID, run);
+      const failure = new CommandFailure(`pinned browser renderer connection failed; container_state=${JSON.stringify(state)}`,
+        { failure_class: "infra", failure_reason: "service_start_error" }, { cause });
+      failure.rendererState = state;
+      throw failure;
+    }
     const attestation = validateRendererAttestation({ schema_id: "cartulary.frontend_visual_renderer_attestation.v1", profile, observed: {
       ...image, playwright_version: observed.playwright, core_version: observed.core, chromium_revision: observed.revision, chromium_version: browserVersion,
       font_manifest_sha256: sha256(fonts.manifestBytes), font_files: fonts.files,

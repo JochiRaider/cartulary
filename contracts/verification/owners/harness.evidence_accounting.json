@@ -11,7 +11,7 @@
         "shell",
         "static_check"
       ],
-      "public_target": "harness-evidence-contract"
+      "public_target": "harness-contract"
     },
     {
       "verification_id": "harness.evidence_accounting.verification.performance_resource_diagnostics",
@@ -23,7 +23,7 @@
         "shell",
         "static_check"
       ],
-      "public_target": "harness-evidence-contract"
+      "public_target": "harness-contract"
     },
     {
       "verification_id": "harness.evidence_accounting.verification.semantic_evidence_identity",

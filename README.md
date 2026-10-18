@@ -55,12 +55,12 @@ export CARTULARY__ROOTS__REFERENCE_PACK_STORAGE__PATH="$PWD/.cartulary/local/ref
 export CARTULARY__ROOTS__TEMPORARY_WORK__PATH="$PWD/.cartulary/local/tmp"
 export CARTULARY__ROOTS__EXPORT_OUTPUTS__PATH="$PWD/.cartulary/local/exports"
 
-make db-up
+make services-up
 make db-migrate
 make dev
 ```
 
-`make db-up` starts PostgreSQL and SeaweedFS object storage and initializes the development bucket. `make db-migrate` applies the database schema. `make dev` starts the backend and browser development server; leave that terminal running.
+`make services-up` starts PostgreSQL and SeaweedFS object storage and initializes the development bucket. `make db-migrate` applies the database schema. `make dev` starts the backend and browser development server; leave that terminal running.
 
 Open **<http://localhost:5173>**. In another terminal, check backend readiness:
 

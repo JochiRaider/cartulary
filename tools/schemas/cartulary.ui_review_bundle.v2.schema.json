@@ -239,7 +239,7 @@
                           "$ref": "cartulary.frontend_visual_reconciliation.v3#/$defs/capture_intent"
                         },
                         "source_identity": {
-                          "$ref": "cartulary.harness_run_manifest.v2"
+                          "$ref": "cartulary.harness_run_manifest.v3"
                         },
                         "fixture": {
                           "anyOf": [
@@ -315,7 +315,7 @@
                           "$ref": "cartulary.frontend_visual_reconciliation.v3#/$defs/capture_intent"
                         },
                         "source_identity": {
-                          "$ref": "cartulary.harness_run_manifest.v2"
+                          "$ref": "cartulary.harness_run_manifest.v3"
                         },
                         "fixture": {
                           "anyOf": [

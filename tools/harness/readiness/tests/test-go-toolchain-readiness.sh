@@ -110,6 +110,9 @@ exact_output="$(run_readiness diagnose "$exact_dir/bin/go" "$exact_dir/cache")"
 assert_contains "$exact_output" "effective=go1.27.1 source=local" "exact local toolchain"
 [[ ! -e "$exact_dir/cache" ]] || fail "diagnose created cache state for exact local toolchain"
 
+assert_equals "$(CARTULARY_OUTPUT_MODE=machine run_readiness ensure "$exact_dir/bin/go" "$exact_dir/cache")" "" "machine local readiness is silent"
+assert_equals "$(CARTULARY_OUTPUT_MODE=machine run_readiness resolve "$exact_dir/bin/go" "$exact_dir/cache")" "$exact_dir/bin/go" "resolver retains executable output"
+
 missing_dir="$scratch/missing"
 make_fake_go "$missing_dir/bin" go1.27.0 go1.27.1 0
 set +e
@@ -153,6 +156,9 @@ printf 'h1:fixture\n' >"$ziphash_file"
 cached_output="$(run_readiness diagnose "$cached_dir/bin/go" "$cached_dir/cache")"
 assert_contains "$cached_output" "source=automatic-cache" "valid cached toolchain"
 
+assert_equals "$(CARTULARY_OUTPUT_MODE=machine run_readiness diagnose "$cached_dir/bin/go" "$cached_dir/cache")" "" "machine cached readiness is silent"
+assert_equals "$(CARTULARY_PREPARATION_POLICY=installed_only run_readiness ensure "$cached_dir/bin/go" "$cached_dir/cache")" "" "installed-only preparation remains silent"
+
 corrupt_dir="$scratch/corrupt"
 make_fake_go "$corrupt_dir/bin" go1.27.0 go1.27.1 0
 corrupt_toolchain="$corrupt_dir/cache/mod/golang.org/toolchain@$module_version"
@@ -175,7 +181,7 @@ assert_equals "$after_tree" "$before_tree" "corrupt cache remains unchanged"
 ensure_dir="$scratch/ensure"
 make_fake_go "$ensure_dir/bin" go1.27.0 go1.27.1 0
 ensure_output="$(run_readiness ensure "$ensure_dir/bin/go" "$ensure_dir/cache")"
-assert_contains "$ensure_output" "effective=go1.27.1 source=selected" "ensure selects exact toolchain"
+assert_equals "$ensure_output" "" "successful preparation leaves stdout empty"
 assert_file_contents "$ensure_dir/bin/selected.log" "selected:go1.27.1" "ensure GOTOOLCHAIN pin"
 ensure_machine_state="$(cat "$ensure_dir/bin/machine-state.log")"
 assert_contains "$ensure_machine_state" "GOCACHE=$ensure_dir/cache/build" "ensure GOCACHE"

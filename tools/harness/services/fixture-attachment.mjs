@@ -18,7 +18,7 @@ export function fixtureAttachment(operation, environment = process.env) {
     let proof;
     const owner = parseStrictJSON(environment.CARTULARY_NATIVE_FIXTURE_OWNER);
     const suite = attachLocalSession({root,binary:environment.CARTULARY_TEST_SERVICES_BIN || environment.TEST_SERVICES_BIN,
-      sessionFile:posture.sessionFile,target,runID,suiteRuntime:runtime,borrowerOwner:owner,onContainerProof:(value) => {proof=value;} });
+      sessionFile:posture.sessionFile,target,selection:environment,runID,suiteRuntime:runtime,borrowerOwner:owner,onContainerProof:(value) => {proof=value;} });
     try {
       atomicLocalFile(file,`${JSON.stringify({run_id:runID,runtime_lease_id:runtime.leaseID,session_file:posture.sessionFile,borrower:suite.borrower_proof})}\n`);
       return {environment:suite.environment,container_proof:proof};

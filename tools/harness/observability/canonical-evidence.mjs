@@ -11,7 +11,7 @@ function readJSON(file) {
   return parseStrictJSON(readRetainedArtifactBytes(path.dirname(file), path.basename(file), 16 * 1024 * 1024).toString("utf8"), "canonical evidence");
 }
 
-export async function validateCanonicalRun(runRoot, expectedTarget = "") {
+export async function validateCanonicalRun(runRoot, expectedTarget = "", { evidence = true } = {}) {
   const files = {
     manifest: path.join(runRoot, "run-manifest.json"),
     summary: path.join(runRoot, "run-summary.json"),
@@ -19,7 +19,7 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
   };
   const manifest = readJSON(files.manifest);
   const summary = readJSON(files.summary);
-  validateSchemaSync("cartulary.harness_run_manifest.v2", manifest);
+  validateSchemaSync("cartulary.harness_run_manifest.v3", manifest);
   validateSchemaSync("cartulary.harness_run_summary.v1", summary);
   if (manifest.run_id !== summary.run_id || manifest.target !== summary.target) {
     throw new Error(`${runRoot} manifest and summary identity do not close`);
@@ -69,7 +69,7 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
   ) {
     throw new Error(`${files.summary} wall duration does not equal the canonical run interval`);
   }
-  for (const artifact of summary.artifact_refs) {
+  for (const artifact of evidence ? summary.artifact_refs : []) {
     assertRetainedArtifactFile(runRoot, artifact);
   }
   const targetSummaries = new Map();
@@ -79,8 +79,8 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
     if (targetSummary.unit_ids.some((unitID) => !terminal.has(unitID))) {
       throw new Error(`${artifact} references a unit outside the canonical terminal roster`);
     }
-    for (const evidence of targetSummary.evidence_refs) {
-      assertRetainedArtifactFile(runRoot, evidence);
+    for (const reference of evidence ? targetSummary.evidence_refs : []) {
+      assertRetainedArtifactFile(runRoot, reference);
     }
     const selectedIntervals = targetSummary.unit_ids
       .filter((unitID) => started.has(unitID) && terminal.has(unitID))
@@ -90,6 +90,8 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "") {
     }
     same(targetSummary.actual_dependency_critical_path_ms, pathDuration(actualCriticalPath(graph, intervals, targetSummary.unit_ids)), "target critical duration");
     same(targetSummary.timing_accounting, canonicalTimingAccounting(eventState, graph, targetSummary.inclusive_wall_ms, { includeRunEnvelope: false, selectedUnitIDs: targetSummary.unit_ids }), "target accounting");
+    if (targetSummaries.has(targetSummary.target)) throw new Error("duplicate target summary");
+    if (artifact !== `target-summaries/${targetSummary.target}.json`) throw new Error("target summary path mismatch");
     targetSummaries.set(targetSummary.target, targetSummary);
   }
   for (const target of targetSummaries.values()) {

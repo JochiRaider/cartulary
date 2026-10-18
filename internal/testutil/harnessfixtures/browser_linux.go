@@ -24,6 +24,9 @@ func (p ProductionOptions) browserOperation(ctx context.Context, operation strin
 	}
 	result, err := p.command()(ctx, node, append([]string{filepath.Join(p.Root, "tools/harness/browser/fixture-lifecycle.mjs"), operation}, args...), environment)
 	if err != nil {
+		if diagnostic := harnesssession.DecodeCleanupDiagnostic(result.Stderr); diagnostic != nil {
+			err = errors.Join(err, diagnostic)
+		}
 		if value, decodeErr := harnessschema.Decode(result.Stdout); decodeErr == nil {
 			if failure, ok := value.(map[string]any); ok && len(failure) == 2 {
 				class, cok := failure["failure_class"].(string)

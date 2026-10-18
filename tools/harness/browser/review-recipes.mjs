@@ -4,6 +4,7 @@ import { readFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { buildSourceSnapshot } from "../test-catalog/index.mjs";
 import { coreReadiness, frontendBuildReadiness, browserReadiness, goReadiness, serviceImageReadiness } from "../readiness/installed-readiness.mjs";
+import { operationDefinition, operationExecutionDigest, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
 import { reviewChild } from "./review-child.mjs";
 import { seedDesignReview } from "./design-review-seed.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
@@ -18,6 +19,8 @@ const preparationBuilds = Object.freeze([
 ]);
 export function recipeEnvironment(root, runRoot, runtime, input, environment = process.env) {
   const base = { ...environment };
+  const topology = JSON.parse(readFileSync(path.join(root, "tools/execution_topology_manifest.json")));
+  for (const binary of topology.runtime_binaries) base[binary.output_make_variable] = path.resolve(root, base[binary.output_make_variable] || binary.default_output_path);
   for (const name of Object.keys(base)) if (/^(?:MAKEFLAGS|MAKEOVERRIDES|MFLAGS|REVIEW_PROFILE|UI_|OTEL_|CARTULARY_(?:MAKE_|TEST_|WEB_E2E_|BROWSER_|HARNESS_|PGTEST_|S3_)|CARTULARY__)/u.test(name)) delete base[name];
   Object.assign(base, { CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]", CARTULARY_PREPARATION_POLICY: input.preparation_policy, CARTULARY_TEST_RESULTS_DIR: path.dirname(runRoot), CARTULARY_TEST_RUN_ID: runtime.runID,
     CARTULARY_TEST_TARGET: input.presentation === "design" ? "browser-design-review" : "ui-review", CARTULARY_HARNESS_IDENTITY_PREPARED: "1", CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
@@ -46,12 +49,13 @@ export async function buildReviewProducer({ target, root, environment, input, ru
   if (input.preparation_policy === "installed_only" && target === "build-web") {
     coreReadiness(root); frontendBuildReadiness(root, { environment }); browserReadiness(root); environment.GO = goReadiness(environment, root);
   }
-  const surface = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json")));
+  const operationID = `harness.${target.replaceAll("-", "_")}`;
+  const operation = operationDefinition(readOperationOwner(root), operationID);
   const [, subject_id, recovery_id] = recipe;
     const context = { phase: "build", subject_id, condition: "child_failed", recovery_id };
-    await reviewChild({ root, command: "make", args: ["--no-print-directory", target], environment: { ...environment, CARTULARY_TEST_TARGET: target,
+    await reviewChild({ root, command: process.execPath, args: ["tools/harness/execution/operation-runner-cli.mjs", operationID], environment: { ...environment, CARTULARY_OPERATION_DIGEST: operationExecutionDigest(operation), CARTULARY_TEST_TARGET: target,
       CARTULARY_HARNESS_GRAPH_CHILD: "1", CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD: "1", CARTULARY_HARNESS_SKIP_PREREQUISITES: "1" }, signal, output: "ignore",
-      commandID: surface.targets.find((entry) => entry.name === target)?.command_id, context, onChildProcess: (pid) => processRegistration(runtime, pid, JSON.parse(environment.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES)) });
+      context, onChildProcess: (pid) => processRegistration(runtime, pid, JSON.parse(environment.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES)) });
   if (input.preparation_policy === "installed_only" && target === "testservices-build") serviceImageReadiness(environment, root);
   return environment;
 }

@@ -52,7 +52,7 @@ const failed = adaptGoInvocation(invocation, {
 assert.deepEqual(failed.map((entry) => entry.terminal_state), ["failed"]);
 assert.deepEqual(failed.map((entry) => entry.exit_code), [10]);
 const readinessEnvelope = {
-  schema_id: "cartulary.harness_test_failure.v1",
+  schema_id: "cartulary.harness_test_failure.v2",
   failure_class: "infra",
   failure_reason: "service_readiness_timeout",
   setup_source: "s3test",
@@ -60,6 +60,8 @@ const readinessEnvelope = {
   readiness_stage: "put",
   attempt_count: 25,
   cleanup_outcome: "completed",
+  phase: "setup",
+  prior_failure: false,
 };
 const readiness = adaptGoInvocation(invocation, {
   status: 1,
@@ -76,7 +78,7 @@ assert.equal(readiness[0].terminal_state, "infrastructure_failed");
 assert.equal(readiness[0].failure_class, "infra");
 assert.equal(readiness[0].failure_reason, "service_readiness_timeout");
 assert.equal(readiness[0].exit_code, 3);
-assert.deepEqual(readiness[0].failure_diagnostic, readinessEnvelope);
+assert.deepEqual(readiness[0].failure_diagnostic, { schema_id: "cartulary.harness_go_failure_diagnostic.v1", setup: readinessEnvelope, cleanup: [] });
 
 const duplicateReadiness = adaptGoInvocation(invocation, {
   status: 1,
@@ -91,7 +93,7 @@ const duplicateReadiness = adaptGoInvocation(invocation, {
 });
 assert.equal(duplicateReadiness[0].failure_class, "infra");
 assert.equal(duplicateReadiness[0].failure_reason, "service_readiness_timeout");
-assert.deepEqual(duplicateReadiness[0].failure_diagnostic, readinessEnvelope);
+assert.deepEqual(duplicateReadiness[0].failure_diagnostic, readiness[0].failure_diagnostic);
 
 const conflictingReadiness = adaptGoInvocation(invocation, {
   status: 1,
@@ -113,6 +115,136 @@ assert.equal(conflictingReadiness[0].failure_class, "harness");
 assert.equal(conflictingReadiness[0].failure_reason, "scheduler_accounting_error");
 assert.equal(conflictingReadiness[0].exit_code, 11);
 assert.equal(conflictingReadiness[0].failure_diagnostic, null);
+
+const cleanupEnvelope = {
+  ...readinessEnvelope, failure_class: "harness", failure_reason: "cleanup_error",
+  setup_source: "pgtest", service: "postgres", readiness_stage: "delete",
+  attempt_count: 1, cleanup_outcome: "failed", phase: "cleanup",
+  cleanup_diagnostics: [{ stage: "forced_drop", cause: "deadline_exceeded" }],
+};
+function withCleanup(envelopes, selected = invocation) {
+  return adaptGoInvocation(selected, { status: 1, stdout: [
+    ...envelopes.map(({ test = "TestA", envelope }) => JSON.stringify({ Action: "output", Test: test,
+      Output: `CARTULARY_HARNESS_TEST_FAILURE=${JSON.stringify(envelope)}\n` })),
+    ...selected.rows.flatMap((row) => row.selectors).map((Test) => JSON.stringify({ Action: "fail", Test })),
+  ].join("\n") })[0];
+}
+const cleanupOnly = withCleanup([{ envelope: cleanupEnvelope }]);
+assert.equal(cleanupOnly.failure_class, "harness");
+assert.equal(cleanupOnly.failure_reason, "cleanup_error");
+assert.equal(cleanupOnly.exit_code, 12);
+assert.deepEqual(cleanupOnly.failure_diagnostic.cleanup, [cleanupEnvelope]);
+const waitSnapshot = {
+  type: "IPC", event: "CheckpointDone", blockers: 0,
+  checkpointer_type: "IO", checkpointer_event: "DataFileSync", checkpointer_blockers: 0,
+  requested: 7, done: 6, buffers: 200,
+  barrier: { operation: "select", database_scope: "other", operation_age_ms: 123, status: "sampled", backend: "client backend", state: "idle", type: "Client", event: "ClientRead", blockers: 0 },
+};
+const observedCleanup = { ...cleanupEnvelope, cleanup_diagnostics: [{ stage: "forced_drop", cause: "deadline_exceeded",
+  wait: { status: "sampled", first: waitSnapshot, last: waitSnapshot } }] };
+const retainedWait = withCleanup([{ envelope: observedCleanup }]);
+assert.equal(retainedWait.exit_code, 12);
+assert.deepEqual(retainedWait.failure_diagnostic.cleanup, [observedCleanup]);
+
+// go test -json can split one logical diagnostic line across Output events.
+const diagnosticLine = `    pgtest.go:676: CARTULARY_HARNESS_TEST_FAILURE=${JSON.stringify(observedCleanup)}\n`;
+const fragmentEvents = (parts, test = "TestA") => parts.flatMap((Output, index) => [
+  { Action: "output", Test: test, Output, OutputType: index === 0 ? "error" : "error-continue" },
+  { Action: "output", Test: "TestOther", Output: "unrelated interleaved output\n" },
+]);
+const checkFraming = async (events, expected, label) => {
+  const stdout = [...events, { Action: "fail", Test: "TestA", Elapsed: 0.01 }].map((event) => JSON.stringify(event)).join("\n");
+  const memory = adaptGoInvocation(invocation, { status: 1, stdout });
+  assert.equal(memory[0].exit_code, expected, label);
+  const directory = mkdtempSync(path.join(os.tmpdir(), "go-envelope-framing-"));
+  try {
+    const file = path.join(directory, "events");
+    writeFileSync(file, stdout);
+    assert.deepEqual(await adaptGoInvocationFile(invocation, { status: 1, stdoutPath: file }), memory, `${label}: streaming parity`);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+  return memory[0];
+};
+const split = await checkFraming(fragmentEvents([diagnosticLine.slice(0, 1024), diagnosticLine.slice(1024)]), 12, "fragmented cleanup retains its failure class");
+assert.deepEqual(split.failure_diagnostic.cleanup, [observedCleanup]);
+await checkFraming([null, [], "process diagnostic", ...fragmentEvents([diagnosticLine.slice(0, 1024), diagnosticLine.slice(1024)])], 12, "non-event JSON does not alter framing");
+await checkFraming([
+  { Action: "output", Package: "first", Test: "TestA", Output: diagnosticLine.slice(0, 1024) },
+  { Action: "output", Package: "second", Test: "TestA", Output: diagnosticLine.slice(1024) },
+], 11, "another package cannot complete an envelope at stream end");
+
+const markerCut = diagnosticLine.indexOf("CARTULARY_HARNESS_TEST_FAILURE") + 11;
+await checkFraming(fragmentEvents([diagnosticLine.slice(0, markerCut), diagnosticLine.slice(markerCut, 1024), diagnosticLine.slice(1024)]), 12, "split marker is reassembled within its test");
+await checkFraming(fragmentEvents([diagnosticLine.trimEnd()]), 11, "unterminated envelope fails closed");
+await checkFraming(fragmentEvents([diagnosticLine.slice(0, 1024)]), 11, "truncated envelope fails closed");
+await checkFraming([
+  { Action: "output", Test: "TestA", Output: diagnosticLine.slice(0, 1024) },
+  { Action: "output", Test: "TestOther", Output: diagnosticLine.slice(1024) },
+], 11, "another test cannot complete an envelope");
+await checkFraming(fragmentEvents([diagnosticLine.trimEnd(), " ".repeat(65536), "\n"]), 11, "oversized envelope fails closed");
+await checkFraming([{ Action: "output", Test: "TestA", Output: diagnosticLine + diagnosticLine }], 12, "multiple diagnostic lines retain logical framing");
+await checkFraming([
+  ...Array.from({ length: 128 }, (_, index) => ({ Action: "output", Test: `TestOther${index}`, Output: "partial" })),
+  { Action: "output", Test: "TestA", Output: diagnosticLine.slice(0, 1024) },
+], 11, "unfinished-line bound cannot silently discard a diagnostic");
+
+for (const invalidWait of [
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, barrier: { ...waitSnapshot.barrier, operation: "PrivateCredentialAlpha123" } } },
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, barrier: { ...waitSnapshot.barrier, database_scope: "private_database" } } },
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, barrier: { ...waitSnapshot.barrier, operation_age_ms: -1 } } },
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, barrier: { ...waitSnapshot.barrier, operation_age_ms: 86400001 } } },
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, barrier: { ...waitSnapshot.barrier, operation: "" } } },
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, barrier: { ...waitSnapshot.barrier, database_scope: "" } } },
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, barrier: { ...waitSnapshot.barrier, backend: "PrivateCredentialAlpha123" } } },
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, barrier: { ...waitSnapshot.barrier, pid: 123 } } },
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, barrier: { ...waitSnapshot.barrier, status: "unavailable" } } },
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, event: "PrivateCredentialAlpha123" } },
+  { status: "sampled", first: null, last: waitSnapshot },
+  { status: "not_observed", first: waitSnapshot, last: null },
+  { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, buffers: -1 } },
+]) {
+  const rejected = withCleanup([{ envelope: { ...cleanupEnvelope, cleanup_diagnostics: [{ stage: "forced_drop", cause: "deadline_exceeded", wait: invalidWait }] } }]);
+  assert.equal(rejected.failure_reason, "scheduler_accounting_error", "invalid drop observations must fail before evidence attribution");
+  assert.equal(rejected.failure_diagnostic, null);
+}
+const misplacedWait = withCleanup([{ envelope: { ...observedCleanup, cleanup_diagnostics: [{ ...observedCleanup.cleanup_diagnostics[0], stage: "catalog_unlock" }] } }]);
+assert.equal(misplacedWait.failure_reason, "scheduler_accounting_error", "drop observation cannot be attributed to another cleanup stage");
+const afterAssertion = withCleanup([{ envelope: { ...cleanupEnvelope, prior_failure: true } }]);
+assert.equal(afterAssertion.failure_reason, "test_assertion_failure");
+assert.equal(afterAssertion.exit_code, 10);
+assert.equal(afterAssertion.failure_diagnostic.cleanup[0].failure_reason, "cleanup_error");
+const afterSetup = withCleanup([{ envelope: readinessEnvelope }, { envelope: { ...cleanupEnvelope, prior_failure: true } }]);
+assert.equal(afterSetup.failure_reason, "service_readiness_timeout");
+assert.equal(afterSetup.exit_code, 3);
+assert.deepEqual(afterSetup.failure_diagnostic.setup, readinessEnvelope);
+assert.equal(afterSetup.failure_diagnostic.cleanup.length, 1);
+const repeatedCleanup = withCleanup([{ envelope: cleanupEnvelope }, { envelope: cleanupEnvelope },
+  { envelope: { ...cleanupEnvelope, prior_failure: true } }]);
+assert.equal(repeatedCleanup.failure_reason, "cleanup_error", "later cleanup must not manufacture an earlier product failure");
+assert.equal(repeatedCleanup.exit_code, 12);
+const afterChildCleanup = withCleanup([{ test: "TestA/child", envelope: cleanupEnvelope },
+  { envelope: { ...cleanupEnvelope, prior_failure: true } }]);
+assert.equal(afterChildCleanup.exit_code, 12);
+const separateAssertion = withCleanup([{ envelope: cleanupEnvelope }], { rows: [{ row_id: "row-a", selectors: ["TestA", "TestB"] }] });
+assert.equal(separateAssertion.exit_code, 10, "a separate assertion survives another selector's cleanup failure");
+const assertionAndSetup = withCleanup([{ envelope: readinessEnvelope }, { envelope: { ...cleanupEnvelope, prior_failure: true } }], { rows: [{ row_id: "row-a", selectors: ["TestA", "TestB"] }] });
+assert.equal(assertionAndSetup.exit_code, 10, "product precedence survives another selector's typed setup and cleanup");
+assert.equal(assertionAndSetup.failure_diagnostic.setup.failure_reason, "service_readiness_timeout");
+const childAssertionAndSetup = adaptGoInvocation(invocation, { status: 1, stdout: [
+  JSON.stringify({ Action: "output", Test: "TestA/setup", Output: `CARTULARY_HARNESS_TEST_FAILURE=${JSON.stringify(readinessEnvelope)}\n` }),
+  JSON.stringify({ Action: "fail", Test: "TestA/setup" }),
+  JSON.stringify({ Action: "fail", Test: "TestA/assertion" }),
+  JSON.stringify({ Action: "fail", Test: "TestA" }),
+].join("\n") })[0];
+assert.equal(childAssertionAndSetup.exit_code, 10, "a failing sibling subtest retains product precedence");
+const unrelatedCleanup = withCleanup([{ test: "TestOther", envelope: cleanupEnvelope }]);
+assert.equal(unrelatedCleanup.exit_code, 10);
+assert.equal(unrelatedCleanup.failure_diagnostic, null);
+const malformedCleanup = withCleanup([{ envelope: { ...cleanupEnvelope, failure_class: "product" } }]);
+assert.equal(malformedCleanup.failure_reason, "scheduler_accounting_error");
+const unsafeCleanup = withCleanup([{ envelope: { ...cleanupEnvelope,
+  cleanup_diagnostics: [{ stage: "forced_drop", cause: "private-transport-text" }] } }]);
+assert.equal(unsafeCleanup.failure_reason, "scheduler_accounting_error");
+assert.equal(unsafeCleanup.failure_diagnostic, null);
 
 const unrelatedReadiness = adaptGoInvocation(invocation, {
   status: 1,
@@ -188,7 +320,7 @@ assert.equal(childEnvironment.GOARCH, buildContext.goarch);
 assert.ok(buildContext.tags.has(`${childEnvironment.GOARCH}.${childEnvironment.GOAMD64}`));
 assert.ok(!buildContext.tags.has("cgo") && !buildContext.tags.has("race"));
 assert.deepEqual(ordinaryInvocation.args, ["test", "-json", "-count=1", "-p=2", "-run", "^(?:TestActive)$", "./internal/fixture"]);
-const graph = new WorkGraphCompiler(root).compile({ kind: "target", target: "backend-unit" });
+const graph = new WorkGraphCompiler(root).compile({ kind: "target", target: "harness.suite_backend_unit" });
 const goUnits = graph.units.filter((unit) => unit.unit_id.startsWith("go:"));
 assert.ok(goUnits.length > 0);
 assert.ok(

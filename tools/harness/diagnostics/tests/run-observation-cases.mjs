@@ -30,13 +30,13 @@ function fixture(t, count = 2) {
   mkdirSync(runRoot, { mode: 0o700 });
   const graph = buildWorkGraph(Array.from({ length: count }, (_, index) => graphUnit(`unit-${String(index).padStart(5, "0")}`)));
   const manifest = {
-    schema_id: "cartulary.harness_run_manifest.v2", run_id: "selected", target: "test-slice",
+    schema_id: "cartulary.harness_run_manifest.v3", run_id: "selected", target: "test-slice",
     command_id: "cartulary.harness.command.test_slice.v1", declared_inputs: {},
     source_commit: "a".repeat(40), source_state: "dirty", source_digest: digest,
     toolchain_digest: digest, system_digest: digest, graph_digest: graph.graph_digest,
     instrumentation: { mode: "off", policy_digest: digest },
     cache_mode: "normal", started_at: "2026-10-09T00:00:00.000Z",
-    capability_snapshot: {
+    go_worker_budget: 2, capability_snapshot: {
       schema_id: "cartulary.harness_capability_snapshot.v1", cpu_tokens: 2, memory_bytes: 1024,
       process_slots: 2, io_tokens: 1, postgres_lanes: 1, object_store_lanes: 1,
       writable_volume: true, port_lanes: 1, services: {}, sources: {}, snapshot_digest: digest,
@@ -233,7 +233,8 @@ export function registerRunStatusCommandTests() {
   });
   test("entrypoint preflight cannot be assigned to a writer or an unregistered reader", async () => {
     const { validateMakeRecipes } = await import("../../generated-artifacts/task-surface/recipe-validation.mjs");
-    const owner = JSON.parse(readFileSync(path.join(root, "tools/task_surface_owner.json"), "utf8"));
+    const { loadExecutionTopology } = await import("../../generated-artifacts/execution-topology.mjs");
+    const owner = loadExecutionTopology({ root }).taskSurface;
     const reject = (target, mutate) => {
       const targets = new Map(structuredClone(owner.targets).map((entry) => [entry.name, entry]));
       const recipes = structuredClone(owner.make_recipes);

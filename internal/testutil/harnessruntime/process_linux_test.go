@@ -15,10 +15,53 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"golang.org/x/sys/unix"
 )
 
 func TestRuntimeProcessLifecycle(t *testing.T) {
 	p := processRunner{Root: t.TempDir(), Environment: map[string]string{"PATH": "/usr/bin:/bin"}, KillGrace: 50 * time.Millisecond}
+	t.Run("host binding failure retains stage and successful child exit", func(t *testing.T) {
+		u := engineUnit("test:process", 1)
+		u.Command = command{Executable: "/bin/sh", Args: []string{"-c", "printf child-output >&2; exit 0"}, Environment: map[string]string{}}
+		host := &hostLease{Token: "private-token", Bind: func(pid int) error {
+			for {
+				var info unix.Siginfo
+				err := unix.Waitid(unix.P_PID, pid, &info, unix.WEXITED|unix.WNOWAIT, nil)
+				if err == unix.EINTR {
+					continue
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				return errors.Join(errors.New("private-path-and-token"), harnessadmission.ErrConflict)
+			}
+		}}
+		r := p.Execute(context.Background(), executionRequest{Unit: u, Host: host})
+		if r.Status != "failed" || r.Failure == nil || r.Failure.Class != "infra" || r.Failure.Reason != "resource_conflict" || r.ExitCode != 0 || len(r.Cleanup) != 0 {
+			t.Fatalf("failure or settlement changed: %+v", r)
+		}
+		if string(r.Stderr) != "child-output\n[RUNTIME-EXECUTION] stage=host_bind cause=admission_conflict\n" {
+			t.Fatalf("missing or unsafe diagnostic: %q", r.Stderr)
+		}
+	})
+	t.Run("execution diagnostics retain closed values only", func(t *testing.T) {
+		for _, c := range []struct {
+			err   error
+			cause string
+		}{
+			{context.Canceled, "cancelled"}, {context.DeadlineExceeded, "deadline_exceeded"},
+			{os.ErrPermission, "permission_denied"}, {os.ErrNotExist, "identity_unavailable"},
+			{unix.EBADF, "descriptor_closed"}, {errors.New("private-path-and-token"), "unknown"},
+		} {
+			want := "[RUNTIME-EXECUTION] stage=workspace_inherit cause=" + c.cause + "\n"
+			if got := string(executionDiagnostic("workspace_inherit", c.err)); got != want {
+				t.Fatalf("diagnostic: %q", got)
+			}
+		}
+		if got := string(executionDiagnostic("private-stage", errors.New("private-error"))); got != "[RUNTIME-EXECUTION] stage=unknown cause=unknown\n" {
+			t.Fatalf("unsafe diagnostic: %q", got)
+		}
+	})
 	for _, c := range []struct {
 		name, script, status, reason string
 		timeout                      int64
@@ -206,6 +249,14 @@ func TestRuntimeHostAdmission(t *testing.T) {
 	lease, err = admit(context.Background(), u)
 	if err != nil {
 		t.Fatal("cancelled request retained capacity", err)
+	}
+	// A nested compiler receives the admitted unit budget even if ambient,
+	// fixture and command inputs all try to supply the whole-host budget.
+	p := processRunner{Root: t.TempDir(), Environment: map[string]string{"PATH": "/usr/bin:/bin", "CARTULARY_UNIT_CPU_TOKENS": "19"}}
+	u.Command = command{Executable: "/bin/sh", Args: []string{"-c", `printf '%s:%s' "$CARTULARY_HOST_ADMISSION_LEASE" "$CARTULARY_UNIT_CPU_TOKENS"`}, Environment: map[string]string{"CARTULARY_HOST_ADMISSION_LEASE": "command-override", "CARTULARY_UNIT_CPU_TOKENS": "37"}}
+	r := p.Execute(context.Background(), executionRequest{Unit: u, Host: lease, Environment: map[string]string{"CARTULARY_HOST_ADMISSION_LEASE": "fixture-override", "CARTULARY_UNIT_CPU_TOKENS": "23"}})
+	if r.Status != "passed" || string(r.Stdout) != lease.Token+":1" {
+		t.Fatal("admitted unit lease and CPU budget were not authoritative")
 	}
 	if err := lease.Release(context.Background()); err != nil {
 		t.Fatal(err)

@@ -24,9 +24,15 @@ export function frontendRunRoot(repoRoot = root, environment = process.env) {
 
 function artifactProfile(repoRoot, target) {
   const entries = Object.entries(loadExecutionTopology({ root: repoRoot }).browserBatch.frontend_artifacts);
-  const match = entries.find(([, value]) => value.producer_target === target);
+  const match = entries.find(([, value]) => value.producer_report_key === target);
   if (!match) throw new Error("unknown frontend artifact producer");
   return { id: match[0], ...match[1] };
+}
+
+function producerIdentity(repoRoot, target) {
+  const id = artifactProfile(repoRoot, target).producer_operation;
+  if (!id) throw new Error("frontend producer has no canonical operation");
+  return `operation:${id}`;
 }
 
 export function frontendContentDigest(directory, { seal = false } = {}) {
@@ -89,10 +95,10 @@ function resolveArtifact(repoRoot, target, environment) {
   const receipt = parseStrictJSON(receiptBytes.toString("utf8"));
   validateSchemaSync(receipt.schema_id, receipt);
   const expected = {
-    schema_id: "cartulary.frontend_build_artifact.v1",
+    schema_id: "cartulary.frontend_build_artifact.v2",
     run_id: runtime.runID,
     artifact_id: profile.id,
-    producer_unit_id: `target:${target}`,
+    producer_unit_id: producerIdentity(repoRoot, target),
     ...provenance(repoRoot, runRoot),
   };
   for (const [key, value] of Object.entries(expected)) {
@@ -149,10 +155,10 @@ export function sealFrontendArtifact({ repoRoot, runRoot, runtime, profile, stag
     if (!info.isFile() || info.isSymbolicLink()) throw new Error("frontend artifact required entry is invalid");
   }
   const receipt = {
-    schema_id: "cartulary.frontend_build_artifact.v1",
+    schema_id: "cartulary.frontend_build_artifact.v2",
     run_id: runtime.runID,
     artifact_id: profile.id,
-    producer_unit_id: `target:${profile.producer_target}`,
+    producer_unit_id: producerIdentity(repoRoot, profile.producer_report_key),
     ...provenance(repoRoot, runRoot),
     content_digest: frontendContentDigest(staging, { seal: true }),
   };
@@ -166,7 +172,7 @@ export function sealFrontendArtifact({ repoRoot, runRoot, runtime, profile, stag
   }
   state.sealed = true;
   const directory = runtime.privatePath(`frontend-${profile.id}`);
-  const receiptDir = path.join(runRoot, profile.producer_target);
+  const receiptDir = path.join(runRoot, profile.producer_report_key);
   mkdirSync(receiptDir, { recursive: true, mode: 0o700 });
   const parent = lstatSync(receiptDir);
   if (!parent.isDirectory() || parent.isSymbolicLink() || parent.uid !== process.getuid() || (parent.mode & 0o777) !== 0o700) throw new Error("unsafe frontend receipt directory");

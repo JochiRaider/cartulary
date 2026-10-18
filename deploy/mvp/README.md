@@ -40,7 +40,7 @@ Every package operation verifies the release again before changing services.
 For maintainers, `make package-release` produces a manifest-addressed archive under
 `.cartulary/release-artifacts/packages/`; its canonical run receipt is
 `package-release/artifacts/package.json`. `make package-inspect` rehearses the
-installer against that exact producer output. Consult `make help-all` for the
+installer against that exact producer output. Consult `make help ALL=1` for the
 current public qualification routes. Qualification evidence stays outside the
 release manifest, avoiding circular identity. These commands never read this guide.
 

@@ -1,10 +1,6 @@
-import {
-  existsSync,
-  lstatSync,
-  readFileSync,
-  readdirSync,
-} from "node:fs";
+import { readLocalFile, listLocalDirectory } from "../runtime/secure-local-files.mjs";
 import path from "node:path";
+import { parseStrictJSON } from "../contract/index.mjs";
 
 function producerFromFilename(filename) {
   if (!filename.endsWith(".ndjson")) return "";
@@ -12,11 +8,7 @@ function producerFromFilename(filename) {
 }
 
 function readProducerJournal(file, producerId) {
-  const info = lstatSync(file);
-  if (!info.isFile() || info.isSymbolicLink() || (info.mode & 0o777) !== 0o600) {
-    throw new Error(`service journal must be a mode-0600 non-symlink file: ${file}`);
-  }
-  const raw = readFileSync(file, "utf8");
+  const raw = readLocalFile(file, { maximum: 64 * 1024 * 1024 }).toString("utf8");
   const complete = raw.endsWith("\n");
   const lines = raw.split(/\n/u);
   if (!complete) lines.pop();
@@ -25,7 +17,7 @@ function readProducerJournal(file, producerId) {
     if (!line.trim()) continue;
     let event;
     try {
-      event = JSON.parse(line);
+      event = parseStrictJSON(line);
     } catch (error) {
       throw new Error(`malformed completed service journal record in ${file}: ${error}`);
     }
@@ -50,15 +42,13 @@ function readProducerJournal(file, producerId) {
 
 export function loadServiceJournalEvents({ resultsRoot, runId }) {
   const servicesRoot = path.join(resultsRoot, runId, "_shared", "test-services");
-  if (!existsSync(servicesRoot)) return [];
   const records = [];
-  for (const suiteEntry of readdirSync(servicesRoot, { withFileTypes: true })
+  for (const suiteEntry of listLocalDirectory(servicesRoot, { optional: true })
     .filter((entry) => entry.isDirectory())
     .sort((left, right) => left.name.localeCompare(right.name))) {
     const suiteRoot = path.join(servicesRoot, suiteEntry.name);
     const journalsRoot = path.join(suiteRoot, "journals");
-    if (!existsSync(journalsRoot)) continue;
-    for (const journalEntry of readdirSync(journalsRoot, { withFileTypes: true })
+    for (const journalEntry of listLocalDirectory(journalsRoot, { optional: true })
       .filter((entry) => entry.isFile() || entry.isSymbolicLink())
       .sort((left, right) => left.name.localeCompare(right.name))) {
       const producerId = producerFromFilename(journalEntry.name);

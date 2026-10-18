@@ -4,10 +4,13 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { operationExecutionDigest } from "../scheduler/work-graph/operations.mjs";
+import { selectionFor } from "../scheduler/work-graph/preparation.mjs";
 
 import {
   WorkGraphCompiler,
   availableGoWorkerBudget,
+  compileRetainedRun,
   assertFixtureServiceDependencies,
   assertServiceDependencies,
   buildWorkGraph,
@@ -29,7 +32,8 @@ function unit(unitID, claims, work, needs = []) {
     service_dependencies: [],
     cache_policy: "none",
     timeout_ms: 1000,
-    current_run_evidence_outputs: [`rows/${unitID}.json`],
+    current_run_evidence_outputs: [],
+    row_bindings: [],
     failure_policy: {
       block_descendants: true,
       continue_independent: true,
@@ -73,24 +77,68 @@ function assertGraphCutover() {
     assert.throws(() => availableGoWorkerBudget(19, { ...parent, CARTULARY_UNIT_CPU_TOKENS: budget }), /inherited Go CPU budget/u);
   }
   const compiler = new WorkGraphCompiler(root);
+  const retainedInputs = { OWNER: "platform.telemetry" };
+  const nested = new WorkGraphCompiler(root, { targetInputs: { "test-slice": retainedInputs } });
+  nested.availableGoLanes = 4;
+  nested.availablePostgresLanes = 2;
+  const retainedManifest = {
+    target: "test-slice",
+    command_id: nested.taskSurface.targets.find((entry) => entry.name === "test-slice").command_id,
+    declared_inputs: retainedInputs,
+    capability_snapshot: { cpu_tokens: 19, postgres_lanes: 2 },
+    go_worker_budget: 4,
+  };
+  assert.deepEqual(compileRetainedRun(root, retainedManifest), selectionFor({ selection: "command", target: "test-slice" }, nested), "retained owner selection must reconstruct its inherited worker budget, not physical host capacity");
+  const savedEnvironment = { lease: process.env.CARTULARY_HOST_ADMISSION_LEASE, budget: process.env.CARTULARY_UNIT_CPU_TOKENS };
+  try {
+    process.env.CARTULARY_HOST_ADMISSION_LEASE = "unrelated-reader-parent";
+    process.env.CARTULARY_UNIT_CPU_TOKENS = "invalid-reader-budget";
+    const row = nested.catalog.rows.find((value) => value.owner_id === "platform.telemetry");
+    for (const selection of [retainedInputs, { ...retainedInputs, ROWS: row.row_id }]) {
+      for (const budget of [2, 4, 19]) {
+        nested.targetInputs["test-slice"] = selection;
+        nested.availableGoLanes = budget;
+        assert.deepEqual(compileRetainedRun(root, { ...retainedManifest, declared_inputs: selection, go_worker_budget: budget }),
+          selectionFor({ selection: "command", target: "test-slice" }, nested), "direct and nested retained graphs preserve exact rows and worker claims independently of reader environment");
+      }
+    }
+    for (const budget of [undefined, null, "4", 0, -1, 1.5, 20, Number.MAX_SAFE_INTEGER + 1]) {
+      assert.throws(() => compileRetainedRun(root, { ...retainedManifest, go_worker_budget: budget }), /retained Go worker budget/u);
+    }
+  } finally {
+    for (const [name, value] of [["CARTULARY_HOST_ADMISSION_LEASE", savedEnvironment.lease], ["CARTULARY_UNIT_CPU_TOKENS", savedEnvironment.budget]]) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+  const shellRow = compiler.catalog.rows.find((row) => row.runner === "shell");
+  const shellOperation = compiler.owner.operations[shellRow.selector.operation_id];
+  const shellUnit = () => compiler.compileRows([shellRow.row_id]).units.find((value) => value.unit_id === `row:${shellRow.row_id}`);
+  const originalShellUnit = shellUnit();
+  assert.equal(originalShellUnit.command.environment.CARTULARY_OPERATION_DIGEST, operationExecutionDigest(shellOperation), "shell dispatch binds its own operation independently of the enclosing operation");
+  const originalExecution = shellOperation.execution;
+  shellOperation.execution = { ...originalExecution, env: { ...originalExecution.env, EXECUTION_CHARACTERIZATION: "changed" } };
+  assert.notEqual(shellUnit().semantic_digest, originalShellUnit.semantic_digest, "shell execution changes invalidate compiled identity");
+  shellOperation.execution = originalExecution;
   const inputs = new WorkGraphCompiler(root, { targetInputs: {
-    "test-evidence-audit": { OWNER: "platform.pagination", EVIDENCE_ROOTS_FILE: ".cartulary/audit-inputs/selected.json", UNDECLARED: "must-not-forward" },
+    "test-evidence-audit": { OWNER: "platform.pagination", EVIDENCE_ROOTS_FILE: ".cartulary/audit-inputs/selected.json" },
   } });
-  const audit = inputs.compileTarget("test-evidence-audit").units.find((unit) => unit.unit_id === "target:test-evidence-audit");
+  const invalidInputs = new WorkGraphCompiler(root, { targetInputs: { "test-evidence-audit": { UNDECLARED: "must-not-forward" } } });
+  assert.throws(() => invalidInputs.compileTarget("test-evidence-audit"), /not declared/u);
+  const audit = inputs.compileTarget("test-evidence-audit").units.find((unit) => unit.unit_id === "operation:harness.test_evidence_audit");
   assert.equal(audit.command.executable, "node");
-  assert.deepEqual(audit.command.args, ["tools/harness/execution/run-make-node-tool-cli.mjs", "test-evidence-audit"]);
+  assert.deepEqual(audit.command.args, ["tools/harness/execution/operation-runner-cli.mjs", "harness.test_evidence_audit"]);
   assert.equal(audit.command.environment.OWNER, "platform.pagination");
   assert.equal(audit.command.environment.EVIDENCE_ROOTS_FILE, ".cartulary/audit-inputs/selected.json");
   assert.equal(JSON.stringify(audit).includes("must-not-forward"), false);
-  assert.notEqual(audit.semantic_digest, compiler.compileTarget("test-evidence-audit").units.find((unit) => unit.unit_id === audit.unit_id).semantic_digest);
-  assert.deepEqual(inputs.compileTarget("frontend-install"), compiler.compileTarget("frontend-install"), "explicit audit input must not reach another command");
+  assert.notEqual(audit.semantic_digest, new WorkGraphCompiler(root, { targetInputs: { "test-evidence-audit": { OWNER: "harness.browser", EVIDENCE_ROOTS_FILE: ".cartulary/audit-inputs/other.json" } } }).compileTarget("test-evidence-audit").units.find((unit) => unit.unit_id === audit.unit_id).semantic_digest);
+  assert.deepEqual(inputs.compileTarget("harness.frontend_install"), compiler.compileTarget("harness.frontend_install"), "explicit audit input must not reach another command");
   const rendererRows = compiler.catalog.rows.filter((row) => row.runner === "vitest" && row.selector.project_id === "renderer-node");
   assert.ok(rendererRows.some((row) => row.evidence_class === "integration"));
   assert.ok(rendererRows.some((row) => row.evidence_class === "unit"));
   for (const row of rendererRows) {
     const graph = compiler.compileRows([row.row_id]);
-    assert.ok(graph.units.some((unit) => unit.unit_id === "target:frontend-install"));
-    assert.equal(graph.units.some((unit) => unit.unit_id === "target:playwright-install"), row.evidence_class === "integration");
+    assert.ok(graph.units.some((unit) => unit.unit_id === "operation:harness.frontend_install"));
+    assert.equal(graph.units.some((unit) => unit.unit_id === "operation:harness.playwright_install"), row.evidence_class === "integration");
     assert.ok(graph.units.every((unit) => unit.service_dependencies.length === 0), "standalone renderer must not acquire product services");
     const consumer = graph.units.find((unit) => unit.current_run_evidence_outputs.includes(`rows/${row.row_id}.json`));
     assert.equal(consumer.fixture_lease, "none");
@@ -101,29 +149,32 @@ function assertGraphCutover() {
     }
   }
   const frontendRows = compiler.catalog.rows.filter((row) => row.runner === "vitest");
-  const prepared = compiler.catalog.rows.find((row) => row.runner === "go" && row.preparation_targets?.includes("playwright-install"));
+  const prepared = compiler.catalog.rows.find((row) => row.runner === "go" && row.preparation_operations?.includes("harness.playwright_install"));
   assert.ok(prepared, "cross-language renderer has an explicit preparation contract");
   const preparedGraph = compiler.compileRows([prepared.row_id]);
   const preparedConsumer = preparedGraph.units.find((unit) => unit.current_run_evidence_outputs.includes(`rows/${prepared.row_id}.json`));
-  for (const target of prepared.preparation_targets) {
-    assert.ok(preparedGraph.units.some((unit) => unit.unit_id === `target:${target}`));
-    assert.ok(preparedConsumer.needs.includes(`target:${target}`), "preparation failure must block the consumer");
+  for (const target of prepared.preparation_operations) {
+    assert.ok(preparedGraph.units.some((unit) => unit.unit_id === `operation:${target}`));
+    assert.ok(preparedConsumer.needs.includes(`operation:${target}`), "preparation failure must block the consumer");
   }
-  compiler.catalog.rowByID.set(prepared.row_id, { ...prepared, preparation_targets: undefined });
+  compiler.catalog.rowByID.set(prepared.row_id, { ...prepared, preparation_operations: undefined });
   try {
     const unprepared = compiler.compileRows([prepared.row_id]);
     const consumer = unprepared.units.find((unit) => unit.current_run_evidence_outputs.includes(`rows/${prepared.row_id}.json`));
     assert.notEqual(consumer.semantic_digest, preparedConsumer.semantic_digest, "preparation changes execution identity");
-    assert.equal(unprepared.units.some((unit) => unit.unit_id === "target:playwright-install"), false, "capacity must not infer preparation");
+    assert.equal(unprepared.units.some((unit) => unit.unit_id === "operation:harness.playwright_install"), false, "capacity must not infer preparation");
   } finally { compiler.catalog.rowByID.set(prepared.row_id, prepared); }
-  const installedRows = compiler.catalog.rows.filter((row) => row.preparation_targets?.includes("build-report-renderer"));
+  const installedRows = compiler.catalog.rows.filter((row) => row.preparation_operations?.includes("harness.build_report_renderer"));
   assert.deepEqual([...new Set(installedRows.map((row) => row.runner))].sort(), ["go", "vitest"]);
   for (const installed of installedRows) {
     const installedGraph = compiler.compileRows([installed.row_id]);
-    const installation = installedGraph.units.find((unit) => unit.unit_id === "target:build-report-renderer");
+    const installation = installedGraph.units.find((unit) => unit.unit_id === "operation:harness.build_report_renderer");
     const installedConsumer = installedGraph.units.find((unit) => unit.current_run_evidence_outputs.includes(`rows/${installed.row_id}.json`));
-    assert.ok(installation.needs.includes("target:frontend-install"));
-    assert.ok(installation.needs.includes("target:playwright-install"));
+    const dependencies = new Set();
+    const visit = (id) => { if (dependencies.has(id)) return; dependencies.add(id); for (const next of installedGraph.units.find((unit) => unit.unit_id === id).needs) visit(next); };
+    visit(installation.unit_id);
+    assert.ok(dependencies.has("operation:harness.frontend_install"));
+    assert.ok(installation.needs.includes("operation:harness.playwright_install"));
     assert.ok(installedConsumer.needs.includes(installation.unit_id));
     assert.ok(installedGraph.units.every((unit) => unit.service_dependencies.length === 0));
   }
@@ -177,6 +228,7 @@ function assertGraphCutover() {
     () => assertFixtureServiceDependencies("postgres_dedicated", [], "omitted"),
     /requires service dependency postgres/u,
   );
+  assertCanonicalCurrentRunOutputs(buildWorkGraph([unit("bounded", { cpu: 1 }, 1)]).units[0], [], "unit-only fixture");
   assert.throws(
     () => buildWorkGraph([{ ...unit("omitted", { cpu: 1 }, 1), service_dependencies: undefined }]),
     /service_dependencies is required/u,
@@ -266,7 +318,7 @@ function assertGraphCutover() {
   assert.ok(managedProcessUnits.every((entry) => entry.fixture_lease === "managed_process"));
 
   const catalogPostgresUnit = compiler
-    .compile({ kind: "target", target: "backend-integration" })
+    .compile({ kind: "target", target: "harness.suite_backend_integration" })
     .units.find((entry) => entry.current_run_evidence_outputs.includes("rows/harness.browser.integration.wstest_helper_contract.json"));
   assert.equal(catalogPostgresUnit.resource_claims.cpu, 1);
   assert.equal(catalogPostgresUnit.resource_claims.postgres, 1);
@@ -287,11 +339,11 @@ function assertGraphCutover() {
   assert.deepEqual(first, second, "same-source graph compilation must be byte-stable");
   assert.ok(first.graph.units.length > 0);
   assert.ok(first.projections["test-fast"].length > 0);
-  for (const graphTarget of ["test-fast", "test", "check", "ci", "release-check"]) {
+  for (const graphTarget of ["test-fast", "check", "ci", "release-check"]) {
     const graph = compiler.compileAggregatePlan(graphTarget).graph;
     assert.equal(
       graph.units.some((entry) =>
-        ["test-fast", "test", "check", "ci", "release-check"].includes(
+        ["test-fast", "check", "ci", "release-check"].includes(
           entry.command.args.at(-1),
         )),
       false,
@@ -309,12 +361,12 @@ function assertGraphCutover() {
     );
   }
   const compatibility = releaseGraph.units.find(
-    (entry) => entry.unit_id === "target:seaweedfs-compatibility",
+    (entry) => entry.unit_id === "operation:harness.seaweedfs_compatibility",
   );
   assert.equal(compatibility?.fixture_lease, "object_store_namespace");
   assert.equal(compatibility?.resource_claims.object_store, 1);
   assert.equal(
-    releaseGraph.units.some((entry) => entry.unit_id === "target:object-store-init"),
+    releaseGraph.units.some((entry) => entry.unit_id === "operation:harness.object_store_init"),
     false,
     "release compatibility must not start the local-development object store",
   );

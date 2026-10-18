@@ -68,9 +68,9 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-			summary, code, err := harnessruntime.Run(ctx, root, binary, []string{"--selection", "rows", "--target", selection.target, "--rows", strings.Join(selection.rows, ",")}, input)
+			summary, code, err := harnessruntime.Run(ctx, root, binary, []string{"--selection", "rows", "--target", "harness-contract", "--rows", strings.Join(selection.rows, ",")}, input)
 			run := filepath.Join(results, selection.id)
-			if err != nil || code != 0 || summary["status"] != "pass" {
+			if err != nil || code != 0 || summary == nil || summary.Summary["status"] != "pass" {
 				t.Fatalf("installed selected graph: exit=%d error=%v retained=%s", code, err, run)
 			}
 			budget, err := strconv.Atoi(env["CARTULARY_UNIT_CPU_TOKENS"])

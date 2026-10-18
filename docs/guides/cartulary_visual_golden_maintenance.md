@@ -21,7 +21,7 @@ refresh. `docs/design.md` supplies design direction only.
 
 ## Canonical Commands and Paths
 
-- Validate committed goldens with `make browser-e2e-visual`.
+- Validate committed goldens with `make browser-e2e SUITE=visual`.
 - Refresh goldens only with `make browser-e2e-visual-update`.
 - The Playwright source is `apps/web/e2e/workbook.visual.spec.ts`.
 - Committed goldens live in
@@ -169,7 +169,7 @@ After `make browser-e2e-visual-update`:
 2. Confirm that each pixel change follows from the accepted trigger.
 3. Confirm that unexpected layout, typography, focus, clipping, overflow,
    responsive, loading, error, and component-state changes are absent.
-4. Run `make browser-e2e-visual` without update mode.
+4. Run `make browser-e2e SUITE=visual` without update mode.
 5. Run fixture-registry, catalog, JSON-shape, generated-policy, and drift checks
    selected by the owner task guide.
 6. Commit source, registry changes, goldens, and the refresh record together.

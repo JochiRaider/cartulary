@@ -20,13 +20,16 @@ function transaction(repository, runRoot, runID, operation, fields, environment)
   if (input.length > lifecyclePolicy.limits.frame) throw rejected();
   const binary = environment.CARTULARY_HARNESS_RUNTIME_BIN || path.resolve(import.meta.dirname, "../../..", workspaceLayout.toolbin, "cartulary-harness");
   const result = spawnSync(binary, ["session"], { cwd: repository, env: environment, input, stdio: ["pipe", "pipe", "ignore"], maxBuffer: lifecyclePolicy.limits.frame, timeout: 30000, killSignal: "SIGKILL" });
-  const transport = { operation, reason: "transport", status: result.status, signal: result.signal, code: result.error?.code ?? null };
+  const transport = { operation, reason: "transport", phase: "spawn", status: result.status, signal: result.signal, code: result.error?.code ?? null };
   if (result.error) throw rejected(transport);
+  transport.phase = "decode";
   let reply;
   try { reply = parseStrictJSON(new TextDecoder("utf-8", { fatal: true }).decode(result.stdout)); validateSchemaSync(schema, reply); }
   catch { throw rejected(transport); }
+  transport.phase = "identity";
   if (reply.request_id !== 1 || reply.operation !== operation) throw rejected(transport);
   if (reply.ok === false && result.status === 11) throw rejected({ operation, ...reply.error });
+  transport.phase = "outcome";
   if (result.status !== 0 || reply.ok !== true) throw rejected(transport);
   return reply.result;
 }

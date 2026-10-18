@@ -96,51 +96,43 @@ func validMode(mode string, claims Quantities, parent *string) bool {
 }
 func proofShape(p Proof) bool { return p.Boot != "" && p.PID > 1 && digits.MatchString(p.Start) }
 func Identity(pid int) (Proof, error) {
+	proof, _, err := processIdentity(pid)
+	return proof, err
+}
+
+// Read lifetime and terminal state from one stat snapshot. In particular, an
+// unreaped child retains an exact identity even after it stops being live.
+func processIdentity(pid int) (Proof, bool, error) {
 	boot, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
 	if err != nil {
-		return Proof{}, err
+		return Proof{}, false, err
 	}
 	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
 	if err != nil {
-		return Proof{}, err
+		return Proof{}, false, err
 	}
 	end := strings.LastIndex(string(data), ") ")
 	if end < 0 {
-		return Proof{}, ErrConflict
+		return Proof{}, false, ErrConflict
 	}
 	f := strings.Fields(string(data)[end+2:])
 	if len(f) < 20 || !digits.MatchString(f[19]) {
-		return Proof{}, ErrConflict
+		return Proof{}, false, ErrConflict
 	}
-	return Proof{strings.TrimSpace(string(boot)), pid, f[19]}, nil
+	return Proof{strings.TrimSpace(string(boot)), pid, f[19]}, f[0] != "Z" && f[0] != "X", nil
 }
 func Alive(p Proof) (bool, error) {
 	if !proofShape(p) {
 		return false, nil
 	}
-	actual, err := Identity(p.PID)
+	actual, live, err := processIdentity(p.PID)
 	if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ESRCH) {
 		return false, nil
 	}
 	if err != nil {
 		return false, err
 	}
-	if actual != p {
-		return false, nil
-	}
-	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", p.PID))
-	if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ESRCH) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	end := strings.LastIndex(string(data), ") ")
-	if end < 0 {
-		return false, ErrConflict
-	}
-	fields := strings.Fields(string(data)[end+2:])
-	return len(fields) > 19 && fields[0] != "Z" && fields[0] != "X" && fields[19] == p.Start, nil
+	return actual == p && live, nil
 }
 func strict(data []byte, out any) error {
 	if _, err := canonicaljson.DecodeStrict(data); err != nil {
@@ -321,12 +313,21 @@ func mutate(s *state, r Request) (bool, error) {
 		return false, nil
 	case "bind":
 		l := find(r.Token)
-		value, err := Alive(r.Guard)
+		if l == nil || !l.Granted || l.Released || l.Mode == "observation" || !proofShape(r.Guard) {
+			return false, ErrConflict
+		}
+		actual, liveGuard, err := processIdentity(r.Guard.PID)
 		if err != nil {
 			return false, err
 		}
-		if l == nil || !l.Granted || l.Released || !value || l.Mode == "observation" {
+		if actual != r.Guard {
 			return false, ErrConflict
+		}
+		// A pinned terminal child needs no additional liveness guard. Its
+		// granted lease still holds capacity until the owner settles the group
+		// and releases it. Absence or a reused identity is never this case.
+		if !liveGuard {
+			return true, nil
 		}
 		guards := []Proof{}
 		found := false
@@ -402,7 +403,12 @@ func mutate(s *state, r Request) (bool, error) {
 		compatible := true
 		if l.Parent != nil {
 			for _, entry := range predecessors {
-				if entry.Parent != nil && rootOf(entry) == root {
+				// An admitted parent retains its entitlement to drain. A
+				// waiter in another branch must not block the descendants
+				// needed to release that branch's existing reservation.
+				// Siblings share one FIFO queue; the weighted tree below
+				// still checks every request against host capacity.
+				if entry.Parent != nil && *entry.Parent == *l.Parent {
 					compatible = false
 				}
 			}

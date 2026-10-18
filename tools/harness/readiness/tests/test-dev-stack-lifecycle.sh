@@ -198,7 +198,7 @@ else
   preflight_status=$?
 fi
 assert_equals "$preflight_status" "1" "service preflight status"
-assert_contains "$(cat "$preflight_dir/stderr")" "run make db-up or make services-up before make dev" "service preflight guidance"
+assert_contains "$(cat "$preflight_dir/stderr")" "run make services-up before make dev" "service preflight guidance"
 if [[ -e "$preflight_dir/backend.started" || -e "$preflight_dir/frontend.started" ]]; then
   fail "service preflight must fail before starting child processes"
 fi

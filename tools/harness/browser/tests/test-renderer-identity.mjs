@@ -117,7 +117,7 @@ for (const [result, reason] of [
   [{ stderr: "secret payload: unknown error" }, "command_failed"],
 ]) assert.equal(rendererLifecycleFailureReason(result), reason);
 
-for (const diagnostics of [false, true]) for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "ports", "browser", "package", "revision"]) {
+for (const diagnostics of [false, true]) for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "ports", "browser", "package", "revision", "connect", "state_unavailable", "invalid_state", "cleanup"]) {
   calls = []; present = false;
   const run = (args) => {
     calls.push(args);
@@ -128,14 +128,34 @@ for (const diagnostics of [false, true]) for (const failAt of [null, "create", "
     if (args[0] === "create") { present = true; return "owned-id"; }
     if (args[0] === "exec") return JSON.stringify({ playwright: profile.playwright_version, core: failAt === "package" ? "0.0.0" : profile.playwright_version, revision: failAt === "revision" ? "0" : profile.chromium_revision, version: profile.chromium_version });
     if (args[0] === "inspect" && args.at(-1) === "{{json .NetworkSettings.Ports}}") return JSON.stringify(failAt === "ports" ? { "3000/tcp": [{ HostIp: "0.0.0.0", HostPort: "43121" }] } : { ...publishedPorts, ...(diagnostics ? { "3001/tcp": [{ HostIp: "127.0.0.1", HostPort: "43122" }] } : {}) });
+    if (args[0] === "inspect" && args.at(-1) === "{{json .State}}") {
+      assert.equal(present, true, "observe exact owned container before removal");
+      if (failAt === "state_unavailable") throw new Error("private daemon diagnostic");
+      return JSON.stringify({ Status: failAt === "invalid_state" ? "private status" : "running", Running: true, OOMKilled: false, ExitCode: 0, Pid: 987654, Error: "private daemon diagnostic" });
+    }
+    if (args[0] === "rm" && failAt === "cleanup") throw new Error("private cleanup diagnostic");
     if (args[0] === "inspect") return `sha256:${"a".repeat(64)}`;
     if (args[0] === "rm") present = false;
-    if (args[0] === "ps" && present && failAt === "create") return "a".repeat(64);
+    if (args[0] === "ps" && present && ["create", "cleanup"].includes(failAt)) return "a".repeat(64);
     return "";
   };
   const resources = [];
-  const start = () => startVisualRendererLease({ root, environment: {}, diagnostics, onOwnedResource: (resource) => resources.push(resource), run, trust: () => ({ attestation: { schema_id: "cartulary.browser_tls_trust.v1" }, initialize() {} }), endpointReady: async (_containerID, binding) => { assert.deepEqual(binding, { containerPort: 3000, hostPort: 43121 }); return "ws://127.0.0.1:43121/private"; }, connect: async (_packages, endpoint) => { assert.equal(endpoint, "ws://127.0.0.1:43121/private"); return failAt === "browser" ? "0.0.0.0" : profile.chromium_version; } });
-  if (failAt) await assert.rejects(start, /injected acquisition failure|mismatch|renderer.*port/u);
+  const start = () => startVisualRendererLease({ root, environment: {}, diagnostics, onOwnedResource: (resource) => resources.push(resource), run, trust: () => ({ attestation: { schema_id: "cartulary.browser_tls_trust.v1" }, initialize() {} }), endpointReady: async (_containerID, binding) => { assert.deepEqual(binding, { containerPort: 3000, hostPort: 43121 }); return "ws://127.0.0.1:43121/private"; }, connect: async (_packages, endpoint) => { assert.equal(endpoint, "ws://127.0.0.1:43121/private"); if (["connect", "state_unavailable", "invalid_state", "cleanup"].includes(failAt)) throw new Error("browserType.connect: private ws://127.0.0.1:43121/private"); return failAt === "browser" ? "0.0.0.0" : profile.chromium_version; } });
+  if (["connect", "state_unavailable", "invalid_state", "cleanup"].includes(failAt)) {
+    await assert.rejects(start, (error) => {
+      assert.equal(error.failure_class, "infra");
+      assert.equal(error.failure_reason, "service_start_error");
+      assert.match(error.message, /renderer connection failed/u);
+      assert.ok(!/private|ws:\/\/|987654/u.test(error.message), "startup diagnostics exclude endpoint, raw error and process identity");
+      assert.deepEqual(error.rendererState, ["state_unavailable", "invalid_state"].includes(failAt)
+        ? { status: "unavailable" }
+        : { status: "running", running: true, oom_killed: false, exit_code: 0 });
+      assert.equal(error.cleanupFailures?.length ?? 0, failAt === "cleanup" ? 1 : 0);
+      return true;
+    });
+    assert.equal(calls.filter(args => args[0] === "inspect" && args.at(-1) === "{{json .State}}").length, 1);
+  }
+  else if (failAt) await assert.rejects(start, /injected acquisition failure|mismatch|renderer.*port/u);
   else {
     const lease = await start(); assert.equal(lease.attestation.observed.chromium_version, profile.chromium_version); assert.ok(lease.attestation.observed.font_files.length);
     assert.deepEqual(lease.diagnosticBinding, diagnostics ? { containerPort: 3001, hostPort: 43122 } : null);
@@ -148,9 +168,9 @@ for (const diagnostics of [false, true]) for (const failAt of [null, "create", "
     assert.throws(() => validateRendererAttestation(lease.attestation, { ...profile, profile_id: "visual.renderer.stale" }, lease.attestation.observed.font_files), /profile mismatch/u);
     lease.cleanup(); lease.cleanup();
   }
-  assert.equal(present, false);
+  assert.equal(present, failAt === "cleanup");
   assert.equal(resources[0].state, "pending");
-  assert.equal(resources.at(-1).state, "released");
+  assert.equal(resources.at(-1).state, failAt === "cleanup" ? "acquired" : "released");
   const create = calls.find((args) => args[0] === "create");
   assert.equal(create[create.indexOf("--publish") + 1], "127.0.0.1::3000");
   assert.equal(create.includes("127.0.0.1::3001"), diagnostics);

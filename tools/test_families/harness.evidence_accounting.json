@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v8",
+  "schema_id": "cartulary.test_family_manifest.v9",
   "owner_id": "harness.evidence_accounting",
   "rows": [
     {
@@ -14,7 +14,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_evidence_contract.v2"
+        "operation_id": "harness.harness_evidence_contract"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",

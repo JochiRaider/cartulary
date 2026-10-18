@@ -22,3 +22,4 @@ export { requiredServicesForFixture, assertFixtureServiceDependencies } from "./
 export { executableInputPathspec, executableRepositoryPaths, inspectExecutableRepositoryPath, restrictedExecutableInputRoots, validateExecutableInputPolicy } from "./restricted-input-boundary.mjs";
 export { resolveVitestTitles, resolvePlaywrightSelection } from "./selector-resolution.mjs";
 export { goRunnerBuildContext } from "./go-build-context.mjs";
+export { createValidatedContext } from "./validated-context.mjs";

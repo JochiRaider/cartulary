@@ -109,7 +109,7 @@ output="$(GO="$fake_go" GOVULNCHECK_BIN="$missing_govulncheck" "$SCRIPT" 2>&1)" 
 assert_equals "$status" "2" "missing GOVULNCHECK_BIN exit"
 assert_contains "$output" "failure_class=config failure_reason=configuration_error" "missing GOVULNCHECK_BIN classification"
 assert_contains "$output" "go-vulncheck requires an executable GOVULNCHECK_BIN at $missing_govulncheck" "missing GOVULNCHECK_BIN diagnostic"
-assert_contains "$output" "run make go-security-toolchain before go-vulncheck" "missing GOVULNCHECK_BIN setup guidance"
+assert_contains "$output" "run make bootstrap before make go-vulncheck" "missing GOVULNCHECK_BIN setup guidance"
 
 fake_govulncheck="$scratch/govulncheck"
 govulncheck_args_log="$scratch/govulncheck-args.log"

@@ -18,14 +18,13 @@ const makePrerequisitePattern = /^[A-Za-z0-9_.$()/:,/-]+$/;
 const makeValuePattern = /^[A-Za-z0-9_.$()/:,;="' -]+$/;
 const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./ -]+$/;
 const ownerCommandTargets = new Set([
-  "explain-test-owner",
-  "service-backed-test-slice",
   "task-guide",
   "test-evidence-audit",
   "test-slice",
 ]);
 
 const makeRecipeValidators = Object.freeze({
+  bootstrap: validateBootstrapRecipe,
   ui_review: validateUIReviewRecipe,
   artifact_binding: validateArtifactBindingRecipe,
   aggregate: validateAggregateRecipe,
@@ -55,11 +54,12 @@ function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
     return (
       recipe.type === "work_graph" ||
       (recipe.type === "owner_command" &&
-        ["test-slice", "service-backed-test-slice"].includes(target))
+        ["test-slice"].includes(target))
     );
   }
   if (artifactPolicy === "tool_run_summary") {
     return (
+      recipe.type === "bootstrap" ||
       recipe.type === "artifact_binding" ||
       recipe.type === "aggregate" ||
       recipe.type === "node_tool" ||
@@ -70,6 +70,13 @@ function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
     );
   }
   return false;
+}
+
+function validateBootstrapRecipe({ errors, target, recipe, label, targets }) {
+  const binding = targets.get(target)?.selection_binding;
+  if (target !== "bootstrap" || recipe.prerequisites.length !== 0 || binding?.kind !== "selector" || binding.input !== "PART" || !binding.default_selection) {
+    errors.push(`${label} must bind bootstrap's closed PART selections without pre-admission prerequisites`);
+  }
 }
 export function validateOutputPolicyRouting(errors, targets, recipes) {
   for (const [target, entry] of targets.entries()) {
@@ -177,6 +184,7 @@ export function validateMakeRecipes(errors, targets, sequences, recipes) {
     if (recipe.preflight_owner !== undefined && (recipe.type !== "native_tool" || recipe.preflight_owner !== "entrypoint")) {
       errors.push(`${label}.preflight_owner must select a native read-only entrypoint`);
     }
+    if (recipe.runtime_readiness !== undefined && recipe.runtime_readiness !== "installed_only") errors.push(`${label}.runtime_readiness must be installed_only`);
     validateMakeExports(errors, recipe.exports, `${label}.exports`);
     if (recipe.exports?.CARTULARY_TEST_TARGET !== undefined) {
       errors.push(
@@ -290,8 +298,8 @@ function recipeRequiresNodeRuntime(recipe) {
 }
 
 function validateWorkGraphRecipe({ errors, target, recipe, label }) {
-  if (!new Set(["target", "aggregate", "owner", "rows"]).has(recipe.selection)) {
-    errors.push(`${label}.selection must be target, aggregate, owner, or rows`);
+  if (!new Set(["command", "target", "aggregate", "owner", "rows"]).has(recipe.selection)) {
+    errors.push(`${label}.selection must be command, target, aggregate, owner, or rows`);
   }
   if (recipe.selection === "rows") {
     if (!Array.isArray(recipe.row_ids) || recipe.row_ids.length === 0 ||
@@ -300,17 +308,17 @@ function validateWorkGraphRecipe({ errors, target, recipe, label }) {
       errors.push(`${label}.row_ids must be nonempty, sorted, unique semantic row IDs`);
     }
   } else if (recipe.row_ids !== undefined) errors.push(`${label}.row_ids requires selection=rows`);
-  if (recipe.selection === "aggregate" && !new Set(["test-fast", "check", "test", "ci", "release-check"]).has(target)) {
+  if (recipe.selection === "aggregate" && !new Set(["test-fast", "check", "ci", "release-check"]).has(target)) {
     errors.push(`${label}.selection=aggregate is limited to aggregate roots`);
   }
-  if (recipe.selection === "owner" && !new Set(["test-slice", "service-backed-test-slice"]).has(target)) {
+  if (recipe.selection === "owner" && !new Set(["test-slice"]).has(target)) {
     errors.push(`${label}.selection=owner is limited to owner slice targets`);
   }
   if (recipe.service_backed_only !== undefined && typeof recipe.service_backed_only !== "boolean") {
     errors.push(`${label}.service_backed_only must be a boolean`);
   }
-  if (recipe.service_backed_only === true && target !== "service-backed-test-slice") {
-    errors.push(`${label}.service_backed_only is limited to service-backed-test-slice`);
+  if (recipe.service_backed_only !== undefined) {
+    errors.push(`${label}.service_backed_only is retired; service scope belongs to the typed command selection`);
   }
 }
 
@@ -420,16 +428,16 @@ function validateNativeToolRecipe({ errors, target, label, recipe, targets }) {
 
 function validateNodeToolRecipe({ errors, target, label, helpers, recipe, targets }) {
   if (recipe?.preflight_owner !== undefined) errors.push(`${label} requires an explicitly capable public read-only entrypoint`);
-  if (!helpers.hasMakeNodeTool(target)) {
+  if (!helpers.hasMakeNodeTool(recipe?.tool_id)) {
     errors.push(`${label} has no tools/harness/command-surface/make-node-tools.mjs registry entry`);
   }
 }
 
-function validateOwnerCommandRecipe({ errors, target, label, helpers }) {
+function validateOwnerCommandRecipe({ errors, target, label, helpers, recipe }) {
   if (!ownerCommandTargets.has(target)) {
     errors.push(`${label} target is not in the closed owner command family`);
   }
-  validateNodeToolRecipe({ errors, target, label, helpers });
+  validateNodeToolRecipe({ errors, target, label, helpers, recipe });
 }
 
 function validateMakeAssignmentMap(

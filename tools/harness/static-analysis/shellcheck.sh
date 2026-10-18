@@ -121,7 +121,7 @@ fi
 
 if [[ ! -x "$shellcheck_bin" ]]; then
   echo "lint-shell requires an executable SHELLCHECK_BIN at $shellcheck_bin" >&2
-  echo "run make shell-lint-toolchain before lint-shell or set SHELLCHECK_BIN to a ready ShellCheck binary" >&2
+  echo "run make bootstrap before lint-shell or set SHELLCHECK_BIN to a ready ShellCheck binary" >&2
   exit 1
 fi
 

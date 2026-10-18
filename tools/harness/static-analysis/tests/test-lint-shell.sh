@@ -313,7 +313,7 @@ make_strict_output="$(
     FAKE_SHELLCHECK_ARGS_LOG="$make_strict_args_log" \
     FAKE_SHELLCHECK_OUTPUT="SC2086 simulated finding" \
     FAKE_SHELLCHECK_STATUS=1 \
-      make -C "$ROOT_DIR" --no-print-directory CARTULARY_HARNESS_CACHE_MODE=off lint-shell 2>&1
+      make -C "$ROOT_DIR" --no-print-directory CARTULARY_HARNESS_CACHE_MODE=off lint CHECK=shell 2>&1
 )"
 make_strict_status=$?
 set -e

@@ -44,8 +44,11 @@ function captureFailure(reason, cause, stage = "cleanup") {
   // request values and raw cause text remain private.
   const native = new Set(["unsafe", "unresolved", "deadline", "io", "internal", "transport"]).has(diagnostic?.reason) ? diagnostic.reason : "none";
   const errno = Number.isInteger(diagnostic?.errno) && diagnostic.errno > 0 && diagnostic.errno <= 4095 ? diagnostic.errno : "none";
+  const transportPhase = new Set(["spawn", "decode", "identity", "outcome"]).has(diagnostic?.phase) ? diagnostic.phase : "none";
+  const transportStatus = Number.isInteger(diagnostic?.status) && diagnostic.status >= 0 && diagnostic.status <= 255 ? diagnostic.status : "none";
+  const transportSignal = new Set(["SIGABRT", "SIGBUS", "SIGFPE", "SIGHUP", "SIGILL", "SIGINT", "SIGKILL", "SIGPIPE", "SIGQUIT", "SIGSEGV", "SIGTERM", "SIGTRAP", "SIGXCPU", "SIGXFSZ"]).has(diagnostic?.signal) ? diagnostic.signal : "none";
   return new CommandFailure(
-    `${reason === "cleanup_error" ? "private child capture cleanup failed" : "private child capture failed"} (stage=${stage}, code=${code}, native=${native}, errno=${errno})`,
+    `${reason === "cleanup_error" ? "private child capture cleanup failed" : "private child capture failed"} (stage=${stage}, code=${code}, native=${native}, errno=${errno}, transport_phase=${transportPhase}, transport_status=${transportStatus}, transport_signal=${transportSignal})`,
     { failure_class: reason === "cleanup_error" ? "harness" : "artifact", failure_reason: reason },
     { cause },
   );

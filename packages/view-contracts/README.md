@@ -12,4 +12,4 @@ Clearability and field editing capabilities remain on the existing view field.
 
 Edit authored contract inputs and use `make generate`. Never hand-edit generated
 registries. Choose verification with
-`make task-guide ROLE=module-author OWNER=package.view_contracts`.
+`make task-guide OWNER=package.view_contracts`.

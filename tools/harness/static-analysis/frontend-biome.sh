@@ -25,7 +25,7 @@ case "${mode}" in
 esac
 
 if [[ ! -x "${PNPM_BIN}" ]]; then
-  echo "repo-local pnpm was not found at ${PNPM_BIN}; run make frontend-toolchain" >&2
+  echo "repo-local pnpm was not found at ${PNPM_BIN}; run make bootstrap PART=frontend" >&2
   exit 1
 fi
 

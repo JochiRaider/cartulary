@@ -3209,9 +3209,11 @@ failed slide imports MUST reject the export before PDF capture. A renderer error
 layout is never a successful slide. Only closed diagnostic classes may leave the
 native stage; resource URLs, vendor messages and input content remain excluded.
 
-PDF capture MUST wait for every mounted Mermaid component in the pinned print
-surface to contain its completed SVG with a non-empty view box and graphical
-content. Slide/component loading completion alone is insufficient: Mermaid fills
+PDF capture MUST reconcile the Mermaid-fence inventory of each parsed source
+slide with every corresponding print page, including expanded click states.
+Absent, extra or not-yet-mounted components cannot establish readiness. Every
+expected component MUST contain its completed SVG with a non-empty view box and
+graphical content before capture, including after font and paint preparation. Slide/component loading completion alone is insufficient: Mermaid fills
 its shadow root asynchronously. Font readiness, local-image decoding and the
 two-frame paint barrier follow diagram completion. A missing or failed diagram
 MUST fail within the stage deadline; it MUST NOT produce a partially painted PDF

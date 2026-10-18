@@ -119,7 +119,7 @@ startup and harness overhead.
 | `20260912T200932Z-p19898` | 3,206 | 1,290 |
 
 Both cases remain below ten seconds in every repetition. The concurrent
-`make frontend-unit VITEST_MAX_WORKERS=2 CARTULARY_HARNESS_CACHE_MODE=off`
+`make test-slice SUITE=frontend-unit VITEST_MAX_WORKERS=2 CARTULARY_HARNESS_CACHE_MODE=off`
 passed all 592 units in 216.5 seconds at `20260912T200820Z-p94930`.
 Historical timeouts remain distinct failure evidence.
 
@@ -150,13 +150,13 @@ The harness owner slices use `make test-slice OWNER=<owner>` with owners
 | `make generate` | Pass; final regeneration `20260912T202946Z-p73400` |
 | `make agent-finalize` | Pass; final run `20260912T202956Z-p82849` |
 | `make harness-contract CARTULARY_HARNESS_CACHE_MODE=off` | Pass; final run `20260912T203012Z-p97276` |
-| `make generate-drift` | Pass; `20260912T202004Z-p90187` |
-| `make generated-artifact-policy-check` | Pass; `20260912T202017Z-p95645` |
-| `make json-shape-check` | Pass; `20260912T202021Z-p96298` |
-| `make frontend-typecheck` | Pass; `20260912T202026Z-p97257` |
-| `make lint-scripts` | Pass; final run `20260912T203915Z-p68768` |
-| `make lint-biome` | Pass; `20260912T202055Z-p43533` |
-| `make lint-shell` | Pass; `20260912T202059Z-p48108` |
+| `make source-check CHECK=generated` | Pass; `20260912T202004Z-p90187` |
+| `make source-check CHECK=generated` | Pass; `20260912T202017Z-p95645` |
+| `make source-check CHECK=schema` | Pass; `20260912T202021Z-p96298` |
+| `make lint CHECK=types` | Pass; `20260912T202026Z-p97257` |
+| `make lint CHECK=scripts` | Pass; final run `20260912T203915Z-p68768` |
+| `make lint CHECK=frontend` | Pass; `20260912T202055Z-p43533` |
+| `make lint CHECK=shell` | Pass; `20260912T202059Z-p48108` |
 | `make lint-markdown` | Pass; `20260912T203917Z-p69184` |
 | `make check CARTULARY_HARNESS_CACHE_MODE=off` | Pass; all 876 units, `20260912T203058Z-p1222` |
 

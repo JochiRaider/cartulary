@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { resolveHarnessConfig } from "../contract/harness-contract.mjs";
 
 const defaultResultsRoot = ".cartulary/test-results";
 const defaultTaskSurfaceManifest = "tools/task_surface_manifest.json";
@@ -63,17 +64,6 @@ function resultDirForMode(env, mode) {
   throw new Error(`unsupported result-dir mode ${mode}`);
 }
 
-function splitPassthrough(valueToSplit, name) {
-  const raw = String(valueToSplit ?? "").trim();
-  if (!raw) {
-    return [];
-  }
-  if (/["'\\]/.test(raw)) {
-    throw new UsageError(`${name} does not support shell quoting; pass plain whitespace-separated flags`);
-  }
-  return raw.split(/\s+/).filter(Boolean);
-}
-
 function inputSourceMap(env) {
   return new Map(
     String(env.CARTULARY_MAKE_INPUT_SOURCES ?? "")
@@ -102,14 +92,14 @@ export class UsageError extends Error {
 
 function ownerDiagnosticTool(mode, target) {
   return {
-    inputs: mode === "task-guide" ? ["ROLE", "OWNER", "JSON"] : ["OWNER", "JSON"],
+    inputs: mode === "task-guide" ? ["OWNER", "DETAIL", "JSON"] : ["OWNER", "JSON"],
     script: "./tools/harness/diagnostics/owner-diagnostics-cli.mjs",
     usage: mode === "task-guide"
-      ? `usage: make ${target} ROLE=module-author OWNER=<owner-id> [JSON=1]`
+      ? `usage: make ${target} OWNER=<owner-id> [DETAIL=summary|rows|coverage] [JSON=1]`
       : `usage: make ${target} OWNER=<owner-id> [JSON=1]`,
     buildArgs(env) {
       const args = ["--mode", mode, "--owner", value(env, "OWNER")];
-      if (mode === "task-guide") args.push("--role", value(env, "ROLE"));
+      if (mode === "task-guide") args.push("--detail", value(env, "DETAIL") || "summary");
       if (value(env, "JSON") === "1") args.push("--json");
       else if (value(env, "JSON") !== "") args.push("--json-value", value(env, "JSON"));
       return args;
@@ -134,7 +124,6 @@ const makeNodeTools = {
       ];
     },
   },
-  "explain-test-owner": ownerDiagnosticTool("explain", "explain-test-owner"),
   "task-guide": ownerDiagnosticTool("task-guide", "task-guide"),
   "test-evidence-audit": {
     inputs: ["OWNER", "EVIDENCE_ROOTS_FILE"],
@@ -150,59 +139,23 @@ const makeNodeTools = {
       ];
     },
   },
-  "task-surface-report": {
-    inputs: ["TASK_SURFACE_REPORT_ARGS"],
-    script: "./tools/harness/generated-artifacts/task-surface-report-cli.mjs",
-    usage: "usage: make task-surface-report [TASK_SURFACE_REPORT_ARGS='--all|--check|--check --all']",
-    buildArgs(env) {
-      return splitPassthrough(value(env, "TASK_SURFACE_REPORT_ARGS"), "TASK_SURFACE_REPORT_ARGS");
-    },
-  },
   "target-plan": {
-    inputs: ["TARGET"],
+    inputs: ["TARGET", "INPUTS", "DETAIL", "JSON"],
     script: "./tools/harness/diagnostics/target-plan-cli.mjs",
-    usage: "usage: make target-plan [TARGET=<backend-go-target>]",
+    usage: "usage: make target-plan TARGET=<command> [INPUTS=<json-file>] [DETAIL=summary|graph|rows|artifacts] [JSON=1]",
     buildArgs(env) {
-      const args = [];
-      optionalFlag(args, env, "TARGET", "--target");
-      return args;
-    },
-  },
-  "target-plan-json": {
-    inputs: ["TARGET"],
-    script: "./tools/harness/diagnostics/target-plan-cli.mjs",
-    usage: "usage: make target-plan-json [TARGET=<backend-go-target>]",
-    buildArgs(env) {
-      const args = ["--json"];
-      optionalFlag(args, env, "TARGET", "--target");
-      return args;
-    },
-  },
-  "fixture-report": {
-    inputs: ["FIXTURE_THRESHOLD_MS", "FIXTURE_TOP", "RUN_ID", "TARGET", "JSON"],
-    script: "./tools/harness/diagnostics/fixture-report-cli.mjs",
-    resultDir: { mode: "resultsRootDefault", flag: "--results-dir" },
-    usage:
-      "usage: make fixture-report [RESULTS_DIR=<root|run-dir>] [RUN_ID=<id>] [TARGET=<target>] [JSON=1]",
-    buildArgs(env) {
-      const args = [
-        "--threshold-ms",
-        value(env, "FIXTURE_THRESHOLD_MS") || "30000",
-        "--top",
-        value(env, "FIXTURE_TOP") || "5",
-      ];
-      optionalFlag(args, env, "RUN_ID", "--run-id");
-      optionalFlag(args, env, "TARGET", "--target");
+      const args = ["--target", value(env, "TARGET"), "--view", value(env, "DETAIL") || "summary"];
+      optionalFlag(args, env, "INPUTS", "--inputs");
       jsonFlag(args, env);
       return args;
     },
   },
   "explain-run": {
-    inputs: ["DETAIL", "RUN_ID", "TARGET", "JSON", "COMPARE_RESULTS_DIR", "COMPARISON"],
+    inputs: ["DETAIL", "RUN_ID", "TARGET", "JSON", "COMPARE_RESULTS_DIR", "COMPARISON", "FIXTURE_THRESHOLD_MS", "FIXTURE_TOP"],
     script: "./tools/harness/diagnostics/explain-run-cli.mjs",
     resultDir: { mode: "required", flag: "--results-dir" },
     usage:
-      "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress|accounting|performance|resources] [JSON=1] [COMPARE_RESULTS_DIR=<exact-run-dir> COMPARISON=equivalent|instrumentation]",
+      "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress|accounting|performance|fixtures] [JSON=1] [COMPARE_RESULTS_DIR=<exact-run-dir> COMPARISON=equivalent|instrumentation]",
     buildArgs(env) {
       const args = ["--detail", value(env, "DETAIL") || "summary"];
       if (value(env, "JSON") === "1") args.push("--json");
@@ -210,16 +163,18 @@ const makeNodeTools = {
       optionalFlag(args, env, "TARGET", "--target");
       optionalFlag(args, env, "COMPARE_RESULTS_DIR", "--compare-results-dir");
       optionalFlag(args, env, "COMPARISON", "--comparison");
+      optionalFlag(args, env, "FIXTURE_THRESHOLD_MS", "--fixture-threshold-ms");
+      optionalFlag(args, env, "FIXTURE_TOP", "--fixture-top");
       return args;
     },
   },
   "harness-observability-check": {
-    inputs: ["RUN_ID"],
+    inputs: ["RUN_ID", "CHECK"],
     script: "./tools/harness/observability/observability-check-cli.mjs",
     resultDir: { mode: "required", flag: "--results-dir" },
     usage: "usage: make harness-observability-check RESULTS_DIR=<root|run-dir> [RUN_ID=<id>]",
     buildArgs(env) {
-      const args = [];
+      const args = ["--check", value(env, "CHECK") || "all"];
       optionalFlag(args, env, "RUN_ID", "--run-id");
       return args;
     },
@@ -233,38 +188,6 @@ const makeNodeTools = {
       const args = ["--endpoint", value(env, "HARNESS_OTLP_ENDPOINT")];
       optionalFlag(args, env, "RUN_ID", "--run-id");
       optionalFlag(args, env, "HARNESS_OTLP_HEADERS_FILE", "--headers-file");
-      return args;
-    },
-  },
-  "harness-performance-check": {
-    inputs: ["EVIDENCE_ROOTS_FILE"],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    usage: "usage: make harness-performance-check EVIDENCE_ROOTS_FILE=<manifest>",
-    buildArgs(env) {
-      return ["check", "--evidence-roots-file", value(env, "EVIDENCE_ROOTS_FILE")];
-    },
-  },
-  "harness-public-target-duration-baselines": {
-    inputs: ["EVIDENCE_ROOTS_FILE"],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    usage: "usage: make harness-public-target-duration-baselines EVIDENCE_ROOTS_FILE=<baseline-window>",
-    buildArgs(env) {
-      return ["publish", "--evidence-roots-file", value(env, "EVIDENCE_ROOTS_FILE")];
-    },
-  },
-  "explain-target": {
-    inputs: ["TARGET", "DETAIL", "JSON"],
-    script: "./tools/harness/diagnostics/explain-target-cli.mjs",
-    usage: "usage: make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]",
-    buildArgs(env) {
-      if (!hasValue(env, "TARGET")) {
-        throw new UsageError(
-          "TARGET is required",
-          "usage: make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]",
-        );
-      }
-      const args = ["--target", value(env, "TARGET"), "--detail", value(env, "DETAIL") || "summary"];
-      jsonFlag(args, env);
       return args;
     },
   },
@@ -283,95 +206,11 @@ const makeNodeTools = {
       return [];
     },
   },
-  "go-test-duration-baselines": {
-    inputs: [],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    resultDir: { mode: "required", flag: "--results-dir" },
-    usage: "usage: make go-test-duration-baselines RESULTS_DIR=<successful canonical results dir>",
-    buildArgs() {
-      return ["observe", "--view", "backend_go"];
-    },
-  },
-  "go-test-duration-baseline-coverage": {
-    inputs: [],
-    runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR", "CARTULARY_TEST_RUN_ID"],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    usage: "usage: make go-test-duration-baseline-coverage",
-    buildArgs() {
-      return ["coverage"];
-    },
-  },
-  "go-test-duration-baseline-drift": {
-    inputs: [],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    resultDir: { mode: "currentRunDefault", flag: "--results-dir" },
-    usage: "usage: make go-test-duration-baseline-drift [RESULTS_DIR=<dir>]",
-    buildArgs() {
-      return ["observe", "--view", "backend_go"];
-    },
-  },
-  "browser-e2e-duration-baselines": {
-    inputs: [],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    resultDir: { mode: "required", flag: "--results-dir" },
-    usage: "usage: make browser-e2e-duration-baselines RESULTS_DIR=<successful canonical results dir>",
-    buildArgs() {
-      return ["observe", "--view", "browser"];
-    },
-  },
-  "browser-e2e-duration-baseline-drift": {
-    inputs: [],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    resultDir: { mode: "currentRunDefault", flag: "--results-dir" },
-    usage: "usage: make browser-e2e-duration-baseline-drift [RESULTS_DIR=<dir>]",
-    buildArgs() {
-      return ["observe", "--view", "browser"];
-    },
-  },
-  "service-backed-make-target-duration-baselines": {
-    inputs: [],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    resultDir: { mode: "required", flag: "--results-dir" },
-    usage:
-      "usage: make service-backed-make-target-duration-baselines RESULTS_DIR=<successful scheduler results dir>",
-    buildArgs() {
-      return ["observe", "--view", "service_backed"];
-    },
-  },
-  "service-backed-make-target-duration-baseline-drift": {
-    inputs: [],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    resultDir: { mode: "currentRunDefault", flag: "--results-dir" },
-    usage:
-      "usage: make service-backed-make-target-duration-baseline-drift [RESULTS_DIR=<dir>]",
-    buildArgs() {
-      return ["observe", "--view", "service_backed"];
-    },
-  },
-  "harness-smoke-duration-baselines": {
-    inputs: [],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    resultDir: { mode: "required", flag: "--results-dir" },
-    usage:
-      "usage: make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>",
-    buildArgs() {
-      return ["observe", "--view", "harness"];
-    },
-  },
-  "harness-smoke-duration-baseline-drift": {
-    inputs: [],
-    script: "./tools/harness/observability/canonical-performance-cli.mjs",
-    resultDir: { mode: "currentRunDefault", flag: "--results-dir" },
-    usage: "usage: make harness-smoke-duration-baseline-drift [RESULTS_DIR=<dir>]",
-    buildArgs() {
-      return ["observe", "--view", "harness"];
-    },
-  },
   "scheduler-event-order-drift": {
     inputs: ["TARGET"],
     script: "./tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
-    usage: "usage: make scheduler-event-order-drift [RESULTS_DIR=<dir>] [TARGET=<target>]",
+    usage: "usage: make harness-observability-check RESULTS_DIR=<exact-run-dir> CHECK=events",
     buildArgs(env) {
       const args = [];
       optionalFlag(args, env, "TARGET", "--target");
@@ -382,7 +221,7 @@ const makeNodeTools = {
     inputs: ["TARGET"],
     script: "./tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
-    usage: "usage: make scheduler-summary-timing-drift [RESULTS_DIR=<dir>] [TARGET=<target>]",
+    usage: "usage: make harness-observability-check RESULTS_DIR=<exact-run-dir> CHECK=timing",
     buildArgs(env) {
       const args = [];
       optionalFlag(args, env, "TARGET", "--target");
@@ -396,10 +235,9 @@ function uniqueNames(names) {
 }
 
 function loadTaskSurfaceManifest(env = process.env) {
-  const configured =
-    env.TASK_SURFACE_MANIFEST ||
-    env.CARTULARY_TASK_SURFACE_MANIFEST ||
-    defaultTaskSurfaceManifest;
+  const configured = Object.hasOwn(env, "CARTULARY_MAKE_INPUT_SOURCES")
+    ? defaultTaskSurfaceManifest
+    : env.TASK_SURFACE_MANIFEST || env.CARTULARY_TASK_SURFACE_MANIFEST || defaultTaskSurfaceManifest;
   const file = path.isAbsolute(configured)
     ? configured
     : path.join(process.cwd(), configured);
@@ -522,6 +360,17 @@ export function buildMakeNodeToolChildEnv(name, env = process.env) {
 export function buildMakeNodeToolInvocation(name, env = process.env) {
   const tool = makeNodeTool(name);
   const declaredInputs = contractInputNames(name, env);
+  const manifest = loadTaskSurfaceManifest(env);
+  const publicEntry = manifest?.targets?.find((entry) => entry.name === name && entry.target_class === "public");
+  if (Object.hasOwn(env, "CARTULARY_MAKE_INPUT_SOURCES") && publicEntry) {
+    const resolved = resolveHarnessConfig(name, env, { manifest });
+    env = { ...env };
+    for (const input of declaredInputs) delete env[input];
+    const booleans = new Set(publicEntry.input_contract.inputs.filter((input) => input.type === "exact_1_bool").map((input) => input.name));
+    for (const [input, binding] of Object.entries(resolved.variables.target_inputs)) {
+      env[input] = booleans.has(input) && binding.value === "false" ? "" : binding.value;
+    }
+  }
 
   const args = tool.buildArgs(scopedEnv(env, declaredInputs, name), {
     inputSources: inputSourceMap(env),

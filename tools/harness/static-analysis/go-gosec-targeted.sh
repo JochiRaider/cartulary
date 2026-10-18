@@ -44,7 +44,7 @@ fi
 
 if [[ ! -x "$GOSEC_BIN" ]]; then
   echo "go-gosec-targeted requires an executable GOSEC_BIN at $GOSEC_BIN" >&2
-  echo "run make go-security-toolchain before go-gosec-targeted or set GOSEC_BIN to a ready gosec binary" >&2
+  echo "run make bootstrap before make go-gosec-targeted or set GOSEC_BIN to a ready gosec binary" >&2
   exit 1
 fi
 

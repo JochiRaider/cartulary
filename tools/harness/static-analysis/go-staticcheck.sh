@@ -24,7 +24,7 @@ fi
 
 if [[ ! -x "$STATICCHECK_BIN" ]]; then
   echo "lint-go-staticcheck requires an executable STATICCHECK_BIN at $STATICCHECK_BIN" >&2
-  echo "run make go-lint-toolchain before lint-go-staticcheck or set STATICCHECK_BIN to a ready staticcheck binary" >&2
+  echo "run make bootstrap before make lint CHECK=go or set STATICCHECK_BIN to a ready staticcheck binary" >&2
   exit 1
 fi
 

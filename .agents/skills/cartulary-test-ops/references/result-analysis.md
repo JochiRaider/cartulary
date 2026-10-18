@@ -74,4 +74,4 @@ canonical validation, test status and the owning command's exit are distinct.
 Optional collector failure/truncation does not change assertions or primary failure.
 Diagnostics remain default-off. Functional service, container and wrapper
 coverage is source-scoped evidence; it does not establish overhead qualification.
-Qualification remains a separate acceptance decision under its adopted gates.
+Harness performance qualification and baseline publication are retired; descriptive diagnostics make no performance acceptance claim.

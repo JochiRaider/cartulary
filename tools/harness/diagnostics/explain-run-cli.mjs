@@ -12,11 +12,13 @@ import {
 import { readCanonicalUnitEvents } from "../evidence-accounting/index.mjs";
 import { resolveExactRunDir, printObservabilityPerformance } from "../observability/observability.mjs";
 import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
+import { fixtureExplanation } from "../observability/fixture-explanation.mjs";
+import { buildFixtureReport, fixtureSummaryLine, fixtureSummaryLines } from "./fixture-reporting.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
-const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance", "resources", "measurement"]);
+const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance", "resources", "measurement", "fixtures"]);
 const coverageBuckets = [
   "authoritative",
   "support",
@@ -29,7 +31,7 @@ const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 
 function usage() {
   process.stderr.write(
-    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance|resources|measurement] [--json] [--compare-results-dir <exact-run-dir> --comparison equivalent|instrumentation]\n",
+    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance|resources|measurement|fixtures] [--json] [--compare-results-dir <exact-run-dir> --comparison equivalent|instrumentation]\n",
   );
   process.exit(2);
 }
@@ -40,9 +42,16 @@ function parseArgs(argv) {
     runId: "",
     target: "",
     detail: "summary",
+    fixtureThresholdMS: 30000, fixtureTop: 5,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (["--fixture-threshold-ms", "--fixture-top"].includes(arg)) {
+      const raw = argv[++index] ?? "";
+      if (!/^[1-9][0-9]{0,8}$/u.test(raw)) throw Object.assign(new Error("invalid fixture filter"), { exit_code: 2 });
+      options[arg === "--fixture-top" ? "fixtureTop" : "fixtureThresholdMS"] = Number(raw);
+      continue;
+    }
     if (arg === "--compare-results-dir") { options.comparisonDir = argv[++index] ?? ""; continue; }
     if (arg === "--comparison") { options.comparison = argv[++index] ?? ""; continue; }
     if (arg === "--json") { options.json = true; continue; }
@@ -1022,6 +1031,22 @@ function writeCanonicalDetail(runDir, options, runSummary, targetSummary) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (options.detail === "fixtures") {
+    const runDir = resolveExactRunDir(options.resultsDir, options.runId);
+    const view = await fixtureExplanation(runDir, options.target);
+    const report = buildFixtureReport({ resultsRoot: path.dirname(runDir), runId: path.basename(runDir),
+      target: options.target, thresholdMs: options.fixtureThresholdMS, repoRoot });
+    validateSchemaSync(report.schema_id, report);
+    if (options.json) process.stdout.write(`${JSON.stringify(report)}\n`);
+    else {
+      process.stdout.write(`[FIXTURES] run_id=${view.run_id} target=${view.target} leases=${view.leases.length}\n`);
+      const filters = { thresholdMs: options.fixtureThresholdMS, top: options.fixtureTop };
+      const lines = [fixtureSummaryLine(report.aggregate, filters), ...fixtureSummaryLines(report.targets, filters)].filter(Boolean);
+      if (lines.length) process.stdout.write(`${lines.join("\n")}\n`);
+      for (const lease of view.leases.slice(0, options.fixtureTop)) process.stdout.write(`[LEASE] unit=${lease.unit_id} held_ms=${lease.held_ms} released=${lease.released ? 1 : 0}\n`);
+    }
+    return;
+  }
   if (["performance", "resources"].includes(options.detail)) {
     try { await printObservabilityPerformance(resolveExactRunDir(options.resultsDir, options.runId), options.target,
       { json: options.json, resourcesOnly: options.detail === "resources",
@@ -1080,7 +1105,7 @@ async function main() {
     writeHelperLines(runSummary, target);
     return;
   }
-  if (runSummary?.schema_id === "cartulary.harness_run_summary.v1" && !["performance", "resources", "measurement"].includes(options.detail)) {
+  if (runSummary?.schema_id === "cartulary.harness_run_summary.v1" && !["performance", "resources", "measurement", "fixtures"].includes(options.detail)) {
     writeCanonicalDetail(runDir, { ...options, target }, runSummary, targetSummary);
     return;
   }

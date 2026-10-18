@@ -49,7 +49,7 @@ assert_json() {
 }
 
 # shellcheck disable=SC2329
-cleanup() {
+fixture_cleanup() {
   local pid
   for pid in "${cleanup_pids[@]}"; do
     kill -TERM "$pid" >/dev/null 2>&1 || true
@@ -60,7 +60,7 @@ cleanup() {
 
 [[ -x "$NODE_BIN" ]] || NODE_BIN=node
 tmp_dir="$(mktemp -d)"
-trap cleanup EXIT
+trap fixture_cleanup EXIT
 
 # The managed lifecycle is session-owned and has no development-stack route.
 assert_file_contains "$START_SCRIPT" 'CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID' "authenticated managed suite guard"
@@ -94,6 +94,12 @@ assert_file_contains "$ATTACH_SCRIPT" 'browser-session-evidence.mjs' "Playwright
 # Source the adapter only for fail-closed entrypoint checks.
 # shellcheck source=tools/harness/browser/start-web-e2e.sh
 source "$START_SCRIPT"
+
+if [[ "${1:-}" == --artifact-fixture ]]; then
+  # shellcheck source=tools/harness/browser/tests/web-e2e-artifact-fixture.sh
+  source "$ROOT_DIR/tools/harness/browser/tests/web-e2e-artifact-fixture.sh"
+  exit 0
+fi
 
 (
   # Exercise failure under a conditional, where shell errexit cannot help.
@@ -285,7 +291,7 @@ for name in \
   JSON \
   OWNER \
   ROWS \
-  SERVICE_BACKED_ONLY \
+  SCOPE \
   PLAYWRIGHT_WORKERS \
   VITEST_MAX_WORKERS; do
   if [[ -n "${!name+x}" ]]; then
@@ -296,6 +302,7 @@ done
 printf '%s\n' "$*" >"${CARTULARY_FAKE_MAKE_LOG:?}"
 EOF
 chmod 700 "$fake_make_dir/make"
+lifecycle_parent_run_id="${CARTULARY_TEST_RUN_ID:-}"
 export CARTULARY_HARNESS_IDENTITY_PREPARED=1
 export CARTULARY_TEST_RUN_ID=parent-run
 export CARTULARY_TEST_TARGET=test-slice
@@ -305,7 +312,7 @@ export CARTULARY_HARNESS_CAPACITY_OVERRIDE=cpu_tokens=1
 export JSON=1
 export OWNER=module.timeline
 export ROWS=module.timeline.measurement.timeline_virtualized_grid_render_latency_961a4ec1d3
-export SERVICE_BACKED_ONLY=1
+export SCOPE=services
 export PLAYWRIGHT_WORKERS=1
 export VITEST_MAX_WORKERS=1
 CARTULARY_FAKE_MAKE_LOG="$fake_make_log" PATH="$fake_make_dir:$PATH" \
@@ -321,9 +328,11 @@ unset \
   JSON \
   OWNER \
   ROWS \
-  SERVICE_BACKED_ONLY \
+  SCOPE \
   PLAYWRIGHT_WORKERS \
   VITEST_MAX_WORKERS
+
+export CARTULARY_TEST_RUN_ID="$lifecycle_parent_run_id"
 
 private_failure_log="$tmp_dir/private-failure.log"
 private_failure_token=opaque-runtime-token-that-must-not-survive
@@ -392,37 +401,36 @@ security_suite_root="$tmp_dir/security-suite-runtime"
 security_session_root="$security_suite_root/browser-stack-leases/security-session"
 mkdir -p "$security_results_root/$security_run_id" "$security_session_root"
 chmod 700 "$security_suite_root" "$security_session_root"
-security_lease_id="00000000-0000-4000-8000-000000000002"
-"$NODE_BIN" --input-type=module - "$ROOT_DIR" "$security_suite_root" "$security_results_root/$security_run_id" "$security_run_id" "$security_lease_id" <<'JS'
-import { writeFileSync } from "node:fs";
+# Valid live-owner admission is exercised below through the native owner.
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" "$tmp_dir" <<'JS'
+import assert from "node:assert/strict";
 import path from "node:path";
-const [repository, root, run_root, run_id, lease_id] = process.argv.slice(2);
-writeFileSync(path.join(root, "runtime-owner.json"), JSON.stringify({schema_id:"cartulary.harness_suite_runtime_owner.v2",repository,run_root,output_roots:[],run_id,lease_id,owner_uid:process.getuid(),created_at:"2026-08-14T00:00:00Z"}), {mode:0o600});
+import { mkdirSync } from "node:fs";
+import { createRuntime } from "./tools/harness/runtime/session-client.mjs";
+import { spawnSync } from "./tools/harness/workspace/child-process.mjs";
+const [root, scratch] = process.argv.slice(2);
+const runID = "live-security", runRoot = path.join(scratch, "live-results", runID);
+mkdirSync(runRoot, {recursive:true, mode:0o700});
+const runtime = createRuntime({repoRoot:root, runRoot, runID});
+try {
+  const privateSession = runtime.privatePath("browser-stack-leases", "security-session");
+  mkdirSync(privateSession, {recursive:true, mode:0o700});
+  const env = {...process.env, CARTULARY_TEST_RESULTS_DIR:path.dirname(runRoot), CARTULARY_TEST_RUN_ID:runID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT:runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:runtime.leaseID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID:runID, CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT:privateSession,
+    CARTULARY_TEST_SUITE_ID:"security-suite", CARTULARY_BROWSER_SESSION_GROUP:"security-session", CARTULARY_BROWSER_SERVICE_REQUIREMENT:"test-services"};
+  const script = String.raw`set -euo pipefail
+source tools/harness/browser/start-web-e2e.sh
+prepare_runtime_root
+[[ "$RUNTIME_ROOT_BASE" == "$PRIVATE_SESSION_ROOT/runtime-root" ]]
+[[ "$STACK_ENV_FILE" == "$PRIVATE_SESSION_ROOT/stack.env" ]]
+if prepare_runtime_root >/dev/null 2>&1; then exit 92; fi
+if find "$RUN_ROOT" -type f \( -name '*.env' -o -name '*.lease' -o -name '*.dsn' \) -print -quit | grep -q .; then exit 93; fi
+`;
+  const child = spawnSync("bash", ["-c", script], {cwd:root,env,encoding:"utf8"});
+  assert.equal(child.status, 0, child.stderr);
+} finally { runtime.close(); }
 JS
-chmod 600 "$security_suite_root/runtime-owner.json"
-export CARTULARY_TEST_SERVICES_CALL_MODE=owned
-export CARTULARY_TEST_RESULTS_DIR="$security_results_root"
-export CARTULARY_TEST_RUN_ID="$security_run_id"
-export CARTULARY_HARNESS_SUITE_RUNTIME_ROOT="$security_suite_root"
-export CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID="$security_lease_id"
-export CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID="$security_run_id"
-PRIVATE_SESSION_ROOT="$security_session_root"
-BROWSER_SESSION_ID=security-session
-prepare_runtime_root || fail "valid external private browser runtime admission"
-if prepare_runtime_root >/dev/null 2>&1; then
-  fail "browser runtime must reject a reused public session identity"
-fi
-# The earlier assignment was confined to its publication-test subshell.
-# shellcheck disable=SC2031
-[[ "$RUNTIME_ROOT_BASE" == "$security_session_root/runtime-root" ]] ||
-  fail "browser runtime root must be external to retained results"
-# The earlier assignment was confined to its publication-test subshell.
-# shellcheck disable=SC2031
-[[ "$STACK_ENV_FILE" == "$security_session_root/stack.env" ]] ||
-  fail "browser stack environment must remain private"
-if find "$security_results_root/$security_run_id" -type f \( -name '*.env' -o -name '*.lease' -o -name '*.dsn' \) -print -quit | grep -q .; then
-  fail "private browser runtime filename appeared below retained results"
-fi
 
 contained_suite_root="$security_results_root/$security_run_id/contained-runtime"
 mkdir -p "$contained_suite_root/browser-stack-leases/contained-session"
@@ -433,220 +441,28 @@ if prepare_runtime_root >/dev/null 2>&1; then
   fail "browser runtime must reject result-root containment"
 fi
 
-# Build one complete session artifact chain with live process proofs.
-results_root="$tmp_dir/results"
-run_id="run-test"
-suite_id="suite-test"
-session_id="session-default"
-run_root="$results_root/$run_id"
-suite_root="$run_root/_shared/test-services/$suite_id"
-session_root="$suite_root/browser-sessions/$session_id"
-private_suite_root="$tmp_dir/private-suite-runtime"
-private_session_root="$private_suite_root/browser-stack-leases/$session_id"
-runtime_root="$private_session_root/runtime-root"
-mkdir -p "$session_root" "$private_session_root/logs" "$runtime_root/playwright-state"
-chmod 700 "$private_suite_root" "$private_session_root" "$runtime_root" "$runtime_root/playwright-state"
-"${GO:-go}" run ./tools/browserpki --directory "$runtime_root/tls"
-cp "$runtime_root/tls/ca.pem" "$runtime_root/tls/trust.pem"
-export CARTULARY_WEB_E2E_TLS_ROOT_CERTIFICATE="$runtime_root/tls/trust.pem"
-printf '{"schema_id":"cartulary.test_services.scope.v2","target":"browser-e2e","suite_id":"%s","run_id":"%s","artifact_dir":"%s","readiness_generation":"sha256:%s","wrapper":{"owned_count":1,"pass_through_count":0},"preflight":{"docker_ok":true,"reaper_ready":true,"stale_containers_scanned":0,"stale_containers_removed":0,"stale_containers_deferred":0,"ryuk_disabled_for_suite_startup":true},"failures":{},"cleanup":{},"postgres":{"started":true,"startup":{"attempt_count":0,"retry_count":0,"slowest_attempt_duration_ms":0,"final_attempt":0,"final_retryable":false,"final_retry_blocked_by_context":false},"attached_harness_count":1,"created_database_count":1,"migrated_database_count":1,"template_clone_count":1},"object_store":{"started":true,"secure":false,"startup":{"attempt_count":0,"retry_count":0,"slowest_attempt_duration_ms":0,"final_attempt":0,"final_retryable":false,"final_retry_blocked_by_context":false},"attached_harness_count":1,"bucket_create_count":1,"bucket_cleanup_count":0},"browser_e2e":{"retired_fixture_count":0,"cleaned_fixture_count":0,"reclaimed_fixture_count":0},"fixture":{"total_count":2,"total_duration_ms":0,"strategy_aggregate_count":0},"started_services":{"names":["object_store","postgres"]}}\n' \
-  "$suite_id" "$run_id" "$suite_root" "$(printf '4%.0s' {1..64})" >"$suite_root/service-scope.json"
-printf '{"schema_id":"cartulary.harness_run_manifest.v2","toolchain_digest":"sha256:2222222222222222222222222222222222222222222222222222222222222222","source_digest":"sha256:%s"}\n' \
-  "$(printf '3%.0s' {1..64})" >"$run_root/run-manifest.json"
-mkdir -p "$private_suite_root/test-services"
-chmod 700 "$private_suite_root/test-services"
-printf '{"schema_id":"cartulary.test_services.lease.v1","lease_id":"00000000-0000-4000-8000-000000000001","suite_id":"%s","run_id":"%s","cleanup_state":"not_started","resources":[{"kind":"container","service":"postgres","container_id":"postgres-container-proof"},{"kind":"container","service":"object_store","container_id":"object-store-container-proof"}]}\n' \
-  "$suite_id" "$run_id" >"$private_suite_root/test-services/service-lease.json"
-chmod 600 "$private_suite_root/test-services/service-lease.json"
-printf '{"database_name":"ct_web_test","bucket":"ct-web-test"}\n' >"$runtime_root/test-services-web-e2e.json"
-printf 'backend\n' >"$private_session_root/logs/server.log"
-printf 'frontend\n' >"$private_session_root/logs/web.log"
-
-setsid sleep 120 &
-backend_pid=$!
-cleanup_pids+=("$backend_pid")
-setsid sleep 120 &
-frontend_pid=$!
-cleanup_pids+=("$frontend_pid")
-
-export CARTULARY_TEST_RESULTS_DIR="$results_root"
-export CARTULARY_TEST_RUN_ID="$run_id"
-export CARTULARY_TEST_SUITE_ID="$suite_id"
-export CARTULARY_BROWSER_SESSION_GROUP="$session_id"
-export CARTULARY_BROWSER_STAGE=webserver-backed
-export CARTULARY_BROWSER_RUNTIME_PROFILE_ID=default
-export CARTULARY_BROWSER_SERVICE_REQUIREMENT=test-services
-export CARTULARY_TEST_SERVICES_CALL_MODE=owned
-export CARTULARY_WEB_E2E_SESSION_ARTIFACT_DIR="$session_root"
-export CARTULARY_WEB_E2E_RUNTIME_ROOT="$runtime_root"
-export CARTULARY_PLAYWRIGHT_STATE_DIR="$runtime_root/playwright-state"
-export CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID=00000000-0000-4000-8000-000000000001
-export CARTULARY_HARNESS_SUITE_RUNTIME_ROOT="$private_suite_root"
-export CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID="$run_id"
-export CARTULARY_WEB_E2E_SERVER_LOG="$private_session_root/logs/server.log"
-export CARTULARY_WEB_E2E_WEB_LOG="$private_session_root/logs/web.log"
-export CARTULARY_WEB_E2E_API_ORIGIN=https://127.0.0.1:38080
-export CARTULARY_WEB_E2E_PUBLIC_ORIGIN=https://127.0.0.1:34173
-export CARTULARY_WEB_E2E_BACKEND_PORT=38080
-export CARTULARY_WEB_E2E_FRONTEND_PORT=34173
-export CARTULARY_WEB_E2E_SERVER_PGID="$backend_pid"
-export CARTULARY_WEB_E2E_VITE_PGID="$frontend_pid"
-export CARTULARY_WEB_E2E_BACKEND_IDENTITY_SERVER_PID="$backend_pid"
-export CARTULARY_WEB_E2E_BACKEND_READY_AT=2026-07-27T12:00:00Z
-export CARTULARY_WEB_E2E_FRONTEND_READY_AT=2026-07-27T12:00:01Z
-CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT="sha256:$(printf '1%.0s' {1..64})"
-export CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT
-export CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="$runtime_root/test-services-web-e2e.json"
-# Independent parent fixture; the earlier subshell does not supply its template.
-# shellcheck disable=SC2031
-export CARTULARY_PGTEST_TEMPLATE_DB=ct_suite_template
-CARTULARY_PGTEST_SCHEMA_HASH="sha256:$(printf '2%.0s' {1..64})"
-export CARTULARY_PGTEST_SCHEMA_HASH
-export CARTULARY_S3TEST_ENDPOINT=127.0.0.1:39000
-export CARTULARY_S3_OBJECT_PRIMARY_ENDPOINT=127.0.0.1:39000
-export CARTULARY_S3_OBJECT_PRIMARY_SECURE=true
-export CARTULARY_S3_OBJECT_PRIMARY_BUCKET=ct-web-test
-
-"$NODE_BIN" --input-type=module - "$ROOT_DIR" "$run_root" "$private_suite_root" "$run_id" <<'JS'
-import { mkdirSync, writeFileSync } from "node:fs";
+# Keep the native owner alive for the complete synthetic artifact chain.
+"$NODE_BIN" --input-type=module - "$ROOT_DIR" "$tmp_dir" <<'JS'
+import assert from "node:assert/strict";
 import path from "node:path";
-const [root, runRoot, privateRoot, runID] = process.argv.slice(2);
-const { sealFrontendArtifact } = await import(path.join(root, "tools/harness/readiness/frontend-artifact.mjs"));
-writeFileSync(path.join(privateRoot, "runtime-owner.json"), JSON.stringify({
-  schema_id: "cartulary.harness_suite_runtime_owner.v2", run_id: runID,
-  repository: root, run_root: runRoot, output_roots: [], owner_uid: process.getuid(), created_at: "2026-08-14T00:00:00Z",
-  lease_id: process.env.CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID,
-}), { mode: 0o600 });
-const staging = path.join(privateRoot, "frontend-staging");
-mkdirSync(staging, { mode: 0o700 });
-writeFileSync(path.join(staging, "index.html"), "<main>synthetic frontend</main>");
-sealFrontendArtifact({ repoRoot: root, runRoot,
-  runtime: { root: privateRoot, runID, privatePath: (...parts) => path.join(privateRoot, ...parts) },
-  profile: { id: "production", producer_target: "build-web", entries: ["index.html"] }, staging,
-});
+import { mkdirSync } from "node:fs";
+import { createRuntime } from "./tools/harness/runtime/session-client.mjs";
+import { spawnSync } from "./tools/harness/workspace/child-process.mjs";
+const [root, scratch] = process.argv.slice(2);
+const runID = "artifact-fixture", runRoot = path.join(scratch, "artifact-results", runID);
+mkdirSync(runRoot, {recursive:true, mode:0o700});
+const runtime = createRuntime({repoRoot:root, runRoot, runID});
+try {
+  const child = spawnSync("bash", ["tools/harness/browser/tests/test-web-e2e-lifecycle.sh", "--artifact-fixture"], {
+    cwd:root, encoding:"utf8", env:{...process.env, ...runtime.producerEnvironment(),
+      CARTULARY_TEST_RESULTS_DIR:path.dirname(runRoot), CARTULARY_TEST_RUN_ID:runID,
+      CARTULARY_HARNESS_SUITE_RUNTIME_ROOT:runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:runtime.leaseID,
+      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID:runID,
+      CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT:runtime.privatePath("browser-stack-leases", "session-default")}
+  });
+  assert.equal(child.status, 0, child.stderr);
+} finally { runtime.close(); }
 JS
-
-"$NODE_BIN" "$EVIDENCE_HELPER" event initializing "initializing test session"
-"$NODE_BIN" "$EVIDENCE_HELPER" event service_attached "attached exact suite"
-"$NODE_BIN" "$EVIDENCE_HELPER" write-service-admission
-"$NODE_BIN" "$EVIDENCE_HELPER" event fixture_ready "fixture ready"
-"$NODE_BIN" "$EVIDENCE_HELPER" event backend_ready "backend ready"
-"$NODE_BIN" "$EVIDENCE_HELPER" event frontend_ready "frontend ready"
-"$NODE_BIN" "$EVIDENCE_HELPER" terminal ready "session ready"
-"$NODE_BIN" "$EVIDENCE_HELPER" lease
-stack_file="$("$NODE_BIN" "$EVIDENCE_HELPER" stack)"
-export CARTULARY_WEB_E2E_STACK_JSON_FILE="$stack_file"
-
-assert_json "$stack_file" 'value.schema_id === "cartulary.web_e2e_stack.v8"' "v8 schema identity"
-assert_json "$stack_file" 'value.suite_id === "suite-test" && value.browser_session_id === "session-default"' "v7 suite/session identity"
-assert_json "$stack_file" 'value.postgres_identity.database_name === "ct_web_test" && value.object_store_identity.bucket === "ct-web-test"' "v7 isolated resource identity"
-assert_json "$stack_file" 'value.frontend.frontend_command_kind === "vite-preview"' "v7 preview identity"
-if grep -Eq 'access_key|secret|postgres://' "$stack_file"; then
-  fail "v8 stack must not contain credentials or DSNs"
-fi
-
-attachment_exports="$("$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file")"
-eval "$attachment_exports"
-[[ "$CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED" == "1" ]] ||
-  fail "valid v7 attachment must set the admission marker"
-[[ "$CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER" == "1" ]] ||
-  fail "valid v7 attachment must select external-server lifecycle semantics"
-[[ "$CARTULARY_PLAYWRIGHT_STATE_DIR" == "$runtime_root/playwright-state" ]] ||
-  fail "Playwright state must be scoped to the attached browser session"
-attachment_json="$("$NODE_BIN" "$EVIDENCE_HELPER" attach-json "$stack_file")"
-printf '%s\n' "$attachment_json" |
-  "$NODE_BIN" -e '
-    let input = "";
-    process.stdin.on("data", (chunk) => { input += chunk; });
-    process.stdin.on("end", () => {
-      const value = JSON.parse(input);
-      if (
-        value.CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED !== "1" ||
-        value.CARTULARY_PLAYWRIGHT_EXTERNAL_SERVER !== "1"
-      ) {
-        process.exit(1);
-      }
-    });
-  ' ||
-  fail "JSON attachment validation must return the closed admission environment"
-
-# The Playwright-facing adapter accepts only the exact validated session.
-# shellcheck source=tools/harness/browser/playwright-owned-stack.sh
-source "$ATTACH_SCRIPT"
-resolve_playwright_owned_stack_env "$ROOT_DIR"
-printf '%s\n' "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" |
-  grep -Fq 'CARTULARY_WEB_E2E_ATTACHMENT_VALIDATED=1' ||
-  fail "Playwright environment must carry the v7 admission marker"
-printf '%s\n' "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" |
-  grep -Fq "CARTULARY_PLAYWRIGHT_STATE_DIR=$runtime_root/playwright-state" ||
-  fail "Playwright environment must carry session-scoped shared state"
-
-if CARTULARY_BROWSER_RUNTIME_PROFILE_ID=network_flow_claimed \
-  "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >/dev/null 2>&1; then
-  fail "profile-mismatched v7 attachment must fail"
-fi
-if CARTULARY_BROWSER_STAGE=measurement "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >"$tmp_dir/wrong-artifact.log" 2>&1; then
-  fail "production artifact must not attach to measurement"
-fi
-assert_file_contains "$tmp_dir/wrong-artifact.log" 'frontend artifact does not match selected stage' "artifact purpose rejection"
-cp "$stack_file" "$tmp_dir/original-stack.json"
-"$NODE_BIN" - "$stack_file" <<'JS'
-const fs = require("node:fs");
-const file = process.argv[2];
-const value = JSON.parse(fs.readFileSync(file, "utf8"));
-value.frontend.build_artifact_sha256 = `sha256:${"0".repeat(64)}`;
-fs.writeFileSync(file, JSON.stringify(value));
-JS
-if "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >"$tmp_dir/stale-build.log" 2>&1; then
-  fail "stale frontend build digest must fail attachment"
-fi
-assert_file_contains "$tmp_dir/stale-build.log" 'frontend build digest mismatch' "stale build rejection"
-cp "$tmp_dir/original-stack.json" "$stack_file"
-if "$NODE_BIN" "$EVIDENCE_HELPER" stack >/dev/null 2>&1; then
-  fail "v8 stack publication must be immutable"
-fi
-printf '\n' >>"$session_root/startup-diagnostics.json"
-if "$NODE_BIN" "$EVIDENCE_HELPER" attach "$stack_file" >/dev/null 2>&1; then
-  fail "mutated startup diagnostics must invalidate attachment"
-fi
-
-# A failed terminal state cannot regress to ready or accept more events.
-failed_session_id="session-failed"
-failed_session_root="$suite_root/browser-sessions/$failed_session_id"
-mkdir -p "$failed_session_root"
-export CARTULARY_BROWSER_SESSION_GROUP="$failed_session_id"
-export CARTULARY_WEB_E2E_SESSION_ARTIFACT_DIR="$failed_session_root"
-"$NODE_BIN" "$EVIDENCE_HELPER" event initializing "initializing failed session"
-"$NODE_BIN" "$EVIDENCE_HELPER" terminal failed "configuration rejected" config configuration_error
-if "$NODE_BIN" "$EVIDENCE_HELPER" terminal ready "must not regress" >/dev/null 2>&1; then
-  fail "failed terminal diagnostics must be immutable"
-fi
-if "$NODE_BIN" "$EVIDENCE_HELPER" event service_attached "must not append" >/dev/null 2>&1; then
-  fail "terminal diagnostics must close the event stream"
-fi
-assert_json "$failed_session_root/startup-diagnostics.json" \
-  'value.schema_id === "cartulary.browser_startup_diagnostics.v3" && value.status === "failed"' \
-  "failed v2 terminal diagnostic"
-
-# Browser reset is a process-replacement lifecycle, not a live HTTP route or
-# generation-renewal compatibility path.
-if CARTULARY_TEST_TARGET=adhoc \
-  CARTULARY_TEST_RESULTS_DIR="$tmp_dir/reset-results" \
-  CARTULARY_TEST_RUN_ID=missing-lease \
-  NODE_BIN="$NODE_BIN" \
-  "$RESET_SCRIPT" --label missing-lease >/dev/null 2>&1; then
-  fail "browser reset without the scheduler-owned session lease must fail"
-fi
-if "$RESET_SCRIPT" --label retired-renew --renew-generation 2 >/dev/null 2>&1; then
-  fail "retired functional renewal option must fail"
-fi
-if grep -Fq '/api/v1/test/runtime/reset' "$ROOT_DIR/tools/harness/browser/lifecycle/reset-route.sh"; then
-  fail "browser reset lifecycle must not call the retired runtime reset route"
-fi
-grep -Fq -- '--session-reset-backend' "$ROOT_DIR/tools/harness/browser/lifecycle/reset-route.sh" ||
-  fail "browser reset wrapper must delegate to backend replacement"
-grep -Fq -- '--database-result-file' "$ROOT_DIR/tools/harness/browser/lifecycle/reset-route.sh" ||
-  fail "browser reset wrapper must retain the database diagnostic"
 
 printf '%s\n' "test-web-e2e-lifecycle: pass"
 

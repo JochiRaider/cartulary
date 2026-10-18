@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 function invoke(...args) {
@@ -24,7 +26,7 @@ for (const target of ["test-fast", "check", "ci", "release-check"]) {
   const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
   assert.equal(digest(repeated.stdout), digest(result.stdout), `${target}: same selection has byte-identical plans`);
   const plan = JSON.parse(result.stdout);
-  assert.equal(plan.schema_id, "cartulary.harness_target_plan.v4");
+  assert.equal(plan.schema_id, "cartulary.harness_target_plan.v5");
   assert.equal(plan.target, target);
   assert.ok(plan.units.length > 0);
   assert.ok(plan.projections[target].length > 0);
@@ -42,18 +44,24 @@ for (const target of ["test-fast", "check", "ci", "release-check"]) {
   if (["check", "ci", "release-check"].includes(target)) {
     assert.ok(plan.units.some((unit) => unit.fixture_capability.startsWith("postgres_")),
       `${target}: service-backed gates retain declared PostgreSQL fixture work`);
-    const gateID = "target:frontend-fallow-static";
+  }
+  if (["ci", "release-check"].includes(target)) {
+    const gateID = "operation:harness.frontend_fallow_static";
     assert.ok(plan.projections["frontend-fallow-static"].includes(gateID));
     assert.ok(plan.projections[target].includes(gateID));
     assert.equal(plan.units.filter((unit) => unit.unit_id === gateID).length, 1,
       `${target} must include the bounded reachability gate exactly once`);
   }
 }
-const compact = invoke("--target", "backend-store");
-const detailed = invoke("--detail", "--target", "backend-store");
+const scratch = mkdtempSync(path.join(tmpdir(), "target-plan-inputs-"));
+const file = path.join(scratch, "inputs.json");
+writeFileSync(file, JSON.stringify({ SUITE: "backend-store" }));
+const compact = invoke("--target", "test-slice", "--inputs", file);
+const detailed = invoke("--view", "graph", "--target", "test-slice", "--inputs", file);
+rmSync(scratch, { recursive: true });
 assert.equal(compact.status, 0, compact.stderr);
 assert.equal(detailed.status, 0, detailed.stderr);
-assert.match(compact.stdout, /target=backend-store units=\d+ cached=\d+ fixtures=\d+ digest=sha256:/u);
+assert.match(compact.stdout, /target=test-slice units=\d+ cached=\d+ fixtures=\d+ digest=sha256:/u);
 assert.ok(compact.stdout.split("\n").length < detailed.stdout.split("\n").length);
 assert.match(detailed.stdout, /fixture=postgres_/u);
 assert.equal(invoke("--target", "unknown-target").status, 2);

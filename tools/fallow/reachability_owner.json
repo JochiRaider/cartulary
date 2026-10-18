@@ -66,7 +66,6 @@
       "tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs",
       "tools/harness/generated-artifacts/design-tokens/design-token-cli.mjs",
       "tools/harness/observability/canonical-evidence.mjs",
-      "tools/harness/observability/canonical-performance-cli.mjs",
       "tools/harness/output/test-output.mjs",
       "tools/harness/readiness/diagnose-inotify.mjs",
       "tools/harness/scheduler/work-graph/prepare-cli.mjs",

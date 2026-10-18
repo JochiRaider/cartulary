@@ -44,10 +44,6 @@ func (l *Lease) Bind(pid int) error {
 	if err != nil {
 		return err
 	}
-	alive, err := Alive(proof)
-	if err != nil || !alive {
-		return err
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err = Transact(ctx, Request{Root: l.root, Operation: "bind", Token: l.Token, Guard: proof})

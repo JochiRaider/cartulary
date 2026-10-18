@@ -28,8 +28,8 @@ export function validateRetainedCleanup(run, cleanup) {
 
 // Read every declared unit and row result in the selected projection. This is
 // shared by full-check maintenance and owner audits, not a new execution catalog.
-export function validateRetainedSelection(runRoot, run, units, projection, catalogRows) {
-  const byRow = new Map(catalogRows.map((row) => [row.row_id, row]));
+export function validateRetainedSelection(runRoot, run, units, projection, catalogRows = null) {
+  const byRow = catalogRows && new Map(catalogRows.map((row) => [row.row_id, row]));
   const rowUnits = new Map();
   if (projection.status !== "pass" || projection.failure_class !== null || projection.failure_reason !== null) throw new Error("retained target projection did not pass");
   for (const id of projection.unit_ids) {
@@ -42,16 +42,17 @@ export function validateRetainedSelection(runRoot, run, units, projection, catal
         (result.exit_code !== 0 && !(result.exit_code === null && terminal.cache_status === "hit")) ||
         result.signal !== null || result.missing_outputs.length || result.failure_class !== null || result.failure_reason !== null) throw new Error("selected unit result is unsuccessful or incompatible");
     if (expected.current_run_evidence_outputs.some((output) => !result.evidence_outputs.includes(output) || !projection.evidence_refs.includes(output))) throw new Error("selected unit omits declared evidence");
-    const selectedRows = expected.current_run_evidence_outputs.filter((value) => value.startsWith("rows/") && value.endsWith(".json")).map((value) => value.slice(5, -5));
+    const selectedRows = expected.row_bindings.map((row) => row.row_id);
+    const bindings = new Map(expected.row_bindings.map((row) => [row.row_id, row.runner]));
     if (!same(sorted(run.registrations.get(id).row_ids), sorted(selectedRows))) throw new Error("registered row selection differs from current unit selection");
     for (const rowID of selectedRows) {
       if (rowUnits.has(rowID)) throw new Error("selected row appears in multiple units");
       rowUnits.set(rowID, id);
-      const row = byRow.get(rowID);
-      if (!row) throw new Error("selected row is absent from the current catalog");
+      const row = byRow?.get(rowID);
+      if (byRow && !row) throw new Error("selected row is absent from the current catalog");
       const result = read(runRoot, `rows/${rowID}.json`);
-      validateSchemaSync("cartulary.harness_row_result.v3", result);
-      if (result.row_id !== rowID || result.runner !== row.runner || result.terminal_state !== "passed" ||
+      validateSchemaSync("cartulary.harness_row_result.v4", result);
+      if (result.row_id !== rowID || result.runner !== bindings.get(rowID) || (row && result.runner !== row.runner) || result.terminal_state !== "passed" ||
           result.exit_code !== 0 || result.failure_class !== null || result.failure_reason !== null) throw new Error("required row has no compatible successful terminal result");
     }
   }

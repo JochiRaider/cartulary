@@ -176,10 +176,55 @@ it("Slidev renders packaged slides assets and diagrams with repeatable admitted 
     foreignObjects: number;
     labels: string[];
   }[] = [];
+  const missingDiagramReadiness: unknown[] = [];
   const createContext = browser.newContext.bind(browser);
   vi.spyOn(browser, "newContext").mockImplementation(async (options) => {
     const context = await createContext(options);
     context.on("page", (page) => {
+      const waitForFunction = page.waitForFunction.bind(page);
+      let characterized = false;
+      vi.spyOn(page, "waitForFunction").mockImplementation(
+        async (predicate, argument, options) => {
+          if (characterized || missingDiagramReadiness.length >= 2)
+            return waitForFunction(predicate, argument, options);
+          characterized = true;
+          // Model a not-yet-mounted async component at the real readiness
+          // boundary. Restore the exact node explicitly; no delay or retry makes
+          // this race characterization depend on machine speed.
+          await page
+            .locator(".print-slide-container .mermaid")
+            .first()
+            .waitFor();
+          await page.evaluate(() => {
+            const host = document.querySelector(
+              ".print-slide-container .mermaid",
+            );
+            if (!host?.parentNode)
+              throw new Error("missing synthetic Mermaid host");
+            const marker = document.createComment("test-owned pending diagram");
+            host.replaceWith(marker);
+            (
+              globalThis as typeof globalThis & {
+                restoreTestDiagram?: () => void;
+              }
+            ).restoreTestDiagram = () => marker.replaceWith(host);
+          });
+          try {
+            missingDiagramReadiness.push(
+              await page.evaluate(predicate, argument),
+            );
+          } finally {
+            await page.evaluate(() => {
+              const scope = globalThis as typeof globalThis & {
+                restoreTestDiagram?: () => void;
+              };
+              scope.restoreTestDiagram?.();
+              delete scope.restoreTestDiagram;
+            });
+          }
+          return waitForFunction(predicate, argument, options);
+        },
+      );
       if (failSlideImport)
         void page.route("**/@slidev/slides/2/md*", (route) =>
           route.fulfill({
@@ -286,6 +331,7 @@ it("Slidev renders packaged slides assets and diagrams with repeatable admitted 
         ),
       );
     }
+    expect(missingDiagramReadiness).toEqual([false, false]);
     expect(renderedDiagrams).toEqual(
       Array.from({ length: 2 }, () => ({
         count: 1,
@@ -410,8 +456,22 @@ it("Slidev exports each click state and rejects an incorrect expected page count
   const directories: string[] = [];
   const clickSource = source.replace(
     "An immutable admitted render.",
-    '<v-click at="1">\n\nA revealed point.\n\n</v-click>',
+    '<v-click at="1">\n\nA revealed point.\n\n</v-click>\n\n```mermaid\nflowchart TD\n a["First"] --> b["Second"]\n```',
   );
+  const createContext = browser.newContext.bind(browser);
+  vi.spyOn(browser, "newContext").mockImplementation(async (options) => {
+    const context = await createContext(options);
+    context.on("page", (page) => {
+      const print = page.pdf.bind(page);
+      vi.spyOn(page, "pdf").mockImplementation(async (options) => {
+        expect(
+          await page.locator(".print-slide-container .mermaid svg").count(),
+        ).toBe(2);
+        return print(options);
+      });
+    });
+    return context;
+  });
   try {
     for (const expectedPages of [3, 2]) {
       const directory = await mkdtemp(

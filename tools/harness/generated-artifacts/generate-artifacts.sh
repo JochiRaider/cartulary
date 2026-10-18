@@ -38,3 +38,5 @@ find internal/gen/sql -maxdepth 1 -type f -name '*.go' -delete
 "$RUN_STEP_SCRIPT" "generate task surface and execution topology" -- \
   "$NODE_BIN" ./tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs \
   --topology tools/execution_topology_manifest.json
+"$NODE_BIN" ./tools/harness/generated-artifacts/generated-transaction.mjs \
+  --repo "$PWD" --manifest tools/generate_drift_scratch_inputs.json --mode normalize

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createSecureWriteStream, parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { CommandFailure, publishCommandFailure, readCommandFailure } from "../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
+import { withCleanupDiagnostic } from "../runtime/cleanup-diagnostic.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
 import { borrowRuntime } from "../runtime/session-client.mjs";
 
@@ -206,8 +207,10 @@ export async function stopAcquisitionProcesses(file, { producerActive = false, s
     if (pending.length) {
       const failures = [];
       for (const entry of pending) {
-        try { await stop(entry.proof, { environment }); closeAcquisitionLaunch(file, entry.launch_id, environment); }
-        catch (error) { failures.push(error); }
+        try { await stop(entry.proof, { environment }); }
+        catch (error) { failures.push(withCleanupDiagnostic(error, "browser_settlement")); continue; }
+        try { closeAcquisitionLaunch(file, entry.launch_id, environment); }
+        catch (error) { failures.push(withCleanupDiagnostic(error, "browser_acknowledgement")); }
       }
       if (failures.length) throw new AggregateError(failures, "browser process cleanup failed");
       continue;

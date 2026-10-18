@@ -75,7 +75,7 @@ if [[ "$status" -eq 0 ]]; then
   fail "missing STATICCHECK_BIN: expected wrapper failure"
 fi
 assert_contains "$output" "lint-go-staticcheck requires an executable STATICCHECK_BIN at $missing_staticcheck" "missing STATICCHECK_BIN diagnostic"
-assert_contains "$output" "run make go-lint-toolchain before lint-go-staticcheck" "missing STATICCHECK_BIN setup guidance"
+assert_contains "$output" "run make bootstrap before make lint CHECK=go" "missing STATICCHECK_BIN setup guidance"
 
 fake_staticcheck="$scratch/staticcheck"
 args_log="$scratch/staticcheck-args.log"

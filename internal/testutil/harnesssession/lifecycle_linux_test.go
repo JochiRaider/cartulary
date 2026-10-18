@@ -233,10 +233,61 @@ func testLifecycleGaps(t *testing.T) {
 			t.Fatal("signal delivery substituted for absence", err)
 		}
 	})
+	t.Run("signal_observes_reaped_leader_while_group_survives", func(t *testing.T) {
+		leader := exec.Command("/bin/sh", "-c", "read -r release")
+		leader.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		release, err := leader.StdinPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer release.Close()
+		if err := leader.Start(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = leader.Process.Kill(); _ = leader.Wait() }()
+		observed, err := readProcess(leader.Process.Pid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		member := exec.Command("sleep", "60")
+		member.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: leader.Process.Pid}
+		if err := member.Start(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = member.Process.Kill(); _ = member.Wait() }()
+		before, err := readProcess(member.Process.Pid)
+		if err != nil || before.PGID != observed.PGID || before.SID != observed.SID {
+			t.Fatal("fixture did not establish the shared group", err)
+		}
+		forged := observed
+		forged.Start = "0"
+		if err := signalProcess(forged, unix.SIGTERM); !errors.Is(err, ErrUnresolved) || DescribeCleanupFailure(err).Stage != "process_identity" {
+			t.Fatal("acquired handle bypassed process identity validation", err)
+		}
+		if _, err := fmt.Fprintln(release, "release"); err != nil {
+			t.Fatal(err)
+		}
+		if err := leader.Wait(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readProcess(observed.PID); !processGone(err) {
+			t.Fatal("fixture leader was not reaped", err)
+		}
+		// The process group keeps the numeric PID allocated on Linux even though
+		// its task has been reaped. Signaling this stale observation must defer
+		// settlement to another complete discovery sweep, not fail or signal the group.
+		if err := signalProcess(observed, unix.SIGTERM); !processGone(err) {
+			t.Fatal("reaped member did not become an absence observation", err)
+		}
+		after, err := readProcess(member.Process.Pid)
+		if err != nil || !sameProcess(before.ProcessProof, after.ProcessProof) || after.state == "Z" || after.state == "X" {
+			t.Fatal("stale leader signaling affected its surviving group member", err)
+		}
+	})
 	t.Run("settlement_requires_observed_absence", func(t *testing.T) {
 		leader := processState{ProcessProof: ProcessProof{PID: 100, Start: "10", PGID: 100, SID: 50, Group: true}, state: "Z"}
 		child := processState{ProcessProof: ProcessProof{PID: 101, Start: "11", PGID: 100, SID: 50}, state: "S"}
-		for _, denied := range []bool{false, true} {
+		for _, signalErr := range []error{nil, unix.EPERM, unix.EINVAL} {
 			sweeps, signals := 0, 0
 			err := settleProcess(context.Background(), leader.ProcessProof, 0, func(ProcessProof) ([]processState, error) {
 				sweeps++
@@ -252,23 +303,57 @@ func testLifecycleGaps(t *testing.T) {
 				if m.PID != 101 || s != unix.SIGKILL {
 					t.Fatal("wrong signaling target")
 				}
-				if denied {
-					return unix.EPERM
-				}
-				return nil
+				return signalErr
 			})
-			if denied {
-				if !errors.Is(err, unix.EPERM) || sweeps != 1 {
-					t.Fatal("permission failure lost", err, sweeps)
+			if signalErr != nil {
+				if !errors.Is(err, signalErr) || sweeps != 1 {
+					t.Fatal("unresolved signaling failure lost", err, sweeps)
 				}
 			} else if err != nil || sweeps != 4 || signals != 3 {
 				t.Fatal("premature settlement", err, sweeps, signals)
 			}
 		}
 		for _, altered := range []processState{child, {ProcessProof: ProcessProof{PID: 100, Start: "12", PGID: 100, SID: 50, Group: true}, state: "S"}} {
-			if err := settleProcess(context.Background(), leader.ProcessProof, 0, func(ProcessProof) ([]processState, error) { return []processState{altered}, nil }, func(processState, unix.Signal) error { t.Fatal("ambiguous identity signaled"); return nil }); !errors.Is(err, ErrUnresolved) {
+			ctx, cancel := context.WithTimeout(context.Background(), 25*time.Millisecond)
+			defer cancel()
+			if err := settleProcess(ctx, leader.ProcessProof, 0, func(ProcessProof) ([]processState, error) { return []processState{altered}, nil }, func(processState, unix.Signal) error { t.Fatal("ambiguous identity signaled"); return nil }); !errors.Is(err, ErrUnresolved) {
 				t.Fatal("ambiguous identity accepted", err)
 			}
+		}
+	})
+	t.Run("unanchored_membership_requires_absence_within_existing_attempt", func(t *testing.T) {
+		leader := ProcessProof{PID: 100, Start: "10", PGID: 100, SID: 50, Group: true}
+		unknown := processState{ProcessProof: ProcessProof{PID: 101, Start: "11", PGID: 100, SID: 50}, state: "S"}
+		for _, disappears := range []bool{true, false} {
+			limit := 25 * time.Millisecond
+			if disappears {
+				limit = time.Second
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), limit)
+			defer cancel()
+			sweeps := 0
+			err := settleProcess(ctx, leader, 0, func(ProcessProof) ([]processState, error) {
+				sweeps++
+				if disappears && sweeps == 3 {
+					return nil, nil
+				}
+				return []processState{unknown}, nil
+			}, func(processState, unix.Signal) error {
+				t.Fatal("unanchored observations became signaling authority")
+				return nil
+			})
+			if disappears {
+				if err != nil || sweeps != 3 {
+					t.Fatal("verified absence within bounded settlement was rejected", sweeps, err)
+				}
+			} else if !errors.Is(err, ErrUnresolved) || !errors.Is(err, context.DeadlineExceeded) || DescribeCleanupFailure(err).Stage != "process_group_anchor" {
+				t.Fatal("persistent ambiguity lost its existing deadline", sweeps, err)
+			}
+		}
+		if err := settleProcess(context.Background(), leader, 0,
+			func(ProcessProof) ([]processState, error) { return []processState{unknown}, nil },
+			func(processState, unix.Signal) error { t.Fatal("unbounded ambiguity signaled"); return nil }); !errors.Is(err, ErrUnresolved) {
+			t.Fatal("unbounded ambiguity must fail closed", err)
 		}
 	})
 	t.Run("native_group_with_inherited_session_settles", func(t *testing.T) {

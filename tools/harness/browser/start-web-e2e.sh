@@ -549,13 +549,14 @@ browser_prepare_frontend_toolchain() {
     -u JSON \
     -u OWNER \
     -u ROWS \
-    -u SERVICE_BACKED_ONLY \
+    -u SCOPE \
+    -u SUITE \
     -u PLAYWRIGHT_WORKERS \
     -u VITEST_MAX_WORKERS \
     MAKEFLAGS= \
     CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 \
     CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
-    make -s -C "${ROOT_DIR}" --no-print-directory frontend-toolchain
+    make -s -C "${ROOT_DIR}" --no-print-directory "${FRONTEND_TOOLCHAIN_STAMP:?frontend toolchain producer binding is required}"
 }
 
 bounded_private_failure_message() {
@@ -1715,7 +1716,7 @@ main() {
     browser_prepare_frontend_toolchain
   local pnpm_bin="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
   if [[ ! -x "${pnpm_bin}" ]]; then
-    echo "repo-local pnpm was not found at ${pnpm_bin}; run make frontend-toolchain" >&2
+    echo "repo-local pnpm was not found at ${pnpm_bin}; run make bootstrap PART=frontend" >&2
     return 1
   fi
 

@@ -7,11 +7,6 @@ const cacheRecordSchemaID = "cartulary.harness_cache_record.v2";
 const compareASCII = (a,b) => a < b ? -1 : a > b ? 1 : 0;
 
 // Pure preparation facts. Go exclusively owns cache storage and transactions.
-function targetForUnit(unit) {
-  if (unit.unit_id.startsWith("target:")) return unit.unit_id.slice("target:".length);
-  return unit.command.environment.CARTULARY_TEST_TARGET ?? "";
-}
-
 function expectedRowIDs(unit) {
   return unit.current_run_evidence_outputs
     .filter((relative) => relative.startsWith("rows/") && relative.endsWith(".json"))
@@ -21,18 +16,25 @@ function expectedRowIDs(unit) {
 
 export function loadCacheRegistry(root) {
   const registry = JSON.parse(readFileSync(path.join(root, "tools/harness_cache_registry.json"), "utf8"));
+  return indexCacheRegistry(registry);
+}
+
+function indexCacheRegistry(registry) {
   validateSchemaSync(registry.schema_id, registry);
   const profiles = new Map();
-  const targetProfiles = new Map();
+  const operationProfiles = new Map();
+  const runnerProfiles = new Map();
   for (const profile of registry.profiles) {
     if (profiles.has(profile.profile_id)) throw new Error(`duplicate cache profile ${profile.profile_id}`);
     profiles.set(profile.profile_id, profile);
-    for (const target of profile.targets) {
-      if (targetProfiles.has(target)) throw new Error(`duplicate cache target ${target}`);
-      targetProfiles.set(target, profile);
+    for (const [keys, index] of [[profile.operation_ids, operationProfiles], [profile.runner_types, runnerProfiles]]) {
+      for (const key of keys) {
+        if (index.has(key)) throw new Error(`duplicate cache binding ${key}`);
+        index.set(key, profile);
+      }
     }
   }
-  return { registry, profiles, targetProfiles };
+  return { registry, profiles, operationProfiles, runnerProfiles };
 }
 
 export class CachePlan {
@@ -44,20 +46,27 @@ export class CachePlan {
     this.helperDigest = helperDigest;
     this.vulnerabilityDatabaseRevision = vulnerabilityDatabaseRevision;
     this.sourceEntries = sourceEntries;
-    this.getCatalog = getCatalog;
+    let catalog;
+    this.getCatalog = () => (catalog ??= getCatalog());
     const loaded = registry
-      ? (() => {
-          validateSchemaSync(registry.schema_id, registry);
-          const profiles = new Map(registry.profiles.map((entry) => [entry.profile_id, entry]));
-          const targetProfiles = new Map(registry.profiles.flatMap((entry) => entry.targets.map((target) => [target, entry])));
-          return { profiles, targetProfiles };
-        })()
+      ? indexCacheRegistry(registry)
       : loadCacheRegistry(this.root);
     this.profiles = loaded.profiles;
-    this.targetProfiles = loaded.targetProfiles;
+    this.operationProfiles = loaded.operationProfiles;
+    this.runnerProfiles = loaded.runnerProfiles;
     this.dependencyClosures = new Map();
     this.dependencyResolverCache = new Map();
     this.contexts = new Map();
+  }
+
+  profileForUnit(unit) {
+    if (unit.unit_id.startsWith("operation:")) return this.operationProfiles.get(unit.unit_id.slice("operation:".length));
+    const rows = expectedRowIDs(unit);
+    if (rows.length === 0) return undefined;
+    const catalog = this.getCatalog();
+    const runners = new Set(rows.map((id) => catalog.rowByID.get(id)?.runner));
+    if (runners.size !== 1 || runners.has(undefined)) throw new Error("cache unit has inconsistent row runners");
+    return this.runnerProfiles.get([...runners][0]);
   }
 
   dependencyClosure(profile, unit) {
@@ -91,7 +100,7 @@ export class CachePlan {
     if (unit.reusable_artifact_outputs.some((output) => output.producer_identity !== unit.unit_id)) {
       return { eligible: false, reason: "artifact_producer_incomplete" };
     }
-    const profile = this.targetProfiles.get(targetForUnit(unit));
+    const profile = this.profileForUnit(unit);
     if (!profile || profile.policy !== unit.cache_policy) return { eligible: false, reason: "profile_missing" };
     if (profile.requires_vulnerability_database_revision && !this.vulnerabilityDatabaseRevision) {
       return { eligible: false, reason: "freshness_unknown", profile };
@@ -129,7 +138,7 @@ export class CachePlan {
   validateGraph(graph) {
     for (const unit of graph.units) {
       if (unit.cache_policy === "none") continue;
-      const profile = this.targetProfiles.get(targetForUnit(unit));
+      const profile = this.profileForUnit(unit);
       if (!profile || profile.policy !== unit.cache_policy) {
         throw new Error(`work unit ${unit.unit_id} has no matching registered cache profile`);
       }

@@ -64,7 +64,7 @@ if [[ "$status" -eq 0 ]]; then
   fail "missing GOSEC_BIN: expected wrapper failure"
 fi
 assert_contains "$output" "go-gosec-targeted requires an executable GOSEC_BIN at $missing_gosec" "missing GOSEC_BIN diagnostic"
-assert_contains "$output" "run make go-security-toolchain before go-gosec-targeted" "missing GOSEC_BIN setup guidance"
+assert_contains "$output" "run make bootstrap before make go-gosec-targeted" "missing GOSEC_BIN setup guidance"
 
 fake_gosec="$scratch/gosec"
 args_log="$scratch/gosec-args.log"

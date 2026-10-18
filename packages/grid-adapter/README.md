@@ -67,7 +67,7 @@ grid roots and clipping ancestors. Completed measurements remain fixed until
 another explicit command; observer and font events only invalidate pending work
 and update availability.
 
-Use `make task-guide ROLE=module-author OWNER=package.grid_adapter` from the
+Use `make task-guide OWNER=package.grid_adapter` from the
 repository root to select current semantic, production-binding, browser,
 accessibility and visual evidence. Application fakes cannot establish RDG focus,
 virtualization or scrolling behavior. See the frontend implementation testing

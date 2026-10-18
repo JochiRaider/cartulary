@@ -27,7 +27,7 @@ does not require a prior smoke run. Empty reuse caches trigger validation and
 source builds; they do not imply a missing installation. Ordinary review never
 installs packages, downloads tools/browsers, or pulls service images. Use the
 closed recovery guidance printed with the failure's phase, subject, and condition.
-A missing or stale frontend installation proof requires `make frontend-install`.
+A missing or stale frontend installation proof requires `make bootstrap PART=frontend`.
 
 Command results and receipts use v2; browser action requests use v3. The action
 contract retains `zoom` with `percent` of 100 or 125 and adds `diagnostic_snapshot`. Capture/analysis
@@ -98,10 +98,10 @@ A failed diagnostic may leave one bounded private troubleshooting record until
 session stop. Keep that detail out of retained logs and shared findings.
 
 For an intentional future dependency upgrade, amend the owner and renderer
-profile first, then use `make frontend-lockfile-update` and `make frontend-install`.
-The ordinary install stays frozen. `make playwright-install` installs the matching
+profile first, then use `make frontend-lockfile-update` and `make bootstrap PART=frontend`.
+The ordinary install stays frozen. `make bootstrap PART=browser` installs the matching
 browser and renderer image. Stop live sessions before replacing their toolchain;
-never carry browser state through a cutover. Use `make help-all` for current setup
+never carry browser state through a cutover. Use `make help ALL=1` for current setup
 and qualification routing.
 
 The page capture request below defaults to the viewport and includes advisory axe
@@ -226,7 +226,7 @@ remaining operation deadline; insufficient capacity reports resource conflict.
 Run from the repository root on the supported Linux/WSL2 environment with Docker
 available. Use `make doctor` to diagnose prerequisites and `make bootstrap` when
 the pinned toolchain and dependencies need installation. Discover current commands
-with `make help` and `make help-all`.
+with `make help` and `make help ALL=1`.
 
 ```bash
 make browser-design-review
@@ -259,17 +259,17 @@ remain under the reported `.cartulary/test-results/design-review-...` directory.
 Startup and seed failure also trigger cleanup. Restart after changing source to
 review a new build: a running session continues serving its own sealed artifact.
 
-For automated setup verification, use the finite helper:
+For automated lifecycle verification and the seeded editor/viewer workflows, use
+the corresponding harness presets:
 
 ```bash
-make browser-design-review-smoke
-make browser-design-review-smoke REVIEW_PROFILE=default
+make harness-contract SUITE=lifecycle
+make harness-contract SUITE=ui-review
 ```
 
-These helpers verify the workbook, Evidence upload/download, workbook CSV import,
-reference-pack import, incident-bundle handoff, zero/one/many incident navigation,
-role-dependent controls, and claimed/unclaimed Network Analysis before cleanup.
-They do not close product verification rows or replace a human design decision.
+The UI review preset retains both `default` and `network_flow_claimed` seeded
+contexts, artifact workflows and private cleanup checks. Harness assurance does
+not replace the selected product verification rows or a human design decision.
 
 ### Sign in and choose a scenario
 
@@ -305,7 +305,7 @@ state. Restart the session to recover the initial scenario.
 ### Existing development environments
 
 For iterative development with persistent data, follow the
-[development guide](cartulary-dev-guide.md). `make db-up`, `make db-migrate`, and
+[development guide](cartulary-dev-guide.md). `make services-up`, `make db-migrate`, and
 `make dev` retain their separate meanings. Migration uses the selected migration
 DSN; the server uses the selected runtime DSN. Use the same configuration and
 managed-service binding for both. Follow their current task contracts instead of
@@ -385,10 +385,12 @@ real-provider login. Keep external-provider credentials out of retained artifact
 Discover selection and ownership before running broad suites:
 
 ```bash
-make task-guide ROLE=module-author OWNER=web.design
-make explain-target TARGET=browser-e2e-visual DETAIL=rows
-make explain-test-owner OWNER=module.auth
+make task-guide OWNER=web.design
+make target-plan TARGET=browser-e2e INPUTS=<visual-selection.json> DETAIL=rows
+make task-guide DETAIL=coverage OWNER=module.auth
 ```
+
+The selection file contains `{"SUITE":"visual"}` and no undeclared inputs.
 
 The current graph runner launches `node` by name. If the pinned runtime is installed
 but `node` is absent from the shell's PATH, prefix these verification commands with
@@ -396,7 +398,7 @@ but `node` is absent from the shell's PATH, prefix these verification commands w
 runtime directly. Record this environment adjustment with the run.
 
 Choose exact current row IDs from that output and use
-`make service-backed-test-slice OWNER=<owner> ROWS=<row-id,...>` for browser rows.
+`make test-slice SCOPE=services OWNER=<owner> ROWS=<row-id,...>` for browser rows.
 Use `make test-slice` for applicable non-service owner checks. Historical title
 fragments and screenshot filenames do not define row ownership. Do not add a
 parallel list of catalog IDs to this guide.
@@ -404,8 +406,8 @@ parallel list of catalog IDs to this guide.
 Canonical retained visual/accessibility runs remain:
 
 ```bash
-make browser-e2e-visual
-make browser-e2e-a11y
+make browser-e2e SUITE=visual
+make browser-e2e SUITE=accessibility
 ```
 
 Their work graphs own builds, service sessions, profile separation and cleanup;
@@ -429,7 +431,7 @@ capture is not automatically an orphan. Do not update goldens during discovery.
 Reviewed goldens remain regression inputs, not design authority.
 
 An owner evidence audit is optional for discovery. When needed, discover its
-current inputs with `make explain-target TARGET=test-evidence-audit DETAIL=summary`
+current inputs with `make help ALL=1 JSON=1`
 and supply the required successful retained roots for the chosen owner. Report
 missing roots and skipped audits explicitly; do not create release claims from
 an incomplete evidence packet.

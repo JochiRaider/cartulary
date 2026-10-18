@@ -9,11 +9,12 @@ import { validateSchemaSync } from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v11";
-export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v2";
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
+export const executionTopologySchemaID = "cartulary.execution_topology.v12";
+import { projectOperationBindings, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
+export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v4";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v16";
 const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
-const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v11";
+const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v12";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
@@ -79,7 +80,7 @@ function normalizeExecutionDependencies(raw, targets) {
       throw new Error(`execution_dependencies contains invalid or duplicate id ${entry.id}`);
     }
     ids.add(entry.id);
-    if (!targets.has(entry.target)) throw new Error(`execution dependency ${entry.id} has unknown target ${entry.target}`);
+    if (!/^[a-z][a-z0-9-]*$/u.test(entry.target)) throw new Error(`execution dependency ${entry.id} has unknown target ${entry.target}`);
     if (!new Set(["backend", "frontend", "browser"]).has(entry.category)) {
       throw new Error(`execution dependency ${entry.id} has unknown category ${entry.category}`);
     }
@@ -129,9 +130,9 @@ function validateBrowserOwner(raw, dependencyIDs, targets, runtimeProfileIDs) {
   for (const stage of assertArray(raw.browser_e2e_batch?.stages, "browser_e2e_batch.stages")) {
     if (stageNames.has(stage.name)) throw new Error(`duplicate browser stage ${stage.name}`);
     stageNames.add(stage.name);
-    if (!targets.has(stage.target)) throw new Error(`browser stage ${stage.name} has unknown target ${stage.target}`);
+    if (!/^[a-z][a-z0-9-]*$/u.test(stage.target)) throw new Error(`browser stage ${stage.name} has unknown target ${stage.target}`);
     const artifact = raw.browser_e2e_batch.frontend_artifacts?.[stage.frontend_artifact_id];
-    if (!artifact || !targets.has(artifact.producer_target) ||
+    if (!artifact || !targets.has(artifact.producer_operation) || !/^[a-z][a-z0-9-]*$/u.test(artifact.producer_report_key) ||
         !/^apps\/web\/dist(?:-measurement)?$/u.test(artifact.path) ||
         !Array.isArray(artifact.entries) || artifact.entries.length === 0 ||
         artifact.entries.some((entry) => !/^[a-z]+\.html$/u.test(entry))) {
@@ -141,7 +142,7 @@ function validateBrowserOwner(raw, dependencyIDs, targets, runtimeProfileIDs) {
     for (const group of assertArray(stage.groups, `browser stage ${stage.name} groups`)) {
       if (groups.has(group.name)) throw new Error(`browser stage ${stage.name} has duplicate group ${group.name}`);
       groups.add(group.name);
-      if (!targets.has(group.target)) throw new Error(`browser group ${group.name} has unknown target ${group.target}`);
+      if (!/^[a-z][a-z0-9-]*$/u.test(group.target)) throw new Error(`browser group ${group.name} has unknown target ${group.target}`);
       if (!dependencyIDs.has(group.execution_dependency)) {
         throw new Error(`browser group ${group.name} has unknown execution dependency ${group.execution_dependency}`);
       }
@@ -171,12 +172,13 @@ export function loadExecutionTopology(options = {}) {
   const taskSurfaceOwnerPath = resolveRepoPath(root, raw.task_surface_owner);
   const taskSurface = readJSON(taskSurfaceOwnerPath);
   requireSchema(taskSurface, taskSurfaceOwnerSchemaID, taskSurfaceOwnerPath);
-  const targets = new Set(taskSurface.targets.map((entry) => entry.name));
+  const operationOwner = readOperationOwner(root);
+  const targets = new Set(Object.keys(operationOwner.operations));
   const runtimeProfiles = uniqueByID(raw.runtime_profiles, "runtime_profiles");
   uniqueByID(raw.resource_profiles, "resource_profiles");
   const executionDependencies = normalizeExecutionDependencies(raw, targets);
   const executionDependencyByID = new Map(executionDependencies.map((entry) => [entry.id, entry]));
-  const runtimeBinaries = normalizeRuntimeBinaryEntries(raw.runtime_binaries, { taskTargets: targets });
+  const runtimeBinaries = normalizeRuntimeBinaryEntries(raw.runtime_binaries, { operationIDs: targets });
   validateBrowserOwner(raw, new Set(executionDependencyByID.keys()), targets, new Set(runtimeProfiles.keys()));
   return {
     root,
@@ -187,7 +189,7 @@ export function loadExecutionTopology(options = {}) {
     executionDependencyByID,
     runtimeBinaries,
     goTargets: normalizeGoTargets(raw, runtimeBinaries),
-    taskSurface: clone(taskSurface),
+    taskSurface: projectOperationBindings(taskSurface, readOperationOwner(root)),
     taskSurfaceOwnerPath,
     browserBatch: clone(raw.browser_e2e_batch),
   };

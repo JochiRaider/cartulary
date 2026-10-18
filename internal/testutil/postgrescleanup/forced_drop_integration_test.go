@@ -3,11 +3,15 @@ package postgrescleanup_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -84,6 +88,35 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 	harness := pgtest.Start(t)
 	databaseName := fmt.Sprintf("ct_catalog_coordination_%d", time.Now().UnixNano())
 	differentDatabaseName := databaseName + "_other"
+	// The query session must own admission itself. Otherwise cancellation can
+	// close its connection while a different session releases target exclusion
+	// before PostgreSQL has physically stopped the original catalog operation.
+	if err := postgrescatalog.WithMutation(context.Background(), harness.AdminDSN(), databaseName, 5*time.Second, func(admin *sql.Conn) error {
+		var held bool
+		if err := admin.QueryRowContext(context.Background(), `SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_locks WHERE locktype = 'advisory' AND pid = pg_backend_pid() AND granted)`).Scan(&held); err != nil {
+			return err
+		}
+		if !held {
+			return fmt.Errorf("catalog operation session does not hold its target admission")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var cancelledOperation error
+	if err := postgrescatalog.WithMutation(context.Background(), harness.AdminDSN(), databaseName, 5*time.Second, func(admin *sql.Conn) error {
+		operationCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+		_, cancelledOperation = admin.ExecContext(operationCtx, `SELECT pg_sleep(60)`)
+		// DropOwnedDatabase keeps the operation outcome separate from admission
+		// so that only its declared bounded fallback can follow cancellation.
+		return nil
+	}); err != nil {
+		t.Fatalf("cancelled operation changed admission outcome: %v", err)
+	}
+	if !errors.Is(cancelledOperation, context.DeadlineExceeded) {
+		t.Fatalf("operation did not preserve cancellation: %v", cancelledOperation)
+	}
 	firstEntered := make(chan struct{})
 	releaseFirst := make(chan struct{})
 	firstDone := make(chan error, 1)
@@ -93,7 +126,7 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 			harness.AdminDSN(),
 			databaseName,
 			5*time.Second,
-			func(*sql.DB) error {
+			func(*sql.Conn) error {
 				close(firstEntered)
 				<-releaseFirst
 				return nil
@@ -110,7 +143,7 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 			harness.AdminDSN(),
 			databaseName,
 			5*time.Second,
-			func(admin *sql.DB) error {
+			func(admin *sql.Conn) error {
 				close(sameTargetEntered)
 				_, err := admin.ExecContext(
 					context.Background(),
@@ -134,7 +167,7 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 			harness.AdminDSN(),
 			differentDatabaseName,
 			5*time.Second,
-			func(admin *sql.DB) error {
+			func(admin *sql.Conn) error {
 				close(differentTargetEntered)
 				_, err := admin.ExecContext(
 					context.Background(),
@@ -171,5 +204,109 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 	}
 	if err := postgrescleanup.ForceDropDatabase(context.Background(), harness.AdminDSN(), differentDatabaseName); err != nil {
 		t.Fatalf("clean different-target database: %v", err)
+	}
+	t.Run("delayed_barrier_participant_is_redacted", characterizeBarrierParticipant)
+}
+
+func characterizeBarrierParticipant(t *testing.T) {
+	// The entire cluster belongs to this fixture; never stop a participant in
+	// a borrowed suite service. The peer connection remains owned until resumed.
+	harness, err := pgtest.StartOwned(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := harness.Close(ctx); err != nil {
+			t.Error(err)
+		}
+	})
+	database := harness.NewDatabaseT(t, "barrier_participant")
+	peer, err := pgconn.Connect(t.Context(), harness.AdminDSN())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = peer.Close(ctx)
+	})
+	peer.Exec(t.Context(), `SELECT pg_sleep(60)`)
+	admin, err := sql.Open("pgx", harness.AdminDSN())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = admin.Close() })
+	ready, cancelReady := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancelReady()
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		var active bool
+		if err := admin.QueryRowContext(ready, `SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_stat_activity WHERE pid = $1 AND state = 'active' AND wait_event = 'PgSleep')`, peer.PID()).Scan(&active); err != nil {
+			t.Fatal(err)
+		}
+		if active {
+			break
+		}
+		select {
+		case <-ready.Done():
+			t.Fatal("owned peer did not enter active statement")
+		case <-ticker.C:
+		}
+	}
+	resumed := false
+	resume := func() {
+		if resumed {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		code, _, err := harness.Container.Exec(ctx, []string{"kill", "-CONT", strconv.FormatUint(uint64(peer.PID()), 10)})
+		if err != nil || code != 0 {
+			t.Error("could not resume exact owned fixture backend")
+			return
+		}
+		resumed = true
+	}
+	t.Cleanup(resume)
+	stop, cancelStop := context.WithTimeout(t.Context(), 3*time.Second)
+	code, _, err := harness.Container.Exec(stop, []string{"kill", "-STOP", strconv.FormatUint(uint64(peer.PID()), 10)})
+	cancelStop()
+	if err != nil || code != 0 {
+		t.Fatal("could not stop exact owned fixture backend")
+	}
+	drop, cancelDrop := context.WithTimeout(t.Context(), 7*time.Second)
+	failure := postgrescleanup.ForceDropDatabase(drop, harness.AdminDSN(), database.Name)
+	cancelDrop()
+	resume()
+	if !errors.Is(failure, context.DeadlineExceeded) {
+		t.Fatalf("owned paused backend did not delay barrier: %v", failure)
+	}
+	var observed interface {
+		CleanupWait() postgrescleanup.DropObservation
+	}
+	if !errors.As(failure, &observed) {
+		t.Fatal("drop lost structural observation")
+	}
+	value := observed.CleanupWait()
+	if value.Status != "sampled" || value.Last.Type != "IPC" || value.Last.Event != "ProcSignalBarrier" {
+		t.Fatalf("different wait observed: %s", value.String())
+	}
+	encoded, err := json.Marshal(value.Last)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var snapshot map[string]any
+	if err := json.Unmarshal(encoded, &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	participant, ok := snapshot["barrier"].(map[string]any)
+	if !ok || participant["status"] != "sampled" || participant["backend"] != "client backend" || participant["state"] != "active" || participant["type"] != "Timeout" || participant["operation"] != "select" || participant["database_scope"] != "admin" {
+		t.Fatalf("missing redacted delayed participant: %s", encoded)
+	}
+	if len(participant) != 9 {
+		t.Fatal("participant contains unexpected identity or diagnostic fields")
 	}
 }

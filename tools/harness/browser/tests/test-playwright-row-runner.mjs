@@ -66,7 +66,7 @@ test("Playwright row adapter distinguishes primary asset failure from secondary 
   const assetResult = adapt(row("harness.browser.boundary_support.asset_probe", "assets"), report(broken));
   assert.equal(assetResult.failure_class, "artifact");
   const group = {
-    schema_id: "cartulary.browser_group_result.v7", target_id: "browser-e2e-visual",
+    schema_id: "cartulary.browser_group_result.v8", target_id: "browser-e2e-visual",
     stage_id: "visual", group_id: "asset-probe", browser_session_id: "session",
     runtime_profile_id: "default", service_requirement: "test-services",
     fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
@@ -365,7 +365,7 @@ test("browser target finalization preserves typed row failures and cleanup prece
         const directory = path.join(scratch, id, target, "browser-groups", groupID);
         mkdirSync(directory, { recursive: true, mode: 0o700 });
         const group = {
-          schema_id: "cartulary.browser_group_result.v7", target_id: target,
+          schema_id: "cartulary.browser_group_result.v8", target_id: target,
           stage_id: "webserver-backed", group_id: groupID, browser_session_id: `session-${index}`,
           runtime_profile_id: "default", service_requirement: "test-services",
           fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],

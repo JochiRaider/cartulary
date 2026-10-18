@@ -35,7 +35,7 @@ const defaultReleaseArtifactDir = ".cartulary/release-artifacts";
 const releaseArtifactSubdir = "seaweedfs";
 const seaweedfsCompatibilityTarget = "seaweedfs-compatibility";
 const seaweedfsCompatibilityReportName = "object-store-compatibility-report.json";
-const compatibilityUnitResultName = "target-seaweedfs-compatibility.json";
+const compatibilityUnitResultName = "operation-harness.seaweedfs_compatibility.json";
 const releaseGateRows = Object.freeze([
   "SWFS-AC-001",
   "SWFS-AC-002",
@@ -924,14 +924,14 @@ function validateCurrentCompatibilitySource({
   if (!result) {
     return;
   }
-  if (result.unit_id !== `target:${seaweedfsCompatibilityTarget}`) {
+  if (result.unit_id !== "operation:harness.seaweedfs_compatibility") {
     findings.push({
       check_id: "compatibility-unit-result-identity",
       severity: "blocking",
       path: resultPath ? displayPath(resultPath) : null,
       message: "current canonical compatibility unit result has the wrong unit",
       actual: result.unit_id ?? null,
-      expected: `target:${seaweedfsCompatibilityTarget}`,
+      expected: "operation:harness.seaweedfs_compatibility",
     });
   }
   if (result.status !== "passed") {

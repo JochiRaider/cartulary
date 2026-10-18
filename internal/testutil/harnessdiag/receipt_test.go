@@ -8,6 +8,20 @@ import (
 )
 
 func TestReceiptPublicationFailure(t *testing.T) {
+	for _, value := range []string{"16384.01 0.00\n", "32768.03 0.00\n", "123456.78 0.00\n"} {
+		ms, err := parseBootMilliseconds(value)
+		if err != nil || !safeInteger(ms, 0, 9007199254740991) {
+			t.Fatalf("boot clock lost integer precision: %q %v %v", value, ms, err)
+		}
+	}
+	if ms, err := parseBootMilliseconds("16384.01 0.00\n"); err != nil || ms != 16384010 {
+		t.Fatalf("boot clock changed units: %v %v", ms, err)
+	}
+	for _, value := range []string{"", "-1.00", "1.001", "NaN", "9007199254741.00", "1e4.00"} {
+		if _, err := parseBootMilliseconds(value); err == nil {
+			t.Fatalf("accepted invalid boot clock %q", value)
+		}
+	}
 	roots := []string{"/private/one", "/private/two", "/private/three"}
 	payload := []byte("closed receipt\n")
 	full := errors.New("disk full")

@@ -34,7 +34,7 @@ test("renderer context rejects missing browser capacity and unrelated service fi
       assert.throws(() => createContractTestContext(root).catalogMetadata, /renderer-node|installed renderer preparation/u);
     }
     mutation = {};
-    assert.ok(createContractTestContext(root).catalogMetadata.rows.some((row) => row.row_id === "module.reporting.integration.renderer_slidev" && row.preparation_targets.includes("build-report-renderer")));
+    assert.ok(createContractTestContext(root).catalogMetadata.rows.some((row) => row.row_id === "module.reporting.integration.renderer_slidev" && row.preparation_operations.includes("harness.build_report_renderer")));
   } finally {
     fs.readFileSync = read;
     syncBuiltinESMExports();
@@ -58,12 +58,12 @@ test("catalog preparation is closed and Go browser preparation requires owned ca
   syncBuiltinESMExports();
   try {
     for (const entry of [
-      { preparation_targets: ["arbitrary-command"] },
-      { preparation_targets: ["frontend-install", "frontend-install"] },
-      { preparation_targets: ["playwright-install", "frontend-install"] },
-      { preparation_targets: ["playwright-install"] },
-      { preparation_targets: ["build-report-renderer"], resource_profile_id: "standard" },
-      { preparation_targets: ["build-report-renderer"], process_isolation: undefined },
+      { preparation_operations: ["arbitrary-command"] },
+      { preparation_operations: ["harness.frontend_install", "harness.frontend_install"] },
+      { preparation_operations: ["harness.playwright_install", "harness.frontend_install"] },
+      { preparation_operations: ["harness.playwright_install"] },
+      { preparation_operations: ["harness.build_report_renderer"], resource_profile_id: "standard" },
+      { preparation_operations: ["harness.build_report_renderer"], process_isolation: undefined },
       { resource_profile_id: "standard" },
       { process_isolation: undefined },
     ]) {

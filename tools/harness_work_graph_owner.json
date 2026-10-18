@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_work_graph_owner.v2",
+  "schema_id": "cartulary.harness_work_graph_owner.v4",
   "capacity_override_input": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
   "tier_order": [
     "fast",
@@ -10,14 +10,12 @@
   "aggregate_tiers": {
     "test-fast": "fast",
     "check": "standard",
-    "test": "full",
     "ci": "full",
     "release-check": "release"
   },
   "aggregate_policy_inherits": {
     "test-fast": [],
     "check": [],
-    "test": [],
     "ci": [
       "check"
     ],
@@ -28,431 +26,806 @@
   "aggregate_policy_roots": {
     "test-fast": [],
     "check": [
-      "backend-module-boundary-check",
-      "build-migrate",
-      "build-operator",
-      "build-server",
-      "build-server-harness",
-      "check-harness-smoke",
-      "frontend-fallow-static",
-      "frontend-import-boundary-check",
-      "frontend-typecheck",
-      "generate-drift",
-      "generated-artifact-policy-check",
-      "go-gosec-targeted",
-      "go-test-duration-baseline-coverage",
-      "go-vulncheck",
-      "json-shape-check",
-      "lint-biome",
-      "lint-go",
-      "lint-scripts",
-      "lint-shell",
-      "migration-input-drift",
-      "otel-conformance",
-      "semantic-identity-check",
-      "test-catalog-check"
+      "harness.backend_module_boundary_check",
+      "harness.contract_smoke",
+      "harness.frontend_import_boundary_check",
+      "harness.frontend_typecheck",
+      "harness.generated_artifact_policy_check",
+      "harness.go_gosec_targeted",
+      "harness.go_vulncheck",
+      "harness.json_shape_check",
+      "harness.lint_biome",
+      "harness.lint_go",
+      "harness.lint_scripts",
+      "harness.lint_shell",
+      "harness.migration_input_drift",
+      "harness.otel_conformance",
+      "harness.semantic_identity_check",
+      "harness.source_generated",
+      "harness.test_catalog_check"
     ],
-    "test": [],
     "ci": [
-      "deployable-shape",
-      "go-gosec-audit",
-      "harness-contract"
+      "harness.build_production",
+      "harness.contract_default",
+      "harness.deployable_shape",
+      "harness.frontend_fallow_static",
+      "harness.go_gosec_audit"
     ],
     "release-check": [
-      "browser-e2e-support",
-      "build",
-      "credential-capacity-assessment",
-      "cryptographic-policy-assessment",
-      "license-report",
-      "release-readiness-evidence",
-      "sbom",
-      "seaweedfs-compatibility",
-      "seaweedfs-release-gate",
-      "standup-operational-recovery-smoke",
-      "standup-package-smoke",
-      "standup-reference-pack-smoke"
+      "harness.build_production",
+      "harness.credential_capacity_assessment",
+      "harness.cryptographic_policy_assessment",
+      "harness.license_report",
+      "harness.release_readiness_evidence",
+      "harness.sbom",
+      "harness.seaweedfs_compatibility",
+      "harness.seaweedfs_release_gate",
+      "harness.standup_operational_recovery_smoke",
+      "harness.standup_package_smoke",
+      "harness.standup_reference_pack_smoke",
+      "harness.suite_browser_support"
     ]
   },
   "target_members": {
-    "build": [
-      "build-migrate",
-      "build-operator",
-      "build-server",
-      "build-web"
+    "harness.suite_backend_unit": [
+      {
+        "catalog": {
+          "runner": "go",
+          "go_suite": "unit"
+        }
+      }
     ],
-    "format": [
-      "format-frontend",
-      "format-go"
+    "harness.suite_backend_store": [
+      {
+        "catalog": {
+          "runner": "go",
+          "go_suite": "store"
+        }
+      }
     ],
-    "lint": [
-      "backend-module-boundary-check",
-      "frontend-import-boundary-check",
-      "frontend-typecheck",
-      "lint-biome",
-      "lint-go",
-      "lint-scripts",
-      "lint-shell"
+    "harness.suite_backend_integration": [
+      {
+        "catalog": {
+          "runner": "go",
+          "go_suite": "integration"
+        }
+      }
     ],
-    "harness-contract": [
-      "harness-boundary-contract",
-      "harness-command-surface-contract",
-      "harness-evidence-contract",
-      "harness-graph-contract",
-      "harness-local-session-contract",
-      "harness-observation-contract",
-      "harness-scheduler-contract",
-      "harness-ui-review-contract"
+    "harness.suite_backend_process": [
+      {
+        "catalog": {
+          "runner": "go",
+          "go_suite": "process"
+        }
+      }
     ],
-    "harness-contract-tests": [
-      "harness-boundary-contract",
-      "harness-command-surface-contract",
-      "harness-evidence-contract",
-      "harness-graph-contract",
-      "harness-local-session-contract",
-      "harness-playwright-adapter-contract",
-      "harness-scheduler-contract",
-      "harness-ui-review-contract"
+    "harness.suite_frontend_unit": [
+      {
+        "catalog": {
+          "runner": "vitest"
+        }
+      }
+    ],
+    "harness.suite_browser_functional": [
+      {
+        "catalog": {
+          "runner": "playwright",
+          "stages": [
+            "webserver_backed"
+          ]
+        }
+      }
+    ],
+    "harness.suite_browser_stateful": [
+      {
+        "catalog": {
+          "runner": "playwright",
+          "stages": [
+            "stateful"
+          ]
+        }
+      }
+    ],
+    "harness.suite_browser_measurement": [
+      {
+        "catalog": {
+          "runner": "playwright",
+          "stages": [
+            "measurement"
+          ]
+        }
+      }
+    ],
+    "harness.suite_browser_accessibility": [
+      {
+        "catalog": {
+          "runner": "playwright",
+          "stages": [
+            "accessibility"
+          ]
+        }
+      }
+    ],
+    "harness.suite_browser_visual": [
+      {
+        "catalog": {
+          "runner": "playwright",
+          "stages": [
+            "visual"
+          ]
+        }
+      }
+    ],
+    "harness.suite_browser_support": [
+      {
+        "catalog": {
+          "runner": "playwright",
+          "stages": [
+            "support"
+          ]
+        }
+      }
+    ],
+    "harness.suite_browser_all": [
+      {
+        "catalog": {
+          "runner": "playwright"
+        }
+      }
+    ],
+    "harness.build_production": [
+      {
+        "operation_id": "harness.build_migrate"
+      },
+      {
+        "operation_id": "harness.build_operator"
+      },
+      {
+        "operation_id": "harness.build_server"
+      },
+      {
+        "operation_id": "harness.build_web"
+      }
+    ],
+    "harness.lint_standard": [
+      {
+        "operation_id": "harness.backend_module_boundary_check"
+      },
+      {
+        "operation_id": "harness.frontend_import_boundary_check"
+      },
+      {
+        "operation_id": "harness.frontend_typecheck"
+      },
+      {
+        "operation_id": "harness.lint_biome"
+      },
+      {
+        "operation_id": "harness.lint_go_format"
+      },
+      {
+        "operation_id": "harness.lint_go_vet"
+      },
+      {
+        "operation_id": "harness.lint_go_staticcheck"
+      },
+      {
+        "operation_id": "harness.lint_scripts"
+      },
+      {
+        "operation_id": "harness.lint_shell"
+      }
+    ],
+    "harness.contract_default": [
+      {
+        "operation_id": "harness.harness_boundary_contract"
+      },
+      {
+        "operation_id": "harness.harness_command_surface_contract"
+      },
+      {
+        "operation_id": "harness.harness_evidence_contract"
+      },
+      {
+        "operation_id": "harness.harness_graph_contract"
+      },
+      {
+        "operation_id": "harness.harness_local_session_contract"
+      },
+      {
+        "operation_id": "harness.harness_observation_contract"
+      },
+      {
+        "operation_id": "harness.harness_scheduler_contract"
+      },
+      {
+        "operation_id": "harness.harness_ui_review_contract"
+      },
+      {
+        "operation_id": "harness.assurance_dev_services_lifecycle"
+      }
+    ],
+    "harness.contract_smoke": [
+      {
+        "operation_id": "harness.public_wrapper_smoke"
+      },
+      {
+        "row_id": "harness.command_surface.unit.scheduler_smoke"
+      },
+      {
+        "row_id": "harness.browser.unit.fixture_broker_smoke"
+      }
+    ],
+    "harness.contract_runtime": [
+      {
+        "operation_id": "harness.harness_runtime_contract"
+      }
+    ],
+    "harness.contract_fixtures": [
+      {
+        "operation_id": "harness.harness_fixture_contract"
+      }
+    ],
+    "harness.contract_runtime_boundary": [
+      {
+        "operation_id": "harness.harness_runtime_boundary_contract"
+      }
+    ],
+    "harness.contract_artifact_consumers": [
+      {
+        "row_id": "harness.browser.boundary_support.frontend_artifact_lifetime"
+      },
+      {
+        "row_id": "package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b"
+      }
+    ],
+    "harness.package_archive": [
+      {
+        "operation_id": "harness.package_inspect"
+      }
+    ],
+    "harness.package_startup": [
+      {
+        "operation_id": "harness.standup_package_smoke"
+      }
+    ],
+    "harness.package_reference_pack": [
+      {
+        "operation_id": "harness.standup_reference_pack_smoke"
+      }
+    ],
+    "harness.package_recovery": [
+      {
+        "operation_id": "harness.standup_operational_recovery_smoke"
+      }
+    ],
+    "harness.package_all": [
+      "harness.package_archive",
+      "harness.package_startup",
+      "harness.package_reference_pack",
+      "harness.package_recovery"
+    ],
+    "harness.assurance_work_graph_service_backed_target": [
+      {
+        "operation_id": "harness.harness_runtime_boundary_contract"
+      }
+    ],
+    "harness.contract_regression": [
+      "harness.assurance_execution_topology",
+      "harness.assurance_task_surface_report",
+      "harness.assurance_agent_finalize",
+      "harness.assurance_run_step",
+      "harness.assurance_run_vitest_step",
+      "harness.assurance_run_playwright_step",
+      "harness.assurance_work_graph_fast",
+      "harness.assurance_work_graph_service_backed_target",
+      "harness.assurance_toolchain_pins",
+      "harness.assurance_go_toolchain_readiness",
+      "harness.assurance_bootstrap_node_runtime",
+      "harness.assurance_bootstrap_shellcheck",
+      "harness.assurance_cache_artifact",
+      "harness.assurance_cleanup_contract",
+      "harness.assurance_capacity_failure_contract",
+      "harness.assurance_lint_shell",
+      "harness.assurance_build_input_discovery",
+      "harness.assurance_check_migrations",
+      "harness.assurance_generate_drift",
+      "harness.assurance_generated_artifact_policy",
+      "harness.assurance_json_shapes",
+      "harness.assurance_run_go_staticcheck",
+      "harness.assurance_run_go_govulncheck",
+      "harness.assurance_run_go_gosec_targeted",
+      "harness.assurance_run_go_gosec_audit",
+      "harness.assurance_release_task_surface",
+      "harness.assurance_release_readiness_evidence",
+      "harness.assurance_sbom_license_evidence",
+      "harness.assurance_seaweedfs_release_evidence",
+      "harness.assurance_make_node_tools",
+      "harness.assurance_canonical_evidence",
+      "harness.assurance_browser_work_graph",
+      "harness.assurance_print_target_plan",
+      "harness.assurance_work_graph_scheduler_matrix",
+      "harness.assurance_fixture_broker_matrix",
+      "harness.assurance_work_graph_matrix",
+      "harness.assurance_observability",
+      "harness.assurance_frontend_import_boundaries",
+      "harness.assurance_fallow_static",
+      {
+        "row_id": "harness.browser.unit.fixture_broker_smoke"
+      }
+    ],
+    "harness.contract_execution": [
+      "harness.assurance_run_step",
+      "harness.assurance_run_vitest_step",
+      "harness.assurance_run_playwright_step",
+      "harness.assurance_work_graph_fast",
+      "harness.assurance_work_graph_service_backed_target",
+      "harness.assurance_make_node_tools"
+    ],
+    "harness.contract_lifecycle": [
+      "harness.assurance_web_e2e_lifecycle",
+      "harness.assurance_dev_stack_lifecycle",
+      "harness.assurance_dev_services_lifecycle"
+    ],
+    "harness.contract_full": [
+      "harness.contract_smoke",
+      "harness.contract_regression",
+      "harness.contract_lifecycle",
+      "harness.assurance_tool_output_real_targets"
+    ],
+    "harness.contract_ui_review": [
+      {
+        "operation_id": "harness.harness_ui_review_contract"
+      },
+      {
+        "operation_id": "harness.harness_ui_review_lifecycle"
+      },
+      {
+        "operation_id": "harness.harness_ui_review_artifacts"
+      },
+      {
+        "operation_id": "harness.harness_ui_review_presentation"
+      },
+      {
+        "operation_id": "harness.harness_ui_review_execution"
+      },
+      {
+        "operation_id": "harness.harness_ui_review_workflow"
+      },
+      {
+        "operation_id": "harness.harness_ui_review_seeded_default"
+      },
+      {
+        "operation_id": "harness.harness_ui_review_seeded_network_flow_claimed"
+      }
+    ],
+    "harness.source_generated_selection": [
+      "harness.source_generated",
+      "harness.generated_artifact_policy_check"
+    ],
+    "harness.source_schema_selection": [
+      "harness.json_shape_check"
+    ],
+    "harness.source_catalog_selection": [
+      "harness.test_catalog_check"
+    ],
+    "harness.source_surface_selection": [
+      "harness.source_surface"
+    ],
+    "harness.source_identity_selection": [
+      "harness.semantic_identity_check"
+    ],
+    "harness.source_toolchain_selection": [
+      "harness.toolchain_drift"
+    ],
+    "harness.source_migration_input_selection": [
+      "harness.migration_input_drift"
+    ],
+    "harness.source_all": [
+      "harness.source_generated",
+      "harness.generated_artifact_policy_check",
+      "harness.json_shape_check",
+      "harness.source_surface",
+      "harness.semantic_identity_check",
+      "harness.toolchain_drift",
+      "harness.migration_input_drift"
+    ],
+    "harness.lint_go": [
+      {
+        "operation_id": "harness.lint_go_format"
+      },
+      {
+        "operation_id": "harness.lint_go_vet"
+      },
+      {
+        "operation_id": "harness.lint_go_staticcheck"
+      }
+    ],
+    "harness.lint_protocol": [
+      "harness.protocol_ts_browser_artifact_reachability",
+      "harness.protocol_ts_dead_code_check"
+    ],
+    "harness.format_all": [
+      "harness.format_frontend",
+      "harness.format_go"
+    ],
+    "harness.services_ready": [
+      "harness.postgres_wait",
+      "harness.object_store_wait"
+    ],
+    "harness.go_security_toolchain_union": [
+      "harness.govulncheck_toolchain",
+      "harness.gosec_toolchain"
+    ],
+    "harness.frontend_ready": [
+      "harness.frontend_install"
+    ],
+    "harness.scheduler_smoke_selection": [
+      {
+        "row_id": "harness.command_surface.unit.scheduler_smoke"
+      }
+    ],
+    "harness.fixture_smoke_selection": [
+      {
+        "row_id": "harness.browser.unit.fixture_broker_smoke"
+      }
+    ],
+    "harness.wrapper_smoke_selection": [
+      {
+        "operation_id": "harness.public_wrapper_smoke"
+      }
+    ],
+    "harness.migration_drift": [
+      {
+        "row_id": "harness.generated_artifacts.support.migration_input_integrity"
+      },
+      {
+        "row_id": "module.database_migrations.integration.schema_bootstrap"
+      }
+    ],
+    "harness.assurance_tool_output_real_targets": [
+      "harness.assurance_output_source_schema",
+      "harness.assurance_output_backend_unit",
+      "harness.assurance_output_backend_unit_machine",
+      "harness.assurance_output_owner_json",
+      "harness.assurance_output_lint",
+      "harness.assurance_output_build",
+      "harness.assurance_output_build_machine",
+      "harness.assurance_output_test_fast",
+      "harness.assurance_output_check",
+      "harness.assurance_output_check_machine",
+      "harness.assurance_output_invalid_usage"
     ]
   },
   "policy_units": {
-    "backend-module-boundary-check": {
+    "harness.backend_module_boundary_check": {
       "needs": [
-        "toolchain-drift"
+        "harness.toolchain_drift"
       ],
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "browser-e2e-support": {
-      "needs": [],
-      "cache_policy": "none",
-      "estimated_work_ms": 12000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "build-migrate": {
+    "harness.build_migrate": {
       "needs": [
-        "toolchain-drift"
+        "harness.toolchain_drift"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "build-operator": {
+    "harness.build_operator": {
       "needs": [
-        "embedded-web-assets"
+        "harness.embedded_web_assets"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "build-server": {
+    "harness.build_server": {
       "needs": [
-        "embedded-web-assets"
+        "harness.embedded_web_assets"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "build-server-harness": {
+    "harness.build_server_harness": {
       "needs": [
-        "embedded-web-assets",
-        "build-report-renderer"
+        "harness.build_report_renderer",
+        "harness.embedded_web_assets"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "build-web": {
+    "harness.build_web": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "check-harness-smoke": {
+    "harness.codegen_toolchain": {
       "needs": [
-        "toolchain-drift"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 1500,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "codegen-toolchain": {
-      "needs": [
-        "toolchain-drift"
+        "harness.toolchain_drift"
       ],
       "cache_policy": "same_run",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "deployable-shape": {
+    "harness.deployable_shape": {
       "needs": [
-        "build"
+        "harness.build_production"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "embedded-web-assets": {
+    "harness.embedded_web_assets": {
       "needs": [
-        "build-web"
+        "harness.build_web"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "frontend-fallow-static": {
+    "harness.frontend_fallow_static": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "frontend-import-boundary-check": {
+    "harness.frontend_import_boundary_check": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "frontend-install": {
+    "harness.frontend_install": {
       "needs": [],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "frontend-typecheck": {
+    "harness.frontend_typecheck": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "content_addressed",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "generate-drift": {
+    "harness.generated_artifact_policy_check": {
       "needs": [
-        "codegen-toolchain"
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.go_gosec_audit": {
+      "needs": [
+        "harness.gosec_toolchain"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 8000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.go_gosec_targeted": {
+      "needs": [
+        "harness.gosec_toolchain"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 8000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.go_lint_toolchain": {
+      "needs": [
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.go_vulncheck": {
+      "needs": [
+        "harness.govulncheck_toolchain"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 8000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.goose_toolchain": {
+      "needs": [
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.gosec_toolchain": {
+      "needs": [
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.govulncheck_toolchain": {
+      "needs": [
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "same_run",
+      "estimated_work_ms": 1000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.json_shape_check": {
+      "needs": [
+        "harness.frontend_install",
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.license_report": {
+      "needs": [
+        "harness.release_inventory_artifacts"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "generated-artifact-policy-check": {
+    "harness.lint_biome": {
       "needs": [
-        "toolchain-drift"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 1500,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "go-gosec-audit": {
-      "needs": [
-        "gosec-toolchain"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 8000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "go-gosec-targeted": {
-      "needs": [
-        "gosec-toolchain"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 8000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "go-lint-toolchain": {
-      "needs": [
-        "toolchain-drift"
-      ],
-      "cache_policy": "same_run",
-      "estimated_work_ms": 1000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "go-test-duration-baseline-coverage": {
-      "needs": [
-        "toolchain-drift"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 1500,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "go-vulncheck": {
-      "needs": [
-        "govulncheck-toolchain"
-      ],
-      "cache_policy": "content_addressed",
-      "estimated_work_ms": 8000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "goose-toolchain": {
-      "needs": [
-        "toolchain-drift"
-      ],
-      "cache_policy": "same_run",
-      "estimated_work_ms": 1000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "gosec-toolchain": {
-      "needs": [
-        "toolchain-drift"
-      ],
-      "cache_policy": "same_run",
-      "estimated_work_ms": 1000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "govulncheck-toolchain": {
-      "needs": [
-        "toolchain-drift"
-      ],
-      "cache_policy": "same_run",
-      "estimated_work_ms": 1000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "json-shape-check": {
-      "needs": [
-        "frontend-install",
-        "toolchain-drift"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 1500,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "license-report": {
-      "needs": [
-        "release-inventory-artifacts"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 5000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "lint-biome": {
-      "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "lint-go": {
+    "harness.lint_scripts": {
       "needs": [
-        "go-lint-toolchain"
-      ],
-      "cache_policy": "content_addressed",
-      "estimated_work_ms": 3000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "lint-scripts": {
-      "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "lint-shell": {
+    "harness.lint_shell": {
       "needs": [
-        "shell-lint-toolchain"
+        "harness.shell_lint_toolchain"
       ],
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "migration-drift": {
+    "harness.migration_input_drift": {
       "needs": [
-        "build-migrate",
-        "goose-toolchain"
-      ],
-      "cache_policy": "none",
-      "estimated_work_ms": 3000,
-      "resource_profile_id": "standard",
-      "service_dependencies": []
-    },
-    "migration-input-drift": {
-      "needs": [
-        "toolchain-drift"
+        "harness.toolchain_drift"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "object-store-init": {
+    "harness.object_store_init": {
       "needs": [],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "openapi-compatibility-check": {
+    "harness.openapi_compatibility_check": {
       "needs": [
-        "codegen-toolchain"
+        "harness.codegen_toolchain"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "otel-conformance": {
+    "harness.otel_conformance": {
       "needs": [
-        "build-web",
-        "toolchain-drift"
-      ],
-      "owner_slices": [
-        "platform.telemetry"
+        "harness.build_web",
+        "harness.toolchain_drift"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "required_rows": [
+        {
+          "row_id": "platform.telemetry.unit.accessors_registries_and_sampler",
+          "rationale": "Required OTel configuration and accessor evidence: accessors registries and sampler."
+        },
+        {
+          "row_id": "platform.telemetry.unit.bootstrap_activation_and_containment",
+          "rationale": "Required OTel runtime/security evidence above the ordinary aggregate tier: bootstrap activation and containment."
+        },
+        {
+          "row_id": "platform.telemetry.unit.configuration_defaults_closed_namespace",
+          "rationale": "Required OTel configuration and accessor evidence: configuration defaults closed namespace."
+        },
+        {
+          "row_id": "platform.telemetry.unit.configuration_environment_binding",
+          "rationale": "Required OTel configuration and accessor evidence: configuration environment binding."
+        },
+        {
+          "row_id": "platform.telemetry.unit.configuration_secret_references",
+          "rationale": "Required OTel runtime/security evidence above the ordinary aggregate tier: configuration secret references."
+        },
+        {
+          "row_id": "platform.telemetry.unit.configuration_validation",
+          "rationale": "Required OTel configuration and accessor evidence: configuration validation."
+        },
+        {
+          "row_id": "platform.telemetry.unit.exporter_failure_invariance",
+          "rationale": "Required OTel runtime/security evidence above the ordinary aggregate tier: exporter failure invariance."
+        },
+        {
+          "row_id": "platform.telemetry.unit.log_mapping_and_queue_behavior",
+          "rationale": "Required OTel runtime/security evidence above the ordinary aggregate tier: log mapping and queue behavior."
+        },
+        {
+          "row_id": "platform.telemetry.unit.privacy_and_redaction",
+          "rationale": "Required OTel runtime/security evidence above the ordinary aggregate tier: privacy and redaction."
+        },
+        {
+          "row_id": "platform.telemetry.unit.qualified_transports",
+          "rationale": "Required OTel runtime/security evidence above the ordinary aggregate tier: qualified transports."
+        },
+        {
+          "row_id": "platform.telemetry.unit.resource_identity",
+          "rationale": "Required OTel runtime/security evidence above the ordinary aggregate tier: resource identity."
+        }
+      ]
     },
-    "playwright-install": {
+    "harness.playwright_install": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "release-inventory-artifacts": {
+    "harness.release_inventory_artifacts": {
       "needs": [
-        "frontend-install",
-        "toolchain-drift"
+        "harness.frontend_install",
+        "harness.toolchain_drift"
       ],
       "cache_policy": "content_addressed",
       "reusable_artifact_outputs": [
@@ -461,53 +834,53 @@
           "relative_path": ".cartulary/release-artifacts/license-report.json",
           "destination_class": "repository_artifact",
           "mode": "0644",
-          "producer_identity": "target:release-inventory-artifacts"
+          "producer_identity": "operation:harness.release_inventory_artifacts"
         },
         {
           "artifact_type": "file",
           "relative_path": ".cartulary/release-artifacts/sbom.cyclonedx.json",
           "destination_class": "repository_artifact",
           "mode": "0644",
-          "producer_identity": "target:release-inventory-artifacts"
+          "producer_identity": "operation:harness.release_inventory_artifacts"
         }
       ],
       "estimated_work_ms": 10000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "release-readiness-evidence": {
+    "harness.release_readiness_evidence": {
       "needs": [
-        "browser-e2e-support",
-        "credential-capacity-assessment",
-        "cryptographic-policy-assessment",
-        "deployable-shape",
-        "go-gosec-audit",
-        "harness-contract",
-        "license-report",
-        "package-inspect",
-        "sbom",
-        "seaweedfs-release-gate",
-        "standup-operational-recovery-smoke",
-        "standup-package-smoke",
-        "standup-reference-pack-smoke"
+        "harness.contract_default",
+        "harness.credential_capacity_assessment",
+        "harness.cryptographic_policy_assessment",
+        "harness.deployable_shape",
+        "harness.go_gosec_audit",
+        "harness.license_report",
+        "harness.package_inspect",
+        "harness.sbom",
+        "harness.seaweedfs_release_gate",
+        "harness.standup_operational_recovery_smoke",
+        "harness.standup_package_smoke",
+        "harness.standup_reference_pack_smoke",
+        "harness.suite_browser_support"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "sbom": {
+    "harness.sbom": {
       "needs": [
-        "release-inventory-artifacts"
+        "harness.release_inventory_artifacts"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "seaweedfs-compatibility": {
+    "harness.seaweedfs_compatibility": {
       "needs": [
-        "test-service-images"
+        "harness.test_service_images"
       ],
       "fixture_lease": "object_store_namespace",
       "cache_policy": "none",
@@ -517,49 +890,49 @@
         "object_store"
       ]
     },
-    "seaweedfs-release-evidence": {
+    "harness.seaweedfs_release_evidence": {
       "needs": [
-        "license-report",
-        "sbom",
-        "seaweedfs-compatibility"
+        "harness.license_report",
+        "harness.sbom",
+        "harness.seaweedfs_compatibility"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "seaweedfs-release-gate": {
+    "harness.seaweedfs_release_gate": {
       "needs": [
-        "license-report",
-        "sbom",
-        "seaweedfs-compatibility"
+        "harness.license_report",
+        "harness.sbom",
+        "harness.seaweedfs_compatibility"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "semantic-identity-check": {
+    "harness.semantic_identity_check": {
       "needs": [
-        "toolchain-drift"
+        "harness.toolchain_drift"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "shell-lint-toolchain": {
+    "harness.shell_lint_toolchain": {
       "needs": [
-        "toolchain-drift"
+        "harness.toolchain_drift"
       ],
       "cache_policy": "same_run",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "standup-operational-recovery-smoke": {
+    "harness.standup_operational_recovery_smoke": {
       "needs": [
-        "package-release"
+        "harness.package_release"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 180000,
@@ -569,9 +942,9 @@
         "postgres"
       ]
     },
-    "standup-package-smoke": {
+    "harness.standup_package_smoke": {
       "needs": [
-        "package-release"
+        "harness.package_release"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 180000,
@@ -581,68 +954,68 @@
         "postgres"
       ]
     },
-    "test-catalog-check": {
+    "harness.test_catalog_check": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "test-service-images": {
+    "harness.test_service_images": {
       "needs": [
-        "testservices-build"
+        "harness.testservices_build"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "testservices-build": {
+    "harness.testservices_build": {
       "needs": [],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "toolchain-drift": {
+    "harness.toolchain_drift": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "same_run",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "build-web-measurement": {
+    "harness.build_web_measurement": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "protocol-ts-browser-artifact-reachability": {
+    "harness.protocol_ts_browser_artifact_reachability": {
       "needs": [
-        "build-web"
+        "harness.build_web"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1000,
       "resource_profile_id": "io_heavy",
       "service_dependencies": []
     },
-    "frontend-lockfile-update": {
+    "harness.frontend_lockfile_update": {
       "needs": [],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "standup-reference-pack-smoke": {
+    "harness.standup_reference_pack_smoke": {
       "needs": [
-        "package-release"
+        "harness.package_release"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 180000,
@@ -652,18 +1025,18 @@
         "postgres"
       ]
     },
-    "cryptographic-policy-assessment": {
+    "harness.cryptographic_policy_assessment": {
       "needs": [
-        "toolchain-drift"
+        "harness.toolchain_drift"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 15000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "credential-capacity-assessment": {
+    "harness.credential_capacity_assessment": {
       "needs": [
-        "package-release"
+        "harness.package_release"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 180000,
@@ -673,124 +1046,646 @@
         "postgres"
       ]
     },
-    "package-release": {
+    "harness.package_release": {
       "needs": [
-        "deployable-shape",
-        "build-report-renderer",
-        "syft-toolchain"
+        "harness.build_report_renderer",
+        "harness.deployable_shape",
+        "harness.syft_toolchain"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 120000,
       "resource_profile_id": "package_qualification",
       "service_dependencies": []
     },
-    "package-inspect": {
+    "harness.package_inspect": {
       "needs": [
-        "package-release"
+        "harness.package_release"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 20000,
       "resource_profile_id": "package_qualification",
       "service_dependencies": []
     },
-    "syft-toolchain": {
+    "harness.syft_toolchain": {
       "needs": [
-        "toolchain-drift"
+        "harness.toolchain_drift"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "harness-graph-contract": {
+    "harness.harness_graph_contract": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": []
     },
-    "harness-boundary-contract": {
+    "harness.harness_boundary_contract": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": []
     },
-    "harness-scheduler-contract": {
+    "harness.harness_scheduler_contract": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": []
     },
-    "harness-local-session-contract": {
+    "harness.harness_local_session_contract": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": []
     },
-    "harness-playwright-adapter-contract": {
+    "harness.harness_playwright_adapter_contract": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": []
     },
-    "harness-observation-contract": {
+    "harness.harness_observation_contract": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": []
     },
-    "harness-command-surface-contract": {
+    "harness.harness_command_surface_contract": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": []
     },
-    "harness-evidence-contract": {
+    "harness.harness_evidence_contract": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": []
     },
-    "harness-ui-review-contract": {
+    "harness.harness_ui_review_contract": {
       "needs": [
-        "frontend-install"
+        "harness.frontend_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
       "service_dependencies": []
     },
-    "build-report-renderer": {
+    "harness.build_report_renderer": {
       "needs": [
-        "frontend-install",
-        "playwright-install"
+        "harness.frontend_install",
+        "harness.playwright_install"
       ],
       "cache_policy": "none",
       "estimated_work_ms": 15000,
       "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.assurance_toolchain_pins": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_go_toolchain_readiness": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_bootstrap_node_runtime": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_bootstrap_shellcheck": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_cache_artifact": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_cleanup_contract": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_capacity_failure_contract": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_lint_shell": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_build_input_discovery": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_check_migrations": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_generate_drift": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_generated_artifact_policy": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_json_shapes": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_run_go_staticcheck": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_run_go_govulncheck": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_run_go_gosec_targeted": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_run_go_gosec_audit": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_work_graph_fast": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_work_graph_matrix": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_observability": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_release_task_surface": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_release_readiness_evidence": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_sbom_license_evidence": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_seaweedfs_release_evidence": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_task_surface_report": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_agent_finalize": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_make_node_tools": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_execution_topology": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_canonical_evidence": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_browser_work_graph": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_run_step": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_print_target_plan": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_fixture_broker_matrix": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_work_graph_scheduler_matrix": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_run_playwright_step": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_run_vitest_step": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_frontend_import_boundaries": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_fallow_static": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_web_e2e_lifecycle": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_dev_stack_lifecycle": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.source_generated": {
+      "needs": [
+        "harness.codegen_toolchain"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.generated_refresh": {
+      "needs": [
+        "harness.codegen_toolchain"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 5000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.assurance_dev_services_lifecycle": {
+      "needs": [],
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": [],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000
+    },
+    "harness.public_wrapper_smoke": {
+      "needs": [
+        "harness.toolchain_drift"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 1500,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.lint_go_format": {
+      "needs": [
+        "harness.go_lint_toolchain"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.lint_go_vet": {
+      "needs": [
+        "harness.go_lint_toolchain"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.lint_go_staticcheck": {
+      "needs": [
+        "harness.go_lint_toolchain"
+      ],
+      "cache_policy": "content_addressed",
+      "estimated_work_ms": 3000,
+      "resource_profile_id": "standard",
+      "service_dependencies": []
+    },
+    "harness.assurance_output_source_schema": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_output_backend_unit": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_output_backend_unit_machine": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_output_owner_json": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_output_lint": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_output_build": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_output_build_machine": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_output_test_fast": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
+    },
+    "harness.assurance_output_check": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": [],
+      "timeout_ms": 1800000
+    },
+    "harness.assurance_output_check_machine": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": [],
+      "timeout_ms": 1800000
+    },
+    "harness.assurance_output_invalid_usage": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
       "service_dependencies": []
     }
   },
@@ -806,5 +1701,4164 @@
     "visual": 15000
   },
   "default_timeout_ms": 600000,
-  "aging_quantum_ms": 1000
+  "aging_quantum_ms": 1000,
+  "operations": {
+    "harness.agent_finalize": {
+      "report_key": "agent-finalize",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "agent-finalize",
+        "env": {
+          "MAKE": "$(MAKE)"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/finalization/agent-finalize-cli.mjs"
+        ],
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.author_test_row_id": {
+      "report_key": "author-test-row-id",
+      "execution": {
+        "type": "node_tool",
+        "prerequisites": [],
+        "tool_id": "author-test-row-id"
+      },
+      "kind": "policy"
+    },
+    "harness.backend_module_boundary_check": {
+      "report_key": "backend-module-boundary-check",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "backend-module-boundary-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"
+        ],
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.benchmark_claim_check": {
+      "report_key": "benchmark-claim-check",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "benchmark-claim-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/release-evidence/check-benchmark-claim.mjs",
+          "\"$(BENCHMARK_MANIFEST)\""
+        ],
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.bootstrap": {
+      "report_key": "bootstrap",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "command": [
+          "env",
+          "GO=$(GO)",
+          "GO_TOOLCHAIN=$(GO_TOOLCHAIN)",
+          "bash",
+          "./tools/harness/readiness/install-go-dependencies.sh"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.browser_design_review": {
+      "report_key": "browser-design-review",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "REVIEW_PROFILE": "$(REVIEW_PROFILE)",
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/browser/design-review.mjs"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.build_migrate": {
+      "report_key": "build-migrate",
+      "execution": {
+        "prerequisites": [
+          "$(MIGRATE_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self"
+      },
+      "kind": "artifact"
+    },
+    "harness.build_operator": {
+      "report_key": "build-operator",
+      "execution": {
+        "prerequisites": [
+          "$(OPERATOR_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.build_report_renderer": {
+      "report_key": "build-report-renderer",
+      "execution": {
+        "prerequisites": [
+          "$(REPORT_RENDERER_RECEIPT)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self"
+      },
+      "kind": "artifact"
+    },
+    "harness.build_server": {
+      "report_key": "build-server",
+      "execution": {
+        "prerequisites": [
+          "$(SERVER_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.build_server_harness": {
+      "report_key": "build-server-harness",
+      "execution": {
+        "prerequisites": [
+          "$(SERVER_HARNESS_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.build_web": {
+      "report_key": "build-web",
+      "execution": {
+        "prerequisites": [
+          "$(CURDIR)/apps/web/dist/index.html",
+          "$(HARNESS_RUNTIME_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.build_web_measurement": {
+      "report_key": "build-web-measurement",
+      "execution": {
+        "prerequisites": [
+          "$(CURDIR)/apps/web/dist-measurement/index.html",
+          "$(HARNESS_RUNTIME_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.canonical_evidence_drift_suite": {
+      "report_key": "canonical-evidence-drift-suite",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "canonical-evidence-drift-suite",
+        "env": {
+          "RESULTS_DIR": "$(RESULTS_DIR)"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/observability/canonical-evidence-drift-suite-cli.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.codegen_toolchain": {
+      "report_key": "codegen-toolchain",
+      "execution": {
+        "prerequisites": [
+          "$(SQLC_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self"
+      },
+      "kind": "artifact"
+    },
+    "harness.credential_capacity_assessment": {
+      "report_key": "credential-capacity-assessment",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(MIGRATE_BIN)",
+          "$(NODE_BIN)",
+          "$(OPERATOR_BIN)",
+          "$(REPORT_RENDERER_RECEIPT)",
+          "$(SERVER_BIN)",
+          "$(SYFT_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "credential-capacity-assessment",
+        "command": [
+          "env",
+          "CARTULARY_PACKAGE_QUALIFICATION=credential-capacity",
+          "./tools/release-evidence/check-standup-package-smoke.sh"
+        ],
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.cryptographic_policy_assessment": {
+      "report_key": "cryptographic-policy-assessment",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "cryptographic-policy-assessment",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/readiness/cryptographic-policy-assessment.mjs"
+        ],
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.db_migrate": {
+      "report_key": "db-migrate",
+      "execution": {
+        "prerequisites": [],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "GO": "$(GO)",
+          "CONFIG_FILE": "$(CONFIG_FILE)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/readiness/dev-services.sh",
+          "db-migrate"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.db_reset": {
+      "report_key": "db-reset",
+      "execution": {
+        "prerequisites": [],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "GO": "$(GO)",
+          "CONFIG_FILE": "$(CONFIG_FILE)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "CARTULARY_DESTRUCTIVE_CONFIRM": "$(CARTULARY_DESTRUCTIVE_CONFIRM)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/readiness/dev-services.sh",
+          "db-reset"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.deployable_shape": {
+      "report_key": "deployable-shape",
+      "execution": {
+        "prerequisites": [
+          "$(MIGRATE_BIN)",
+          "$(OPERATOR_BIN)",
+          "$(SERVER_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "deployable-shape",
+        "command": [
+          "./tools/release-evidence/check-deployable-shape.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true
+      },
+      "kind": "policy"
+    },
+    "harness.dev": {
+      "report_key": "dev",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)",
+          "$(REPORT_RENDERER_RECEIPT)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "GO": "$(GO)",
+          "CONFIG_FILE": "$(CONFIG_FILE)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "NODE_RUNTIME_DIR": "$(NODE_RUNTIME_DIR)",
+          "PNPM": "$(PNPM)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/readiness/dev-stack.sh"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.doctor": {
+      "report_key": "doctor",
+      "execution": {
+        "prerequisites": [],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "GO": "$(GO)",
+          "GO_TOOLCHAIN": "$(GO_TOOLCHAIN)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "NODE_VERSION": "$(NODE_VERSION)",
+          "PNPM": "$(PNPM)",
+          "PNPM_VERSION": "$(PNPM_VERSION)",
+          "NODE_RUNTIME_DIR": "$(NODE_RUNTIME_DIR)",
+          "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)",
+          "SHELLCHECK_VERSION": "$(SHELLCHECK_VERSION)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/readiness/check-doctor.sh"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.embedded_web_assets": {
+      "report_key": "embedded-web-assets",
+      "execution": {
+        "prerequisites": [
+          "$(EMBEDDED_CLIENT_ASSET_MANIFEST)",
+          "$(EMBEDDED_CLIENT_SUPPORT_REGISTRY)",
+          "$(EMBEDDED_WEB_ASSET_ARCHIVE)",
+          "$(EMBEDDED_WEB_ASSET_READY_STAMP)",
+          "$(EMBEDDED_WEB_ASSET_STAMP)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.explain_run": {
+      "report_key": "explain-run",
+      "execution": {
+        "type": "node_tool",
+        "prerequisites": [],
+        "tool_id": "explain-run"
+      },
+      "kind": "policy"
+    },
+    "harness.format_frontend": {
+      "report_key": "format-frontend",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "format frontend",
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/frontend-biome.sh",
+          "format"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.format_go": {
+      "report_key": "format-go",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "format go",
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/go-format.sh",
+          "--write"
+        ],
+        "test_target": "self",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)"
+        }
+      },
+      "kind": "policy"
+    },
+    "harness.frontend_fallow_static": {
+      "report_key": "frontend-fallow-static",
+      "execution": {
+        "type": "node_tool",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "graph_entry": true,
+        "tool_id": "frontend-fallow-static"
+      },
+      "kind": "policy"
+    },
+    "harness.frontend_import_boundary_check": {
+      "report_key": "frontend-import-boundary-check",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "frontend-import-boundary-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs"
+        ],
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.frontend_install": {
+      "report_key": "frontend-install",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self"
+      },
+      "kind": "artifact"
+    },
+    "harness.frontend_lockfile_update": {
+      "report_key": "frontend-lockfile-update",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_TOOLCHAIN_STAMP)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "frontend-lockfile-update",
+        "env": {
+          "PNPM": "$(PNPM)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "FRONTEND_INSTALL_STAMP": "$(FRONTEND_INSTALL_STAMP)",
+          "PATH": "$(NODE_RUNTIME_DIR)/bin:$(PATH)",
+          "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/readiness/frontend-lockfile-update.sh"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.frontend_typecheck": {
+      "report_key": "frontend-typecheck",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "frontend typecheck",
+        "env": {
+          "PATH": "$(NODE_RUNTIME_DIR)/bin:$(PATH)",
+          "COREPACK_HOME": "$(NODE_RUNTIME_DIR)/corepack"
+        },
+        "command": [
+          "$(PNPM)",
+          "typecheck"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.generate_artifacts": {
+      "report_key": "generate-artifacts",
+      "execution": {
+        "prerequisites": [
+          "$(FOUNDATION_SCHEMA_VALIDATORS)",
+          "$(NODE_BIN)",
+          "$(SQLC_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "RUN_STEP_SCRIPT": "$(RUN_STEP_SCRIPT)",
+          "SQLC_BIN": "$(SQLC_BIN)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/generated-artifacts/generate-artifacts.sh"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.generated_artifact_policy_check": {
+      "report_key": "generated-artifact-policy-check",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "generated-artifact-policy-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/generated-artifacts/check-generated-artifact-policy.mjs"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.go_gosec_audit": {
+      "report_key": "go-gosec-audit",
+      "execution": {
+        "prerequisites": [
+          "$(GOSEC_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "go gosec audit",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "GOSEC_BIN": "$(GOSEC_BIN)",
+          "GOSEC_AUDIT_RUNTIME_RULES": "G118,G122,G301,G302,G303,G304,G305,G306,G307",
+          "GOSEC_AUDIT_RUNTIME_PATTERNS": "./cmd/... ./internal/...",
+          "GOSEC_AUDIT_SUPPORT_RULES": "G122,G301,G302,G303,G304,G305,G306,G307",
+          "GOSEC_AUDIT_SUPPORT_FLAGS": "-exclude-generated -no-fail -quiet",
+          "GOSEC_AUDIT_SUPPORT_PATTERNS": "./tools/..."
+        },
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/go-gosec-audit.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.go_gosec_targeted": {
+      "report_key": "go-gosec-targeted",
+      "execution": {
+        "prerequisites": [
+          "$(GOSEC_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "go gosec targeted",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "GOSEC_BIN": "$(GOSEC_BIN)",
+          "GOSEC_RULES": "G602,G124,G112,G114",
+          "GOSEC_FLAGS": "-exclude-generated",
+          "GOSEC_PATTERNS": "./cmd/... ./internal/... ./db/... ./tools/...",
+          "GOSEC_TARGETED_RUNTIME_RULES": "G122,G301,G302,G303,G304,G305,G306,G307",
+          "GOSEC_TARGETED_RUNTIME_PATTERNS": "./cmd/... ./internal/...",
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/go-gosec-targeted.sh"
+        ],
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.go_lint_toolchain": {
+      "report_key": "go-lint-toolchain",
+      "execution": {
+        "prerequisites": [
+          "$(STATICCHECK_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self"
+      },
+      "kind": "artifact"
+    },
+    "harness.go_vulncheck": {
+      "report_key": "go-vulncheck",
+      "execution": {
+        "prerequisites": [
+          "$(GOVULNCHECK_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "go vulncheck",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "GOVULNCHECK_BIN": "$(GOVULNCHECK_BIN)",
+          "GOVULNCHECK_FLAGS": "-test -json",
+          "GOVULNCHECK_PATTERNS": "./cmd/... ./internal/... ./db/... ./tools/..."
+        },
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/go-govulncheck.sh"
+        ],
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.goose_toolchain": {
+      "report_key": "goose-toolchain",
+      "execution": {
+        "prerequisites": [
+          "$(GOOSE_BIN)"
+        ],
+        "type": "artifact_binding"
+      },
+      "kind": "artifact"
+    },
+    "harness.gosec_toolchain": {
+      "report_key": "gosec-toolchain",
+      "execution": {
+        "prerequisites": [
+          "$(GOSEC_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self"
+      },
+      "kind": "artifact"
+    },
+    "harness.govulncheck_toolchain": {
+      "report_key": "govulncheck-toolchain",
+      "execution": {
+        "prerequisites": [
+          "$(GOVULNCHECK_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self"
+      },
+      "kind": "artifact"
+    },
+    "harness.harness_benchmark_claim_contract": {
+      "report_key": "harness-benchmark-claim-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-benchmark-claim-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/release-evidence/tests/test-benchmark-claim-check.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_boundary_contract": {
+      "report_key": "harness-boundary-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-boundary-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "./tools/harness/tests/test-harness-boundary-contracts.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_browser_preparation_contract": {
+      "report_key": "harness-browser-preparation-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-browser-preparation-contract",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/browser/tests/test-browser-preparation.sh"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_command_surface_contract": {
+      "report_key": "harness-command-surface-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-command-surface-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "./tools/harness/tests/test-harness-command-surface-contracts.mjs",
+          "./tools/harness/execution/tests/test-vitest-diagnostics.mjs",
+          "./tools/harness/backend/tests/test-go-row-runner.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_evidence_contract": {
+      "report_key": "harness-evidence-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-evidence-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "./tools/harness/tests/test-harness-evidence-contracts.mjs",
+          "./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
+          "./tools/harness/tests/test-agent-finalize.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_fixture_contract": {
+      "report_key": "harness-fixture-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-fixture-contract",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "GOCACHE": "$(GO_CACHE_DIR)",
+          "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
+          "GOTMPDIR": "$(GO_TMP_DIR)"
+        },
+        "command": [
+          "$(GO)",
+          "test",
+          "-race",
+          "-count=1",
+          "./internal/testutil/harnessfixtures",
+          "./internal/testutil/objectstoreproxy"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_graph_contract": {
+      "report_key": "harness-graph-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-graph-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "./tools/harness/tests/test-harness-graph-contracts.mjs",
+          "./tools/harness/browser/tests/test-browser-work-graph.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_local_session_contract": {
+      "report_key": "harness-local-session-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-local-session-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "./tools/harness/services/tests/test-local-session.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_observability_check": {
+      "report_key": "harness-observability-check",
+      "execution": {
+        "type": "node_tool",
+        "prerequisites": [],
+        "tool_id": "harness-observability-check"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_observation_contract": {
+      "report_key": "harness-observation-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-observation-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "./tools/harness/observability/tests/test-observability.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_otel_export": {
+      "report_key": "harness-otel-export",
+      "execution": {
+        "type": "node_tool",
+        "prerequisites": [],
+        "tool_id": "harness-otel-export"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_playwright_adapter_contract": {
+      "report_key": "harness-playwright-adapter-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-playwright-adapter-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "./tools/harness/browser/tests/test-playwright-row-runner.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_runtime_boundary_contract": {
+      "report_key": "harness-runtime-boundary-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-runtime-boundary-contract",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "GOCACHE": "$(GO_CACHE_DIR)",
+          "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
+          "GOTMPDIR": "$(GO_TMP_DIR)",
+          "CARTULARY_HARNESS_RUNTIME_BIN": "$(HARNESS_RUNTIME_BIN)"
+        },
+        "command": [
+          "$(GO)",
+          "test",
+          "-count=1",
+          "./internal/testutil/harnessruntime/boundary"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_runtime_contract": {
+      "report_key": "harness-runtime-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-runtime-contract",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "GOCACHE": "$(GO_CACHE_DIR)",
+          "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
+          "GOTMPDIR": "$(GO_TMP_DIR)"
+        },
+        "command": [
+          "$(GO)",
+          "test",
+          "-race",
+          "-count=1",
+          "./internal/testutil/harnessruntime",
+          "./internal/testutil/harnessschema",
+          "./internal/testutil/harnesssession",
+          "./internal/testutil/harnessreview"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_scheduler_contract": {
+      "report_key": "harness-scheduler-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-scheduler-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "./tools/harness/tests/test-harness-scheduler-contracts.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_ui_review_artifacts": {
+      "report_key": "harness-ui-review-artifacts",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-ui-review-artifacts",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "./tools/harness/browser/tests/test-ui-review-bundles.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_ui_review_contract": {
+      "report_key": "harness-ui-review-contract",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-ui-review-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "--test-concurrency=1",
+          "./tools/harness/browser/tests/test-ui-review-contract.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_ui_review_execution": {
+      "report_key": "harness-ui-review-execution",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-ui-review-execution",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "./tools/harness/browser/tests/test-ui-review-execution.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_ui_review_lifecycle": {
+      "report_key": "harness-ui-review-lifecycle",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-ui-review-lifecycle",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "./tools/harness/browser/tests/test-ui-review-lifecycle.mjs",
+          "./tools/harness/browser/tests/test-ui-review-preparation.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_ui_review_presentation": {
+      "report_key": "harness-ui-review-presentation",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-ui-review-presentation",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "./tools/harness/browser/tests/test-ui-review-analysis.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_ui_review_seeded_default": {
+      "report_key": "harness-ui-review-seeded-default",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-ui-review-seeded-default",
+        "command": [
+          "env",
+          "CARTULARY_UI_REVIEW_TEST_PROFILE=default",
+          "$(NODE_BIN)",
+          "--test",
+          "./tools/harness/browser/tests/test-ui-review-seeded.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_ui_review_seeded_network_flow_claimed": {
+      "report_key": "harness-ui-review-seeded-network-flow-claimed",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-ui-review-seeded-network-flow-claimed",
+        "command": [
+          "env",
+          "CARTULARY_UI_REVIEW_TEST_PROFILE=network_flow_claimed",
+          "$(NODE_BIN)",
+          "--test",
+          "./tools/harness/browser/tests/test-ui-review-seeded.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.harness_ui_review_workflow": {
+      "report_key": "harness-ui-review-workflow",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "harness-ui-review-workflow",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "./tools/harness/browser/tests/test-ui-review-workflow.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.json_shape_check": {
+      "report_key": "json-shape-check",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "json-shape-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/generated-artifacts/check-json-shapes.mjs"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.license_report": {
+      "report_key": "license-report",
+      "execution": {
+        "prerequisites": [
+          "$(LICENSE_REPORT_ARTIFACT)",
+          "$(SBOM_ARTIFACT)"
+        ],
+        "graph_child_skips_prerequisites": true,
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "license-report",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "./tools/release-evidence/check-release-artifact.sh",
+          "\"license report\"",
+          "\"$(LICENSE_REPORT_ARTIFACT)\""
+        ],
+        "test_target": "self",
+        "success_summary": true
+      },
+      "kind": "policy"
+    },
+    "harness.lint_biome": {
+      "report_key": "lint-biome",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "lint biome",
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/frontend-biome.sh",
+          "check",
+          "$(BIOME_CHECK_FLAGS)"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "failure_note": "inspect Biome diagnostics; run make format only for formatting/style diagnostics",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.lint_go_format": {
+      "report_key": "lint-go-format",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "lint gofmt",
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/go-format.sh",
+          "--check"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "failure_note": "run make format to apply authored Go formatting",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)"
+        }
+      },
+      "kind": "policy"
+    },
+    "harness.lint_go_staticcheck": {
+      "report_key": "lint-go-staticcheck",
+      "execution": {
+        "prerequisites": [
+          "$(STATICCHECK_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "lint staticcheck",
+        "env": {
+          "GO": "$(GO)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "STATICCHECK_BIN": "$(STATICCHECK_BIN)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/go-staticcheck.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true
+      },
+      "kind": "policy"
+    },
+    "harness.lint_go_vet": {
+      "report_key": "lint-go-vet",
+      "execution": {
+        "prerequisites": [],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "lint go-vet",
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/go-vet.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true
+      },
+      "kind": "policy"
+    },
+    "harness.lint_markdown": {
+      "report_key": "lint-markdown",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "lint markdown",
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/markdownlint.sh"
+        ],
+        "failure_note": "inspect Markdown lint diagnostics; do not run broad prose reflow"
+      },
+      "kind": "policy"
+    },
+    "harness.lint_scripts": {
+      "report_key": "lint-scripts",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "lint scripts",
+        "command": [
+          "bash",
+          "./tools/harness/static-analysis/scripts-biome.sh",
+          "$(BIOME_SCRIPT_CHECK_FLAGS)"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.lint_shell": {
+      "report_key": "lint-shell",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(SHELLCHECK_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "lint shell",
+        "env": {
+          "SHELLCHECK_BIN": "$(SHELLCHECK_BIN)",
+          "LINT_SHELL_STRICT": "1",
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "./tools/harness/static-analysis/shellcheck.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.migration_input_drift": {
+      "report_key": "migration-input-drift",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "migration-input-drift",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.object_store_init": {
+      "report_key": "object-store-init",
+      "execution": {
+        "prerequisites": [],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "OBJECT_STORE_BUCKET": "$(OBJECT_STORE_BUCKET)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/readiness/dev-services.sh",
+          "init-object-store"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.object_store_reset": {
+      "report_key": "object-store-reset",
+      "execution": {
+        "prerequisites": [],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "OBJECT_STORE_BUCKET": "$(OBJECT_STORE_BUCKET)",
+          "CARTULARY_DESTRUCTIVE_CONFIRM": "$(CARTULARY_DESTRUCTIVE_CONFIRM)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/readiness/dev-services.sh",
+          "object-store-reset"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.object_store_wait": {
+      "report_key": "object-store-wait",
+      "execution": {
+        "prerequisites": [],
+        "type": "step_command",
+        "mode": "command",
+        "command": [
+          "bash",
+          "./tools/harness/readiness/dev-services.sh",
+          "wait-object-store"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.openapi_compatibility_check": {
+      "report_key": "openapi-compatibility-check",
+      "execution": {
+        "prerequisites": [
+          "$(SQLC_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "openapi-compatibility-check",
+        "env": {
+          "GOCACHE": "$(GO_CACHE_DIR)",
+          "GOMODCACHE": "$(GO_MOD_CACHE_DIR)"
+        },
+        "command": [
+          "$(GO)",
+          "run",
+          "./tools/openapi-compatibility",
+          "-quiet",
+          "-report",
+          "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/openapi-compatibility-check/openapi-compatibility-report.json"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.otel_conformance": {
+      "report_key": "otel-conformance",
+      "execution": {
+        "prerequisites": [
+          "$(CURDIR)/apps/web/dist/index.html",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "otel-conformance",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/otel/check-otel-conformance.mjs"
+        ],
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.package_inspect": {
+      "report_key": "package-inspect",
+      "execution": {
+        "prerequisites": [
+          "$(MIGRATE_BIN)",
+          "$(NODE_BIN)",
+          "$(OPERATOR_BIN)",
+          "$(REPORT_RENDERER_RECEIPT)",
+          "$(SERVER_BIN)",
+          "$(SYFT_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "package-inspect",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/release-evidence/package-release.mjs",
+          "inspect"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.package_release": {
+      "report_key": "package-release",
+      "execution": {
+        "prerequisites": [
+          "$(MIGRATE_BIN)",
+          "$(NODE_BIN)",
+          "$(OPERATOR_BIN)",
+          "$(REPORT_RENDERER_RECEIPT)",
+          "$(SERVER_BIN)",
+          "$(SYFT_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "package-release",
+        "env": {
+          "SYFT_BIN": "$(SYFT_BIN)"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/release-evidence/package-release.mjs",
+          "produce"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.playwright_install": {
+      "report_key": "playwright-install",
+      "execution": {
+        "prerequisites": [
+          "$(PLAYWRIGHT_INSTALL_STAMP)"
+        ],
+        "type": "artifact_binding"
+      },
+      "kind": "artifact"
+    },
+    "harness.postgres_baseline_reset": {
+      "report_key": "postgres-baseline-reset",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "GO": "$(GO)",
+          "CONFIG_FILE": "$(CONFIG_FILE)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "NODE_BIN": "$(NODE_BIN)",
+          "POSTGRES_BASELINE_PROFILE": "$(POSTGRES_BASELINE_PROFILE)",
+          "CARTULARY_CLEANUP_DRY_RUN": "$(CARTULARY_CLEANUP_DRY_RUN)",
+          "CARTULARY_DESTRUCTIVE_CONFIRM": "$(CARTULARY_DESTRUCTIVE_CONFIRM)"
+        },
+        "command": [
+          "bash",
+          "./tools/harness/readiness/postgres-baseline-reset.sh"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.postgres_wait": {
+      "report_key": "postgres-wait",
+      "execution": {
+        "prerequisites": [],
+        "type": "step_command",
+        "mode": "command",
+        "command": [
+          "bash",
+          "./tools/harness/readiness/dev-services.sh",
+          "wait-postgres"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.protocol_ts_browser_artifact_reachability": {
+      "report_key": "protocol-ts-browser-artifact-reachability",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(WEB_DIST_INDEX)"
+        ],
+        "mode": "run_step",
+        "step_label": "protocol-ts-browser-artifact-reachability",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs",
+          "--dist",
+          "$(CURDIR)/apps/web/dist"
+        ],
+        "test_target": "self",
+        "graph_entry": true,
+        "graph_child_skips_prerequisites": true
+      },
+      "kind": "policy"
+    },
+    "harness.protocol_ts_dead_code_check": {
+      "report_key": "protocol-ts-dead-code-check",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "protocol-ts-dead-code-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/static-analysis/protocol-ts-dead-code-check.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.release_evidence_contract": {
+      "report_key": "release-evidence-contract",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "release-evidence-contract",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/release-evidence/tests/test-release-readiness-evidence.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.release_inventory_artifacts": {
+      "report_key": "release-inventory-artifacts",
+      "execution": {
+        "prerequisites": [
+          "$(LICENSE_REPORT_ARTIFACT)",
+          "$(SBOM_ARTIFACT)"
+        ],
+        "type": "artifact_binding",
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.release_readiness_evidence": {
+      "report_key": "release-readiness-evidence",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "release-readiness-evidence",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/release-evidence/release-readiness-evidence.mjs"
+        ],
+        "exports": {
+          "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
+          "CARTULARY_TEST_RUN_ID": "$(CARTULARY_TEST_RUN_ID)"
+        },
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.sbom": {
+      "report_key": "sbom",
+      "execution": {
+        "prerequisites": [
+          "$(LICENSE_REPORT_ARTIFACT)",
+          "$(SBOM_ARTIFACT)"
+        ],
+        "graph_child_skips_prerequisites": true,
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "sbom",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "./tools/release-evidence/check-release-artifact.sh",
+          "\"SBOM\"",
+          "\"$(SBOM_ARTIFACT)\""
+        ],
+        "test_target": "self",
+        "success_summary": true
+      },
+      "kind": "policy"
+    },
+    "harness.scheduler_event_order_drift": {
+      "report_key": "scheduler-event-order-drift",
+      "execution": {
+        "type": "node_tool",
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)"
+        ],
+        "tool_id": "scheduler-event-order-drift"
+      },
+      "kind": "policy"
+    },
+    "harness.scheduler_summary_timing_drift": {
+      "report_key": "scheduler-summary-timing-drift",
+      "execution": {
+        "type": "node_tool",
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)"
+        ],
+        "tool_id": "scheduler-summary-timing-drift"
+      },
+      "kind": "policy"
+    },
+    "harness.seaweedfs_compatibility": {
+      "report_key": "seaweedfs-compatibility",
+      "execution": {
+        "prerequisites": [
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "seaweedfs-compatibility",
+        "env": {
+          "GO": "$(GO)",
+          "GOCACHE": "$(GO_CACHE_DIR)",
+          "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
+          "GOTMPDIR": "$(GO_TMP_DIR)",
+          "GO_CACHE_DIR": "$(GO_CACHE_DIR)",
+          "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
+          "GO_TMP_DIR": "$(GO_TMP_DIR)",
+          "OBJECT_STORE_PROFILE_ID": "local_dev",
+          "OBJECT_STORE_BUCKET": "$(OBJECT_STORE_BUCKET)"
+        },
+        "command": [
+          "$(GO)",
+          "run",
+          "./tools/objectstoreprobe"
+        ],
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.seaweedfs_release_evidence": {
+      "report_key": "seaweedfs-release-evidence",
+      "execution": {
+        "prerequisites": [
+          "$(LICENSE_REPORT_ARTIFACT)",
+          "$(NODE_BIN)",
+          "$(SBOM_ARTIFACT)",
+          "$(TEST_SERVICES_BIN)",
+          "tools/release-evidence/seaweedfs-release-evidence.mjs",
+          "tools/seaweedfs_occurrence_classifications.json"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "seaweedfs-release-evidence",
+        "env": {
+          "RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)",
+          "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
+          "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
+          "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
+          "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/release-evidence/seaweedfs-release-evidence.mjs"
+        ],
+        "exports": {
+          "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
+          "CARTULARY_TEST_RUN_ID": "$(CARTULARY_TEST_RUN_ID)"
+        },
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.seaweedfs_release_gate": {
+      "report_key": "seaweedfs-release-gate",
+      "execution": {
+        "prerequisites": [
+          "$(LICENSE_REPORT_ARTIFACT)",
+          "$(NODE_BIN)",
+          "$(SBOM_ARTIFACT)",
+          "$(TEST_SERVICES_BIN)",
+          "tools/release-evidence/seaweedfs-release-evidence.mjs",
+          "tools/seaweedfs_occurrence_classifications.json"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "seaweedfs-release-gate",
+        "env": {
+          "RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)",
+          "SBOM_ARTIFACT": "$(SBOM_ARTIFACT)",
+          "LICENSE_REPORT_ARTIFACT": "$(LICENSE_REPORT_ARTIFACT)",
+          "SEAWEEDFS_RELEASE_ARTIFACT_DIR": "$(RELEASE_ARTIFACT_DIR)/seaweedfs",
+          "SEAWEEDFS_COMPATIBILITY_REPORT": "$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/release-evidence/seaweedfs-release-evidence.mjs",
+          "--enforce-release-gate"
+        ],
+        "exports": {
+          "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
+          "CARTULARY_TEST_RUN_ID": "$(CARTULARY_TEST_RUN_ID)"
+        },
+        "test_target": "self",
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.semantic_identity_check": {
+      "report_key": "semantic-identity-check",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "semantic-identity-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/test-catalog/semantic-identity-check-cli.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.services_down": {
+      "report_key": "services-down",
+      "execution": {
+        "prerequisites": [],
+        "type": "step_command",
+        "mode": "command",
+        "command": [
+          "bash",
+          "./tools/harness/readiness/dev-services.sh",
+          "services-down"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.services_up": {
+      "report_key": "services-up",
+      "execution": {
+        "prerequisites": [],
+        "type": "step_command",
+        "mode": "command",
+        "command": [
+          "bash",
+          "./tools/harness/readiness/dev-services.sh",
+          "up"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.shell_lint_toolchain": {
+      "report_key": "shell-lint-toolchain",
+      "execution": {
+        "prerequisites": [
+          "$(SHELLCHECK_BIN)"
+        ],
+        "type": "artifact_binding",
+        "test_target": "self"
+      },
+      "kind": "artifact"
+    },
+    "harness.standup_operational_recovery_smoke": {
+      "report_key": "standup-operational-recovery-smoke",
+      "execution": {
+        "prerequisites": [
+          "$(MIGRATE_BIN)",
+          "$(NODE_BIN)",
+          "$(OPERATOR_BIN)",
+          "$(REPORT_RENDERER_RECEIPT)",
+          "$(SERVER_BIN)",
+          "$(SYFT_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "standup-operational-recovery-smoke",
+        "command": [
+          "./tools/release-evidence/check-standup-operational-recovery-smoke.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.standup_package_smoke": {
+      "report_key": "standup-package-smoke",
+      "execution": {
+        "prerequisites": [
+          "$(MIGRATE_BIN)",
+          "$(NODE_BIN)",
+          "$(OPERATOR_BIN)",
+          "$(REPORT_RENDERER_RECEIPT)",
+          "$(SERVER_BIN)",
+          "$(SYFT_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "standup-package-smoke",
+        "command": [
+          "./tools/release-evidence/check-standup-package-smoke.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.standup_reference_pack_smoke": {
+      "report_key": "standup-reference-pack-smoke",
+      "execution": {
+        "prerequisites": [
+          "$(MIGRATE_BIN)",
+          "$(NODE_BIN)",
+          "$(OPERATOR_BIN)",
+          "$(REPORT_RENDERER_RECEIPT)",
+          "$(SERVER_BIN)",
+          "$(SYFT_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "standup-reference-pack-smoke",
+        "command": [
+          "./tools/release-evidence/check-standup-reference-pack-smoke.sh"
+        ],
+        "test_target": "self",
+        "success_summary": true,
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.syft_toolchain": {
+      "report_key": "syft-toolchain",
+      "execution": {
+        "prerequisites": [
+          "$(SYFT_BIN)"
+        ],
+        "type": "artifact_binding",
+        "graph_entry": true
+      },
+      "kind": "artifact"
+    },
+    "harness.target_plan": {
+      "report_key": "target-plan",
+      "execution": {
+        "type": "node_tool",
+        "prerequisites": [],
+        "runtime_readiness": "installed_only",
+        "tool_id": "target-plan"
+      },
+      "kind": "policy"
+    },
+    "harness.task_guide": {
+      "report_key": "task-guide",
+      "execution": {
+        "type": "owner_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "runtime_readiness": "installed_only",
+        "tool_id": "task-guide"
+      },
+      "kind": "policy"
+    },
+    "harness.test_catalog_check": {
+      "report_key": "test-catalog-check",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "test-catalog-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/execution/catalog-check-cli.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.test_evidence_audit": {
+      "report_key": "test-evidence-audit",
+      "execution": {
+        "type": "owner_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "graph_entry": true,
+        "tool_id": "test-evidence-audit"
+      },
+      "kind": "policy"
+    },
+    "harness.test_run_recover": {
+      "report_key": "test-run-recover",
+      "execution": {
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)",
+          "NODE_BIN": "$(NODE_BIN)"
+        },
+        "command": [
+          "$(HARNESS_RUNTIME_BIN)",
+          "recover"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.test_service_images": {
+      "report_key": "test-service-images",
+      "execution": {
+        "backing_scripts": [
+          "tools/harness/readiness/cache-artifact.sh",
+          "tools/harness/readiness/warm-test-service-images.sh",
+          "tools/testservices/main.go",
+          "internal/testutil/pgtest/pgtest.go",
+          "internal/testutil/s3test/s3test.go"
+        ],
+        "prerequisites": [
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "warm test service images",
+        "command": [
+          "tools/harness/readiness/warm-test-service-images.sh",
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.test_services_session_down": {
+      "report_key": "test-services-session-down",
+      "execution": {
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/services/local-session-cli.mjs",
+          "down"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.test_services_session_status": {
+      "report_key": "test-services-session-status",
+      "execution": {
+        "prerequisites": [
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/services/local-session-cli.mjs",
+          "status"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.test_services_session_up": {
+      "report_key": "test-services-session-up",
+      "execution": {
+        "prerequisites": [
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(NODE_BIN)",
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "env": {
+          "TEST_SERVICES_BIN": "$(TEST_SERVICES_BIN)"
+        },
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/services/local-session-cli.mjs",
+          "up"
+        ]
+      },
+      "kind": "policy"
+    },
+    "harness.testservices_build": {
+      "report_key": "testservices-build",
+      "execution": {
+        "prerequisites": [
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "type": "artifact_binding"
+      },
+      "kind": "artifact"
+    },
+    "harness.toolchain_drift": {
+      "report_key": "toolchain-drift",
+      "execution": {
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "command",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/readiness/toolchain-pin-check-cli.mjs"
+        ],
+        "graph_entry": true
+      },
+      "kind": "policy"
+    },
+    "harness.public_wrapper_smoke": {
+      "report_key": "harness-smoke-public-make-wrapper",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "bash",
+          "tools/harness/tests/test-public-make-wrapper-smoke.sh"
+        ]
+      }
+    },
+    "harness.assurance_toolchain_pins": {
+      "report_key": "harness-smoke-toolchain-pins",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/readiness/tests/test-check-toolchain-pins.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/readiness/tests/test-check-toolchain-pins.sh"
+        ]
+      }
+    },
+    "harness.assurance_go_toolchain_readiness": {
+      "report_key": "harness-smoke-go-toolchain-readiness",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/readiness/tests/test-go-toolchain-readiness.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/readiness/tests/test-go-toolchain-readiness.sh",
+          "tools/harness/readiness/go-toolchain-readiness.sh",
+          "tools/harness/readiness/bootstrap-go-tool.sh",
+          "tools/harness/readiness/check-doctor.sh",
+          "tools/harness/contract/tests/test-machine-state-config.mjs"
+        ]
+      }
+    },
+    "harness.assurance_bootstrap_node_runtime": {
+      "report_key": "harness-smoke-bootstrap-node-runtime",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/readiness/tests/test-bootstrap-node-runtime.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/readiness/tests/test-bootstrap-node-runtime.sh",
+          "tools/harness/readiness/tests/test-frontend-install-self-hosting.sh",
+          "tools/harness/contract/tests/test-foundation-schema-validator.mjs",
+          "tools/harness/generated-artifacts/schema-validator-compiler.mjs",
+          "tools/harness/generated-artifacts/generate-foundation-schema-validators.mjs"
+        ]
+      }
+    },
+    "harness.assurance_bootstrap_shellcheck": {
+      "report_key": "harness-smoke-bootstrap-shellcheck",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/readiness/tests/test-bootstrap-shellcheck.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/readiness/tests/test-bootstrap-shellcheck.sh",
+          "tools/harness/readiness/bootstrap-shellcheck.sh"
+        ]
+      }
+    },
+    "harness.assurance_cache_artifact": {
+      "report_key": "harness-smoke-cache-artifact",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/readiness/tests/test-cache-artifact.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/readiness/tests/test-cache-artifact.sh",
+          "tools/harness/readiness/cache-artifact.sh",
+          "tools/harness/backend/tests/test-build-go-artifact.sh",
+          "tools/harness/backend/build-go-artifact.sh"
+        ]
+      }
+    },
+    "harness.assurance_cleanup_contract": {
+      "report_key": "harness-smoke-cleanup-contract",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/harness/contract/tests/test-cleanup.mjs"
+        ],
+        "backing_scripts": [
+          "tools/harness/contract/tests/test-cleanup.mjs"
+        ]
+      }
+    },
+    "harness.assurance_capacity_failure_contract": {
+      "report_key": "harness-smoke-capacity-failure-contract",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-capacity-failure-contract.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-capacity-failure-contract.sh"
+        ]
+      }
+    },
+    "harness.assurance_lint_shell": {
+      "report_key": "harness-smoke-lint-shell",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/static-analysis/tests/test-lint-shell.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/static-analysis/tests/test-lint-shell.sh",
+          "tools/harness/static-analysis/shellcheck.sh",
+          "tools/harness/static-analysis/shellcheck-runner.sh"
+        ]
+      }
+    },
+    "harness.assurance_build_input_discovery": {
+      "report_key": "harness-smoke-build-input-discovery",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/readiness/tests/test-build-input-discovery.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/readiness/tests/test-build-input-discovery.sh"
+        ]
+      }
+    },
+    "harness.assurance_check_migrations": {
+      "report_key": "harness-smoke-check-migrations",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/backend/tests/test-check-migrations.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/backend/tests/test-check-migrations.sh"
+        ]
+      }
+    },
+    "harness.assurance_generate_drift": {
+      "report_key": "harness-smoke-generate-drift",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/generated-artifacts/tests/test-generate-drift.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/generated-artifacts/tests/test-generate-drift.sh",
+          "tools/harness/generated-artifacts/check-generate-drift.sh"
+        ]
+      }
+    },
+    "harness.assurance_generated_artifact_policy": {
+      "report_key": "harness-smoke-generated-artifact-policy",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/generated-artifacts/tests/test-generated-artifact-policy.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/generated-artifacts/tests/test-generated-artifact-policy.sh",
+          "tools/harness/generated-artifacts/check-generated-artifact-policy.mjs",
+          "tools/generated_artifact_policy.json"
+        ]
+      }
+    },
+    "harness.assurance_json_shapes": {
+      "report_key": "harness-smoke-json-shapes",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/harness/generated-artifacts/tests/test-json-shapes.mjs"
+        ],
+        "backing_scripts": [
+          "tools/harness/generated-artifacts/tests/test-json-shapes.mjs"
+        ]
+      }
+    },
+    "harness.assurance_run_go_staticcheck": {
+      "report_key": "harness-smoke-run-go-staticcheck",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/static-analysis/tests/test-run-go-staticcheck.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/static-analysis/tests/test-run-go-staticcheck.sh"
+        ]
+      }
+    },
+    "harness.assurance_run_go_govulncheck": {
+      "report_key": "harness-smoke-run-go-govulncheck",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/static-analysis/tests/test-run-go-govulncheck.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/static-analysis/tests/test-run-go-govulncheck.sh"
+        ]
+      }
+    },
+    "harness.assurance_run_go_gosec_targeted": {
+      "report_key": "harness-smoke-run-go-gosec-targeted",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/static-analysis/tests/test-run-go-gosec-targeted.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/static-analysis/tests/test-run-go-gosec-targeted.sh"
+        ]
+      }
+    },
+    "harness.assurance_run_go_gosec_audit": {
+      "report_key": "harness-smoke-run-go-gosec-audit",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/static-analysis/tests/test-run-go-gosec-audit.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/static-analysis/tests/test-run-go-gosec-audit.sh"
+        ]
+      }
+    },
+    "harness.assurance_work_graph_fast": {
+      "report_key": "harness-smoke-work-graph-fast",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/harness/tests/test-work-graph-cutover.mjs",
+          "fast"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-work-graph-cutover.mjs",
+          "tools/harnessruntime/main.go",
+          "tools/harness/tests/fixture-stack-driver.mjs",
+          "tools/harness/browser/browser-acquisition.mjs"
+        ]
+      }
+    },
+    "harness.assurance_work_graph_matrix": {
+      "report_key": "harness-smoke-work-graph-matrix",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/harness/tests/test-work-graph-cutover.mjs",
+          "matrix"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-work-graph-cutover.mjs",
+          "tools/harnessruntime/main.go",
+          "tools/harness/tests/fixture-stack-driver.mjs",
+          "tools/harness/browser/browser-acquisition.mjs"
+        ]
+      }
+    },
+    "harness.assurance_observability": {
+      "report_key": "harness-smoke-observability",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "--test",
+          "tools/harness/observability/tests/test-observability.mjs"
+        ],
+        "backing_scripts": [
+          "tools/harness/observability/tests/test-observability.mjs",
+          "tools/harness/observability/observability.mjs",
+          "tools/harness/observability/observability-check-cli.mjs",
+          "tools/harness/observability/otel-export-cli.mjs"
+        ]
+      }
+    },
+    "harness.assurance_release_task_surface": {
+      "report_key": "harness-smoke-release-task-surface",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/release-evidence/tests/test-release-task-surface.sh"
+        ],
+        "backing_scripts": [
+          "tools/release-evidence/tests/test-release-task-surface.sh"
+        ]
+      }
+    },
+    "harness.assurance_release_readiness_evidence": {
+      "report_key": "harness-smoke-release-readiness-evidence",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/release-evidence/tests/test-release-readiness-evidence.mjs"
+        ],
+        "backing_scripts": [
+          "deploy/mvp/scripts/package-common.sh",
+          "deploy/mvp/scripts/package-verification.sh",
+          "tools/release-evidence/tests/test-package-operation.mjs",
+          "tools/release-evidence/tests/test-release-readiness-evidence.mjs"
+        ]
+      }
+    },
+    "harness.assurance_sbom_license_evidence": {
+      "report_key": "harness-smoke-sbom-license-evidence",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "./tools/release-evidence/tests/test-sbom-license-evidence.mjs"
+        ],
+        "backing_scripts": [
+          "tools/release-evidence/tests/test-sbom-license-evidence.mjs",
+          "tools/release-evidence/generate-sbom-license-evidence.mjs",
+          "tools/release-evidence/validate-cyclonedx.mjs"
+        ]
+      }
+    },
+    "harness.assurance_seaweedfs_release_evidence": {
+      "report_key": "harness-smoke-seaweedfs-release-evidence",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "./tools/release-evidence/tests/test-seaweedfs-release-evidence.mjs"
+        ],
+        "backing_scripts": [
+          "tools/release-evidence/tests/test-seaweedfs-release-evidence.mjs",
+          "tools/release-evidence/seaweedfs-release-evidence.mjs",
+          "tools/seaweedfs_occurrence_classifications.json"
+        ]
+      }
+    },
+    "harness.assurance_task_surface_report": {
+      "report_key": "harness-smoke-task-surface-report",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/generated-artifacts/tests/test-task-surface-report.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/generated-artifacts/tests/test-task-surface-report.sh"
+        ]
+      }
+    },
+    "harness.assurance_agent_finalize": {
+      "report_key": "harness-smoke-agent-finalize",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/harness/tests/test-agent-finalize.mjs"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-agent-finalize.mjs"
+        ]
+      }
+    },
+    "harness.assurance_make_node_tools": {
+      "report_key": "harness-smoke-make-node-tools",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/harness/tests/test-make-node-tools.mjs"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-make-node-tools.mjs"
+        ]
+      }
+    },
+    "harness.assurance_execution_topology": {
+      "report_key": "harness-smoke-execution-topology",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/harness/generated-artifacts/tests/test-execution-topology.mjs"
+        ],
+        "backing_scripts": [
+          "tools/harness/generated-artifacts/tests/test-execution-topology.mjs"
+        ]
+      }
+    },
+    "harness.assurance_canonical_evidence": {
+      "report_key": "harness-smoke-canonical-evidence",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/harness/tests/test-harness-evidence-contracts.mjs"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-harness-evidence-contracts.mjs"
+        ]
+      }
+    },
+    "harness.assurance_browser_work_graph": {
+      "report_key": "harness-smoke-browser-work-graph",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/harness/browser/tests/test-browser-work-graph.mjs"
+        ],
+        "backing_scripts": [
+          "tools/harness/browser/tests/test-browser-work-graph.mjs",
+          "tools/harness/browser/frontend-visual-reconciliation.mjs",
+          "tools/harness/browser/tests/test-frontend-artifact.mjs",
+          "tools/harness/readiness/frontend-artifact.mjs"
+        ]
+      }
+    },
+    "harness.assurance_run_step": {
+      "report_key": "harness-smoke-run-step",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-run-step.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-run-step.sh"
+        ]
+      }
+    },
+    "harness.assurance_print_target_plan": {
+      "report_key": "harness-smoke-print-target-plan",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "$(NODE_BIN)",
+          "tools/harness/diagnostics/tests/test-canonical-target-plan.mjs"
+        ],
+        "backing_scripts": [
+          "tools/harness/diagnostics/tests/test-canonical-target-plan.mjs"
+        ]
+      }
+    },
+    "harness.assurance_fixture_broker_matrix": {
+      "report_key": "harness-smoke-fixture-broker-matrix",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "env",
+          "GOCACHE=$(GO_CACHE_DIR)",
+          "GOMODCACHE=$(GO_MOD_CACHE_DIR)",
+          "GOTMPDIR=$(GO_TMP_DIR)",
+          "$(GO)",
+          "test",
+          "-count=1",
+          "-run",
+          "^TestFixtureBroker(Concurrency|Faults)$",
+          "./internal/testutil/harnessfixtures"
+        ],
+        "backing_scripts": [
+          "internal/testutil/harnessfixtures/broker_test.go"
+        ]
+      }
+    },
+    "harness.assurance_work_graph_scheduler_matrix": {
+      "report_key": "harness-smoke-work-graph-scheduler-matrix",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "env",
+          "GOCACHE=$(GO_CACHE_DIR)",
+          "GOMODCACHE=$(GO_MOD_CACHE_DIR)",
+          "GOTMPDIR=$(GO_TMP_DIR)",
+          "$(GO)",
+          "test",
+          "-count=1",
+          "-run",
+          "TestRuntimeFailurePrecedence",
+          "./internal/testutil/harnessruntime"
+        ],
+        "backing_scripts": [
+          "internal/testutil/harnessruntime/engine_test.go"
+        ]
+      }
+    },
+    "harness.assurance_run_playwright_step": {
+      "report_key": "harness-smoke-run-playwright-step",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/browser/tests/test-run-playwright-step.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/browser/tests/test-run-playwright-step.sh"
+        ]
+      }
+    },
+    "harness.assurance_run_vitest_step": {
+      "report_key": "harness-smoke-run-vitest-step",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/execution/tests/test-run-vitest-step.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/execution/tests/test-run-vitest-step.sh"
+        ]
+      }
+    },
+    "harness.assurance_frontend_import_boundaries": {
+      "report_key": "harness-smoke-frontend-import-boundaries",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/static-analysis/tests/test-frontend-import-boundaries.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/static-analysis/tests/test-frontend-import-boundaries.sh"
+        ]
+      }
+    },
+    "harness.assurance_fallow_static": {
+      "report_key": "harness-smoke-fallow-static",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/static-analysis/tests/test-fallow-static.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/static-analysis/tests/test-fallow-static.sh",
+          "tools/harness/static-analysis/tests/test-protocol-ts-dead-code-check.sh",
+          "tools/harness/static-analysis/fallow-reachability.mjs",
+          "tools/harness/static-analysis/protocol-ts-dead-code-check.mjs",
+          ".fallowrc.json",
+          "tools/fallow/reachability_owner.json",
+          "tools/fallow/cartulary-boundaries.rulepack.json",
+          "tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json",
+          "tools/schemas/cartulary.fallow_static_summary.v2.schema.json"
+        ]
+      }
+    },
+    "harness.assurance_web_e2e_lifecycle": {
+      "report_key": "harness-smoke-web-e2e-lifecycle",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/browser/tests/test-web-e2e-lifecycle.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/browser/tests/test-web-e2e-lifecycle.sh",
+          "tools/harness/browser/tests/test-design-review.mjs",
+          "tools/harness/browser/tests/web-e2e-artifact-fixture.sh"
+        ]
+      }
+    },
+    "harness.assurance_dev_stack_lifecycle": {
+      "report_key": "harness-smoke-dev-stack-lifecycle",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/readiness/tests/test-dev-stack-lifecycle.sh"
+        ],
+        "backing_scripts": [
+          "tools/harness/readiness/tests/test-dev-stack-lifecycle.sh"
+        ]
+      }
+    },
+    "harness.source_generated": {
+      "report_key": "generated-source-check",
+      "execution": {
+        "prerequisites": [
+          "$(SQLC_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "generate-drift",
+        "command": [
+          "./tools/harness/generated-artifacts/check-generate-drift.sh"
+        ],
+        "test_target": "self",
+        "graph_entry": true,
+        "env": {
+          "CARTULARY_GENERATE_DRIFT_REFRESH": "0"
+        }
+      },
+      "kind": "policy"
+    },
+    "harness.generated_refresh": {
+      "report_key": "generated-refresh",
+      "execution": {
+        "prerequisites": [
+          "$(SQLC_BIN)"
+        ],
+        "type": "step_command",
+        "mode": "run_step",
+        "step_label": "generate-drift",
+        "command": [
+          "./tools/harness/generated-artifacts/check-generate-drift.sh"
+        ],
+        "test_target": "self",
+        "graph_entry": true,
+        "env": {
+          "CARTULARY_GENERATE_DRIFT_REFRESH": "1"
+        }
+      },
+      "kind": "policy"
+    },
+    "harness.source_surface": {
+      "report_key": "task-surface-report",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/harness/generated-artifacts/task-surface-report-cli.mjs",
+          "--check",
+          "--all"
+        ]
+      }
+    },
+    "harness.bootstrap_node": {
+      "report_key": "bootstrap-node",
+      "kind": "artifact",
+      "execution": {
+        "type": "installation",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ]
+      }
+    },
+    "harness.bootstrap_frontend": {
+      "report_key": "bootstrap-frontend",
+      "kind": "artifact",
+      "execution": {
+        "type": "installation",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)"
+        ]
+      }
+    },
+    "harness.bootstrap_browser": {
+      "report_key": "bootstrap-browser",
+      "kind": "artifact",
+      "execution": {
+        "type": "installation",
+        "prerequisites": [
+          "$(PLAYWRIGHT_INSTALL_STAMP)"
+        ]
+      }
+    },
+    "harness.bootstrap_test_images": {
+      "report_key": "bootstrap-test-images",
+      "kind": "artifact",
+      "execution": {
+        "type": "installation",
+        "prerequisites": [
+          "$(TEST_SERVICES_BIN)"
+        ],
+        "mode": "command",
+        "command": [
+          "bash",
+          "tools/harness/readiness/warm-test-service-images.sh",
+          "$(TEST_SERVICES_BIN)"
+        ]
+      }
+    },
+    "harness.bootstrap_full": {
+      "report_key": "bootstrap-full",
+      "kind": "artifact",
+      "execution": {
+        "type": "installation",
+        "prerequisites": [
+          "$(CYCLONEDX_GOMOD_BIN)",
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(GOOSE_BIN)",
+          "$(GOSEC_BIN)",
+          "$(GOVULNCHECK_BIN)",
+          "$(HARNESS_RUNTIME_BIN)",
+          "$(PLAYWRIGHT_INSTALL_STAMP)",
+          "$(SHELLCHECK_BIN)",
+          "$(SQLC_BIN)",
+          "$(STATICCHECK_BIN)",
+          "$(SYFT_BIN)"
+        ],
+        "mode": "command",
+        "command": [
+          "env",
+          "GO=$(GO)",
+          "GO_TOOLCHAIN=$(GO_TOOLCHAIN)",
+          "bash",
+          "tools/harness/readiness/install-go-dependencies.sh",
+          "--all"
+        ]
+      }
+    },
+    "harness.assurance_dev_services_lifecycle": {
+      "report_key": "harness-dev-services-lifecycle",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "bash",
+          "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_source_schema": {
+      "report_key": "harness-output-source-schema",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "source-schema"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_backend_unit": {
+      "report_key": "harness-output-backend-unit",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "backend-unit"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_backend_unit_machine": {
+      "report_key": "harness-output-backend-unit-machine",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "backend-unit-machine"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_owner_json": {
+      "report_key": "harness-output-owner-json",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "owner-json"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_lint": {
+      "report_key": "harness-output-lint",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "lint"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_build": {
+      "report_key": "harness-output-build",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "build"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_build_machine": {
+      "report_key": "harness-output-build-machine",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "build-machine"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_test_fast": {
+      "report_key": "harness-output-test-fast",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "test-fast"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_check": {
+      "report_key": "harness-output-check",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "check"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_check_machine": {
+      "report_key": "harness-output-check-machine",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "check-machine"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    },
+    "harness.assurance_output_invalid_usage": {
+      "report_key": "harness-output-invalid-usage",
+      "kind": "policy",
+      "execution": {
+        "type": "step_command",
+        "mode": "command",
+        "prerequisites": [],
+        "command": [
+          "env",
+          "-u",
+          "CARTULARY_HARNESS_SKIP_PREREQUISITES",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_CHILD",
+          "-u",
+          "CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD",
+          "-u",
+          "CARTULARY_MAKE_INPUT_SOURCES",
+          "-u",
+          "CARTULARY_TEST_TARGET",
+          "-u",
+          "CARTULARY_SUPPRESS_CHILD_SUCCESS",
+          "-u",
+          "VERBOSE",
+          "-u",
+          "CI_VERBOSE",
+          "CARTULARY_OUTPUT_MODE=summary",
+          "bash",
+          "tools/harness/tests/test-tool-output-real-targets.sh",
+          "invalid-usage"
+        ],
+        "backing_scripts": [
+          "tools/harness/tests/test-tool-output-real-targets.sh"
+        ]
+      }
+    }
+  },
+  "row_execution_contexts": {
+    "harness.command_surface.unit.scheduler_smoke": {
+      "cpu_tokens": 1,
+      "cache_policy": "none"
+    },
+    "harness.browser.unit.fixture_broker_smoke": {
+      "cpu_tokens": 1,
+      "cache_policy": "none"
+    }
+  }
 }

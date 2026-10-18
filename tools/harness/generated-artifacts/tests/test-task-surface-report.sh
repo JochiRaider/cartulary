@@ -120,7 +120,7 @@ const {
   requiredRecipeBackingScripts,
   workGraphRuntimeSource,
 } = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface/index.mjs")));
-assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v15", "task surface schema must be v15");
+assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v16", "task surface schema must be v16");
 assert.deepEqual(
   manifest.global_inputs.map((input) => input.name),
   ["CARTULARY_MACHINE_CACHE_DIR", "GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR"],
@@ -140,28 +140,12 @@ for (const target of manifest.targets.filter((entry) => entry.target_class === "
   );
   assert.ok(Array.isArray(target.input_contract.inputs), `${target.name} inputs must be an array`);
 }
-assert.deepEqual(
-  manifest.targets.find((target) => target.name === "target-plan").input_contract.inputs,
-  [
-    {
-      name: "TARGET",
-      binding: "make_variable",
-      allowed_sources: ["make_command_line", "environment", "makefile_default"],
-      required: false,
-      type: "target_name",
-      default: null,
-      empty_string: "omitted",
-      normalization: "trim",
-      invalid_reason: "usage_error",
-      summary_emission: "value",
-      child_forwarding: "argv",
-    },
-  ],
-  "target-plan must accept the backend TARGET filter",
-);
+const planningInputs = manifest.targets.find((target) => target.name === "target-plan").input_contract.inputs;
+assert.deepEqual(planningInputs.map((input) => input.name), ["TARGET", "INPUTS", "DETAIL", "JSON"]);
+assert.equal(planningInputs.find((input) => input.name === "TARGET").required, true);
 assert.deepEqual(
   manifest.targets.find((target) => target.name === "task-guide").input_contract.inputs.map((input) => input.name),
-  ["ROLE", "OWNER", "JSON"],
+  ["OWNER", "JSON", "DETAIL"],
   "task-guide input contract must include the owner selector",
 );
 assert.deepEqual(
@@ -180,61 +164,30 @@ for (const recipe of makeRecipeEntries(manifest)) {
 }
 const missingGraphRunnerManifest = structuredClone(manifest);
 const releaseInventoryTarget = missingGraphRunnerManifest.targets.find(
-  (target) => target.name === "release-inventory-artifacts",
+  (target) => target.name === "package-release",
 );
 releaseInventoryTarget.backing_scripts = releaseInventoryTarget.backing_scripts.filter(
   (script) => script !== workGraphRuntimeSource,
 );
 assert.ok(
   collectTaskSurfaceManifestErrors(missingGraphRunnerManifest).includes(
-    `release-inventory-artifacts.backing_scripts must declare recipe-required script ${workGraphRuntimeSource}`,
+    `package-release.backing_scripts must declare recipe-required script ${workGraphRuntimeSource}`,
   ),
   "graph-entry recipes must fail semantic validation when their dispatcher is undeclared",
 );
 assert.equal(manifest.make_recipes.help.type, "print_help", "help must be generated as print_help");
-assert.equal(manifest.make_recipes["help-all"].scope, "all", "help-all must print exhaustive help");
-assert.equal(manifest.make_recipes["frontend-install"].type, "artifact_binding", "frontend-install must be an artifact binding");
-assert.equal(manifest.make_recipes.lint.type, "work_graph", "lint must be a graph-backed semantic target");
-assert.equal(
-  manifest.make_recipes["frontend-install"].test_target,
-  "self",
-  "target-owned exports must use test_target self",
-);
-assert.equal(
-  manifest.make_recipes["frontend-typecheck"].success_summary,
-  true,
-  "frontend-typecheck must keep its explicit pass summary",
-);
-assert.deepEqual(
-  manifest.make_recipes.bootstrap.prerequisites,
-  ["bootstrap-tool-installations"],
-  "bootstrap must admit later tool installations through one staged dependency",
-);
-assert.deepEqual(
-  manifest.make_recipes["bootstrap-tool-installations"].prerequisites,
-  ["frontend-install", "go-analysis-dependencies"],
-  "bootstrap tool installation must depend structurally on frontend and Go analysis readiness",
-);
-for (const helper of ["$(HARNESS_RUNTIME_BIN)"]) {
-  assert.ok(manifest.make_recipes["bootstrap-tool-installations"].command.includes(helper),
-    `${helper} must install through the admitted bootstrap stage`);
-}
-assert.deepEqual(
-  manifest.make_recipes["migration-drift"].row_ids,
-  ["harness.generated_artifacts.support.migration_input_integrity", "module.database_migrations.integration.schema_bootstrap"],
-  "migration drift must share owner input and TLS fixture rows",
-);
-assert.deepEqual(
-  {
-    prerequisites: manifest.make_recipes["deployable-shape"].prerequisites,
-    jobs: manifest.make_recipes["deployable-shape"].prerequisite_jobs,
-  },
-  {
-    prerequisites: ["$(SERVER_BIN)", "$(MIGRATE_BIN)", "$(OPERATOR_BIN)"],
-    jobs: undefined,
-  },
-  "deployable shape must let the unified graph own admission",
-);
+assert.equal(manifest.make_recipes.lint.type, "work_graph", "lint must use the unified graph");
+assert.equal(manifest.make_recipes.bootstrap.type, "bootstrap", "bootstrap must dispatch its declared installation selection");
+const { WorkGraphCompiler } = await import(pathToFileURL(path.join(root, "tools/harness/scheduler/work-graph/index.mjs")));
+const compiler = new WorkGraphCompiler(root);
+const migration = compiler.compileTarget("migration-drift");
+const selectedRows = migration.units.flatMap((unit) => unit.current_run_evidence_outputs.filter((file) => file.startsWith("rows/")).map((file) => file.slice(5, -5)));
+assert.deepEqual(selectedRows.sort(), ["harness.generated_artifacts.support.migration_input_integrity", "module.database_migrations.integration.schema_bootstrap"], "migration drift retains its exact input and TLS fixture rows");
+const operationOwner = JSON.parse(readFileSync(path.join(root, "tools/harness_work_graph_owner.json"), "utf8"));
+const bootstrap = operationOwner.operations["harness.bootstrap_full"].execution;
+assert.equal(bootstrap.type, "installation");
+for (const file of ["$(FRONTEND_INSTALL_STAMP)", "$(HARNESS_RUNTIME_BIN)", "$(PLAYWRIGHT_INSTALL_STAMP)"]) assert.ok(bootstrap.prerequisites.includes(file), `${file} remains an admitted bootstrap producer`);
+assert.ok(bootstrap.command.includes("tools/harness/readiness/install-go-dependencies.sh"));
 const renderedMake = renderTaskSurfaceMake(manifest);
 const renderedRuntime = renderTaskSurfaceMakeRuntime(manifest);
 assert.match(
@@ -249,7 +202,7 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /test-slice:[\s\S]*?env \$\(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV\) \$\(TASK_SURFACE_MACHINE_STATE_ENV\)[\s\S]*?"\$\(HARNESS_RUNTIME_BIN\)" graph --selection owner --target test-slice/,
+  /test-slice:[\s\S]*?env \$\(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV\) \$\(TASK_SURFACE_MACHINE_STATE_ENV\)[\s\S]*?\$\(TASK_SURFACE_GRAPH_RUNTIME\) --selection command --target test-slice/,
   "work-graph recipes must restore resolved machine-state paths after stripping public inputs",
 );
 for (const target of manifest.targets.filter((entry) =>
@@ -270,16 +223,7 @@ for (const target of manifest.targets.filter((entry) => entry.output_policy?.art
     assert.ok(target.input_contract.inputs.some((input) => input.name === "UI_SESSION" && input.required), "finite review commands bind an exact existing locator");
   }
 }
-assert.match(
-  renderedMake,
-  /CARTULARY_TEST_TARGET="\$\$\{CARTULARY_TEST_TARGET:-frontend-toolchain\}" \$\(RUN_STEP_SCRIPT\) "frontend-toolchain"/,
-  "phase command summaries must preserve an inherited test target and default only when unset",
-);
-assert.doesNotMatch(
-  renderedMake,
-  /CARTULARY_TEST_TARGET=frontend-toolchain \$\(RUN_STEP_SCRIPT\) "frontend-toolchain"/,
-  "phase command summaries must not force nested artifacts into the child target",
-);
+assert.match(renderedMake, /CARTULARY_TEST_TARGET="\$\$\{CARTULARY_TEST_TARGET:-services-up\}" \$\(RUN_STEP_SCRIPT\) "services-up"/, "lifecycle capture preserves inherited public identity");
 assert.match(
   helpAllLines(manifest).join("\n"),
   /target -> owner partition -> semantic row -> artifact/,
@@ -290,31 +234,11 @@ assert.match(
   /CARTULARY_CLEANUP_DRY_RUN=1/,
   "help-all must advertise cleanup dry-run usage",
 );
-assert.match(
-  renderedMake,
-  /^help:\n\t\$\(Q\)\$\(TASK_SURFACE_NODE_READINESS\)\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,help\)\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m,
-  "help recipe must establish Node readiness before its generated preflight",
-);
-assert.match(
-  renderedMake,
-  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)\$\(TASK_SURFACE_NODE_READINESS\)\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\+\$\(Q\)\$\(call RUN_MAKE_PREREQUISITES,\$\(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED\),\$\(FRONTEND_INSTALL_STAMP\)\)/,
-  "test_target self must render Node readiness, target-specific export, and graph-owned artifact prerequisite admission",
-);
-assert.match(
-  renderedMake,
-  /--selection rows --target migration-drift --rows harness.generated_artifacts.support.migration_input_integrity,module.database_migrations.integration.schema_bootstrap/,
-  "migration drift must use the shared fixture work graph",
-);
-assert.match(
-  renderedMake,
-  /^bootstrap-tool-installations: frontend-install go-analysis-dependencies\n\t\$\(Q\)env[^\n]*\$\(MAKE\) --no-print-directory \$\(SQLC_BIN\)[^\n]*playwright-install \$\(HARNESS_RUNTIME_BIN\)$/m,
-  "bootstrap tool installation must retain prerequisite readiness and install the single native runtime",
-);
-assert.match(
-  renderedMake,
-  /frontend-typecheck/,
-  "frontend-typecheck must be present in the rendered task surface",
-);
+const helpRecipe = renderedMake.slice(renderedMake.indexOf("\nhelp:"), renderedMake.indexOf("\ntask-guide:"));
+assert.doesNotMatch(helpRecipe, /TASK_SURFACE_NODE_READINESS|RUN_PUBLIC_PREFLIGHT|RUN_MAKE_PREREQUISITES/, "help must perform no installation or build preparation");
+assert.match(helpRecipe, /TASK_SURFACE_HELP_ALL_SELECTED/, "help uses its declared ALL selector");
+assert.match(renderedMake, /--selection command --target migration-drift/, "migration drift resolves its exact command binding");
+for (const retired of ["help-all", "frontend-install", "frontend-typecheck", "bootstrap-tool-installations", "deployable-shape"]) assert.doesNotMatch(renderedMake, new RegExp(`^${retired}:`, "m"), "private producers cannot remain public Make wrappers");
 const longTarget = "synthetic-help-target-name-longer-than-command-column";
 const usageTarget = "synthetic-help-usage";
 manifest.targets.push(
@@ -440,14 +364,15 @@ const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const compact = manifest.compact_help;
+manifest.targets.push({name:"synthetic-private-helper", target_class:"internal_helper", lifecycle_state:"candidate_child", default_inclusion_sets:[]});
 compact.entries.push({
-  target: "run-harness-smoke-fast",
+  target: "synthetic-private-helper",
   description: "synthetic non-public help tier entry"
 });
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 non_public_help_tier_output="$(assert_fails "non-public compact help target" run_report_copy)"
-assert_contains "$non_public_help_tier_output" "run-harness-smoke-fast appears in compact_help but is not target_class public" "non-public compact help output"
+assert_contains "$non_public_help_tier_output" "synthetic-private-helper appears in compact_help but is not target_class public" "non-public compact help output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
@@ -500,7 +425,7 @@ cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-const target = manifest.targets.find((entry) => entry.name === "task-surface-report");
+const target = manifest.targets.find((entry) => entry.name === "source-check");
 target.backing_scripts = ["tools/harness/generated-artifacts/tests/missing-task-surface-helper.mjs"];
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
@@ -514,14 +439,14 @@ cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-const target = manifest.targets.find((entry) => entry.name === "release-inventory-artifacts");
+const target = manifest.targets.find((entry) => entry.name === "package-release");
 target.backing_scripts = target.backing_scripts.filter(
   (script) => script !== "tools/harnessruntime/main.go",
 );
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 missing_graph_runner_output="$(assert_fails "missing graph-entry dispatcher" run_report_copy)"
-assert_contains "$missing_graph_runner_output" "release-inventory-artifacts.backing_scripts must declare recipe-required script tools/harnessruntime/main.go" "missing graph-entry dispatcher semantic output"
+assert_contains "$missing_graph_runner_output" "package-release.backing_scripts must declare recipe-required script tools/harnessruntime/main.go" "missing graph-entry dispatcher semantic output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
@@ -546,7 +471,7 @@ cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
 const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-const target = manifest.targets.find((entry) => entry.name === "task-surface-report");
+const target = manifest.targets.find((entry) => entry.name === "source-check");
 target.backing_scripts = ["scripts/root-task-surface-helper.mjs"];
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF

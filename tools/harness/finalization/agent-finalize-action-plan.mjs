@@ -23,6 +23,7 @@ function baseSubstep(definition) {
     stdout_log: null,
     stderr_log: null,
     skipped_reason: null,
+    validation_source_digest: null,
   };
 }
 

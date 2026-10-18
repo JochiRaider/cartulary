@@ -5,6 +5,10 @@ set -euo pipefail
 if [[ "${CARTULARY_PREPARATION_POLICY:-}" == installed_only ]]; then
   exit 2
 fi
+if [[ "${1:-}" == --all ]]; then
+  bash "$0" --analysis
+  exec bash "$0"
+fi
 mkdir -p "${GO_CACHE_DIR:?}" "${GO_MOD_CACHE_DIR:?}" "${GO_TMP_DIR:?}"
 if [[ "${1:-}" == --analysis ]]; then
   root_dir="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
@@ -13,7 +17,7 @@ if [[ "${1:-}" == --analysis ]]; then
     GOCACHE="$GO_CACHE_DIR" GOMODCACHE="$GO_MOD_CACHE_DIR" GOTMPDIR="$GO_TMP_DIR" \
     "${GO:?}" mod tidy
 elif [[ "$#" -ne 0 ]]; then
-  echo 'usage: install-go-dependencies.sh [--analysis]' >&2
+  echo 'usage: install-go-dependencies.sh [--analysis|--all]' >&2
   exit 2
 fi
 env GOTOOLCHAIN="${GO_TOOLCHAIN:?}" GOTELEMETRY=off \

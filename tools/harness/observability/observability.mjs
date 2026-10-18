@@ -1,6 +1,5 @@
-import { existsSync } from "node:fs";
 import path from "node:path";
-import { repoRoot, validateSchemaSync } from "../contract/index.mjs";
+import { repoRoot, validateSchemaSync, assertMachineEvidencePath, assertRetainedArtifactFile } from "../contract/index.mjs";
 import { compareRunMetadata } from "./run-comparison.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { parseStrictJSON } from "../contract/strict-json.mjs";
@@ -12,14 +11,16 @@ import { readTerminalReceipt, receiptDigest } from "./terminal-receipt.mjs";
 import { readExecutionIndex } from "./execution-reader.mjs";
 
 function isCanonicalRun(dir) {
-  return ["run-manifest.json", "run-summary.json", "unit-events.ndjson"].every(
-    (name) => existsSync(path.join(dir, name)),
-  );
+  try {
+    for (const name of ["run-manifest.json", "run-summary.json", "unit-events.ndjson"]) assertRetainedArtifactFile(dir, name);
+    return true;
+  } catch (error) { if (error.code === "ENOENT") return false; throw error; }
 }
 
 export function resolveExactRunDir(resultsDir, runID = "") {
   const selected = path.resolve(repoRoot, resultsDir);
-  if (!existsSync(selected)) throw new Error("RESULTS_DIR does not exist");
+  assertMachineEvidencePath(selected);
+  if (runID && !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/u.test(runID)) throw new Error("invalid RUN_ID");
   if (runID) {
     const candidate = path.basename(selected) === runID ? selected : path.join(selected, runID);
     if (!isCanonicalRun(candidate)) {
@@ -72,8 +73,8 @@ function readEnvelope(runDir, run) {
 }
 
 
-export async function loadRetainedObservability(runDir) {
-  const run = await validateCanonicalRun(runDir);
+export async function loadRetainedObservability(runDir, { canonical } = {}) {
+  const run = canonical ?? await validateCanonicalRun(runDir);
   const execution = readExecutionIndex(runDir, run);
   const loadedEnvelope = readEnvelope(runDir, run);
   const envelope = loadedEnvelope?.value ?? null;

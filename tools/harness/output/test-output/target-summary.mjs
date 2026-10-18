@@ -1576,7 +1576,7 @@ function writeTargetResult(stream, targetSummary, summaryJsonPath) {
   if (targetSummary.status === "pass") {
     stream.write(
       artifactLine(summary, summaryJsonPath, {
-        investigate: `make explain-target TARGET=${targetSummary.target} DETAIL=artifacts`,
+        investigate: `make explain-run RESULTS_DIR=${summary.run_root} TARGET=${targetSummary.target} DETAIL=summary`,
       }),
     );
   }
@@ -1628,9 +1628,8 @@ function writeTargetFailure(stream, targetSummary, summaryJsonPath) {
   stream.write(
     `[ARTIFACTS] target=${summary.target} root=${summary.run_root} summary_json=${terminalArtifactPath(summary.run_root, summaryJsonPath)} log_artifact=${terminalArtifactPath(summary.run_root, logArtifact)} scheduler_json=${terminalArtifactPath(summary.run_root, schedulerJson)} progress_log=${terminalArtifactPath(summary.run_root, progressLog)}\n`,
   );
-  stream.write(`[RERUN] command="make ${summary.target}"\n`);
   stream.write(
-    `[INVESTIGATE] command="make explain-target TARGET=${summary.target} DETAIL=artifacts"\n`,
+    `[INVESTIGATE] command="make explain-run RESULTS_DIR=${summary.run_root} TARGET=${summary.target} DETAIL=summary"\n`,
   );
 }
 

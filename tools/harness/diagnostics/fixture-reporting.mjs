@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { readLocalFile, listLocalDirectory } from "../runtime/secure-local-files.mjs";
+import { parseStrictJSON } from "../contract/index.mjs";
 
 import { loadServiceJournalEvents } from "../services/journal-reader.mjs";
 
@@ -354,10 +355,8 @@ function mergeFixtureAggregateList(map, values) {
 }
 
 function readJsonIfExists(filePath) {
-  if (!existsSync(filePath)) {
-    return null;
-  }
-  return JSON.parse(readFileSync(filePath, "utf8"));
+  try { return parseStrictJSON(readLocalFile(filePath, { maximum: 16 * 1024 * 1024, privateFile: false }).toString("utf8")); }
+  catch (error) { if (error.code === "ENOENT") return null; throw error; }
 }
 
 function runSummaryPath(resultsRoot, runId) {
@@ -384,11 +383,8 @@ function loadTargetFixtureSummary({ resultsRoot, runId, target } = {}) {
 
 function loadFixtureSummariesFromTargetSummaries({ resultsRoot, runId, target = "" } = {}) {
   const runRoot = path.join(resultsRoot, runId);
-  if (!existsSync(runRoot)) {
-    return [];
-  }
   const summaries = [];
-  for (const entry of readdirSync(runRoot, { withFileTypes: true })) {
+  for (const entry of listLocalDirectory(runRoot, { optional: true })) {
     if (!entry.isDirectory() || entry.name === "_shared") {
       continue;
     }
@@ -396,72 +392,14 @@ function loadFixtureSummariesFromTargetSummaries({ resultsRoot, runId, target = 
       continue;
     }
     const summaryPath = path.join(runRoot, entry.name, "target-summary.json");
-    if (!existsSync(summaryPath)) {
-      continue;
-    }
-    const summary = JSON.parse(readFileSync(summaryPath, "utf8"));
+    const summary = readJsonIfExists(summaryPath);
+    if (!summary) continue;
     const fixture = summary.totals?.fixture ?? summary.fixture;
     if (hasFixtureSummary(fixture)) {
       summaries.push(normalizeFixtureSummary(entry.name, fixture));
     }
   }
   return summaries.sort((left, right) => left.target.localeCompare(right.target));
-}
-
-export function newestRunID(resultsRoot) {
-  if (!existsSync(resultsRoot)) {
-    return "";
-  }
-  const runs = readdirSync(resultsRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => {
-      const runPath = path.join(resultsRoot, entry.name);
-      return {
-        name: entry.name,
-        mtimeMs: statSync(runPath).mtimeMs,
-        hasRunSummary: existsSync(path.join(runPath, "run-summary.json")),
-      };
-    })
-    .filter((entry) => entry.hasRunSummary)
-    .sort((left, right) => right.mtimeMs - left.mtimeMs || right.name.localeCompare(left.name));
-  return runs[0]?.name ?? "";
-}
-
-export function resolveFixtureResultLocation({
-  resultsDir,
-  runId = "",
-  repoRoot = process.cwd(),
-} = {}) {
-  const configured = resultsDir || ".cartulary/test-results";
-  const absoluteResultsDir = path.isAbsolute(configured)
-    ? configured
-    : path.join(repoRoot, configured);
-  const concreteRunSummaryPath = path.join(absoluteResultsDir, "run-summary.json");
-
-  if (existsSync(concreteRunSummaryPath)) {
-    const derivedRunId = path.basename(absoluteResultsDir);
-    if (runId && runId !== derivedRunId) {
-      throw new Error(
-        `RESULTS_DIR points to run ${derivedRunId}, but RUN_ID requested ${runId}`,
-      );
-    }
-    return {
-      resultsRoot: path.dirname(absoluteResultsDir),
-      runId: derivedRunId,
-      runDir: absoluteResultsDir,
-    };
-  }
-
-  const resolvedRunId = runId || newestRunID(absoluteResultsDir);
-  if (!resolvedRunId) {
-    throw new Error(`no test runs found under ${absoluteResultsDir}`);
-  }
-
-  return {
-    resultsRoot: absoluteResultsDir,
-    runId: resolvedRunId,
-    runDir: path.join(absoluteResultsDir, resolvedRunId),
-  };
 }
 
 export function buildFixtureReport({

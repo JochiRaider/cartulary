@@ -23,161 +23,58 @@ endif
 
 else
 .PHONY: \
-  help \
-  help-all \
-  doctor \
-  go-toolchain-readiness \
-  bootstrap-tool-installations \
-  bootstrap \
-  bootstrap-node-runtime \
-  frontend-toolchain \
-  frontend-install \
-  frontend-lockfile-update \
-  playwright-install \
-  db-up \
-  db-migrate \
-  db-reset \
-  postgres-baseline-reset \
-  services-up \
-  services-down \
-  test-services-session-up \
-  test-services-session-status \
-  test-services-session-down \
-  services-wait \
-  postgres-wait \
-  object-store-wait \
-  object-store-init \
-  object-store-reset \
-  dev \
-  browser-design-review \
-  codegen-toolchain \
-  go-lint-toolchain \
-  govulncheck-toolchain \
-  gosec-toolchain \
-  go-security-toolchain \
-  shell-lint-toolchain \
-  generate \
-  generate-artifacts \
-  generate-drift \
-  generated-artifact-policy-check \
-  json-shape-check \
-  openapi-compatibility-check \
-  toolchain-drift \
-  migration-input-drift \
-  migration-scratch-apply \
-  migration-drift \
-  deployable-shape \
-  standup-package-smoke \
-  standup-reference-pack-smoke \
-  standup-operational-recovery-smoke \
-  test-catalog-check \
-  agent-finalize \
-  test-evidence-audit \
-  benchmark-claim-check \
-  task-surface-report \
-  task-guide \
-  author-test-row-id \
-  test-slice \
-  service-backed-test-slice \
-  backend-unit \
-  backend-store \
-  backend-integration \
-  backend-integration-support \
-  backend-process \
-  otel-conformance \
-  target-plan \
-  target-plan-json \
-  fixture-report \
-  explain-run \
-  harness-observability-check \
-  harness-otel-export \
-  harness-performance-check \
-  harness-public-target-duration-baselines \
-  explain-test-owner \
-  explain-target \
-  go-test-duration-baselines \
-  go-test-duration-baseline-coverage \
-  go-test-duration-baseline-drift \
-  browser-e2e-duration-baselines \
-  browser-e2e-duration-baseline-drift \
-  service-backed-make-target-duration-baselines \
-  service-backed-make-target-duration-baseline-drift \
-  harness-smoke-duration-baselines \
-  harness-smoke-duration-baseline-drift \
-  scheduler-event-order-drift \
-  scheduler-summary-timing-drift \
-  testservices-build \
-  test-service-images \
-  run-harness-smoke-fast \
-  run-harness-smoke-extended \
-  run-harness-smoke-execution \
-  run-harness-smoke-lifecycle \
-  run-harness-smoke-full \
-  semantic-identity-check \
-  frontend-typecheck \
-  frontend-unit \
-  frontend-import-boundary-check \
-  protocol-ts-browser-artifact-reachability \
-  protocol-ts-dead-code-check \
-  backend-module-boundary-check \
-  frontend-fallow-static \
-  lint-biome \
-  lint-scripts \
-  lint-markdown \
-  harness-contract-tests \
-  harness-command-surface-contract \
-  harness-evidence-contract \
-  harness-contract \
-  lint-shell \
-  format \
-  format-go \
-  format-frontend \
-  browser-e2e \
-  browser-e2e-webserver-backed \
-  browser-e2e-support \
-  browser-e2e-stateful \
-  browser-e2e-resettable \
-  browser-e2e-measurement \
-  browser-e2e-a11y \
-  browser-e2e-visual \
-  browser-e2e-visual-update \
   test-fast \
-  test \
+  check \
+  ci \
+  release-check \
+  test-slice \
+  browser-e2e \
+  browser-e2e-visual-update \
+  harness-contract \
   lint \
-  lint-go \
-  lint-go-format \
-  lint-go-vet \
-  lint-go-staticcheck \
+  lint-markdown \
+  source-check \
+  migration-drift \
+  openapi-compatibility-check \
+  otel-conformance \
   go-vulncheck \
   go-gosec-targeted \
   go-gosec-audit \
-  check \
-  check-frontend-install \
-  check-harness-smoke \
-  ci \
-  release-check \
-  release-readiness-evidence \
-  release-evidence-contract \
-  license-report \
-  sbom \
-  seaweedfs-compatibility \
-  seaweedfs-release-evidence \
-  seaweedfs-release-gate \
+  frontend-fallow-static \
+  generate \
+  agent-finalize \
+  format \
   build \
-  build-server \
-  build-server-harness \
-  embedded-web-assets \
-  build-migrate \
-  build-operator \
-  build-web \
-  build-web-measurement \
-  clean \
-  distclean \
-  canonical-evidence-drift-suite \
-  goose-toolchain \
-  release-inventory-artifacts \
-  frontend-artifact-consumer-check \
-  browser-design-review-smoke \
+  frontend-lockfile-update \
+  doctor \
+  bootstrap \
+  services-up \
+  services-down \
+  db-migrate \
+  db-reset \
+  postgres-baseline-reset \
+  object-store-reset \
+  dev \
+  test-services-session-up \
+  test-services-session-status \
+  test-services-session-down \
+  help \
+  task-guide \
+  author-test-row-id \
+  target-plan \
+  explain-run \
+  test-run-status \
+  test-evidence-audit \
+  harness-observability-check \
+  harness-otel-export \
+  benchmark-claim-check \
+  package-release \
+  package-inspect \
+  seaweedfs-compatibility \
+  seaweedfs-release-gate \
+  cryptographic-policy-assessment \
+  credential-capacity-assessment \
+  browser-design-review \
   ui-review \
   ui-review-status \
   ui-browser \
@@ -185,57 +82,36 @@ else
   ui-analyze \
   ui-review-report \
   ui-review-stop \
-  harness-ui-review-contract \
-  harness-ui-review-lifecycle \
-  harness-ui-review-artifacts \
-  harness-ui-review-presentation \
-  harness-ui-review-execution \
-  harness-ui-review-workflow \
-  harness-ui-review-seeded-default \
-  harness-ui-review-seeded-network-flow-claimed \
-  cryptographic-policy-assessment \
-  credential-capacity-assessment \
-  package-release \
-  package-inspect \
-  syft-toolchain \
-  test-run-status \
-  go-analysis-dependencies \
-  harness-runtime-contract \
-  harness-fixture-contract \
-  harness-runtime-boundary-contract \
-  harness-graph-contract \
-  harness-boundary-contract \
-  harness-scheduler-contract \
-  harness-local-session-contract \
-  harness-playwright-adapter-contract \
-  harness-observation-contract \
-  harness-browser-preparation-contract \
-  harness-benchmark-claim-contract \
-  build-report-renderer \
+  clean \
+  distclean \
   test-run-recover
 
 TASK_SURFACE_HELP_LINES := \
 	'Cartulary compact workflow task surface' \
 	'' \
 	'compact:' \
-	'  make help                           print the compact workflow task surface' \
-	'  make task-guide                     recommend exact owner verification by module-author role' \
+	'  make help' \
+	'                                      ALL=1 JSON=1 discover commands, selectors and side effects' \
+	'  make task-guide' \
+	'                                      OWNER=<owner> DETAIL=summary describe exact owner rows and verification coverage' \
 	'  make doctor                         verify required local tools and versions' \
 	'  make bootstrap                      install pinned tools and frontend/browser dependencies' \
-	'  make db-up                          start local Postgres and SeaweedFS S3, then initialize the default object-store bucket' \
+	'  make services-up                    start local services and prove readiness once' \
 	'  make db-migrate                     apply local database migrations without resetting the database or object storage' \
 	'  make db-reset' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset' \
-	'  make dev                            run the Go server and Vite dev server' \
+	'  make dev                            run the Go server and Vite dev server after services-up' \
 	'  make generate                       regenerate sqlc and contract-derived outputs' \
 	'  make agent-finalize                 refresh and validate harness-maintenance artifacts before verification' \
 	'  make test-fast                      run the narrower local verification loop' \
 	'  make check                          run the developer verification gate' \
 	'' \
-	'For all public targets, run: make help-all' \
-	'For private/check internals, run: make task-surface-report TASK_SURFACE_REPORT_ARGS=--all' \
+	'For all public commands, run: make help ALL=1' \
+	'For exact operation selections, run: make target-plan TARGET=<command> DETAIL=graph' \
 	''
 
+TASK_SURFACE_HELP_ALL_SELECTED = $(and $(findstring command line,$(origin ALL)),$(filter 1,$(strip $(value ALL))))
+TASK_SURFACE_HELP_JSON_SELECTED = $(and $(findstring command line,$(origin JSON)),$(filter 1,$(strip $(value JSON))))
 TASK_SURFACE_HELP_ALL_LINES := \
 	'Cartulary public task surface' \
 	'' \
@@ -244,38 +120,31 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  public evidence is runnable from this surface; support/internal evidence is shown by task-guide and explain-*.' \
 	'' \
 	'local dev:' \
-	'  make help                           print the compact workflow task surface' \
-	'  make help-all                       print the exhaustive public workflow task surface' \
+	'  make help' \
+	'                                      ALL=1 JSON=1 discover commands, selectors and side effects' \
 	'  make doctor                         verify required local tools and versions' \
 	'  make bootstrap                      install pinned tools and frontend/browser dependencies' \
-	'  make bootstrap-node-runtime         install the pinned repo-local Node runtime' \
-	'  make frontend-toolchain             verify the pinned Node/pnpm toolchain' \
-	'  make frontend-install               install workspace dependencies' \
 	'  make frontend-lockfile-update       regenerate the lockfile with pinned pnpm (explicit dependency maintenance)' \
-	'  make playwright-install             install browser dependencies' \
-	'  make db-up                          start local Postgres and SeaweedFS S3, then initialize the default object-store bucket' \
 	'  make db-migrate                     apply local database migrations without resetting the database or object storage' \
 	'  make db-reset' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset' \
 	'  make postgres-baseline-reset' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 POSTGRES_BASELINE_PROFILE=dev preview or replace only the selected dev or MVP PostgreSQL volume baseline; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=postgres-baseline-reset' \
-	'  make services-up                    start local Postgres and SeaweedFS S3, then wait until ready' \
+	'  make services-up                    start local services and prove readiness once' \
 	'  make services-down' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or stop local Postgres and SeaweedFS S3 while preserving named volumes' \
 	'  make test-services-session-up       start an explicit reusable local test-service session' \
 	'  make test-services-session-status   print redacted reusable test-service session status' \
 	'  make test-services-session-down     stop the exact reusable test-service session when it has no live borrowers' \
-	'  make object-store-init              create the default local object-store bucket if needed' \
 	'  make object-store-reset' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or clear objects from the default local object-store bucket; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset' \
-	'  make dev                            run the Go server and Vite dev server after db-up/services-up' \
+	'  make dev                            run the Go server and Vite dev server after services-up' \
 	'  make generate                       regenerate sqlc and contract-derived outputs' \
 	'  make format                         format authored Go and frontend sources' \
 	'  make clean' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or remove repo-local build and report artifacts' \
 	'  make browser-design-review' \
 	'                                      REVIEW_PROFILE=network_flow_claimed|default start a disposable seeded browser review; Ctrl-C removes owned data' \
-	'  make browser-design-review-smoke    prepare and smoke a seeded review, then clean up without waiting' \
 	'  make ui-review' \
 	'                                      UI_MODE=seeded|dev|artifacts [UI_ORIGIN=<origin>] operate a private local UI review session' \
 	'  make ui-review-status' \
@@ -294,429 +163,292 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'fast verification:' \
 	'  make test-fast                      run the narrower local verification loop' \
 	'  make test-slice' \
-	'                                      OWNER=<owner-id> [ROWS=<row-id,...>] run the selected owner test slice' \
-	'  make service-backed-test-slice' \
-	'                                      OWNER=<owner-id> [ROWS=<row-id,...>] run the selected owner service-backed slice' \
-	'  make backend-unit                   run pure backend unit evidence' \
-	'  make backend-store                  run service-backed store-domain evidence' \
-	'  make backend-integration            run backend integration evidence' \
-	'  make backend-process                run backend process evidence' \
+	'                                      OWNER=<owner> | SUITE=<suite> run exact owner rows or one named suite' \
 	'  make otel-conformance               run OpenTelemetry source, boundary, and golden-path conformance checks' \
-	'  make frontend-typecheck             run TypeScript type checking' \
-	'  make frontend-unit                  run the frontend unit suite' \
 	'  make lint                           run backend, frontend, script, and shell lint/type checks' \
-	'  make lint-biome                     run authored frontend Biome checks' \
-	'  make frontend-import-boundary-check enforce frontend import ownership boundaries' \
-	'  make backend-module-boundary-check  enforce backend module ownership boundaries' \
 	'  make frontend-fallow-static         run non-blocking Fallow static codebase intelligence' \
-	'  make lint-scripts                   run JavaScript orchestration script Biome checks' \
 	'  make lint-markdown                  run structural Markdown lint over authored docs' \
-	'  make lint-shell                     run blocking ShellCheck over tracked shell scripts' \
 	'  make go-vulncheck                   run Go vulnerability scanning over authored package roots' \
 	'  make go-gosec-targeted              run targeted Go security static analysis' \
 	'  make go-gosec-audit                 run advisory Go security audit profiles' \
 	'' \
 	'full gates:' \
-	'  make test                           run the authoritative full test corpus' \
 	'  make check                          run the developer verification gate' \
-	'  make browser-e2e                    run isolated browser E2E suites through one batch stack' \
-	'  make browser-e2e-webserver-backed   run shared-stack browser E2E batch' \
-	'  make browser-e2e-stateful           run isolated stateful browser E2E batch' \
-	'  make browser-e2e-measurement        run ordinary browser measurement evidence' \
-	'  make browser-e2e-a11y               run deterministic browser accessibility evidence' \
-	'  make browser-e2e-visual             run isolated visual browser E2E' \
+	'  make browser-e2e' \
+	'                                      SUITE=<suite> run the complete explicitly selected browser suite' \
 	'  make browser-e2e-visual-update      refresh committed visual browser E2E goldens' \
-	'  make harness-contract               run extended harness contract checks' \
+	'  make harness-contract' \
+	'                                      SUITE=contract run an exact harness assertion preset' \
 	'' \
 	'investigate a run:' \
 	'  make task-guide' \
-	'                                      ROLE=module-author OWNER=<owner-id> recommend what to run' \
+	'                                      OWNER=<owner> DETAIL=summary describe exact owner rows and verification coverage' \
 	'  make author-test-row-id' \
 	'                                      FAMILY_ID=<owner.family> CLAIM=<semantic-claim> SELECTOR_KEY=<stable-selector-key> derive a stable semantic test-catalog row ID' \
-	'  make task-surface-report' \
-	'                                      TASK_SURFACE_REPORT_ARGS='"'"'--check --all'"'"' inspect or validate the root Make task-surface inventory' \
 	'  make target-plan' \
 	'                                      TARGET=backend-unit explain backend Go execution families; use explain-target for Make targets' \
-	'  make target-plan-json               emit deterministic backend target plan JSON' \
-	'  make explain-test-owner' \
-	'                                      OWNER=<owner-id> explain owner evidence and target coverage' \
-	'  make explain-target' \
-	'                                      TARGET=backend-store DETAIL=rows explain one target' \
 	'  make explain-run' \
 	'                                      RESULTS_DIR=<root|run-dir> inspect run summary artifacts' \
 	'  make harness-observability-check' \
 	'                                      RESULTS_DIR=<root|run-dir> reconstruct and validate retained harness diagnostics' \
 	'  make harness-otel-export' \
 	'                                      RESULTS_DIR=<root|run-dir> HARNESS_OTLP_ENDPOINT=<url> explicitly export retained harness diagnostics' \
-	'  make fixture-report' \
-	'                                      RESULTS_DIR=<root|run-dir> report fixture cost hotspots' \
 	'  make test-run-status                observe one exact invocation without controlling execution' \
 	'' \
 	'maintenance:' \
-	'  make generate-drift                 fail on generated artifact drift' \
-	'  make generated-artifact-policy-check' \
-	'                                      fail on generated artifact marker and lint-scope policy drift' \
-	'  make json-shape-check               fail on contract, manifest, and JSON bootstrap shape drift' \
-	'  make toolchain-drift                fail on repo-control toolchain pin drift' \
 	'  make migration-drift                verify migrations against a scratch database' \
 	'  make openapi-compatibility-check    classify the candidate OpenAPI against immutable release history' \
 	'  make agent-finalize                 refresh and validate harness-maintenance artifacts before verification' \
 	'  make test-evidence-audit' \
 	'                                      OWNER=<owner-id> EVIDENCE_ROOTS_FILE=<path> audit exact compatible evidence roots for one owner' \
 	'  make benchmark-claim-check          validate retained Core 05 benchmark claim artifacts' \
-	'  make go-test-duration-baselines' \
-	'                                      RESULTS_DIR=<dir> refresh Go test duration baselines' \
-	'  make go-test-duration-baseline-coverage' \
-	'                                      verify Go shard baseline coverage' \
-	'  make go-test-duration-baseline-drift' \
-	'                                      RESULTS_DIR=<dir> verify Go shard baseline freshness' \
-	'  make harness-performance-check' \
-	'                                      EVIDENCE_ROOTS_FILE=<manifest> compare warm baseline and candidate performance windows' \
-	'  make harness-public-target-duration-baselines' \
-	'                                      EVIDENCE_ROOTS_FILE=<manifest> refresh qualified public-target performance baselines' \
-	'  make browser-e2e-duration-baselines' \
-	'                                      RESULTS_DIR=<dir> refresh browser spec duration baselines' \
-	'  make browser-e2e-duration-baseline-drift' \
-	'                                      RESULTS_DIR=<dir> verify browser spec baseline freshness' \
-	'  make service-backed-make-target-duration-baselines' \
-	'                                      RESULTS_DIR=<dir> refresh scheduler work-unit duration baselines' \
-	'  make service-backed-make-target-duration-baseline-drift' \
-	'                                      RESULTS_DIR=<dir> verify scheduler work-unit duration baseline freshness' \
-	'  make harness-smoke-duration-baselines' \
-	'                                      RESULTS_DIR=<dir> refresh harness smoke duration baselines' \
-	'  make harness-smoke-duration-baseline-drift' \
-	'                                      RESULTS_DIR=<dir> verify harness smoke baseline freshness' \
-	'  make scheduler-event-order-drift' \
-	'                                      RESULTS_DIR=<dir> verify scheduler event stream ordering' \
-	'  make scheduler-summary-timing-drift' \
-	'                                      RESULTS_DIR=<dir> verify scheduler summary timing accounting' \
 	'  make cryptographic-policy-assessment' \
 	'                                      assess pinned-module build identity and admission (strict mode is diagnostic)' \
 	'  make credential-capacity-assessment assess bounded credential workflows on the fixed Windows 11 / WSL2 container profile' \
 	'  make test-run-recover' \
 	'                                      RESULTS_DIR=<exact-run> RUNTIME_ROOT=<private-runtime> RUNTIME_LEASE_ID=<lease> recover exact owned resources without changing original test evidence' \
+	'  make source-check                   validate authored and generated source integrity; CHECK selects a boundary' \
 	'' \
 	'release:' \
 	'  make ci                             run the provider-neutral CI entrypoint' \
 	'  make release-check                  run check, extended harness, frontend readiness, release artifacts, build verification, and release-readiness aggregation' \
-	'  make release-readiness-evidence     aggregate retained release-readiness evidence with explicit semantic effects' \
 	'  make seaweedfs-compatibility        run the full SeaweedFS S3 compatibility profile' \
-	'  make seaweedfs-release-evidence     emit SeaweedFS release-gate evidence without enforcing the strict gate' \
 	'  make seaweedfs-release-gate         enforce the strict SeaweedFS S3 release gate' \
-	'  make build                          build backend and operator binaries with embedded web assets' \
-	'  make standup-package-smoke          smoke the MVP on-prem stand-up package image and compose topology' \
-	'  make standup-reference-pack-smoke   qualify packaged Reference Pack lifecycle, portability and recovery' \
-	'  make standup-operational-recovery-smoke' \
-	'                                      smoke the MVP on-prem operational recovery workflow' \
-	'  make build-server                   build the server binary' \
-	'  make build-server-harness           build the harness profile of the server binary' \
-	'  make build-migrate                  build the migration binary' \
-	'  make build-operator                 build the deployment-local operator binary' \
-	'  make build-web                      build frontend web assets' \
-	'  make build-web-measurement          build isolated frontend measurement assets' \
+	'  make build' \
+	'                                      COMPONENT=production build the selected component and its required producers' \
 	'  make distclean' \
 	'                                      CARTULARY_CLEANUP_DRY_RUN=1 preview or remove repo-local tool/runtime caches and dependency installs' \
 	'  make package-release                assemble one immutable local archive with exact image inventories' \
 	'  make package-inspect                install and inspect the exact archive without a checkout or build tools' \
-	'  make build-report-renderer          build a content-bound isolated Reporting runtime from installed pinned dependencies' \
+	'' \
+	'test-fast inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
+	'check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
+	'ci inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
+	'release-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
+	'test-slice inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), JSON=exact_1_bool (default false), OWNER=owner_id (optional), PLAYWRIGHT_WORKERS=positive_integer (default 3), ROWS=row_ids (optional), VITEST_MAX_WORKERS=positive_integer (default 4), HARNESS_DIAGNOSTICS=off|basic (default off), SUITE=backend-unit|backend-store|backend-integration|backend-process|frontend-unit (optional), SCOPE=all|services (default all), \
+	  CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
+	'browser-e2e inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), SUITE=all|functional|stateful|measurement|accessibility|visual|support (required), CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
+	'browser-e2e-visual-update inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, authored_source_write, service_start, service_resource_mutation, runtime_reset' \
+	'harness-contract inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), SUITE=contract|smoke|execution|regression|lifecycle|full|runtime|fixtures|runtime-boundary|artifact-consumers|ui-review (default contract)' \
+	'  side effects: retained_artifacts' \
+	'lint inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), CHECK=standard|go|types|frontend|scripts|shell|frontend-boundary|backend-boundary|protocol (default standard)' \
+	'  side effects: retained_artifacts' \
+	'lint-markdown inputs: none' \
+	'  side effects: retained_artifacts' \
+	'source-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), CHECK=generated|schema|catalog|surface|identity|toolchain|migration-input|all (default all)' \
+	'  side effects: retained_artifacts' \
+	'migration-drift inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, service_resource_mutation' \
+	'openapi-compatibility-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts' \
+	'otel-conformance inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
+	'go-vulncheck inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), GOVULNCHECK_DB=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts' \
+	'go-gosec-targeted inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts' \
+	'go-gosec-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts' \
+	'frontend-fallow-static inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts' \
+	'generate inputs: none' \
+	'  side effects: retained_artifacts, generated_artifacts' \
+	'agent-finalize inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), ALLOW_OLDER_RESULTS_DIR=exact_1_bool (optional), RESULTS_DIR=result_selector (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, generated_artifacts' \
+	'format inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, authored_source_write' \
+	'build inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), COMPONENT=production|server|server-harness|migrate|operator|web|web-measurement|report-renderer (default production), SERVER_HARNESS_BIN=path (default $(CURDIR)/build/bin/server-harness), OPERATOR_BIN=path (default $(CURDIR)/build/bin/operator)' \
+	'  side effects: retained_artifacts, build_outputs' \
+	'frontend-lockfile-update inputs: none' \
+	'  side effects: retained_artifacts, authored_source_write' \
+	'doctor inputs: none' \
+	'  side effects: retained_artifacts' \
+	'bootstrap inputs: PART=node|frontend|browser|test-images (optional)' \
+	'  side effects: retained_artifacts, tool_install' \
+	'services-up inputs: none' \
+	'  side effects: retained_artifacts, service_start' \
+	'services-down inputs: CARTULARY_CLEANUP_DRY_RUN=exact_1_bool (default false)' \
+	'  side effects: retained_artifacts, destructive_cleanup' \
+	'db-migrate inputs: none' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation' \
+	'db-reset inputs: CARTULARY_CLEANUP_DRY_RUN=exact_1_bool (default false), CARTULARY_DESTRUCTIVE_CONFIRM=db-reset (optional)' \
+	'  side effects: retained_artifacts, service_start, destructive_cleanup' \
+	'postgres-baseline-reset inputs: CARTULARY_CLEANUP_DRY_RUN=exact_1_bool (default false), CARTULARY_DESTRUCTIVE_CONFIRM=postgres-baseline-reset (optional), POSTGRES_BASELINE_PROFILE=dev|mvp (default dev)' \
+	'  side effects: retained_artifacts, service_start, destructive_cleanup' \
+	'object-store-reset inputs: CARTULARY_CLEANUP_DRY_RUN=exact_1_bool (default false), CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset (optional)' \
+	'  side effects: retained_artifacts, service_start, destructive_cleanup' \
+	'dev inputs: none' \
+	'  side effects: service_start' \
+	'test-services-session-up inputs: CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional)' \
+	'  side effects: retained_artifacts, service_start' \
+	'test-services-session-status inputs: CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional)' \
+	'  side effects: none' \
+	'test-services-session-down inputs: CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional)' \
+	'  side effects: retained_artifacts, destructive_cleanup' \
+	'help inputs: JSON=exact_1_bool (default false), ALL=exact_1_bool (default false)' \
+	'  side effects: none' \
+	'task-guide inputs: OWNER=owner_id (required), JSON=exact_1_bool (default false), DETAIL=summary|rows|coverage (default summary)' \
+	'  side effects: none' \
+	'author-test-row-id inputs: FAMILY_ID=family_id (required), CLAIM=semantic_text (required), SELECTOR_KEY=semantic_text (required)' \
+	'  side effects: none' \
+	'target-plan inputs: TARGET=target_name (required), INPUTS=path (optional), DETAIL=summary|graph|rows|artifacts (default summary), JSON=exact_1_bool (default false)' \
+	'  side effects: none' \
+	'explain-run inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=target_name (optional), DETAIL=summary|children|logs|progress|accounting|performance|fixtures (default summary), JSON=exact_1_bool (default false), COMPARE_RESULTS_DIR=result_selector (optional), COMPARISON=equivalent|instrumentation (optional), FIXTURE_THRESHOLD_MS=positive_integer (default 30000), FIXTURE_TOP=positive_integer (default 5)' \
+	'  side effects: none' \
+	'test-run-status inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=target_name (optional), JSON=exact_1_bool (default false), AFTER_REVISION=positive_integer (optional), WAIT_SECONDS=positive_integer (default 0)' \
+	'  side effects: none' \
+	'test-evidence-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), OWNER=owner_id (required), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts' \
+	'harness-observability-check inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), CHECK=all|events|timing|evidence|diagnostics (default all)' \
+	'  side effects: none' \
+	'harness-otel-export inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), HARNESS_OTLP_ENDPOINT=url (required), HARNESS_OTLP_HEADERS_FILE=path (optional)' \
+	'  side effects: external_network' \
+	'benchmark-claim-check inputs: BENCHMARK_MANIFEST=path (default .cartulary/benchmark/benchmark_manifest.json), CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts' \
+	'package-release inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, build_outputs, service_start, service_resource_mutation' \
+	'package-inspect inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), CHECK=archive|startup|reference-pack|recovery|all (default archive)' \
+	'  side effects: retained_artifacts, build_outputs, service_start, service_resource_mutation' \
+	'seaweedfs-compatibility inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, service_start, service_resource_mutation' \
+	'seaweedfs-release-gate inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts' \
+	'cryptographic-policy-assessment inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts' \
+	'credential-capacity-assessment inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'  side effects: retained_artifacts, build_outputs, service_start, service_resource_mutation' \
+	'browser-design-review inputs: REVIEW_PROFILE=default|network_flow_claimed (default network_flow_claimed)' \
+	'  side effects: service_start' \
+	'ui-review inputs: UI_MODE=seeded|dev|artifacts (default seeded), REVIEW_PROFILE=default|network_flow_claimed (default network_flow_claimed), UI_ORIGIN=url (optional)' \
+	'  side effects: service_start' \
+	'ui-review-status inputs: UI_SESSION=path (required)' \
+	'  side effects: none' \
+	'ui-browser inputs: UI_SESSION=path (required), UI_REQUEST=path (required)' \
+	'  side effects: retained_artifacts' \
+	'ui-capture inputs: UI_SESSION=path (required), UI_REQUEST=path (required)' \
+	'  side effects: retained_artifacts' \
+	'ui-analyze inputs: UI_SESSION=path (required), UI_REQUEST=path (required)' \
+	'  side effects: retained_artifacts' \
+	'ui-review-report inputs: UI_SESSION=path (required), UI_BUNDLE=semantic_text (required)' \
+	'  side effects: retained_artifacts' \
+	'ui-review-stop inputs: UI_SESSION=path (required)' \
+	'  side effects: retained_artifacts' \
+	'clean inputs: CARTULARY_CLEANUP_DRY_RUN=exact_1_bool (default false)' \
+	'  side effects: destructive_cleanup' \
+	'distclean inputs: CARTULARY_CLEANUP_DRY_RUN=exact_1_bool (default false)' \
+	'  side effects: destructive_cleanup' \
+	'test-run-recover inputs: RESULTS_DIR=path (required), RUNTIME_ROOT=path (required), RUNTIME_LEASE_ID=semantic_text (required)' \
+	'  side effects: retained_artifacts, destructive_cleanup' \
 	''
 
-help:
+test-fast: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+test-fast: export CARTULARY_TEST_TARGET ?= test-fast
+test-fast:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,help)
-	$(Q)printf '%s\n' $(TASK_SURFACE_HELP_LINES)
-
-help-all:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,help-all)
-	$(Q)printf '%s\n' $(TASK_SURFACE_HELP_ALL_LINES)
-
-doctor: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-doctor:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,doctor)
-	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-doctor}" $(RUN_STEP_SCRIPT) "doctor" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" GO_TOOLCHAIN="$(GO_TOOLCHAIN)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM="$(PNPM)" PNPM_VERSION="$(PNPM_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" SHELLCHECK_BIN="$(SHELLCHECK_BIN)" \
-	  SHELLCHECK_VERSION="$(SHELLCHECK_VERSION)" bash ./tools/harness/readiness/check-doctor.sh
-
-go-toolchain-readiness: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-go-toolchain-readiness:
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" GO_TOOLCHAIN="$(GO_TOOLCHAIN)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" bash ./tools/harness/readiness/go-toolchain-readiness.sh ensure
-
-bootstrap: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-bootstrap:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,bootstrap)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),bootstrap-tool-installations)
-	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-bootstrap}" $(RUN_STEP_SCRIPT) "bootstrap" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env GO=$(GO) GO_TOOLCHAIN=$(GO_TOOLCHAIN) bash ./tools/harness/readiness/install-go-dependencies.sh
-
-bootstrap-tool-installations: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-bootstrap-tool-installations: frontend-install go-analysis-dependencies
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(MAKE) --no-print-directory $(SQLC_BIN) $(GOOSE_BIN) $(STATICCHECK_BIN) $(GOVULNCHECK_BIN) $(GOSEC_BIN) $(CYCLONEDX_GOMOD_BIN) $(SYFT_BIN) $(SHELLCHECK_BIN) playwright-install $(HARNESS_RUNTIME_BIN)
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-otel-conformance: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-otel-conformance:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,otel-conformance)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),build-web)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "otel-conformance" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/otel/check-otel-conformance.mjs
-	$(call RUN_TARGET_SUMMARY,otel-conformance,pass)
-else
-otel-conformance: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-otel-conformance:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,otel-conformance)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-fast)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target otel-conformance
-endif
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target test-fast
 
-bootstrap-node-runtime: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-bootstrap-node-runtime:
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED),$(NODE_BIN))
-	$(call RUN_TARGET_SUMMARY,bootstrap-node-runtime,pass)
-
-frontend-toolchain: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-frontend-toolchain:
+check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+check: export CARTULARY_TEST_TARGET ?= check
+check:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-toolchain)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_TOOLCHAIN_STAMP))
-	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-frontend-toolchain}" $(RUN_STEP_SCRIPT) "frontend-toolchain" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) FRONTEND_TOOLCHAIN_STAMP="$(FRONTEND_TOOLCHAIN_STAMP)" CARTULARY_FRONTEND_TOOLCHAIN_QUIET="$(CARTULARY_FRONTEND_TOOLCHAIN_QUIET)" bash ./tools/harness/readiness/frontend-toolchain.sh --print-stamp
-
-frontend-install: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-frontend-install: export CARTULARY_TEST_TARGET ?= frontend-install
-frontend-install:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-install)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(call RUN_TARGET_SUMMARY,frontend-install,pass)
-
-playwright-install: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-playwright-install:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,playwright-install)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED),$(PLAYWRIGHT_INSTALL_STAMP))
-	$(call RUN_TARGET_SUMMARY,playwright-install,pass)
-
-db-up: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-db-up:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-up)
-	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-up}" $(RUN_STEP_SCRIPT) "db-up" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/readiness/dev-services.sh db-up
-
-db-migrate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-db-migrate:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-migrate)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness)
-	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-migrate}" $(RUN_STEP_SCRIPT) "db-migrate" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" bash ./tools/harness/readiness/dev-services.sh db-migrate
-
-db-reset: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-db-reset:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-reset)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness)
-	$(Q)CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-reset}" $(RUN_STEP_SCRIPT) "db-reset" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" GO="$(GO)" \
-	  CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" CARTULARY_DESTRUCTIVE_CONFIRM="$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)" bash ./tools/harness/readiness/dev-services.sh db-reset
-
-postgres-baseline-reset: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-postgres-baseline-reset:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,postgres-baseline-reset)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness)
-	$(Q)CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" POSTGRES_BASELINE_PROFILE="$(POSTGRES_BASELINE_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN POSTGRES_BASELINE_PROFILE)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-postgres-baseline-reset}" $(RUN_STEP_SCRIPT) "postgres-baseline-reset" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" \
-	  POSTGRES_BASELINE_PROFILE="$(POSTGRES_BASELINE_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN POSTGRES_BASELINE_PROFILE)" GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" POSTGRES_BASELINE_PROFILE="$(POSTGRES_BASELINE_PROFILE)" CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_DESTRUCTIVE_CONFIRM="$(if \
-	  $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)" bash ./tools/harness/readiness/postgres-baseline-reset.sh
-
-services-up: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-services-up:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,services-up)
-	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-services-up}" $(RUN_STEP_SCRIPT) "services-up" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/readiness/dev-services.sh up
-
-services-down: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-services-down:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,services-down)
-	$(Q)CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-services-down}" $(RUN_STEP_SCRIPT) "services-down" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" bash \
-	  ./tools/harness/readiness/dev-services.sh services-down
-
-test-services-session-up: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-test-services-session-up:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-services-session-up)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness testservices-build $(HARNESS_RUNTIME_BIN))
-	$(Q)CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-services-session-up}" $(RUN_STEP_SCRIPT) "test-services-session-up" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" \
-	  CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/services/local-session-cli.mjs up
-
-test-services-session-status:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-services-session-status)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness testservices-build)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/services/local-session-cli.mjs status
-
-test-services-session-down: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-test-services-session-down:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-services-session-down)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness testservices-build $(HARNESS_RUNTIME_BIN))
-	$(Q)CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-services-session-down}" $(RUN_STEP_SCRIPT) "test-services-session-down" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" \
-	  CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/services/local-session-cli.mjs down
-
-services-wait: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-services-wait: postgres-wait object-store-wait
-
-postgres-wait: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-postgres-wait:
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/readiness/dev-services.sh wait-postgres
-
-object-store-wait: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-object-store-wait:
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/readiness/dev-services.sh wait-object-store
-
-object-store-init: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-object-store-init:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,object-store-init)
-	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-object-store-init}" $(RUN_STEP_SCRIPT) "object-store-init" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)" bash ./tools/harness/readiness/dev-services.sh init-object-store
-
-object-store-reset: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-object-store-reset:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,object-store-reset)
-	$(Q)CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-object-store-reset}" $(RUN_STEP_SCRIPT) "object-store-reset" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" \
-	  OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)" CARTULARY_DESTRUCTIVE_CONFIRM="$(if $(findstring command line,$(origin CARTULARY_DESTRUCTIVE_CONFIRM)),$(CARTULARY_DESTRUCTIVE_CONFIRM),)" bash ./tools/harness/readiness/dev-services.sh object-store-reset
-
-dev:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,dev)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(FRONTEND_INSTALL_STAMP) $(REPORT_RENDERER_RECEIPT))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" bash ./tools/harness/readiness/dev-stack.sh
-
-codegen-toolchain: export CARTULARY_TEST_TARGET ?= codegen-toolchain
-codegen-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-codegen-toolchain: $(SQLC_BIN)
-
-go-lint-toolchain: export CARTULARY_TEST_TARGET ?= go-lint-toolchain
-go-lint-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-go-lint-toolchain: $(STATICCHECK_BIN)
-
-govulncheck-toolchain: export CARTULARY_TEST_TARGET ?= govulncheck-toolchain
-govulncheck-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-govulncheck-toolchain: $(GOVULNCHECK_BIN)
-
-gosec-toolchain: export CARTULARY_TEST_TARGET ?= gosec-toolchain
-gosec-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-gosec-toolchain: $(GOSEC_BIN)
-
-go-security-toolchain: export CARTULARY_TEST_TARGET ?= go-security-toolchain
-go-security-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-go-security-toolchain: govulncheck-toolchain gosec-toolchain
-
-shell-lint-toolchain: export CARTULARY_TEST_TARGET ?= shell-lint-toolchain
-shell-lint-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-shell-lint-toolchain: $(SHELLCHECK_BIN)
-
-generate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-generate:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generate)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FOUNDATION_SCHEMA_VALIDATORS) codegen-toolchain)
-	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-generate}" $(RUN_STEP_SCRIPT) "generate" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(MAKE) --no-print-directory generate-artifacts
-
-generate-artifacts: export CARTULARY_TEST_TARGET ?= generate-artifacts
-generate-artifacts: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-generate-artifacts: go-toolchain-readiness $(NODE_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" SQLC_BIN="$(SQLC_BIN)" bash ./tools/harness/generated-artifacts/generate-artifacts.sh
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-generate-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-generate-drift: export CARTULARY_TEST_TARGET ?= generate-drift
-generate-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generate-drift)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),codegen-toolchain)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "generate-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" ./tools/harness/generated-artifacts/check-generate-drift.sh
-else
-generate-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-generate-drift: export CARTULARY_TEST_TARGET ?= generate-drift
-generate-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generate-drift)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,check)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target generate-drift
-endif
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target check
 
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-generated-artifact-policy-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-generated-artifact-policy-check: export CARTULARY_TEST_TARGET ?= generated-artifact-policy-check
-generated-artifact-policy-check:
+ci: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+ci: export CARTULARY_TEST_TARGET ?= ci
+ci: export CI := 1
+ci:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generated-artifact-policy-check)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "generated-artifact-policy-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
-	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/harness/generated-artifacts/check-generated-artifact-policy.mjs
-	$(call RUN_TARGET_SUMMARY,generated-artifact-policy-check,pass)
-else
-generated-artifact-policy-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-generated-artifact-policy-check: export CARTULARY_TEST_TARGET ?= generated-artifact-policy-check
-generated-artifact-policy-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generated-artifact-policy-check)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,ci)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  generated-artifact-policy-check
-endif
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target ci
 
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-json-shape-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-json-shape-check: export CARTULARY_TEST_TARGET ?= json-shape-check
-json-shape-check:
+release-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+release-check: export CARTULARY_TEST_TARGET ?= release-check
+release-check:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,json-shape-check)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-check)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target release-check
+
+test-slice: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+test-slice: export CARTULARY_TEST_TARGET ?= test-slice
+test-slice:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-slice)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,JSON OWNER ROWS SCOPE SUITE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" \
+	  PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE HARNESS_DIAGNOSTICS JSON OWNER PLAYWRIGHT_WORKERS ROWS SCOPE SUITE VITEST_MAX_WORKERS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target test-slice
+
+browser-e2e: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+browser-e2e: export CARTULARY_TEST_TARGET ?= browser-e2e
+browser-e2e:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,SUITE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call \
+	  TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE HARNESS_DIAGNOSTICS SUITE)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target browser-e2e
+
+browser-e2e-visual-update: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+browser-e2e-visual-update: export CARTULARY_TEST_TARGET ?= browser-e2e-visual-update
+browser-e2e-visual-update:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-visual-update)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target \
+	  browser-e2e-visual-update
+
+harness-contract: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+harness-contract: export CARTULARY_TEST_TARGET ?= harness-contract
+harness-contract:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-contract)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,SUITE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS SUITE)" $(TASK_SURFACE_GRAPH_RUNTIME) \
+	  --selection command --target harness-contract
+
+lint: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+lint: export CARTULARY_TEST_TARGET ?= lint
+lint:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,CHECK) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CHECK HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
+	  --selection command --target lint
+
+lint-markdown: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+lint-markdown:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-markdown)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "json-shape-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/harness/generated-artifacts/check-json-shapes.mjs
-	$(call RUN_TARGET_SUMMARY,json-shape-check,pass)
-else
-json-shape-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-json-shape-check: export CARTULARY_TEST_TARGET ?= json-shape-check
-json-shape-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,json-shape-check)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target json-shape-check
-endif
+	$(Q)CARTULARY_STEP_FAILURE_NOTE="inspect Markdown lint diagnostics; do not run broad prose reflow" $(RUN_STEP_SCRIPT) "lint markdown" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/static-analysis/markdownlint.sh
 
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-toolchain-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-toolchain-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,toolchain-drift)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/harness/readiness/toolchain-pin-check-cli.mjs
-else
-toolchain-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-toolchain-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,toolchain-drift)
+source-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+source-check: export CARTULARY_TEST_TARGET ?= source-check
+source-check:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,source-check)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target toolchain-drift
-endif
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,CHECK) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CHECK HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
+	  --selection command --target source-check
 
 migration-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 migration-drift: export CARTULARY_TEST_TARGET ?= migration-drift
 migration-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,migration-drift)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection rows --target migration-drift --rows \
-	  harness.generated_artifacts.support.migration_input_integrity,module.database_migrations.integration.schema_bootstrap
-
-migration-input-drift: export CARTULARY_TEST_TARGET ?= migration-input-drift
-migration-input-drift: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-migration-input-drift: $(NODE_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "migration-input-drift" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target migration-drift
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 openapi-compatibility-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -724,7 +456,7 @@ openapi-compatibility-check: export CARTULARY_TEST_TARGET ?= openapi-compatibili
 openapi-compatibility-check:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,openapi-compatibility-check)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness codegen-toolchain)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(SQLC_BIN))
 	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "openapi-compatibility-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
 	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" $(GO) run ./tools/openapi-compatibility -quiet -report \
 	  $(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/openapi-compatibility-check/openapi-compatibility-report.json
@@ -740,62 +472,109 @@ openapi-compatibility-check:
 	  openapi-compatibility-check
 endif
 
-migration-scratch-apply: export CARTULARY_TEST_TARGET ?= migration-scratch-apply
-migration-scratch-apply: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-migration-scratch-apply: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection rows --target migration-scratch-apply --rows module.database_migrations.integration.schema_bootstrap
-
-deployable-shape: export CARTULARY_TEST_TARGET ?= deployable-shape
-deployable-shape: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-deployable-shape: $(SERVER_BIN) $(MIGRATE_BIN) $(OPERATOR_BIN)
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "deployable-shape" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ./tools/release-evidence/check-deployable-shape.sh
-	$(call RUN_TARGET_SUMMARY,deployable-shape,pass)
-
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-standup-package-smoke: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-standup-package-smoke: export CARTULARY_TEST_TARGET ?= standup-package-smoke
-standup-package-smoke:
+otel-conformance: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+otel-conformance:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,standup-package-smoke)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),package-release)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "standup-package-smoke" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" ./tools/release-evidence/check-standup-package-smoke.sh
-	$(call RUN_TARGET_SUMMARY,standup-package-smoke,pass)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,otel-conformance)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(CURDIR)/apps/web/dist/index.html $(HARNESS_RUNTIME_BIN))
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "otel-conformance" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
+	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/otel/check-otel-conformance.mjs
+	$(call RUN_TARGET_SUMMARY,otel-conformance,pass)
 else
-standup-package-smoke: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-standup-package-smoke: export CARTULARY_TEST_TARGET ?= standup-package-smoke
-standup-package-smoke:
+otel-conformance: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+otel-conformance:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,standup-package-smoke)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,otel-conformance)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target standup-package-smoke
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target otel-conformance
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-standup-operational-recovery-smoke: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-standup-operational-recovery-smoke: export CARTULARY_TEST_TARGET ?= standup-operational-recovery-smoke
-standup-operational-recovery-smoke:
+go-vulncheck: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+go-vulncheck: export CARTULARY_TEST_TARGET ?= go-vulncheck
+go-vulncheck:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,standup-operational-recovery-smoke)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),package-release)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "standup-operational-recovery-smoke" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
-	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" ./tools/release-evidence/check-standup-operational-recovery-smoke.sh
-	$(call RUN_TARGET_SUMMARY,standup-operational-recovery-smoke,pass)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-vulncheck)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(GOVULNCHECK_BIN))
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "go vulncheck" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
+	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" \
+	  GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOVULNCHECK_BIN="$(GOVULNCHECK_BIN)" GOVULNCHECK_FLAGS="-test -json" GOVULNCHECK_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..." bash ./tools/harness/static-analysis/go-govulncheck.sh
 else
-standup-operational-recovery-smoke: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-standup-operational-recovery-smoke: export CARTULARY_TEST_TARGET ?= standup-operational-recovery-smoke
-standup-operational-recovery-smoke:
+go-vulncheck: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+go-vulncheck: export CARTULARY_TEST_TARGET ?= go-vulncheck
+go-vulncheck:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,standup-operational-recovery-smoke)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-vulncheck)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  standup-operational-recovery-smoke
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
+	  --selection target --target go-vulncheck
 endif
 
-test-catalog-check: export CARTULARY_TEST_TARGET ?= test-catalog-check
-test-catalog-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-test-catalog-check: $(NODE_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "test-catalog-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/harness/execution/catalog-check-cli.mjs
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
+go-gosec-targeted: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+go-gosec-targeted: export CARTULARY_TEST_TARGET ?= go-gosec-targeted
+go-gosec-targeted:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-targeted)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(GOSEC_BIN))
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "go gosec targeted" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
+	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOSEC_BIN="$(GOSEC_BIN)" \
+	  GOSEC_RULES="G602,G124,G112,G114" GOSEC_FLAGS="-exclude-generated" GOSEC_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..." GOSEC_TARGETED_RUNTIME_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_TARGETED_RUNTIME_PATTERNS="./cmd/... ./internal/..." NODE_BIN="$(NODE_BIN)" bash ./tools/harness/static-analysis/go-gosec-targeted.sh
+else
+go-gosec-targeted: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+go-gosec-targeted: export CARTULARY_TEST_TARGET ?= go-gosec-targeted
+go-gosec-targeted:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-targeted)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-gosec-targeted
+endif
+
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
+go-gosec-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+go-gosec-audit: export CARTULARY_TEST_TARGET ?= go-gosec-audit
+go-gosec-audit:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-audit)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(GOSEC_BIN))
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "go gosec audit" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
+	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOSEC_BIN="$(GOSEC_BIN)" \
+	  GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -quiet" GOSEC_AUDIT_SUPPORT_PATTERNS="./tools/..." bash ./tools/harness/static-analysis/go-gosec-audit.sh
+	$(call RUN_TARGET_SUMMARY,go-gosec-audit,pass)
+else
+go-gosec-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+go-gosec-audit: export CARTULARY_TEST_TARGET ?= go-gosec-audit
+go-gosec-audit:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-audit)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-gosec-audit
+endif
+
+ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
+frontend-fallow-static: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+frontend-fallow-static:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-fallow-static)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
+	$(Q)$(call RUN_MAKE_NODE_TOOL,frontend-fallow-static,CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)",frontend-fallow-static)
+else
+frontend-fallow-static: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+frontend-fallow-static:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-fallow-static)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target frontend-fallow-static
+endif
+
+generate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+generate: export CARTULARY_TEST_TARGET ?= generate
+generate:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,generate)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FOUNDATION_SCHEMA_VALIDATORS) $(SQLC_BIN))
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-generate}" $(RUN_STEP_SCRIPT) "generate" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" SQLC_BIN="$(SQLC_BIN)" bash ./tools/harness/generated-artifacts/generate-artifacts.sh
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 agent-finalize: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -817,12 +596,165 @@ agent-finalize:
 	  CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS RESULTS_DIR)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target agent-finalize
 endif
 
+format: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+format: export CARTULARY_TEST_TARGET ?= format
+format:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,format)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target format
+
+build: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+build: export CARTULARY_TEST_TARGET ?= build
+build:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,COMPONENT) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" OPERATOR_BIN="$(OPERATOR_BIN)" SERVER_HARNESS_BIN="$(SERVER_HARNESS_BIN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE \
+	  CARTULARY_HARNESS_CAPACITY_OVERRIDE COMPONENT HARNESS_DIAGNOSTICS OPERATOR_BIN SERVER_HARNESS_BIN)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target build
+
+frontend-lockfile-update: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+frontend-lockfile-update: export CARTULARY_TEST_TARGET ?= frontend-lockfile-update
+frontend-lockfile-update:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-lockfile-update)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_TOOLCHAIN_STAMP))
+	$(Q)$(RUN_STEP_SCRIPT) "frontend-lockfile-update" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) PNPM="$(PNPM)" NODE_BIN="$(NODE_BIN)" FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" PATH="$(NODE_RUNTIME_DIR)/bin:$(PATH)" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" bash ./tools/harness/readiness/frontend-lockfile-update.sh
+
+doctor: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+doctor:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,doctor)
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-doctor}" $(RUN_STEP_SCRIPT) "doctor" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" GO_TOOLCHAIN="$(GO_TOOLCHAIN)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" NODE_VERSION="$(NODE_VERSION)" PNPM="$(PNPM)" PNPM_VERSION="$(PNPM_VERSION)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" SHELLCHECK_BIN="$(SHELLCHECK_BIN)" \
+	  SHELLCHECK_VERSION="$(SHELLCHECK_VERSION)" bash ./tools/harness/readiness/check-doctor.sh
+
+bootstrap: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+bootstrap:
+	$(Q)$(if $(filter-out PART CARTULARY_MACHINE_CACHE_DIR GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR,$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)),echo 'bootstrap received an undeclared input' >&2; exit 2;,:)
+ifneq ($(findstring command line,$(origin PART)),)
+	$(Q)case $(call task_surface_shell_quote_trimmed,PART) in node|frontend|browser|test-images) : ;; *) echo 'PART has an invalid value' >&2; exit 2;; esac
+endif
+	+$(Q)env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,bootstrap)
+ifeq ($(if $(findstring command line,$(origin PART)),$(strip $(value PART)),),node)
+	$(Q)$(NODE_BIN) tools/harness/execution/operation-runner-cli.mjs harness.bootstrap_node
+else ifeq ($(if $(findstring command line,$(origin PART)),$(strip $(value PART)),),frontend)
+	$(Q)$(NODE_BIN) tools/harness/execution/operation-runner-cli.mjs harness.bootstrap_frontend
+else ifeq ($(if $(findstring command line,$(origin PART)),$(strip $(value PART)),),browser)
+	$(Q)$(NODE_BIN) tools/harness/execution/operation-runner-cli.mjs harness.bootstrap_browser
+else ifeq ($(if $(findstring command line,$(origin PART)),$(strip $(value PART)),),test-images)
+	$(Q)$(NODE_BIN) tools/harness/execution/operation-runner-cli.mjs harness.bootstrap_test_images
+else
+	$(Q)$(NODE_BIN) tools/harness/execution/operation-runner-cli.mjs harness.bootstrap_full
+endif
+	$(call RUN_TARGET_SUMMARY,bootstrap,pass)
+
+services-up: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+services-up:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,services-up)
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-services-up}" $(RUN_STEP_SCRIPT) "services-up" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/readiness/dev-services.sh up
+
+services-down: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+services-down:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,services-down)
+	$(Q)CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-services-down}" $(RUN_STEP_SCRIPT) "services-down" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" bash \
+	  ./tools/harness/readiness/dev-services.sh services-down
+
+db-migrate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+db-migrate:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-migrate)
+	$(Q)CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-migrate}" $(RUN_STEP_SCRIPT) "db-migrate" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" bash ./tools/harness/readiness/dev-services.sh db-migrate
+
+db-reset: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+db-reset:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,db-reset)
+	$(Q)CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-db-reset}" $(RUN_STEP_SCRIPT) "db-reset" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" GO="$(GO)" \
+	  CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" CARTULARY_DESTRUCTIVE_CONFIRM="$(CARTULARY_DESTRUCTIVE_CONFIRM)" bash ./tools/harness/readiness/dev-services.sh db-reset
+
+postgres-baseline-reset: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+postgres-baseline-reset:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,postgres-baseline-reset)
+	$(Q)CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" POSTGRES_BASELINE_PROFILE="$(POSTGRES_BASELINE_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN POSTGRES_BASELINE_PROFILE)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-postgres-baseline-reset}" $(RUN_STEP_SCRIPT) "postgres-baseline-reset" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" \
+	  POSTGRES_BASELINE_PROFILE="$(POSTGRES_BASELINE_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN POSTGRES_BASELINE_PROFILE)" GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_BIN="$(NODE_BIN)" POSTGRES_BASELINE_PROFILE="$(POSTGRES_BASELINE_PROFILE)" CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" \
+	  CARTULARY_DESTRUCTIVE_CONFIRM="$(CARTULARY_DESTRUCTIVE_CONFIRM)" bash ./tools/harness/readiness/postgres-baseline-reset.sh
+
+object-store-reset: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+object-store-reset:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,object-store-reset)
+	$(Q)CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-object-store-reset}" $(RUN_STEP_SCRIPT) "object-store-reset" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_CLEANUP_DRY_RUN="$(CARTULARY_CLEANUP_DRY_RUN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_CLEANUP_DRY_RUN)" \
+	  OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)" CARTULARY_DESTRUCTIVE_CONFIRM="$(CARTULARY_DESTRUCTIVE_CONFIRM)" bash ./tools/harness/readiness/dev-services.sh object-store-reset
+
+dev:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,dev)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP) $(REPORT_RENDERER_RECEIPT))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" CONFIG_FILE="$(CONFIG_FILE)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)" bash ./tools/harness/readiness/dev-stack.sh
+
+test-services-session-up: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+test-services-session-up:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-services-session-up)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN) $(TEST_SERVICES_BIN))
+	$(Q)CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-services-session-up}" $(RUN_STEP_SCRIPT) "test-services-session-up" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" \
+	  CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/services/local-session-cli.mjs up
+
+test-services-session-status:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-services-session-status)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(TEST_SERVICES_BIN))
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/services/local-session-cli.mjs status
+
+test-services-session-down: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+test-services-session-down:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-services-session-down)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN) $(TEST_SERVICES_BIN))
+	$(Q)CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-services-session-down}" $(RUN_STEP_SCRIPT) "test-services-session-down" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" \
+	  CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/services/local-session-cli.mjs down
+
+help:
+	$(Q)$(if $(filter-out JSON ALL CARTULARY_MACHINE_CACHE_DIR GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR,$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)),echo 'help received an undeclared input' >&2; exit 2;,:)
+ifneq ($(findstring command line,$(origin JSON)),)
+	$(Q)case $(call task_surface_shell_quote_trimmed,JSON) in 1) : ;; *) echo 'JSON has an invalid value' >&2; exit 2;; esac
+endif
+ifneq ($(findstring command line,$(origin ALL)),)
+	$(Q)case $(call task_surface_shell_quote_trimmed,ALL) in 1) : ;; *) echo 'ALL has an invalid value' >&2; exit 2;; esac
+endif
+	$(Q)case "$${CARTULARY_OUTPUT_MODE:-summary}" in quiet|summary|ci|verbose|debug) ;; *) echo 'help requires human output mode; use JSON=1 for JSON' >&2; exit 2;; esac
+	$(Q)$(if $(TASK_SURFACE_HELP_JSON_SELECTED),cat $(if $(TASK_SURFACE_HELP_ALL_SELECTED),tools/task_surface.help-all.generated.json,tools/task_surface.help.generated.json),printf '%s\n' $(if $(TASK_SURFACE_HELP_ALL_SELECTED),$(TASK_SURFACE_HELP_ALL_LINES),$(TASK_SURFACE_HELP_LINES)))
+
+task-guide:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,task-guide)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,task-guide,$(call TASK_SURFACE_ARGV_ENV,OWNER JSON DETAIL),task-guide)
+
+author-test-row-id:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,author-test-row-id)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,author-test-row-id,$(call TASK_SURFACE_ARGV_ENV,FAMILY_ID CLAIM SELECTOR_KEY),author-test-row-id)
+
+target-plan:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,target-plan)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,target-plan,$(call TASK_SURFACE_ARGV_ENV,TARGET INPUTS DETAIL JSON),target-plan)
+
+explain-run:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-run)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-run,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUN_ID TARGET DETAIL JSON COMPARE_RESULTS_DIR COMPARISON FIXTURE_THRESHOLD_MS FIXTURE_TOP),explain-run)
+
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 test-evidence-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-evidence-audit:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-evidence-audit)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,test-evidence-audit,$(call TASK_SURFACE_ARGV_ENV,OWNER EVIDENCE_ROOTS_FILE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
+	$(Q)$(call RUN_MAKE_NODE_TOOL,test-evidence-audit,$(call TASK_SURFACE_ARGV_ENV,OWNER EVIDENCE_ROOTS_FILE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)",test-evidence-audit)
 else
 test-evidence-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-evidence-audit:
@@ -832,6 +764,16 @@ test-evidence-audit:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,EVIDENCE_ROOTS_FILE OWNER) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE EVIDENCE_ROOTS_FILE HARNESS_DIAGNOSTICS \
 	  OWNER)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target test-evidence-audit
 endif
+
+harness-observability-check:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-observability-check)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-observability-check,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUN_ID CHECK),harness-observability-check)
+
+harness-otel-export:
+	$(Q)$(TASK_SURFACE_NODE_READINESS)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-otel-export)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-otel-export,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUN_ID HARNESS_OTLP_ENDPOINT HARNESS_OTLP_HEADERS_FILE),harness-otel-export)
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 benchmark-claim-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -853,713 +795,34 @@ benchmark-claim-check:
 	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target benchmark-claim-check
 endif
 
-task-surface-report:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,task-surface-report)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,task-surface-report,$(call TASK_SURFACE_ARGV_ENV,TASK_SURFACE_REPORT_ARGS))
-
-task-guide:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,task-guide)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,task-guide,$(call TASK_SURFACE_ARGV_ENV,ROLE OWNER JSON))
-
-author-test-row-id:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,author-test-row-id)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,author-test-row-id,$(call TASK_SURFACE_ARGV_ENV,FAMILY_ID CLAIM SELECTOR_KEY))
-
-test-slice: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-test-slice: export CARTULARY_TEST_TARGET ?= test-slice
-test-slice:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-slice)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,JSON OWNER ROWS) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE \
-	  CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS JSON OWNER PLAYWRIGHT_WORKERS ROWS VITEST_MAX_WORKERS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection owner --target test-slice --owner "$(OWNER)" $(if $(strip $(ROWS)),--rows "$(ROWS)",)
-
-service-backed-test-slice: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-service-backed-test-slice: export CARTULARY_TEST_TARGET ?= service-backed-test-slice
-service-backed-test-slice:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,service-backed-test-slice)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,JSON OWNER ROWS) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" PLAYWRIGHT_WORKERS="$(PLAYWRIGHT_WORKERS)" \
-	  VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE HARNESS_DIAGNOSTICS JSON OWNER PLAYWRIGHT_WORKERS ROWS VITEST_MAX_WORKERS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection owner --target service-backed-test-slice --owner "$(OWNER)" $(if $(strip $(ROWS)),--rows "$(ROWS)",) --service-backed-only
-
-backend-unit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-backend-unit: export CARTULARY_TEST_TARGET ?= backend-unit
-backend-unit:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,backend-unit)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target backend-unit
-
-backend-store: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-backend-store: export CARTULARY_TEST_TARGET ?= backend-store
-backend-store:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,backend-store)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target backend-store
-
-backend-integration: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-backend-integration: export CARTULARY_TEST_TARGET ?= backend-integration
-backend-integration:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,backend-integration)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target backend-integration
-
-backend-integration-support: export CARTULARY_TEST_TARGET ?= backend-integration-support
-backend-integration-support: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-backend-integration-support: go-toolchain-readiness $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target backend-integration-support
-
-backend-process: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-backend-process: export CARTULARY_TEST_TARGET ?= backend-process
-backend-process:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,backend-process)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target backend-process
-
-target-plan:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,target-plan)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,target-plan,$(call TASK_SURFACE_ARGV_ENV,TARGET))
-
-target-plan-json:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,target-plan-json)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,target-plan-json,$(call TASK_SURFACE_ARGV_ENV,TARGET))
-
-fixture-report:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,fixture-report)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,fixture-report,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUN_ID TARGET JSON FIXTURE_THRESHOLD_MS FIXTURE_TOP) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)")
-
-explain-run:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-run)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-run,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUN_ID TARGET DETAIL JSON COMPARE_RESULTS_DIR COMPARISON))
-
-harness-observability-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-observability-check)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-observability-check,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUN_ID))
-
-harness-otel-export:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-otel-export)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-otel-export,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUN_ID HARNESS_OTLP_ENDPOINT HARNESS_OTLP_HEADERS_FILE))
-
-harness-performance-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-performance-check)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-performance-check,$(call TASK_SURFACE_ARGV_ENV,EVIDENCE_ROOTS_FILE))
-
-harness-public-target-duration-baselines: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-harness-public-target-duration-baselines:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-public-target-duration-baselines)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-public-target-duration-baselines,$(call TASK_SURFACE_ARGV_ENV,EVIDENCE_ROOTS_FILE))
-
-explain-test-owner:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-test-owner)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-test-owner,$(call TASK_SURFACE_ARGV_ENV,OWNER JSON))
-
-explain-target:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-target)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-target,$(call TASK_SURFACE_ARGV_ENV,TARGET DETAIL JSON))
-
-go-test-duration-baselines: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-go-test-duration-baselines:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-test-duration-baselines)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baselines,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR))
-
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-go-test-duration-baseline-coverage: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-go-test-duration-baseline-coverage:
+package-release: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+package-release: export CARTULARY_TEST_TARGET ?= package-release
+package-release:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-test-duration-baseline-coverage)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baseline-coverage,CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,package-release)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(MIGRATE_BIN) $(OPERATOR_BIN) $(REPORT_RENDERER_RECEIPT) $(SERVER_BIN) $(SYFT_BIN))
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "package-release" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
+	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" SYFT_BIN="$(SYFT_BIN)" $(NODE_BIN) ./tools/release-evidence/package-release.mjs produce
+	$(call RUN_TARGET_SUMMARY,package-release,pass)
 else
-go-test-duration-baseline-coverage: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-go-test-duration-baseline-coverage:
+package-release: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+package-release: export CARTULARY_TEST_TARGET ?= package-release
+package-release:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-test-duration-baseline-coverage)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,package-release)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  go-test-duration-baseline-coverage
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target package-release
 endif
 
-go-test-duration-baseline-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-go-test-duration-baseline-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-test-duration-baseline-drift)
+package-inspect: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+package-inspect: export CARTULARY_TEST_TARGET ?= package-inspect
+package-inspect:
+	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,package-inspect)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,go-test-duration-baseline-drift,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
-
-browser-e2e-duration-baselines: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-browser-e2e-duration-baselines:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-duration-baselines)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,browser-e2e-duration-baselines,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR))
-
-browser-e2e-duration-baseline-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-browser-e2e-duration-baseline-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-duration-baseline-drift)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,browser-e2e-duration-baseline-drift,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
-
-service-backed-make-target-duration-baselines: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-service-backed-make-target-duration-baselines:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,service-backed-make-target-duration-baselines)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,service-backed-make-target-duration-baselines,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR))
-
-service-backed-make-target-duration-baseline-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-service-backed-make-target-duration-baseline-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,service-backed-make-target-duration-baseline-drift)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,service-backed-make-target-duration-baseline-drift,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
-
-harness-smoke-duration-baselines: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-harness-smoke-duration-baselines:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-smoke-duration-baselines)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-smoke-duration-baselines,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR))
-
-harness-smoke-duration-baseline-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-harness-smoke-duration-baseline-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-smoke-duration-baseline-drift)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,harness-smoke-duration-baseline-drift,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
-
-scheduler-event-order-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-scheduler-event-order-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,scheduler-event-order-drift)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,scheduler-event-order-drift,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR TARGET) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
-
-scheduler-summary-timing-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-scheduler-summary-timing-drift:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,scheduler-summary-timing-drift)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,scheduler-summary-timing-drift,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR TARGET) CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)")
-
-testservices-build: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-testservices-build: $(TEST_SERVICES_BIN)
-
-test-service-images: export CARTULARY_TEST_TARGET ?= test-service-images
-test-service-images: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-test-service-images: testservices-build
-	$(Q)$(RUN_STEP_SCRIPT) "warm test service images" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) tools/harness/readiness/warm-test-service-images.sh $(TEST_SERVICES_BIN)
-
-run-harness-smoke-fast: export CARTULARY_TEST_TARGET ?= run-harness-smoke-fast
-run-harness-smoke-fast: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-run-harness-smoke-fast: go-toolchain-readiness $(NODE_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"
-
-run-harness-smoke-extended: export CARTULARY_TEST_TARGET ?= run-harness-smoke-extended
-run-harness-smoke-extended: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-run-harness-smoke-extended: go-toolchain-readiness $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"
-
-run-harness-smoke-execution: export CARTULARY_TEST_TARGET ?= run-harness-smoke-execution
-run-harness-smoke-execution: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-run-harness-smoke-execution: $(NODE_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier execution --jobs "$(HARNESS_SMOKE_JOBS)"
-
-run-harness-smoke-lifecycle: export CARTULARY_TEST_TARGET ?= run-harness-smoke-lifecycle
-run-harness-smoke-lifecycle: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-run-harness-smoke-lifecycle: $(NODE_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier lifecycle --jobs "$(HARNESS_SMOKE_JOBS)"
-
-run-harness-smoke-full: export CARTULARY_TEST_TARGET ?= run-harness-smoke-full
-run-harness-smoke-full: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-run-harness-smoke-full: go-toolchain-readiness $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" $(NODE_BIN) $(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"
-
-semantic-identity-check: export CARTULARY_TEST_TARGET ?= semantic-identity-check
-semantic-identity-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-semantic-identity-check: $(NODE_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "semantic-identity-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/harness/test-catalog/semantic-identity-check-cli.mjs
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-frontend-typecheck: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-frontend-typecheck: export CARTULARY_TEST_TARGET ?= frontend-typecheck
-frontend-typecheck:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-typecheck)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "frontend typecheck" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" $(PNPM) typecheck
-	$(call RUN_TARGET_SUMMARY,frontend-typecheck,pass)
-else
-frontend-typecheck: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-frontend-typecheck: export CARTULARY_TEST_TARGET ?= frontend-typecheck
-frontend-typecheck:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-typecheck)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target frontend-typecheck
-endif
-
-frontend-unit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-frontend-unit: export CARTULARY_TEST_TARGET ?= frontend-unit
-frontend-unit:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-unit)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS VITEST_MAX_WORKERS)" \
-	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target frontend-unit
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-frontend-import-boundary-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-frontend-import-boundary-check: export CARTULARY_TEST_TARGET ?= frontend-import-boundary-check
-frontend-import-boundary-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-import-boundary-check)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "frontend-import-boundary-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs
-else
-frontend-import-boundary-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-frontend-import-boundary-check: export CARTULARY_TEST_TARGET ?= frontend-import-boundary-check
-frontend-import-boundary-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-import-boundary-check)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  frontend-import-boundary-check
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-protocol-ts-browser-artifact-reachability: export CARTULARY_TEST_TARGET ?= protocol-ts-browser-artifact-reachability
-protocol-ts-browser-artifact-reachability: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-protocol-ts-browser-artifact-reachability:
-else
-protocol-ts-browser-artifact-reachability: $(NODE_BIN) $(WEB_DIST_INDEX)
-endif
-	$(Q)$(RUN_STEP_SCRIPT) "protocol-ts-browser-artifact-reachability" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/harness/static-analysis/protocol-ts-browser-artifact-reachability.mjs --dist $(CURDIR)/apps/web/dist
-else
-protocol-ts-browser-artifact-reachability: export CARTULARY_TEST_TARGET ?= protocol-ts-browser-artifact-reachability
-protocol-ts-browser-artifact-reachability: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-protocol-ts-browser-artifact-reachability: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target protocol-ts-browser-artifact-reachability
-endif
-
-protocol-ts-dead-code-check: export CARTULARY_TEST_TARGET ?= protocol-ts-dead-code-check
-protocol-ts-dead-code-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-protocol-ts-dead-code-check: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(RUN_STEP_SCRIPT) "protocol-ts-dead-code-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/harness/static-analysis/protocol-ts-dead-code-check.mjs
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-backend-module-boundary-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-backend-module-boundary-check: export CARTULARY_TEST_TARGET ?= backend-module-boundary-check
-backend-module-boundary-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,backend-module-boundary-check)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "backend-module-boundary-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/harness/static-analysis/backend-module-boundary-check-cli.mjs
-else
-backend-module-boundary-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-backend-module-boundary-check: export CARTULARY_TEST_TARGET ?= backend-module-boundary-check
-backend-module-boundary-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,backend-module-boundary-check)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  backend-module-boundary-check
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-frontend-fallow-static: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-frontend-fallow-static:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-fallow-static)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,frontend-fallow-static,CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)")
-else
-frontend-fallow-static: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-frontend-fallow-static:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-fallow-static)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target frontend-fallow-static
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-lint-biome: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-lint-biome: export CARTULARY_TEST_TARGET ?= lint-biome
-lint-biome:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-biome)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_STEP_FAILURE_NOTE="inspect Biome diagnostics; run make format only for formatting/style diagnostics" \
-	  $(RUN_STEP_SCRIPT) "lint biome" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" bash \
-	  ./tools/harness/static-analysis/frontend-biome.sh check $(BIOME_CHECK_FLAGS)
-	$(call RUN_TARGET_SUMMARY,lint-biome,pass)
-else
-lint-biome: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-lint-biome: export CARTULARY_TEST_TARGET ?= lint-biome
-lint-biome:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-biome)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target lint-biome
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-lint-scripts: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-lint-scripts: export CARTULARY_TEST_TARGET ?= lint-scripts
-lint-scripts:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-scripts)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "lint scripts" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" bash ./tools/harness/static-analysis/scripts-biome.sh $(BIOME_SCRIPT_CHECK_FLAGS)
-	$(call RUN_TARGET_SUMMARY,lint-scripts,pass)
-else
-lint-scripts: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-lint-scripts: export CARTULARY_TEST_TARGET ?= lint-scripts
-lint-scripts:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-scripts)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target lint-scripts
-endif
-
-lint-markdown: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-lint-markdown:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-markdown)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)CARTULARY_STEP_FAILURE_NOTE="inspect Markdown lint diagnostics; do not run broad prose reflow" $(RUN_STEP_SCRIPT) "lint markdown" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/static-analysis/markdownlint.sh
-
-harness-contract-tests: export CARTULARY_TEST_TARGET ?= harness-contract-tests
-harness-contract-tests: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-contract-tests: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target harness-contract-tests
-
-harness-command-surface-contract: export CARTULARY_TEST_TARGET ?= harness-command-surface-contract
-harness-command-surface-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-command-surface-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-command-surface-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/tests/test-harness-command-surface-contracts.mjs ./tools/harness/execution/tests/test-vitest-diagnostics.mjs ./tools/harness/backend/tests/test-go-row-runner.mjs
-
-harness-evidence-contract: export CARTULARY_TEST_TARGET ?= harness-evidence-contract
-harness-evidence-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-evidence-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-evidence-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/tests/test-harness-evidence-contracts.mjs ./tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs ./tools/harness/observability/tests/test-canonical-performance.mjs ./tools/harness/tests/test-agent-finalize.mjs
-
-harness-contract: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-harness-contract: export CARTULARY_TEST_TARGET ?= harness-contract
-harness-contract:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-contract)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target harness-contract
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-lint-shell: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-lint-shell: export CARTULARY_TEST_TARGET ?= lint-shell
-lint-shell:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-shell)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),shell-lint-toolchain)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "lint shell" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" SHELLCHECK_BIN="$(SHELLCHECK_BIN)" LINT_SHELL_STRICT="1" NODE_BIN="$(NODE_BIN)" ./tools/harness/static-analysis/shellcheck.sh
-	$(call RUN_TARGET_SUMMARY,lint-shell,pass)
-else
-lint-shell: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-lint-shell: export CARTULARY_TEST_TARGET ?= lint-shell
-lint-shell:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint-shell)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target lint-shell
-endif
-
-format: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-format: export CARTULARY_TEST_TARGET ?= format
-format:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,format)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target format
-
-format-go: export CARTULARY_TEST_TARGET ?= format-go
-format-go: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-format-go: $(NODE_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "format go" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" bash ./tools/harness/static-analysis/go-format.sh --write
-
-format-frontend: export CARTULARY_TEST_TARGET ?= format-frontend
-format-frontend: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-format-frontend: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(RUN_STEP_SCRIPT) "format frontend" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/static-analysis/frontend-biome.sh format
-
-browser-e2e: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-browser-e2e: export CARTULARY_TEST_TARGET ?= browser-e2e
-browser-e2e:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target browser-e2e
-
-browser-e2e-webserver-backed: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-browser-e2e-webserver-backed: export CARTULARY_TEST_TARGET ?= browser-e2e-webserver-backed
-browser-e2e-webserver-backed:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-webserver-backed)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call \
-	  TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target browser-e2e-webserver-backed
-
-browser-e2e-support: export CARTULARY_TEST_TARGET ?= browser-e2e-support
-browser-e2e-support: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-browser-e2e-support: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target browser-e2e-support
-
-browser-e2e-stateful: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-browser-e2e-stateful: export CARTULARY_TEST_TARGET ?= browser-e2e-stateful
-browser-e2e-stateful:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-stateful)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call \
-	  TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target browser-e2e-stateful
-
-browser-e2e-resettable: export CARTULARY_TEST_TARGET ?= browser-e2e-resettable
-browser-e2e-resettable: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-browser-e2e-resettable: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target browser-e2e-resettable
-
-browser-e2e-measurement: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-browser-e2e-measurement: export CARTULARY_TEST_TARGET ?= browser-e2e-measurement
-browser-e2e-measurement:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-measurement)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target browser-e2e-measurement
-
-browser-e2e-visual: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-browser-e2e-visual: export CARTULARY_TEST_TARGET ?= browser-e2e-visual
-browser-e2e-visual:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-visual)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target browser-e2e-visual
-
-browser-e2e-visual-update: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-browser-e2e-visual-update: export CARTULARY_TEST_TARGET ?= browser-e2e-visual-update
-browser-e2e-visual-update:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-visual-update)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  browser-e2e-visual-update
-
-test-fast: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-test-fast: export CARTULARY_TEST_TARGET ?= test-fast
-test-fast:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-fast)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target test-fast
-
-test: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-test: export CARTULARY_TEST_TARGET ?= test
-test:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target test
-
-lint: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-lint: export CARTULARY_TEST_TARGET ?= lint
-lint:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target lint
-
-lint-go: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-lint-go: lint-go-format lint-go-vet lint-go-staticcheck
-
-lint-go-format: export CARTULARY_TEST_TARGET ?= lint-go-format
-lint-go-format: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-lint-go-format: go-toolchain-readiness $(NODE_BIN)
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_STEP_FAILURE_NOTE="run make format to apply authored Go formatting" $(RUN_STEP_SCRIPT) "lint gofmt" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" bash ./tools/harness/static-analysis/go-format.sh --check
-	$(call RUN_TARGET_SUMMARY,lint-go-format,pass)
-
-lint-go-vet: export CARTULARY_TEST_TARGET ?= lint-go-vet
-lint-go-vet: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-lint-go-vet: go-toolchain-readiness
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "lint go-vet" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) bash ./tools/harness/static-analysis/go-vet.sh
-	$(call RUN_TARGET_SUMMARY,lint-go-vet,pass)
-
-lint-go-staticcheck: export CARTULARY_TEST_TARGET ?= lint-go-staticcheck
-lint-go-staticcheck: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-lint-go-staticcheck: go-toolchain-readiness go-lint-toolchain
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "lint staticcheck" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" STATICCHECK_BIN="$(STATICCHECK_BIN)" bash ./tools/harness/static-analysis/go-staticcheck.sh
-	$(call RUN_TARGET_SUMMARY,lint-go-staticcheck,pass)
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-go-vulncheck: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-go-vulncheck: export CARTULARY_TEST_TARGET ?= go-vulncheck
-go-vulncheck:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-vulncheck)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness govulncheck-toolchain)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "go vulncheck" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
-	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" \
-	  GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOVULNCHECK_BIN="$(GOVULNCHECK_BIN)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" GOVULNCHECK_FLAGS="-test -json" GOVULNCHECK_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..." bash ./tools/harness/static-analysis/go-govulncheck.sh
-else
-go-vulncheck: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-go-vulncheck: export CARTULARY_TEST_TARGET ?= go-vulncheck
-go-vulncheck:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-vulncheck)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection target --target go-vulncheck
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-go-gosec-targeted: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-go-gosec-targeted: export CARTULARY_TEST_TARGET ?= go-gosec-targeted
-go-gosec-targeted:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-targeted)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness gosec-toolchain)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "go gosec targeted" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOSEC_BIN="$(GOSEC_BIN)" \
-	  GOSEC_RULES="G602,G124,G112,G114" GOSEC_FLAGS="-exclude-generated" GOSEC_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..." GOSEC_TARGETED_RUNTIME_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_TARGETED_RUNTIME_PATTERNS="./cmd/... ./internal/..." NODE_BIN="$(NODE_BIN)" bash ./tools/harness/static-analysis/go-gosec-targeted.sh
-else
-go-gosec-targeted: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-go-gosec-targeted: export CARTULARY_TEST_TARGET ?= go-gosec-targeted
-go-gosec-targeted:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-targeted)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-gosec-targeted
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-go-gosec-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-go-gosec-audit: export CARTULARY_TEST_TARGET ?= go-gosec-audit
-go-gosec-audit:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-audit)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness gosec-toolchain)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "go gosec audit" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOSEC_BIN="$(GOSEC_BIN)" \
-	  GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -quiet" GOSEC_AUDIT_SUPPORT_PATTERNS="./tools/..." bash ./tools/harness/static-analysis/go-gosec-audit.sh
-	$(call RUN_TARGET_SUMMARY,go-gosec-audit,pass)
-else
-go-gosec-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-go-gosec-audit: export CARTULARY_TEST_TARGET ?= go-gosec-audit
-go-gosec-audit:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-audit)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-gosec-audit
-endif
-
-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-check: export CARTULARY_TEST_TARGET ?= check
-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,check)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target check
-
-check-frontend-install: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-check-frontend-install: frontend-install
-
-check-harness-smoke: export CARTULARY_TEST_TARGET ?= check-harness-smoke
-check-harness-smoke: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-check-harness-smoke: $(NODE_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) MAKE_BIN="$(MAKE)" NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" RUN_STEP_SCRIPT="$(RUN_STEP_SCRIPT)" $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target check-harness-smoke --child-target run-harness-smoke-fast --status pass --step-label "check-harness-smoke" --projection check-harness-smoke
-
-ci: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-ci: export CARTULARY_TEST_TARGET ?= ci
-ci: export CI := 1
-ci:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,ci)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target ci
-
-release-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-release-check: export CARTULARY_TEST_TARGET ?= release-check
-release-check:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-check)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target release-check
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-release-readiness-evidence: export CARTULARY_TEST_TARGET ?= release-readiness-evidence
-release-readiness-evidence: export CARTULARY_ALLOW_EXISTING_RUN_ROOT := 1
-release-readiness-evidence: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-release-readiness-evidence:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-readiness-evidence)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "release-readiness-evidence" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
-	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/release-evidence/release-readiness-evidence.mjs
-	$(call RUN_TARGET_SUMMARY,release-readiness-evidence,pass)
-else
-release-readiness-evidence: export CARTULARY_TEST_TARGET ?= release-readiness-evidence
-release-readiness-evidence: export CARTULARY_ALLOW_EXISTING_RUN_ROOT := 1
-release-readiness-evidence: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-release-readiness-evidence:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-readiness-evidence)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  release-readiness-evidence
-endif
-
-release-evidence-contract: export CARTULARY_TEST_TARGET ?= release-evidence-contract
-release-evidence-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-release-evidence-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP)
-	$(Q)$(RUN_STEP_SCRIPT) "release-evidence-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/release-evidence/tests/test-release-readiness-evidence.mjs
-
-license-report: export CARTULARY_TEST_TARGET ?= license-report
-license-report: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-license-report:
-else
-license-report: release-inventory-artifacts
-endif
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "license-report" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" ./tools/release-evidence/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"
-	$(call RUN_TARGET_SUMMARY,license-report,pass)
-
-sbom: export CARTULARY_TEST_TARGET ?= sbom
-sbom: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-sbom:
-else
-sbom: release-inventory-artifacts
-endif
-	$(Q)CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "sbom" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" ./tools/release-evidence/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"
-	$(call RUN_TARGET_SUMMARY,sbom,pass)
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,CHECK) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CHECK HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
+	  --selection command --target package-inspect
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 seaweedfs-compatibility: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -1567,7 +830,7 @@ seaweedfs-compatibility: export CARTULARY_TEST_TARGET ?= seaweedfs-compatibility
 seaweedfs-compatibility:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-compatibility)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness test-service-images)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(TEST_SERVICES_BIN))
 	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "seaweedfs-compatibility" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
 	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" GO="$(GO)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" GO_CACHE_DIR="$(GO_CACHE_DIR)" \
 	  GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" OBJECT_STORE_PROFILE_ID="local_dev" OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)" $(GO) run ./tools/objectstoreprobe
@@ -1582,36 +845,13 @@ seaweedfs-compatibility:
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-seaweedfs-release-evidence: export CARTULARY_TEST_TARGET ?= seaweedfs-release-evidence
-seaweedfs-release-evidence: export CARTULARY_ALLOW_EXISTING_RUN_ROOT := 1
-seaweedfs-release-evidence: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-seaweedfs-release-evidence:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-release-evidence)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),seaweedfs-compatibility $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) tools/release-evidence/seaweedfs-release-evidence.mjs tools/seaweedfs_occurrence_classifications.json)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "seaweedfs-release-evidence" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" \
-	  SEAWEEDFS_RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)/seaweedfs" SEAWEEDFS_COMPATIBILITY_REPORT="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json" $(NODE_BIN) ./tools/release-evidence/seaweedfs-release-evidence.mjs
-else
-seaweedfs-release-evidence: export CARTULARY_TEST_TARGET ?= seaweedfs-release-evidence
-seaweedfs-release-evidence: export CARTULARY_ALLOW_EXISTING_RUN_ROOT := 1
-seaweedfs-release-evidence: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-seaweedfs-release-evidence:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-release-evidence)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  seaweedfs-release-evidence
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 seaweedfs-release-gate: export CARTULARY_TEST_TARGET ?= seaweedfs-release-gate
 seaweedfs-release-gate: export CARTULARY_ALLOW_EXISTING_RUN_ROOT := 1
 seaweedfs-release-gate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 seaweedfs-release-gate:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-release-gate)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),seaweedfs-compatibility $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT) tools/release-evidence/seaweedfs-release-evidence.mjs tools/seaweedfs_occurrence_classifications.json)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(LICENSE_REPORT_ARTIFACT) $(SBOM_ARTIFACT) $(TEST_SERVICES_BIN) tools/release-evidence/seaweedfs-release-evidence.mjs tools/seaweedfs_occurrence_classifications.json)
 	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "seaweedfs-release-gate" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
 	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" \
 	  SEAWEEDFS_RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)/seaweedfs" SEAWEEDFS_COMPATIBILITY_REPORT="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json" $(NODE_BIN) ./tools/release-evidence/seaweedfs-release-evidence.mjs --enforce-release-gate
@@ -1626,175 +866,50 @@ seaweedfs-release-gate:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target seaweedfs-release-gate
 endif
 
-build: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build: export CARTULARY_TEST_TARGET ?= build
-build:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target build
-
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-build-server: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-server: export CARTULARY_TEST_TARGET ?= build-server
-build-server:
+cryptographic-policy-assessment: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+cryptographic-policy-assessment: export CARTULARY_TEST_TARGET ?= cryptographic-policy-assessment
+cryptographic-policy-assessment:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-server)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED),$(SERVER_BIN))
-	$(call RUN_TARGET_SUMMARY,build-server,pass)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,cryptographic-policy-assessment)
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "cryptographic-policy-assessment" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
+	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/harness/readiness/cryptographic-policy-assessment.mjs
 else
-build-server: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-server: export CARTULARY_TEST_TARGET ?= build-server
-build-server:
+cryptographic-policy-assessment: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+cryptographic-policy-assessment: export CARTULARY_TEST_TARGET ?= cryptographic-policy-assessment
+cryptographic-policy-assessment:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-server)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,cryptographic-policy-assessment)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target build-server
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-build-server-harness: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-server-harness: export CARTULARY_TEST_TARGET ?= build-server-harness
-build-server-harness:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-server-harness)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED),$(SERVER_HARNESS_BIN))
-	$(call RUN_TARGET_SUMMARY,build-server-harness,pass)
-else
-build-server-harness: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-server-harness: export CARTULARY_TEST_TARGET ?= build-server-harness
-build-server-harness:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-server-harness)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target build-server-harness
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-embedded-web-assets: export CARTULARY_TEST_TARGET ?= embedded-web-assets
-embedded-web-assets: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-embedded-web-assets: $(EMBEDDED_WEB_ASSET_STAMP) $(EMBEDDED_WEB_ASSET_ARCHIVE) $(EMBEDDED_CLIENT_ASSET_MANIFEST) $(EMBEDDED_CLIENT_SUPPORT_REGISTRY) $(EMBEDDED_WEB_ASSET_READY_STAMP)
-else
-embedded-web-assets: export CARTULARY_TEST_TARGET ?= embedded-web-assets
-embedded-web-assets: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-embedded-web-assets: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target embedded-web-assets
-endif
-
-build-migrate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-migrate: export CARTULARY_TEST_TARGET ?= build-migrate
-build-migrate:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-migrate)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED),$(MIGRATE_BIN))
-	$(call RUN_TARGET_SUMMARY,build-migrate,pass)
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-build-operator: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-operator: export CARTULARY_TEST_TARGET ?= build-operator
-build-operator:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-operator)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED),$(OPERATOR_BIN))
-	$(call RUN_TARGET_SUMMARY,build-operator,pass)
-else
-build-operator: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-operator: export CARTULARY_TEST_TARGET ?= build-operator
-build-operator:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-operator)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target build-operator
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-build-web: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-web: export CARTULARY_TEST_TARGET ?= build-web
-build-web:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-web)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED),$(CURDIR)/apps/web/dist/index.html $(HARNESS_RUNTIME_BIN))
-	$(call RUN_TARGET_SUMMARY,build-web,pass)
-else
-build-web: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-web: export CARTULARY_TEST_TARGET ?= build-web
-build-web:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-web)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target build-web
-endif
-
-clean: override export CARTULARY_CLEANUP_DRY_RUN := $(value CARTULARY_CLEANUP_DRY_RUN)
-clean: override export CARTULARY_OUTPUT_MODE := $(value CARTULARY_OUTPUT_MODE)
-clean:
-	$(Q)CARTULARY_MAKE_COMMAND_LINE_INPUTS="$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)" bash ./tools/harness/workspace/cleanup.sh clean
-
-distclean: override export CARTULARY_CLEANUP_DRY_RUN := $(value CARTULARY_CLEANUP_DRY_RUN)
-distclean: override export CARTULARY_OUTPUT_MODE := $(value CARTULARY_OUTPUT_MODE)
-distclean:
-	$(Q)CARTULARY_MAKE_COMMAND_LINE_INPUTS="$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)" bash ./tools/harness/workspace/cleanup.sh distclean
-
-browser-e2e-a11y: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-browser-e2e-a11y: export CARTULARY_TEST_TARGET ?= browser-e2e-a11y
-browser-e2e-a11y:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-a11y)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target browser-e2e-a11y
-
-canonical-evidence-drift-suite: export CARTULARY_TEST_TARGET ?= canonical-evidence-drift-suite
-canonical-evidence-drift-suite: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-canonical-evidence-drift-suite: $(NODE_BIN)
-	$(Q)RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR)" $(RUN_STEP_SCRIPT) "canonical-evidence-drift-suite" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR)" RESULTS_DIR="$(RESULTS_DIR)" $(NODE_BIN) ./tools/harness/observability/canonical-evidence-drift-suite-cli.mjs
-
-goose-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-goose-toolchain: $(GOOSE_BIN)
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-release-inventory-artifacts: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-release-inventory-artifacts: $(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT)
-else
-release-inventory-artifacts: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-release-inventory-artifacts: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  release-inventory-artifacts
+	  cryptographic-policy-assessment
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-build-web-measurement: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-web-measurement: export CARTULARY_TEST_TARGET ?= build-web-measurement
-build-web-measurement:
+credential-capacity-assessment: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+credential-capacity-assessment: export CARTULARY_TEST_TARGET ?= credential-capacity-assessment
+credential-capacity-assessment:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-web-measurement)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED),$(CURDIR)/apps/web/dist-measurement/index.html $(HARNESS_RUNTIME_BIN))
-	$(call RUN_TARGET_SUMMARY,build-web-measurement,pass)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,credential-capacity-assessment)
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(MIGRATE_BIN) $(OPERATOR_BIN) $(REPORT_RENDERER_RECEIPT) $(SERVER_BIN) $(SYFT_BIN))
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "credential-capacity-assessment" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
+	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" env CARTULARY_PACKAGE_QUALIFICATION=credential-capacity ./tools/release-evidence/check-standup-package-smoke.sh
 else
-build-web-measurement: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-web-measurement: export CARTULARY_TEST_TARGET ?= build-web-measurement
-build-web-measurement:
+credential-capacity-assessment: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
+credential-capacity-assessment: export CARTULARY_TEST_TARGET ?= credential-capacity-assessment
+credential-capacity-assessment:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-web-measurement)
+	$(Q)$(call RUN_PUBLIC_PREFLIGHT,credential-capacity-assessment)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target build-web-measurement
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
+	  credential-capacity-assessment
 endif
-
-frontend-artifact-consumer-check: export CARTULARY_TEST_TARGET ?= frontend-artifact-consumer-check
-frontend-artifact-consumer-check: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-frontend-artifact-consumer-check: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  $(TASK_SURFACE_GRAPH_RUNTIME) --selection rows --target frontend-artifact-consumer-check --rows harness.browser.boundary_support.frontend_artifact_lifetime,package.protocol_ts.boundary_support.browser_bundle_excludes_protected_audit_and_revi_13733d4a6b
 
 browser-design-review:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-design-review)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN))
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN))
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) REVIEW_PROFILE="$(REVIEW_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,REVIEW_PROFILE)" REVIEW_PROFILE="$(REVIEW_PROFILE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" $(NODE_BIN) ./tools/harness/browser/design-review.mjs
-
-browser-design-review-smoke:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-design-review-smoke)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) REVIEW_PROFILE="$(REVIEW_PROFILE)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,REVIEW_PROFILE)" REVIEW_PROFILE="$(REVIEW_PROFILE)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" $(NODE_BIN) ./tools/harness/browser/design-review.mjs --smoke
 
 ui-review:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_MODE=$(call task_surface_shell_quote_raw,UI_MODE) REVIEW_PROFILE=$(call task_surface_shell_quote_raw,REVIEW_PROFILE) UI_ORIGIN=$(call task_surface_shell_quote_raw,UI_ORIGIN) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command \
@@ -1824,236 +939,21 @@ ui-review-stop:
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) UI_SESSION=$(call task_surface_shell_quote_raw,UI_SESSION) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PREFLIGHT_INPUT_NAMES))" CARTULARY_OUTPUT_MODE=$(call task_surface_shell_quote_raw,CARTULARY_OUTPUT_MODE) CARTULARY_TEST_RESULTS_DIR=$(if $(filter command environment override,$(origin CARTULARY_TEST_RESULTS_DIR)),$(call \
 	  task_surface_shell_quote_raw,CARTULARY_TEST_RESULTS_DIR),'') CARTULARY_TEST_RUN_ID=$(if $(filter command environment override,$(origin CARTULARY_TEST_RUN_ID)),$(call task_surface_shell_quote_raw,CARTULARY_TEST_RUN_ID),'') ./tools/harness/browser/ui-review/launch.sh ui-review-stop
 
-harness-ui-review-contract: export CARTULARY_TEST_TARGET ?= harness-ui-review-contract
-harness-ui-review-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-ui-review-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/browser/tests/test-ui-review-contract.mjs
+clean: override export CARTULARY_CLEANUP_DRY_RUN := $(value CARTULARY_CLEANUP_DRY_RUN)
+clean: override export CARTULARY_OUTPUT_MODE := $(value CARTULARY_OUTPUT_MODE)
+clean:
+	$(Q)CARTULARY_MAKE_COMMAND_LINE_INPUTS="$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)" bash ./tools/harness/workspace/cleanup.sh clean
 
-harness-ui-review-lifecycle: export CARTULARY_TEST_TARGET ?= harness-ui-review-lifecycle
-harness-ui-review-lifecycle: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-ui-review-lifecycle: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-lifecycle" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-lifecycle.mjs ./tools/harness/browser/tests/test-ui-review-preparation.mjs
-
-harness-ui-review-artifacts: export CARTULARY_TEST_TARGET ?= harness-ui-review-artifacts
-harness-ui-review-artifacts: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-ui-review-artifacts: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-artifacts" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-bundles.mjs
-
-harness-ui-review-presentation: export CARTULARY_TEST_TARGET ?= harness-ui-review-presentation
-harness-ui-review-presentation: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-ui-review-presentation: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-presentation" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-analysis.mjs
-
-harness-ui-review-execution: export CARTULARY_TEST_TARGET ?= harness-ui-review-execution
-harness-ui-review-execution: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-ui-review-execution: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-execution" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-execution.mjs
-
-harness-ui-review-workflow: export CARTULARY_TEST_TARGET ?= harness-ui-review-workflow
-harness-ui-review-workflow: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-ui-review-workflow: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-workflow" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-workflow.mjs
-
-harness-ui-review-seeded-default: export CARTULARY_TEST_TARGET ?= harness-ui-review-seeded-default
-harness-ui-review-seeded-default: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-ui-review-seeded-default: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-seeded-default" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env CARTULARY_UI_REVIEW_TEST_PROFILE=default $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-seeded.mjs
-
-harness-ui-review-seeded-network-flow-claimed: export CARTULARY_TEST_TARGET ?= harness-ui-review-seeded-network-flow-claimed
-harness-ui-review-seeded-network-flow-claimed: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-ui-review-seeded-network-flow-claimed: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-ui-review-seeded-network-flow-claimed" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env CARTULARY_UI_REVIEW_TEST_PROFILE=network_flow_claimed $(NODE_BIN) --test ./tools/harness/browser/tests/test-ui-review-seeded.mjs
-
-frontend-lockfile-update: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-frontend-lockfile-update: export CARTULARY_TEST_TARGET ?= frontend-lockfile-update
-frontend-lockfile-update:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-lockfile-update)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_TOOLCHAIN_STAMP))
-	$(Q)$(RUN_STEP_SCRIPT) "frontend-lockfile-update" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) PNPM="$(PNPM)" NODE_BIN="$(NODE_BIN)" FRONTEND_INSTALL_STAMP="$(FRONTEND_INSTALL_STAMP)" PATH="$(NODE_RUNTIME_DIR)/bin:$(PATH)" COREPACK_HOME="$(NODE_RUNTIME_DIR)/corepack" bash ./tools/harness/readiness/frontend-lockfile-update.sh
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-standup-reference-pack-smoke: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-standup-reference-pack-smoke: export CARTULARY_TEST_TARGET ?= standup-reference-pack-smoke
-standup-reference-pack-smoke:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,standup-reference-pack-smoke)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),package-release)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "standup-reference-pack-smoke" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
-	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" ./tools/release-evidence/check-standup-reference-pack-smoke.sh
-	$(call RUN_TARGET_SUMMARY,standup-reference-pack-smoke,pass)
-else
-standup-reference-pack-smoke: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-standup-reference-pack-smoke: export CARTULARY_TEST_TARGET ?= standup-reference-pack-smoke
-standup-reference-pack-smoke:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,standup-reference-pack-smoke)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  standup-reference-pack-smoke
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-cryptographic-policy-assessment: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-cryptographic-policy-assessment: export CARTULARY_TEST_TARGET ?= cryptographic-policy-assessment
-cryptographic-policy-assessment:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,cryptographic-policy-assessment)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "cryptographic-policy-assessment" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/harness/readiness/cryptographic-policy-assessment.mjs
-else
-cryptographic-policy-assessment: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-cryptographic-policy-assessment: export CARTULARY_TEST_TARGET ?= cryptographic-policy-assessment
-cryptographic-policy-assessment:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,cryptographic-policy-assessment)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  cryptographic-policy-assessment
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-credential-capacity-assessment: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-credential-capacity-assessment: export CARTULARY_TEST_TARGET ?= credential-capacity-assessment
-credential-capacity-assessment:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,credential-capacity-assessment)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),package-release)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "credential-capacity-assessment" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" env CARTULARY_PACKAGE_QUALIFICATION=credential-capacity ./tools/release-evidence/check-standup-package-smoke.sh
-else
-credential-capacity-assessment: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-credential-capacity-assessment: export CARTULARY_TEST_TARGET ?= credential-capacity-assessment
-credential-capacity-assessment:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,credential-capacity-assessment)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  credential-capacity-assessment
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-package-release: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-package-release: export CARTULARY_TEST_TARGET ?= package-release
-package-release:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,package-release)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),deployable-shape build-report-renderer syft-toolchain)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "package-release" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" SYFT_BIN="$(SYFT_BIN)" $(NODE_BIN) ./tools/release-evidence/package-release.mjs produce
-	$(call RUN_TARGET_SUMMARY,package-release,pass)
-else
-package-release: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-package-release: export CARTULARY_TEST_TARGET ?= package-release
-package-release:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,package-release)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target package-release
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-package-inspect: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-package-inspect: export CARTULARY_TEST_TARGET ?= package-inspect
-package-inspect:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,package-inspect)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),package-release)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "package-inspect" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/release-evidence/package-release.mjs inspect
-	$(call RUN_TARGET_SUMMARY,package-inspect,pass)
-else
-package-inspect: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-package-inspect: export CARTULARY_TEST_TARGET ?= package-inspect
-package-inspect:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,package-inspect)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target package-inspect
-endif
-
-ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
-syft-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-syft-toolchain: $(SYFT_BIN)
-else
-syft-toolchain: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-syft-toolchain: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV)  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target syft-toolchain
-endif
-
-go-analysis-dependencies: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-go-analysis-dependencies: go-toolchain-readiness
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) env GO=$(GO) GO_TOOLCHAIN=$(GO_TOOLCHAIN) bash ./tools/harness/readiness/install-go-dependencies.sh --analysis
-
-harness-runtime-contract: export CARTULARY_TEST_TARGET ?= harness-runtime-contract
-harness-runtime-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-runtime-contract: go-toolchain-readiness $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-runtime-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" $(GO) test -race -count=1 ./internal/testutil/harnessruntime ./internal/testutil/harnessschema ./internal/testutil/harnesssession ./internal/testutil/harnessreview
-
-harness-fixture-contract: export CARTULARY_TEST_TARGET ?= harness-fixture-contract
-harness-fixture-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-fixture-contract: go-toolchain-readiness $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-fixture-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" $(GO) test -race -count=1 ./internal/testutil/harnessfixtures ./internal/testutil/objectstoreproxy
-
-harness-runtime-boundary-contract: export CARTULARY_TEST_TARGET ?= harness-runtime-boundary-contract
-harness-runtime-boundary-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-runtime-boundary-contract: go-toolchain-readiness $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN) $(TEST_SERVICES_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-runtime-boundary-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" CARTULARY_HARNESS_RUNTIME_BIN="$(HARNESS_RUNTIME_BIN)" $(GO) test -count=1 ./internal/testutil/harnessruntime/boundary
-
-harness-graph-contract: export CARTULARY_TEST_TARGET ?= harness-graph-contract
-harness-graph-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-graph-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-graph-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/tests/test-harness-graph-contracts.mjs ./tools/harness/browser/tests/test-browser-work-graph.mjs
-
-harness-boundary-contract: export CARTULARY_TEST_TARGET ?= harness-boundary-contract
-harness-boundary-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-boundary-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-boundary-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/tests/test-harness-boundary-contracts.mjs
-
-harness-scheduler-contract: export CARTULARY_TEST_TARGET ?= harness-scheduler-contract
-harness-scheduler-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-scheduler-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-scheduler-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/tests/test-harness-scheduler-contracts.mjs
-
-harness-local-session-contract: export CARTULARY_TEST_TARGET ?= harness-local-session-contract
-harness-local-session-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-local-session-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-local-session-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/services/tests/test-local-session.mjs
-
-harness-playwright-adapter-contract: export CARTULARY_TEST_TARGET ?= harness-playwright-adapter-contract
-harness-playwright-adapter-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-playwright-adapter-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-playwright-adapter-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/browser/tests/test-playwright-row-runner.mjs
-
-harness-observation-contract: export CARTULARY_TEST_TARGET ?= harness-observation-contract
-harness-observation-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-observation-contract: $(NODE_BIN) $(FRONTEND_INSTALL_STAMP) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-observation-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) --test --test-concurrency=1 ./tools/harness/observability/tests/test-observability.mjs
-
-harness-browser-preparation-contract: export CARTULARY_TEST_TARGET ?= harness-browser-preparation-contract
-harness-browser-preparation-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-browser-preparation-contract: $(NODE_BIN) $(HARNESS_RUNTIME_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-browser-preparation-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) NODE_BIN="$(NODE_BIN)" bash ./tools/harness/browser/tests/test-browser-preparation.sh
-
-harness-benchmark-claim-contract: export CARTULARY_TEST_TARGET ?= harness-benchmark-claim-contract
-harness-benchmark-claim-contract: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1
-harness-benchmark-claim-contract: $(NODE_BIN)
-	$(Q)$(RUN_STEP_SCRIPT) "harness-benchmark-claim-contract" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(NODE_BIN) ./tools/release-evidence/tests/test-benchmark-claim-check.mjs
-
-build-report-renderer: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
-build-report-renderer: export CARTULARY_TEST_TARGET ?= build-report-renderer
-build-report-renderer:
-	$(Q)$(TASK_SURFACE_NODE_READINESS)
-	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build-report-renderer)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_ARTIFACT_PREREQUISITES_NEEDED),$(REPORT_RENDERER_RECEIPT))
-	$(call RUN_TARGET_SUMMARY,build-report-renderer,pass)
+distclean: override export CARTULARY_CLEANUP_DRY_RUN := $(value CARTULARY_CLEANUP_DRY_RUN)
+distclean: override export CARTULARY_OUTPUT_MODE := $(value CARTULARY_OUTPUT_MODE)
+distclean:
+	$(Q)CARTULARY_MAKE_COMMAND_LINE_INPUTS="$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)" bash ./tools/harness/workspace/cleanup.sh distclean
 
 test-run-recover: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-run-recover:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-run-recover)
-	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),go-toolchain-readiness testservices-build $(HARNESS_RUNTIME_BIN))
+	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN) $(TEST_SERVICES_BIN))
 	$(Q)$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUNTIME_LEASE_ID RUNTIME_ROOT) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR RUNTIME_LEASE_ID RUNTIME_ROOT)" CARTULARY_TEST_TARGET="$${CARTULARY_TEST_TARGET:-test-run-recover}" $(RUN_STEP_SCRIPT) "test-run-recover" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUNTIME_LEASE_ID RUNTIME_ROOT) CARTULARY_MAKE_INPUT_SOURCES="$(call \
 	  TASK_SURFACE_INPUT_SOURCES,RESULTS_DIR RUNTIME_LEASE_ID RUNTIME_ROOT)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" NODE_BIN="$(NODE_BIN)" $(HARNESS_RUNTIME_BIN) recover
 

@@ -32,7 +32,7 @@ if [[ "$sqlc_bin" != /* ]]; then
 fi
 if [[ ! -x "$sqlc_bin" ]]; then
   echo "generate-drift requires an executable SQLC_BIN at $sqlc_bin" >&2
-  echo "run make codegen-toolchain before generate-drift or set SQLC_BIN to a ready sqlc binary" >&2
+  echo "run make generate before source-check CHECK=generated or set SQLC_BIN to a ready sqlc binary" >&2
   exit 1
 fi
 
@@ -230,17 +230,18 @@ done
 
 git -C "$scratch" init --quiet
 
-make -C "$scratch" --no-print-directory generate-artifacts \
-	CARTULARY_TEST_TARGET=generate-artifacts \
-	SQLC_BIN="$sqlc_bin" \
-	GO="${GO:-go}" \
-	GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
-	GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
-	GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
-	NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}}" \
-	CARTULARY_NODE_ARCHIVE_DIR="${CARTULARY_NODE_ARCHIVE_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_ARCHIVES}}" \
-	NODE_BIN="${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}" \
-	PNPM="${PNPM:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/pnpm}"
+env -u CARTULARY_HARNESS_IDENTITY_PREPARED -u CARTULARY_TEST_TARGET -u CARTULARY_MAKE_INPUT_SOURCES \
+  MAKEFLAGS= MAKEOVERRIDES= \
+  SQLC_BIN="$sqlc_bin" \
+  GO="${GO:-go}" \
+  GO_CACHE_DIR="${GO_CACHE_DIR:?GO_CACHE_DIR is required}" \
+  GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" \
+  GO_TMP_DIR="${GO_TMP_DIR:?GO_TMP_DIR is required}" \
+  NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}}" \
+  CARTULARY_NODE_ARCHIVE_DIR="${CARTULARY_NODE_ARCHIVE_DIR:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_ARCHIVES}}" \
+  NODE_BIN="${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}" \
+  PNPM="${PNPM:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/pnpm}" \
+  make -C "$scratch" --no-print-directory generate
 
 "${NODE_BIN:-$ROOT_DIR/${CARTULARY_LAYOUT_NODE_RUNTIME}/bin/node}" \
   "$ROOT_DIR/tools/harness/generated-artifacts/generated-transaction.mjs" \

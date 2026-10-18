@@ -103,11 +103,11 @@ security verification contracts name the exact public target that closes them.
 Use public Make targets from the repository root:
 
 ```bash
-make task-guide ROLE=module-author OWNER=web.workbook
-make explain-test-owner OWNER=web.workbook
+make task-guide OWNER=web.workbook
+make task-guide DETAIL=coverage OWNER=web.workbook
 make test-slice OWNER=web.workbook
 make test-slice OWNER=web.workbook ROWS=web.workbook.interaction.some_row
-make service-backed-test-slice OWNER=web.workbook
+make test-slice SCOPE=services OWNER=web.workbook
 ```
 
 Omitted `ROWS` selects every active row owned by the requested owner. On the
@@ -118,15 +118,15 @@ duplicate, blank, unknown, cross-owner, and zero-row selections fail before setu
 Useful broad frontend gates remain:
 
 ```bash
-make frontend-typecheck
-make frontend-unit
-make frontend-import-boundary-check
-make lint-biome
-make browser-e2e-webserver-backed
-make browser-e2e-stateful
-make browser-e2e-a11y
-make browser-e2e-visual
-make browser-e2e-measurement
+make lint CHECK=types
+make test-slice SUITE=frontend-unit
+make lint CHECK=frontend-boundary
+make lint CHECK=frontend
+make browser-e2e SUITE=functional
+make browser-e2e SUITE=stateful
+make browser-e2e SUITE=accessibility
+make browser-e2e SUITE=visual
+make browser-e2e SUITE=measurement
 ```
 
 These Make-owned targets resolve rows and runtime profiles first, create or
@@ -136,7 +136,7 @@ database, bucket, Compose project, or object-store proxy. Package aliases are
 valid only when they delegate to these Make targets without recursion. Raw
 Playwright, Playwright UI mode, and IDE Playwright launchers do not establish
 the attachment contract and are unsupported as executable evidence surfaces.
-Use `make help` and `make help-all` for the current target inventory rather than
+Use `make help` and `make help ALL=1` for the current target inventory rather than
 copying target lists into new guidance.
 
 Run the narrow owner slice first, then the evidence-class gates generated for the
@@ -365,7 +365,7 @@ a second import worker.
 4. Run catalog/schema validation and the narrow owner slice.
 5. Run the applicable frontend and browser evidence-class gates.
 6. Regenerate owner-derived topology only through `make generate` and verify with
-   `make generate-drift`.
+   `make source-check CHECK=generated`.
 7. Audit retained owner evidence when the change affects release closure.
 
 A browser helper that prepares a virtualized grid row may scroll before the

@@ -79,6 +79,15 @@ export function availableGoWorkerBudget(cpuTokens, environment) {
   return Math.min(cpuTokens, Number(inherited));
 }
 
+export function retainedGoWorkerBudget(manifest) {
+  const budget = manifest.go_worker_budget, capacity = manifest.capability_snapshot?.cpu_tokens;
+  if (!Number.isSafeInteger(capacity) || capacity < 1 ||
+      !Number.isSafeInteger(budget) || budget < 1 || budget > capacity) {
+    throw new Error("invalid retained Go worker budget");
+  }
+  return budget;
+}
+
 function automaticCapacities({ registry, cpuTokens, detectedMemory, detectedProcessLimit }) {
   const policies = registry.capacity_policies;
   const processBound = cpuTokens * policies.process_slots.cpu_multiplier;

@@ -1,4 +1,4 @@
-import { constants, closeSync, fstatSync, mkdirSync, openSync, readFileSync, readlinkSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { constants, closeSync, fchmodSync, fstatSync, mkdirSync, openSync, readFileSync, readlinkSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { executableRepositoryPaths, inspectExecutableRepositoryPath } from "../test-catalog/index.mjs";
 
@@ -26,6 +26,22 @@ export function snapshotTrackedWorkspace(root, options) {
   return new Map(executableRepositoryPaths(root, options).map((relative) => [relative, entry(root, relative)]));
 }
 
+export function changedTrackedWorkspace(root, snapshot) {
+  return [...snapshot].filter(([relative, expected]) => !equal(entry(root, relative), expected))
+    .map(([relative]) => relative).sort();
+}
+
+export async function withTrackedWorkspaceTransaction(root, execute, options) {
+  const snapshot = snapshotTrackedWorkspace(root, options);
+  let result, error;
+  try { result = await execute(); }
+  catch (failure) { error = failure; }
+  const rollback = error || result?.failed
+    ? restoreTrackedWorkspace(root, snapshot)
+    : { status: "not_needed", restored_files: [], error: null };
+  return { result, error, rollback, updatedFiles: changedTrackedWorkspace(root, snapshot) };
+}
+
 export function restoreTrackedWorkspace(root, snapshot) {
   const restored = [];
   try {
@@ -37,7 +53,15 @@ export function restoreTrackedWorkspace(root, snapshot) {
       if (expected) {
         mkdirSync(path.dirname(absolute), { recursive: true });
         if (expected.kind === "symlink") symlinkSync(expected.value, absolute);
-        else writeFileSync(absolute, expected.value, { mode: expected.mode, flag: "wx" });
+        else {
+          const descriptor = openSync(absolute, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+          try {
+            writeFileSync(descriptor, expected.value);
+            // Creation modes are filtered by umask; restore the captured mode
+            // on the owned inode only after its contents have been written.
+            fchmodSync(descriptor, expected.mode);
+          } finally { closeSync(descriptor); }
+        }
       }
       restored.push(relative);
     }

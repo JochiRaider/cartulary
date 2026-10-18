@@ -1,6 +1,6 @@
 import { loadExecutionTopology, resolveBrowserFrontendArtifact } from "../../generated-artifacts/execution-topology.mjs";
 import path from "node:path";
-import { semanticJSONDigest } from "../../contract/index.mjs";
+import { semanticJSONDigest, resolveCommandInputs } from "../../contract/index.mjs";
 
 import {
   loadTestCatalog,
@@ -8,10 +8,11 @@ import {
 } from "../../test-catalog/index.mjs";
 import { planGoLPTShards } from "../../backend/go-lpt-shards.mjs";
 import { buildWorkGraph, loadWorkGraphOwner } from "./model.mjs";
+import { operationDefinition, operationExecutionDigest } from "./operations.mjs";
+import { policyDependencyRowIDs } from "./policy-rows.mjs";
+import { resolveCommandSelection, resolvePrivateSelection } from "./command-selection.mjs";
 import {
-  browserTargetStage,
   selectBrowserRowStages,
-  compileBrowserRowSelectionGraph,
   compileBrowserStageGraph,
 } from "./browser.mjs";
 import {
@@ -37,13 +38,6 @@ function assertSortedUniqueInput(values, label) {
   return [...values].sort(compareASCII);
 }
 
-function commandTargetMap(taskSurface) {
-  return new Map(
-    taskSurface.targets
-      .filter((target) => target.command_id)
-      .map((target) => [target.command_id, target.name]),
-  );
-}
 
 function fixtureCapability(row) {
   const capability = row.fixture_capability;
@@ -142,8 +136,8 @@ function policyEvidenceOutputs(target) {
   }
   if (target === "go-vulncheck") {
     return [
-      "unit-artifacts/target-go-vulncheck/govulncheck-findings.json",
-      "unit-artifacts/target-go-vulncheck/govulncheck-output.jsonstream",
+      "unit-artifacts/operation-harness.go_vulncheck/govulncheck-findings.json",
+      "unit-artifacts/operation-harness.go_vulncheck/govulncheck-output.jsonstream",
     ];
   }
   return [];
@@ -154,7 +148,12 @@ function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
     unit_id: `row:${row.row_id}`,
     owner_id: row.owner_id,
     kind: "runner",
-    command: rowCommand(row, target, runtimeEnvironment),
+    command: rowCommand(row, target, {
+      ...runtimeEnvironment,
+      ...(row.runner === "shell" ? {
+        CARTULARY_OPERATION_DIGEST: operationExecutionDigest(operationDefinition(owner, row.selector.operation_id)),
+      } : {}),
+    }),
     needs,
     resource_claims: resourceClaims(row, topology),
     fixture_lease: fixtureCapability(row),
@@ -162,6 +161,7 @@ function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
     cache_policy: rowCachePolicy(row),
     timeout_ms: owner.default_timeout_ms,
     current_run_evidence_outputs: [`rows/${row.row_id}.json`],
+    row_bindings: [{ row_id: row.row_id, runner: row.runner }],
     failure_policy: {
       block_descendants: true,
       continue_independent: true,
@@ -217,6 +217,7 @@ function goShardUnit(
     current_run_evidence_outputs: rowIDs
       .map((rowID) => `rows/${rowID}.json`)
       .sort(compareASCII),
+    row_bindings: rows.map(({ row_id, runner }) => ({ row_id, runner })),
     failure_policy: {
       block_descendants: true,
       continue_independent: true,
@@ -238,12 +239,11 @@ export class WorkGraphCompiler {
     this.taskSurface = topology.taskSurface;
     this.topology = topology.raw;
     this.runtimeBinaryProducer = new Map(
-      this.topology.runtime_binaries.map((binary) => [binary.id, binary.producer_target]),
+      this.topology.runtime_binaries.map((binary) => [binary.id, binary.producer_operation]),
     );
     this.familyRuntimeBinaries = new Map(
       this.topology.go_targets.family_runtime_binaries.map((family) => [family.family_id, family.runtime_binary_ids]),
     );
-    this.commandTargets = commandTargetMap(this.taskSurface);
     this.availableGoLanes = 4;
     this.availablePostgresLanes = 4;
     this._catalog = null;
@@ -257,9 +257,7 @@ export class WorkGraphCompiler {
     this._targetRows = new Map();
     this._rowTargets = new Map();
     for (const row of this._catalog.rows) {
-      const target = targetForCatalogRow(row, {
-        commandTargetByID: this.commandTargets,
-      });
+      const target = targetForCatalogRow(row);
       this._rowTargets.set(row.row_id, target);
       const rows = this._targetRows.get(target) ?? [];
       rows.push(row.row_id);
@@ -282,7 +280,7 @@ export class WorkGraphCompiler {
     return this._rowTargets;
   }
 
-  compileRows(rowIDs, stack = []) {
+  compileRows(rowIDs, stack = [], { browserMode = "validation" } = {}) {
     const sortedRowIDs = assertSortedUniqueInput(rowIDs, "row selection");
     const rows = sortedRowIDs.map((rowID) => {
       const row = this.catalog.rowByID.get(rowID);
@@ -290,28 +288,29 @@ export class WorkGraphCompiler {
       return row;
     });
     const browserArtifactsByRow = new Map();
-    for (const stage of selectBrowserRowStages(this.root, rows.filter((row) => row.runner === "playwright").map((row) => row.row_id))) {
+    const selectedBrowserStages = selectBrowserRowStages(this.root, rows.filter((row) => row.runner === "playwright").map((row) => row.row_id));
+    for (const stage of selectedBrowserStages) {
       const artifact = resolveBrowserFrontendArtifact(this.root, stage.name, this.topology);
       for (const group of stage.groups) for (const rowID of group.selectedRowIDs) browserArtifactsByRow.set(rowID, artifact);
     }
     const prerequisiteTargetsForRow = (row) => {
-      const targets = new Set(row.preparation_targets ?? []);
-      if (row.runner === "vitest") targets.add("frontend-install");
+      const targets = new Set(row.preparation_operations ?? []);
+      if (row.runner === "vitest") targets.add("harness.frontend_install");
       if (row.runner === "vitest" && row.selector.project_id === "renderer-node" && row.evidence_class === "integration") {
-        targets.add("playwright-install");
+        targets.add("harness.playwright_install");
       }
       if (row.runner === "playwright") {
         for (const target of [
-          "playwright-install",
-          browserArtifactsByRow.get(row.row_id).producer_target,
-          "build-server-harness",
-          "build-migrate",
-          "test-service-images",
+          "harness.playwright_install",
+          browserArtifactsByRow.get(row.row_id).producer_operation,
+          "harness.build_server_harness",
+          "harness.build_migrate",
+          "harness.test_service_images",
         ]) {
           targets.add(target);
         }
       }
-      if (row.service_dependencies.length > 0) targets.add("test-service-images");
+      if (row.service_dependencies.length > 0) targets.add("harness.test_service_images");
       for (const binaryID of this.familyRuntimeBinaries.get(row.family_id) ?? []) {
         const producer = this.runtimeBinaryProducer.get(binaryID);
         if (!producer) throw new Error(`${row.family_id} references unknown runtime binary ${binaryID}`);
@@ -355,7 +354,7 @@ export class WorkGraphCompiler {
         .sort(([left], [right]) => compareASCII(left, right)),
     );
     const goRows = rows.filter((row) => row.runner === "go");
-    const playwrightRows = rows.filter((row) => row.runner === "playwright");
+    const explicitContexts = this.owner.row_execution_contexts ?? {};
     const otherRows = rows.filter(
       (row) => row.runner !== "go" && row.runner !== "playwright" && row.runner !== "vitest",
     );
@@ -363,7 +362,7 @@ export class WorkGraphCompiler {
     for (const row of rows.filter((row) => row.runner === "vitest")) {
       const base = rowUnit(row, this.rowTargets.get(row.row_id), this.owner, this.topology, needsForRow(row), runtimeEnvironmentForRow(row));
       const { CARTULARY_TEST_ROWS: _selection, ...environment } = base.command.environment;
-      const { unit_id: _id, command: _command, current_run_evidence_outputs: _outputs, estimated_work_ms: _estimate, ...contract } = base;
+      const { unit_id: _id, command: _command, current_run_evidence_outputs: _outputs, row_bindings: _rows, estimated_work_ms: _estimate, ...contract } = base;
       const key = semanticJSONDigest({ contract, environment, file: row.selector.file, project: row.selector.project_id,
         evidence_class: row.evidence_class, runtime_profile_id: row.runtime_profile_id, resource_profile_id: row.resource_profile_id,
         fixture_profile_id: row.fixture_profile_id ?? null,
@@ -378,12 +377,19 @@ export class WorkGraphCompiler {
         command: { ...base.command, args: ["tools/harness/execution/runners/row-runner-cli.mjs", "--row-ids", ids.join(",")],
           environment: { ...base.command.environment, CARTULARY_TEST_ROWS: ids.join(","), VITEST_MAX_WORKERS: "1" } },
         current_run_evidence_outputs: ids.map((id) => `rows/${id}.json`),
+        row_bindings: selected.map(({ row_id, runner }) => ({ row_id, runner })),
         estimated_work_ms: selected.reduce((sum, row) => sum + this.owner.evidence_estimates_ms[row.evidence_class], 0) };
     });
     const goUnits = [];
-    if (goRows.length > 0) {
+    const goSelections = [goRows.filter((row) => !explicitContexts[row.row_id]),
+      ...goRows.filter((row) => explicitContexts[row.row_id]).map((row) => [row])];
+    for (const selectedGoRows of goSelections.filter((selection) => selection.length > 0)) {
+      const context = explicitContexts[selectedGoRows[0].row_id];
+      if (context && goRowProcessIsolation(selectedGoRows[0]) !== "exclusive") {
+        throw new Error(`${selectedGoRows[0].row_id} requires exclusive process isolation for a fixed execution context`);
+      }
       const plan = planGoLPTShards(
-        goRows.map((row) => ({
+        selectedGoRows.map((row) => ({
           id: row.row_id,
           estimated_work_ms: this.owner.evidence_estimates_ms[row.evidence_class],
           compatibility: {
@@ -397,8 +403,9 @@ export class WorkGraphCompiler {
             fixture_profile_id: row.fixture_profile_id ?? null,
             process_isolation: goRowProcessIsolation(row),
             service_dependencies: row.service_dependencies,
-            preparation_targets: row.preparation_targets ?? [],
+            preparation_operations: row.preparation_operations ?? [],
             runtime_binary_ids: this.familyRuntimeBinaries.get(row.family_id) ?? [],
+            ...(context ? { execution_context: context } : {}),
           },
           // Dedicated databases, migration databases, and ordinary object-store
           // namespaces are owned and eagerly finalized by each testing.T. They
@@ -407,11 +414,11 @@ export class WorkGraphCompiler {
           // under test, so each selected row retains its own child process.
           isolated: goRowProcessIsolation(row) === "exclusive",
         })),
-        { availableGoLanes: this.availableGoLanes },
+        { availableGoLanes: context?.cpu_tokens ?? this.availableGoLanes },
       );
       for (const shard of plan.shards) {
         const shardRows = shard.item_ids.map((rowID) => this.catalog.rowByID.get(rowID));
-        goUnits.push(goShardUnit(
+        const unit = goShardUnit(
           shard,
           shardRows,
           this.rowTargets.get(shard.item_ids[0]),
@@ -420,36 +427,21 @@ export class WorkGraphCompiler {
           needsForRow(shardRows[0]),
           runtimeEnvironmentForRow(shardRows[0]),
           this.availablePostgresLanes,
-        ));
+        );
+        goUnits.push(context ? { ...unit, cache_policy: context.cache_policy } : unit);
       }
     }
-    const browserGraph =
-      playwrightRows.length === 0
-        ? buildWorkGraph([])
-        : compileBrowserRowSelectionGraph(
-            this.root,
-            this.owner,
-            playwrightRows.map((row) => row.row_id),
-            { catalog: this.catalog },
-          );
-    const browserRoots = new Set(
-      browserGraph.units
-        .filter((unit) => unit.needs.length === 0)
-        .map((unit) => unit.unit_id),
-    );
-    const browserPrerequisites = playwrightRows
-      .flatMap((row) => needsForRow(row))
-      .filter((unitID, index, values) => values.indexOf(unitID) === index)
-      .sort(compareASCII);
+    const browserUnits = selectedBrowserStages.flatMap((stage) => {
+      const graph = compileBrowserStageGraph(this.root, this.owner, stage, { mode: browserMode, catalog: this.catalog });
+      const prerequisites = [...new Set(stage.groups.flatMap((group) => group.selectedRowIDs)
+        .flatMap((rowID) => needsForRow(this.catalog.rowByID.get(rowID))))].sort(compareASCII);
+      return graph.units.map((unit) => unit.needs.length === 0 ? { ...unit, needs: prerequisites } : unit);
+    });
     return buildWorkGraph([
       ...prerequisiteUnits,
       ...goUnits,
       ...vitestUnits,
-      ...browserGraph.units.map((unit) =>
-        browserRoots.has(unit.unit_id)
-          ? { ...unit, needs: browserPrerequisites }
-          : unit,
-      ),
+      ...browserUnits,
       ...otherRows.map((row) =>
         rowUnit(
           row,
@@ -478,65 +470,62 @@ export class WorkGraphCompiler {
   }
 
   compileTarget(target) {
+    if (this.owner.target_members[target]) return this.compilePrivateSelection(target);
+    if (this.owner.operations[target]) return this.compilePolicyTarget(target);
+    const entry = this.taskSurface.targets.find((value) => value.name === target);
+    if (!entry || entry.target_class !== "public") throw new Error(`unknown public command ${target}`);
+    if (this.owner.aggregate_tiers[target]) return this.compileAggregate(target);
+    if (entry.selection_binding) return this.compileCommand(target, this.targetInputs[target] ?? {}).graph;
     const recipe = this.taskSurface.make_recipes[target];
-    if (recipe?.type === "work_graph" && recipe.selection === "rows") {
-      return this.compileRows(recipe.row_ids);
+    if (recipe?.operation_id) {
+      const inputs = resolveCommandInputs(target, this.targetInputs[target] ?? {}, this.taskSurface);
+      return this.compilePolicyTarget(recipe.operation_id, [], this.forwardedInputs(entry, inputs));
     }
-    if (this.owner.target_members[target]) {
-      return buildWorkGraph(
-        this.owner.target_members[target]
-          .flatMap((member) => this.compileTarget(member).units),
-      );
-    }
-    if (this.owner.policy_units[target]) {
-      return this.compilePolicyTarget(target);
-    }
-    return this.compileBaseTarget(target);
+    throw new Error(`command ${target} has no execution selection`);
   }
 
-  compileBaseTarget(target, { policyOnly = false } = {}) {
-    const taskTarget = this.taskSurface.targets.find((entry) => entry.name === target);
-    if (!taskTarget) throw new Error(`unknown task target ${target}`);
-    const browser = browserTargetStage(this.root, target);
-    if (browser) {
-      const readinessTargets = [
-        "playwright-install",
-        resolveBrowserFrontendArtifact(this.root, browser.stage.name, this.topology).producer_target,
-        "build-server-harness",
-        "build-migrate",
-        "test-service-images",
-      ];
-      const readinessUnits = readinessTargets
-        .flatMap((readinessTarget) => this.compilePolicyTarget(readinessTarget).units);
-      const dependedOn = new Set(readinessUnits.flatMap((unit) => unit.needs));
-      const terminals = readinessUnits
-        .filter((unit) => !dependedOn.has(unit.unit_id))
-        .map((unit) => unit.unit_id)
-        .sort(compareASCII);
-      const browserGraph = compileBrowserStageGraph(this.root, this.owner, browser.stage, {
-        mode: browser.mode,
-        catalog: this.catalog,
-      });
-      const roots = new Set(browserGraph.units.filter((unit) => unit.needs.length === 0).map((unit) => unit.unit_id));
-      return buildWorkGraph([
-        ...readinessUnits,
-        ...browserGraph.units.map((unit) => roots.has(unit.unit_id) ? { ...unit, needs: terminals } : unit),
-      ]);
-    }
-    const rowIDs = policyOnly ? [] : this.targetRows.get(target) ?? [];
-    if (rowIDs.length > 0) return this.compileRows(rowIDs);
-    const recipe = this.taskSurface.make_recipes[target];
-    const kind = recipe?.type === "artifact_binding" || (taskTarget.side_effects ?? []).some(
-      (effect) => effect.class === "generated_artifacts" || effect.class === "build_outputs",
-    )
-      ? "artifact"
-      : "policy";
-    const policy = this.owner.policy_units[target];
-    const forwardedInputs = Object.fromEntries((taskTarget.input_contract?.inputs ?? [])
-      .filter((input) => input.binding === "make_variable" && input.child_forwarding === "argv" &&
-        input.summary_emission !== "redacted_value" && Object.hasOwn(this.targetInputs[target] ?? {}, input.name))
-      .map((input) => [input.name, this.targetInputs[target][input.name]]));
-    const nodeTool = recipe?.type === "node_tool" || recipe?.type === "owner_command";
+  compileMember(member) {
+    if (typeof member === "string") return this.compilePrivateSelection(member);
+    if (member.row_id) return this.compileRows([member.row_id]);
+    if (member.operation_id) return this.compilePolicyTarget(member.operation_id);
+    throw new Error("unknown work-graph member binding");
+  }
+
+  compilePrivateSelection(selection, stack = []) {
+    const selected = resolvePrivateSelection(this, selection);
+    const units = selected.rows.length ? this.compileRows(selected.rows, stack).units : [];
+    for (const id of selected.operations) units.push(...this.compilePolicyTarget(id, stack).units);
+    return this.attachDependencies(buildWorkGraph(units), this.compileDependencies(selection, stack));
+  }
+
+  compileCommand(target, inputs) {
+    const selection = resolveCommandSelection(this, target, inputs);
+    const binding = this.taskSurface.targets.find((entry) => entry.name === target).selection_binding;
+    const units = selection.rows.length ? this.compileRows(selection.rows, [], { browserMode: binding.browser_mode ?? "validation" }).units : [];
+    const entry = this.taskSurface.targets.find((value) => value.name === target);
+    const forwardedInputs = this.forwardedInputs(entry, selection.inputs);
+    for (const id of selection.operations) units.push(...this.compilePolicyTarget(id, [], forwardedInputs).units);
+    return { graph: buildWorkGraph(units), inputs: selection.inputs };
+  }
+
+  forwardedInputs(entry, inputs) {
+    const controls = new Set(["CHECK", "COMPONENT", "SUITE", "OWNER", "ROWS", "SCOPE", "JSON", "DETAIL"]);
+    // Owner is executable input for the evidence audit, but a selection control
+    // for owner slices. Only the declared private action consumes it.
+    if (!entry.selection_binding) controls.delete("OWNER");
+    return Object.fromEntries((entry.input_contract?.inputs ?? [])
+      .filter((input) => input.child_forwarding === "argv" && input.summary_emission !== "redacted_value" &&
+        !controls.has(input.name) && Object.hasOwn(inputs, input.name))
+      .map((input) => [input.name, inputs[input.name]]));
+  }
+
+  policyKeyForTarget(operationID) { return operationID; }
+  policyForTarget(operationID) { return this.owner.policy_units[operationID]; }
+
+  compileOperation(operationID, { forwardedInputs = {}, policy } = {}) {
+    const operation = operationDefinition(this.owner, operationID);
+    const target = operation.report_key;
+    policy ??= this.owner.policy_units[operationID];
     const fixtureLease = policy?.fixture_lease ?? "none";
     const serviceDependencies = policy?.service_dependencies ?? [];
     assertFixtureServiceDependencies(fixtureLease, serviceDependencies, `policy ${target}`);
@@ -548,17 +537,18 @@ export class WorkGraphCompiler {
     );
     return buildWorkGraph([
       {
-        unit_id: `target:${target}`,
+        unit_id: `operation:${operationID}`,
         owner_id: "harness.command_surface",
-        kind,
+        kind: operation.kind,
         command: {
-          executable: nodeTool ? "node" : "make",
-          args: nodeTool ? ["tools/harness/execution/run-make-node-tool-cli.mjs", target] : ["--silent", "--no-print-directory", target],
+          executable: "node",
+          args: ["tools/harness/execution/operation-runner-cli.mjs", operationID],
           environment: {
             ...forwardedInputs,
-            CARTULARY_TEST_TARGET: target,
+            CARTULARY_TEST_TARGET: operation.report_key,
+            CARTULARY_OPERATION_DIGEST: operationExecutionDigest(operation),
             CARTULARY_HARNESS_SERVICE_DEPENDENCIES: serviceDependencies.join(","),
-            ...(recipe?.type === "artifact_binding"
+            ...(operation.execution.type === "artifact_binding"
               ? { CARTULARY_HARNESS_GRAPH_ARTIFACT_CHILD: "1" }
               : {}),
           },
@@ -568,8 +558,10 @@ export class WorkGraphCompiler {
         fixture_lease: fixtureLease,
         service_dependencies: serviceDependencies,
         cache_policy: policy?.cache_policy ?? "none",
-        timeout_ms: this.owner.default_timeout_ms,
-        current_run_evidence_outputs: policyEvidenceOutputs(target),
+        timeout_ms: Object.hasOwn(policy ?? {}, "timeout_ms")
+          ? policy.timeout_ms
+          : this.owner.default_timeout_ms,
+        current_run_evidence_outputs: policyEvidenceOutputs(operation.report_key),
         reusable_artifact_outputs: policy?.reusable_artifact_outputs ?? [],
         failure_policy: {
           block_descendants: true,
@@ -585,24 +577,31 @@ export class WorkGraphCompiler {
     if (stack.includes(target)) {
       throw new Error(`policy dependency cycle ${[...stack, target].join(" -> ")}`);
     }
-    const definition = this.owner.policy_units[target];
+    const definition = this.policyForTarget(target);
     if (!definition) return buildWorkGraph([]);
     const dependencyGraphs = [
       ...definition.needs.map((dependency) =>
         this.owner.target_members[dependency]
-          ? this.compileTarget(dependency)
+          ? this.compilePrivateSelection(dependency, [...stack, target])
           : this.compilePolicyTarget(dependency, [...stack, target]),
       ),
-      ...(definition.owner_slices ?? []).map((ownerID) => this.compileOwner(ownerID)),
+      ...((definition.required_rows ?? []).length > 0
+        ? [this.compileRows(policyDependencyRowIDs(this.owner, this.policyKeyForTarget(target), this.catalog.rows), [...stack, target])]
+        : []),
     ];
     return buildWorkGraph(dependencyGraphs.flatMap((graph) => graph.units));
   }
 
-  compilePolicyTarget(target, stack = []) {
-    const rowIDs = this.targetRows.get(target) ?? [];
+  compilePolicyTarget(operationID, stack = [], forwardedInputs = {}) {
+    if (this.owner.target_members[operationID]) return this.compilePrivateSelection(operationID, stack);
+    operationDefinition(this.owner, operationID);
+    const rowIDs = this.targetRows.get(operationID) ?? [];
     if (rowIDs.length > 0) return this.compileRows(rowIDs, stack);
-    const base = this.compileBaseTarget(target, { policyOnly: true });
-    const dependencyUnits = this.compileDependencies(target, stack).units;
+    return this.attachDependencies(this.compileOperation(operationID, { forwardedInputs }), this.compileDependencies(operationID, stack));
+  }
+
+  attachDependencies(base, dependencies) {
+    const dependencyUnits = dependencies.units;
     const neededByAnother = new Set(
       dependencyUnits.flatMap((unit) => unit.needs),
     );
@@ -653,14 +652,35 @@ export class WorkGraphCompiler {
           const rowID = output.slice("rows/".length, -".json".length);
           add(this.rowTargets.get(rowID), unit.unit_id);
         }
-      } else if (unit.unit_id.startsWith("target:")) {
-        add(unit.unit_id.slice("target:".length), unit.unit_id);
+      } else if (unit.unit_id.startsWith("operation:")) {
+        add(unit.unit_id.slice("operation:".length), unit.unit_id);
       } else if (unit.unit_id.startsWith("browser_group:")) {
         add(unit.command.environment.CARTULARY_TEST_TARGET, unit.unit_id);
       } else if (unit.unit_id.startsWith("browser_evidence:")) {
         add(unit.unit_id.slice("browser_evidence:".length), unit.unit_id);
       } else if (unit.unit_id.startsWith("browser_target_summary:")) {
         add(unit.unit_id.slice("browser_target_summary:".length), unit.unit_id);
+      }
+    }
+    for (const check of this.taskSurface.harness_checks.filter((entry) => entry.gate_smoke_role)) {
+      const candidate = this.compilePrivateSelection(check.selection);
+      if (candidate.units.every((unit) => byID.get(unit.unit_id)?.semantic_digest === unit.semantic_digest)) {
+        for (const unit of candidate.units) add(check.name, unit.unit_id);
+      }
+    }
+    // A public default view exists only when its complete, identical operation
+    // graph is already present. Reporting never adds executable work.
+    for (const entry of this.taskSurface.targets) {
+      const recipe = this.taskSurface.make_recipes[entry.name];
+      if (entry.name === target || this.owner.aggregate_tiers[entry.name] ||
+          entry.selection_binding?.kind === "owner_or_suite" ||
+          entry.selection_binding?.browser_mode ||
+          (entry.input_contract?.inputs ?? []).some((input) => input.required) ||
+          (entry.side_effects ?? []).some((effect) => effect.class === "authored_source_write") ||
+          !(entry.selection_binding && recipe?.type === "work_graph" || recipe?.operation_id && recipe.graph_entry === true)) continue;
+      const candidate = this.compileTarget(entry.name);
+      if (candidate.units.length && candidate.units.every((unit) => byID.get(unit.unit_id)?.semantic_digest === unit.semantic_digest)) {
+        for (const unit of candidate.units) add(entry.name, unit.unit_id);
       }
     }
     const includeDependencies = (unitID, values) => {
@@ -673,21 +693,6 @@ export class WorkGraphCompiler {
     for (const values of members.values()) {
       for (const unitID of [...values]) includeDependencies(unitID, values);
     }
-    // A union is a projection over its canonical leaves, never another runner.
-    // Publish it only when every member is selected in this invocation.
-    const includeUnion = (name, visiting = new Set()) => {
-      if (members.has(name)) return members.get(name);
-      if (visiting.has(name)) throw new Error(`target member cycle at ${name}`);
-      const children = this.owner.target_members[name];
-      if (!children) return null;
-      const next = new Set(visiting).add(name);
-      const selections = children.map((child) => includeUnion(child, next));
-      if (selections.some((selection) => selection === null)) return null;
-      const values = new Set(selections.flatMap((selection) => [...selection]));
-      members.set(name, values);
-      return values;
-    };
-    for (const name of Object.keys(this.owner.target_members)) includeUnion(name);
     return {
       [target]: graph.units.map((unit) => unit.unit_id),
       ...Object.fromEntries(
@@ -719,14 +724,12 @@ export class WorkGraphCompiler {
       .filter(admitted)
       .map((row) => row.row_id);
     const rows = rowIDs.map((rowID) => this.catalog.rowByID.get(rowID));
-    const browserTargets = new Set();
     const policyTargets = new Set(this.aggregatePolicyRoots(target));
     const policyRows = new Map();
     const ordinaryRows = [];
     for (const row of rows) {
       const rowTarget = this.rowTargets.get(row.row_id);
-      if (row.runner === "playwright") browserTargets.add(rowTarget);
-      else if (this.owner.policy_units[rowTarget]) {
+      if (row.runner !== "playwright" && this.owner.policy_units[rowTarget]) {
         policyTargets.add(rowTarget);
         const selected = policyRows.get(rowTarget) ?? [];
         selected.push(row.row_id);
@@ -748,25 +751,14 @@ export class WorkGraphCompiler {
       }
     };
     for (const policyTarget of [...policyTargets]) expandPolicy(policyTarget);
-    const forcedOwnerIDs = [...new Set(
-      [...policyTargets].flatMap((policyTarget) =>
-        this.owner.policy_units[policyTarget]?.owner_slices ?? [],
+    const forcedRowIDs = [...new Set(
+      [...policyTargets].filter((policyTarget) => this.owner.policy_units[policyTarget]).flatMap((policyTarget) =>
+        policyDependencyRowIDs(this.owner, policyTarget, this.catalog.rows),
       ),
     )].sort(compareASCII);
-    const forcedOwnerRowIDs = new Set(
-      this.catalog.rows
-        .filter((row) => forcedOwnerIDs.includes(row.owner_id))
-        .map((row) => row.row_id),
-    );
-    const ordinaryTierRows = ordinaryRows.filter((rowID) => !forcedOwnerRowIDs.has(rowID));
+    const forcedRows = new Set(forcedRowIDs);
+    const ordinaryTierRows = ordinaryRows.filter((rowID) => !forcedRows.has(rowID));
     const units = ordinaryTierRows.length > 0 ? this.compileRows(ordinaryTierRows).units : [];
-    const forcedOwnerGraphs = new Map(
-      forcedOwnerIDs.map((ownerID) => [ownerID, this.compileOwner(ownerID)]),
-    );
-    for (const graph of forcedOwnerGraphs.values()) units.push(...graph.units);
-    for (const browserTarget of [...browserTargets].sort(compareASCII)) {
-      units.push(...this.compileTarget(browserTarget).units);
-    }
     // Each semantic consumer is constructed with its dependencies by the same
     // path used for direct and owner selection. Never reattach dependencies to
     // roots of an expanded graph (those roots can be the producers themselves).

@@ -19,8 +19,8 @@ Before planning or editing a subtree, read its applicable nested `AGENTS.md` fil
 ## Editing and verification
 
 - Do not hand-edit paths covered by `generated_roots` or `generated_files` in the [generated-artifact policy](tools/generated_artifact_policy.json), outputs declared by the [execution topology](tools/execution_topology_manifest.json), or tool-managed dependencies such as `go.sum` and `pnpm-lock.yaml`. Update authored inputs and regenerate through Make.
-- Run repository operations through public Make targets from the repository root. Direct tool/script invocations are not canonical verification. Discover commands with `make help` / `make help-all`; read versions from the [pin registry](tools/toolchain_pins.json).
-- Use `make task-guide ROLE=module-author OWNER=<owner-id>` to select narrow verification. Investigate failures before rerunning or broadening; broaden only when ownership or risk requires it.
+- Run repository operations through public Make targets from the repository root. Direct tool/script invocations are not canonical verification. Discover commands with `make help` / `make help ALL=1`; read versions from the [pin registry](tools/toolchain_pins.json).
+- Use `make task-guide OWNER=<owner-id>` to select narrow verification. Investigate failures before rerunning or broadening; broaden only when ownership or risk requires it.
 - For implementation tasks, run `make agent-finalize` before broader end-of-run verification; it can rewrite generated artifacts. Supply `RESULTS_DIR=<successful full warm check run root>` for retained-run maintenance; otherwise report that maintenance was skipped because `RESULTS_DIR` was unset.
 - Review-only work does not authorize mutations. Documentation-only changes use `make lint-markdown`; skip `format`, generation, `agent-finalize`, and product verification. Do not change product checks, generated artifacts, conformance, or release evidence for documentation maintenance.
 - `make clean` deletes reproducible build/report outputs; `make distclean` also deletes repo-local caches and dependency installs.

@@ -12,8 +12,8 @@ does not authorize product edits, golden refreshes, or expanding the review scop
 
 Resolve repository paths from the user's current Cartulary checkout or worktree.
 Read its applicable `AGENTS.md`. Run harness commands from that root through public
-Make targets. Discover changed command inputs with `make help-all` or
-`make explain-target TARGET=<target> DETAIL=summary`.
+Make targets. Discover changed command inputs with `make help ALL=1` or
+`make target-plan TARGET=<target> DETAIL=summary`.
 
 Choose the smallest useful set of UI states, actors, and viewports. Select a mode
 before starting; a session's mode cannot change:

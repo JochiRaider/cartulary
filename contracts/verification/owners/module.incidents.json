@@ -19,7 +19,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "test"
+      "public_target": "ci"
     },
     {
       "verification_id": "module.incidents.verification.incident_portability_actors",
@@ -28,7 +28,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "test"
+      "public_target": "ci"
     },
     {
       "verification_id": "module.incidents.verification.lifecycle_openapi_alignment",

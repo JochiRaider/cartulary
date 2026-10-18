@@ -240,7 +240,7 @@ const currentRunID = "unit-current-run";
 const currentCompatibilityReportPath = `${currentResultsDir}/${currentRunID}/seaweedfs-compatibility/object-store-compatibility-report.json`;
 const passingCompatibilityUnitResult = {
   schema_id: "cartulary.harness_unit_result.v1",
-  unit_id: "target:seaweedfs-compatibility",
+  unit_id: "operation:harness.seaweedfs_compatibility",
   status: "passed",
 };
 const compatibility = buildSeaweedFSCompatibilityEvidence({
@@ -332,7 +332,7 @@ const failedSummaryCompatibility = buildSeaweedFSCompatibilityEvidence({
   currentRunId: currentRunID,
   unitResult: {
     schema_id: "cartulary.harness_unit_result.v1",
-    unit_id: "target:seaweedfs-compatibility",
+    unit_id: "operation:harness.seaweedfs_compatibility",
     status: "failed",
   },
 });

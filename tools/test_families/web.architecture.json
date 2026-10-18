@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v8",
+  "schema_id": "cartulary.test_family_manifest.v9",
   "owner_id": "web.architecture",
   "rows": [
     {
@@ -296,7 +296,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.frontend_import_boundary_check.v2"
+        "operation_id": "harness.frontend_import_boundary_check"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",

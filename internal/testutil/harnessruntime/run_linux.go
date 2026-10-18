@@ -20,9 +20,17 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
+// RunResult keeps the published summary separate from resolved presentation inputs.
+// Presentation never changes the graph's execution identity or evidence schema.
+type RunResult struct {
+	Summary           map[string]any
+	JSONOutput        bool
+	CleanupDiagnostic *harnesssession.CleanupDiagnostic
+}
+
 // Run accepts only ordinary graph selectors. Prepare owns their interpretation;
 // no external executable plan, shell fragment or runtime-selection flag exists.
-func Run(ctx context.Context, root, binary string, args, environment []string) (summary map[string]any, code int, resultErr error) {
+func Run(ctx context.Context, root, binary string, args, environment []string) (report *RunResult, code int, resultErr error) {
 	env := map[string]string{}
 	for _, entry := range environment {
 		if k, v, ok := strings.Cut(entry, "="); ok {
@@ -95,16 +103,11 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	// may start before the first transaction and waits for that existing owner.
 	diagnostics.start(binary, runRoot, admission, runtime, plan, policy, env)
 	publication.Forbidden = runtime.ForbiddenValues
-	child := maps.Clone(env)
+	child := plan.unitEnvironment(env)
 	for _, k := range []string{"CARTULARY_TEST_SERVICES_MODE", "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER", "CARTULARY_TEST_SERVICES_SESSION_FILE", "HARNESS_DIAGNOSTICS", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS"} {
 		delete(child, k)
 	}
 	target := plan.facts.Manifest["target"].(string)
-	if target == "test-slice" || target == "service-backed-test-slice" {
-		for _, k := range []string{"JSON", "OWNER", "ROWS", "SERVICE_BACKED_ONLY"} {
-			delete(child, k)
-		}
-	}
 	maps.Copy(child, plan.facts.Bindings)
 	delete(child, "CARTULARY_TEST_SERVICES_MODE")
 	delete(child, "CARTULARY_TEST_SERVICES_SESSION_FILE")
@@ -117,7 +120,6 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	for _, k := range []string{"CARTULARY_HARNESS_GRAPH_CHILD", "CARTULARY_HARNESS_IDENTITY_PREPARED", "CARTULARY_HARNESS_SKIP_PREREQUISITES", "CARTULARY_SUPPRESS_CHILD_SUCCESS"} {
 		child[k] = "1"
 	}
-	child["CARTULARY_UNIT_CPU_TOKENS"] = fmt.Sprint(plan.facts.Capacities["cpu"])
 	// A nested graph cannot inherit its parent's event authority. Each launch
 	// receives this publisher's complete-record prefix below.
 	delete(child, "CARTULARY_HARNESS_LIVE_UNIT_EVENTS_FILE")
@@ -139,10 +141,10 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	maps.Copy(fixtureEnv, plan.facts.Bindings)
 	declared := plan.facts.Manifest["declared_inputs"].(map[string]any)
 	sources := strings.Fields(env["CARTULARY_MAKE_INPUT_SOURCES"])
-	for _, k := range []string{"OWNER", "ROWS", "SERVICE_BACKED_ONLY"} {
+	for _, k := range []string{"OWNER", "ROWS", "SCOPE", "SUITE"} {
 		if v, ok := declared[k].(string); ok {
 			fixtureEnv[k] = v
-			if k != "SERVICE_BACKED_ONLY" {
+			if k != "SCOPE" {
 				next := []string{}
 				for _, s := range sources {
 					if !strings.HasPrefix(s, k+"=") {
@@ -155,6 +157,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	}
 	fixtureEnv["CARTULARY_MAKE_INPUT_SOURCES"] = strings.Join(sources, " ")
 	var cleanupMu sync.Mutex
+	var fixtureCleanupDiagnostic *harnesssession.CleanupDiagnostic
 	cleanup := []cleanupRecord{}
 	recordCleanup := func(r cleanupRecord) { cleanupMu.Lock(); defer cleanupMu.Unlock(); cleanup = append(cleanup, r) }
 	production := harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{Root: root, RunRoot: runRoot, Target: target, Runtime: runtime, Environment: fixtureEnv, ContainerProof: diagnostics.collector.containers}, harnessfixtures.Options{Observe: diagnostics.execution.fixture, Cleanup: func(r harnessfixtures.CleanupRecord) {
@@ -162,6 +165,11 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		if r.Err != nil {
 			v.Outcome = "failed"
 			v.Failure = cleanupFailureOf(r.Err)
+			cleanupMu.Lock()
+			if fixtureCleanupDiagnostic == nil {
+				fixtureCleanupDiagnostic = harnesssession.DescribeCleanupFailure(r.Err)
+			}
+			cleanupMu.Unlock()
 		}
 		recordCleanup(v)
 	}})
@@ -169,7 +177,9 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	finalized, scanned := false, false
 	var primary *failure
 	secrets := []string{}
-	closeRuntime := func(unresolved bool) error {
+	var runtimeCloseErr error
+	closeRuntime := func(unresolved bool) (closeErr error) {
+		defer func() { runtimeCloseErr = closeErr }()
 		diagnostics.execution.capture()
 		var secretErr error
 		secrets, secretErr = runtime.ForbiddenValues()
@@ -202,10 +212,25 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 				code = failureExitCode(failureOf(e), "")
 			}
 		}
+		if report != nil {
+			cleanupMu.Lock()
+			report.CleanupDiagnostic = fixtureCleanupDiagnostic
+			cleanupMu.Unlock()
+			if report.CleanupDiagnostic == nil {
+				report.CleanupDiagnostic = harnesssession.DescribeCleanupFailure(runtimeCloseErr)
+			}
+		}
 	}()
 	cache := newNativeCache(plan, root, runRoot)
 	defer cache.Close()
-	processes := processRunner{Root: root, Environment: child, FailureScope: func(identity map[string]any) (failureScope, error) {
+	commands := map[string]string{}
+	for _, unit := range plan.facts.Graph.Units {
+		commands[unit.Command.Environment["CARTULARY_TEST_TARGET"]] = plan.facts.Manifest["command_id"].(string)
+	}
+	for name, projection := range plan.facts.Projections {
+		commands[name] = projection.CommandID
+	}
+	processes := processRunner{Root: root, Environment: child, Commands: commands, FailureScope: func(identity map[string]any) (failureScope, error) {
 		return createFailureScope(runtime.Directory, identity)
 	}, Observe: diagnostics.execution.launch}
 	var parent *string
@@ -262,13 +287,14 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	cleanupMu.Lock()
 	result.Cleanup = append([]cleanupRecord{}, cleanup...)
 	cleanupMu.Unlock()
-	summary, err = publication.Finish(result)
+	summary, err := publication.Finish(result)
 	if err != nil {
 		if primary != nil {
 			return nil, failureExitCode(primary, ""), errors.Join(primary, err)
 		}
 		return nil, 11, err
 	}
+	report = &RunResult{Summary: summary, JSONOutput: declared["JSON"] == "1"}
 	diagnostics.mark("evidence_publication")
 	scanned = true
 	err = diagnostics.scan(secrets)
@@ -285,7 +311,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		if result.Failure != nil {
 			err = errors.Join(result.Failure, err)
 		}
-		return summary, code, err
+		return report, code, err
 	}
-	return summary, code, nil
+	return report, code, nil
 }

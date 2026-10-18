@@ -553,7 +553,6 @@ function buildReport({
   const harnessChecks = harnessCheckEntries(manifest).map((entry) => ({
     name: entry.name,
     backing_scripts: entry.backing_scripts ?? [],
-    command: entry.command ?? null,
   }));
   const targets = phonyTargets.map((target) => {
     const entry = entriesByName.get(target) ?? {};
@@ -710,8 +709,7 @@ function printHumanReport(report, { allMode = false } = {}) {
     console.log("logical harness checks:");
     for (const check of report.harness_checks) {
       const scripts = check.backing_scripts.length > 0 ? check.backing_scripts.join(",") : "-";
-      const command = Array.isArray(check.command) && check.command.length > 0 ? check.command.join(" ") : "-";
-      console.log(`  ${check.name} scripts=${scripts} command=${command}`);
+      console.log(`  ${check.name} scripts=${scripts}`);
     }
 
     console.log("");

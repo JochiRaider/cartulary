@@ -90,7 +90,7 @@ func TestRuntimeSelectedGraphExecution(t *testing.T) {
 			}
 			summary, code, err := Run(ctx, root, binary, []string{"--selection", "owner", "--target", "test-slice", "--owner", "harness.evidence_accounting", "--rows", rowID}, input)
 			run := filepath.Join(results, id+"-"+mode)
-			if err != nil || code != 0 || summary["status"] != "pass" {
+			if err != nil || code != 0 || summary == nil || summary.Summary["status"] != "pass" {
 				t.Fatalf("native graph: code=%d err=%v; retained %s", code, err, run)
 			}
 			if err := checkRegularEvidence(filepath.Join(run, "rows/"+rowID+".json")); err != nil {

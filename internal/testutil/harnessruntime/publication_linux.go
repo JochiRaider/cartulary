@@ -11,8 +11,10 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 )
 
 type graphPublication struct {
@@ -31,14 +33,14 @@ func newGraphPublication(plan *Plan, runRoot string) (*graphPublication, error) 
 		return nil, err
 	}
 	defer directory.Close()
-	manifest, err := documentBytes("cartulary.harness_run_manifest.v2", plan.facts.Manifest)
+	manifest, err := documentBytes("cartulary.harness_run_manifest.v3", plan.facts.Manifest)
 	if err != nil {
 		return nil, err
 	}
 	if err := harnesslocal.PublishNew(filepath.Join(runRoot, "run-manifest.json"), append(manifest, '\n')); err != nil {
 		return nil, err
 	}
-	if err := writeEvidence(runRoot, "execution-context.json", "cartulary.harness_execution_context.v1", plan.context, false); err != nil {
+	if err := writeEvidence(runRoot, "execution-context.json", "cartulary.harness_execution_context.v3", plan.context, false); err != nil {
 		return nil, err
 	}
 	stream, err := harnesslocal.NewStream(filepath.Join(runRoot, "unit-events.ndjson"), 64*1024)
@@ -56,11 +58,74 @@ func (p *graphPublication) Event(record map[string]any) error {
 	if err := p.facts.consume(record); err != nil {
 		return err
 	}
+	// Terminal facts are published before dependent finalizers become eligible,
+	// including units that never reached the worker's Terminal callback.
+	if id, ok := record["unit_id"].(string); ok {
+		if terminal, ok := p.facts.terminals[id]; ok && terminal.seq == p.facts.seq {
+			if err := p.publishRows(p.facts.byID[id], terminal); err != nil {
+				return err
+			}
+		}
+	}
 	bytes, err := json.Marshal(record)
 	if err != nil {
 		return err
 	}
 	return p.events.Write(append(bytes, '\n'))
+}
+
+func (p *graphPublication) publishRows(u unit, terminal canonicalTerminal) error {
+	_, started := p.facts.starts[u.ID]
+	for _, row := range u.Rows {
+		relative := "rows/" + row.ID + ".json"
+		bytes, err := harnesslocal.ReadFile(filepath.Join(p.root, relative), 1024*1024, false)
+		if err == nil {
+			value, err := harnessschema.Decode(bytes)
+			if err != nil || harnessschema.Validate("cartulary.harness_row_result.v4", value) != nil {
+				return errCanonical
+			}
+			result := value.(map[string]any)
+			if result["row_id"] != row.ID || result["runner"] != row.Runner {
+				return errCanonical
+			}
+			// Unstarted work cannot have runner evidence except a validated cache
+			// hit. Started work may have completed some rows before later failure.
+			if !started && !(p.facts.hits[u.ID] && terminal.status == "passed") {
+				return errCanonical
+			}
+			if terminal.status == "passed" && result["terminal_state"] != "passed" && result["terminal_state"] != "skipped_authorized" {
+				return errCanonical
+			}
+			continue
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if terminal.status == "passed" {
+			return errCanonical
+		}
+		state := "infrastructure_failed"
+		failure := terminal.failure
+		if failure == nil || failure.Class == "product" || failure.Class == "security" {
+			// The scheduler has no per-row assertion result to attribute.
+			failure = failed("artifact", "artifact_error")
+		}
+		if terminal.status == "skipped" {
+			state, failure = "skipped_dependency", failed("harness", "dependency_failure")
+		} else if terminal.status == "cancelled" {
+			state, failure = "cancelled", failed("interrupted", "cancelled_or_interrupted")
+		}
+		// A missing runner record has no observed row-execution duration. Its
+		// equal timestamps denote terminal publication, not invented execution.
+		stamp := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+		value := map[string]any{"schema_id": "cartulary.harness_row_result.v4", "row_id": row.ID, "runner": row.Runner,
+			"terminal_state": state, "duration_ms": 0, "wall_duration_ms": 0, "exit_code": failureExitCode(failure, ""),
+			"failure_class": failure.Class, "failure_reason": failure.Reason, "failure_diagnostic": nil, "started_at": stamp, "finished_at": stamp}
+		if err := writeEvidence(p.root, relative, "cartulary.harness_row_result.v4", value, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 func (p *graphPublication) Prefix() (string, error) {
 	p.mu.Lock()

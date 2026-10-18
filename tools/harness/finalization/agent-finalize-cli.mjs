@@ -1,8 +1,6 @@
 #!/usr/bin/env node
-import { spawnSync } from "../workspace/child-process.mjs";
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -12,56 +10,38 @@ import {
   prettyJSONString,
   secureWriteFile,
   validateSchemaSync,
+  reloadSchemaValidators,
+  redactString,
 } from "../contract/index.mjs";
 import {
   collectChildArtifacts,
-  flattenSubsteps,
   preflightSubstep,
   selectedActionDefinitions as plannedActionDefinitions,
   selectedActions as plannedActions,
 } from "./agent-finalize-action-plan.mjs";
 import { createRetainedRunPreflight } from "./agent-finalize-retained-run.mjs";
-import { snapshotTrackedWorkspace, restoreTrackedWorkspace } from "./tracked-workspace-snapshot.mjs";
+import { withTrackedWorkspaceTransaction } from "./tracked-workspace-snapshot.mjs";
 import { captureFinalizationSubstep } from "./captured-substep.mjs";
-import { executableInputPathspec, restrictedExecutableInputRoots } from "../test-catalog/index.mjs";
+import { publishFinalizationFailure } from "./failure-publication.mjs";
+import { createValidatedContext } from "../test-catalog/index.mjs";
+import { validateSourceShapes } from "../generated-artifacts/index.mjs";
 import { normalizeOutputMode } from "../output/index.mjs";
+import { operationDefinition, operationExecutionDigest, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
 
-const schemaID = "cartulary.agent_finalize_summary.v3";
+const schemaID = "cartulary.agent_finalize_summary.v4";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
-const makeBin = process.env.MAKE || "make";
 const target = "agent-finalize";
 const resultsDirInput = (process.env.RESULTS_DIR || "").trim();
 const allowOlderResultsDir =
   (process.env.ALLOW_OLDER_RESULTS_DIR || "").trim() === "1";
 
-const deniedTargets = new Set([
-  "format",
-  "migration-drift",
-  "test-fast",
-  "test",
-  "check",
-  "ci",
-  "release-check",
-  "browser-e2e",
-  "browser-e2e-webserver-backed",
-  "browser-e2e-support",
-  "browser-e2e-stateful",
-  "browser-e2e-resettable",
-  "browser-e2e-measurement",
-  "browser-e2e-visual",
-  "go-vulncheck",
-  "go-gosec-targeted",
-  "go-gosec-audit",
-  "build",
-  "build-server",
-  "build-migrate",
-  "build-operator",
-  "build-web",
-  "clean",
-  "distclean",
-  "benchmark-claim-check",
-]);
+const maintenanceOperations = Object.freeze({
+  "generated-refresh": "harness.generated_refresh",
+  "canonical-evidence-drift-suite": "harness.canonical_evidence_drift_suite",
+  "scheduler-event-order-drift": "harness.scheduler_event_order_drift",
+  "scheduler-summary-timing-drift": "harness.scheduler_summary_timing_drift",
+});
 
 const actionRegistry = [
   {
@@ -73,11 +53,19 @@ const actionRegistry = [
     substeps: [
       {
         id: "generated-transaction",
-        target: "generate-drift",
-        commandKind: "make_target",
+        target: "generated-refresh",
+        commandKind: "operation",
         requiresResultsDir: false,
         mutatesRepo: true,
         env: { CARTULARY_GENERATE_DRIFT_REFRESH: "1" },
+      },
+      {
+        id: "refreshed-source-validation",
+        target: null,
+        commandKind: "validation_fact",
+        requiresResultsDir: false,
+        mutatesRepo: false,
+        validation: "source",
       },
     ],
   },
@@ -91,16 +79,18 @@ const actionRegistry = [
       {
         id: "json-shape-check",
         target: "json-shape-check",
-        commandKind: "make_target",
+        commandKind: "validation_fact",
         requiresResultsDir: false,
         mutatesRepo: false,
+        validation: "source",
       },
       {
         id: "test-catalog-check",
         target: "test-catalog-check",
-        commandKind: "make_target",
+        commandKind: "validation_fact",
         requiresResultsDir: false,
         mutatesRepo: false,
+        validation: "catalog",
       },
     ],
   },
@@ -114,9 +104,10 @@ const actionRegistry = [
       {
         id: "catalog-tier-coverage",
         target: "test-catalog-check",
-        commandKind: "make_target",
+        commandKind: "validation_fact",
         requiresResultsDir: false,
         mutatesRepo: false,
+        validation: "catalog",
       },
     ],
   },
@@ -130,7 +121,7 @@ const actionRegistry = [
       {
         id: "canonical-evidence-drift-suite",
         target: "canonical-evidence-drift-suite",
-        commandKind: "make_target",
+        commandKind: "operation",
         requiresResultsDir: true,
         mutatesRepo: false,
       },
@@ -146,14 +137,14 @@ const actionRegistry = [
       {
         id: "scheduler-event-order-drift",
         target: "scheduler-event-order-drift",
-        commandKind: "make_target",
+        commandKind: "operation",
         requiresResultsDir: true,
         mutatesRepo: false,
       },
       {
         id: "scheduler-summary-timing-drift",
         target: "scheduler-summary-timing-drift",
-        commandKind: "make_target",
+        commandKind: "operation",
         requiresResultsDir: true,
         mutatesRepo: false,
         makeVars: { TARGET: "check" },
@@ -224,12 +215,13 @@ function readJSON(file) {
   }
 }
 
+let validationContext = createValidatedContext(repoRoot);
 const retainedRunPreflight = createRetainedRunPreflight({
   allowOlderResultsDir,
   relToRepo,
   repoRoot,
   resultsDirInput,
-});
+}, { sourceSnapshot: validationContext.source, loadCatalog: () => validationContext.catalog() });
 const retainedRunIdentity = retainedRunPreflight.currentIdentity();
 
 function selectedActionDefinitions() {
@@ -239,41 +231,6 @@ function selectedActionDefinitions() {
 function selectedActions() {
   return plannedActions(actionRegistry, resultsDirInput);
 }
-
-function gitStatusMap() {
-  const result = spawnSync(
-    "git",
-    ["status", "--porcelain=v1", "--untracked-files=no", "--", ...executableInputPathspec(restrictedExecutableInputRoots(repoRoot))],
-    {
-      cwd: repoRoot,
-      encoding: "utf8",
-    },
-  );
-  if (result.status !== 0) {
-    return null;
-  }
-  const entries = new Map();
-  for (const line of result.stdout.split(/\r?\n/u).filter(Boolean)) {
-    const name = line.slice(3).replace(/^"|"$/gu, "");
-    entries.set(name, line.slice(0, 2));
-  }
-  return entries;
-}
-
-function changedFilesSince(before) {
-  const after = gitStatusMap();
-  if (!before || !after) {
-    return [];
-  }
-  const changed = [];
-  for (const [file, status] of after.entries()) {
-    if (before.get(file) !== status) {
-      changed.push(file);
-    }
-  }
-  return changed.sort((left, right) => left.localeCompare(right));
-}
-
 
 function failureFromChild(action, substep, status, stderr, failure) {
   const summaryFile = substep.target ? childSummaryPath(substep.target) : "";
@@ -369,7 +326,7 @@ function writeSummary({
       updated_file_count: updatedFiles.length,
     },
     mutation_rollback: mutationRollback,
-    performance_evidence: {
+    retained_evidence: {
       status: resultsDirInput
         ? failedEvidence || !evidenceChecked
           ? "failed"
@@ -397,14 +354,39 @@ function writeSummary({
   return summary;
 }
 
-async function runMakeSubstep(definition, substep) {
-  if (deniedTargets.has(definition.target)) {
-    throw new Error(`agent-finalize action substep uses denied target ${definition.target}`);
+async function runValidationSubstep(definition, substep) {
+  substep.started_at = now();
+  const started = Date.now();
+  substep.validation_source_digest = validationContext.source.digest;
+  let failure, stderr = "";
+  try {
+    if (definition.validation === "source") await validateSourceShapes(validationContext);
+    else if (definition.validation === "catalog") validationContext.catalog();
+    else throw new Error("unknown finalizer validation fact");
+    substep.exit_code = 0;
+    substep.status = "pass";
+  } catch (error) {
+    failure = { failure_class: error.failure_class ?? "harness", failure_reason: error.failure_reason ?? "child_target_failure" };
+    stderr = redactString(error.message);
+    substep.exit_code = 1;
+    substep.status = "fail";
+  }
+  substep.completed_at = now();
+  substep.duration_ms = durationMs(started);
+  return { status: substep.exit_code, failure, stderr };
+}
+
+async function runOperationSubstep(definition, substep) {
+  if (!Object.hasOwn(maintenanceOperations, definition.target)) {
+    throw new Error(`agent-finalize action substep uses an unregistered maintenance operation ${definition.target}`);
   }
   const startedAt = now();
   const startedMs = Date.now();
+  const operationID = maintenanceOperations[definition.target];
+  const operation = operationDefinition(readOperationOwner(repoRoot), operationID);
   const childEnv = {
     ...process.env,
+    CARTULARY_OPERATION_DIGEST: operationExecutionDigest(operation),
     ...(definition.env ?? {}),
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
   };
@@ -429,12 +411,10 @@ async function runMakeSubstep(definition, substep) {
   // prepared identity with the child target instead of leaving a partial
   // parent tuple for the public Make preflight.
   childEnv.CARTULARY_TEST_TARGET = definition.target;
-  const makeVarArgs = Object.entries(definition.makeVars ?? {}).map(
-    ([key, value]) => `${key}=${value}`,
-  );
+  Object.assign(childEnv, definition.makeVars ?? {});
   const result = await captureFinalizationSubstep({
-    command: makeBin,
-    args: ["--no-print-directory", definition.target, ...makeVarArgs],
+    command: process.execPath,
+    args: [path.join(repoRoot, "tools/harness/execution/operation-runner-cli.mjs"), operationID],
     repoRoot, runRoot: runRootAbs(), env: childEnv,
     logDirectory: childStepDir(definition.target),
   });
@@ -556,8 +536,6 @@ async function runPreflightSubstep(action, substep) {
 async function main() {
   const startedAt = now();
   const startedMs = Date.now();
-  const beforeStatus = gitStatusMap();
-  const trackedSnapshot = snapshotTrackedWorkspace(repoRoot);
   const actions = selectedActions();
   const definitions = selectedActionDefinitions();
   const failures = [];
@@ -571,64 +549,97 @@ async function main() {
     error: null,
   };
 
-  for (let actionIndex = 0; actionIndex < actions.length; actionIndex += 1) {
-    const action = actions[actionIndex];
-    const definition = definitions[actionIndex];
-    if (action.execution_state === "not_selected") {
-      continue;
-    }
-    if (failed) {
-      markActionSkipped(action);
-      continue;
-    }
-
-    action.started_at = now();
-    const actionStartedMs = Date.now();
-    let substepStartIndex = 0;
-
-    if (action.substeps[0]?.id === preflightSubstep.id) {
-      const substep = action.substeps[0];
-      const result = await runPreflightSubstep(action, substep);
-      if (result.selection) {
-        retainedRunSelection = result.selection;
+  const transaction = await withTrackedWorkspaceTransaction(repoRoot, async () => {
+    for (let actionIndex = 0; actionIndex < actions.length; actionIndex += 1) {
+      const action = actions[actionIndex];
+      const definition = definitions[actionIndex];
+      if (action.execution_state === "not_selected") {
+        continue;
       }
-      substepStartIndex = 1;
-      if (!result.ok) {
-        resultsDirStatus = "invalid";
-        failures.push(result.failure);
-        failed = true;
-      }
-    }
-
-    if (!failed) {
-      action.execution_state = "executed";
-    }
-
-    for (const substep of action.substeps.slice(substepStartIndex)) {
       if (failed) {
-        markSubstepSkipped(substep);
+        markActionSkipped(action);
         continue;
       }
 
-      const substepDefinition =
-        substep.id === preflightSubstep.id
-          ? preflightSubstep
-          : definition.substeps.find((entry) => entry.id === substep.id);
-      if (!substepDefinition) {
-        throw new Error(`missing substep definition for ${action.action_id}:${substep.id}`);
-      }
+      action.started_at = now();
+      const actionStartedMs = Date.now();
+      let substepStartIndex = 0;
 
-      const result = await runMakeSubstep(substepDefinition, substep);
-      if (result.status !== 0) {
-        failures.push(failureFromChild(action, substep, result.status, result.stderr, result.failure));
-        if (result.cleanupFailure && result.failure?.failure_reason !== "cleanup_error") {
-          failures.push(failureFromChild(action, substep, 12, "private substep resource cleanup failed", result.cleanupFailure));
+      if (action.substeps[0]?.id === preflightSubstep.id) {
+        const substep = action.substeps[0];
+        const result = await runPreflightSubstep(action, substep);
+        if (result.selection) {
+          retainedRunSelection = result.selection;
         }
-        failed = true;
+        substepStartIndex = 1;
+        if (!result.ok) {
+          resultsDirStatus = "invalid";
+          failures.push(result.failure);
+          failed = true;
+        }
       }
-    }
 
-    finalizeActionStatus(action, actionStartedMs);
+      if (!failed) {
+        action.execution_state = "executed";
+      }
+
+      for (const substep of action.substeps.slice(substepStartIndex)) {
+        if (failed) {
+          markSubstepSkipped(substep);
+          continue;
+        }
+
+        const substepDefinition =
+          substep.id === preflightSubstep.id
+            ? preflightSubstep
+            : definition.substeps.find((entry) => entry.id === substep.id);
+        if (!substepDefinition) {
+          throw new Error(`missing substep definition for ${action.action_id}:${substep.id}`);
+        }
+
+        const result = substepDefinition.commandKind === "validation_fact"
+          ? await runValidationSubstep(substepDefinition, substep)
+          : await runOperationSubstep(substepDefinition, substep);
+        if (result.status === 0 && substepDefinition.mutatesRepo) {
+          validationContext.invalidate();
+          reloadSchemaValidators();
+          validationContext = createValidatedContext(repoRoot);
+        }
+        if (result.status !== 0) {
+          failures.push(failureFromChild(action, substep, result.status, result.stderr, result.failure));
+          if (result.cleanupFailure && result.failure?.failure_reason !== "cleanup_error") {
+            failures.push(failureFromChild(action, substep, 12, "private substep resource cleanup failed", result.cleanupFailure));
+          }
+          failed = true;
+        }
+      }
+
+      finalizeActionStatus(action, actionStartedMs);
+    }
+    return { failed };
+  });
+  if (transaction.error) {
+    failed = true;
+    const action = actions.find((entry) => entry.status === "pending");
+    const substep = action?.substeps.find((entry) => entry.status === "pending");
+    if (substep) {
+      substep.status = "fail";
+      substep.exit_code = 1;
+      substep.started_at ??= now();
+      substep.completed_at = now();
+      substep.duration_ms = 0;
+    }
+    if (action) {
+      action.status = "fail";
+      action.execution_state = "executed";
+      action.completed_at = now();
+      action.duration_ms = 0;
+    }
+    failures.push({ action_id: action?.action_id ?? "generated_structure_refresh",
+      substep_id: substep?.id ?? "generated-transaction", target: substep?.target ?? null,
+      failure_class: transaction.error.failure_class ?? "harness",
+      failure_reason: transaction.error.failure_reason ?? "child_target_failure",
+      headline: redactString(transaction.error.message), summary_json: null });
   }
 
   if (failed) {
@@ -642,17 +653,13 @@ async function main() {
     }
   }
 
-  if (failed) {
-    const rollback = restoreTrackedWorkspace(repoRoot, trackedSnapshot);
-    mutationRollback = {
-      status: rollback.status,
-      restored_file_count: rollback.restored_files.length,
-      restored_files: rollback.restored_files,
-      error: rollback.error,
-    };
-  }
-
-  const updatedFiles = changedFilesSince(beforeStatus);
+  mutationRollback = {
+    status: transaction.rollback.status,
+    restored_file_count: transaction.rollback.restored_files.length,
+    restored_files: transaction.rollback.restored_files,
+    error: transaction.rollback.error,
+  };
+  const updatedFiles = transaction.updatedFiles;
   const summary = writeSummary({
     status: failed ? "fail" : "pass",
     startedAt,
@@ -670,15 +677,12 @@ async function main() {
     process.stderr.write(
       `agent-finalize: failed at ${failure?.target ?? failure?.substep_id ?? failure?.action_id ?? "unknown"}\n`,
     );
-    process.exit(
-      flattenSubsteps(summary.actions).find((substep) => substep.status === "fail")
-        ?.exit_code || 1,
-    );
+    process.exitCode = publishFinalizationFailure(repoRoot, summary.failures);
   }
 }
 
 main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`agent-finalize: ${message}\n`);
-  process.exit(1);
+  process.stderr.write(`agent-finalize: ${redactString(message)}\n`);
+  process.exitCode = publishFinalizationFailure(repoRoot, [error]);
 });

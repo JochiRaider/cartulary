@@ -49,6 +49,11 @@ run_make_capture() {
 
   set +e
   env \
+    -u MAKEFLAGS \
+    -u MAKEOVERRIDES \
+    -u MFLAGS \
+    -u SUITE \
+    -u SCOPE \
     -u OWNER \
     -u ROWS \
     -u JSON \
@@ -76,21 +81,24 @@ success_stderr="${tmp_dir}/target-plan.stderr"
 success_status="$(
   DETAIL=logs \
   TASK_SURFACE_MANIFEST=/tmp/cartulary-ignored-task-surface.json \
-    run_make_capture "${success_stdout}" "${success_stderr}" make --no-print-directory target-plan
+    run_make_capture "${success_stdout}" "${success_stderr}" make --no-print-directory target-plan TARGET=check
 )"
+[[ "${success_status}" == 0 ]] || cat "${success_stderr}" >&2
 assert_equals "${success_status}" "0" "inherited undeclared env status"
 assert_contains "$(cat "${success_stdout}")" "target=check" "target-plan public Make output"
 assert_contains "$(cat "${success_stdout}")" "digest=sha256:" "target-plan graph digest output"
 assert_equals "$(cat "${success_stderr}")" "" "inherited undeclared env stderr"
 
+printf '%s\n' '{"SUITE":"backend-unit"}' >"${tmp_dir}/selection.json"
+
 target_filter_stdout="${tmp_dir}/target-filter.stdout"
 target_filter_stderr="${tmp_dir}/target-filter.stderr"
 target_filter_status="$(
-  run_make_capture "${target_filter_stdout}" "${target_filter_stderr}" make --no-print-directory target-plan TARGET=backend-unit
+  run_make_capture "${target_filter_stdout}" "${target_filter_stderr}" make --no-print-directory target-plan TARGET=test-slice INPUTS="${tmp_dir}/selection.json"
 )"
-assert_equals "${target_filter_status}" "0" "target-plan TARGET backend-unit status"
-assert_contains "$(cat "${target_filter_stdout}")" "target=backend-unit" "target-plan TARGET backend-unit output"
-assert_equals "$(cat "${target_filter_stderr}")" "" "target-plan TARGET backend-unit stderr"
+assert_equals "${target_filter_status}" "0" "target-plan suite selection status"
+assert_contains "$(cat "${target_filter_stdout}")" "target=test-slice" "target-plan suite selection output"
+assert_equals "$(cat "${target_filter_stderr}")" "" "target-plan suite selection stderr"
 
 make_target_stdout="${tmp_dir}/make-target.stdout"
 make_target_stderr="${tmp_dir}/make-target.stderr"
@@ -133,7 +141,7 @@ native_alias_status="$(
     make --no-print-directory help GOCACHE="${machine_state_root}/native"
 )"
 assert_equals "${native_alias_status}" "2" "retired native Go cache alias status"
-assert_contains "$(cat "${native_alias_stderr}")" "GOCACHE is not declared for target help" "retired native Go cache alias diagnostic"
+assert_contains "$(cat "${native_alias_stderr}")" "help received an undeclared input" "retired native Go cache alias diagnostic"
 assert_equals "$(cat "${native_alias_stdout}")" "" "retired native Go cache alias stdout"
 
 internal_stdout="${tmp_dir}/internal.stdout"
@@ -175,7 +183,7 @@ assert_equals "$(cat "${govuln_db_stderr}")" "" "declared GOVULNCHECK_DB preflig
 declared_stdout="${tmp_dir}/declared.stdout"
 declared_stderr="${tmp_dir}/declared.stderr"
 declared_status="$(
-  run_make_capture "${declared_stdout}" "${declared_stderr}" make --no-print-directory task-guide ROLE=module-author OWNER=module.networkflow
+  run_make_capture "${declared_stdout}" "${declared_stderr}" make --no-print-directory task-guide OWNER=module.networkflow
 )"
 assert_equals "${declared_status}" "0" "declared target-local input status"
 assert_contains "$(cat "${declared_stdout}")" "owner module.networkflow" "declared owner output"

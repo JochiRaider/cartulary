@@ -79,7 +79,7 @@ fi
 
 if [[ ! -x "$GOVULNCHECK_BIN" ]]; then
   echo "go-vulncheck requires an executable GOVULNCHECK_BIN at $GOVULNCHECK_BIN" >&2
-  echo "run make go-security-toolchain before go-vulncheck or set GOVULNCHECK_BIN to a ready govulncheck binary" >&2
+  echo "run make bootstrap before make go-vulncheck or set GOVULNCHECK_BIN to a ready govulncheck binary" >&2
   fail_with config configuration_error 2
 fi
 

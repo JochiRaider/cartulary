@@ -556,14 +556,34 @@ test("Timeline native clipboard preserves scalar and rectangular values and reje
         )?.cells[raw]?.value,
     )
     .toBe(sourceRaw);
-  // Active editors keep native selection/caret semantics and cancellation.
+  // Native paste autosaves; Escape only discards later uncommitted input.
   await page.getByTestId(rowCellTestId(third, raw)).click();
   await expect(editor(page, third, raw)).toBeFocused();
   await page.keyboard.press("Control+a");
   await clipboard(page, 'native, "literal"');
   await expect(editor(page, third, raw)).toHaveValue('native, "literal"');
+  const pastedRow = await waitForViewRowByCell(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    raw,
+    'native, "literal"',
+  );
+  expect(pastedRow.record_id).toBe(third);
+  await expect(
+    page.getByTestId(gridRowTestId(timelineViewSchemaId, third)),
+  ).toHaveAttribute(gridRowVersionAttribute, String(pastedRow.row_version));
+  await expect(editor(page, third, raw)).toBeFocused();
+  await page.keyboard.press("Control+a");
+  await page.keyboard.type("uncommitted native draft");
+  await expect(editor(page, third, raw)).toHaveValue(
+    "uncommitted native draft",
+  );
   await page.keyboard.press("Escape");
+  await expect(cell(page, third, raw)).toBeFocused();
+  await expect(editor(page, third, raw)).toHaveCount(0);
   const before = await queryViewRows(page, incidentId, timelineViewSchemaId);
+  expect(before.find((row) => row.record_id === third)).toEqual(pastedRow);
   const attemptCount = attempts.length;
   for (const offered of [
     { "text/csv": '"unterminated', "text/plain": "must not fall back" },

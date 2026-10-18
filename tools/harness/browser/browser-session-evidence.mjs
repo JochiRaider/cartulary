@@ -380,10 +380,10 @@ function writeLease() {
 }
 
 export function validateFrontendAttachment(root, artifact, frontend, environment = process.env) {
-  if (frontend.build_artifact_ref !== `${artifact.producer_target}/frontend-artifact.json`) {
+  if (frontend.build_artifact_ref !== `${artifact.producer_report_key}/frontend-artifact.json`) {
     throw new Error("browser attachment frontend artifact does not match selected stage");
   }
-  const sealed = resolveFrontendArtifact(root, artifact.producer_target, environment);
+  const sealed = resolveFrontendArtifact(root, artifact.producer_report_key, environment);
   if (sealed.receiptDigest !== frontend.build_receipt_sha256 ||
       sealed.receipt.content_digest !== frontend.build_artifact_sha256) {
     throw new Error("browser v8 attachment frontend build digest mismatch");
@@ -489,7 +489,7 @@ function writeStack() {
   }
   const fixture = JSON.parse(readFileSync(metadataFile, "utf8"));
   const artifact = resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE"));
-  const sealedFrontend = resolveFrontendArtifact(repoRoot, artifact.producer_target);
+  const sealedFrontend = resolveFrontendArtifact(repoRoot, artifact.producer_report_key);
   const runtimeProfileFingerprint = normalizeDigest(
     requiredEnv("CARTULARY_WEB_E2E_RUNTIME_PROFILE_FINGERPRINT"),
     "runtime profile fingerprint",
@@ -889,7 +889,7 @@ function main(argv) {
   const [command, ...args] = argv;
   if (command === "frontend-artifact" && args.length === 0) {
     const artifact = resolveBrowserFrontendArtifact(repoRoot, requiredEnv("CARTULARY_BROWSER_STAGE"));
-    process.stdout.write(resolveFrontendArtifact(repoRoot, artifact.producer_target).directory + "\n");
+    process.stdout.write(resolveFrontendArtifact(repoRoot, artifact.producer_report_key).directory + "\n");
     return;
   }
   if (command === "event" && (args.length === 2 || args.length === 4)) {

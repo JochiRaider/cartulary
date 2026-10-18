@@ -21,7 +21,7 @@ export function browserTrustTool(root) {
 export function readBrowserTrustTool(root) {
   const tool = browserTrustTool(root);
   const bytes = readLocalFile(tool.file, { maximum: tool.pin.bytes });
-  if (bytes.length !== tool.pin.bytes || hash(bytes) !== tool.pin.sha256) throw new Error("browser trust tool identity mismatch; run make playwright-install");
+  if (bytes.length !== tool.pin.bytes || hash(bytes) !== tool.pin.sha256) throw new Error("browser trust tool identity mismatch; run make bootstrap PART=browser");
   return { ...tool, bytes };
 }
 

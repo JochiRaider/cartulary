@@ -1,26 +1,28 @@
 #!/usr/bin/env node
 
 import {
-  loadRetainedObservability,
   resolveExactRunDir,
 } from "./observability.mjs";
 
-const usage = "usage: observability-check-cli.mjs --results-dir <root|run-dir> [--run-id <id>]";
+import { checkRetainedObservability, observabilityChecks } from "./retained-checks.mjs";
+
+const usage = "usage: observability-check-cli.mjs --results-dir <root|run-dir> [--run-id <id>] [--check all|events|timing|evidence|diagnostics]";
 
 function parseArgs(argv) {
-  const options = { resultsDir: "", runID: "" };
+  const options = { resultsDir: "", runID: "", check: "all" };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg !== "--results-dir" && arg !== "--run-id") {
+    if (arg !== "--results-dir" && arg !== "--run-id" && arg !== "--check") {
       throw new Error(usage);
     }
     const value = argv[index + 1];
     if (!value) throw new Error(usage);
     if (arg === "--results-dir") options.resultsDir = value;
-    else options.runID = value;
+    else if (arg === "--run-id") options.runID = value;
+    else options.check = value;
     index += 1;
   }
-  if (!options.resultsDir) throw new Error(usage);
+  if (!options.resultsDir || !observabilityChecks.includes(options.check)) throw new Error(usage);
   return options;
 }
 
@@ -45,16 +47,8 @@ try {
 
 if (runDir) {
   try {
-    const retained = await loadRetainedObservability(runDir);
-    const resources = retained.resources;
-    const invocations = retained.index.invocations.length;
-    const sources = retained.index.invocations.reduce(
-      (total, item) => total + item.source_digests.length,
-      0,
-    );
-    process.stdout.write(
-      `harness-observability-check PASS invocations=${invocations} sources=${sources} diagnostics=${resources.completeness ?? resources.availability} execution=${retained.execution?.status ?? "not_observed"} read_only=1\n`,
-    );
+    const result = await checkRetainedObservability(runDir, options.check);
+    process.stdout.write(`harness-observability-check PASS check=${result.check} full_validity=${result.full_validity ? 1 : 0} run_id=${result.run_id} read_only=1\n`);
   } catch {
     artifactFailure();
   }

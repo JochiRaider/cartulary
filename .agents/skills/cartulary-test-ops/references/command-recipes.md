@@ -1,17 +1,17 @@
 # Command recipes
 
 Run public Make operations from the selected checkout. Discover changed inputs
-with `make help-all` and `make explain-target`; these examples are not a second
+with `make help ALL=1` and `make target-plan`; these examples are not a second
 target registry. Values in angle brackets are placeholders. Pass literal values
 as quoted arguments, without shell command substitution.
 
 ## Selection
 
 ```sh
-make task-guide ROLE=module-author OWNER=<discovered-owner>
-make explain-test-owner OWNER=<discovered-owner> JSON=1
-make explain-target TARGET=<target> DETAIL=rows JSON=1
-make target-plan-json TARGET=<target>
+make task-guide OWNER=<discovered-owner>
+make task-guide DETAIL=coverage OWNER=<discovered-owner> JSON=1
+make target-plan TARGET=<target> DETAIL=rows JSON=1
+make target-plan JSON=1 TARGET=<target>
 ```
 
 Supply the target's discovered selection inputs when required. Owner/row IDs
@@ -26,7 +26,7 @@ CARTULARY_TEST_RUN_ID=<fresh-literal-id> CARTULARY_OUTPUT_MODE=machine \
   make test-slice OWNER=<owner> ROWS=<exact-row-ids>
 ```
 
-Use `service-backed-test-slice` for the corresponding authorized scope. Preserve
+Use `test-slice SCOPE=services` for the corresponding authorized scope. Preserve
 the native execution-session handle and its outer process exit. The default
 result parent is `.cartulary/test-results`; `CARTULARY_TEST_RESULTS_DIR` overrides
 the parent, not the joined run directory. Confirm the normalized emitted identity.

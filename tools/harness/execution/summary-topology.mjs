@@ -175,35 +175,6 @@ function browserLeafTargets(context, targets) {
   return leaves;
 }
 
-function harnessTierChecks(taskSurfaceManifest, tier) {
-  const checks = taskSurfaceManifest?.harness_tiers?.[tier]?.checks;
-  return checks === undefined ? [] : requireTargetList(checks, `harness_tiers.${tier}.checks`);
-}
-
-export function harnessSummaryTargets(context, tier) {
-  return harnessTierChecks(context.taskSurfaceManifest, tier);
-}
-
-export function harnessSummaryGroups(context, tier) {
-  if (tier === "full") {
-    return ["fast", "extended", "lifecycle"]
-      .map((name) => ({ name, summaryTargets: harnessSummaryTargets(context, name) }))
-      .filter((group) => group.summaryTargets.length > 0);
-  }
-  return [{ name: tier, summaryTargets: harnessSummaryTargets(context, tier) }];
-}
-
-function harnessProjectionChildren(context, target) {
-  if (target === "check-harness-smoke") {
-    return harnessSummaryTargets(context, "fast");
-  }
-  const match = /^run-harness-smoke-(.+)$/.exec(target);
-  if (!match) {
-    return [];
-  }
-  return harnessSummaryTargets(context, match[1]);
-}
-
 function summaryEntries(taskSurfaceManifest) {
   return [...(taskSurfaceManifest?.targets ?? []), ...(taskSurfaceManifest?.harness_checks ?? [])];
 }
@@ -221,10 +192,6 @@ export function summaryProjectionChildren(context, target) {
   const browserChildren = browserSummaryChildren(context, target);
   if (browserChildren.length > 0) {
     return browserChildren;
-  }
-  const harnessChildren = harnessProjectionChildren(context, target);
-  if (harnessChildren.length > 0) {
-    return harnessChildren;
   }
   return [...explicitProjectionChildren(context, target)];
 }
@@ -297,7 +264,6 @@ export function collectExplicitSummaryProjectionErrors(taskSurfaceManifest, cont
     const derivedChildren = [
       ...serviceBackedScheduleChildren(context, entry.name),
       ...browserSummaryChildren(context, entry.name),
-      ...harnessProjectionChildren(context, entry.name),
     ];
     if (derivedChildren.length > 0) {
       errors.push(`${label} duplicates derived summary topology; remove explicit children`);

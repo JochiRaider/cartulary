@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v11",
+  "schema_id": "cartulary.execution_topology.v12",
   "runtime_profiles": [
     {
       "id": "default",
@@ -233,36 +233,38 @@
     "task_surface_runtime_make": "tools/task_surface.runtime.generated.mk",
     "scheduler_manifest": "tools/scheduler_manifest.json",
     "browser_e2e_batch_manifest": "tools/browser_e2e_batch_manifest.json",
-    "execution_topology_render_index": "tools/execution_topology_render_index.json"
+    "execution_topology_render_index": "tools/execution_topology_render_index.json",
+    "task_surface_help": "tools/task_surface.help.generated.json",
+    "task_surface_help_all": "tools/task_surface.help-all.generated.json"
   },
   "runtime_binaries": [
     {
       "id": "server",
-      "producer_target": "build-server",
       "output_make_variable": "SERVER_BIN",
       "consumer_env": "CARTULARY_SERVER_BIN",
-      "default_output_path": "build/bin/server"
+      "default_output_path": "build/bin/server",
+      "producer_operation": "harness.build_server"
     },
     {
       "id": "server-harness",
-      "producer_target": "build-server-harness",
       "output_make_variable": "SERVER_HARNESS_BIN",
       "consumer_env": "CARTULARY_SERVER_HARNESS_BIN",
-      "default_output_path": "build/bin/server-harness"
+      "default_output_path": "build/bin/server-harness",
+      "producer_operation": "harness.build_server_harness"
     },
     {
       "id": "migrate",
-      "producer_target": "build-migrate",
       "output_make_variable": "MIGRATE_BIN",
       "consumer_env": "CARTULARY_MIGRATE_BIN",
-      "default_output_path": "build/bin/migrate"
+      "default_output_path": "build/bin/migrate",
+      "producer_operation": "harness.build_migrate"
     },
     {
       "id": "operator",
-      "producer_target": "build-operator",
       "output_make_variable": "OPERATOR_BIN",
       "consumer_env": "CARTULARY_OPERATOR_BIN",
-      "default_output_path": "build/bin/operator"
+      "default_output_path": "build/bin/operator",
+      "producer_operation": "harness.build_operator"
     }
   ],
   "execution_dependencies": [
@@ -780,20 +782,22 @@
     ],
     "frontend_artifacts": {
       "production": {
-        "producer_target": "build-web",
         "path": "apps/web/dist",
         "entries": [
           "index.html"
-        ]
+        ],
+        "producer_report_key": "build-web",
+        "producer_operation": "harness.build_web"
       },
       "measurement": {
-        "producer_target": "build-web-measurement",
         "path": "apps/web/dist-measurement",
         "entries": [
           "index.html",
           "measurement.html",
           "presence.html"
-        ]
+        ],
+        "producer_report_key": "build-web-measurement",
+        "producer_operation": "harness.build_web_measurement"
       }
     }
   },

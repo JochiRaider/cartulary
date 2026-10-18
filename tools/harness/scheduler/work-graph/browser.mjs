@@ -363,6 +363,7 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
       `${target}/browser-groups/${safeID(group.name)}/renderer-profile-attestation.json`,
       `${target}/browser-groups/${safeID(group.name)}/tls-trust-attestation.json`,
     ].sort(compareASCII),
+    row_bindings: group.selectedRowIDs.map((row_id) => ({ row_id, runner: "playwright" })),
     failure_policy: finalizableFailurePolicy(),
     estimated_work_ms: group.estimatedWorkMs ??
       owner.evidence_estimates_ms[group.kind === "a11y" ? "accessibility" : group.kind] ??

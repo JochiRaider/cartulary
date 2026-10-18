@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"path"
 	"slices"
 	"strings"
@@ -15,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
-const planSchema = "cartulary.harness_runtime_plan.v2"
+const planSchema = "cartulary.harness_runtime_plan.v5"
 const maximumPlanBytes = harnesssession.MaximumPlan
 
 var errPlan = errors.New("invalid private harness runtime plan")
@@ -37,6 +38,10 @@ type failurePolicy struct {
 	ContinueIndependent bool   `json:"continue_independent"`
 	AggregateEffect     string `json:"aggregate_effect"`
 }
+type rowBinding struct {
+	ID     string `json:"row_id"`
+	Runner string `json:"runner"`
+}
 type unit struct {
 	ID             string           `json:"unit_id"`
 	Owner          string           `json:"owner_id"`
@@ -54,6 +59,7 @@ type unit struct {
 	CachePolicy    string           `json:"cache_policy"`
 	TimeoutMS      int64            `json:"timeout_ms"`
 	Evidence       []string         `json:"current_run_evidence_outputs"`
+	Rows           []rowBinding     `json:"row_bindings"`
 	Artifacts      []artifact       `json:"reusable_artifact_outputs"`
 	FailurePolicy  failurePolicy    `json:"failure_policy"`
 	EstimateMS     int64            `json:"estimated_work_ms"`
@@ -86,18 +92,23 @@ type cacheFact struct {
 	Strategy         *string `json:"dependency_strategy"`
 	Vulnerability    *string `json:"vulnerability_database_revision"`
 }
+type inputEnvironment struct {
+	Clear   []string          `json:"clear"`
+	Forward map[string]string `json:"forward"`
+}
 type planWire struct {
-	SourceInputs []sourceInput         `json:"source_inputs"`
-	CacheInputs  map[string][]int      `json:"cache_inputs"`
-	Graph        workGraph             `json:"graph"`
-	Manifest     map[string]any        `json:"manifest"`
-	Projections  map[string]projection `json:"projections"`
-	Capacities   map[string]int64      `json:"capacities"`
-	AgingMS      int64                 `json:"aging_quantum_ms"`
-	Bindings     map[string]string     `json:"bindings"`
-	Cache        []cacheFact           `json:"cache"`
-	HelperDigest string                `json:"helper_digest"`
-	Preparation  map[string]any        `json:"preparation"`
+	InputEnvironment inputEnvironment      `json:"input_environment"`
+	SourceInputs     []sourceInput         `json:"source_inputs"`
+	CacheInputs      map[string][]int      `json:"cache_inputs"`
+	Graph            workGraph             `json:"graph"`
+	Manifest         map[string]any        `json:"manifest"`
+	Projections      map[string]projection `json:"projections"`
+	Capacities       map[string]int64      `json:"capacities"`
+	AgingMS          int64                 `json:"aging_quantum_ms"`
+	Bindings         map[string]string     `json:"bindings"`
+	Cache            []cacheFact           `json:"cache"`
+	HelperDigest     string                `json:"helper_digest"`
+	Preparation      map[string]any        `json:"preparation"`
 }
 
 // Plan can only be constructed through strict bounded validation. Its facts are
@@ -110,6 +121,18 @@ type Plan struct {
 func (p *Plan) GraphDigest() string  { return p.facts.Graph.Digest }
 func (p *Plan) SourceDigest() string { return p.facts.Manifest["source_digest"].(string) }
 func (p *Plan) UnitCount() int       { return len(p.facts.Graph.Units) }
+
+// The compiler projects typed public input forwarding. Private per-unit
+// arguments and topology bindings are applied afterward by their owning paths.
+func (p *Plan) unitEnvironment(parent map[string]string) map[string]string {
+	child := make(map[string]string, len(parent)+len(p.facts.InputEnvironment.Forward))
+	maps.Copy(child, parent)
+	for _, name := range p.facts.InputEnvironment.Clear {
+		delete(child, name)
+	}
+	maps.Copy(child, p.facts.InputEnvironment.Forward)
+	return child
+}
 func semanticDigest(value any) (string, error) {
 	b, err := canonicaljson.Marshal(value)
 	if err != nil {
@@ -168,10 +191,21 @@ func decodePlan(data []byte) (*Plan, error) {
 	if json.Unmarshal(data, &facts) != nil {
 		return nil, errPlan
 	}
+	if !sortedUnique(facts.InputEnvironment.Clear) || !slices.Contains(facts.InputEnvironment.Clear, "CARTULARY_MAKE_INPUT_SOURCES") {
+		return nil, errPlan
+	}
+	for name := range facts.InputEnvironment.Forward {
+		if name == "CARTULARY_MAKE_INPUT_SOURCES" || !slices.Contains(facts.InputEnvironment.Clear, name) {
+			return nil, errPlan
+		}
+	}
 	if facts.Manifest["graph_digest"] != facts.Graph.Digest {
 		return nil, errPlan
 	}
 	snapshot := facts.Manifest["capability_snapshot"].(map[string]any)
+	if facts.Manifest["go_worker_budget"].(float64) > snapshot["cpu_tokens"].(float64) {
+		return nil, errPlan
+	}
 	snapshotDigest := snapshot["snapshot_digest"]
 	delete(snapshot, "snapshot_digest")
 	hash, err = semanticDigest(snapshot)
@@ -183,6 +217,7 @@ func decodePlan(data []byte) (*Plan, error) {
 		return nil, errPlan
 	}
 	ids := make(map[string]unit, len(facts.Graph.Units))
+	rowOwners := map[string]bool{}
 	indegree := map[string]int{}
 	successors := map[string][]string{}
 	for i, u := range facts.Graph.Units {
@@ -190,6 +225,23 @@ func decodePlan(data []byte) (*Plan, error) {
 			return nil, errPlan
 		}
 		if !sortedUnique(u.Needs) || !sortedUnique(u.Services) || !sortedUnique(u.SharedLocks) || !sortedUnique(u.ExclusiveLocks) || !sortedUnique(u.Evidence) || len(u.Claims) == 0 {
+			return nil, errPlan
+		}
+		outputs := []string{}
+		for _, output := range u.Evidence {
+			if strings.HasPrefix(output, "rows/") {
+				outputs = append(outputs, output)
+			}
+		}
+		bindings := []string{}
+		for _, row := range u.Rows {
+			if rowOwners[row.ID] {
+				return nil, errPlan
+			}
+			rowOwners[row.ID] = true
+			bindings = append(bindings, "rows/"+row.ID+".json")
+		}
+		if !slices.Equal(outputs, bindings) {
 			return nil, errPlan
 		}
 		if slices.Contains(u.SharedLocks, "host_activity") == slices.Contains(u.ExclusiveLocks, "host_activity") {
@@ -313,7 +365,7 @@ func decodePlan(data []byte) (*Plan, error) {
 	if err != nil {
 		return nil, errPlan
 	}
-	context := map[string]any{"schema_id": "cartulary.harness_execution_context.v1", "manifest_digest": manifestDigest}
+	context := map[string]any{"schema_id": "cartulary.harness_execution_context.v3", "manifest_digest": manifestDigest}
 	for _, key := range []string{"graph", "projections", "source_inputs", "host_profile", "instrumentation_policy_bytes"} {
 		context[key] = document[key]
 	}

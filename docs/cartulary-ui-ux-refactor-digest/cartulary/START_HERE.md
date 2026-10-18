@@ -76,7 +76,7 @@ The verification ID `package.ui` routes `packages/ui-contracts`; a functional
 `packages/ui` is absent. Design §3.11 owns semantic icon identities, while source
 uses `lucide-react` directly and has no standalone implementation registry.
 `harness.visual` owns fixture contracts but is not an active task-guide owner;
-its public fixture entry point is `make browser-e2e-visual`. Report Composition
+its public fixture entry point is `make browser-e2e SUITE=visual`. Report Composition
 is adopted/current at 1.2.0; Reference Pack is adopted/current at 0.2.0, with
 Core retaining recognition, transport and other outer boundaries. Adoption and
 engineering execution evidence do not establish release qualification. The
@@ -214,15 +214,15 @@ requirements and explicitly supported consumers.
 ### Verification selection
 
 Run public repository commands from the repository root. `make help` and
-`make help-all` own the current target inventory. Choose a verified active owner
+`make help ALL=1` own the current target inventory. Choose a verified active owner
 from the catalog navigation in `REPO_MAP.tsv`, then use:
 
 ```bash
-make task-guide ROLE=module-author OWNER=<verified-owner-id>
+make task-guide OWNER=<verified-owner-id>
 ```
 
-Run its recommended focused `make test-slice` or
-`make service-backed-test-slice` command with the selected owner and rows.
+Run its recommended focused `make test-slice` command with the selected owner
+and rows. Use `SCOPE=services` when selecting only service-backed owner rows.
 Broaden only for the changed behavior, boundary, or unresolved risk. Readiness
 and generated-artifact checks are selected through the current public surface,
 not copied target lists. For visual golden edits, follow

@@ -22,7 +22,7 @@ resolve_playwright_owned_stack_env() {
   PLAYWRIGHT_OWNED_STACK_NODE_BIN="${NODE_BIN:-}"
 
   if [[ ! -x "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" ]]; then
-    echo "repo-local pnpm was not found at ${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}; run make frontend-toolchain" >&2
+    echo "repo-local pnpm was not found at ${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}; run make bootstrap PART=frontend" >&2
     return 1
   fi
 

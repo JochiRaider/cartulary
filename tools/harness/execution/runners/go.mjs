@@ -47,117 +47,170 @@ export function buildGoInvocations(rows, workers, command, context) {
 
 const failureMarker = "CARTULARY_HARNESS_TEST_FAILURE=";
 
-function observeEvent(event, terminal, markers) {
-  if (
-    typeof event.Test === "string" &&
-    ["pass", "fail", "skip"].includes(event.Action)
-  ) {
-    terminal.set(event.Test, {
-      action: event.Action,
-      duration_ms: Math.max(0, Math.round(Number(event.Elapsed ?? 0) * 1000)),
-    });
-  }
-  if (typeof event.Test === "string" && typeof event.Output === "string") {
-    const markerIndex = event.Output.indexOf(failureMarker);
-    if (markerIndex >= 0) {
-      const encoded = event.Output.slice(markerIndex + failureMarker.length).trim();
-      try {
-        const envelope = JSON.parse(encoded);
-        validateSchemaSync("cartulary.harness_test_failure.v1", envelope);
-        markers.push({ test: event.Test, envelope, malformed: false });
-      } catch {
-        markers.push({ test: event.Test, envelope: null, malformed: true });
+function goEventObserver() {
+  const terminal = new Map(), markers = [], partial = new Map();
+  const malformed = (test) => markers.push({ test, envelope: null, malformed: true });
+  const finishLine = (state, terminated) => {
+    if (state.encoded === null) return;
+    if (!terminated || state.overflow) { malformed(state.test); return; }
+    try {
+      const envelope = JSON.parse(state.encoded.trim());
+      validateSchemaSync("cartulary.harness_test_failure.v2", envelope);
+      markers.push({ test: state.test, envelope, malformed: false });
+    } catch { malformed(state.test); }
+  };
+  const empty = (test) => ({ test, tail: "", encoded: null, bytes: 0, overflow: false });
+  return {
+    observe(event) {
+      if (typeof event.Test !== "string") return;
+      // Package identity also prevents a malformed mixed-package stream from
+      // joining fragments belonging to equal test names in different packages.
+      const key = JSON.stringify([event.Package ?? "", event.Test]);
+      if (typeof event.Output === "string") {
+        let state = partial.get(key) ?? empty(event.Test);
+        partial.delete(key);
+        const pieces = event.Output.split("\n");
+        for (let index = 0; index < pieces.length; index++) {
+          const piece = pieces[index];
+          if (state.encoded === null) {
+            const candidate = state.tail + piece;
+            const markerIndex = candidate.indexOf(failureMarker);
+            if (markerIndex >= 0) {
+              state.encoded = candidate.slice(markerIndex + failureMarker.length);
+              state.bytes = Buffer.byteLength(state.encoded);
+              state.tail = "";
+            } else state.tail = candidate.slice(-(failureMarker.length - 1));
+          } else if (!state.overflow) {
+            state.bytes += Buffer.byteLength(piece);
+            if (state.bytes <= 64 * 1024) state.encoded += piece;
+          }
+          if (state.bytes > 64 * 1024) { state.overflow = true; state.encoded = ""; }
+          if (index < pieces.length - 1) {
+            finishLine(state, true);
+            state = empty(event.Test);
+          }
+        }
+        if (state.encoded !== null || state.tail !== "") {
+          if (partial.size >= 128) malformed(event.Test);
+          else partial.set(key, state);
+        }
       }
-    }
+      if (["pass", "fail", "skip"].includes(event.Action)) {
+        const state = partial.get(key);
+        if (state) finishLine(state, false);
+        partial.delete(key);
+        terminal.set(event.Test, {
+          action: event.Action,
+          duration_ms: Math.max(0, Math.round(Number(event.Elapsed ?? 0) * 1000)),
+        });
+      }
+    },
+    finish() {
+      for (const state of partial.values()) finishLine(state, false);
+      partial.clear();
+      return { terminal, markers };
+    },
+  };
+}
+
+function parseGoEventLine(line) {
+  if (Buffer.byteLength(line, "utf8") > 1024 * 1024) {
+    throw new Error("Go JSON event exceeds the 1 MiB line contract");
   }
+  try {
+    const event = JSON.parse(line);
+    return event !== null && typeof event === "object" && !Array.isArray(event) ? event : null;
+  } catch { return null; }
 }
 
 function parseEvents(stdout) {
-  const terminal = new Map();
-  const markers = [];
+  const observer = goEventObserver();
   for (const line of String(stdout).split("\n")) {
     if (line.trim() === "") continue;
-    let event;
-    try {
-      event = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    observeEvent(event, terminal, markers);
+    const event = parseGoEventLine(line);
+    if (event) observer.observe(event);
   }
-  return { terminal, markers };
+  return observer.finish();
 }
 
 async function parseEventsFile(file, diagnostic) {
-  const terminal = new Map();
-  const markers = [];
+  const observer = goEventObserver();
   const input = createReadStream(file, { encoding: "utf8" });
   const lines = createInterface({ input, crlfDelay: Number.POSITIVE_INFINITY });
   try {
     for await (const line of lines) {
       if (line.trim() === "") continue;
-      if (Buffer.byteLength(line, "utf8") > 1024 * 1024) {
-        throw new Error("Go JSON event exceeds the 1 MiB line contract");
-      }
-      try {
-        const event = JSON.parse(line);
-        observeEvent(event, terminal, markers);
-        diagnostic?.observe(event);
-      } catch {
-        // `go test -json` may relay non-JSON process diagnostics. Selector
-        // closure below classifies missing terminal events without retaining
-        // the unbounded raw stream.
-      }
+      const event = parseGoEventLine(line);
+      // Process diagnostics and non-event JSON cannot complete a fragment.
+      if (!event) continue;
+      observer.observe(event);
+      diagnostic?.observe(event);
     }
   } finally {
     lines.close();
     input.destroy();
   }
-  return { terminal, markers };
+  return observer.finish();
 }
 
-function markerFailure(selectors, markers) {
+function markerFailure(selectors, markers, terminal) {
   const relevant = markers.filter(({ test }) =>
     selectors.some((selector) => test === selector || test.startsWith(`${selector}/`)),
   );
   if (relevant.length === 0) return null;
-  if (relevant.some((entry) => entry.malformed)) {
+  const accountingFailure = () => ({
+    terminal_state: "failed", exit_code: 11, failure_class: "harness",
+    failure_reason: "scheduler_accounting_error", failure_diagnostic: null,
+  });
+  if (relevant.some((entry) => entry.malformed)) return accountingFailure();
+  const setup = new Map(relevant.filter(({ envelope }) => envelope.phase === "setup")
+    .map(({ envelope }) => [JSON.stringify(envelope), envelope]));
+  if (setup.size > 1) return accountingFailure();
+  const cleanupEntries = relevant.filter(({ envelope }) => envelope.phase === "cleanup");
+  const cleanup = [...new Map(cleanupEntries.map(({ envelope }) =>
+    [JSON.stringify(envelope), envelope])).values()];
+  if (cleanup.length > 32) return accountingFailure();
+  // A later cleanup sees the failure raised by an earlier cleanup. Its prior
+  // flag must not manufacture a product assertion. Descendant failures are
+  // likewise already attributed before a parent's cleanup begins.
+  const knownFailures = relevant.filter(({ envelope }) => envelope.phase === "setup").map(({ test }) => test);
+  let priorProductFailure = false;
+  for (const entry of cleanupEntries) {
+    const accounted = knownFailures.some((test) => test === entry.test || test.startsWith(`${entry.test}/`));
+    if (entry.envelope.prior_failure && !accounted) priorProductFailure = true;
+    knownFailures.push(entry.test);
+  }
+  const envelope = [...setup.values()][0] ?? null;
+  const diagnostic = {
+    schema_id: "cartulary.harness_go_failure_diagnostic.v1",
+    setup: envelope, cleanup,
+  };
+  validateSchemaSync(diagnostic.schema_id, diagnostic);
+  if (!selectors.some((selector) => terminal.get(selector)?.action === "fail")) return accountingFailure();
+  // Parent fail events can reflect their typed descendants. A failing sibling
+  // or independent selector without a typed cause is still a product assertion
+  // and retains the ordinary class precedence over setup and cleanup failures.
+  priorProductFailure ||= [...terminal].some(([test, observation]) => observation.action === "fail" &&
+    selectors.some((selector) => test === selector || test.startsWith(`${selector}/`)) &&
+    !knownFailures.some((known) => known === test || known.startsWith(`${test}/`)));
+  if (priorProductFailure) {
     return {
-      terminal_state: "failed",
-      exit_code: 11,
-      failure_class: "harness",
-      failure_reason: "scheduler_accounting_error",
-      failure_diagnostic: null,
+      terminal_state: "failed", exit_code: 10, failure_class: "product",
+      failure_reason: "test_assertion_failure", failure_diagnostic: diagnostic,
     };
   }
-  const unique = new Map(
-    relevant.map((entry) => [JSON.stringify(entry.envelope), entry.envelope]),
-  );
-  if (unique.size !== 1) {
+  if (envelope) {
     return {
-      terminal_state: "failed",
-      exit_code: 11,
-      failure_class: "harness",
-      failure_reason: "scheduler_accounting_error",
-      failure_diagnostic: null,
-    };
-  }
-  const envelope = [...unique.values()][0];
-  if (envelope.failure_class === "interrupted") {
-    return {
-      terminal_state: "cancelled",
-      exit_code: 130,
-      failure_class: envelope.failure_class,
-      failure_reason: envelope.failure_reason,
-      failure_diagnostic: envelope,
+      terminal_state: envelope.failure_class === "interrupted" ? "cancelled" : "infrastructure_failed",
+      exit_code: envelope.failure_class === "interrupted" ? 130 : 3,
+      failure_class: envelope.failure_class, failure_reason: envelope.failure_reason,
+      failure_diagnostic: diagnostic,
     };
   }
   return {
-    terminal_state: "infrastructure_failed",
-    exit_code: 3,
-    failure_class: envelope.failure_class,
-    failure_reason: envelope.failure_reason,
-    failure_diagnostic: envelope,
+    terminal_state: "failed", exit_code: 12,
+    failure_class: "harness", failure_reason: "cleanup_error",
+    failure_diagnostic: diagnostic,
   };
 }
 
@@ -167,7 +220,7 @@ function adaptParsedGoInvocation(invocation, result, { terminal, markers }) {
     const missing = observations.some((entry) => entry === undefined);
     const skipped = observations.some((entry) => entry?.action === "skip");
     const failed = observations.some((entry) => entry?.action === "fail");
-    const typedFailure = markerFailure(row.selectors, markers);
+    const typedFailure = markerFailure(row.selectors, markers, terminal);
     const terminalState = typedFailure?.terminal_state ?? (missing || skipped
       ? "infrastructure_failed"
       : failed

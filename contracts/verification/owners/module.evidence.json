@@ -19,7 +19,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "test"
+      "public_target": "ci"
     },
     {
       "verification_id": "module.evidence.verification.incident_portability",
@@ -28,7 +28,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "test"
+      "public_target": "ci"
     },
     {
       "verification_id": "module.evidence.verification.source_contracts",
@@ -45,7 +45,7 @@
       "evidence_kinds": [
         "playwright"
       ],
-      "public_target": "browser-e2e-measurement"
+      "public_target": "browser-e2e"
     }
   ]
 }

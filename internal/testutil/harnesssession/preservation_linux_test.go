@@ -176,6 +176,9 @@ func testRecoveryDependencyValidation(t *testing.T) {
 			if (err == nil) != (variant == "valid") {
 				t.Fatal("dependency validation", variant, err)
 			}
+			if variant != "valid" && DescribeCleanupFailure(err).Stage != "recovery_proof" {
+				t.Fatal("required-proof failure lost its physical boundary", DescribeCleanupFailure(err))
+			}
 			if _, err := os.Stat(detail); !os.IsNotExist(err) {
 				t.Fatal("independent purge skipped", err)
 			}

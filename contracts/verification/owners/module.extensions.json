@@ -29,7 +29,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "test"
+      "public_target": "ci"
     },
     {
       "verification_id": "module.extensions.verification.source_contracts",

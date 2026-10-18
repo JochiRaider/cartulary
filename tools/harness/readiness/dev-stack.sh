@@ -101,12 +101,12 @@ assert_backing_services_ready() {
   fi
 
   if ! tcp_port_ready "${POSTGRES_READY_HOST}" "${POSTGRES_READY_PORT}"; then
-    echo "Postgres is not reachable at ${POSTGRES_READY_HOST}:${POSTGRES_READY_PORT}; run make db-up or make services-up before make dev" >&2
+    echo "Postgres is not reachable at ${POSTGRES_READY_HOST}:${POSTGRES_READY_PORT}; run make services-up before make dev" >&2
     failed=1
   fi
 
   if ! tcp_port_ready "${OBJECT_STORE_READY_HOST}" "${OBJECT_STORE_READY_PORT}"; then
-    echo "SeaweedFS S3 is not reachable at ${OBJECT_STORE_READY_HOST}:${OBJECT_STORE_READY_PORT}; run make db-up or make services-up before make dev" >&2
+    echo "SeaweedFS S3 is not reachable at ${OBJECT_STORE_READY_HOST}:${OBJECT_STORE_READY_PORT}; run make services-up before make dev" >&2
     failed=1
   fi
 
@@ -168,7 +168,7 @@ wait_for_http() {
     fi
 
     if [[ -n "${SERVER_PGID:-}" ]] && ! process_group_running "${SERVER_PGID}" >/dev/null 2>&1; then
-      echo "backend exited before ${name} readiness; inspect ${SERVER_LOG}, run make db-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
+      echo "backend exited before ${name} readiness; inspect ${SERVER_LOG}, run make services-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
       if [[ "${name}" == "backend" ]]; then
         echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v2 catalog from version 1." >&2
       fi
@@ -184,7 +184,7 @@ wait_for_http() {
     sleep 1
   done
 
-  echo "timed out waiting for ${name} at ${url}; inspect ${SERVER_LOG} and ${WEB_LOG}, run make db-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
+  echo "timed out waiting for ${name} at ${url}; inspect ${SERVER_LOG} and ${WEB_LOG}, run make services-up for backing services, and run make db-migrate for current-line schema upgrades" >&2
   if [[ "${name}" == "backend" ]]; then
     echo "If the backend reports historical_migration_lineage, destroy and recreate the database, then apply the Production DDL Rebaseline v2 catalog from version 1." >&2
   fi
@@ -218,7 +218,7 @@ resolve_frontend_command() {
   fi
 
   if [[ ! -x "${PNPM_BIN}" ]]; then
-    echo "repo-local pnpm was not found at ${PNPM_BIN}; run make frontend-toolchain" >&2
+    echo "repo-local pnpm was not found at ${PNPM_BIN}; run make bootstrap PART=frontend" >&2
     return 1
   fi
 

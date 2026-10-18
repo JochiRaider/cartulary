@@ -13,10 +13,9 @@ const read = (root, relative) => parseStrictJSON(readRetainedArtifactBytes(root,
 export function ownerEvidencePartitions(catalog, surface, owner) {
   const rows = catalog.rows.filter((row) => row.owner_id === owner);
   if (rows.length === 0) throw usage(`unknown active owner ${owner}`);
-  const commands = new Map(surface.targets.filter((entry) => entry.command_id).map((entry) => [entry.command_id, entry.name]));
   const partitions = new Map();
   for (const row of rows) {
-    const target = targetForCatalogRow(row, { commandTargetByID: commands });
+    const target = targetForCatalogRow(row);
     const selected = partitions.get(target) ?? [];
     selected.push(row.row_id); partitions.set(target, selected);
   }
@@ -34,7 +33,7 @@ export async function auditOwnerEvidence({ manifest, manifestFile, owner, catalo
   const targetContracts = new Map(surface.targets.map((entry) => [entry.name, entry]));
   const supplied = manifest.entries.map((entry) => entry.target);
   if (new Set(supplied).size !== supplied.length || !same(supplied, sorted(supplied))) throw usage("evidence targets must be ASCII-sorted and unique");
-  if (supplied.some((target) => !publicTargets.has(target) && !(partitions.has(target) && targetContracts.has(target)))) throw usage("unknown evidence target");
+  if (supplied.some((target) => !publicTargets.has(target) && !partitions.has(target))) throw usage("unknown evidence target");
   const atomic = supplied.includes("test-slice");
   const required = atomic ? new Map([["test-slice", sorted(byRow.keys())]]) : partitions;
   const missing = [...required.keys()].filter((target) => !supplied.includes(target));
@@ -66,11 +65,12 @@ export async function auditOwnerEvidence({ manifest, manifestFile, owner, catalo
       const { run, plan, units } = context;
       const projection = run.targetSummaries.get(entry.target);
       const expectedUnits = plan.projections[entry.target];
-      const commandID = targetContracts.get(entry.target).command_id ?? run.manifest.command_id;
+      const commandID = targetContracts.get(entry.target)?.command_id ?? run.manifest.command_id;
       if (!projection || !expectedUnits || projection.command_id !== commandID ||
           projection.status !== "pass" || !same(projection.unit_ids, sorted(expectedUnits))) throw artifact("retained target projection does not close its execution contract");
       if (atomic && (run.manifest.target !== "test-slice" || run.manifest.declared_inputs.OWNER !== owner ||
-          run.manifest.declared_inputs.ROWS || run.manifest.declared_inputs.SERVICE_BACKED_ONLY)) throw artifact("full-owner evidence requires an unfiltered owner slice");
+          run.manifest.declared_inputs.ROWS || run.manifest.declared_inputs.SUITE ||
+          (run.manifest.declared_inputs.SCOPE && run.manifest.declared_inputs.SCOPE !== "all") || run.manifest.declared_inputs.SERVICE_BACKED_ONLY)) throw artifact("full-owner evidence requires an unfiltered owner slice");
       const rowUnits = validateRetainedSelection(runRoot, run, units, projection, catalog.rows);
       const expectedRows = required.get(entry.target);
       const observedRows = sorted([...rowUnits.keys()].filter((id) => byRow.has(id)));

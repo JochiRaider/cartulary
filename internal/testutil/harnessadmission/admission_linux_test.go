@@ -5,11 +5,15 @@ package harnessadmission
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func testQuantities(cpu float64) Quantities {
@@ -31,6 +35,118 @@ func apply(t *testing.T, r Request, expected bool) {
 	}
 }
 func TestAdmissionWeightedTree(t *testing.T) {
+	t.Run("terminal child binding retains exact proof and reservation", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		parent := request(t, root, "a", 1, 1)
+		apply(t, parent, true)
+		child := exec.Command("/bin/sh", "-c", "read value")
+		input, err := child.StdinPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := child.Start(); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = input.Close(); _ = child.Process.Kill(); _ = child.Wait() })
+		proof, err := Identity(child.Process.Pid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if live, err := Alive(proof); err != nil || !live {
+			t.Fatalf("child was not live before the transition: %v", err)
+		}
+		// End the child after proof capture, but pin its identity until the bind
+		// transaction completes. No sleep or probabilistic race is involved.
+		if err := input.Close(); err != nil {
+			t.Fatal(err)
+		}
+		for {
+			var info unix.Siginfo
+			err := unix.Waitid(unix.P_PID, child.Process.Pid, &info, unix.WEXITED|unix.WNOWAIT, nil)
+			if err == unix.EINTR {
+				continue
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			break
+		}
+		binding := Request{Root: root, Operation: "bind", Token: parent.Token, Guard: proof}
+		apply(t, binding, true)
+		apply(t, binding, true)
+		for _, change := range []func(*Request){
+			func(r *Request) { r.Guard.Start += "0" },
+			func(r *Request) { r.Guard.Boot += "-foreign" },
+			func(r *Request) { r.Token = strings.Repeat("f", 32) },
+		} {
+			invalid := binding
+			change(&invalid)
+			if _, err := Transact(context.Background(), invalid); !errors.Is(err, ErrConflict) {
+				t.Fatalf("invalid terminal binding did not reject: %v", err)
+			}
+		}
+		waiter := request(t, root, "b", 1, 1)
+		apply(t, waiter, false)
+		apply(t, Request{Root: root, Operation: "release", Token: parent.Token}, false)
+		lease := &Lease{Token: parent.Token, root: root}
+		if err := lease.Bind(child.Process.Pid); !errors.Is(err, ErrConflict) {
+			t.Fatalf("terminal child bypassed released lease: %v", err)
+		}
+		apply(t, waiter, true)
+	})
+	t.Run("admitted descendants drain ahead of queued ancestor siblings", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		parent := request(t, root, "a", 2, 2)
+		apply(t, parent, true)
+		holder := request(t, root, "b", 2, 2)
+		holder.Parent = &parent.Token
+		apply(t, holder, true)
+		waiter := request(t, root, "c", 1, 2)
+		waiter.Parent = &parent.Token
+		apply(t, waiter, false)
+		child := request(t, root, "d", 2, 2)
+		child.Parent = &holder.Token
+		apply(t, child, true)
+		queued := request(t, root, "e", 2, 2)
+		queued.Parent = &holder.Token
+		apply(t, queued, false)
+		later := request(t, root, "f", 0, 2)
+		later.Parent = &holder.Token
+		apply(t, later, false) // A smaller sibling cannot bypass the FIFO waiter.
+		grandchild := request(t, root, "1", 1, 2)
+		grandchild.Parent = &child.Token
+		apply(t, grandchild, true)
+		apply(t, Request{Root: root, Operation: "release", Token: grandchild.Token}, false)
+		apply(t, Request{Root: root, Operation: "release", Token: child.Token}, false)
+		apply(t, queued, true)
+		apply(t, later, true)
+		apply(t, waiter, false) // The admitted holder still owns its reservation.
+		apply(t, Request{Root: root, Operation: "release", Token: queued.Token}, false)
+		apply(t, Request{Root: root, Operation: "release", Token: later.Token}, false)
+		apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
+		apply(t, waiter, true)
+	})
+	t.Run("independent admitted branches preserve credit and capacity", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		parent := request(t, root, "a", 2, 2)
+		apply(t, parent, true)
+		first := request(t, root, "b", 1, 2)
+		first.Parent = &parent.Token
+		apply(t, first, true)
+		second := request(t, root, "c", 1, 2)
+		second.Parent = &parent.Token
+		apply(t, second, true)
+		growing := request(t, root, "d", 2, 2)
+		growing.Parent = &first.Token
+		apply(t, growing, false)
+		draining := request(t, root, "e", 1, 2)
+		draining.Parent = &second.Token
+		apply(t, draining, true)
+		apply(t, growing, false)
+		apply(t, Request{Root: root, Operation: "release", Token: draining.Token}, false)
+		apply(t, Request{Root: root, Operation: "release", Token: second.Token}, false)
+		apply(t, growing, true)
+	})
 	root := filepath.Join(t.TempDir(), "admission")
 	parent := request(t, root, "a", 2, 2)
 	apply(t, parent, true)

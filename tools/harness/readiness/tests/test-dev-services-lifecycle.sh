@@ -331,6 +331,21 @@ assert_file_contains "$go_log" "run ./tools/objectstoreprobe" "object-store-rese
 assert_file_contains "$go_log" "--mode reset" "object-store-reset selects reset mode"
 assert_file_contains "$go_log" "--bucket ct-test" "object-store-reset passes configured bucket"
 
+# Repeated startup reuses the owned proxy and performs exactly one readiness pass.
+reset_logs
+for attempt in 1 2; do
+  run_service "services_up_${attempt}" bash tools/harness/readiness/dev-services.sh up
+  assert_status 0
+done
+[[ "$(grep -c 'up -d --remove-orphans postgres seaweedfs-s3$' "$docker_log")" == 2 ]] || fail "one Compose startup per invocation"
+[[ "$(grep -c 'pg_isready' "$docker_log")" == 2 ]] || fail "one Postgres readiness pass per invocation"
+[[ "$(grep -c -- '--mode probe' "$go_log")" == 2 ]] || fail "one object-store readiness pass per invocation"
+assert_file_not_contains "$go_log" "build -o" "repeated startup reuses the owned proxy"
+assert_file_not_contains "$go_log" "cmd/migrate" "startup does not migrate"
+assert_file_not_contains "$go_log" "--mode reset" "startup does not reset object storage"
+assert_file_not_contains "$docker_log" "DROP DATABASE" "startup does not reset the database"
+assert_file_not_contains "$docker_log" "provision.sh" "startup does not reprovision retained state"
+
 reset_logs
 concurrent_runtime="$tmp_dir/concurrent-runtime"
 concurrent_pids=()

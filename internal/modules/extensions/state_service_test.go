@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -409,8 +410,6 @@ INSERT INTO extension_migration_ledger (
 }
 
 func TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime(t *testing.T) {
-	testCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	t.Cleanup(cancel)
 	firstEntered := make(chan struct{})
 	releaseFirst := make(chan struct{})
 	attempted := make(chan struct{}, 2)
@@ -429,21 +428,33 @@ func TestStateRuntimeAdmit_ServiceBacked_ConcurrentAdmissionAndLockLifetime(t *t
 			},
 		},
 		FinalValidators: map[string]FinalStateValidator{
-			fixture.plan.FinalValidationAlgorithmID: func(context.Context, FinalStateValidationContext, StateReadCapability) (StateValidationResult, error) {
+			fixture.plan.FinalValidationAlgorithmID: func(ctx context.Context, _ FinalStateValidationContext, _ StateReadCapability) (StateValidationResult, error) {
 				if validationCalls.Add(1) == 1 {
 					close(firstEntered)
-					<-releaseFirst
+					select {
+					case <-releaseFirst:
+					case <-ctx.Done():
+						return StateValidationResult{}, ctx.Err()
+					}
 				}
 				return ValidFinalStateValidationResult(), nil
 			},
 		},
 		LockTimeout: 5 * time.Second,
 	})
+	// This window measures admission after fixture readiness. Database setup
+	// cannot consume the lock-lifetime assertion's independent operation budget.
+	testCtx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	var workers sync.WaitGroup
+	t.Cleanup(func() {
+		cancel()
+		workers.Wait()
+	})
 	errs := make(chan error, 2)
-	go func() { errs <- runtime.Admit(testCtx, fixture.plan) }()
+	workers.Go(func() { errs <- runtime.Admit(testCtx, fixture.plan) })
 	waitStateRuntimeSignal(t, testCtx, attempted, errs, "first lock attempt")
 	waitStateRuntimeSignal(t, testCtx, firstEntered, errs, "first final validation")
-	go func() { errs <- runtime.Admit(testCtx, fixture.plan) }()
+	workers.Go(func() { errs <- runtime.Admit(testCtx, fixture.plan) })
 	waitStateRuntimeSignal(t, testCtx, attempted, errs, "second lock attempt")
 	acquired, _, maxActive := faults.lifecycle()
 	if acquired != 1 || maxActive != 1 {

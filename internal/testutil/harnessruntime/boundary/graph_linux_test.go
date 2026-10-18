@@ -42,12 +42,16 @@ func TestNativeGraphServiceObservations(t *testing.T) {
 				}
 				env[k] = v
 			}
-			for _, k := range []string{"CARTULARY_HARNESS_LAUNCH_CONTEXT", "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT", "CARTULARY_HARNESS_INVOCATION_ROOT", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "JSON", "OWNER", "ROWS", "SERVICE_BACKED_ONLY"} {
+			for _, k := range []string{"CARTULARY_HARNESS_LAUNCH_CONTEXT", "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT", "CARTULARY_HARNESS_INVOCATION_ROOT", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS", "JSON", "OWNER", "ROWS", "SERVICE_BACKED_ONLY", "SCOPE", "SUITE"} {
 				delete(env, k)
 			}
 			env["CARTULARY_TEST_RESULTS_DIR"] = results
 			env["CARTULARY_TEST_RUN_ID"] = selection.id
 			env["HARNESS_DIAGNOSTICS"] = "basic"
+			env["OWNER"] = selection.owner
+			env["ROWS"] = selection.row
+			env["SCOPE"] = "services"
+			env["CARTULARY_MAKE_INPUT_SOURCES"] = "OWNER=cli ROWS=cli SCOPE=cli HARNESS_DIAGNOSTICS=cli CARTULARY_HARNESS_CACHE_MODE=cli"
 			env["CARTULARY_HARNESS_CACHE_MODE"] = "off"
 			input := []string{}
 			for k, v := range env {
@@ -59,9 +63,12 @@ func TestNativeGraphServiceObservations(t *testing.T) {
 			if binary == "" {
 				binary = filepath.Join(root, ".cache/cartulary/toolbin/cartulary-harness")
 			}
-			summary, code, err := harnessruntime.Run(ctx, root, binary, []string{"--selection", "owner", "--target", "service-backed-test-slice", "--owner", selection.owner, "--rows", selection.row, "--service-backed-only"}, input)
+			summary, code, err := harnessruntime.Run(ctx, root, binary, []string{"--selection", "command", "--target", "test-slice"}, input)
 			run := filepath.Join(results, selection.id)
-			if err != nil || code != 0 || summary["status"] != "pass" {
+			if summary != nil && summary.CleanupDiagnostic != nil {
+				t.Log(summary.CleanupDiagnostic)
+			}
+			if err != nil || code != 0 || summary == nil || summary.Summary["status"] != "pass" {
 				t.Fatalf("native service graph failed: exit=%d error=%v retained=%s", code, err, run)
 			}
 			node := env["NODE_BIN"]

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v8",
+  "schema_id": "cartulary.test_family_manifest.v9",
   "owner_id": "module.reporting",
   "rows": [
     {
@@ -257,8 +257,8 @@
       "minimum_tier": "standard",
       "service_dependencies": [],
       "process_isolation": "exclusive",
-      "preparation_targets": [
-        "build-report-renderer"
+      "preparation_operations": [
+        "harness.build_report_renderer"
       ]
     },
     {
@@ -344,8 +344,8 @@
       "minimum_tier": "standard",
       "service_dependencies": [],
       "process_isolation": "exclusive",
-      "preparation_targets": [
-        "build-report-renderer"
+      "preparation_operations": [
+        "harness.build_report_renderer"
       ]
     },
     {
@@ -373,9 +373,9 @@
       "minimum_tier": "standard",
       "service_dependencies": [],
       "process_isolation": "exclusive",
-      "preparation_targets": [
-        "frontend-install",
-        "playwright-install"
+      "preparation_operations": [
+        "harness.frontend_install",
+        "harness.playwright_install"
       ]
     },
     {

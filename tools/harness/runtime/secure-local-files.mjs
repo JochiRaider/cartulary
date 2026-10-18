@@ -1,9 +1,24 @@
 import { randomBytes } from "node:crypto";
-import { closeSync, constants, fstatSync, fsyncSync, linkSync, openSync, readSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, fsyncSync, linkSync, openSync, readSync, renameSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { assertMachineEvidencePath, openDirectory } from "../contract/index.mjs";
 export { openDirectory };
+
+// Enumerate an exact retained directory through an anchored, no-link descriptor.
+export function listLocalDirectory(directory, { optional = false } = {}) {
+  assertMachineEvidencePath(directory);
+  let descriptor;
+  try {
+    descriptor = openDirectory(directory);
+    const entries = readdirSync(`/proc/self/fd/${descriptor}`, { withFileTypes: true });
+    if (entries.some((entry) => entry.isSymbolicLink())) throw new Error("unsafe retained directory entry");
+    return entries;
+  } catch (error) {
+    if (optional && error.code === "ENOENT") return [];
+    throw error;
+  } finally { if (descriptor !== undefined) closeSync(descriptor); }
+}
 
 export function privateDirectory(directory) {
   const descriptor = openDirectory(directory, { create: true, privateLeaf: true }); closeSync(descriptor);

@@ -48,7 +48,7 @@ func (r *Runtime) PreserveRecovery() error {
 		return errors.Join(err, purgeErr)
 	}
 	if purgeErr != nil {
-		return purgeErr
+		return atCleanupStage("recovery_purge", purgeErr)
 	}
 	if len(resources) == 0 {
 		// Review terminal transactions may retain scanner authority after resources
@@ -70,7 +70,7 @@ func (r *Runtime) PreserveRecovery() error {
 		// Validate the entire secure path without accepting a directory or link as
 		// proof. Invalid authority remains unresolved; independent detail is purged.
 		if _, err := harnesslocal.ReadFile(file, 1048576, false); err != nil {
-			validationErrors = append(validationErrors, err)
+			validationErrors = append(validationErrors, atCleanupStage("recovery_proof", err))
 		}
 	}
 	var purge func(string) error
@@ -124,7 +124,7 @@ func (r *Runtime) PreserveRecovery() error {
 		}
 		return errors.Join(failures...)
 	}
-	return errors.Join(append(validationErrors, purge(r.Root))...)
+	return errors.Join(append(validationErrors, atCleanupStage("recovery_purge", purge(r.Root)))...)
 }
 
 // CleanupStaleRoots is bounded and conservative. Age alone is never deletion

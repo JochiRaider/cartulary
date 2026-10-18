@@ -17,7 +17,7 @@
       "evidence_kinds": [
         "static_check"
       ],
-      "public_target": "frontend-import-boundary-check"
+      "public_target": "lint"
     },
     {
       "verification_id": "web.architecture.verification.test_boundaries",

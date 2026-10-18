@@ -117,7 +117,7 @@ verify_chromium_native_deps() {
 
   echo "Playwright Chromium is missing native shared libraries:" >&2
   printf '  %s\n' "${missing[@]}" >&2
-  echo "Install the Playwright OS dependency set, or rerun make playwright-install as root/passwordless sudo." >&2
+  echo "Install the Playwright OS dependency set, or rerun make bootstrap PART=browser as root/passwordless sudo." >&2
   return 1
 }
 

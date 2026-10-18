@@ -10,6 +10,7 @@ import {
   resolveOptions,
   type ViteSlidevPlugin,
 } from "@slidev/cli";
+import MarkdownIt from "markdown-it";
 import type { Browser } from "playwright-chromium";
 
 import {
@@ -87,6 +88,19 @@ export async function renderSlidevPDF(
   const options = await resolveOptions(
     { entry, theme, routerMode: "history", withoutNotes: true },
     "export",
+  );
+  // Count parsed fences, not substrings or currently mounted async components.
+  // Every print copy (including click states) must close its source inventory.
+  const markdown = new MarkdownIt();
+  const diagramsBySlide = options.data.slides.map(
+    (slide) =>
+      markdown
+        .parse(slide.content, {})
+        .filter(
+          (token) =>
+            token.type === "fence" &&
+            token.info.trim().split(/[\s{]/u, 1)[0] === "mermaid",
+        ).length,
   );
   // Font selection is an installed render-profile capability. Theme defaults
   // must not inject a remote font provider into canonical source that carries
@@ -320,30 +334,62 @@ export async function renderSlidevPDF(
       // The pinned Slidev Mermaid component fills an initially empty shadow
       // root after its asynchronous renderer finishes. The slide loading
       // indicator covers component loading, not that rendering promise.
-      // Await every mounted diagram's SVG before fonts, paint and PDF capture.
+      // The parsed inventory also covers not-yet-mounted components: an empty
+      // host list cannot prove readiness when the source declares a diagram.
       failureReason = "renderer_fonts_or_paint_failed";
-      await page.waitForFunction(
-        (failureAttribute) =>
-          document.documentElement.hasAttribute(failureAttribute) ||
-          Array.from(
-            document.querySelectorAll(".print-slide-container .mermaid"),
-          ).every((host) => {
-            const svg = host.shadowRoot?.querySelector("svg");
-            if (!(svg instanceof SVGSVGElement)) return false;
-            const box = svg.viewBox.baseVal;
-            return (
-              box.width > 0 &&
-              box.height > 0 &&
-              svg.querySelector("text, path, polygon, rect") !== null
+      const waitForDiagrams = async () => {
+        await page.waitForFunction(
+          ({ failureAttribute, diagramsBySlide }) => {
+            if (document.documentElement.hasAttribute(failureAttribute))
+              return true;
+            const pages = Array.from(
+              document.querySelectorAll(".print-slide-container"),
             );
-          }),
-        mermaidFailureAttribute,
-      );
-      if (await page.locator("html").getAttribute(mermaidFailureAttribute))
-        throw new RenderFailure(
-          "slidev_export_failed",
-          "renderer_fonts_or_paint_failed",
+            const seen = new Set<number>();
+            return (
+              pages.length >= diagramsBySlide.length &&
+              pages.every((page) => {
+                const slide =
+                  Number(
+                    page
+                      .querySelector(":scope > [data-slidev-no]")
+                      ?.getAttribute("data-slidev-no"),
+                  ) - 1;
+                if (
+                  !Number.isInteger(slide) ||
+                  slide < 0 ||
+                  slide >= diagramsBySlide.length ||
+                  page.querySelector(".slidev-slide-loading")
+                )
+                  return false;
+                seen.add(slide);
+                const hosts = Array.from(page.querySelectorAll(".mermaid"));
+                return (
+                  hosts.length === diagramsBySlide[slide] &&
+                  hosts.every((host) => {
+                    const svg = host.shadowRoot?.querySelector("svg");
+                    if (!(svg instanceof SVGSVGElement)) return false;
+                    const box = svg.viewBox.baseVal;
+                    return (
+                      box.width > 0 &&
+                      box.height > 0 &&
+                      svg.querySelector("text, path, polygon, rect") !== null
+                    );
+                  })
+                );
+              }) &&
+              seen.size === diagramsBySlide.length
+            );
+          },
+          { failureAttribute: mermaidFailureAttribute, diagramsBySlide },
         );
+        if (await page.locator("html").getAttribute(mermaidFailureAttribute))
+          throw new RenderFailure(
+            "slidev_export_failed",
+            "renderer_fonts_or_paint_failed",
+          );
+      };
+      await waitForDiagrams();
       await page.evaluate(
         async ({ theme, fontCount, images }) => {
           if (theme) {
@@ -414,6 +460,9 @@ export async function renderSlidevPDF(
         throw new RenderFailure("slidev_export_failed", resourceError);
       if (browserError)
         throw new RenderFailure("slidev_export_failed", browserError);
+      // Click expansion or a reactive component update during font/paint work
+      // must also have completed before capture.
+      await waitForDiagrams();
       const observedPages = await page
         .locator(".print-slide-container")
         .count();

@@ -36,6 +36,7 @@ func nativeCacheFixture(t *testing.T, mode string) (*nativeCache, unit) {
 	u.Digest = "sha256:" + strings.Repeat("a", 64)
 	row := "harness.command_surface.unit.fixture"
 	u.Evidence = []string{"rows/" + row + ".json", "unit-results/fixture.json"}
+	u.Rows = []rowBinding{{ID: row, Runner: "shell"}}
 	u.Artifacts = []artifact{{Type: "file", Path: "bin/program", Destination: "repository_artifact", Mode: "0755", Producer: u.ID}, {Type: "directory", Path: "bundle", Destination: "run_root", Mode: "0750", Producer: u.ID}}
 	profile, policy, input, dependency, strategy := "test.fixture", "content_addressed", "sha256:"+strings.Repeat("b", 64), "sha256:"+strings.Repeat("c", 64), "broad"
 	fact := cacheFact{UnitID: u.ID, Eligible: true, Profile: &profile, Policy: &policy, InputDigest: &input, DependencyDigest: &dependency, Strategy: &strategy}
@@ -52,8 +53,8 @@ func nativeCacheFixture(t *testing.T, mode string) (*nativeCache, unit) {
 	if err := os.Chmod(filepath.Join(run, "bundle"), 0750); err != nil {
 		t.Fatal(err)
 	}
-	payload := map[string]any{"schema_id": "cartulary.harness_row_result.v3", "row_id": row, "terminal_state": "passed", "duration_ms": 19, "exit_code": 0, "failure_class": nil, "failure_reason": nil, "failure_diagnostic": nil, "runner": "shell", "started_at": "2026-10-11T00:00:00.000Z", "finished_at": "2026-10-11T00:00:00.019Z", "wall_duration_ms": 19}
-	bytes, err := documentBytes("cartulary.harness_row_result.v3", payload)
+	payload := map[string]any{"schema_id": "cartulary.harness_row_result.v4", "row_id": row, "terminal_state": "passed", "duration_ms": 19, "exit_code": 0, "failure_class": nil, "failure_reason": nil, "failure_diagnostic": nil, "runner": "shell", "started_at": "2026-10-11T00:00:00.000Z", "finished_at": "2026-10-11T00:00:00.019Z", "wall_duration_ms": 19}
+	bytes, err := documentBytes("cartulary.harness_row_result.v4", payload)
 	if err != nil {
 		t.Fatal(err)
 	}

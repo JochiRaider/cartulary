@@ -3,13 +3,21 @@
   "owner_id": "harness.browser",
   "verifications": [
     {
+      "verification_id": "harness.browser.verification.fixture_broker_smoke",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
+      ]
+    },
+    {
       "verification_id": "harness.browser.verification.installed_lifecycle",
       "behavior_class": "harness",
       "profile": "support",
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "harness-runtime-boundary-contract"
+      "public_target": "harness-contract"
     },
     {
       "verification_id": "harness.browser.verification.native_fixtures",
@@ -18,7 +26,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "harness-fixture-contract"
+      "public_target": "harness-contract"
     },
     {
       "verification_id": "harness.browser.verification.native_graph_observations",
@@ -27,7 +35,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "harness-runtime-boundary-contract"
+      "public_target": "harness-contract"
     },
     {
       "verification_id": "harness.browser.verification.native_review",
@@ -36,7 +44,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "harness-runtime-contract"
+      "public_target": "harness-contract"
     },
     {
       "verification_id": "harness.browser.verification.source_contracts",

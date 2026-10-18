@@ -33,7 +33,7 @@ Source actions remain with their authoring/recovery owners. Uncertainty conceals
 Commands and drops its captured presentation target; runtime owners decide which
 drafts, receipts and session metadata survive.
 
-Use `make task-guide ROLE=module-author OWNER=web.workbook` for current unit
+Use `make task-guide OWNER=web.workbook` for current unit
 routing and the `module.workbook` guide for responsive keyboard/accessibility
 coverage. The [controlling handoff](../../../../../docs/handoffs/ui-ux/workbook-workbench-visual-refresh.md)
 records scoped execution evidence; it is not an executable input.

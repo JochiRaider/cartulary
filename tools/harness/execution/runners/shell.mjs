@@ -1,8 +1,15 @@
-export function buildShellInvocations(rows, command = process.env.MAKE || "make") {
+import { operationDefinition, readOperationOwner } from "../../scheduler/work-graph/operations.mjs";
+
+export function buildShellInvocations(rows, root = process.cwd()) {
+  const owner = readOperationOwner(root);
   return rows.map((row) => ({
-    command,
-    args: ["--silent", "--no-print-directory", row.target_name],
-    rows: [{ row_id: row.row_id, selectors: [row.selector.command_id] }],
+    command: process.execPath,
+    args: ["tools/harness/execution/operation-runner-cli.mjs", (() => {
+      const id = row.selector.operation_id;
+      operationDefinition(owner, id);
+      return id;
+    })()],
+    rows: [{ row_id: row.row_id, selectors: [row.selector.operation_id] }],
   }));
 }
 

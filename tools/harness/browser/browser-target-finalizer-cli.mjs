@@ -94,7 +94,7 @@ function groupResult(base, groupID, target) {
   }
   const bytes = readFileSync(file);
   const result = JSON.parse(bytes.toString("utf8"));
-  validateSchemaSync("cartulary.browser_group_result.v7", result);
+  validateSchemaSync("cartulary.browser_group_result.v8", result);
   return {
     file,
     bytes,
@@ -415,7 +415,7 @@ async function writeTargetResult(base, options, groups, resets) {
     sessionsByID.set(group.result.browser_session_id, session);
   }
   const payload = {
-    schema_id: "cartulary.browser_target_result.v6",
+    schema_id: "cartulary.browser_target_result.v7",
     target_id: options.target,
     status:
       groups.every((group) => group.result.status === "pass") &&

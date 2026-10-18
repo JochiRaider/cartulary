@@ -6,7 +6,7 @@ import { WorkGraphCompiler } from "./compiler.mjs";
 import { captureCapabilitySnapshot, resourceCapacities, availableGoWorkerBudget } from "./capability.mjs";
 import { CachePlan } from "./cache-plan.mjs";
 import { resolveVulnerabilityDatabaseRevision } from "./vulnerability.mjs";
-import { parseArgs, selectionFor, commandEntry, resolvedRunRoot, declaredInputs, selectionInputs, resolvedRuntimeEnvironment, sha256 } from "./preparation.mjs";
+import { parseArgs, selectionFor, commandEntry, resolvedRunRoot, commandInputContext, replayInputs, selectionInputs, resolvedRuntimeEnvironment, sha256 } from "./preparation.mjs";
 import { buildSourceSnapshot, executableProvenance } from "../../test-catalog/index.mjs";
 import { instrumentationPolicy } from "../../observability/instrumentation-policy.mjs";
 import { readLocalClock, captureClockAnchor } from "../../runtime/boot-clock.mjs";
@@ -29,8 +29,8 @@ export function prepareRuntimePlan(argv) {
   };
   const serviceSession = resolveServiceSessionMode({ target: options.target, environment: process.env });
   const entry = commandEntry(options.target);
-  const inputs = { ...declaredInputs(entry), ...selectionInputs(options) };
-  const compiler = new WorkGraphCompiler(root, { targetInputs: { [options.target]: inputs } });
+  const { inputs, input_environment } = commandInputContext(entry, selectionInputs(options));
+  const compiler = new WorkGraphCompiler(root, { targetInputs: { [options.target]: replayInputs(entry, inputs) } });
   const { runID, runRoot } = resolvedRunRoot();
   mark("configuration_catalog");
   const snapshot = captureCapabilitySnapshot({ root, override: process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE,
@@ -44,10 +44,11 @@ export function prepareRuntimePlan(argv) {
   mark("source_hashing");
   const toolchain_digest = sha256(readFileSync(path.join(root, "tools/toolchain_pins.json")));
   const helper_digest = sha256(readFileSync(path.join(root, "tools/harness_helper_ownership.json")));
-  const manifest = { schema_id: "cartulary.harness_run_manifest.v2", run_id: runID, command_id: entry.command_id,
+  const manifest = { schema_id: "cartulary.harness_run_manifest.v3", run_id: runID, command_id: entry.command_id,
     target: options.target, declared_inputs: inputs,
     source_digest: source.digest, ...executableProvenance(root), toolchain_digest, system_digest: snapshot.snapshot_digest,
-    capability_snapshot: snapshot, graph_digest: graph.graph_digest, cache_mode: cacheMode,
+    capability_snapshot: snapshot, go_worker_budget: compiler.availableGoLanes,
+    graph_digest: graph.graph_digest, cache_mode: cacheMode,
     instrumentation: { mode, policy_digest: instrumentationPolicy().digest }, started_at: new Date().toISOString() };
   mark("provenance");
   const vulnerability = resolveVulnerabilityDatabaseRevision({ root, database: process.env.GOVULNCHECK_DB || "",
@@ -72,7 +73,7 @@ export function prepareRuntimePlan(argv) {
     ...(serviceSession.sessionFile ? { CARTULARY_TEST_SERVICES_SESSION_FILE: serviceSession.sessionFile } : {}) };
   mark("launch_bindings");
   const commandIDs = new Map(compiler.taskSurface.targets.map((target) => [target.name, target.command_id]));
-  const value = { schema_id: "cartulary.harness_runtime_plan.v2", graph, manifest,
+  const value = { schema_id: "cartulary.harness_runtime_plan.v5", graph, manifest, input_environment,
     host_profile: { platform: os.platform(), architecture: os.arch(), kernel_release: os.release(), cpu_models: [...new Set(os.cpus().map((cpu) => cpu.model))].sort() },
     instrumentation_policy_bytes: readFileSync(path.join(root, "tools/harness_instrumentation_policy.json"), "utf8"),
     projections: Object.fromEntries(Object.entries(projections).map(([target, unit_ids]) => [target, { command_id: commandIDs.get(target) ?? entry.command_id, unit_ids }])),

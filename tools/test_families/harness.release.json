@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v8",
+  "schema_id": "cartulary.test_family_manifest.v9",
   "owner_id": "harness.release",
   "rows": [
     {
@@ -12,7 +12,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_benchmark_claim_contract.v1"
+        "operation_id": "harness.harness_benchmark_claim_contract"
       },
       "evidence_class": "release",
       "runtime_profile_id": "none",
@@ -33,7 +33,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.release_evidence_contract.v2"
+        "operation_id": "harness.release_evidence_contract"
       },
       "evidence_class": "release",
       "runtime_profile_id": "none",
@@ -56,7 +56,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.standup_operational_recovery_smoke.v2"
+        "operation_id": "harness.standup_operational_recovery_smoke"
       },
       "evidence_class": "release",
       "runtime_profile_id": "default",
@@ -83,7 +83,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.standup_reference_pack_smoke.v2"
+        "operation_id": "harness.standup_reference_pack_smoke"
       },
       "evidence_class": "release",
       "runtime_profile_id": "default",
@@ -109,7 +109,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.standup_package_smoke.v2"
+        "operation_id": "harness.standup_package_smoke"
       },
       "evidence_class": "release",
       "runtime_profile_id": "default",

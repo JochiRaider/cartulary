@@ -18,7 +18,7 @@ export function registerFrontendProducerLifecycleTests() {
     mkdirSync(runRoot, { mode: 0o700 });
     writeFileSync(path.join(runRoot, "run-manifest.json"), JSON.stringify({ source_digest: `sha256:${"1".repeat(64)}`, toolchain_digest: `sha256:${"2".repeat(64)}` }), { mode: 0o600 });
     const runtime = createRuntime({ repoRoot: root, runRoot, runID: "run", scratchRoot: path.join(scratch, "private") });
-    const profile = { id: "production", producer_target: "build-web", entries: ["index.html"] };
+    const profile = { id: "production", producer_report_key: "build-web", producer_operation: "harness.build_web", entries: ["index.html"] };
     t.after(() => { runtime.close(); rmSync(scratch, { recursive: true, force: true }); });
     {
       for (const name of ["first", "second"]) {
@@ -33,7 +33,7 @@ export function registerFrontendProducerLifecycleTests() {
 
   });
   test("frontend producer races, interrupted publication, and compiler failure own awaited children", { timeout: 60000 }, async (t) => {
-    const profile = { id: "production", producer_target: "build-web", entries: ["index.html"] };
+    const profile = { id: "production", producer_report_key: "build-web", producer_operation: "harness.build_web", entries: ["index.html"] };
     const processRoot = mkdtempSync(path.join(os.tmpdir(), "frontend-producer-process-"));
     const runtimes = [];
     const children = [];
@@ -83,7 +83,7 @@ export function registerFrontendProducerLifecycleTests() {
       assert.equal(readdirSync(path.dirname(f.runtime.privatePath("build-start"))).filter((name) => name.startsWith("build-start-production-")).length, 1, "only the winning producer enters build work");
       const receiptFile = path.join(f.runRoot, before.receiptRef);
       const receiptBytes = readFileSync(receiptFile);
-      for (const [key, value] of Object.entries({ run_id: "another-run", artifact_id: "measurement", producer_unit_id: "target:build-web-measurement", source_digest: `sha256:${"3".repeat(64)}`, toolchain_digest: `sha256:${"4".repeat(64)}`, content_digest: `sha256:${"5".repeat(64)}` })) {
+      for (const [key, value] of Object.entries({ run_id: "another-run", artifact_id: "measurement", producer_unit_id: "operation:harness.build_web_measurement", source_digest: `sha256:${"3".repeat(64)}`, toolchain_digest: `sha256:${"4".repeat(64)}`, content_digest: `sha256:${"5".repeat(64)}` })) {
         writeFileSync(receiptFile, JSON.stringify({ ...before.receipt, [key]: value }));
         assert.throws(() => resolveFrontendArtifact(root, "build-web", f.environment), (error) => error.failure_reason === "artifact_error", key);
       }
@@ -134,7 +134,7 @@ export function registerFrontendProducerLifecycleTests() {
       }
 
       const failed = fixture("compiler-failure");
-      const options={repoRoot:root,environment:failed.environment,unitID:"target:build-web",commandID:"cartulary.harness.command.build_web.v2"};
+      const options={repoRoot:root,environment:failed.environment,unitID:"operation:harness.build_web",commandID:"cartulary.harness.command.build.v3"};
       const diagnostic=createCommandFailureContext({...options,launch:createLaunchContext(options)});
       try {
         const result=spawnSync(process.execPath,["tools/harness/readiness/frontend-artifact.mjs","build","build-web",process.execPath,"tools/harness/tests/frontend-producer-fixture.mjs","compiler-failure"],{cwd:root,env:{...process.env,...failed.environment,...diagnostic.environment},encoding:"utf8",timeout:15000});

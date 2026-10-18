@@ -5,6 +5,7 @@ package harnessfixtures
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,6 +23,31 @@ func TestFixtureBrowserAdapter(t *testing.T) {
 	}
 	cwd, _ := os.Getwd()
 	root := filepath.Clean(filepath.Join(cwd, "../../.."))
+	t.Run("closed_cleanup_detail_survives_browser_failure_without_reclassification", func(t *testing.T) {
+		primary := errors.New("private transport sentinel")
+		for index, data := range []string{
+			`{"schema_id":"cartulary.harness_cleanup_diagnostic.v1","stage":"process_authority","cause":"unresolved","errno":0}`,
+			`{"schema_id":"cartulary.harness_cleanup_diagnostic.v1","stage":"process_authority","cause":"unresolved","errno":0,"pid":123}`,
+		} {
+			p := ProductionOptions{Environment: map[string]string{"NODE_BIN": node}, Run: func(context.Context, string, []string, map[string]string) (CommandResult, error) {
+				return CommandResult{Exit: 12, Stdout: []byte(`{"failure_class":"harness","failure_reason":"cleanup_error"}`), Stderr: []byte(data)}, primary
+			}}
+			_, err := p.browserOperation(context.Background(), "settle", nil, nil)
+			var failure *Failure
+			if !errors.As(err, &failure) || failure.Class != "harness" || failure.Reason != "cleanup_error" || !errors.Is(err, primary) {
+				t.Fatal("failure classification or native cause changed", err)
+			}
+			var diagnostic *harnesssession.CleanupDiagnostic
+			got := errors.As(err, &diagnostic)
+			want := index == 0
+			if got != want {
+				t.Fatal("invalid diagnostic crossed the boundary", got, want)
+			}
+			if got && harnesssession.DescribeCleanupFailure(err).Stage != "process_authority" {
+				t.Fatal("native cause was discarded")
+			}
+		}
+	})
 	t.Run("closed_cli_rejects_unknown_operation", func(t *testing.T) {
 		cmd := exec.Command(node, filepath.Join(root, "tools/harness/browser/fixture-lifecycle.mjs"), "unknown")
 		cmd.Stderr = os.Stderr

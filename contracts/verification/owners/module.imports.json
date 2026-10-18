@@ -18,7 +18,7 @@
         "shell",
         "static_check"
       ],
-      "public_target": "backend-module-boundary-check"
+      "public_target": "lint"
     },
     {
       "verification_id": "module.imports.verification.behavior_contract",

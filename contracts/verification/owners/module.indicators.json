@@ -6,8 +6,10 @@
       "verification_id": "module.indicators.verification.active_identity_claims",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.behavior_contract",
@@ -21,148 +23,193 @@
       "verification_id": "module.indicators.verification.characterization",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.contract_migration",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.contribution_identity",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.exported_surface_minimization",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.identity_parity_and_concurrency",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.incident_portability",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.lifecycle_vocabulary",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.observation_origin",
       "behavior_class": "security",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.portability_invariants",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.production_child_workflows",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test", "playwright", "vitest"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test",
+        "playwright",
+        "vitest"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.projection_delegation",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.provider_boundaries",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.retained_portability",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.route_integration",
       "behavior_class": "product",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.source_span_provenance",
       "behavior_class": "security",
       "profile": "base",
-      "evidence_kinds": ["go_test", "vitest"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test",
+        "vitest"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.source_state_catalog",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.storage_contraction",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.target_role_resolution",
       "behavior_class": "security",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.transaction_atomicity",
       "behavior_class": "security",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.transition_atomicity",
       "behavior_class": "security",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     },
     {
       "verification_id": "module.indicators.verification.vocabulary_convergence",
       "behavior_class": "architecture",
       "profile": "base",
-      "evidence_kinds": ["go_test"],
-      "public_target": "test"
+      "evidence_kinds": [
+        "go_test"
+      ],
+      "public_target": "ci"
     }
   ]
 }

@@ -4,21 +4,27 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 MAKE_BIN="${MAKE_BIN:-make}"
 NODE_BIN="${NODE_BIN:-node}"
-TMP_DIR="$(mktemp -d "${ROOT_DIR}/tmp/tool-output-real-targets.XXXXXX")"
-RUN_PREFIX="$(printf 'r%x' "$$")"
-RESULTS_ROOT="tmp/op"
-preserve_results=0
-
-cleanup() {
-  rm -rf "$TMP_DIR"
-  if [[ "$preserve_results" -eq 0 ]]; then
-    rm -rf "$ROOT_DIR/${RESULTS_ROOT}/${RUN_PREFIX}-"*
-  else
-    echo "retained failing real-target roots at $ROOT_DIR/${RESULTS_ROOT}/${RUN_PREFIX}-*" >&2
-  fi
-}
-
-trap cleanup EXIT
+case_name="${1:-}"
+if [[ "$#" -ne 1 ]]; then
+  echo "one real-command assertion case is required" >&2
+  exit 2
+fi
+case "$case_name" in
+  source-schema|backend-unit|backend-unit-machine|owner-json|lint|build|build-machine|test-fast|check|check-machine|invalid-usage) ;;
+  *) echo "unknown real-command assertion case: $case_name" >&2; exit 2 ;;
+esac
+if [[ "${CARTULARY_STEP_ARTIFACT_DIR:-}" != /* ]]; then
+  echo "real-command assertions require a Make-owned unit artifact directory" >&2
+  exit 2
+fi
+umask 077
+TMP_DIR="${CARTULARY_STEP_ARTIFACT_DIR}/real-command-output"
+RUN_PREFIX=real
+RESULTS_ROOT="${TMP_DIR}/runs"
+mkdir -p "$TMP_DIR"
+# These artifacts belong to the enclosing unit and survive interruption and
+# post-run validation failures. The normal run-retention policy owns cleanup.
+printf '[REAL-TARGET] case=%s artifacts=%s\n' "$case_name" "$TMP_DIR"
 
 fail() {
   echo "$*" >&2
@@ -49,19 +55,17 @@ run_target() {
       "$MAKE_BIN" --no-print-directory "$target" "${make_args[@]}"
   ) >"${target_dir}/stdout.log" 2>"${target_dir}/stderr.log" || {
     local status=$?
-    preserve_results=1
     echo "${target}: failed with status ${status}" >&2
     sed -n '1,80p' "${target_dir}/stdout.log" >&2
     sed -n '1,80p' "${target_dir}/stderr.log" >&2
-    return "$status"
+    # The command-under-test outcome is retained above. A Make wrapper's 2
+    # means this expected-success assertion failed, not invalid test inputs.
+    return 1
   }
-  # Preserve a successful target's canonical root if post-run contract
-  # validation fails; otherwise the diagnostic would erase the evidence it
-  # needs to explain.
-  preserve_results=1
-  "$NODE_BIN" - "$ROOT_DIR" "$target" "${target_dir}/stdout.log" "${target_dir}/stderr.log" "$@" <<'EOF'
-const fs = require("node:fs");
-const path = require("node:path");
+  "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$target" "${target_dir}/stdout.log" "${target_dir}/stderr.log" "$@" <<'EOF'
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 const [repoRoot, targetName, stdoutFile, stderrFile, ...requiredRoles] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, "tools/task_surface_manifest.json"), "utf8"));
 const target = manifest.targets.find((entry) => entry.name === targetName);
@@ -131,7 +135,7 @@ if (target.output_policy.summary_schema === "cartulary.harness_run_summary.v1") 
     targetSummary.schema_id !== "cartulary.harness_target_summary.v1" ||
     targetSummary.target !== targetName ||
     targetSummary.status !== "pass" ||
-    runManifest.schema_id !== "cartulary.harness_run_manifest.v2" ||
+    runManifest.schema_id !== "cartulary.harness_run_manifest.v3" ||
     runManifest.target !== targetName
   ) {
     throw new Error(`${targetName}: invalid canonical graph summaries ${JSON.stringify({
@@ -140,10 +144,10 @@ if (target.output_policy.summary_schema === "cartulary.harness_run_summary.v1") 
       run_manifest: { schema_id: runManifest.schema_id, target: runManifest.target },
     })}`);
   }
-  const eventLines = fs.readFileSync(files.events, "utf8").trim().split(/\r?\n/).filter(Boolean);
-  if (eventLines.length === 0 || eventLines.some((line) => JSON.parse(line).schema_id !== "cartulary.harness_unit_event.v4")) {
-    throw new Error(`${targetName}: invalid canonical unit event stream`);
-  }
+  const { readCanonicalUnitEvents } = await import(pathToFileURL(path.join(repoRoot, "tools/harness/evidence-accounting/index.mjs")));
+  // Use the canonical streaming owner, including its empty/malformed/unsafe
+  // evidence checks. Large valid runs must not become one in-memory string.
+  for await (const _event of readCanonicalUnitEvents(files.events)) continue;
   process.exit(0);
 }
 const resultLines = stdout
@@ -233,13 +237,14 @@ for (const artifact of refs) {
 }
 
 EOF
-  preserve_results=0
 }
 
 run_machine_target() {
   local target="$1"
   local label="$2"
   local target_dir="${TMP_DIR}/${label}"
+  local make_args=()
+  if [[ -n "${RUN_TARGET_MAKE_ARGS:-}" ]]; then read -r -a make_args <<<"${RUN_TARGET_MAKE_ARGS}"; fi
   mkdir -p "$target_dir"
   (
     cd "$ROOT_DIR"
@@ -249,17 +254,16 @@ run_machine_target() {
       -u CARTULARY_TEST_TARGET \
       -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u PLAYWRIGHT_WORKERS -u JSON \
       -u MAKEFLAGS -u MFLAGS \
-      CARTULARY_OUTPUT_MODE=machine \
+      CARTULARY_OUTPUT_MODE="${RUN_TARGET_OUTPUT_MODE:-machine}" \
       CARTULARY_TEST_RESULTS_DIR="${RESULTS_ROOT}" \
       CARTULARY_TEST_RUN_ID="${RUN_PREFIX}-${label}" \
-      "$MAKE_BIN" --no-print-directory "$target"
+      "$MAKE_BIN" --no-print-directory "$target" "${make_args[@]}"
   ) >"${target_dir}/stdout.log" 2>"${target_dir}/stderr.log" || {
     local status=$?
-    preserve_results=1
     echo "${target}: machine target failed with status ${status}" >&2
     sed -n '1,80p' "${target_dir}/stdout.log" >&2
     sed -n '1,80p' "${target_dir}/stderr.log" >&2
-    return "$status"
+    return 1
   }
   "$NODE_BIN" - "$target" "${target_dir}/stdout.log" "${target_dir}/stderr.log" <<'EOF'
 const fs = require("node:fs");
@@ -288,7 +292,7 @@ EOF
 }
 
 run_invalid_usage_check() {
-  local target_dir="${TMP_DIR}/invalid-explain-target"
+  local target_dir="${TMP_DIR}/invalid-target-plan"
   mkdir -p "$target_dir"
   set +e
   (
@@ -299,12 +303,12 @@ run_invalid_usage_check() {
       -u CARTULARY_TEST_TARGET \
       -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u PLAYWRIGHT_WORKERS -u JSON \
       -u MAKEFLAGS -u MFLAGS \
-      "$MAKE_BIN" --no-print-directory explain-target TARGET=not-a-real-target DETAIL=summary
+      "$MAKE_BIN" --no-print-directory target-plan TARGET=not-a-real-target DETAIL=summary
   ) >"${target_dir}/stdout.log" 2>"${target_dir}/stderr.log"
   local status=$?
   set -e
   if [[ "$status" -eq 0 ]]; then
-    fail "invalid explain-target unexpectedly passed"
+    fail "invalid target-plan unexpectedly passed"
   fi
   "$NODE_BIN" - "${target_dir}/stderr.log" <<'EOF'
 const fs = require("node:fs");
@@ -319,17 +323,16 @@ if (!stderr.includes("TARGET must name a declared target")) {
 EOF
 }
 
-run_target json-shape-check json-shape-check tool_run_summary target_summary target_timing
-# lint-shell is covered by harness-smoke-lint-shell; in summary mode its success
-# output is retained in artifacts and does not emit a standalone [RESULT] line.
-run_target backend-unit backend-unit
-run_machine_target backend-unit backend-unit-machine
-run_target lint lint tool_run_summary run_summary
-run_target build build
-run_machine_target build build-machine
-run_target test-fast test-fast
-run_target check check
-run_machine_target check check-machine
-run_invalid_usage_check
-
-echo "real target output policy checks passed"
+case "$case_name" in
+  source-schema) RUN_TARGET_MAKE_ARGS="CHECK=schema" run_target source-check source-schema ;;
+  backend-unit) RUN_TARGET_MAKE_ARGS="SUITE=backend-unit" run_target test-slice backend-unit ;;
+  backend-unit-machine) RUN_TARGET_MAKE_ARGS="SUITE=backend-unit" run_machine_target test-slice backend-unit-machine ;;
+  owner-json) RUN_TARGET_OUTPUT_MODE=summary RUN_TARGET_MAKE_ARGS="OWNER=harness.command_surface ROWS=harness.command_surface.unit.embedded_asset_layout JSON=1" run_machine_target test-slice owner-json ;;
+  lint) run_target lint lint tool_run_summary run_summary ;;
+  build) run_target build build ;;
+  build-machine) run_machine_target build build-machine ;;
+  test-fast) run_target test-fast test-fast ;;
+  check) run_target check check ;;
+  check-machine) run_machine_target check check-machine ;;
+  invalid-usage) run_invalid_usage_check ;;
+esac

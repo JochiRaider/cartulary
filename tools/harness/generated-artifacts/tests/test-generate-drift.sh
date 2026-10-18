@@ -52,7 +52,7 @@ if [[ "$status" -eq 0 ]]; then
 fi
 
 assert_contains "$output" "generate-drift requires an executable SQLC_BIN at $missing_sqlc" "missing SQLC_BIN diagnostic"
-assert_contains "$output" "run make codegen-toolchain before generate-drift" "missing SQLC_BIN setup guidance"
+assert_contains "$output" "run make generate before source-check CHECK=generated" "missing SQLC_BIN setup guidance"
 assert_not_contains "$output" "bootstrap sqlc tool" "missing SQLC_BIN bootstrap avoidance"
 assert_not_contains "$output" "generate sqlc" "missing SQLC_BIN generation avoidance"
 

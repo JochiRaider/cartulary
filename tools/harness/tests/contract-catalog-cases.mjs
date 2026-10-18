@@ -140,7 +140,8 @@ export function assertPrivateRowSelection(context) {
       "tools/test_catalog_owner.json", "contracts/verification/registry.json",
       "tools/test_runner_registry.json", "tools/execution_topology_manifest.json",
       "tools/scheduler_resource_registry.json", "tools/performance_fixture_snapshot_owner.json",
-      "tools/task_surface_owner.json", "tools/test_catalog_row_migrations.json",
+      "tools/task_surface_owner.json",
+      "tools/harness_work_graph_owner.json", "tools/test_catalog_row_migrations.json",
       "tools/postgres_fixture_policy_registry.json", "tools/toolchain_pins.json",
       "tools/generated_artifact_policy.json",
       ...catalog.registry.owners.map((owner) => owner.manifest_path),
@@ -165,6 +166,15 @@ export function assertPrivateRowSelection(context) {
     writeFileSync(source, sourceText);
     const load = (ids = [row.row_id]) => loadSelectedTestRows(fixture, ids);
     assert.deepEqual(load(), [row]);
+    const verificationPath = catalog.verification.registry.owners[0].contract_path;
+    const originalVerification = read(verificationPath);
+    for (const publicTarget of ["test", "harness-runtime-contract", "unknown-public-command"]) {
+      const invalidVerification = structuredClone(originalVerification);
+      invalidVerification.verifications[0].public_target = publicTarget;
+      write(verificationPath, invalidVerification);
+      assert.throws(() => load(), /unknown active public command/u);
+    }
+    write(verificationPath, originalVerification);
     assert.throws(() => loadTestCatalog(fixture), /does not exist|ENOENT/u);
     for (const ids of [[], [row.row_id, row.row_id], [""], [null]]) {
       assert.throws(() => load(ids), /invalid exact row selection/u);

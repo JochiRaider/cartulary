@@ -309,7 +309,7 @@ function classifyShellFailureDetails(context, stdoutLines, stderrLines, message)
 
   if (
     text.includes("built frontend artifact missing") ||
-    text.includes("run make build-web before browser e2e") ||
+    text.includes("run make build COMPONENT=web before browser e2e") ||
     text.includes("repo-local pnpm was not found") ||
     text.includes("node runtime bootstrap failed") ||
     text.includes("node archive checksum mismatch") ||

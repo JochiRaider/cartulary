@@ -10,7 +10,7 @@
         "playwright",
         "static_check"
       ],
-      "public_target": "browser-e2e-visual"
+      "public_target": "browser-e2e"
     }
   ]
 }

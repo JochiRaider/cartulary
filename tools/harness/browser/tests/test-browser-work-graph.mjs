@@ -497,7 +497,7 @@ try {
     build_artifact: summary.build_artifact, summary_artifacts: [summaryArtifact.ref], rollups: [{predicate_id: summary.rollup.predicate_id, sample_count: summary.rollup.sample_count, statistics: summary.rollup.statistics, threshold_ms: summary.rollup.threshold_ms, outcome: summary.rollup.outcome}],
   }] };
   const targetEvidence = {
-    schema_id: "cartulary.browser_target_result.v6", target_id: aggregate.target_id, status: "pass", generated_at: "2026-10-14T00:00:00Z",
+    schema_id: "cartulary.browser_target_result.v7", target_id: aggregate.target_id, status: "pass", generated_at: "2026-10-14T00:00:00Z",
     group_results: [{ group_id: "measurement", browser_session_id: "measurement", ref: "group.json", sha256: summaryArtifact.ref.sha256 }],
     sessions: [{ browser_session_id: "measurement", runtime_profile_id: "measurement", service_requirement: "test-services", artifacts: [
       { kind: "stack_v7", ref: "stack.json", sha256: summaryArtifact.ref.sha256 },
@@ -1260,14 +1260,15 @@ for (const target of [
   "browser-e2e-a11y",
   "browser-e2e-visual",
 ]) {
-  const graph = compiler.compile({ kind: "target", target });
+  const suite = ({ "browser-e2e-webserver-backed": "functional", "browser-e2e-a11y": "accessibility" })[target] ?? target.slice("browser-e2e-".length);
+  const graph = compiler.compileCommand("browser-e2e", { SUITE: suite }).graph;
   assert.ok(graph.units.some((unit) => unit.unit_id.startsWith("browser_group:")), `${target} must expose browser groups as units`);
   assert.ok(graph.units.some((unit) => unit.unit_id.startsWith("browser_target_summary:")), `${target} must expose its summary projection as a unit`);
   assert.equal(graph.units.some((unit) => unit.command.args.some((arg) => arg.includes("run-browser-e2e-batch"))), false);
 }
 const visualGraph = compiler.compile({
   kind: "target",
-  target: "browser-e2e-visual",
+  target: "harness.suite_browser_visual",
 });
 const visualTargetFinalizer = visualGraph.units.find(
   (unit) => unit.unit_id === "browser_target_summary:browser-e2e-visual",
@@ -1416,7 +1417,7 @@ assert.ok(
     visualFinalizerSource.lastIndexOf("promoteVisualSnapshotCandidate"),
   "visual promotion must be the final fallible target operation after schema and artifact writes",
 );
-const stateful = compiler.compile({ kind: "target", target: "browser-e2e-stateful" });
+const stateful = compiler.compile({ kind: "target", target: "harness.suite_browser_stateful" });
 assert.ok(stateful.units.some((unit) => unit.unit_id.startsWith("browser_reset:")), "stateful browser work must expose resets");
 
 function assertResetTargetMatchesEvidence(graph, label) {
@@ -1592,7 +1593,7 @@ assert.deepEqual(
 
 const webserverBacked = compiler.compile({
   kind: "target",
-  target: "browser-e2e-webserver-backed",
+  target: "harness.suite_browser_functional",
 });
 const functionalContracts = new Map(JSON.parse(readFileSync(
   path.join(root, "tools/browser_e2e_batch_manifest.json"), "utf8",
@@ -1705,7 +1706,7 @@ for (const reset of functionalResets) assert.equal(reset.failure_policy.block_de
 
 const measurement = compiler.compile({
   kind: "target",
-  target: "browser-e2e-measurement",
+  target: "harness.suite_browser_measurement",
 });
 const snapshotBuilders = measurement.units.filter((entry) =>
   entry.unit_id.startsWith("fixture_snapshot:default:timeline_large_grid_snapshot_v2:"),
@@ -1843,7 +1844,7 @@ for (const unit of measurement.units.filter((entry) =>
 }
 const functional = compiler.compile({
   kind: "target",
-  target: "browser-e2e-webserver-backed",
+  target: "harness.suite_browser_functional",
 });
 for (const unit of functional.units.filter((entry) =>
   entry.unit_id.startsWith("browser_group:")

@@ -95,7 +95,7 @@ function validateExtensionProperties(schema, label) {
 export function validateSchemaAttachmentPolicy(root) {
   const registryFile = path.join(root, "tools/harness_schema_attachments.json");
   const registry = readJSON(registryFile);
-  validateSchemaSync("cartulary.harness_schema_attachments.v1", registry);
+  validateSchemaSync("cartulary.harness_schema_attachments.v2", registry);
   const schemaIDs = registry.attachments.map((entry) => entry.schema_id);
   const registeredPaths = registry.attachments.map((entry) => entry.path);
   assertSorted(schemaIDs, `${registryFile}.attachments`);

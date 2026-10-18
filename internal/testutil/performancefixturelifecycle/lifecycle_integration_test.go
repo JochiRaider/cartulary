@@ -172,7 +172,7 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	}
 	templateDBName := templateName(env[suiteservices.SuiteIDEnv], performanceFixtureTestKey)
 	quotedTemplateName := pgx.Identifier{templateDBName}.Sanitize()
-	if err := withSharedCatalogMutation(ctx, postgresHarness.AdminDSN(), templateDBName, func(admin *sql.DB) error {
+	if err := withSharedCatalogMutation(ctx, postgresHarness.AdminDSN(), templateDBName, func(admin *sql.Conn) error {
 		_, err := admin.ExecContext(ctx, `ALTER DATABASE `+quotedTemplateName+` WITH ALLOW_CONNECTIONS true`)
 		return err
 	}); err != nil {
@@ -181,7 +181,7 @@ func TestPerformanceFixtureSnapshotBuilderCreatesFourIsolatedCleanableClones_Int
 	if err := validateTemplate(ctx, postgresHarness.AdminDSN(), templateDBName, templateOwner(env[suiteservices.SuiteIDEnv], performanceFixtureTestKey)); err == nil {
 		t.Fatal("corrupt unsealed performance fixture template was accepted")
 	}
-	if err := withSharedCatalogMutation(ctx, postgresHarness.AdminDSN(), templateDBName, func(admin *sql.DB) error {
+	if err := withSharedCatalogMutation(ctx, postgresHarness.AdminDSN(), templateDBName, func(admin *sql.Conn) error {
 		_, err := admin.ExecContext(ctx, `ALTER DATABASE `+quotedTemplateName+` WITH ALLOW_CONNECTIONS false`)
 		return err
 	}); err != nil {

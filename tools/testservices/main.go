@@ -1844,7 +1844,7 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 		adminDSN,
 		templateDB,
 		postgresCatalogAdmissionLimit,
-		func(admin *sql.DB) error {
+		func(admin *sql.Conn) error {
 			if _, err := admin.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, templateDB); err != nil {
 				return fmt.Errorf("terminate template database connections: %w", err)
 			}
@@ -1865,7 +1865,7 @@ func createDatabase(ctx context.Context, adminDSN string, name string) error {
 		adminDSN,
 		name,
 		postgresCatalogAdmissionLimit,
-		func(admin *sql.DB) error {
+		func(admin *sql.Conn) error {
 			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE "%s"`, name)); err != nil {
 				return fmt.Errorf("create database %s: %w", name, err)
 			}

@@ -37,10 +37,10 @@ try {
   rmSync(scratch, { recursive: true, force: true });
 }
 for (const [file, schemaID] of [
-  ["tools/execution_topology_manifest.json", "cartulary.execution_topology.v11"],
+  ["tools/execution_topology_manifest.json", "cartulary.execution_topology.v12"],
   ["tools/scheduler_manifest.json", "cartulary.scheduler_manifest.v3"],
-  ["tools/browser_e2e_batch_manifest.json", "cartulary.browser_e2e_batch_manifest.v11"],
-  ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v2"],
+  ["tools/browser_e2e_batch_manifest.json", "cartulary.browser_e2e_batch_manifest.v12"],
+  ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v4"],
 ]) {
   const value = JSON.parse(readFileSync(path.join(root, file), "utf8"));
   assert.equal(value.schema_id, schemaID);

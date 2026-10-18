@@ -25,7 +25,7 @@ export function containedFile(root, ref) {
 export function catalogRow(binding, read = readJSON) {
   const catalog = read(path.join(repoRoot, "tools/test_catalog_owner.json"), "cartulary.test_owner_registry.v1").value;
   const owner = one(catalog.owners.filter((entry) => entry.owner_id === binding.owner_id && entry.status === "active"));
-  const family = read(containedFile(repoRoot, owner.manifest_path), "cartulary.test_family_manifest.v8").value;
+  const family = read(containedFile(repoRoot, owner.manifest_path), "cartulary.test_family_manifest.v9").value;
   const row = one(family.rows.filter((entry) => entry.row_id === binding.row_id && entry.owner_id === binding.owner_id && entry.status === "active" && entry.runner === "playwright" && entry.selector.stage === "visual"));
   const index = row.selector.scenario_ids.indexOf(binding.scenario_id);
   if (index < 0) throw new ReviewFailure("invalid_artifact");
@@ -52,7 +52,7 @@ export function pageSource({ mode, profile, workspaceDigest, runID, prepared, br
     if (mode === "dev") return { source: freeze({ kind: "live_unattested", workspace_digest: workspaceDigest, browser_version: browserVersion }) };
     await prepared.check();
     const stack = readJSON(prepared.attached.CARTULARY_WEB_E2E_STACK_JSON_FILE, "cartulary.web_e2e_stack.v8").value;
-    const receipt = readJSON(containedFile(prepared.runRoot, stack.frontend.build_artifact_ref), "cartulary.frontend_build_artifact.v1", stack.frontend.build_receipt_sha256);
+    const receipt = readJSON(containedFile(prepared.runRoot, stack.frontend.build_artifact_ref), "cartulary.frontend_build_artifact.v2", stack.frontend.build_receipt_sha256);
     if (receipt.value.run_id !== runID || receipt.value.source_digest.replace(/^sha256:/u, "") !== workspaceDigest) throw new ReviewFailure("invalid_artifact");
     return { receipt: receipt.bytes, source: freeze({ kind: "sealed_review", workspace_digest: workspaceDigest, served_source_digest: receipt.value.source_digest.slice(7), frontend_receipt: artifact("frontend-receipt.json", receipt.bytes, "application/json"), browser_version: browserVersion, runtime_profile_id: profile }) };
   } });

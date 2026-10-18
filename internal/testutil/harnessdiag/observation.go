@@ -286,7 +286,7 @@ func sample(s selection) (object, error) {
 		return r, errArtifact
 	}
 	defer directory.Close()
-	manifest, err := readObject(filepath.Join(s.root, "run-manifest.json"), "cartulary.harness_run_manifest.v2", true, false)
+	manifest, err := readObject(filepath.Join(s.root, "run-manifest.json"), "cartulary.harness_run_manifest.v3", true, false)
 	if err != nil {
 		return r, err
 	}

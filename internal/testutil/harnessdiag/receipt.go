@@ -64,12 +64,30 @@ func bootMilliseconds() (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	fields := strings.Fields(string(data))
+	return parseBootMilliseconds(string(data))
+}
+
+func parseBootMilliseconds(value string) (float64, error) {
+	fields := strings.Fields(value)
 	if len(fields) == 0 {
 		return 0, errArtifact
 	}
-	seconds, err := strconv.ParseFloat(fields[0], 64)
-	return seconds * 1000, err
+	// /proc/uptime has hundredth-second precision. Parsing through binary
+	// floating point can yield fractional milliseconds and invalidate receipts.
+	parts := strings.Split(fields[0], ".")
+	if len(parts) != 2 || len(parts[1]) != 2 || !regexp.MustCompile(`^[0-9]+\.[0-9]{2}$`).MatchString(fields[0]) {
+		return 0, errArtifact
+	}
+	seconds, err := strconv.ParseUint(parts[0], 10, 64)
+	if err != nil || seconds > 9007199254740 {
+		return 0, errArtifact
+	}
+	hundredths, err := strconv.ParseUint(parts[1], 10, 64)
+	milliseconds := seconds*1000 + hundredths*10
+	if err != nil || milliseconds > 9007199254740991 {
+		return 0, errArtifact
+	}
+	return float64(milliseconds), nil
 }
 func wrapperOwner(root string) (object, error) {
 	directory, err := openDirectory(root, true)
@@ -213,7 +231,7 @@ func publishTerminalReceipts(root string, publish func(string, []byte) error) er
 			}
 			previous = interval["end_ms"].(float64)
 		}
-		manifest, _, err := boundObject(filepath.Join(runRoot, "run-manifest.json"), "cartulary.harness_run_manifest.v2", 16*1024*1024)
+		manifest, _, err := boundObject(filepath.Join(runRoot, "run-manifest.json"), "cartulary.harness_run_manifest.v3", 16*1024*1024)
 		if err != nil {
 			return err
 		}

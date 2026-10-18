@@ -36,7 +36,7 @@ export function createRetainedRunPreflight({ allowOlderResultsDir, relToRepo, re
     const override = process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE;
     if (override) assertMachineEvidencePath(path.resolve(repoRoot, override));
     current ??= {
-      catalog: ports.catalog ?? loadTestCatalog(repoRoot),
+      catalog: ports.catalog ?? (ports.loadCatalog ?? loadTestCatalog)(repoRoot),
       surface: ports.surface ?? read(repoRoot, "tools/task_surface_owner.json"),
       capability: ports.capability ?? captureCapabilitySnapshot({ root: repoRoot,
         override,
@@ -53,7 +53,7 @@ export function createRetainedRunPreflight({ allowOlderResultsDir, relToRepo, re
       if (error.code === "ENOENT") error.callerInput = true;
       throw error;
     }
-    validateSchemaSync("cartulary.harness_run_manifest.v2", manifest);
+    validateSchemaSync("cartulary.harness_run_manifest.v3", manifest);
     if (manifest.target !== "check" || manifest.cache_mode !== "normal") {
       throw Object.assign(new Error("RESULTS_DIR must be a full warm make check root with cache_mode=normal"), { callerInput: true });
     }

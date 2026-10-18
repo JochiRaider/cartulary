@@ -25,6 +25,26 @@ func TestSessionProtocol(t *testing.T) {
 	if os.Getenv("CARTULARY_SESSION_PROTOCOL_TEST_CHILD") == "1" {
 		os.Exit(Main(nil, os.Stdin, os.Stdout))
 	}
+	t.Run("public_cleanup_diagnostic_preserves_classification_without_private_proof", func(t *testing.T) {
+		cause := errors.Join(ErrUnresolved, &os.PathError{Op: "open", Path: "/proc/123/environ", Err: unix.EACCES}, errors.New("credential-sentinel"))
+		err := atCleanupStage("detail_producer", atCleanupStage("process_discovery", cause))
+		if !errors.Is(err, ErrUnresolved) || !errors.Is(err, unix.EACCES) {
+			t.Fatal("diagnostic changed the native classification")
+		}
+		d := DescribeCleanupFailure(err)
+		if d == nil || d.String() != "[RUNTIME-CLEANUP] stage=process_discovery cause=unresolved errno=13" {
+			t.Fatal("missing closed cleanup diagnostic", d)
+		}
+		if strings.Contains(d.String(), "123") || strings.Contains(d.String(), "environ") || strings.Contains(d.String(), "credential-sentinel") {
+			t.Fatal("public cleanup diagnostic retained private proof")
+		}
+		if DescribeCleanupFailure(nil) != nil || atCleanupStage("detail_remove", nil) != nil {
+			t.Fatal("successful cleanup acquired failure diagnostics")
+		}
+		if d := DescribeCleanupFailure(atCleanupStage("untrusted-stage-sentinel", errors.New("private-path-sentinel"))); d.String() != "[RUNTIME-CLEANUP] stage=runtime_close cause=internal errno=0" {
+			t.Fatal("unrecognized cleanup metadata escaped the closed boundary")
+		}
+	})
 	t.Run("bounded_private_rejections_exclude_arbitrary_detail", func(t *testing.T) {
 		for _, tc := range []struct {
 			err    error
@@ -52,6 +72,40 @@ func TestSessionProtocol(t *testing.T) {
 			if err != nil || harnessschema.Validate(RequestSchema, value) != nil {
 				t.Fatal("invalid rejection frame", err)
 			}
+		}
+	})
+	t.Run("physical_failure_diagnostic_is_closed_and_preserves_live_identity", func(t *testing.T) {
+		proof, err := CaptureProcess(os.Getpid())
+		if err != nil {
+			t.Fatal(err)
+		}
+		proof.Group = false
+		proof.Start = "0"
+		request, _ := json.Marshal(map[string]any{"proof": proof, "grace_ms": 0, "kill_ms": 1})
+		var output bytes.Buffer
+		if code := ProcessMain(nil, bytes.NewReader(request), &output); code != 12 {
+			t.Fatal("mismatched identity accepted", code)
+		}
+		d := DecodeCleanupDiagnostic(output.Bytes())
+		if d == nil || d.Stage != "process_identity" || d.Cause != "unresolved" {
+			t.Fatal("lost native diagnostic", output.String())
+		}
+		if unix.Kill(os.Getpid(), 0) != nil {
+			t.Fatal("rejected proof affected the live process")
+		}
+		for _, input := range [][]byte{
+			bytes.Repeat([]byte(" "), 4097),
+			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v1","stage":"process_identity","cause":"unresolved","errno":0,"pid":123}`),
+			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v1","stage":"process_identity","cause":"credential-sentinel","errno":0}`),
+			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v1","stage":"process_identity","cause":"unresolved","errno":0,"errno":13}`),
+		} {
+			if DecodeCleanupDiagnostic(input) != nil {
+				t.Fatal("unsafe diagnostic accepted")
+			}
+		}
+		output.Reset()
+		if code := ProcessMain(nil, strings.NewReader(`{"unknown":true}`), &output); code != 11 || output.Len() != 0 {
+			t.Fatal("malformed request reached physical cleanup")
 		}
 	})
 	t.Run("real_private_pipe_and_owner_binding", func(t *testing.T) {

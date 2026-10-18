@@ -116,7 +116,14 @@ func TestSessionScan(t *testing.T) {
 						t.Fatal(err)
 					}
 				case "public_file":
-					_ = os.WriteFile(file, []byte("safe"), 0644)
+					if err := os.WriteFile(file, []byte("safe"), 0600); err != nil {
+						t.Fatal(err)
+					}
+					// Creation modes are filtered by the caller's umask.
+					// Establish the unsafe fixture explicitly under secure callers.
+					if err := os.Chmod(file, 0644); err != nil {
+						t.Fatal(err)
+					}
 				case "forbidden_name":
 					_ = os.WriteFile(filepath.Join(root, "suite-lease.json"), []byte("safe"), 0600)
 				}

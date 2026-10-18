@@ -130,7 +130,6 @@ const versionVariables = Object.freeze([
   "SHELLCHECK_VERSION",
 ]);
 const positiveIntegerVariables = Object.freeze([
-  "HARNESS_SMOKE_JOBS",
   "PLAYWRIGHT_WORKERS",
   "VITEST_MAX_WORKERS",
   "FIXTURE_TOP",
@@ -594,7 +593,7 @@ function loadResolverTaskSurfaceManifest(env) {
   return loadTaskSurfaceManifest();
 }
 
-export function targetPolicy(target, manifest = loadTaskSurfaceManifest()) {
+export function targetPolicy(target, manifest = loadResolverTaskSurfaceManifest(process.env)) {
   return manifest.targets?.find((entry) => entry.name === target) ?? null;
 }
 
@@ -991,7 +990,7 @@ function validateTargetInputValue(name, value, input, manifest) {
         reason: input.invalid_reason,
       });
     }
-    return tokens.join(",");
+    return tokens.sort().join(",");
   }
   if (input.type === "target_name") {
     const knownTargets = new Set((manifest.targets ?? []).map((entry) => entry.name));
@@ -1058,7 +1057,7 @@ function validateTargetInputValue(name, value, input, manifest) {
   return value;
 }
 
-function resolveDeclaredTargetInputs(target, entry, manifest, env) {
+export function resolveDeclaredTargetInputs(target, entry, manifest, env) {
   const resolved = {};
   for (const input of inputRows(entry)) {
     const origin = makeOrigin(env, input.name);
@@ -1125,7 +1124,32 @@ function resolveDeclaredTargetInputs(target, entry, manifest, env) {
       summary_emission: input.summary_emission,
     };
   }
+  for (const constraint of entry.input_contract?.constraints ?? []) {
+    const present = (name) => Object.hasOwn(resolved, name);
+    if (constraint.kind === "exactly_one") {
+      if (constraint.inputs.filter(present).length !== 1) throw new HarnessConfigError(
+        `${target} requires exactly one of ${constraint.inputs.join(", ")}`, { reason: "usage_error" });
+    } else if (constraint.kind === "requires") {
+      if (present(constraint.input) && !present(constraint.required_input)) throw new HarnessConfigError(
+        `${constraint.input} requires ${constraint.required_input}`, { reason: "usage_error" });
+    } else throw new HarnessConfigError(`unknown input constraint for ${target}`);
+  }
   return resolved;
+}
+
+// Planning uses the same typed resolver as execution, with explicit values only.
+// A plan file cannot inject shared configuration, internal flags, or arguments.
+export function resolveCommandInputs(target, values, manifest) {
+  const entry = targetPolicy(target, manifest);
+  if (!entry || entry.target_class !== "public") throw new HarnessConfigError(`unknown public target ${target}`);
+  if (!values || typeof values !== "object" || Array.isArray(values)) throw new HarnessConfigError("command inputs must be a JSON object");
+  const declared = new Set(inputRows(entry).map((input) => input.name));
+  for (const [name, value] of Object.entries(values)) {
+    if (!declared.has(name)) throw new HarnessConfigError(`${name} is not declared for target ${target}`, { reason: "usage_error" });
+    if (typeof value !== "string") throw new HarnessConfigError(`${name} must be a string`, { reason: "usage_error" });
+  }
+  const env = { ...values, [makeInputSourcesEnv]: Object.keys(values).map((name) => `${name}=cli`).join(" ") };
+  return Object.fromEntries(Object.entries(resolveDeclaredTargetInputs(target, entry, manifest, env)).map(([name, input]) => [name, input.value]));
 }
 
 function rejectUndeclaredPublicInputs(target, entry, manifest, env) {
@@ -1290,6 +1314,16 @@ function loadRedactionManifest() {
 
 let redactionRules = null;
 let foundationValidatorRegistry = null;
+
+// Generated validators can change inside an explicit maintenance transaction.
+// Consumers discard all validated facts before crossing this generation boundary.
+export function reloadSchemaValidators() {
+  const generatedRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "generated");
+  for (const file of Object.keys(requireFromHarness.cache)) {
+    if (file.startsWith(`${generatedRoot}${path.sep}`)) delete requireFromHarness.cache[file];
+  }
+  foundationValidatorRegistry = null;
+}
 
 function compiledValidator(schemaID) {
   if (foundationValidatorRegistry === null) {

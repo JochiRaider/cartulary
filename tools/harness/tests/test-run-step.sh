@@ -1463,37 +1463,22 @@ fixture_run_output="$(
 )"
 assert_contains "$fixture_run_output" "[FIXTURE] fixture run total=36.0s count=3 top_strategy=postgres/transaction/transaction/transaction count=2 duration=35.0s hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture run summary output"
 
-mkdir -p "$fixture_results/older-run"
-touch -d '2026-01-01T00:00:00Z' "$fixture_results/older-run"
-touch -d '2030-01-02T00:00:00Z' "$fixture_results/fixture-run"
-fixture_report_output="$(
-  "$ROOT_DIR/tools/harness/diagnostics/fixture-report-cli.mjs" --results-dir "$fixture_results" --threshold-ms 30000 --top 2 \
-    2>&1
-)"
-assert_contains "$fixture_report_output" "[FIXTURE] fixture run total=36.0s count=3" "fixture report newest run aggregate output"
-assert_contains "$fixture_report_output" "hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture report newest run hotspots"
-assert_contains "$fixture_report_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report newest run target output"
-fixture_report_concrete_output="$(
-  "$ROOT_DIR/tools/harness/diagnostics/fixture-report-cli.mjs" --results-dir "$fixture_results/fixture-run" --threshold-ms 30000 --top 2 \
-    2>&1
-)"
-assert_contains "$fixture_report_concrete_output" "[FIXTURE] fixture run total=36.0s count=3" "fixture report concrete run aggregate output"
-assert_contains "$fixture_report_concrete_output" "hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture report concrete run hotspots"
-assert_contains "$fixture_report_concrete_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report concrete run target output"
-if fixture_report_mismatch_output="$(
-  "$ROOT_DIR/tools/harness/diagnostics/fixture-report-cli.mjs" --results-dir "$fixture_results/fixture-run" --run-id fixture-tie-run --threshold-ms 1 \
-    2>&1
-)"; then
-  fail "fixture report concrete run mismatch: expected failure"
-fi
-assert_contains "$fixture_report_mismatch_output" "RESULTS_DIR points to run fixture-run, but RUN_ID requested fixture-tie-run" "fixture report concrete run mismatch error"
-fixture_report_json="$fixture_results/fixture-report.json"
-"$ROOT_DIR/tools/harness/diagnostics/fixture-report-cli.mjs" --results-dir "$fixture_results" --run-id fixture-run --threshold-ms 30000 --json >"$fixture_report_json"
-assert_equals "$(json_field "$fixture_report_json" "schema_id")" "cartulary.fixture_report.v1" "fixture report schema"
-assert_equals "$(json_field "$fixture_report_json" "run_id")" "fixture-run" "fixture report run id"
-assert_equals "$(json_field "$fixture_report_json" "run_dir")" "$fixture_results/fixture-run" "fixture report run dir"
-assert_equals "$(json_field "$fixture_report_json" "aggregate.total_duration_ms")" "36000" "fixture report aggregate duration"
-assert_equals "$(json_field "$fixture_report_json" "targets.0.target")" "fixture-target" "fixture report target"
+"${NODE:-node}" --input-type=module - "$ROOT_DIR" "$fixture_results" <<'EOF'
+import assert from "node:assert/strict";
+const [repoRoot, resultsRoot] = process.argv.slice(2);
+const { buildFixtureReport, fixtureSummaryLine, fixtureSummaryLines } = await import(`${repoRoot}/tools/harness/diagnostics/fixture-reporting.mjs`);
+const { validateSchemaSync } = await import(`${repoRoot}/tools/harness/contract/index.mjs`);
+const report = buildFixtureReport({ repoRoot, resultsRoot, runId: "fixture-run", thresholdMs: 30000 });
+validateSchemaSync("cartulary.fixture_report.v1", report);
+assert.equal(report.run_id, "fixture-run");
+assert.equal(report.run_dir, `${resultsRoot}/fixture-run`);
+assert.equal(report.aggregate.total_duration_ms, 36000);
+assert.equal(report.targets[0].target, "fixture-target");
+const options = { thresholdMs: 30000, top: 2 };
+assert.match(fixtureSummaryLine(report.aggregate, options), /\[FIXTURE\] fixture run total=36\.0s count=3/);
+assert.ok(fixtureSummaryLine(report.aggregate, options).includes("hotspots=internal/modules/auth/postgres/transaction/transaction/transaction(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)"));
+assert.match(fixtureSummaryLines(report.targets, options).join("\n"), /\[FIXTURE\] fixture-target total=36\.0s count=3/);
+EOF
 
 write_fixture_event "$fixture_results" "fixture-aggregate-run" "fixture-suite" "01" "postgres-transaction" "fixture-child" 32000 "transaction" "transaction" "internal/modules/auth" "TestAggregateChild"
 CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
@@ -1505,16 +1490,16 @@ CARTULARY_TEST_RUN_ID="fixture-aggregate-run" \
 CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
 CARTULARY_TEST_RUN_ID="fixture-aggregate-run" \
   "$ROOT_DIR/tools/harness/output/test-output.sh" run-summary check pass 1 1 - fixture-parent >/dev/null 2>&1
-fixture_report_run_label_output="$(
-  "$ROOT_DIR/tools/harness/diagnostics/fixture-report-cli.mjs" --results-dir "$fixture_results" --run-id fixture-aggregate-run --target check --threshold-ms 1 \
-    2>&1
-)"
-assert_contains "$fixture_report_run_label_output" "[FIXTURE] check total=32.0s count=1" "fixture report run label target uses run summary"
-fixture_report_aggregate_target_output="$(
-  "$ROOT_DIR/tools/harness/diagnostics/fixture-report-cli.mjs" --results-dir "$fixture_results" --run-id fixture-aggregate-run --target fixture-parent --threshold-ms 1 \
-    2>&1
-)"
-assert_contains "$fixture_report_aggregate_target_output" "[FIXTURE] fixture-parent total=32.0s count=1" "fixture report aggregate target uses target summary totals"
+"${NODE:-node}" --input-type=module - "$ROOT_DIR" "$fixture_results" <<'EOF'
+import assert from "node:assert/strict";
+const [repoRoot, resultsRoot] = process.argv.slice(2);
+const { buildFixtureReport, fixtureSummaryLine } = await import(`${repoRoot}/tools/harness/diagnostics/fixture-reporting.mjs`);
+for (const target of ["check", "fixture-parent"]) {
+  const report = buildFixtureReport({ repoRoot, resultsRoot, runId: "fixture-aggregate-run", target, thresholdMs: 1 });
+  assert.equal(report.aggregate.total_duration_ms, 32000, "parent projections must not double-count child work");
+  assert.ok(fixtureSummaryLine(report.aggregate, { thresholdMs: 1 }).includes(`[FIXTURE] ${target} total=32.0s count=1`));
+}
+EOF
 
 teardown_accounting_results="$(cartulary_harness_mktemp_dir "target-timing-teardown-accounting.XXXXXX")"
 cleanup_paths+=("$teardown_accounting_results")

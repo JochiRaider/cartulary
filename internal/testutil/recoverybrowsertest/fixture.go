@@ -739,7 +739,12 @@ func createDatabase(ctx context.Context, adminDSN string, name string, templateD
 	if err := postgrescleanup.ForceDropDatabase(ctx, adminDSN, name); err != nil {
 		return fmt.Errorf("drop existing target db: %w", err)
 	}
-	return postgrescatalog.CloneDatabase(ctx, adminDSN, name, templateDatabase, restoreBrowserCatalogAdmissionLimit)
+	created, err := postgrescatalog.CloneDatabase(ctx, adminDSN, name, templateDatabase, restoreBrowserCatalogAdmissionLimit)
+	if err != nil && created {
+		_, cleanupErr := postgrescleanup.DropOwnedDatabase(context.Background(), adminDSN, name, 5*time.Second, 15*time.Second)
+		return errors.Join(err, cleanupErr)
+	}
+	return err
 }
 
 func dropDatabase(ctx context.Context, sourceDSN string, name string) error {
@@ -747,19 +752,7 @@ func dropDatabase(ctx context.Context, sourceDSN string, name string) error {
 	if err != nil {
 		return err
 	}
-	// A failed bounded drop must retain enough structural evidence to distinguish
-	// PostgreSQL lock/barrier waits from connection or scheduler delay. Observe
-	// only this exact authored command, never retain SQL or connection strings.
-	observationCtx, stop := context.WithCancel(ctx)
-	observed := make(chan string, 1)
-	go func() { observed <- observeDatabaseDrop(observationCtx, adminDSN, name) }()
-	err = postgrescleanup.ForceDropDatabase(ctx, adminDSN, name)
-	stop()
-	wait := <-observed
-	if err != nil && wait != "" {
-		return fmt.Errorf("%w (last drop wait: %s)", err, wait)
-	}
-	return err
+	return postgrescleanup.ForceDropDatabase(ctx, adminDSN, name)
 }
 
 func databaseDSN(rawDSN string, database string) (string, error) {

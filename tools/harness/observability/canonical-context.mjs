@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { canonicalJSONString, parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { assertMachineEvidencePath } from "../contract/artifact-reader.mjs";
+import { retainedGoWorkerBudget } from "../scheduler/work-graph/capability.mjs";
 
 const digest = (value) => `sha256:${createHash("sha256").update(canonicalJSONString(value)).digest("hex")}`;
 const bytesDigest = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -16,7 +17,7 @@ function ordered(values, label) {
 // Validate retained preimages only. Historical qualification never reads the
 // current checkout to fill in missing source, policy, or execution identities.
 export function validateExecutionContext(context, canonical, cleanup) {
-  validateSchemaSync("cartulary.harness_execution_context.v1", context);
+  validateSchemaSync("cartulary.harness_execution_context.v3", context);
   validateSchemaSync("cartulary.harness_cleanup_results.v1", cleanup);
   const { manifest, summary, registrations, targetSummaries } = canonical;
   same(context.manifest_digest, digest(manifest), "manifest");
@@ -48,6 +49,7 @@ export function validateExecutionContext(context, canonical, cleanup) {
   const { snapshot_digest, ...capability } = manifest.capability_snapshot;
   same(digest(capability), snapshot_digest, "capability snapshot");
   same(snapshot_digest, manifest.system_digest, "system capacity");
+  retainedGoWorkerBudget(manifest);
   ordered(context.host_profile.cpu_models, "CPU models");
 
   const { graph, projections } = context;
@@ -56,11 +58,20 @@ export function validateExecutionContext(context, canonical, cleanup) {
   ordered(graph.units.map((unit) => unit.unit_id), "graph units");
   same(graph.units.map((unit) => unit.unit_id), [...registrations.keys()].sort(), "registered units");
   const units = new Map(graph.units.map((unit) => [unit.unit_id, unit]));
+  const rowOwners = new Set();
   for (const unit of graph.units) {
     const { semantic_digest, ...preimage } = unit;
     same(digest(preimage), semantic_digest, "unit semantics");
     const registered = registrations.get(unit.unit_id);
     for (const key of ["kind", "needs", "resource_claims", "service_dependencies"]) same(registered[key], unit[key], `unit ${key}`);
+    const rows = unit.row_bindings.map((row) => row.row_id);
+    ordered(rows, "unit rows");
+    same(unit.current_run_evidence_outputs.filter((output) => output.startsWith("rows/")), rows.map((id) => `rows/${id}.json`), "row outputs");
+    same(registered.row_ids, rows, "registered rows");
+    for (const id of rows) {
+      if (rowOwners.has(id)) throw new Error("retained row has multiple graph owners");
+      rowOwners.add(id);
+    }
   }
   same(Object.keys(projections).sort(), [...targetSummaries.keys()].sort(), "target roster");
   for (const [target, projection] of Object.entries(projections)) {

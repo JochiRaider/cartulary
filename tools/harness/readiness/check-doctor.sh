@@ -67,7 +67,7 @@ if [[ -n "$node_path" ]]; then
     fail=2
   fi
 else
-  print_missing node "run make bootstrap-node-runtime"
+  print_missing node "run make bootstrap PART=node"
 fi
 
 if [[ -n "$node_path" ]]; then
@@ -98,7 +98,7 @@ if [[ -n "$pnpm_path" ]]; then
     fail=2
   fi
 else
-  print_missing pnpm "run make frontend-toolchain"
+  print_missing pnpm "run make bootstrap PART=frontend"
 fi
 
 shellcheck_path=""
@@ -114,7 +114,7 @@ if [[ -n "$shellcheck_path" ]]; then
     fail=2
   fi
 else
-  print_missing shellcheck "run make shell-lint-toolchain"
+  print_missing shellcheck "run make bootstrap"
 fi
 
 if command -v docker >/dev/null 2>&1; then

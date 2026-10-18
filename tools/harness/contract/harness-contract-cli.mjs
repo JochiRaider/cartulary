@@ -10,6 +10,9 @@ import {
   compactJSONString,
   generateTestRouteToken,
   preflightPublicTarget,
+  resolveHarnessConfig,
+  targetPolicy,
+  repoRoot,
   redactString,
   redactValue,
   resolveArtifactIdentityForTarget,
@@ -37,6 +40,13 @@ async function main(argv, programName) {
     if (!target || extra.length > 0) {
       usage(programName);
       return 2;
+    }
+    if (target !== "bootstrap" && targetPolicy(target)?.selection_binding) {
+      // Selection admission precedes retained-root creation and Make producers.
+      // Keep the foundation contract independent of the graph implementation.
+      const resolved = resolveHarnessConfig(target);
+      const { WorkGraphCompiler, admitCommandSelection } = await import("../scheduler/work-graph/index.mjs");
+      admitCommandSelection(new WorkGraphCompiler(repoRoot), target, resolved.variables.target_inputs);
     }
     preflightPublicTarget(target);
     return 0;

@@ -5,7 +5,7 @@ const makeVariablePattern = /^[A-Z][A-Z0-9_]*$/u;
 
 const runtimeBinaryRecordKeys = Object.freeze([
   "id",
-  "producer_target",
+  "producer_operation",
   "output_make_variable",
   "consumer_env",
   "default_output_path",
@@ -50,12 +50,12 @@ function normalizeRepoRelativePath(value, label) {
   return normalized;
 }
 
-function normalizeRuntimeBinaryEntry(raw, label, { taskTargets = null } = {}) {
+function normalizeRuntimeBinaryEntry(raw, label, { operationIDs = null } = {}) {
   const entry = requireObject(raw, label);
   for (const key of Object.keys(entry)) {
     if (
       !runtimeBinaryRecordKeys.includes(key) &&
-      !["producerTarget", "outputMakeVariable", "consumerEnv", "defaultOutputPath"].includes(key)
+      !["producerOperation", "outputMakeVariable", "consumerEnv", "defaultOutputPath"].includes(key)
     ) {
       throw new Error(`${label} has unknown key ${key}`);
     }
@@ -64,13 +64,13 @@ function normalizeRuntimeBinaryEntry(raw, label, { taskTargets = null } = {}) {
   if (!idPattern.test(id)) {
     throw new Error(`${label}.id must be a lowercase identifier`);
   }
-  const producerTarget = requireString(
-    rawField(entry, "producer_target", "producerTarget"),
-    `${label}.producer_target`,
+  const producerOperation = requireString(
+    rawField(entry, "producer_operation", "producerOperation"),
+    `${label}.producer_operation`,
   );
-  if (taskTargets && !taskTargets.has(producerTarget)) {
+  if (operationIDs && !operationIDs.has(producerOperation)) {
     throw new Error(
-      `${label}.producer_target ${producerTarget} is missing from task_surface.targets`,
+      `${label}.producer_operation ${producerOperation} is missing from canonical operations`,
     );
   }
   const outputMakeVariable = requireString(
@@ -93,11 +93,11 @@ function normalizeRuntimeBinaryEntry(raw, label, { taskTargets = null } = {}) {
   );
   return {
     id,
-    producerTarget,
+    producerOperation,
     outputMakeVariable,
     consumerEnv,
     defaultOutputPath,
-    producer_target: producerTarget,
+    producer_operation: producerOperation,
     output_make_variable: outputMakeVariable,
     consumer_env: consumerEnv,
     default_output_path: defaultOutputPath,

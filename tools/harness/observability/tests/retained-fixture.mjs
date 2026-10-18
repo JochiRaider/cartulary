@@ -1,8 +1,11 @@
+import { readFileSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { canonicalJSONString } from "../../contract/index.mjs";
 import path from "node:path";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
 import { executionRecordsDigest } from "../../runtime/execution-observations.mjs";
 const digest = `sha256:${"a".repeat(64)}`;
-const unit = (id) => ({ unit_id: id, owner_id: "harness.evidence_accounting", kind: "runner", command: { executable: "true", args: [], environment: {} }, needs: [], resource_claims: { cpu: 1, process: 1 }, fixture_lease: "none", service_dependencies: [], cache_policy: "none", timeout_ms: 1000, current_run_evidence_outputs: [], failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" }, estimated_work_ms: 10 });
+const unit = (id) => ({ unit_id: id, owner_id: "harness.evidence_accounting", kind: "runner", command: { executable: "true", args: [], environment: {} }, needs: [], resource_claims: { cpu: 1, process: 1 }, fixture_lease: "none", service_dependencies: [], cache_policy: "none", timeout_ms: 1000, row_bindings: [], current_run_evidence_outputs: [], failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" }, estimated_work_ms: 10 });
 export function writeCanonicalFixture(dir) {
   const graph = { units: [unit("a")] };
   const wait = { wait_reason: "rank", blocking_resources: [], blocking_unit_ids: [] };
@@ -18,9 +21,9 @@ export function writeCanonicalFixture(dir) {
   const capability = { schema_id: "cartulary.harness_capability_snapshot.v1", cpu_tokens: 2, memory_bytes: 1024,
     process_slots: 2, io_tokens: 1, postgres_lanes: 1, object_store_lanes: 1,
     writable_volume: true, port_lanes: 1, services: {}, sources: {}, snapshot_digest: digest };
-  const manifest = { schema_id: "cartulary.harness_run_manifest.v2", run_id: path.basename(dir), target: "test-slice",
+  const manifest = { schema_id: "cartulary.harness_run_manifest.v3", run_id: path.basename(dir), target: "test-slice",
     command_id: "cartulary.harness.command.test_slice.v2", declared_inputs: {}, source_commit: "a".repeat(40), source_state: "dirty",
-    source_digest: digest, toolchain_digest: digest, system_digest: digest, graph_digest: digest, capability_snapshot: capability,
+    source_digest: digest, toolchain_digest: digest, system_digest: digest, graph_digest: digest, capability_snapshot: capability, go_worker_budget: 2,
     cache_mode: "off", instrumentation: { mode: "basic", policy_digest: digest }, started_at: "2026-10-09T00:00:00.000Z" };
   const timing = { setup_ms: 2, fixture_ms: 0, execution_ms: 7, collation_ms: 0, wrapper_ms: 1, unattributed_ms: 0, resource_blocking_ms: 0, process_count: 1 };
   const summary = { schema_id: "cartulary.harness_run_summary.v1", run_id: path.basename(dir), target: "test-slice", status: "pass",
@@ -46,4 +49,42 @@ export function writeCanonicalFixture(dir) {
     run_id: manifest.run_id, source_digest: digest, graph_digest: digest, policy_digest: digest, status: "complete", omitted_records: 0,
     omitted_refs: [], records, records_digest: executionRecordsDigest(records) }));
   return { manifest, summary, events };
+}
+
+// Complete immutable evidence, independent of the current checkout except for
+// the typed instrumentation policy whose exact bytes are retained as a preimage.
+export function writeCompleteFixture(dir) {
+  const { manifest, summary, events } = writeCanonicalFixture(dir);
+  const hash = (value) => `sha256:${createHash("sha256").update(canonicalJSONString(value)).digest("hex")}`;
+  const bytesHash = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+  const write = (relative, value) => atomicLocalFile(path.join(dir, relative), JSON.stringify(value), { replace: true });
+  const policyBytes = readFileSync(new URL("../../../harness_instrumentation_policy.json", import.meta.url), "utf8");
+  const inputs = [
+    { path: "tools/harness_instrumentation_policy.json", kind: "file", mode: "0644", byte_digest: bytesHash(policyBytes) },
+    { path: "tools/toolchain_pins.json", kind: "file", mode: "0644", byte_digest: bytesHash("fixture toolchain") },
+  ];
+  const selected = { ...unit("a"), shared_locks: [], exclusive_locks: [], reusable_artifact_outputs: [] };
+  selected.semantic_digest = hash(selected);
+  const graph = { schema_id: "cartulary.harness_work_graph.v6", selector: "fixture", units: [selected], graph_digest: hash({ units: [selected] }) };
+  delete manifest.capability_snapshot.snapshot_digest;
+  manifest.capability_snapshot.snapshot_digest = hash(manifest.capability_snapshot);
+  Object.assign(manifest, { declared_inputs: { OWNER: "harness.evidence_accounting", SCOPE: "all" },
+    source_digest: hash({ schema_id: "cartulary.source_snapshot_digest.v2", entries: inputs }), toolchain_digest: inputs[1].byte_digest,
+    system_digest: manifest.capability_snapshot.snapshot_digest, graph_digest: graph.graph_digest,
+    instrumentation: { mode: "off", policy_digest: hash(JSON.parse(policyBytes)) } });
+  const context = { schema_id: "cartulary.harness_execution_context.v3", manifest_digest: hash(manifest), graph,
+    projections: { "test-slice": { command_id: manifest.command_id, unit_ids: ["a"] } }, source_inputs: inputs,
+    host_profile: { platform: "linux", architecture: "x64", kernel_release: "fixture", cpu_models: ["fixture"] }, instrumentation_policy_bytes: policyBytes };
+  summary.artifact_refs.push("execution-context.json", "cleanup-results.json", "unit-results/a.json", "retained-secret-scan.json");
+  write("run-manifest.json", manifest); write("run-summary.json", summary); write("execution-context.json", context);
+  write("cleanup-results.json", { schema_id: "cartulary.harness_cleanup_results.v1", run_id: manifest.run_id,
+    results: [{ sequence: 1, operation: "host_release", unit_id: "a", fixture_lease_id: null, outcome: "completed", failure_class: null, failure_reason: null, failures: [], artifact_refs: [] }] });
+  write("unit-results/a.json", { schema_id: "cartulary.harness_unit_result.v1", unit_id: "a", semantic_digest: selected.semantic_digest,
+    status: "passed", exit_code: 0, signal: null, failure_class: null, failure_reason: null, evidence_outputs: [], missing_outputs: [] });
+  write("retained-secret-scan.json", { schema_id: "cartulary.harness_retained_secret_scan.v1", status: "pass", scanned_files: 12, policy_digest: bytesHash("fixture scan") });
+  const target = JSON.parse(readFileSync(path.join(dir, "target-summaries/test-slice.json")));
+  target.workload_digest = hash({ target: "test-slice", evidence_outputs: [] });
+  write("target-summaries/test-slice.json", target);
+  rmSync(path.join(dir, "diagnostics/execution-index.json"));
+  return { manifest, summary, events, context, write };
 }

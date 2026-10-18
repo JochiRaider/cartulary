@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v8",
+  "schema_id": "cartulary.test_family_manifest.v9",
   "owner_id": "harness.test_catalog",
   "rows": [
     {
@@ -12,7 +12,7 @@
       ],
       "runner": "shell",
       "selector": {
-        "command_id": "cartulary.harness.command.harness_graph_contract.v1"
+        "operation_id": "harness.harness_graph_contract"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",

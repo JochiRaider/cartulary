@@ -66,9 +66,9 @@ const retainedRows = [
   "platform.postgres.support_unit.certificate_fixture_lifecycle",
 ];
 const retainedPolicyTargets = [
-  "check-harness-smoke", "json-shape-check", "test-catalog-check",
-  "generate-drift", "generated-artifact-policy-check", "migration-input-drift",
-  "backend-module-boundary-check", "frontend-import-boundary-check",
+  "harness.public_wrapper_smoke", "harness.json_shape_check", "harness.test_catalog_check",
+  "harness.source_generated", "harness.generated_artifact_policy_check", "harness.migration_input_drift",
+  "harness.backend_module_boundary_check", "harness.frontend_import_boundary_check",
   "go-gosec-targeted", "go-vulncheck",
 ];
 
@@ -84,13 +84,13 @@ export function assertHarnessTierRouting(context) {
     assert.equal(compiler.catalog.rowByID.get(rowID)?.minimum_tier, "full", rowID);
   }
   const plans = new Map();
-  for (const target of ["test-fast", "check", "test", "ci", "release-check"]) {
+  for (const target of ["test-fast", "check", "ci", "release-check"]) {
     const plan = compiler.compileAggregatePlan(target);
     plans.set(target, plan);
     validateWorkGraph(plan.graph);
     const selected = rowIDs(plan.graph);
     assert.equal(new Set(selected).size, selected.length, `${target}: unique row evidence`);
-    const includesFull = ["test", "ci", "release-check"].includes(target);
+    const includesFull = ["ci", "release-check"].includes(target);
     for (const rowID of fullTierSelfTests) {
       assert.equal(selected.includes(rowID), includesFull, `${target}: ${rowID}`);
     }
@@ -135,8 +135,8 @@ export function assertHarnessTierRouting(context) {
     }
   }
   for (const target of ["backend-unit", "backend-integration", "backend-process"]) {
-    const direct = compiler.compileTarget(target);
-    assert.deepEqual(rowIDs(direct), compiler.targetRows.get(target).slice().sort(), `${target}: complete direct catalog selection`);
+    const direct = compiler.compileCommand("test-slice", { SUITE: target }).graph;
+    assert.deepEqual(rowIDs(direct), [...compiler.targetRows.get(target), ...(target === "backend-integration" ? compiler.targetRows.get("backend-integration-support") : [])].sort(), `${target}: complete direct catalog selection`);
   }
 }
 
@@ -173,16 +173,19 @@ export function assertCatalogTierSelection(context) {
   const service = compiler.catalog.rowByID.get("harness.browser.integration.wstest_helper_contract");
   const rows = [...independent, service].map((row, index) => ({ ...row, minimum_tier: compiler.owner.tier_order[index] }));
   compiler._catalog = { ...compiler.catalog, rows, rowByID: new Map(rows.map((row) => [row.row_id, row])) };
+  compiler.taskSurface.harness_checks = [];
+  // This fixture isolates tier selection from policy and public command views.
+  compiler.taskSurface.targets = compiler.taskSurface.targets.filter((entry) => compiler.owner.aggregate_tiers[entry.name]);
   for (const target of Object.keys(compiler.owner.aggregate_tiers)) {
     compiler.owner.aggregate_policy_roots[target] = [];
     compiler.owner.aggregate_policy_inherits[target] = [];
   }
-  for (const [target, count] of [["test-fast", 1], ["check", 2], ["test", 3], ["ci", 3], ["release-check", 4]]) {
+  for (const [target, count] of [["test-fast", 1], ["check", 2], ["ci", 3], ["release-check", 4]]) {
     const plan = compiler.compileAggregatePlan(target);
     assert.deepEqual(plan, compiler.compileAggregatePlan(target), `${target}: deterministic`);
     validateWorkGraph(plan.graph);
     assert.deepEqual(rowIDs(plan.graph), rows.slice(0, count).map((row) => row.row_id).sort());
-    assert.equal(plan.graph.units.some((unit) => unit.unit_id === "target:test-service-images"), count === 4,
+    assert.equal(plan.graph.units.some((unit) => unit.unit_id === "operation:harness.test_service_images"), count === 4,
       `${target}: excluded service rows cannot introduce readiness`);
   }
   assert.deepEqual(rowIDs(compiler.compileRows([service.row_id])), [service.row_id], "explicit selection ignores aggregate tier");

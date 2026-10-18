@@ -11,7 +11,7 @@ export const defaultGeneratedMakeRuntimePath = path.join(
   "tools",
   "task_surface.runtime.generated.mk",
 );
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
+export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v16";
 export const workGraphRuntimeSource = "tools/harnessruntime/main.go";
 
 export const restrictedInternalMakeVariables = Object.freeze([
@@ -99,26 +99,6 @@ export function summaryEntryMap(manifest) {
     ...targetEntryMap(manifest),
     ...harnessCheckEntryMap(manifest),
   ]);
-}
-
-export function harnessTierChecks(manifest, name) {
-  const tier = manifest.harness_tiers?.[name];
-  if (!tier) {
-    throw new Error(`unknown harness tier ${name}`);
-  }
-  return [...tier.checks];
-}
-
-export function harnessCheck(manifest, name) {
-  const check = harnessCheckEntryMap(manifest).get(name);
-  if (!check) {
-    throw new Error(`unknown harness check ${name}`);
-  }
-  return {
-    name: check.name,
-    backing_scripts: [...check.backing_scripts],
-    command: check.command === undefined ? null : [...check.command],
-  };
 }
 
 export function sequenceDefinition(manifest, name) {

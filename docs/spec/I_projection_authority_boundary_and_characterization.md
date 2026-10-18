@@ -130,7 +130,7 @@ the JSON shape changes.
 | `facade_packages` | Source-owner facade package boundary declared by each provider. | Package-level owner evidence; test imports remain separate. Timeline declares `internal/modules/timeline/workbookprojection`; Tasks/Decisions declares `internal/modules/tasksdecisions/projectioncontract`. Source extraction stays owner-owned while projection storage writes stay in `projections`. |
 | `import_policy` | Validation-manifest import policy for projection root, adapter, and contract packages. | Root production importer list is empty; adapter and contract packages are approved by exact package path. |
 
-`make json-shape-check` validates the manifest shape.
+`make source-check CHECK=schema` validates the manifest shape.
 `internal/app/projectionassembly/catalog_manifest_test.go` compares the
 manifest to the fully assembled immutable descriptor set and checks consumer
 port completeness. `contracts/projection-providers/README.md` owns the short

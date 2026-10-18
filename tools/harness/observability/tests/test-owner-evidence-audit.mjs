@@ -33,8 +33,8 @@ function fixture(t, target = "test-slice") {
   const root = mkdtempSync(path.join(os.tmpdir(), "cartulary-owner-audit-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const rows = ["first", "second"].map((name) => ({ row_id: `${owner}.unit.${name}`, owner_id: owner, runner: "go", evidence_class: "unit", runtime_profile_id: "none" }));
-  const units = rows.map((row, i) => ({ unit_id: `u${i}`, kind: "runner", needs: [], resource_claims: { cpu: 1 }, service_dependencies: [], semantic_digest: digest, current_run_evidence_outputs: [`rows/${row.row_id}.json`, `unit-results/u${i}.json`] }));
-  const rowResult = (row) => ({ schema_id: "cartulary.harness_row_result.v3", row_id: row.row_id, runner: "go", terminal_state: "passed", duration_ms: 1, exit_code: 0,
+  const units = rows.map((row, i) => ({ unit_id: `u${i}`, kind: "runner", needs: [], resource_claims: { cpu: 1 }, service_dependencies: [], semantic_digest: digest, row_bindings: [{ row_id: row.row_id, runner: row.runner }], current_run_evidence_outputs: [`rows/${row.row_id}.json`, `unit-results/u${i}.json`] }));
+  const rowResult = (row) => ({ schema_id: "cartulary.harness_row_result.v4", row_id: row.row_id, runner: "go", terminal_state: "passed", duration_ms: 1, exit_code: 0,
     failure_class: null, failure_reason: null, failure_diagnostic: null, started_at: "2026-10-13T00:00:00.000Z", finished_at: "2026-10-13T00:00:00.001Z", wall_duration_ms: 1 });
   const unitResult = (unit) => ({ schema_id: "cartulary.harness_unit_result.v1", unit_id: unit.unit_id, semantic_digest: digest, status: "passed", exit_code: 0, signal: null,
     failure_class: null, failure_reason: null, missing_outputs: [], evidence_outputs: unit.current_run_evidence_outputs });
@@ -88,6 +88,7 @@ test("owner audit admits required support projections from a public provider", a
     for (const row of f.rows) {
       if (target === "backend-integration-support") Object.assign(row, { family_id: `${owner}.support_integration`, evidence_class: "integration", runtime_profile_id: "default" });
       else Object.assign(row, { runner: "playwright", selector: { stage: "support" }, evidence_class: "browser", runtime_profile_id: "default" });
+      f.units.find((unit) => unit.row_bindings[0].row_id === row.row_id).row_bindings[0].runner = row.runner;
       f.save(`rows/${row.row_id}.json`, { ...f.rowResult(row), runner: row.runner });
     }
     assert.equal((await auditOwnerEvidence(f.options)).status, "pass");
@@ -157,6 +158,7 @@ test("owner audit rejects incompatible source, selection, results, cleanup and p
     (f) => { f.run.registrations.get("u0").needs = ["u1"]; },
     (f) => { f.run.registrations.get("u0").resource_claims = { cpu: 2 }; },
     (f) => { f.run.registrations.get("u0").service_dependencies = ["postgres"]; },
+    (f) => { f.units[0].row_bindings[0].runner = "vitest"; },
     (f) => { f.projection.unit_ids = ["u0"]; },
     (f) => { f.projection.evidence_refs = []; },
     (f) => { f.save("cleanup-results.json", { ...f.cleanup, run_id: "foreign" }); },

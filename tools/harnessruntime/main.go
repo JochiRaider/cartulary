@@ -53,14 +53,18 @@ func run() int {
 		if err != nil {
 			return 2
 		}
-		summary, code, err := harnessruntime.Run(ctx, root, binary, os.Args[2:], os.Environ())
+		report, code, err := harnessruntime.Run(ctx, root, binary, os.Args[2:], os.Environ())
+		if report != nil && report.CleanupDiagnostic != nil {
+			fmt.Fprintln(os.Stderr, report.CleanupDiagnostic)
+		}
 		if err != nil {
 			class, reason := harnessruntime.PublicFailure(err)
 			fmt.Fprintf(os.Stderr, "[GRAPH-FAIL] failure_class=%s failure_reason=%s\n", class, reason)
 			return code
 		}
-		if summary != nil {
-			if os.Getenv("CARTULARY_OUTPUT_MODE") == "machine" {
+		if report != nil {
+			summary := report.Summary
+			if report.JSONOutput || os.Getenv("CARTULARY_OUTPUT_MODE") == "machine" {
 				_ = json.NewEncoder(os.Stdout).Encode(summary)
 			} else if os.Getenv("CARTULARY_OUTPUT_MODE") != "quiet" || code != 0 {
 				out := os.Stdout
@@ -80,7 +84,7 @@ func run() int {
 	case "session":
 		return harnesssession.Main(os.Args[2:], os.Stdin, os.Stdout)
 	case "process":
-		return harnesssession.ProcessMain(os.Args[2:], os.Stdin)
+		return harnesssession.ProcessMain(os.Args[2:], os.Stdin, os.Stderr)
 	case "admission":
 		return harnessadmission.Main(os.Args[2:], os.Stdout)
 	case "collect":

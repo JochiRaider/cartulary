@@ -122,6 +122,7 @@ export function validatePublicInputContract(errors, entry) {
     "undeclared_make_command_line",
     "undeclared_inherited_env",
     "inputs",
+    "constraints",
   ]);
   for (const key of Object.keys(contract)) {
     if (!allowedKeys.has(key)) {
@@ -137,6 +138,18 @@ export function validatePublicInputContract(errors, entry) {
   if (!Array.isArray(contract.inputs)) {
     errors.push(`${entry.name}.input_contract.inputs must be an array`);
     return;
+  }
+  const declaredNames = new Set(contract.inputs.map((input) => input?.name));
+  if (contract.constraints !== undefined && !Array.isArray(contract.constraints)) errors.push(`${entry.name}.input_contract.constraints must be an array`);
+  for (const constraint of Array.isArray(contract.constraints) ? contract.constraints : []) {
+    const keys = constraint?.kind === "exactly_one" ? ["kind", "inputs"] : ["kind", "input", "required_input"];
+    const names = constraint?.kind === "exactly_one" ? constraint.inputs : [constraint?.input, constraint?.required_input];
+    if (!constraint || !["exactly_one", "requires"].includes(constraint.kind) ||
+        Object.keys(constraint).some((key) => !keys.includes(key)) ||
+        !Array.isArray(names) || names.length < 2 || new Set(names).size !== names.length ||
+        names.some((name) => !declaredNames.has(name))) {
+      errors.push(`${entry.name}.input_contract has an invalid constraint`);
+    }
   }
   const seen = new Set();
   for (const [index, input] of contract.inputs.entries()) {
@@ -232,5 +245,32 @@ export function validatePublicInputContract(errors, entry) {
     if (!validInputChildForwarding.has(input.child_forwarding)) {
       errors.push(`${label}.child_forwarding has invalid value ${JSON.stringify(input.child_forwarding)}`);
     }
+  }
+}
+
+export function validateCommandSelectionBinding(errors, entry) {
+  const binding = entry.selection_binding;
+  if (binding === undefined) return;
+  const identity = (value) => typeof value === "string" && /^harness\.[a-z][a-z0-9_]*$/u.test(value);
+  if (!binding || typeof binding !== "object" || Array.isArray(binding) || !["fixed", "selector", "owner_or_suite"].includes(binding.kind)) {
+    errors.push(`${entry.name}.selection_binding has an unknown kind`);
+    return;
+  }
+  const keys = binding.kind === "fixed" ? ["kind", "selection", "browser_mode"] : ["kind", "input", "variants", "default_selection"];
+  if (Object.keys(binding).some((key) => !keys.includes(key))) errors.push(`${entry.name}.selection_binding has unknown fields`);
+  if (binding.browser_mode !== undefined && binding.browser_mode !== "snapshot_update") errors.push(`${entry.name}.selection_binding has invalid browser mode`);
+  if (binding.kind === "fixed") {
+    if (!identity(binding.selection)) errors.push(`${entry.name}.selection_binding requires a canonical selection`);
+    return;
+  }
+  const input = entry.input_contract?.inputs.find((candidate) => candidate.name === binding.input);
+  if (!input || input.type !== "enum") errors.push(`${entry.name}.selection_binding requires a declared enum selector`);
+  if (!binding.variants || typeof binding.variants !== "object" || Array.isArray(binding.variants) ||
+      !Object.values(binding.variants).every(identity) ||
+      JSON.stringify(Object.keys(binding.variants).sort()) !== JSON.stringify([...(input?.values ?? [])].sort())) {
+    errors.push(`${entry.name}.selection_binding must bind every selector value exactly once`);
+  }
+  if (binding.default_selection !== undefined && (!identity(binding.default_selection) || input?.required || input?.default !== null)) {
+    errors.push(`${entry.name}.selection_binding default requires an optional selector without a value default`);
   }
 }

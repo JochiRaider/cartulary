@@ -76,21 +76,13 @@ function readJSON(relative) {
   return JSON.parse(readFileSync(path.join(root, relative), "utf8"));
 }
 
-const retiredTargets = [
-  "browser-e2e-functional",
-  "check-service-backed",
-  "release-browser-readiness",
-  "test-fast-service-backed",
-  "test-local",
-  "test-service-backed",
-];
 const tiers = ["fast", "standard", "full", "release"];
 
 function assertPerformanceEvidenceGenerationBoundary() {
   const attachments = readJSON("tools/harness_schema_attachments.json");
   const activeIDs = new Set(attachments.attachments.map((entry) => entry.schema_id));
   for (const schemaID of [
-    "cartulary.browser_target_result.v6",
+    "cartulary.browser_target_result.v7",
     "cartulary.frontend_measurement_aggregate.v5",
     "cartulary.frontend_measurement_observation.v4",
     "cartulary.frontend_measurement_summary.v5",
@@ -394,8 +386,8 @@ const generalCases = [
     name: "current task-surface and topology identities are exact",
     acceptance_ids: ["TH-HARNESS-AC-082"],
     run(context) {
-      assert.equal(context.taskSurface.schema_id, "cartulary.task_surface_owner.v2");
-      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v11");
+      assert.equal(context.taskSurface.schema_id, "cartulary.task_surface_owner.v4");
+      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v12");
     },
   },
   {
@@ -442,8 +434,21 @@ const generalCases = [
     name: "retired public target aliases remain absent",
     acceptance_ids: ["TH-HARNESS-AC-001"],
     run(context) {
+      const retiredTargets = readJSON("tools/harness/tests/retired-make-names.json").retired_names;
       assert.ok(retiredTargets.every((target) =>
         !context.taskSurface.targets.some((entry) => entry.name === target)));
+      const results = mkdtempSync(path.join(tmpdir(), "cartulary-retired-commands-"));
+      try {
+        const env = { ...process.env, CARTULARY_TEST_RESULTS_DIR: results, CARTULARY_TEST_RUN_ID: "retired-rejection" };
+        delete env.MAKEFLAGS; delete env.MAKEOVERRIDES; delete env.MFLAGS;
+        let failure;
+        try { execFileSync("make", ["--no-print-directory", "--keep-going", "--", ...retiredTargets], { cwd: root, env, stdio: "pipe" }); }
+        catch (error) { failure = error; }
+        assert.equal(failure?.status, 2, "every retired command rejects before dispatch");
+        const output = `${failure.stdout}${failure.stderr}`;
+        for (const target of retiredTargets) assert.ok(output.includes(`No rule to make target '${target}'`), `${target} must have no callable rule`);
+        assert.deepEqual(readdirSync(results), [], "rejected commands must not prepare retained execution");
+      } finally { rmSync(results, { recursive: true, force: true }); }
     },
   },
   {
@@ -462,7 +467,7 @@ const generalCases = [
     name: "cache registry exposes the current test-row profile",
     acceptance_ids: ["TH-HARNESS-AC-091"],
     run(context) {
-      assert.equal(context.cacheRegistry.schema_id, "cartulary.harness_cache_registry.v1");
+      assert.equal(context.cacheRegistry.schema_id, "cartulary.harness_cache_registry.v2");
       assert.ok(context.cacheRegistry.profiles.some((profile) => profile.profile_id === "test_rows"));
     },
   },
@@ -519,15 +524,20 @@ async function assertBoundaryContract(context, kind) {
     }
     case "current_schema_presence":
       for (const schema of [
-        "cartulary.harness_work_graph.v5.schema.json",
-        "cartulary.harness_run_manifest.v2.schema.json",
+        "cartulary.harness_work_graph.v6.schema.json",
+        "cartulary.harness_execution_context.v3.schema.json",
+        "cartulary.harness_runtime_plan.v5.schema.json",
+        "cartulary.harness_run_manifest.v3.schema.json",
         "cartulary.harness_unit_event.v4.schema.json",
         "cartulary.harness_run_summary.v1.schema.json",
       ]) assert.ok(existsSync(path.join(root, "tools/schemas", schema)));
       return;
     case "retired_schema_absence":
       for (const oldSchema of [
+        "cartulary.harness_execution_context.v1.schema.json",
         "cartulary.harness_execution_context.v2.schema.json",
+        "cartulary.harness_runtime_plan.v3.schema.json",
+        "cartulary.harness_work_graph.v5.schema.json",
         "cartulary.harness_invocation_start.v1.schema.json",
         "cartulary.harness_observability_index.v1.schema.json",
         "cartulary.harness_sequence_event.v1.schema.json",
@@ -539,7 +549,7 @@ async function assertBoundaryContract(context, kind) {
       return;
     case "work_graph_owner_validation":
       validateSchemaSync(
-        "cartulary.harness_work_graph_owner.v2",
+        "cartulary.harness_work_graph_owner.v4",
         readJSON("tools/harness_work_graph_owner.json"),
       );
       return;
@@ -653,7 +663,7 @@ function assertExactFileSetContract() {
 }
 
 function assertCommandSurfaceContract(context, kind) {
-  const graphTargets = ["test-slice", "service-backed-test-slice", "test-fast", "test", "check", "ci", "release-check", "lint"];
+  const graphTargets = ["test-slice", "browser-e2e", "test-fast", "check", "ci", "release-check", "lint"];
   switch (kind) {
     case "graph_entrypoints":
       assert.ok(graphTargets.every((target) => context.taskSurface.make_recipes[target]?.type === "work_graph"));
@@ -775,7 +785,7 @@ function assertEvidenceContract(context, kind) {
 }
 
 function assertGraphContract(context, kind) {
-  const roots = ["test-fast", "check", "test", "ci", "release-check"];
+  const roots = ["test-fast", "check", "ci", "release-check"];
   switch (kind) {
     case "aggregate_determinism":
       for (const target of roots) {
@@ -830,7 +840,7 @@ function assertGraphContract(context, kind) {
       return;
     }
     case "visual_semantic_partition": {
-      const graph = context.compiler.compile({ kind: "target", target: "browser-e2e-visual" });
+      const graph = context.compiler.compile({ kind: "target", target: "harness.suite_browser_visual" });
       const groups = graph.units.filter((unit) => unit.unit_id.startsWith("browser_group:visual:"));
       const rows = context.catalog.rows.filter((row) => row.runner === "playwright" && row.selector.stage === "visual");
       const selected = groups.flatMap((unit) => {
@@ -848,7 +858,7 @@ function assertGraphContract(context, kind) {
       return;
     }
     case "measurement_semantic_identity": {
-      const graph = context.compiler.compile({ kind: "target", target: "browser-e2e-measurement" });
+      const graph = context.compiler.compile({ kind: "target", target: "harness.suite_browser_measurement" });
       const groups = graph.units.filter((unit) => unit.unit_id.startsWith("browser_group:measurement:measurement-measurement-timeline-grid-"));
       const rows = context.catalog.rows.filter((row) => row.selector?.file === "apps/web/e2e/measurement/timeline-grid.spec.ts");
       assert.equal(groups.length, 4);
@@ -1094,10 +1104,10 @@ async function assertDependencyClosureContract(context) {
 function assertReleaseInventoryContract(context) {
   const producerGraph = context.compiler.compile({
     kind: "target",
-    target: "release-inventory-artifacts",
+    target: "harness.release_inventory_artifacts",
   });
   const producer = producerGraph.units.find(
-    (unit) => unit.unit_id === "target:release-inventory-artifacts",
+    (unit) => unit.unit_id === "operation:harness.release_inventory_artifacts",
   );
   assert.ok(producer, "release inventory producer must compile as one semantic unit");
   assert.equal(producer.cache_policy, "content_addressed");
@@ -1107,20 +1117,20 @@ function assertReleaseInventoryContract(context) {
       relative_path: ".cartulary/release-artifacts/license-report.json",
       destination_class: "repository_artifact",
       mode: "0644",
-      producer_identity: "target:release-inventory-artifacts",
+      producer_identity: "operation:harness.release_inventory_artifacts",
     },
     {
       artifact_type: "file",
       relative_path: ".cartulary/release-artifacts/sbom.cyclonedx.json",
       destination_class: "repository_artifact",
       mode: "0644",
-      producer_identity: "target:release-inventory-artifacts",
+      producer_identity: "operation:harness.release_inventory_artifacts",
     },
   ]);
   const profile = context.cacheRegistry.profiles.find(
     (entry) => entry.profile_id === "release_artifacts",
   );
-  assert.deepEqual(profile.targets, ["release-inventory-artifacts"]);
+  assert.deepEqual(profile.operation_ids, ["harness.release_inventory_artifacts"]);
   for (const requiredInput of [
     "go.mod",
     "go.sum",
@@ -1167,12 +1177,12 @@ function assertReleaseInventoryContract(context) {
       `${pathUnderTest} must change the release inventory cache key`,
     );
   }
-  for (const target of ["license-report", "sbom"]) {
+  for (const target of ["harness.license_report", "harness.sbom"]) {
     const graph = context.compiler.compile({ kind: "target", target });
-    const validator = graph.units.find((unit) => unit.unit_id === `target:${target}`);
+    const validator = graph.units.find((unit) => unit.unit_id === `operation:${target}`);
     assert.equal(validator.cache_policy, "none");
     assert.ok(
-      validator.needs.includes("target:release-inventory-artifacts"),
+      validator.needs.includes("operation:harness.release_inventory_artifacts"),
       `${target} must consume the canonical producer`,
     );
     assert.deepEqual(validator.reusable_artifact_outputs, []);
@@ -1237,7 +1247,7 @@ async function assertSchedulerContract(context, kind) {
       /postgres_lanes=3 exceeds the detected policy bound 2/u,
     );
   } else if (kind === "cache_registry_targets") {
-    assert.ok(context.cacheRegistry.profiles.every((profile) => new Set(profile.targets).size === profile.targets.length));
+    assert.ok(context.cacheRegistry.profiles.every((profile) => new Set(profile.operation_ids).size === profile.operation_ids.length));
   } else if (kind === "content_cache") {
     await assertDependencyClosureContract(context);
 
@@ -1330,15 +1340,15 @@ suiteCases.evidence.push(semanticCase(
         ["module.networkflow.measurement.saved_graph_dom_ceiling", "build-web-measurement"],
       ]) {
         const graph = context.compiler.compileRows([rowID]);
-        assert.ok(graph.units.some((unit) => unit.unit_id === `target:${expectedProducer}`), `row ${rowID} must build ${expectedProducer}`);
+        assert.ok(graph.units.some((unit) => unit.unit_id === `operation:harness.${expectedProducer.replaceAll("-", "_")}`), `row ${rowID} must build ${expectedProducer}`);
         // Measurement still builds the backend's embedded production assets.
         // Production work must never acquire the measurement producer.
-        if (expectedProducer === "build-web") assert.ok(!graph.units.some((unit) => unit.unit_id === "target:build-web-measurement"), `production row ${rowID} must not build measurement output`);
+        if (expectedProducer === "build-web") assert.ok(!graph.units.some((unit) => unit.unit_id === "operation:harness.build_web_measurement"), `production row ${rowID} must not build measurement output`);
       }
-      assert.notEqual(production.producer_target, measurement.producer_target);
+      assert.notEqual(production.producer_report_key, measurement.producer_report_key);
       assert.notEqual(production.path, measurement.path);
       for (const artifact of [production, measurement]) {
-        const runID = artifact.producer_target;
+        const runID = artifact.producer_report_key;
         const runRoot = path.join(temporaryRoot, runID);
         mkdirSync(runRoot, { mode: 0o700 });
         writeFileSync(path.join(runRoot, "run-manifest.json"), JSON.stringify({ source_digest: `sha256:${"1".repeat(64)}`, toolchain_digest: `sha256:${"2".repeat(64)}` }));
@@ -1350,7 +1360,7 @@ suiteCases.evidence.push(semanticCase(
           for (const entry of artifact.entries) writeFileSync(path.join(staging, entry), entry);
           const profile = { ...artifact, id: artifact === production ? "production" : "measurement" };
           const directory = sealFrontendArtifact({ repoRoot: root, runRoot, runtime, profile, staging });
-          const sealed = resolveFrontendArtifact(root, artifact.producer_target, environment);
+          const sealed = resolveFrontendArtifact(root, artifact.producer_report_key, environment);
           const frontend = { build_artifact_ref: sealed.receiptRef, build_receipt_sha256: sealed.receiptDigest, build_artifact_sha256: sealed.receipt.content_digest };
           validateFrontendAttachment(root, artifact, frontend, environment);
           const other = artifact === production ? measurement : production;

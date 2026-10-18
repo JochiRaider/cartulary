@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { otlpProjection } from "../harness/observability/otlp-projection.mjs";
+import { policyDependencyRowIDs } from "../harness/scheduler/work-graph/policy-rows.mjs";
 import { enforcePrivateProcessUmask } from "../harness/runtime/private-process.mjs";
 import {
   expectedBrowserRuntimeProbe,
@@ -2088,24 +2089,25 @@ function validateRuntimeBehavior(checks) {
   const resultsRoot = process.env.CARTULARY_TEST_RESULTS_DIR;
   const runID = process.env.CARTULARY_TEST_RUN_ID;
   const manifest = readJSON("tools/test_families/platform.telemetry.json");
-  const activeRows = manifest.rows.filter((row) => row.status === "active");
+  const selectedIDs = policyDependencyRowIDs(readJSON("tools/harness_work_graph_owner.json"), "harness.otel_conformance", manifest.rows);
+  if (selectedIDs.length === 0) throw new Error("telemetry conformance requires explicit runtime evidence dependencies");
   const runRoot = resultsRoot && runID
     ? path.resolve(repoRoot, resultsRoot, runID)
     : "";
   const failures = [];
-  for (const row of activeRows) {
-    const resultFile = path.join(runRoot, "rows", `${row.row_id}.json`);
+  for (const rowID of selectedIDs) {
+    const resultFile = path.join(runRoot, "rows", `${rowID}.json`);
     if (!runRoot || !absoluteFileExists(resultFile)) {
-      failures.push(`${row.row_id}:missing`);
+      failures.push(`${rowID}:missing`);
       continue;
     }
     const result = JSON.parse(readFileSync(resultFile, "utf8"));
-    if (result.schema_id !== "cartulary.harness_row_result.v3" || result.terminal_state !== "passed") {
-      failures.push(`${row.row_id}:${result.terminal_state ?? "invalid"}`);
+    if (result.schema_id !== "cartulary.harness_row_result.v4" || result.row_id !== rowID || result.terminal_state !== "passed") {
+      failures.push(`${rowID}:${result.terminal_state ?? "invalid"}`);
     }
   }
   assert(
-    activeRows.length > 0 && failures.length === 0,
+    selectedIDs.length > 0 && failures.length === 0,
     `current platform.telemetry runtime, privacy, exporter-failure, retry, queue, and shutdown canonical row evidence passes${failures.length === 0 ? "" : `; ${failures.join(", ")}`}`,
     checks,
     "runtime.current_behavior",

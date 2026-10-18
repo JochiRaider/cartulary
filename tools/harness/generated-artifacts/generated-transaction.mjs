@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 import {
+  closeSync,
+  constants,
   cpSync,
   existsSync,
+  fchmodSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   readdirSync,
   renameSync,
@@ -22,11 +27,46 @@ function validateRelative(relative) {
     typeof relative !== "string" ||
     !relative ||
     path.isAbsolute(relative) ||
-    relative.split(/[\\/]/u).includes("..")
+    relative.includes("\\") ||
+    relative.split("/").some((part) => !part || part === "." || part === ".." || part === "docs" || /^README(?:\..*)?$/iu.test(part) || /\.md$/iu.test(part))
   ) {
     throw new Error(`unsafe generated path ${relative}`);
   }
   return relative;
+}
+
+// Source permissions belong to generated publication, independently of the
+// caller's mask. This admits only the declared source inventory, never scratch
+// evidence, and does not replace unchanged source inodes.
+export function normalizeGeneratedSourceModes(root, generatedPaths) {
+  const normalize = (file) => {
+    const info = lstatSync(file);
+    if (info.isSymbolicLink()) throw new Error("generated source cannot be a symbolic link");
+    if (info.isDirectory()) {
+      for (const name of readdirSync(file).sort(compareASCII)) {
+        validateRelative(path.relative(root, path.join(file, name)));
+        normalize(path.join(file, name));
+      }
+      return;
+    }
+    if (!info.isFile() || info.nlink !== 1) throw new Error("unsafe generated source inode");
+    const descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    try {
+      const owned = fstatSync(descriptor);
+      if (!owned.isFile() || owned.nlink !== 1 || owned.dev !== info.dev || owned.ino !== info.ino) throw new Error("unsafe generated source inode");
+      if ((owned.mode & 0o7777) !== 0o644) fchmodSync(descriptor, 0o644);
+    } finally { closeSync(descriptor); }
+  };
+  const admitted = generatedPaths.map(validateRelative);
+  for (const relative of admitted) {
+    let parent = root;
+    for (const component of relative.split("/").slice(0, -1)) {
+      parent = path.join(parent, component);
+      const info = lstatSync(parent);
+      if (!info.isDirectory() || info.isSymbolicLink()) throw new Error("unsafe generated source ancestor");
+    }
+  }
+  for (const relative of admitted) normalize(path.join(root, relative));
 }
 
 function equalPath(left, right) {
@@ -63,6 +103,7 @@ export function publishGeneratedTransaction({
   afterMove = () => {},
   rename = renameSync,
 }) {
+  normalizeGeneratedSourceModes(renderedRoot, generatedPaths);
   const changed = changedGeneratedPaths(repoRoot, renderedRoot, generatedPaths);
   if (changed.length === 0) return { status: "unchanged", changed: [] };
   const root = transactionRoot ?? path.join(repoRoot, "tmp");
@@ -120,8 +161,8 @@ function parseCLI(argv) {
     else if (arg === "--mode") options.mode = argv[++index] ?? "";
     else throw new Error("invalid generated transaction arguments");
   }
-  if (!options.repo || !options.rendered || !options.manifest || !["check", "refresh"].includes(options.mode)) {
-    throw new Error("generated transaction requires repo, rendered, manifest, and check|refresh mode");
+  if (!options.repo || !options.manifest || !["check", "refresh", "normalize"].includes(options.mode) || (options.mode !== "normalize" && !options.rendered)) {
+    throw new Error("generated transaction requires repo, manifest, and check|refresh|normalize mode; comparison requires rendered");
   }
   return options;
 }
@@ -132,6 +173,10 @@ function main() {
   const generatedPaths = manifest.generated_paths;
   if (!Array.isArray(generatedPaths) || generatedPaths.length === 0) {
     throw new Error("generated transaction manifest has no generated_paths");
+  }
+  if (options.mode === "normalize") {
+    normalizeGeneratedSourceModes(options.repo, generatedPaths);
+    return;
   }
   const changed = changedGeneratedPaths(options.repo, options.rendered, generatedPaths);
   if (options.mode === "check" && changed.length > 0) {

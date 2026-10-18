@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
+import { readOperationOwner } from "./operations.mjs";
 
 import {
   canonicalJSONString,
@@ -7,12 +6,10 @@ import {
   validateSchemaSync,
 } from "../../contract/index.mjs";
 
-const graphSchemaID = "cartulary.harness_work_graph.v5";
+const graphSchemaID = "cartulary.harness_work_graph.v6";
 
 export function loadWorkGraphOwner(root) {
-  const owner = JSON.parse(
-    readFileSync(path.join(root, "tools/harness_work_graph_owner.json"), "utf8"),
-  );
+  const owner = readOperationOwner(root);
   validateSchemaSync(owner.schema_id, owner);
   return owner;
 }
@@ -53,8 +50,19 @@ export function validateWorkGraph(graph, { capacities } = {}) {
   const unitIDs = graph.units.map((unit) => unit.unit_id);
   assertSortedUnique(unitIDs, "graph.units.unit_id");
   const byID = new Map(graph.units.map((unit) => [unit.unit_id, unit]));
+  const rowOwners = new Set();
 
   for (const unit of graph.units) {
+    const rows = unit.row_bindings.map((row) => row.row_id);
+    assertSortedUnique(rows, `${unit.unit_id}.row_bindings`);
+    const outputs = unit.current_run_evidence_outputs.filter((output) => output.startsWith("rows/"));
+    if (canonicalJSONString(outputs) !== canonicalJSONString(rows.map((id) => `rows/${id}.json`))) {
+      throw new Error(`${unit.unit_id} row bindings do not close over evidence outputs`);
+    }
+    for (const row of rows) {
+      if (rowOwners.has(row)) throw new Error(`row ${row} has multiple graph owners`);
+      rowOwners.add(row);
+    }
     if (Object.keys(unit.resource_claims).length === 0) {
       throw new Error(`${unit.unit_id}.resource_claims must bound executable work`);
     }
@@ -189,6 +197,7 @@ export function buildWorkGraph(units) {
     }
     const unit = finalizeUnit({
       ...rawUnit,
+      row_bindings: [...(rawUnit.row_bindings ?? [])].sort((a, b) => a.row_id < b.row_id ? -1 : a.row_id > b.row_id ? 1 : 0),
       service_dependencies: [...rawUnit.service_dependencies],
       shared_locks: [...new Set(sharedLocks)].sort(),
       exclusive_locks: [...new Set(exclusiveLocks)].sort(),

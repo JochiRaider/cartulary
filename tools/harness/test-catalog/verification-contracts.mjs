@@ -77,6 +77,8 @@ export function loadVerificationContracts(root) {
   const registryFile = path.join(root, registryPath);
   const registry = readJSON(registryFile);
   validateSchemaSync(registrySchemaID, registry);
+  const surface = readJSON(path.join(root, "tools/task_surface_owner.json"));
+  const publicTargets = new Set(surface.targets.filter((entry) => entry.target_class === "public" && entry.lifecycle_state === "public_active").map((entry) => entry.name));
 
   const ownerIDs = registry.owners.map((entry) => entry.owner_id);
   const contractPaths = registry.owners.map((entry) => entry.contract_path);
@@ -113,6 +115,9 @@ export function loadVerificationContracts(root) {
       }
       assertSortedUnique(verification.evidence_kinds, `${label}.evidence_kinds`);
       validateProfile(verification, label);
+      if (verification.public_target && !publicTargets.has(verification.public_target)) {
+        throw new Error(`${label}.public_target references an unknown active public command: ${verification.public_target}`);
+      }
       if (verificationByID.has(verification.verification_id)) {
         throw new Error(
           `duplicate verification_id ${verification.verification_id}`,

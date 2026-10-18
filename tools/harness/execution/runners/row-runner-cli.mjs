@@ -32,17 +32,7 @@ function parseArgs(argv) {
   return rowIDs.sort();
 }
 
-function readTaskCommandTargets() {
-  const taskSurface = JSON.parse(
-    readFileSync(path.join(root, "tools/task_surface_owner.json"), "utf8"),
-  );
-  const targets = new Map(
-    taskSurface.targets
-      .filter((target) => target.command_id)
-      .map((target) => [target.command_id, target.name]),
-  );
-  return targets;
-}
+
 
 function runRoot() {
   const resultsDir = process.env.CARTULARY_TEST_RESULTS_DIR;
@@ -61,11 +51,10 @@ function writeResult(result) {
 }
 
 async function execute(invocation, producer) {
-  const commandID = [...readTaskCommandTargets()].find(([, target]) => target === process.env.CARTULARY_TEST_TARGET)?.[0];
   const launch = createLaunchContext({ repoRoot: root, environment: process.env,
-    unitID: process.env.CARTULARY_WORK_UNIT_ID || `row:${invocation.rows[0].row_id}`, commandID,
+    unitID: process.env.CARTULARY_WORK_UNIT_ID || `row:${invocation.rows[0].row_id}`,
     rowIDs: invocation.rows.map((row) => row.row_id), producer });
-  const context = commandID ? createCommandFailureContext({ repoRoot: root, environment: process.env, launch }) : null;
+  const context = launch.identity.command_id ? createCommandFailureContext({ repoRoot: root, environment: process.env, launch }) : null;
   let result;
   try {
     result = await runPrivateCapturedProcess(invocation.command, invocation.args, {
@@ -127,11 +116,10 @@ function invocationsForRows(rows) {
   if (runner === "shell") {
     if (rows.length !== 1) throw new Error("shell units execute exactly one row");
     const row = rows[0];
-    const commandTargets = readTaskCommandTargets();
-    const targetName = targetForCatalogRow(row, { commandTargetByID: commandTargets });
+    const targetName = targetForCatalogRow(row);
     const shellRow = { ...row, target_name: targetName };
     return {
-      invocations: buildShellInvocations([shellRow], process.env.MAKE || "make"),
+      invocations: buildShellInvocations([shellRow]),
       adapt: adaptShellInvocation,
     };
   }
@@ -210,7 +198,7 @@ async function main() {
   }
   for (const result of results) {
     writeResult({
-      schema_id: "cartulary.harness_row_result.v3",
+      schema_id: "cartulary.harness_row_result.v4",
       ...result,
       runner: rows[0].runner,
       started_at: startedAt,

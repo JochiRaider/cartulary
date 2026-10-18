@@ -5,6 +5,7 @@ package harnessruntime
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -188,8 +189,139 @@ func TestRuntimeCanonicalNodeParity(t *testing.T) {
 	}
 }
 func TestRuntimeRequiredPublication(t *testing.T) {
+	t.Run("dependency rows publish before consumers without replacing root failure", func(t *testing.T) {
+		fixture := planFixture(t)
+		graph := fixture["graph"].(map[string]any)
+		a := graph["units"].([]any)[0].(map[string]any)
+		b := maps.Clone(a)
+		rowID := "harness.command_surface.unit.scheduler_smoke"
+		b["unit_id"], b["needs"] = "unit:b", []any{"unit:a"}
+		b["row_bindings"] = []any{map[string]any{"row_id": rowID, "runner": "go"}}
+		b["current_run_evidence_outputs"] = []any{"rows/" + rowID + ".json", "unit-results/unit-b.json"}
+		graph["units"] = []any{a, b}
+		fixture["projections"].(map[string]any)["test-slice"].(map[string]any)["unit_ids"] = []any{"unit:a", "unit:b"}
+		cache := maps.Clone(fixture["cache"].([]any)[0].(map[string]any))
+		cache["unit_id"] = "unit:b"
+		fixture["cache"] = append(fixture["cache"].([]any), cache)
+		rehashPlan(t, fixture)
+		p, err := decodePlan(planBytes(t, fixture))
+		if err != nil {
+			t.Fatal(err)
+		}
+		root := t.TempDir()
+		if err := os.Chmod(root, 0700); err != nil {
+			t.Fatal(err)
+		}
+		publisher, err := newGraphPublication(p, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer publisher.Abort()
+		observed := false
+		result, err := executeGraph(context.Background(), p, enginePorts{Event: func(e map[string]any) error {
+			if err := publisher.Event(e); err != nil {
+				return err
+			}
+			if e["event"] == "skipped" {
+				var row map[string]any
+				data, err := os.ReadFile(filepath.Join(root, "rows", rowID+".json"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal(data, &row); err != nil {
+					t.Fatal(err)
+				}
+				if row["terminal_state"] != "skipped_dependency" || row["runner"] != "go" || row["duration_ms"] != float64(0) || row["started_at"] != row["finished_at"] {
+					t.Fatal(row)
+				}
+				observed = true
+			}
+			return nil
+		}, Terminal: publisher.Terminal, Execute: func(_ context.Context, req executionRequest) unitResult {
+			if req.Unit.ID != "unit:a" {
+				t.Error("blocked row executed")
+			}
+			return unitResult{Status: "failed", ExitCode: 10, Failure: failed("product", "test_assertion_failure")}
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		summary, err := publisher.Finish(result)
+		if err != nil || !observed || summary["failure_class"] != "product" || summary["failure_reason"] != "test_assertion_failure" {
+			t.Fatal(summary, err)
+		}
+	})
+	t.Run("unavailable row publication preserves evidence and fails closed", func(t *testing.T) {
+		for _, mode := range []string{"setup", "timeout", "passed_existing", "malformed", "foreign_runner", "symlink", "missing_pass"} {
+			t.Run(mode, func(t *testing.T) {
+				u := engineUnit("unit:a", 1)
+				row := rowBinding{ID: "harness.command_surface.unit.scheduler_smoke", Runner: "go"}
+				u.Rows = []rowBinding{row}
+				p := enginePlan(u)
+				root := t.TempDir()
+				publisher := &graphPublication{plan: p, root: root, facts: newCanonicalFacts(p)}
+				publisher.facts.starts[u.ID] = 0
+				terminal := canonicalTerminal{status: "failed", failure: failed("infra", "service_start_error")}
+				if mode == "timeout" {
+					terminal.failure = failed("timing", "timeout_failure")
+				}
+				if mode == "missing_pass" {
+					terminal.status, terminal.failure = "passed", nil
+				}
+				file := filepath.Join(root, "rows", row.ID+".json")
+				var original []byte
+				if mode == "passed_existing" || mode == "foreign_runner" {
+					items, err := semanticEvidence(unit{ID: "unit:a", Digest: "sha256:" + strings.Repeat("a", 64), Evidence: []string{"rows/" + row.ID + ".json", "unit-results/a.json"}, Rows: u.Rows}, semanticRows{Status: "passed", Rows: []cachedRow{{ID: row.ID, Runner: "go"}}}, time.Now())
+					if err != nil {
+						t.Fatal(err)
+					}
+					original = items[0].Bytes
+					if mode == "foreign_runner" {
+						original = []byte(strings.Replace(string(original), `"runner":"go"`, `"runner":"vitest"`, 1))
+					}
+					writeFixtureFile(t, file, original, 0600)
+				} else if mode == "malformed" {
+					original = []byte("{")
+					writeFixtureFile(t, file, original, 0600)
+				} else if mode == "symlink" {
+					if err := os.MkdirAll(filepath.Dir(file), 0700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Symlink("/dev/null", file); err != nil {
+						t.Fatal(err)
+					}
+				}
+				err := publisher.publishRows(u, terminal)
+				unsafe := mode == "malformed" || mode == "foreign_runner" || mode == "symlink" || mode == "missing_pass"
+				if (err != nil) != unsafe {
+					t.Fatalf("unexpected publication result: %v", err)
+				}
+				if original != nil {
+					got, e := os.ReadFile(file)
+					if e != nil || string(got) != string(original) {
+						t.Fatal("existing row was rewritten", e)
+					}
+				}
+				if mode == "setup" || mode == "timeout" {
+					data, e := os.ReadFile(file)
+					if e != nil {
+						t.Fatal(e)
+					}
+					var v map[string]any
+					if json.Unmarshal(data, &v) != nil || v["terminal_state"] != "infrastructure_failed" || v["failure_reason"] != terminal.failure.Reason {
+						t.Fatal(v)
+					}
+				}
+			})
+		}
+	})
 	t.Run("cache_cancellation_publishes_terminal_without_execution", func(t *testing.T) {
-		p, err := decodePlan(planBytes(t, planFixture(t)))
+		fixture := planFixture(t)
+		rowID := "harness.command_surface.unit.scheduler_smoke"
+		fixture["graph"].(map[string]any)["units"].([]any)[0].(map[string]any)["row_bindings"] = []any{map[string]any{"row_id": rowID, "runner": "go"}}
+		fixture["graph"].(map[string]any)["units"].([]any)[0].(map[string]any)["current_run_evidence_outputs"] = []any{"rows/" + rowID + ".json", "unit-results/unit-a.json"}
+		rehashPlan(t, fixture)
+		p, err := decodePlan(planBytes(t, fixture))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -219,7 +351,7 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 		if err != nil || summary["status"] != "cancelled" || summary["failure_class"] != "interrupted" {
 			t.Fatal(summary, err)
 		}
-		for _, name := range []string{"run-summary.json", "unit-events.ndjson", "cleanup-results.json"} {
+		for _, name := range []string{"run-summary.json", "unit-events.ndjson", "cleanup-results.json", "rows/" + rowID + ".json"} {
 			if _, err := os.Stat(filepath.Join(root, name)); err != nil {
 				t.Fatal(name, err)
 			}
@@ -249,10 +381,10 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 	if retained["manifest_digest"] != p.context["manifest_digest"] || retained["graph"] == nil || retained["projections"] == nil || len(retained["source_inputs"].([]any)) == 0 {
 		t.Fatal("incomplete retained execution context")
 	}
-	if strings.Contains(string(contextBytes), "/private/node") || retained["bindings"] != nil || retained["cache_inputs"] != nil {
+	if strings.Contains(string(contextBytes), "/private/node") || retained["bindings"] != nil || retained["cache_inputs"] != nil || retained["input_environment"] != nil {
 		t.Fatal("private launch state was retained")
 	}
-	if err := writeEvidence(root, "execution-context.json", "cartulary.harness_execution_context.v1", retained, false); err == nil {
+	if err := writeEvidence(root, "execution-context.json", "cartulary.harness_execution_context.v3", retained, false); err == nil {
 		t.Fatal("immutable context was replaced")
 	}
 	publisher.Forbidden = func() ([]string, error) { return []string{"private-sentinel"}, nil }

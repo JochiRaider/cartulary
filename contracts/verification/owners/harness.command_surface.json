@@ -25,7 +25,7 @@
       "evidence_kinds": [
         "go_test"
       ],
-      "public_target": "harness-runtime-contract"
+      "public_target": "harness-contract"
     },
     {
       "verification_id": "harness.command_surface.verification.public_registry_parity",
@@ -43,6 +43,14 @@
       "profile": "support",
       "evidence_kinds": [
         "shell"
+      ]
+    },
+    {
+      "verification_id": "harness.command_surface.verification.scheduler_smoke",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "go_test"
       ]
     }
   ]

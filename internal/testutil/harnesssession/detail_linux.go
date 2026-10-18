@@ -272,11 +272,11 @@ func (r *Runtime) purgeDetail(id string) error {
 				continue
 			}
 			if err := StopProcess(ctx, proof, 200*time.Millisecond); err != nil {
-				return err
+				return atCleanupStage("detail_producer", err)
 			}
 		}
 		if err := settleScope(ctx, v.Scope, detailMarker, excluded); err != nil {
-			return err
+			return atCleanupStage("detail_descendants", err)
 		}
 	}
 	root := r.detailRoot(id)
@@ -286,10 +286,10 @@ func (r *Runtime) purgeDetail(id string) error {
 		dir.Close()
 	}
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
+		return atCleanupStage("detail_remove", err)
 	}
 	v.State = "purged"
-	return r.writeDetail(v)
+	return atCleanupStage("detail_authority", r.writeDetail(v))
 }
 
 func (r *Runtime) BeginRecoveryAttempt() (string, error) {

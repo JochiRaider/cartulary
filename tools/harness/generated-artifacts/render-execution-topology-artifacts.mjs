@@ -24,6 +24,8 @@ import {
   collectTaskSurfaceMakeDensityErrors,
 } from "./task-surface/index.mjs";
 
+import { helpProjection } from "./task-surface/make-renderer.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 export const renderIndexSchemaID = "cartulary.execution_topology_render_index.v1";
@@ -34,6 +36,8 @@ const renderedOutputKeys = [
   "scheduler_manifest",
   "task_surface_make",
   "task_surface_runtime_make",
+  "task_surface_help",
+  "task_surface_help_all",
 ];
 
 function usage() {
@@ -407,6 +411,8 @@ function renderArtifacts(options) {
   }
   return [
     outputEntry(topology.generatedOutputs.task_surface_manifest, serializeJSON(taskSurfaceManifest)),
+    outputEntry(topology.generatedOutputs.task_surface_help, serializeJSON(helpProjection(taskSurfaceManifest))),
+    outputEntry(topology.generatedOutputs.task_surface_help_all, serializeJSON(helpProjection(taskSurfaceManifest, { all: true }))),
     outputEntry(
       topology.generatedOutputs.scheduler_manifest,
       serializeJSON(schedulerManifest),

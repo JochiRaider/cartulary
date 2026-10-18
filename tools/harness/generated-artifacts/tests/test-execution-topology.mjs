@@ -56,7 +56,7 @@ for (const retired of [
 assert.deepEqual(scheduler.schedules, []);
 assert.equal(scheduler.generated.source_authoring.work_graph, "tools/harness_work_graph_owner.json");
 const compiler = new WorkGraphCompiler(root);
-for (const target of ["test-fast", "test", "check", "ci", "release-check"]) {
+for (const target of ["test-fast", "check", "ci", "release-check"]) {
   const first = compiler.compileAggregatePlan(target);
   const second = compiler.compileAggregatePlan(target);
   assert.deepEqual(first, second, `${target} compilation must be deterministic`);

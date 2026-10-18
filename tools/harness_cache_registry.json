@@ -1,18 +1,10 @@
 {
-  "schema_id": "cartulary.harness_cache_registry.v1",
+  "schema_id": "cartulary.harness_cache_registry.v2",
   "profiles": [
     {
       "profile_id": "build_outputs",
       "policy": "content_addressed",
       "dependency_strategy": "broad",
-      "targets": [
-        "build",
-        "build-migrate",
-        "build-operator",
-        "build-server",
-        "build-server-harness",
-        "embedded-web-assets"
-      ],
       "input_roots": [
         "apps",
         "cmd",
@@ -26,20 +18,21 @@
         "pnpm-workspace.yaml",
         "tools/toolchain_pins.json"
       ],
-      "requires_vulnerability_database_revision": false
+      "requires_vulnerability_database_revision": false,
+      "operation_ids": [
+        "harness.build_migrate",
+        "harness.build_operator",
+        "harness.build_server",
+        "harness.build_server_harness",
+        "harness.build_web",
+        "harness.embedded_web_assets"
+      ],
+      "runner_types": []
     },
     {
       "profile_id": "frontend_analysis",
       "policy": "content_addressed",
       "dependency_strategy": "broad",
-      "targets": [
-        "check-frontend-install",
-        "frontend-fallow-static",
-        "frontend-import-boundary-check",
-        "frontend-typecheck",
-        "lint-biome",
-        "lint-scripts"
-      ],
       "input_roots": [
         "apps",
         "package.json",
@@ -48,17 +41,21 @@
         "pnpm-workspace.yaml",
         "tools"
       ],
-      "requires_vulnerability_database_revision": false
+      "requires_vulnerability_database_revision": false,
+      "operation_ids": [
+        "harness.frontend_fallow_static",
+        "harness.frontend_import_boundary_check",
+        "harness.frontend_install",
+        "harness.frontend_typecheck",
+        "harness.lint_biome",
+        "harness.lint_scripts"
+      ],
+      "runner_types": []
     },
     {
       "profile_id": "go_analysis",
       "policy": "content_addressed",
       "dependency_strategy": "broad",
-      "targets": [
-        "backend-module-boundary-check",
-        "lint-go",
-        "lint-shell"
-      ],
       "input_roots": [
         "cmd",
         "go.mod",
@@ -67,15 +64,20 @@
         "scripts",
         "tools"
       ],
-      "requires_vulnerability_database_revision": false
+      "requires_vulnerability_database_revision": false,
+      "operation_ids": [
+        "harness.backend_module_boundary_check",
+        "harness.lint_go_format",
+        "harness.lint_go_staticcheck",
+        "harness.lint_go_vet",
+        "harness.lint_shell"
+      ],
+      "runner_types": []
     },
     {
       "profile_id": "go_vulnerability_scan",
       "policy": "content_addressed",
       "dependency_strategy": "broad",
-      "targets": [
-        "go-vulncheck"
-      ],
       "input_roots": [
         "cmd",
         "go.mod",
@@ -83,15 +85,16 @@
         "internal",
         "tools/toolchain_pins.json"
       ],
-      "requires_vulnerability_database_revision": true
+      "requires_vulnerability_database_revision": true,
+      "operation_ids": [
+        "harness.go_vulncheck"
+      ],
+      "runner_types": []
     },
     {
       "profile_id": "release_artifacts",
       "policy": "content_addressed",
       "dependency_strategy": "broad",
-      "targets": [
-        "release-inventory-artifacts"
-      ],
       "input_roots": [
         "LICENSE",
         "Makefile",
@@ -114,42 +117,39 @@
         "tools/release-evidence/validate-license-report.mjs",
         "tools/release-evidence/validate-release-sbom.mjs",
         "tools/schemas/cartulary.harness_cache_record.v2.schema.json",
-        "tools/schemas/cartulary.harness_work_graph.v5.schema.json",
+        "tools/schemas/cartulary.harness_work_graph.v6.schema.json",
         "tools/schemas/cartulary.license_report.v2.schema.json",
         "tools/toolchain_pins.json"
       ],
-      "requires_vulnerability_database_revision": false
+      "requires_vulnerability_database_revision": false,
+      "operation_ids": [
+        "harness.release_inventory_artifacts"
+      ],
+      "runner_types": []
     },
     {
       "profile_id": "run_setup",
       "policy": "same_run",
       "dependency_strategy": "broad",
-      "targets": [
-        "codegen-toolchain",
-        "go-lint-toolchain",
-        "goose-toolchain",
-        "gosec-toolchain",
-        "govulncheck-toolchain",
-        "shell-lint-toolchain",
-        "toolchain-drift"
-      ],
       "input_roots": [
         "tools/toolchain_pins.json"
       ],
-      "requires_vulnerability_database_revision": false
+      "requires_vulnerability_database_revision": false,
+      "operation_ids": [
+        "harness.codegen_toolchain",
+        "harness.go_lint_toolchain",
+        "harness.goose_toolchain",
+        "harness.gosec_toolchain",
+        "harness.govulncheck_toolchain",
+        "harness.shell_lint_toolchain",
+        "harness.toolchain_drift"
+      ],
+      "runner_types": []
     },
     {
       "profile_id": "test_rows",
       "policy": "content_addressed",
       "dependency_strategy": "unit_aware",
-      "targets": [
-        "backend-integration",
-        "backend-integration-support",
-        "backend-process",
-        "backend-store",
-        "backend-unit",
-        "frontend-unit"
-      ],
       "input_roots": [
         "Makefile",
         "apps",
@@ -168,7 +168,12 @@
         "tsconfig.base.json",
         "tsconfig.json"
       ],
-      "requires_vulnerability_database_revision": false
+      "requires_vulnerability_database_revision": false,
+      "operation_ids": [],
+      "runner_types": [
+        "go",
+        "vitest"
+      ]
     }
   ]
 }

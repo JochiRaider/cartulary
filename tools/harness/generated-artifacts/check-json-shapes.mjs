@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { projectOperationBindings, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -57,20 +58,19 @@ import {
   loadTaskSurfaceManifest,
 } from "./task-surface/index.mjs";
 import { quickCheckRenderIndex } from "./render-execution-topology-artifacts.mjs";
-import { validateVerificationContracts } from "../test-catalog/index.mjs";
-import { validateTestCatalog } from "../test-catalog/index.mjs";
+import { createValidatedContext } from "../test-catalog/index.mjs";
 import { validateTestCatalogImportBoundary } from "../test-catalog/index.mjs";
 import { validateExecutableInputPolicy } from "../test-catalog/index.mjs";
 import { validateTimelineRecipe } from "../fixtures/timeline-investigation/index.mjs";
 import { renderInstrumentationDefinitions } from "./instrumentation-definitions.mjs";
 import { validateFrontendVisualGoldenManifest } from "../browser/index.mjs";
+import { validateStaticConfiguration } from "../static-analysis/index.mjs";
 
 
 import { generateLayout } from "../workspace/layout.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-generateLayout(repoRoot, { check: true });
 const generatedArtifactPolicySchemaID =
   "cartulary.generated_artifact_policy.v1";
 const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v5";
@@ -81,7 +81,7 @@ const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 const fallowReachabilityOwnerSchemaID =
   "cartulary.fallow_reachability_owner.v1";
 const fallowStaticSummarySchemaID = "cartulary.fallow_static_summary.v2";
-const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
+const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v4";
 const testSupportInventorySchemaID = "cartulary.test_support_inventory.v1";
 const projectionProviderManifestSchemaID =
   "cartulary.projection_provider_manifest.v4";
@@ -776,7 +776,7 @@ function validateTaskSurfaceOwnerShape(file) {
     ),
     `${file}.targets.name`,
   );
-  const { schema_id: _schemaID, ...projection } = taskSurface;
+  const { schema_id: _schemaID, ...projection } = projectOperationBindings(taskSurface, readOperationOwner(repoRoot));
   const errors = collectTaskSurfaceManifestErrors({
     schema_id: taskSurfaceSchemaID,
     ...projection,
@@ -3574,11 +3574,12 @@ function validateKind(kind, file, root = repoRoot) {
   }
 }
 
-function validateAll(root) {
+function validateSourceFacts(root, context) {
+  generateLayout(root, { check: true });
+  context.validate(validateStaticConfiguration);
   validateSchemaAttachmentPolicy(root);
   validateHarnessHelperOwnership(root);
-  validateVerificationContracts(root);
-  const testCatalog = validateTestCatalog(root);
+  const testCatalog = context.catalog();
   validateTestCatalogImportBoundary(root);
   validateExecutableInputPolicy(root);
   const visualFixtureRegistry = readShapeFile(
@@ -3741,6 +3742,10 @@ function validateAll(root) {
   validateSchemaObjectOwnership(root);
 }
 
+export function validateSourceShapes(context) {
+  return context.validate(validateSourceFacts);
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.kind) {
@@ -3748,14 +3753,16 @@ function main() {
     console.log(`json shape check passed: ${options.kind}`);
     return;
   }
-  validateAll(options.root);
+  validateSourceShapes(createValidatedContext(options.root));
   console.log("json shape check passed");
 }
 
-try {
-  main();
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`json shape check failed: ${message}`);
-  process.exit(1);
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    main();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`json shape check failed: ${message}`);
+    process.exitCode = 1;
+  }
 }

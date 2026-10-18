@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_cleanup_diagnostic.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "stage",
+    "cause",
+    "errno"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_cleanup_diagnostic.v1"
+    },
+    "stage": {
+      "enum": [
+        "runtime_close",
+        "detail_producer",
+        "detail_descendants",
+        "detail_remove",
+        "detail_authority",
+        "process_discovery",
+        "process_identity",
+        "process_group_anchor",
+        "process_handle",
+        "process_signal",
+        "process_authority",
+        "process_settlement",
+        "process_protocol",
+        "browser_settlement",
+        "browser_acknowledgement",
+        "recovery_proof",
+        "recovery_purge"
+      ]
+    },
+    "cause": {
+      "enum": [
+        "internal",
+        "unsafe",
+        "unresolved",
+        "deadline",
+        "io"
+      ]
+    },
+    "errno": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4095
+    }
+  }
+}

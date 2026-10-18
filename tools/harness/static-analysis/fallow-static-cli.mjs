@@ -456,7 +456,7 @@ async function main() {
       });
     }
     if (!existsSync(fallowScript)) {
-      throw Object.assign(new Error("fallow package binary was not found; run make frontend-install"), {
+      throw Object.assign(new Error("fallow package binary was not found; run make bootstrap PART=frontend"), {
         failureClass: "config",
         failureReason: "configuration_error",
       });
