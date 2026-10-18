@@ -1,13 +1,13 @@
 # Test Harness Resource Lifecycle Remediation
 
-Status: comprehensive CI executed; its isolated restore-fixture cleanup failure
-received a focused repair as recorded below. A clean full CI result has not been
-established for the final repair. This document is a development
+Status: explicit-suite and lane hard cutover implemented; current completion
+qualification is recorded in the final section. Earlier lifecycle runs below
+are historical and do not qualify the cutover. This document is a development
 handoff, not conformance or release evidence. The adopted
 [Testing Harness NLSpec](../testing-harness-nlspec.md) governs mechanics; Core 04
 and Core 05 continue to govern production security and publication respectively.
 
-## Scope and decisions
+## Earlier lifecycle cutover: scope and decisions
 
 This is a pre-production hard cutover. PostgreSQL services already have an
 invocation owner; the waste comes from replaying cluster and database-local
@@ -17,8 +17,9 @@ fixture owner while retaining independently owned browser connections, fresh
 test contexts, database clones and existing application reset boundaries.
 
 One invocation owns its renderer pool. No renderer sharing crosses chats or
-invocations. The pool has at most four slots and remains subject to host
-admission. PostgreSQL may instead belong to an explicitly attached local session;
+invocations. That initial pool had at most four slots. The subsequent cutover below
+replaces this limit with topology-owned four-default/six-maximum policy, still
+subject to host admission. PostgreSQL may instead belong to an explicitly attached local session;
 that owner retains both physical cleanup authority and resident capacity.
 Measurement and seeded review use dedicated lifetimes through the same native
 allocation path. Explicit dev-origin review keeps its separately specified host
@@ -430,3 +431,236 @@ compatible successful full warm check was available at finalization. No separate
 target was added. The earlier accidental release-tier selection remains recorded
 above. Human review of specification projection and Core 05 publication remain
 separate obligations; test results do not replace them.
+
+
+## Explicit-suite and lane cutover (2026-10-18)
+
+This section records the subsequent cutover on source revision `808203eaf` plus
+uncommitted worktree changes. It does not reinterpret earlier failed/interrupted
+runs or claim their passes qualify the current source. Completion evidence below
+will identify the final source digest rather than inventing a commit.
+
+### Workstreams and sequencing
+
+| Phase / gap | Remediation and areas | Rationale and durable benefit | Migration / unresolved risk | Exit criteria |
+| --- | --- | --- | --- | --- |
+| 1: implicit suite inclusion | NLSpec REQ-800/054/056/082, all family manifests, work-graph owner, selection compiler and diagnostics adopt closed aggregate placement | A single row contract excludes optional expensive assurance before readiness | v9 catalogs and the old field reject; no aliases. Leaving policy expansion unconstrained can silently restore excluded work | Four aggregates and broad owner/suite selections exclude 58 rows; dedicated selectors and exact rows remain complete; invalid dependency fails before provisioning |
+| 2: uncertain fixture reuse | PostgreSQL cleanup and object-store helper implementation/tests enforce bounded settlement, poisoning and explicit attachment | Shared infrastructure does not imply shared dirty state or hidden provisioning | Implicit object-store callers must declare attachment or use owned lifecycle API. Ignored cleanup can contaminate later tests | Independent five-second rollback/close budgets, cancellation-safe cleanup, later borrowers rejected, ownership retained |
+| 3: competing browser controls | Topology owns four-default/six-maximum policy; public inputs, runtime plan, native slot owner and worker config use it | One concurrency control and one account/worker per group; resource capacities stay authoritative | Retire PLAYWRIGHT_WORKERS and browser SUITE=all; no translation. Divergent planner/pool limits cause wasted provisioning and contention | Synthetic six slots, waiting seventh, invalid-input/profile rejection, pressure/exclusive admission and fresh state remain proved |
+| 4: excess fixture/environment dependencies | Split Assessments pure row, correct Evidence dedicated fixture, rename two Node-only files and update Vite/runner/discovery/catalog | Dependency declarations match assertions and avoid needless PostgreSQL/jsdom setup | No old-path aliases or assertion deletion; orphaned/duplicate selection would lose assurance | Same symbol/title union exactly once; pure rows have no services/DOM; Evidence retains real concurrent database behavior |
+| 5: misleading qualification | Advance current schemas, generate projections, revise guides/recipes and retain exact completion evidence | Current contracts and result descriptions agree without executable Markdown dependencies | Historical results stay immutable. Aggregate success cannot mean omitted suites passed | Static/narrow checks, finalization and one consolidated CI plus explicit Visual/UI-Review completion gate |
+
+Phases 2 and 3 depend on phase 1; phase 3 also depends on lifecycle safety.
+Phase 4 depends on catalog migration. Phase 5 closes all source and generated
+changes. Synthetic tests replace no product assertions or physical completion
+checks. Six-way physical throughput is host-dependent and is not promised by
+six-slot synthetic qualification. The later user-authorized capacity increase
+is recorded below; physical resource accounting remains authoritative.
+
+No-change dispositions: production password hashing, per-test report-renderer
+browsers, potential semantic duplicates, Chromium lifetime, authenticated-context
+isolation, backend resets and migration replay retain their assurance contracts.
+No benchmark, baseline, golden refresh, production API or database migration is
+required. No CI-provider integration or new release qualification gate is added.
+
+### Development validation
+
+- `make generate`: initial run `20261018T212435Z-p41965` failed on the new
+  shell row's incorrect Go-only verification binding. Corrected the authored
+  verification; `cutover-generate-02` and `cutover-generate-03` passed, outer exit 0.
+- Initial focused/format attempts stopped in graph preparation (outer exit 2).
+  Corrected topology default projection and removed the remaining default
+  UI-Review operation. `cutover-format-02` passed, outer exit 0.
+- `cutover-focused-lifecycle-02`: combined native fixtures, pgtest helper, s3test
+  helper, object-store admission and browser-lane-policy rows passed, outer exit 0.
+  Native fixture and lane-policy checks used synthetic providers. The admission
+  row used its declared shared object-store service; this selection did not
+  provision PostgreSQL or a real browser.
+- Command-surface validation: `cutover-focused-command-01` passed public registry
+  parity but failed native runtime on an outdated nested aggregate row count.
+  The assertion now excludes the 58 explicit-only rows;
+  `cutover-focused-runtime-02` passed the native runtime selection (outer exit 0).
+- Routing: `cutover-focused-routing-01` exposed outdated default UI-Review and
+  broad Visual expectations plus a task-guide schema that required a nonempty
+  optional-command list. After correction, `cutover-focused-routing-02` passed
+  (outer exit 0).
+- Pure selections: `cutover-pure-assessments-01`, `cutover-pure-ui-node-01` and
+  `cutover-pure-views-node-01` passed (outer exit 0). The two renamed source files
+  retain their assertions and execute under Node, outside jsdom.
+- Worker/lane validation: `cutover-focused-workers-01` passed strict one-worker
+  fixtures and lane policy. `cutover-lane-final-01` also passed actual compiler
+  graph affinity checks at four and six lanes (outer exit 0).
+- Formatting/generation: `cutover-format-03` and `cutover-generate-05` passed.
+  `cutover-generated-check-01` passed generated verification. Schema validation
+  found the second topology shape reader missing `browser_lane_policy`; updating
+  it required refreshing its render index. `cutover-generate-06` and
+  `cutover-schema-check-03` then passed (outer exit 0). Earlier schema roots
+  `cutover-schema-check-01/02` remain failed evidence.
+- `cutover-markdown-01` passed Markdown lint; later handoff prose receives a final
+  Markdown-only check. `cutover-finalize-01` passed generated refresh, source,
+  schema and catalog validation. Its retained-run evidence and scheduler
+  maintenance actions were explicitly skipped because RESULTS_DIR was unset.
+- `cutover-static-01` passed `make lint CHECK=standard`, including Go, TypeScript,
+  frontend, script, shell, import-boundary and protocol checks (outer exit 0).
+
+All run IDs above are below `.cartulary/test-results/`. No historical full CI
+pass is assumed, and no warm baseline was created solely for finalizer upkeep.
+
+### Interrupted completion gate and focused repairs
+
+`CARTULARY_TEST_RUN_ID=cutover-ci-six-01 make ci BROWSER_LANES=6` was interrupted
+at the user's request to stop early and repair its failures. The native process
+exited 130 after finalization. Its terminal summary records 1,050 passed, two
+failed and 51 cancelled work units out of 1,103. This is incomplete qualification,
+not a CI pass. The run binds source digest
+`sha256:5e61580830de08e628b27f44142d1aa8b79ce0ca11ddcffebf7a32c4f102ded3`.
+
+The retained `cleanup-results.json` records 1,633 completed cleanup operations
+and no failed operation. `retained-secret-scan.json` passed over 10,464 files.
+These results describe that invocation; they do not qualify later repairs.
+Six lanes were requested with unchanged host capacities. Published observations
+showed two browser groups running together; they do not establish a global peak
+or six-way physical throughput.
+
+The two failing units exposed three concrete gaps:
+
+- `operation:harness.public_wrapper_smoke` failed because the v5 task-guide
+  schema still restricted `explicit_commands` to owner-slice syntax. The schema
+  now accepts only the two dedicated commands. Routing tests validate guides
+  with Visual and UI-Review commands as well as guides without either command.
+- The owned case of `harness.browser.integration.native_fixture_lifecycle`
+  omitted its resolved renderer lane limit. Its explicit single-slot fixture
+  now declares one lane, preserving its repeated-borrow reuse assertions.
+- The borrowed case timed out starting an independently reserved persistent
+  service owner. Its enclosing installed-browser profile also claimed physical
+  service capacity. The borrowed case is now a separately admitted row,
+  `harness.browser.integration.native_borrowed_fixture_lifecycle`, with the
+  control-process `harness_contract` profile. The persistent owner retains its
+  independent resident reservation. Owned and failed-cleanup cases retain their
+  installed-browser envelope. All assertions remain; no capacity or deadline
+  was raised. Overlapping claims are confirmed by static inspection; their
+  contribution to the original timeout is an inference, not a measured cause.
+
+The resource contract in REQ-803 now distinguishes these ownership models.
+A compiler regression verifies that the borrowed row requests control resources
+without duplicate service, browser or port claims. This change belongs in the
+specification, catalog, implementation fixtures and tests; it removes accidental
+coupling between persistent-owner admission and browser-lifecycle admission.
+It adds an exact selectable row without a compatibility alias. Leaving the
+overlap would retain avoidable capacity pressure and timeout risk.
+
+`cutover-fix-generate-01` failed because the new catalog row was not ASCII-sorted.
+After sorting the authored manifest, `cutover-fix-generate-02` passed generation
+(outer exit 0). `cutover-fix-format-01` passed formatting and
+`cutover-fix-routing-01` passed the exact routing-contract selection (outer exit 0).
+The interrupted full CI invocation is not automatically restarted; repair
+validation uses the affected narrow selections.
+
+The following focused repair commands passed with outer exit 0. Their run roots
+are `/home/jochi/code/cartulary/.cartulary/test-results/<run-id>`:
+
+| Run ID | Command | Outcome |
+| --- | --- | --- |
+| `cutover-fix-routing-01` | `make test-slice OWNER=harness.test_catalog ROWS=harness.test_catalog.behavior.routing_contract` | Routing and guide schemas pass, including dedicated optional commands |
+| `cutover-fix-smoke-01` | `make harness-contract SUITE=smoke` | Public Make wrapper, scheduler and fixture-broker smoke checks pass |
+| `cutover-fix-lifecycle-01` | `make test-slice OWNER=harness.browser ROWS=harness.browser.integration.native_borrowed_fixture_lifecycle,harness.browser.integration.native_fixture_lifecycle,harness.browser.unit.browser_lane_policy` | All four graph units pass; real owned/borrowed lifecycle cases and synthetic lane policy pass |
+
+The lifecycle run binds source digest
+`sha256:33ad80009fb264b9384527457167ed7f169e9096b52eb7b80348db80a9052a94`.
+Its default resolved lane limit is four; the physical reuse test explicitly owns
+one slot and verifies compatible generation reuse, fresh cookies/local storage,
+and retirement after client interruption. Its persistent-service case verifies
+borrower protection and owner survival; the failed-cleanup case verifies exact
+recovery. Its 13 cleanup operations completed, and its retained-secret scan
+passed over 113 files. The synthetic lane checks cover four/six configuration
+and exclude duplicate physical claims from the borrowed-service test. These
+passes do not establish six-way physical throughput or resolve the incomplete
+full-suite qualification.
+
+`cutover-fix-finalize-01` passed `make agent-finalize` (outer exit 0), with zero
+generated changes. Its schema, catalog and tier validations bind the same
+`sha256:33ad80009fb264b9384527457167ed7f169e9096b52eb7b80348db80a9052a94`
+source digest. Retained-run evidence and scheduler maintenance were skipped
+because `RESULTS_DIR` was unset. This is the repair implementation identity
+before the capacity follow-up below, on `808203eaf` plus the uncommitted cutover;
+no new commit has been created.
+
+`cutover-fix-schema-01`, `cutover-fix-generated-01` and
+`cutover-fix-static-01` passed `make source-check CHECK=schema`,
+`make source-check CHECK=generated` and `make lint CHECK=standard`, respectively
+(outer exit 0), before the capacity follow-up.
+
+### Remaining acceptance scope
+
+The full `make ci BROWSER_LANES=6` completion gate remains incomplete after the
+requested early stop. `make browser-e2e SUITE=visual` and
+`make harness-contract SUITE=ui-review` have not been executed for this cutover.
+Their selection contracts are verified, but no Visual or UI-Review pass is
+claimed. A later completion effort must use the final source identity and fresh
+run roots; the interrupted run cannot be relabelled or combined into a pass.
+`release-check` and release measurements were intentionally not run for this
+harness refactor. No full warm run was created for retained-run maintenance.
+
+### User-authorized capacity increase
+
+The subsequent request to increase resource limits supersedes the initial
+instruction to retain the old capacities. Inspection of the already retained CI
+snapshot found 19 CPU tokens, 38 I/O tokens, 76 process slots and approximately
+31 GiB of memory, but only eight PostgreSQL tokens, three object-store tokens
+and 16 port lanes. The shared object-store owner reserves one token; three
+tokens therefore permit only two ordinary functional groups requiring one
+additional token each. Six groups plus shared infrastructure require 13
+PostgreSQL tokens, seven object-store tokens and 20 port lanes under the current
+authored reservation model. This is static accounting, not a performance
+measurement or a claim about actual utilization.
+
+REQ-353 and the resource registry now set default ceilings of 16 PostgreSQL
+tokens, eight object-store tokens and 32 port lanes. PostgreSQL and object-store
+ceilings remain bounded by admitted CPU tokens; port lanes are bounded by twice
+that number. Smaller hosts scale down. The single registry owns these values;
+the semantic reader no longer independently pins PostgreSQL to eight. Capacity
+resolution reuses its existing pure automatic-policy calculation rather than
+duplicating the fixed-cap calculations.
+
+CPU, I/O, memory and process limits already accommodate the six-group envelope
+on this host and remain unchanged. The 25 percent CPU safety margin, cleanup
+headroom, resident accounting, exclusive measurement priority, one worker per
+group and four-default/six-maximum browser policy remain in force. This change
+raises admission ceilings, not production database connection settings or
+physical resource claims. It requires no migration or compatibility alias.
+
+Synthetic tests check the actual compiled six-lane graph's 8,960 MiB, 52-process,
+20-port, 13-PostgreSQL and seven-object-store envelope against a 24-CPU/32-GiB
+host policy, including additional cleanup capacity. They also check bounded
+defaults on four-CPU and one-CPU hosts, and rejection of a port override above
+the host-derived bound. Actual simultaneous throughput remains unmeasured.
+
+Focused validation passed with outer exit 0:
+
+- `cutover-capacity-generate-01`: `make generate` refreshed authored projections.
+- `cutover-capacity-lanes-01`: `make test-slice OWNER=harness.browser ROWS=harness.browser.unit.browser_lane_policy,harness.browser.unit.native_fixtures`
+  passed the six-group envelope, lower-host bounds, native slot, contention,
+  cancellation, ownership and cleanup contracts.
+- `cutover-capacity-scheduler-01`: `make test-slice OWNER=harness.command_surface ROWS=harness.command_surface.behavior.scheduler_contract`
+  passed capacity override and scheduler contracts. Its retained snapshot
+  resolves 19 CPU, 38 I/O, 76 process, 16 PostgreSQL, eight object-store and 32
+  port tokens, with 33,353,125,888 memory bytes.
+
+Both focused test invocations bind
+`sha256:3de6e779aa7a8a838f63704342c744f93ad2a911ad3f2fd8659f0b9509b3a22a`.
+No comprehensive CI run was restarted and no new benchmark was performed.
+Earlier physical lifecycle passes remain evidence of those earlier source
+identities; the increased limits have focused contract qualification, not a
+full current-source CI or six-way physical-throughput qualification.
+
+`cutover-capacity-finalize-01` passed `make agent-finalize` (outer exit 0),
+reporting zero generated changes. Retained-run maintenance was skipped because
+`RESULTS_DIR` was unset. The current final implementation digest is the
+`sha256:3de6e779aa7a8a838f63704342c744f93ad2a911ad3f2fd8659f0b9509b3a22a`
+identity above, on revision `808203eaf` plus uncommitted changes.
+
+`cutover-capacity-schema-01`, `cutover-capacity-generated-01` and
+`cutover-capacity-static-01` passed `make source-check CHECK=schema`,
+`make source-check CHECK=generated` and `make lint CHECK=standard`, respectively
+(outer exit 0). All run roots remain under
+`/home/jochi/code/cartulary/.cartulary/test-results/`.

@@ -29,18 +29,8 @@ const fullTierSelfTests = [
   "harness.browser.boundary_support.testcontrolclient_suite_f60081d8f5",
   "harness.browser.boundary_support.timeline_investigation_recipe",
   "harness.browser.boundary_support.timingsupport_dom_suite_6614d14ea5",
-  "harness.browser.boundary_support.ui_review_artifacts",
-  "harness.browser.boundary_support.ui_review_contract",
-  "harness.browser.boundary_support.ui_review_execution",
-  "harness.browser.boundary_support.ui_review_lifecycle",
-  "harness.browser.boundary_support.ui_review_presentation",
-  "harness.browser.boundary_support.ui_review_workflow",
-  "harness.browser.boundary_support.visual_preference_isolation",
-  "harness.browser.boundary_support.visual_presentation_profiles",
   "harness.browser.integration.object_store_fixture_roundtrip",
   "harness.browser.integration.postgres_cleanup_target_scoped_coordination",
-  "harness.browser.integration.ui_review_seeded_default",
-  "harness.browser.integration.ui_review_seeded_network_flow_claimed",
   "harness.browser.unit.fixture_tls",
   "harness.browser.unit.object_store_fixture_admission",
   "harness.browser.unit.object_store_secure_origins",
@@ -81,7 +71,7 @@ function rowIDs(graph) {
 export function assertHarnessTierRouting(context) {
   const compiler = context.compiler;
   for (const rowID of fullTierSelfTests) {
-    assert.equal(compiler.catalog.rowByID.get(rowID)?.minimum_tier, "full", rowID);
+    assert.equal(compiler.catalog.rowByID.get(rowID)?.aggregate_placement, "full", rowID);
   }
   const plans = new Map();
   for (const target of ["test-fast", "check", "ci", "release-check"]) {
@@ -98,7 +88,7 @@ export function assertHarnessTierRouting(context) {
     // Retain every other ordinary tier-selected row, including product tests
     // co-located with helper tests. Policy-added evidence may widen this set.
     const rank = compiler.owner.tier_order.indexOf(compiler.owner.aggregate_tiers[target]);
-    for (const row of compiler.catalog.rows.filter((entry) => compiler.owner.tier_order.indexOf(entry.minimum_tier) <= rank)) {
+    for (const row of compiler.catalog.rows.filter((entry) => entry.aggregate_placement !== "explicit_only" && compiler.owner.tier_order.indexOf(entry.aggregate_placement) <= rank)) {
       assert.ok(selected.includes(row.row_id), `${target} lost ${row.row_id}`);
     }
     assert.deepEqual(plan.projections[target], plan.graph.units.map((unit) => unit.unit_id));
@@ -136,7 +126,7 @@ export function assertHarnessTierRouting(context) {
   }
   for (const target of ["backend-unit", "backend-integration", "backend-process"]) {
     const direct = compiler.compileCommand("test-slice", { SUITE: target }).graph;
-    assert.deepEqual(rowIDs(direct), [...compiler.targetRows.get(target), ...(target === "backend-integration" ? compiler.targetRows.get("backend-integration-support") : [])].sort(), `${target}: complete direct catalog selection`);
+    assert.deepEqual(rowIDs(direct), [...compiler.targetRows.get(target), ...(target === "backend-integration" ? compiler.targetRows.get("backend-integration-support") : [])].filter((id) => compiler.catalog.rowByID.get(id).aggregate_placement !== "explicit_only").sort(), `${target}: complete direct catalog selection`);
   }
 }
 
@@ -171,7 +161,7 @@ export function assertCatalogTierSelection(context) {
   compiler.ensureCatalog();
   const independent = compiler.catalog.rows.filter((row) => row.runner === "go" && row.service_dependencies.length === 0).slice(0, 3);
   const service = compiler.catalog.rowByID.get("harness.browser.integration.wstest_helper_contract");
-  const rows = [...independent, service].map((row, index) => ({ ...row, minimum_tier: compiler.owner.tier_order[index] }));
+  const rows = [...independent, service].map((row, index) => ({ ...row, aggregate_placement: compiler.owner.tier_order[index] }));
   compiler._catalog = { ...compiler.catalog, rows, rowByID: new Map(rows.map((row) => [row.row_id, row])) };
   compiler.taskSurface.harness_checks = [];
   // This fixture isolates tier selection from policy and public command views.

@@ -33,7 +33,7 @@ func planFixture(t *testing.T) map[string]any {
 	u["semantic_digest"], _ = semanticDigest(u)
 	units := []any{u}
 	graphDigest, _ := semanticDigest(map[string]any{"units": units})
-	return map[string]any{"schema_id": planSchema, "host_profile": map[string]any{"platform": "linux", "architecture": "amd64", "kernel_release": "fixture", "cpu_models": []any{"fixture"}}, "instrumentation_policy_bytes": string(policyBytes), "source_inputs": sourceInputs, "cache_inputs": map[string]any{}, "graph": map[string]any{"schema_id": "cartulary.harness_work_graph.v7", "selector": "fixture", "units": units, "graph_digest": graphDigest}, "manifest": map[string]any{"schema_id": "cartulary.harness_run_manifest.v3", "run_id": "fixture", "command_id": "cartulary.harness.command.test_slice.v1", "target": "test-slice", "declared_inputs": map[string]any{}, "source_commit": strings.Repeat("a", 40), "source_state": "clean", "source_digest": sourceDigest, "toolchain_digest": d, "system_digest": hash, "capability_snapshot": snapshot, "go_worker_budget": 2, "graph_digest": graphDigest, "cache_mode": "off", "started_at": "2026-10-11T00:00:00Z", "instrumentation": map[string]any{"mode": "off", "policy_digest": policyDigest}}, "projections": map[string]any{"test-slice": map[string]any{"command_id": "cartulary.harness.command.test_slice.v1", "unit_ids": []any{"unit:a"}}}, "capacities": map[string]any{"cpu": 2, "memory_mb": 100, "process": 4, "io": 2, "postgres": 1, "object_store": 1, "port_lane": 1, "browser_stack": 1, "service_stack": 1, "volume": 1}, "aging_quantum_ms": 1000, "bindings": map[string]any{"NODE_BIN": "/private/node"}, "input_environment": map[string]any{"clear": []any{"CARTULARY_MAKE_INPUT_SOURCES"}, "forward": map[string]any{}}, "helper_digest": d, "cache": []any{map[string]any{"unit_id": "unit:a", "eligible": false, "reason": "mode_off", "profile_id": nil, "policy": nil, "input_digest": nil, "dependency_digest": nil, "dependency_strategy": nil, "vulnerability_database_revision": nil}}, "preparation": map[string]any{"clock": nil, "intervals": []any{}}}
+	return map[string]any{"schema_id": planSchema, "browser_lane_limit": 4, "host_profile": map[string]any{"platform": "linux", "architecture": "amd64", "kernel_release": "fixture", "cpu_models": []any{"fixture"}}, "instrumentation_policy_bytes": string(policyBytes), "source_inputs": sourceInputs, "cache_inputs": map[string]any{}, "graph": map[string]any{"schema_id": "cartulary.harness_work_graph.v7", "selector": "fixture", "units": units, "graph_digest": graphDigest}, "manifest": map[string]any{"schema_id": "cartulary.harness_run_manifest.v3", "run_id": "fixture", "command_id": "cartulary.harness.command.test_slice.v1", "target": "test-slice", "declared_inputs": map[string]any{}, "source_commit": strings.Repeat("a", 40), "source_state": "clean", "source_digest": sourceDigest, "toolchain_digest": d, "system_digest": hash, "capability_snapshot": snapshot, "go_worker_budget": 2, "graph_digest": graphDigest, "cache_mode": "off", "started_at": "2026-10-11T00:00:00Z", "instrumentation": map[string]any{"mode": "off", "policy_digest": policyDigest}}, "projections": map[string]any{"test-slice": map[string]any{"command_id": "cartulary.harness.command.test_slice.v1", "unit_ids": []any{"unit:a"}}}, "capacities": map[string]any{"cpu": 2, "memory_mb": 100, "process": 4, "io": 2, "postgres": 1, "object_store": 1, "port_lane": 1, "browser_stack": 1, "service_stack": 1, "volume": 1}, "aging_quantum_ms": 1000, "bindings": map[string]any{"NODE_BIN": "/private/node"}, "input_environment": map[string]any{"clear": []any{"CARTULARY_MAKE_INPUT_SOURCES"}, "forward": map[string]any{}}, "helper_digest": d, "cache": []any{map[string]any{"unit_id": "unit:a", "eligible": false, "reason": "mode_off", "profile_id": nil, "policy": nil, "input_digest": nil, "dependency_digest": nil, "dependency_strategy": nil, "vulnerability_database_revision": nil}}, "preparation": map[string]any{"clock": nil, "intervals": []any{}}}
 }
 func planBytes(t *testing.T, value map[string]any) []byte {
 	t.Helper()
@@ -82,11 +82,16 @@ func TestRuntimePlanClosure(t *testing.T) {
 		t.Fatalf("valid fixture: %v", err)
 	}
 	for name, mutate := range map[string]func(map[string]any){
-		"missing_worker_budget":              func(p map[string]any) { delete(p["manifest"].(map[string]any), "go_worker_budget") },
-		"excess_worker_budget":               func(p map[string]any) { p["manifest"].(map[string]any)["go_worker_budget"] = 3 },
-		"zero_worker_budget":                 func(p map[string]any) { p["manifest"].(map[string]any)["go_worker_budget"] = 0 },
-		"fractional_worker_budget":           func(p map[string]any) { p["manifest"].(map[string]any)["go_worker_budget"] = 1.5 },
-		"unsafe_worker_budget":               func(p map[string]any) { p["manifest"].(map[string]any)["go_worker_budget"] = 9007199254740992 },
+		"missing_worker_budget":    func(p map[string]any) { delete(p["manifest"].(map[string]any), "go_worker_budget") },
+		"excess_worker_budget":     func(p map[string]any) { p["manifest"].(map[string]any)["go_worker_budget"] = 3 },
+		"zero_worker_budget":       func(p map[string]any) { p["manifest"].(map[string]any)["go_worker_budget"] = 0 },
+		"fractional_worker_budget": func(p map[string]any) { p["manifest"].(map[string]any)["go_worker_budget"] = 1.5 },
+		"unsafe_worker_budget":     func(p map[string]any) { p["manifest"].(map[string]any)["go_worker_budget"] = 9007199254740992 },
+		"missing_browser_limit":    func(p map[string]any) { delete(p, "browser_lane_limit") },
+		"excess_browser_limit":     func(p map[string]any) { p["browser_lane_limit"] = 7 },
+		"inconsistent_browser_limit": func(p map[string]any) {
+			p["manifest"].(map[string]any)["declared_inputs"].(map[string]any)["BROWSER_LANES"] = "6"
+		},
 		"previous_plan_version":              func(p map[string]any) { p["schema_id"] = "cartulary.harness_runtime_plan.v4" },
 		"missing_input_policy":               func(p map[string]any) { delete(p, "input_environment") },
 		"input_policy_without_source_marker": func(p map[string]any) { p["input_environment"].(map[string]any)["clear"] = []any{"OWNER"} },
@@ -148,7 +153,7 @@ func TestRuntimePlanClosure(t *testing.T) {
 			}
 		})
 	}
-	for _, bytes := range [][]byte{[]byte(strings.Replace(string(valid), `"schema_id":"cartulary.harness_runtime_plan.v5"`, `"schema_id":"cartulary.harness_runtime_plan.v5","schema_id":"cartulary.harness_runtime_plan.v5"`, 1)), append(valid, []byte("{}")...), valid[:len(valid)-1], []byte(strings.Repeat(" ", maximumPlanBytes+1))} {
+	for _, bytes := range [][]byte{[]byte(strings.Replace(string(valid), `"schema_id":"cartulary.harness_runtime_plan.v6"`, `"schema_id":"cartulary.harness_runtime_plan.v6","schema_id":"cartulary.harness_runtime_plan.v6"`, 1)), append(valid, []byte("{}")...), valid[:len(valid)-1], []byte(strings.Repeat(" ", maximumPlanBytes+1))} {
 		if _, err := decodePlan(bytes); err == nil {
 			t.Fatal("accepted malformed publication")
 		}

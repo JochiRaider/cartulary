@@ -387,7 +387,7 @@ const generalCases = [
     acceptance_ids: ["TH-HARNESS-AC-082"],
     run(context) {
       assert.equal(context.taskSurface.schema_id, "cartulary.task_surface_owner.v4");
-      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v13");
+      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v14");
     },
   },
   {
@@ -409,7 +409,7 @@ const generalCases = [
     acceptance_ids: ["TH-HARNESS-AC-018"],
     run(context) {
       assert.ok(context.catalog.rows.length > 0);
-      assert.ok(context.catalog.rows.every((row) => tiers.includes(row.minimum_tier)));
+      assert.ok(context.catalog.rows.every((row) => [...tiers, "explicit_only"].includes(row.aggregate_placement)));
     },
   },
   {
@@ -526,7 +526,7 @@ async function assertBoundaryContract(context, kind) {
       for (const schema of [
         "cartulary.harness_work_graph.v7.schema.json",
         "cartulary.harness_execution_context.v3.schema.json",
-        "cartulary.harness_runtime_plan.v5.schema.json",
+        "cartulary.harness_runtime_plan.v6.schema.json",
         "cartulary.harness_run_manifest.v3.schema.json",
         "cartulary.harness_unit_event.v4.schema.json",
         "cartulary.harness_run_summary.v1.schema.json",
@@ -549,7 +549,7 @@ async function assertBoundaryContract(context, kind) {
       return;
     case "work_graph_owner_validation":
       validateSchemaSync(
-        "cartulary.harness_work_graph_owner.v4",
+        "cartulary.harness_work_graph_owner.v5",
         readJSON("tools/harness_work_graph_owner.json"),
       );
       return;
@@ -751,16 +751,16 @@ function assertEvidenceContract(context, kind) {
       assertGoSelectorBuildContextContract();
       return;
     case "tier_partition": {
-      const tierCounts = Object.fromEntries(tiers.map((tier) => [tier, context.catalogMetadata.rows.filter((row) => row.minimum_tier === tier).length]));
-      assert.deepEqual(Object.keys(tierCounts), tiers);
+      const tierCounts = Object.fromEntries([...tiers, "explicit_only"].map((tier) => [tier, context.catalogMetadata.rows.filter((row) => row.aggregate_placement === tier).length]));
+      assert.deepEqual(Object.keys(tierCounts), [...tiers, "explicit_only"]);
       assert.equal(Object.values(tierCounts).reduce((sum, count) => sum + count, 0), context.catalogMetadata.rows.length);
       return;
     }
     case "tier_monotonicity": {
       const reached = tiers.map((tier, rank) =>
-        context.catalogMetadata.rows.filter((row) => tiers.indexOf(row.minimum_tier) <= rank).length);
+        context.catalogMetadata.rows.filter((row) => row.aggregate_placement !== "explicit_only" && tiers.indexOf(row.aggregate_placement) <= rank).length);
       assert.ok(reached.every((count, rank) => rank === 0 || count >= reached[rank - 1]));
-      assert.equal(reached.at(-1), context.catalogMetadata.rows.length);
+      assert.equal(reached.at(-1), context.catalogMetadata.rows.filter((row) => row.aggregate_placement !== "explicit_only").length);
       return;
     }
     case "fixture_partition": {
@@ -1235,6 +1235,13 @@ async function assertSchedulerContract(context, kind) {
     validateSchemaSync(snapshot.schema_id, snapshot);
     assert.equal(snapshot.cpu_tokens, 2);
     assert.equal(snapshot.postgres_lanes, 2);
+    assert.equal(snapshot.object_store_lanes, 2);
+    const portBound = captureCapabilitySnapshot({ root,
+      override: { schema_id: "cartulary.harness_capacity_override.v1", cpu_tokens: 2 } });
+    assert.equal(portBound.port_lanes, 4);
+    assert.throws(() => captureCapabilitySnapshot({ root,
+      override: { schema_id: "cartulary.harness_capacity_override.v1", cpu_tokens: 2, port_lanes: 5 } }),
+    /port_lanes=5 exceeds the detected policy bound 4/u);
     assert.throws(
       () => captureCapabilitySnapshot({
         root,

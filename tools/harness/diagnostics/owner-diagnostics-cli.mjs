@@ -31,11 +31,12 @@ function parseArgs(argv) {
 }
 
 function humanTaskGuide(summary, detail) {
-  if (detail === "rows") return `${summary.rows.map((row) => `${row.row_id} runner=${row.runner} evidence=${row.evidence_class} tier=${row.minimum_tier} fixture=${row.fixture_capability}\n  ${row.command}`).join("\n")}\n`;
+  if (detail === "rows") return `${summary.rows.map((row) => `${row.row_id} runner=${row.runner} evidence=${row.evidence_class} placement=${row.aggregate_placement} fixture=${row.fixture_capability}\n  ${row.command}`).join("\n")}\n`;
   if (detail === "coverage") return `${JSON.stringify(summary.coverage, null, 2)}\n${summary.focused_commands.join("\n")}\n`;
   return `${[
     `owner ${summary.owner_id}`,
     ...summary.focused_commands.map((command) => `focused ${command}`),
+    ...summary.explicit_commands.map((command) => `explicit-only ${command}`),
     ...summary.generated_commands.map((command) => `generated ${command}`),
     ...summary.broader_commands.map((command) => `broader ${command}`),
     ...(summary.release_gate ? [`release ${summary.release_gate}`] : []),

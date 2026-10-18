@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.postgres_fixture_policy_registry.v2",
+  "$id": "cartulary.postgres_fixture_policy_registry.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,8 +10,8 @@
     "transaction_row_approvals"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.postgres_fixture_policy_registry.v2" },
-    "catalog_schema_id": { "const": "cartulary.test_family_manifest.v9" },
+    "schema_id": { "const": "cartulary.postgres_fixture_policy_registry.v3" },
+    "catalog_schema_id": { "const": "cartulary.test_family_manifest.v10" },
     "capability_policies": {
       "type": "array",
       "minItems": 3,

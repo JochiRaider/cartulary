@@ -64,5 +64,6 @@ export function discoverRunnerSources(root, runner) {
 
 export function frontendSourceProject(file) {
   if (file.startsWith("packages/report-renderer/src/")) return "renderer-node";
-  return file.startsWith("apps/web/e2e/") ? "harness-node" : "browser-unit";
+  if (file.startsWith("apps/web/e2e/")) return "harness-node";
+  return file.endsWith(".node.test.ts") ? "node-unit" : "browser-unit";
 }

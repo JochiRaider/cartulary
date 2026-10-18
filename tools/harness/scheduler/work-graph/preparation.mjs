@@ -1,5 +1,5 @@
+import { loadExecutionTopology } from "../../generated-artifacts/execution-topology.mjs";
 import path from "node:path";
-import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { resolveDeclaredTargetInputs } from "../../contract/index.mjs";
 import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
@@ -42,10 +42,6 @@ export function sha256(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
 
-function readJSON(relative) {
-  return JSON.parse(readFileSync(path.join(root, relative), "utf8"));
-}
-
 export function resolvedRunRoot() {
   const resultsDir = process.env.CARTULARY_TEST_RESULTS_DIR || ".cartulary/test-results";
   const runID =
@@ -55,14 +51,13 @@ export function resolvedRunRoot() {
   return { resultsDir, runID, runRoot: path.resolve(root, resultsDir, runID) };
 }
 
-export function commandEntry(target) {
-  const taskSurface = readJSON("tools/task_surface_owner.json");
+export function commandEntry(target, taskSurface = loadExecutionTopology({ root }).taskSurface) {
   const entry = taskSurface.targets.find((candidate) => candidate.name === target);
   if (!entry?.command_id) throw new Error(`public graph target ${target} has no command ID`);
   return entry;
 }
 
-export function commandInputContext(entry, selected = {}, { environment: parent = process.env, surface = readJSON("tools/task_surface_owner.json") } = {}) {
+export function commandInputContext(entry, selected = {}, { environment: parent = process.env, surface = loadExecutionTopology({ root }).taskSurface } = {}) {
   // Native graph selectors are admitted arguments, independent of an enclosing
   // Make invocation's artifact identity. Resolve only this command's inputs.
   const sources = (parent.CARTULARY_MAKE_INPUT_SOURCES || "").split(/\s+/u)

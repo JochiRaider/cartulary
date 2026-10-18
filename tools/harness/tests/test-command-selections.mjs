@@ -85,13 +85,13 @@ test("owner and suite selection rejects conflicts and preserves support evidence
 
 test("browser selection requires a suite and directly selects every suite row", () => {
   const compiler = new WorkGraphCompiler(root);
-  const variants = Object.fromEntries(["all", "functional", "stateful", "measurement", "accessibility", "visual", "support"].map((name) => [name, `harness.suite_browser_${name}`]));
+  const variants = Object.fromEntries(["functional", "stateful", "measurement", "accessibility", "visual", "support"].map((name) => [name, `harness.suite_browser_${name}`]));
   bind(compiler, "browser-e2e", "SUITE", variants, { input: { required: true } });
   assert.throws(() => resolveCommandInputs("browser-e2e", {}, compiler.taskSurface), /required/u);
   for (const suite of Object.keys(variants)) {
     const selected = rows(compiler.compileCommand("browser-e2e", { SUITE: suite }).graph);
     const stage = suite === "functional" ? "webserver_backed" : suite;
-    const expected = compiler.catalog.rows.filter((row) => row.runner === "playwright" && (suite === "all" || row.selector.stage === stage)).map((row) => row.row_id).sort();
+    const expected = compiler.catalog.rows.filter((row) => suite === "visual" ? row.aggregate_placement === "explicit_only" && (row.evidence_class === "visual" || row.row_id.includes(".visual_")) : row.runner === "playwright" && row.selector.stage === stage && row.aggregate_placement !== "explicit_only").map((row) => row.row_id).sort();
     assert.deepEqual(selected, expected);
   }
 });
@@ -161,9 +161,17 @@ test("planning validates exact declared input files through the execution resolv
   const guide = buildOwnerTaskGuide(root, "harness.command_surface");
   validateSchemaSync(guide.schema_id, guide);
   assert.equal(guide.rows.length, guide.coverage.row_count);
-  assert.ok(guide.rows.some((row) => row.row_id.endsWith("scheduler_smoke") && row.minimum_tier === "fast"));
-  assert.ok(guide.rows.some((row) => row.row_id.endsWith("native_runtime") && row.minimum_tier === "full"));
+  assert.ok(guide.rows.some((row) => row.row_id.endsWith("scheduler_smoke") && row.aggregate_placement === "fast"));
+  assert.ok(guide.rows.some((row) => row.row_id.endsWith("native_runtime") && row.aggregate_placement === "full"));
   assert.equal(Object.hasOwn(guide, "role"), false);
+  for (const [owner, commands] of [
+    ["module.networkflow", ["make browser-e2e SUITE=visual"]],
+    ["harness.browser", ["make browser-e2e SUITE=visual", "make harness-contract SUITE=ui-review"]],
+  ]) {
+    const explicitGuide = buildOwnerTaskGuide(root, owner);
+    validateSchemaSync(explicitGuide.schema_id, explicitGuide);
+    assert.deepEqual(explicitGuide.explicit_commands, commands);
+  }
 });
 
 test("planning excludes documentation before filesystem access", () => {

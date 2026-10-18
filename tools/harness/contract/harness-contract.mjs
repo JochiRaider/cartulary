@@ -130,7 +130,7 @@ const versionVariables = Object.freeze([
   "SHELLCHECK_VERSION",
 ]);
 const positiveIntegerVariables = Object.freeze([
-  "PLAYWRIGHT_WORKERS",
+  "BROWSER_LANES",
   "VITEST_MAX_WORKERS",
   "FIXTURE_TOP",
 ]);
@@ -196,6 +196,7 @@ const nonCanonicalPublicMakeVariables = Object.freeze([
   "VITEST_FLAGS",
 ]);
 const retiredPublicMakeVariables = Object.freeze([
+  "PLAYWRIGHT_WORKERS",
   "BROWSER_A11Y_RESULTS_DIR",
   "BROWSER_MEASUREMENT_RESULTS_DIR",
   "BROWSER_SUPPORT_RESULTS_DIR",

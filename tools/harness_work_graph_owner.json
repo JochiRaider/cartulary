@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_work_graph_owner.v4",
+  "schema_id": "cartulary.harness_work_graph_owner.v5",
   "capacity_override_input": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
   "tier_order": [
     "fast",
@@ -154,6 +154,21 @@
             "visual"
           ]
         }
+      },
+      {
+        "row_id": "harness.browser.boundary_support.visual_anchor_geometry"
+      },
+      {
+        "row_id": "harness.browser.boundary_support.visual_asset_failure"
+      },
+      {
+        "row_id": "harness.browser.boundary_support.visual_preference_isolation"
+      },
+      {
+        "row_id": "harness.browser.boundary_support.visual_preference_lifetime"
+      },
+      {
+        "row_id": "harness.browser.boundary_support.visual_presentation_profiles"
       }
     ],
     "harness.suite_browser_support": [
@@ -163,13 +178,6 @@
           "stages": [
             "support"
           ]
-        }
-      }
-    ],
-    "harness.suite_browser_all": [
-      {
-        "catalog": {
-          "runner": "playwright"
         }
       }
     ],
@@ -237,9 +245,6 @@
       },
       {
         "operation_id": "harness.harness_scheduler_contract"
-      },
-      {
-        "operation_id": "harness.harness_ui_review_contract"
       },
       {
         "operation_id": "harness.assurance_dev_services_lifecycle"
@@ -397,6 +402,9 @@
       },
       {
         "operation_id": "harness.harness_ui_review_seeded_network_flow_claimed"
+      },
+      {
+        "row_id": "harness.browser.unit.native_review"
       }
     ],
     "harness.source_generated_selection": [
@@ -495,6 +503,16 @@
       "harness.assurance_output_check",
       "harness.assurance_output_check_machine",
       "harness.assurance_output_invalid_usage"
+    ],
+    "harness.suite_browser_visual_snapshots": [
+      {
+        "catalog": {
+          "runner": "playwright",
+          "stages": [
+            "visual"
+          ]
+        }
+      }
     ]
   },
   "policy_units": {
@@ -1687,6 +1705,15 @@
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": []
+    },
+    "harness.browser_lane_policy": {
+      "needs": [
+        "harness.frontend_install"
+      ],
+      "cache_policy": "none",
+      "estimated_work_ms": 10000,
+      "resource_profile_id": "harness_contract",
+      "service_dependencies": []
     }
   },
   "evidence_estimates_ms": {
@@ -2708,8 +2735,7 @@
           "-count=1",
           "./internal/testutil/harnessruntime",
           "./internal/testutil/harnessschema",
-          "./internal/testutil/harnesssession",
-          "./internal/testutil/harnessreview"
+          "./internal/testutil/harnesssession"
         ],
         "test_target": "self"
       },
@@ -5849,6 +5875,25 @@
           "tools/harness/tests/test-tool-output-real-targets.sh"
         ]
       }
+    },
+    "harness.browser_lane_policy": {
+      "report_key": "browser-lane-policy",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(FRONTEND_INSTALL_STAMP)",
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_step",
+        "step_label": "browser-lane-policy",
+        "command": [
+          "$(NODE_BIN)",
+          "--test",
+          "tools/harness/browser/tests/test-browser-lane-policy.mjs"
+        ],
+        "test_target": "self"
+      },
+      "kind": "policy"
     }
   },
   "row_execution_contexts": {
@@ -5859,6 +5904,11 @@
     "harness.browser.unit.fixture_broker_smoke": {
       "cpu_tokens": 1,
       "cache_policy": "none"
+    },
+    "harness.browser.unit.native_review": {
+      "cpu_tokens": 1,
+      "cache_policy": "none",
+      "go_race": true
     }
   }
 }

@@ -11,10 +11,13 @@ export const publicOrigin = process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN ?? "";
 
 export const apiOrigin = process.env.CARTULARY_WEB_E2E_API_ORIGIN ?? "";
 
-export const configuredWorkers = Number.parseInt(
-  process.env.PLAYWRIGHT_WORKERS ?? "2",
-  10,
-);
+export const configuredWorkers = 1;
+if (
+  process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== "1" ||
+  process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET !== "0"
+) {
+  throw new Error("Playwright requires one owned worker at offset zero");
+}
 
 function requireValidatedAttachment(): void {
   if (
@@ -66,6 +69,8 @@ export function webE2EBaseConfig(
       "Cartulary browser evidence does not permit Playwright retries",
     );
   }
+  if (overrides.workers !== undefined && overrides.workers !== 1)
+    throw new Error("browser groups require exactly one worker");
   const { retries: _retries, use, ...rest } = overrides;
 
   return {
@@ -74,10 +79,7 @@ export function webE2EBaseConfig(
     globalSetup: path.resolve(currentDirectory, "e2e", "global-setup.ts"),
     globalTeardown: path.resolve(currentDirectory, "e2e", "global-teardown.ts"),
     retries: 0,
-    workers:
-      Number.isNaN(configuredWorkers) || configuredWorkers < 1
-        ? 1
-        : configuredWorkers,
+    workers: configuredWorkers,
     timeout: 60_000,
     updateSnapshots: "none",
     use: {

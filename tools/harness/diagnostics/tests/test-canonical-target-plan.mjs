@@ -26,7 +26,7 @@ for (const target of ["test-fast", "check", "ci", "release-check"]) {
   const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
   assert.equal(digest(repeated.stdout), digest(result.stdout), `${target}: same selection has byte-identical plans`);
   const plan = JSON.parse(result.stdout);
-  assert.equal(plan.schema_id, "cartulary.harness_target_plan.v5");
+  assert.equal(plan.schema_id, "cartulary.harness_target_plan.v6");
   assert.equal(plan.target, target);
   assert.ok(plan.units.length > 0);
   assert.ok(plan.projections[target].length > 0);

@@ -334,6 +334,7 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
   ) {
     throw new Error(`browser E2E batch group ${group.name} has invalid service_dependencies`);
   }
+  if (group.workers !== "1") throw new Error(`browser E2E batch group ${group.name} requires exactly one worker`);
   const browserSessionGroup = normalizeOptionalString(group.browser_session_group);
   if (!browserSessionGroup) {
     throw new Error(`browser E2E batch group ${group.name} must declare browser_session_group`);
@@ -351,7 +352,7 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
     coverage: normalizeCoverage(group),
     executionDependency:
       group.execution_dependency === undefined ? "" : String(group.execution_dependency).trim(),
-    workers: group.workers === undefined ? "default" : String(group.workers),
+    workers: "1",
     selectedRowIDs: normalizeSelectedRowIDs(group),
     specs: normalizeSpecs(group),
     browserSessionGroup,

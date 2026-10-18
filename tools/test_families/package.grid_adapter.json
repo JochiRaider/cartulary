@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v9",
+  "schema_id": "cartulary.test_family_manifest.v10",
   "owner_id": "package.grid_adapter",
   "rows": [
     {
@@ -32,7 +32,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -60,7 +60,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -85,7 +85,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -110,7 +110,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -135,7 +135,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": []
     },
     {
@@ -160,7 +160,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -187,7 +187,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -212,7 +212,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -237,7 +237,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -262,7 +262,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -287,7 +287,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -312,7 +312,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -337,7 +337,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -362,7 +362,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -387,7 +387,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -412,7 +412,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -437,7 +437,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -462,7 +462,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -487,7 +487,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -512,7 +512,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -537,7 +537,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -562,7 +562,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -587,7 +587,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -612,7 +612,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -637,7 +637,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -662,7 +662,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -687,7 +687,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -712,7 +712,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -737,7 +737,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -762,7 +762,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -787,7 +787,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -812,7 +812,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -837,7 +837,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -862,7 +862,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -887,7 +887,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -956,7 +956,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -986,7 +986,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -1011,7 +1011,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -1036,7 +1036,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -1069,7 +1069,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -1099,7 +1099,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -1125,7 +1125,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -1156,7 +1156,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": []
     },
     {
@@ -1185,7 +1185,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -1211,7 +1211,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -1236,7 +1236,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -1270,7 +1270,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"

@@ -31,7 +31,7 @@ export function readRendererEvidence(runRoot, group, runID) {
     validateSchemaSync(schema, value);
     return value;
   };
-  const event = read(`${base}/borrowed-${borrow.borrow_id}.json`, "cartulary.harness_renderer_event.v1");
+  const event = read(`${base}/borrowed-${borrow.borrow_id}.json`, "cartulary.harness_renderer_event.v2");
   if (event.run_id !== runID || event.state !== "borrowed" || event.unit_id !== borrow.unit_id || event.allocation_id !== borrow.allocation_id || event.generation !== borrow.generation || event.borrow_id !== borrow.borrow_id || event.runtime_profile_id !== group.runtime_profile_id) throw new Error("renderer evidence borrow mismatch");
   const attestation = read(borrow.attestation_ref, "cartulary.frontend_visual_renderer_attestation.v1");
   const trust = read(borrow.trust_ref, "cartulary.browser_tls_trust.v1");

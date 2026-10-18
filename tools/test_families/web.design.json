@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v9",
+  "schema_id": "cartulary.test_family_manifest.v10",
   "owner_id": "web.design",
   "rows": [
     {
@@ -32,7 +32,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -69,7 +69,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -105,7 +105,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -142,7 +142,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -179,7 +179,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -215,7 +215,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -252,7 +252,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -288,7 +288,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -324,7 +324,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -360,7 +360,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -396,7 +396,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -433,7 +433,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -468,7 +468,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -504,7 +504,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -541,7 +541,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -578,7 +578,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -616,7 +616,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -654,7 +654,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -692,7 +692,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -727,7 +727,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -764,7 +764,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -802,7 +802,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -839,7 +839,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -875,7 +875,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -911,7 +911,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -948,7 +948,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -986,7 +986,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -1023,7 +1023,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -1060,7 +1060,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -1097,7 +1097,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -1134,7 +1134,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -1172,7 +1172,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -1208,7 +1208,7 @@
       "claim_posture": "informative",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "explicit_only",
       "service_dependencies": [
         "object_store",
         "postgres"

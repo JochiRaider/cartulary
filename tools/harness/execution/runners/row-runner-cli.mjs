@@ -98,7 +98,7 @@ function invocationsForRows(rows) {
   }
   if (runner === "go") {
     return {
-      invocations: buildGoInvocations(rows, workers, process.env.GO || "go", goRunnerBuildContext(root)).map((invocation) => ({
+      invocations: buildGoInvocations(rows, workers, process.env.GO || "go", { ...goRunnerBuildContext(root), goRace: process.env.CARTULARY_GO_RACE === "1" }).map((invocation) => ({
         ...invocation,
         // Explicit test credentials: production key loading has no default.
         environment: { ...invocation.environment, CARTULARY_AUTH_MASTER_KEY: readFileSync(path.join(root, "internal/testutil/fixtures/auth/master-key.base64"), "utf8").trim() },

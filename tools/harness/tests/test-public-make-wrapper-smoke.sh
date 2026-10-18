@@ -57,7 +57,7 @@ run_make_capture() {
     -u OWNER \
     -u ROWS \
     -u JSON \
-    -u PLAYWRIGHT_WORKERS \
+    -u BROWSER_LANES \
     -u VITEST_MAX_WORKERS \
     -u CARTULARY_MAKE_INPUT_SOURCES \
     -u CARTULARY_TEST_CATALOG_ROW_IDS \

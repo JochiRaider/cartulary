@@ -46,6 +46,7 @@ export const nonCanonicalPublicMakeVariables = Object.freeze([
   "VITEST_FLAGS",
 ]);
 export const retiredPublicMakeVariables = Object.freeze([
+  "PLAYWRIGHT_WORKERS",
   "BROWSER_A11Y_RESULTS_DIR",
   "BROWSER_MEASUREMENT_RESULTS_DIR",
   "BROWSER_SUPPORT_RESULTS_DIR",

@@ -1,4 +1,6 @@
 import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { readOperationOwner } from "../scheduler/work-graph/operations.mjs";
+import { resolvePrivateSelection } from "../scheduler/work-graph/command-selection.mjs";
 
 const ownerIDPattern = /^(?:module|platform|app|web|package|harness)\.[a-z][a-z0-9_]{0,62}$/u;
 
@@ -33,11 +35,18 @@ function ownerProjection(root, ownerID) {
 
 function broaderCommands(projection) {
   const gate = { fast: "test-fast", standard: "check", full: "ci", release: "release-check" };
-  return [...new Set(projection.rows.map((row) => `make ${gate[row.minimum_tier]}`))].sort(asciiCompare);
+  return [...new Set(projection.rows.filter((row) => row.aggregate_placement !== "explicit_only").map((row) => `make ${gate[row.aggregate_placement]}`))].sort(asciiCompare);
 }
 
 export function buildOwnerTaskGuide(root, ownerID) {
   const projection = ownerProjection(root, ownerID);
+  const owner = readOperationOwner(root);
+  const explicitCommands = [];
+  for (const [selection, command] of [["harness.suite_browser_visual", "make browser-e2e SUITE=visual"], ["harness.contract_ui_review", "make harness-contract SUITE=ui-review"]]) {
+    const resolved = resolvePrivateSelection({ owner, catalog: projection.catalog }, selection);
+    if (projection.rows.some((row) => row.aggregate_placement === "explicit_only" &&
+      (resolved.rows.includes(row.row_id) || resolved.operations.includes(row.selector.operation_id)))) explicitCommands.push(command);
+  }
   const evidenceClasses = new Set(projection.rows.map((row) => row.evidence_class));
   const generatedCommands = [];
   if (
@@ -48,7 +57,7 @@ export function buildOwnerTaskGuide(root, ownerID) {
   }
   const releaseRequired = evidenceClasses.has("release");
   return {
-    schema_id: "cartulary.task_guide_summary.v4",
+    schema_id: "cartulary.task_guide_summary.v5",
     evidence_epoch: projection.catalog.summary.evidence_epoch,
     owner_id: projection.owner.owner_id,
     test_catalog_digest: projection.catalog.summary.test_catalog_digest,
@@ -59,11 +68,12 @@ export function buildOwnerTaskGuide(root, ownerID) {
         ? [`make test-slice OWNER=${projection.owner.owner_id} SCOPE=services`]
         : []),
     ],
+    explicit_commands: explicitCommands.sort(asciiCompare),
     generated_commands: generatedCommands.sort(asciiCompare),
     broader_commands: broaderCommands(projection),
     release_gate: releaseRequired ? "make release-check" : null,
     rows: projection.rows.map((row) => ({ row_id: row.row_id, family_id: row.family_id, runtime_profile_id: row.runtime_profile_id, resource_profile_id: row.resource_profile_id, runner: row.runner, evidence_class: row.evidence_class,
-      minimum_tier: row.minimum_tier, fixture_capability: row.fixture_capability,
+      aggregate_placement: row.aggregate_placement, fixture_capability: row.fixture_capability,
       service_dependencies: row.service_dependencies,
       command: `make test-slice OWNER=${projection.owner.owner_id} ROWS=${row.row_id}` })),
     coverage: { row_count: projection.rows.length, service_backed_row_count: projection.serviceRows.length,
@@ -72,7 +82,7 @@ export function buildOwnerTaskGuide(root, ownerID) {
       resource_profiles: sortedCounts(projection.rows.map((row) => row.resource_profile_id)),
       runners: sortedCounts(projection.rows.map((row) => row.runner)),
       evidence_classes: sortedCounts(projection.rows.map((row) => row.evidence_class)),
-      minimum_tiers: sortedCounts(projection.rows.map((row) => row.minimum_tier)),
+      aggregate_placements: sortedCounts(projection.rows.map((row) => row.aggregate_placement)),
       fixture_capabilities: sortedCounts(projection.rows.map((row) => row.fixture_capability)) },
   };
 }

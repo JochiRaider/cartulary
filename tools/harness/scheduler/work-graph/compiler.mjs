@@ -239,6 +239,8 @@ export class WorkGraphCompiler {
     });
     this.taskSurface = topology.taskSurface;
     this.topology = topology.raw;
+    this.browserLaneLimit = this.topology.browser_lane_policy.default;
+    this.allowExplicitRows = true;
     this.runtimeBinaryProducer = new Map(
       this.topology.runtime_binaries.map((binary) => [binary.id, binary.producer_operation]),
     );
@@ -286,8 +288,13 @@ export class WorkGraphCompiler {
     const rows = sortedRowIDs.map((rowID) => {
       const row = this.catalog.rowByID.get(rowID);
       if (!row) throw new Error(`unknown active row ${rowID}`);
+      if (!this.allowExplicitRows && row.aggregate_placement === "explicit_only") {
+        throw new Error(`policy dependency reintroduces explicit-only row ${rowID}`);
+      }
       return row;
     });
+    const profiles = new Set(rows.filter((row) => row.runner === "playwright" && row.resource_profile_id === "browser_functional").map((row) => row.runtime_profile_id));
+    if (profiles.size > this.browserLaneLimit) throw new Error(`browser functional closure has ${profiles.size} runtime profiles but only ${this.browserLaneLimit} lanes`);
     const browserArtifactsByRow = new Map();
     const selectedBrowserStages = selectBrowserRowStages(this.root, rows.filter((row) => row.runner === "playwright").map((row) => row.row_id));
     for (const stage of selectedBrowserStages) {
@@ -426,14 +433,14 @@ export class WorkGraphCompiler {
           this.owner,
           this.topology,
           needsForRow(shardRows[0]),
-          runtimeEnvironmentForRow(shardRows[0]),
+          { ...runtimeEnvironmentForRow(shardRows[0]), CARTULARY_GO_RACE: context?.go_race ? "1" : "0" },
           this.availablePostgresLanes,
         );
         goUnits.push(context ? { ...unit, cache_policy: context.cache_policy } : unit);
       }
     }
     const browserUnits = selectedBrowserStages.flatMap((stage) => {
-      const graph = compileBrowserStageGraph(this.root, this.owner, stage, { mode: browserMode, catalog: this.catalog });
+      const graph = compileBrowserStageGraph(this.root, this.owner, stage, { mode: browserMode, catalog: this.catalog, maxLanes: this.browserLaneLimit });
       const prerequisites = [...new Set(stage.groups.flatMap((group) => group.selectedRowIDs)
         .flatMap((rowID) => needsForRow(this.catalog.rowByID.get(rowID))))].sort(compareASCII);
       return graph.units.map((unit) => unit.needs.length === 0 ? { ...unit, needs: prerequisites } : unit);
@@ -461,7 +468,7 @@ export class WorkGraphCompiler {
       .filter((row) => row.owner_id === ownerID)
       .map((row) => row.row_id);
     if (ownerRows.length === 0) throw new Error(`unknown active owner ${ownerID}`);
-    if (rowIDs === undefined) return this.compileRows(ownerRows);
+    if (rowIDs === undefined) return this.withSelectionPolicy(false, () => this.compileRows(ownerRows.filter((id) => this.catalog.rowByID.get(id).aggregate_placement !== "explicit_only")));
     for (const rowID of rowIDs) {
       if (!ownerRows.includes(rowID)) {
         throw new Error(`${rowID} does not belong to ${ownerID}`);
@@ -501,6 +508,25 @@ export class WorkGraphCompiler {
 
   compileCommand(target, inputs) {
     const selection = resolveCommandSelection(this, target, inputs);
+    return this.withSelectionPolicy(selection.explicit, () => this.compileResolvedCommand(target, selection));
+  }
+
+  withSelectionPolicy(explicit, compile) {
+    const previous = this.allowExplicitRows;
+    this.allowExplicitRows = previous && explicit;
+    try { return compile(); } finally { this.allowExplicitRows = previous; }
+  }
+
+  resolveBrowserLaneLimit(value) {
+    const policy = this.topology.browser_lane_policy;
+    const limit = value === undefined ? policy.default : typeof value === "string" && /^[1-9][0-9]*$/u.test(value) ? Number(value) : value;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > policy.maximum) throw new Error("invalid BROWSER_LANES");
+    this.browserLaneLimit = limit;
+    return limit;
+  }
+
+  compileResolvedCommand(target, selection) {
+    this.resolveBrowserLaneLimit(selection.inputs.BROWSER_LANES);
     const binding = this.taskSurface.targets.find((entry) => entry.name === target).selection_binding;
     const units = selection.rows.length ? this.compileRows(selection.rows, [], { browserMode: binding.browser_mode ?? "validation" }).units : [];
     const entry = this.taskSurface.targets.find((value) => value.name === target);
@@ -510,7 +536,7 @@ export class WorkGraphCompiler {
   }
 
   forwardedInputs(entry, inputs) {
-    const controls = new Set(["CHECK", "COMPONENT", "SUITE", "OWNER", "ROWS", "SCOPE", "JSON", "DETAIL"]);
+    const controls = new Set(["CHECK", "COMPONENT", "SUITE", "OWNER", "ROWS", "SCOPE", "JSON", "DETAIL", "BROWSER_LANES"]);
     // Owner is executable input for the evidence audit, but a selection control
     // for owner slices. Only the declared private action consumes it.
     if (!entry.selection_binding) controls.delete("OWNER");
@@ -713,12 +739,19 @@ export class WorkGraphCompiler {
   }
 
   compileAggregate(target) {
+    const inputs = resolveCommandInputs(target, this.targetInputs[target] ?? {}, this.taskSurface);
+    this.resolveBrowserLaneLimit(inputs.BROWSER_LANES);
+    return this.withSelectionPolicy(false, () => this.compileAggregateRows(target));
+  }
+
+  compileAggregateRows(target) {
     const maximumTier = this.owner.aggregate_tiers[target];
     if (!maximumTier) throw new Error(`unknown aggregate ${target}`);
     const maximumRank = this.owner.tier_order.indexOf(maximumTier);
     const admitted = (entry) => {
-      const rank = this.owner.tier_order.indexOf(entry.minimum_tier);
-      if (rank < 0) throw new Error(`invalid minimum tier for ${entry.row_id ?? entry.id}`);
+      if (entry.aggregate_placement === "explicit_only") return false;
+      const rank = this.owner.tier_order.indexOf(entry.aggregate_placement);
+      if (rank < 0) throw new Error(`invalid aggregate placement for ${entry.row_id ?? entry.id}`);
       return rank <= maximumRank;
     };
     const rowIDs = this.catalog.rows

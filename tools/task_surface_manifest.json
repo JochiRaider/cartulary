@@ -2711,7 +2711,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.test_fast.v3",
+      "command_id": "cartulary.harness.command.test_fast.v4",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -2824,6 +2824,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       }
@@ -2855,7 +2874,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.check.v3",
+      "command_id": "cartulary.harness.command.check.v4",
       "semantic_behaviors": [
         {
           "behavior": "scheduler_orchestration",
@@ -2967,6 +2986,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       }
@@ -2998,7 +3036,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.ci.v4",
+      "command_id": "cartulary.harness.command.ci.v5",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -3110,6 +3148,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       }
@@ -3141,7 +3198,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.release_check.v3",
+      "command_id": "cartulary.harness.command.release_check.v4",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",
@@ -3253,6 +3310,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       }
@@ -3284,7 +3360,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.test_slice.v3",
+      "command_id": "cartulary.harness.command.test_slice.v4",
       "semantic_behaviors": [
         {
           "behavior": "scheduler_orchestration",
@@ -3411,25 +3487,6 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "argv"
-          },
-          {
-            "name": "PLAYWRIGHT_WORKERS",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "positive_integer",
-            "default": 3,
-            "empty_string": "invalid",
-            "normalization": "trim",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "runtime_env",
-            "min": 1,
-            "max": 16
           },
           {
             "name": "ROWS",
@@ -3564,6 +3621,25 @@
             "invalid_reason": "configuration_error",
             "summary_emission": "redacted_value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ],
         "constraints": [
@@ -3623,7 +3699,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.browser_e2e.v3",
+      "command_id": "cartulary.harness.command.browser_e2e.v4",
       "semantic_behaviors": [
         {
           "behavior": "service_lifecycle",
@@ -3756,7 +3832,6 @@
             "summary_emission": "value",
             "child_forwarding": "argv",
             "values": [
-              "all",
               "functional",
               "stateful",
               "measurement",
@@ -3802,6 +3877,25 @@
             "invalid_reason": "configuration_error",
             "summary_emission": "redacted_value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       },
@@ -3809,7 +3903,6 @@
         "kind": "selector",
         "input": "SUITE",
         "variants": {
-          "all": "harness.suite_browser_all",
           "functional": "harness.suite_browser_functional",
           "stateful": "harness.suite_browser_stateful",
           "measurement": "harness.suite_browser_measurement",
@@ -3849,7 +3942,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.browser_e2e_visual_update.v2",
+      "command_id": "cartulary.harness.command.browser_e2e_visual_update.v3",
       "semantic_behaviors": [
         {
           "behavior": "service_lifecycle",
@@ -3969,12 +4062,31 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       },
       "selection_binding": {
         "kind": "fixed",
-        "selection": "harness.suite_browser_visual",
+        "selection": "harness.suite_browser_visual_snapshots",
         "browser_mode": "snapshot_update"
       }
     },
@@ -4038,7 +4150,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.harness_contract.v3",
+      "command_id": "cartulary.harness.command.harness_contract.v4",
       "semantic_behaviors": [
         {
           "behavior": "evidence_normalization",

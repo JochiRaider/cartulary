@@ -17,9 +17,41 @@ import (
 )
 
 func testRendererOwnership(t *testing.T) {
+	t.Run("six_slots_and_waiting_seventh", func(t *testing.T) {
+		owner := &rendererOwner{options: ProductionOptions{BrowserLaneLimit: 6}, changed: make(chan struct{}), remaining: map[string]int{}}
+		for i := 0; i < 6; i++ {
+			slot, err := owner.reserve(t.Context(), fmt.Sprintf("borrower-%d", i), "default", "pooled", false)
+			if err != nil || slot.id != i+1 {
+				t.Fatal("six-slot reservation", slot, err)
+			}
+		}
+		ctx, cancel := context.WithCancel(t.Context())
+		started := make(chan struct{})
+		result := make(chan error, 1)
+		go func() {
+			close(started)
+			_, err := owner.reserve(ctx, "seventh", "default", "pooled", false)
+			result <- err
+		}()
+		<-started
+		select {
+		case err := <-result:
+			t.Fatal("seventh borrower did not wait", err)
+		default:
+		}
+		cancel()
+		if err := <-result; !errors.Is(err, context.Canceled) {
+			t.Fatal("waiting borrower ignored cancellation", err)
+		}
+		owner.unreserve(owner.slots[0])
+		slot, err := owner.reserve(t.Context(), "replacement", "default", "pooled", false)
+		if err != nil || slot.id != 1 || len(owner.slots) != 6 {
+			t.Fatal("slot was not reused", slot, err)
+		}
+	})
 	t.Run("resident_stack_pressure_progresses_after_renderers_are_gone", func(t *testing.T) {
 		runtime, root, run := runtimeFixture(t)
-		owner := NewProduction(ProductionOptions{Root: root, RunRoot: run, Runtime: runtime}, Options{})
+		owner := NewProduction(ProductionOptions{BrowserLaneLimit: 4, Root: root, RunRoot: run, Runtime: runtime}, Options{})
 		requests := []WorkRequirement{}
 		for i := range 8 {
 			requests = append(requests, WorkRequirement{Request: Request{Capability: "browser_stack", UnitID: fmt.Sprintf("unit-%d", i), Affinity: fmt.Sprintf("stack-%d", i)}, Renderer: "none", Physical: map[string]map[string]int64{"browser_stack": {"port_lane": 2, "memory_mb": 384, "process": 4}}, Active: map[string]int64{"cpu": 1, "io": 1, "process": 1, "memory_mb": 64}})
@@ -84,7 +116,7 @@ func testRendererOwnership(t *testing.T) {
 		starts, settles, removals := 0, 0, 0
 		var adapterMu sync.Mutex
 		unhealthy := false
-		options := ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: map[string]string{"NODE_BIN": "fake-node"}}
+		options := ProductionOptions{BrowserLaneLimit: 4, Root: root, RunRoot: run, Runtime: runtime, Environment: map[string]string{"NODE_BIN": "fake-node"}}
 		options.Run = func(_ context.Context, _ string, args []string, env map[string]string) (CommandResult, error) {
 			adapterMu.Lock()
 			defer adapterMu.Unlock()

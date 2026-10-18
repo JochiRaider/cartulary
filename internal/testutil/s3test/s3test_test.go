@@ -32,18 +32,10 @@ func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
 	t.Setenv(suiteservices.S3SecureEnv, "true")
 	t.Setenv(suiteservices.S3ProbeBucketEnv, "ct-suite-readiness-probe")
 
-	oldStart := startOwnedHarness
 	oldVerify := verifyAttachedFn
 	t.Cleanup(func() {
-		startOwnedHarness = oldStart
 		verifyAttachedFn = oldVerify
 	})
-
-	startCalls := 0
-	startOwnedHarness = func(ctx context.Context) (*Harness, error) {
-		startCalls++
-		return nil, errors.New("owned harness should not start when attach env is present")
-	}
 
 	verifyCalls := 0
 	verifyAttachedFn = func(ctx context.Context, harness *Harness) error {
@@ -61,9 +53,6 @@ func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start attached harness: %v", err)
 	}
-	if startCalls != 0 {
-		t.Fatalf("expected attach mode to skip owned startup, got %d calls", startCalls)
-	}
 	if verifyCalls != 1 {
 		t.Fatalf("expected one attach verification call, got %d", verifyCalls)
 	}
@@ -78,44 +67,15 @@ func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
 	}
 }
 
-func TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent(t *testing.T) {
+func TestStartSharedRejectsMissingAttachment(t *testing.T) {
 	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "object_store")
 	resetSharedHarness(t)
-	t.Setenv(suiteservices.S3EndpointEnv, "")
-	t.Setenv(suiteservices.S3AccessKeyEnv, "")
-	t.Setenv(suiteservices.S3SecretKeyEnv, "")
-	t.Setenv(suiteservices.S3SecureEnv, "")
-
-	oldStart := startOwnedHarness
-	t.Cleanup(func() {
-		startOwnedHarness = oldStart
-	})
-
-	startCalls := 0
-	want := &Harness{
-		Endpoint:    "127.0.0.1:9000",
-		AccessKey:   "suite-access",
-		SecretKey:   "suite-secret",
-		suiteHash:   "suitehash",
-		processHash: "processid",
+	for _, name := range []string{suiteservices.S3EndpointEnv, suiteservices.S3AccessKeyEnv, suiteservices.S3SecretKeyEnv, suiteservices.S3SecureEnv} {
+		t.Setenv(name, "")
 	}
-	startOwnedHarness = func(ctx context.Context) (*Harness, error) {
-		startCalls++
-		return want, nil
-	}
-
-	harness, err := StartShared(context.Background())
-	if err != nil {
-		t.Fatalf("start shared harness: %v", err)
-	}
-	if startCalls != 1 {
-		t.Fatalf("expected one owned startup, got %d", startCalls)
-	}
-	if harness != want {
-		t.Fatal("expected StartShared to return the owned harness")
-	}
-	if !harness.shared {
-		t.Fatal("expected owned harness returned by StartShared to be marked shared")
+	harness, err := StartShared(t.Context())
+	if err == nil || harness != nil || sharedHarness != nil {
+		t.Fatal("missing attachment must fail without publishing a harness", harness, err)
 	}
 }
 

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v9",
+  "schema_id": "cartulary.test_family_manifest.v10",
   "owner_id": "package.ui",
   "rows": [
     {
@@ -24,7 +24,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": []
     },
     {
@@ -49,7 +49,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": []
     },
     {
@@ -74,7 +74,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": []
     },
     {
@@ -99,7 +99,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": []
     },
     {
@@ -127,7 +127,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -155,7 +155,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -183,7 +183,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -196,7 +196,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/selector-core.test.ts",
+        "file": "packages/ui-contracts/src/selector-core.node.test.ts",
         "titles": [
           "@cartulary/ui-contracts selector core builds escaped data-testid selectors and timeline editor test ids",
           "@cartulary/ui-contracts selector core derives surface selectors from view_schema_id instead of visible titles",
@@ -205,7 +205,7 @@
           "@cartulary/ui-contracts selector core returns deterministic selectors for identical stable identifiers",
           "@cartulary/ui-contracts selector core validates view_schema_id selectors against the generated registry"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -213,7 +213,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -238,7 +238,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -270,7 +270,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -306,7 +306,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     }
   ]

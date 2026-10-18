@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 
-const schemaID = "cartulary.postgres_fixture_policy_registry.v2";
+const schemaID = "cartulary.postgres_fixture_policy_registry.v3";
 const capabilityContract = Object.freeze([
   {
     capability: "postgres_dedicated",

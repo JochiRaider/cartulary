@@ -28,7 +28,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.auth.browser.administrative_audit_read_recovery",
@@ -51,7 +51,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.assessments.browser.append_recovery"
@@ -73,7 +73,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.auth.browser.a_reviewer_visible_incident_edit_control_fails_w_b6248bf4c8",
@@ -108,7 +108,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.assessment_timeline_support_enum_filtering_prese_9700791fe7",
@@ -138,7 +138,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.entities.browser.the_browser_workbook_shows_auto_resolution_only_758d41a16f"
@@ -160,7 +160,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.timeline.browser.batch_history_review_clear",
@@ -185,7 +185,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab",
@@ -211,7 +211,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.coordination_create_matrix",
@@ -237,7 +237,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.assessments.browser.contextual_decision_refresh",
@@ -261,7 +261,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.auth.browser.an_enterprise_authenticated_browser_landing_on_s_fed22b45ad",
@@ -284,7 +284,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.entity_find_authority_host",
@@ -316,7 +316,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.entities.browser.host_and_identity_party_assignments_use_ordinary_950c32b8ce"
@@ -338,7 +338,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.evidence.browser.verify_attach_flow_uses_generated_protocol_types_7a778c9178"
@@ -360,7 +360,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.evidence.browser.a_screenshot_only_timeline_row_can_be_persisted_d7d7f91ff4",
@@ -407,7 +407,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.entities.browser.verify_hosts_identities_and_notes_grids_render_c_7531b57a50"
@@ -429,7 +429,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.revisions.browser.history_browsing_3bb5a426ad51",
@@ -455,7 +455,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.revisions.browser.history_recovery_074ea859ee8b",
@@ -484,7 +484,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.revisions.browser.invokes_a_server_supplied_change_set_action_from_a29cde1d94",
@@ -511,7 +511,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.imports.browser.base_workbook_omits_unclaimed_import_assistant_6f271c8b42"
@@ -533,7 +533,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.incidents.browser.incident_admins_manage_memberships_on_the_ordina_f26145a162",
@@ -567,7 +567,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "web.design.browser.incident_import_action_access_hardening",
@@ -591,7 +591,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.incidents.browser.lifecycle_acknowledgement",
@@ -617,7 +617,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.incidents.browser.membership_audit_access_recovery",
@@ -642,7 +642,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.incidents.browser.membership_management_departure",
@@ -667,7 +667,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.incidents.browser.metadata_authority",
@@ -693,7 +693,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.canonical_create_independent_recovery",
@@ -718,7 +718,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.indicator_lifecycle_exact_recovery",
@@ -742,7 +742,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.indicator_observations_exact_recovery",
@@ -765,7 +765,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.revisions.browser.verify_history_and_rollback_preview_action_use_p_4201ff80a8"
@@ -787,7 +787,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59",
@@ -815,7 +815,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.note_create_recovery",
@@ -840,7 +840,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.entities.browser.timeline_mention_candidate_recovery"
@@ -862,7 +862,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.entities.browser.the_browser_inspector_dismisses_a_mention_and_re_6150fd43cd"
@@ -884,7 +884,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.entities.browser.timeline_mention_creation_recovery"
@@ -906,7 +906,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.entities.browser.the_browser_inspector_resolves_existing_entities_325548131d",
@@ -929,7 +929,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.entities.browser.entity_merge_exact_recovery"
@@ -951,7 +951,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.entities.browser.the_browser_inspector_merges_duplicate_entities_d0cb95b021"
@@ -973,7 +973,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.networkflow.browser.network_flow_selector_covers_when_the_extension_c90fca78ee"
@@ -995,7 +995,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.inspector_collection_feedback",
@@ -1020,7 +1020,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.parties.browser.source_link_recovery"
@@ -1042,7 +1042,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "harness.browser.boundary_support.reference_candidate_readiness"
@@ -1064,7 +1064,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.contextual_task_plain_candidate_clicks_retain_ed_b7902be5cd",
@@ -1087,7 +1087,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.reference_data.browser.administration_async_recovery",
@@ -1111,7 +1111,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.recovery.browser.a_harness_owned_browser_fixture_captures_a_retai_d8973973b0"
@@ -1133,7 +1133,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.assessments.browser.the_browser_workbook_assessment_workflow_appends_aefa86174b",
@@ -1167,7 +1167,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.evidence.browser.timeline_attachment_feedback"
@@ -1189,7 +1189,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.timeline.browser.auto_resolution_feedback_characterization",
@@ -1212,7 +1212,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.timeline.browser.autosave_feedback_characterization",
@@ -1235,7 +1235,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.timeline.browser.bulk_tag_characterization",
@@ -1264,7 +1264,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.timeline.browser.collection_input_authoring",
@@ -1292,7 +1292,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.timeline.browser.deferred_continuity"
@@ -1314,7 +1314,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.find_accessible_geometry",
@@ -1344,7 +1344,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.timeline.browser.clear_conflicts",
@@ -1384,7 +1384,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.verify_timeline_query_response_rows_render_full_bffd82f340"
@@ -1406,7 +1406,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.timeline.browser.clear_drafts",
@@ -1446,7 +1446,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.evidence.browser.timeline_related_creation_replay",
@@ -1474,7 +1474,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.timeline.browser.scalar_clipboard_characterization",
@@ -1501,7 +1501,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89",
@@ -1537,7 +1537,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "harness.browser.boundary_support.frontend_artifact_lifetime",
@@ -1564,7 +1564,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.column_sizing_gestures_saved",
@@ -1592,7 +1592,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.destination_handoff_1024_963c4de116",
@@ -1623,7 +1623,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.generic_unsaved_cells_preserve_keyboard_and_exte_f0e6722da1",
@@ -1662,7 +1662,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.existing_task_reference_queries_stage_typed_time_f92c8c967a",
@@ -1689,7 +1689,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.ordinary_create_continuity",
@@ -1714,7 +1714,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.ordinary_create_closure",
@@ -1737,7 +1737,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.preferences_1",
@@ -1762,7 +1762,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.savedviews.browser.independent_discovery_continuity"
@@ -1784,7 +1784,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.assessments.browser.the_browser_appends_a_subject_only_assessment_fo_2a82260393",
@@ -1807,7 +1807,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.workbook.browser.the_browser_workbook_exercises_parties_notes_tas_8ca985fff2"
@@ -1829,7 +1829,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "default",
           "selected_row_ids": [
             "module.savedviews.browser.authoring_recovery_005364829450",
@@ -1861,7 +1861,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
           "browser_session_group": "browser-functional-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
@@ -1887,7 +1887,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
           "browser_session_group": "browser-functional-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
@@ -1910,7 +1910,7 @@
           "kind": "duration_balanced_specs",
           "coverage": "authoritative",
           "execution_dependency": "browser_functional",
-          "workers": "default",
+          "workers": "1",
           "runtime_profile_id": "network_flow_claimed",
           "browser_session_group": "browser-functional-network-flow-claimed",
           "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration",
@@ -1956,7 +1956,7 @@
           "kind": "support",
           "coverage": "supplemental",
           "execution_dependency": "browser_support",
-          "workers": "default",
+          "workers": "1",
           "browser_session_group": "browser-e2e-support-default",
           "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
@@ -1979,7 +1979,7 @@
           "kind": "support",
           "coverage": "supplemental",
           "execution_dependency": "browser_support",
-          "workers": "default",
+          "workers": "1",
           "browser_session_group": "browser-e2e-support-default",
           "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
@@ -2004,7 +2004,7 @@
           "kind": "support",
           "coverage": "supplemental",
           "execution_dependency": "browser_support",
-          "workers": "default",
+          "workers": "1",
           "browser_session_group": "browser-e2e-support-default",
           "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
@@ -2032,7 +2032,7 @@
           "kind": "support",
           "coverage": "supplemental",
           "execution_dependency": "browser_support",
-          "workers": "default",
+          "workers": "1",
           "browser_session_group": "browser-e2e-support-default",
           "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [
@@ -2060,7 +2060,7 @@
           "kind": "support",
           "coverage": "supplemental",
           "execution_dependency": "browser_support",
-          "workers": "default",
+          "workers": "1",
           "browser_session_group": "browser-e2e-support-default",
           "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
           "selected_row_ids": [

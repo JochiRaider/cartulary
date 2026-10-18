@@ -35,7 +35,7 @@ export function validateSchedulerResourceRegistrySemantics(
   ) {
     throw new Error(`${label} has unexpected fields`);
   }
-  if (registry.schema_id !== "cartulary.scheduler_resource_registry.v6") {
+  if (registry.schema_id !== "cartulary.scheduler_resource_registry.v7") {
     throw new Error(`${label} has the wrong schema ID`);
   }
   if (registry.capacity_override_schema !== "cartulary.harness_capacity_override.v1") {
@@ -89,8 +89,13 @@ export function validateSchedulerResourceRegistrySemantics(
       `${label}.capacity_policies.cpu_tokens.safety_margin_percent must be an integer from 0 through 100`,
     );
   }
-  if (registry.capacity_policies.postgres_lanes.default !== 8) {
-    throw new Error(`${label}.capacity_policies.postgres_lanes.default must be 8`);
+  for (const field of ["postgres_lanes", "object_store_lanes", "port_lanes"]) {
+    const policy = registry.capacity_policies[field];
+    if (!Number.isSafeInteger(policy.default) || policy.default < 1 || policy.default > 1024 ||
+        policy.minimum !== 1 || !Number.isSafeInteger(policy.maximum_cpu_multiplier) ||
+        policy.maximum_cpu_multiplier < 1 || policy.maximum_cpu_multiplier > 64) {
+      throw new Error(`${label}.capacity_policies.${field} must declare bounded positive integral capacity`);
+    }
   }
   for (const resource of registry.resources) {
     if (
@@ -103,7 +108,7 @@ export function validateSchedulerResourceRegistrySemantics(
   }
   if (
     JSON.stringify(registry.runner_worker_inputs) !==
-    JSON.stringify(["PLAYWRIGHT_WORKERS", "VITEST_MAX_WORKERS"])
+    JSON.stringify(["VITEST_MAX_WORKERS"])
   ) {
     throw new Error(`${label} has unsupported runner worker inputs`);
   }

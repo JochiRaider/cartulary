@@ -180,8 +180,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.execution_topology.v13",
-      "path": "tools/schemas/cartulary.execution_topology.v13.schema.json",
+      "schema_id": "cartulary.execution_topology.v14",
+      "path": "tools/schemas/cartulary.execution_topology.v14.schema.json",
       "classification": "owner_input",
       "producer": "execution topology owner",
       "validation": "harness.json_shape_check",
@@ -558,8 +558,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_renderer_event.v1",
-      "path": "tools/schemas/cartulary.harness_renderer_event.v1.schema.json",
+      "schema_id": "cartulary.harness_renderer_event.v2",
+      "path": "tools/schemas/cartulary.harness_renderer_event.v2.schema.json",
       "classification": "shared_component",
       "producer": "native renderer owner",
       "validation": "harness.json_shape_check",
@@ -702,8 +702,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_runtime_plan.v5",
-      "path": "tools/schemas/cartulary.harness_runtime_plan.v5.schema.json",
+      "schema_id": "cartulary.harness_runtime_plan.v6",
+      "path": "tools/schemas/cartulary.harness_runtime_plan.v6.schema.json",
       "classification": "shared_component",
       "producer": "private graph compiler",
       "validation": "harness.json_shape_check",
@@ -741,8 +741,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_target_plan.v5",
-      "path": "tools/schemas/cartulary.harness_target_plan.v5.schema.json",
+      "schema_id": "cartulary.harness_target_plan.v6",
+      "path": "tools/schemas/cartulary.harness_target_plan.v6.schema.json",
       "classification": "public_contract",
       "producer": "work graph target plan",
       "validation": "harness.json_shape_check"
@@ -802,8 +802,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_work_graph_owner.v4",
-      "path": "tools/schemas/cartulary.harness_work_graph_owner.v4.schema.json",
+      "schema_id": "cartulary.harness_work_graph_owner.v5",
+      "path": "tools/schemas/cartulary.harness_work_graph_owner.v5.schema.json",
       "classification": "owner_input",
       "producer": "harness graph owner",
       "validation": "harness.json_shape_check"
@@ -1208,8 +1208,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.postgres_fixture_policy_registry.v2",
-      "path": "tools/schemas/cartulary.postgres_fixture_policy_registry.v2.schema.json",
+      "schema_id": "cartulary.postgres_fixture_policy_registry.v3",
+      "path": "tools/schemas/cartulary.postgres_fixture_policy_registry.v3.schema.json",
       "classification": "owner_input",
       "producer": "PostgreSQL fixture policy registry",
       "validation": "harness.json_shape_check"
@@ -1285,8 +1285,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.scheduler_resource_registry.v6",
-      "path": "tools/schemas/cartulary.scheduler_resource_registry.v6.schema.json",
+      "schema_id": "cartulary.scheduler_resource_registry.v7",
+      "path": "tools/schemas/cartulary.scheduler_resource_registry.v7.schema.json",
       "classification": "owner_input",
       "producer": "canonical scheduler resource owner",
       "validation": "harness.json_shape_check"
@@ -1299,8 +1299,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.task_guide_summary.v4",
-      "path": "tools/schemas/cartulary.task_guide_summary.v4.schema.json",
+      "schema_id": "cartulary.task_guide_summary.v5",
+      "path": "tools/schemas/cartulary.task_guide_summary.v5.schema.json",
       "classification": "public_contract",
       "producer": "owner task guidance",
       "validation": "harness.json_shape_check"
@@ -1390,8 +1390,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.test_family_manifest.v9",
-      "path": "tools/schemas/cartulary.test_family_manifest.v9.schema.json",
+      "schema_id": "cartulary.test_family_manifest.v10",
+      "path": "tools/schemas/cartulary.test_family_manifest.v10.schema.json",
       "classification": "owner_input",
       "producer": "test family owner",
       "validation": "harness.json_shape_check"

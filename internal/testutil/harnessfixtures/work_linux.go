@@ -296,7 +296,7 @@ func (p *Production) ConfigureDedicated(parent *string, capacities map[string]in
 		return WorkRequirement{}, err
 	}
 	topology, err := harnessschema.Decode(bytes)
-	if err != nil || harnessschema.Validate("cartulary.execution_topology.v13", topology) != nil {
+	if err != nil || harnessschema.Validate("cartulary.execution_topology.v14", topology) != nil {
 		return WorkRequirement{}, errors.New("invalid physical resource topology")
 	}
 	data, err := json.Marshal(topology.(map[string]any)["physical_resource_claims"])

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_target_plan.v5",
+  "$id": "cartulary.harness_target_plan.v6",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_target_plan.v5"
+      "const": "cartulary.harness_target_plan.v6"
     },
     "target": {
       "type": "string",
@@ -151,7 +151,7 @@
           "owner_id",
           "runner",
           "evidence_class",
-          "minimum_tier",
+          "aggregate_placement",
           "fixture_capability",
           "service_dependencies"
         ],
@@ -172,7 +172,7 @@
             "type": "string",
             "minLength": 1
           },
-          "minimum_tier": {
+          "aggregate_placement": {
             "type": "string",
             "minLength": 1
           },

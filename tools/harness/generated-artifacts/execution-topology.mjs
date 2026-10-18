@@ -9,7 +9,7 @@ import { validateSchemaSync } from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v13";
+export const executionTopologySchemaID = "cartulary.execution_topology.v14";
 import { projectOperationBindings, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v4";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v16";
@@ -142,6 +142,7 @@ function validateBrowserOwner(raw, dependencyIDs, targets, runtimeProfileIDs) {
     for (const group of assertArray(stage.groups, `browser stage ${stage.name} groups`)) {
       if (groups.has(group.name)) throw new Error(`browser stage ${stage.name} has duplicate group ${group.name}`);
       groups.add(group.name);
+      if (group.workers !== "1") throw new Error(`browser group ${group.name} requires exactly one worker`);
       if (!/^[a-z][a-z0-9-]*$/u.test(group.target)) throw new Error(`browser group ${group.name} has unknown target ${group.target}`);
       if (!dependencyIDs.has(group.execution_dependency)) {
         throw new Error(`browser group ${group.name} has unknown execution dependency ${group.execution_dependency}`);
@@ -172,6 +173,11 @@ export function loadExecutionTopology(options = {}) {
   const taskSurfaceOwnerPath = resolveRepoPath(root, raw.task_surface_owner);
   const taskSurface = readJSON(taskSurfaceOwnerPath);
   requireSchema(taskSurface, taskSurfaceOwnerSchemaID, taskSurfaceOwnerPath);
+  if (raw.browser_lane_policy.default > raw.browser_lane_policy.maximum) throw new Error("invalid browser lane policy");
+  for (const target of taskSurface.targets) {
+    const input = target.input_contract?.inputs.find((entry) => entry.name === "BROWSER_LANES");
+    if (input) Object.assign(input, { default: raw.browser_lane_policy.default, max: raw.browser_lane_policy.maximum });
+  }
   const operationOwner = readOperationOwner(root);
   const targets = new Set(Object.keys(operationOwner.operations));
   const runtimeProfiles = uniqueByID(raw.runtime_profiles, "runtime_profiles");

@@ -126,12 +126,11 @@ type objectStoreProbeFailure struct {
 var errObjectStoreReadinessSemanticMismatch = errors.New("object-store readiness semantic mismatch")
 
 var (
-	sharedHarnessMu   sync.Mutex
-	sharedHarness     *Harness
-	startOwnedHarness = StartOwned
-	verifyAttachedFn  = verifyAttachedHarness
-	startContainerFn  = testcontainersx.GenericContainer
-	waitReadyFn       = func(ctx context.Context, harness *Harness) error {
+	sharedHarnessMu  sync.Mutex
+	sharedHarness    *Harness
+	verifyAttachedFn = verifyAttachedHarness
+	startContainerFn = testcontainersx.GenericContainer
+	waitReadyFn      = func(ctx context.Context, harness *Harness) error {
 		return harness.WaitReady(ctx)
 	}
 	newReadinessClientFn = func(ctx context.Context, harness *Harness) (objectStoreReadinessClient, error) {
@@ -191,10 +190,7 @@ func StartShared(ctx context.Context) (*Harness, error) {
 		return nil, err
 	}
 	if !attached {
-		harness, err = startOwnedHarness(ctx)
-	}
-	if err != nil {
-		return nil, err
+		return nil, errors.New("shared object store requires an explicit service attachment")
 	}
 	harness.shared = true
 	sharedHarness = harness

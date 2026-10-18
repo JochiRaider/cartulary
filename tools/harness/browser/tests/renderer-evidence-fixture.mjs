@@ -15,5 +15,5 @@ export function publishRendererFixture(root, group, runID) {
   Object.assign(observed,{image_id:`sha256:${"a".repeat(64)}`,core_version:profile.playwright_version,font_files:[{path:"fixture.woff2",bytes:1,sha256:"a".repeat(64)}]});
   write(borrow.attestation_ref,{schema_id:"cartulary.frontend_visual_renderer_attestation.v1",profile,observed});
   write(borrow.trust_ref,{schema_id:"cartulary.browser_tls_trust.v1",tool_sha256:"a".repeat(64),trust_bundle_sha256:"b".repeat(64),authorities_sha256:["c".repeat(64)]});
-  write(`${base}/borrowed-${borrow.borrow_id}.json`,{schema_id:"cartulary.harness_renderer_event.v1",run_id:runID,allocation_id:borrow.allocation_id,generation:borrow.generation,borrow_id:borrow.borrow_id,slot_id:1,runtime_profile_id:group.runtime_profile_id,state:"borrowed",unit_id:borrow.unit_id});
+  write(`${base}/borrowed-${borrow.borrow_id}.json`,{schema_id:"cartulary.harness_renderer_event.v2",run_id:runID,allocation_id:borrow.allocation_id,generation:borrow.generation,borrow_id:borrow.borrow_id,slot_id:1,runtime_profile_id:group.runtime_profile_id,state:"borrowed",unit_id:borrow.unit_id});
 }

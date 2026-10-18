@@ -112,7 +112,7 @@ make test-slice SCOPE=services OWNER=web.workbook
 
 Omitted `ROWS` selects every active row owned by the requested owner. On the
 service-backed command it selects every owned row whose runtime profile requires
-managed services. Aggregate `minimum_tier` policy does not narrow either selection. Invalid,
+managed services. Aggregate `aggregate_placement` policy does not narrow either selection. Invalid,
 duplicate, blank, unknown, cross-owner, and zero-row selections fail before setup.
 
 Useful broad frontend gates remain:
@@ -416,3 +416,22 @@ The private Grid Adapter's `requestFocus` completes only after actual focus. Its
 abort signal and user-navigation cancellation invalidate pending registration
 work. `draftWritable` expresses creation capability independently from existing
 record `contractWritable`. Support adapters implement the same completion contract.
+
+## Explicit Suites and Browser Concurrency
+
+Visual and UI-Review are excluded from `test-fast`, `check`, `ci`, `release-check`
+and broad owner selections. Run `make browser-e2e SUITE=visual` for all screenshot
+and Visual support assertions, or `make harness-contract SUITE=ui-review` for
+UI-Review, including native race qualification. Exact owner/row selections remain
+available. Golden updates select only snapshot-producing rows and still require
+the existing explicit refresh authority and review.
+
+`BROWSER_LANES` defaults to four, accepts `1..6`, and bounds lazy renderer slots.
+Host admission determines actual concurrency. Each scheduled group has one
+worker/account, offset zero, fresh contexts and isolated backend state.
+`PLAYWRIGHT_WORKERS` and `browser-e2e SUITE=all` are retired.
+
+Name pure ordinary frontend tests `*.node.test.ts` to select the `node-unit`
+Vitest project without jsdom or DOM setup. Update exact catalog paths and project
+IDs with renames; static discovery enforces nonoverlapping ownership. Dedicated
+harness-node and renderer-node roots retain their own environments.

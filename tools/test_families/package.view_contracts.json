@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v9",
+  "schema_id": "cartulary.test_family_manifest.v10",
   "owner_id": "package.view_contracts",
   "rows": [
     {
@@ -39,7 +39,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -64,7 +64,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -92,7 +92,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -105,7 +105,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/view-contracts/src/rows.test.ts",
+        "file": "packages/view-contracts/src/rows.node.test.ts",
         "titles": [
           "accepts sparse patch cells without weakening full-row completeness",
           "enforces conditional full-row group_values and sparse patch group_values",
@@ -115,7 +115,7 @@
           "rejects row view identity mismatches deterministically",
           "requires complete full-row cells and rejects technical cells"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -123,7 +123,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -153,7 +153,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     }
   ]

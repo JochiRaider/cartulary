@@ -118,7 +118,7 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 		}
 		environment := maps.Clone(reply.Facts.Environment)
 		environment["CARTULARY_HOST_ADMISSION_LEASE"] = d.admission.Token
-		d.fixtures = harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{Root: d.root, RunRoot: privateRoot, Target: "ui-review", Runtime: d.runtime, Environment: environment}, harnessfixtures.Options{})
+		d.fixtures = harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{BrowserLaneLimit: 1, Root: d.root, RunRoot: privateRoot, Target: "ui-review", Runtime: d.runtime, Environment: environment}, harnessfixtures.Options{})
 		acquire, cancel := d.producerContext(ctx)
 		request := harnessfixtures.Request{Capability: "browser_stack", UnitID: "ui-review", Affinity: "design-review-" + *d.input.Profile, BrowserStage: "webserver-backed", RuntimeProfile: *d.input.Profile}
 		capacities := map[string]int64{}
@@ -301,7 +301,7 @@ func (d *productionDriver) Close(ctx context.Context) []error {
 	}
 	// The adapter is quiescent before the fixture owner evaluates every
 	// retained resource. Review records outcomes without a second kind loop.
-	owner := harnessfixtures.ProductionOptions{Root: d.root, RunRoot: d.runRoot, Target: "ui-review", Runtime: d.runtime, Environment: d.environment}
+	owner := harnessfixtures.ProductionOptions{BrowserLaneLimit: 1, Root: d.root, RunRoot: d.runRoot, Target: "ui-review", Runtime: d.runtime, Environment: d.environment}
 	owner.ReportCleanup = func(outcome harnessfixtures.CleanupOutcome) {
 		operation := "provider_close"
 		if outcome.Kind == "managed_suite" || outcome.Kind == "borrowed_suite" {

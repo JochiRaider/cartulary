@@ -50,6 +50,7 @@
       "project_ids": [
         "browser-unit",
         "harness-node",
+        "node-unit",
         "renderer-node"
       ]
     }

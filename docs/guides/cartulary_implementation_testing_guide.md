@@ -55,14 +55,17 @@ catalog inputs, then regenerate through Make.
 
 `make check` retains product coverage, current-artifact validation, static and
 security gates, and the three required harness smoke roles. Broad harness
-self-regression suites, including seeded UI-review tests and shared test-helper
-suites, run at the `full` aggregate tier through `make ci`, CI, and release
-verification. Harness smoke tiers are a separate selection surface.
+self-regression suites and shared test-helper suites run at the `full` aggregate
+tier through `make ci` and release verification. Visual and UI-Review rows are
+`explicit_only`: run `make browser-e2e SUITE=visual` and
+`make harness-contract SUITE=ui-review` when their assurance is required.
+All four aggregates, including `release-check`, exclude these suites. A passing
+aggregate does not qualify their omitted assertions. Harness smoke tiers are a separate selection surface.
 
 For harness changes, use the owning slice recommended by `make task-guide`;
 passing `make check` alone does not exercise those full-tier regressions.
-Explicit owner/row selection and direct backend targets are not filtered by
-aggregate tiers. Product-owned rows in helper packages retain their own tiers.
+Exact `ROWS` selections may run explicit-only rows; broad owner and suite
+selections exclude them. Product-owned rows in helper packages retain their own tiers.
 See TH-HARNESS-REQ-800, 053, and 054 for the placement contract.
 
 ## Plan a Change
@@ -590,3 +593,27 @@ explicit separate operation and does not include these local execution or
 resource records. Counter availability and coverage remain explicit in each
 retained run. Harness performance qualification and baseline publication are
 retired; descriptive observations do not establish a total-cost or overhead claim.
+
+## Resource Ownership and Validation
+
+`BROWSER_LANES` defaults to four and accepts one through six on browser-capable
+graph commands. Six is an opt-in upper bound; multidimensional host admission
+can admit fewer groups. Each group uses one worker and one account. The retired
+`PLAYWRIGHT_WORKERS` and `browser-e2e SUITE=all` inputs have no aliases.
+
+The host-bounded defaults allow up to 16 PostgreSQL tokens, eight object-store
+tokens and 32 port lanes. Service tokens are capped at admitted CPU tokens;
+port lanes are capped at twice that count. The shared services consume their
+own resident reservations in addition to active test claims. CPU safety margin,
+memory limits, process accounting and cleanup headroom still apply.
+
+Compatible groups reuse renderer containers and Playwright servers with fresh
+contexts and connection-owned Chromium. Ordinary PostgreSQL is provisioned once
+per owning generation. Transactions remain serialized; failed rollback or close
+poisons the fixture before reuse. Committed/concurrent behavior uses dedicated
+clones; migration behavior uses fresh migration databases. `s3test.StartShared`
+requires an explicit attachment; lifecycle tests use explicit owned APIs.
+
+Use static checks and exact affected rows while developing harness changes.
+Consolidate integration/regression validation at completion. Do not introduce a
+new baseline or rerun comprehensive suites merely because a phase ended.

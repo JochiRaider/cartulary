@@ -29,6 +29,17 @@ import (
 // Real physical ownership through the native library, without a fixture-session
 // transport or a second lifecycle coordinator in the test fixture.
 func TestNativeFixturePhysicalLifecycle(t *testing.T) {
+	testNativeFixturePhysicalLifecycle(t, []string{"owned", "failed_cleanup"})
+}
+
+// The persistent owner reserves its own physical capacity independently of the
+// borrowing test process. Keep this case outside the installed-browser envelope.
+func TestNativeBorrowedFixturePhysicalLifecycle(t *testing.T) {
+	testNativeFixturePhysicalLifecycle(t, []string{"borrowed"})
+}
+
+func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
+	t.Helper()
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "../../../.."))
 	env := map[string]string{}
@@ -53,7 +64,7 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 		results = filepath.Join(root, results)
 	}
 	results = filepath.Join(results, os.Getenv("CARTULARY_TEST_RUN_ID"), "physical-fixtures")
-	for _, variant := range []string{"borrowed", "owned", "failed_cleanup"} {
+	for _, variant := range variants {
 		t.Run(variant, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
@@ -128,7 +139,7 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 				target = "test-slice"
 				environment["SCOPE"] = "services"
 			}
-			options := harnessfixtures.ProductionOptions{Root: root, RunRoot: run, Target: target, Runtime: r, Environment: environment}
+			options := harnessfixtures.ProductionOptions{Root: root, RunRoot: run, Target: target, Runtime: r, Environment: environment, BrowserLaneLimit: 1}
 			owner := harnessfixtures.NewProduction(options, harnessfixtures.Options{})
 			var blocked string
 			defer func() {

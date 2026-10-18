@@ -32,7 +32,7 @@ export function buildTargetPlan(root, target, suppliedInputs = {}, compiler = ne
     .filter((output) => output.startsWith("rows/") && output.endsWith(".json"))
     .map((output) => output.slice(5, -5)))].sort();
   return {
-    schema_id: "cartulary.harness_target_plan.v5",
+    schema_id: "cartulary.harness_target_plan.v6",
     target, command_id: entry.command_id,
     inputs: Object.fromEntries(Object.entries(inputs).map(([key, value]) => [key,
       entry.input_contract.inputs.find((input) => input.name === key).summary_emission === "redacted_value" ? "<redacted>" : value])),
@@ -41,7 +41,7 @@ export function buildTargetPlan(root, target, suppliedInputs = {}, compiler = ne
     rows: rowIDs.map((id) => {
       const row = compiler.catalog.rowByID.get(id);
       return { row_id: id, owner_id: row.owner_id, runner: row.runner, evidence_class: row.evidence_class,
-        minimum_tier: row.minimum_tier, fixture_capability: row.fixture_capability, service_dependencies: row.service_dependencies };
+        aggregate_placement: row.aggregate_placement, fixture_capability: row.fixture_capability, service_dependencies: row.service_dependencies };
     }),
     units: compiled.graph.units.map((unit) => ({
       unit_id: unit.unit_id, owner_id: unit.owner_id, kind: unit.kind, needs: unit.needs,
@@ -60,7 +60,7 @@ export function renderTargetPlan(plan, detail = "summary") {
     return `target=${plan.target} units=${plan.units.length} cached=${cached} fixtures=${fixtures} digest=${plan.graph_digest}`;
   }
   const lines = [`target ${plan.target}`, `graph ${plan.graph_digest}`];
-  if (detail === "rows") lines.push(...plan.rows.map((row) => `${row.row_id} owner=${row.owner_id} runner=${row.runner} evidence=${row.evidence_class} tier=${row.minimum_tier} fixture=${row.fixture_capability}`));
+  if (detail === "rows") lines.push(...plan.rows.map((row) => `${row.row_id} owner=${row.owner_id} runner=${row.runner} evidence=${row.evidence_class} placement=${row.aggregate_placement} fixture=${row.fixture_capability}`));
   else if (detail === "artifacts") lines.push(...plan.units.flatMap((unit) => unit.evidence_outputs.map((output) => `${unit.unit_id} ${output}`)));
   else if (detail === "graph") lines.push(...plan.units.map((unit) => `${unit.unit_id} kind=${unit.kind} owner=${unit.owner_id} needs=${unit.needs.join(",") || "-"} fixture=${unit.fixture_capability} services=${unit.service_dependencies.join(",") || "-"} cache=${unit.cache_policy} work_ms=${unit.estimated_work_ms}`));
   else throw new Error("DETAIL must be summary, graph, rows, or artifacts");

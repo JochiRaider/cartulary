@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.test_family_manifest.v9",
+  "$id": "cartulary.test_family_manifest.v10",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,7 +10,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.test_family_manifest.v9"
+      "const": "cartulary.test_family_manifest.v10"
     },
     "owner_id": {
       "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id"
@@ -151,7 +151,7 @@
         "resource_profile_id",
         "fixture_capability",
         "service_dependencies",
-        "minimum_tier",
+        "aggregate_placement",
         "claim_posture",
         "status"
       ],
@@ -231,7 +231,7 @@
             "browser_isolated",
             "browser_measurement_quiet",
             "harness_contract",
-              "harness_installed_browser",
+            "harness_installed_browser",
             "io_heavy",
             "managed_process",
             "package_qualification",
@@ -268,12 +268,13 @@
         "service_dependencies": {
           "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies"
         },
-        "minimum_tier": {
+        "aggregate_placement": {
           "enum": [
             "fast",
             "standard",
             "full",
-            "release"
+            "release",
+            "explicit_only"
           ]
         },
         "claim_posture": {

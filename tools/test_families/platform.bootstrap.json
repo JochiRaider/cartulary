@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v9",
+  "schema_id": "cartulary.test_family_manifest.v10",
   "owner_id": "platform.bootstrap",
   "rows": [
     {
@@ -23,7 +23,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -47,7 +47,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     }
   ]

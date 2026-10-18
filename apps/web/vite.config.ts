@@ -14,6 +14,11 @@ const browserUnitIncludes = [
   "../../packages/*/src/**/*.test.tsx",
 ];
 
+const nodeUnitIncludes = [
+  "src/**/*.node.test.ts",
+  "../../packages/*/src/**/*.node.test.ts",
+];
+
 const harnessNodeIncludes = ["e2e/**/*.test.ts"];
 const e2eAPIOrigin =
   process.env.CARTULARY_WEB_E2E_API_ORIGIN ??
@@ -111,10 +116,19 @@ export default defineConfig(({ mode }) => ({
     projects: [
       defineProject({
         test: {
+          name: "node-unit",
+          environment: "node",
+          include: nodeUnitIncludes,
+          exclude: ["../../packages/report-renderer/**"],
+          testTimeout: 15_000,
+        },
+      }),
+      defineProject({
+        test: {
           name: "browser-unit",
           environment: "jsdom",
           include: browserUnitIncludes,
-          exclude: ["../../packages/report-renderer/**"],
+          exclude: ["../../packages/report-renderer/**", ...nodeUnitIncludes],
           testTimeout: 15_000,
           setupFiles: [
             "./src/testing/testSetup.ts",

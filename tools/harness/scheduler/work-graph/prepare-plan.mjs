@@ -28,9 +28,10 @@ export function prepareRuntimePlan(argv) {
     previous = end_ms;
   };
   const serviceSession = resolveServiceSessionMode({ target: options.target, environment: process.env });
-  const entry = commandEntry(options.target);
-  const { inputs, input_environment } = commandInputContext(entry, selectionInputs(options));
-  const compiler = new WorkGraphCompiler(root, { targetInputs: { [options.target]: replayInputs(entry, inputs) } });
+  const compiler = new WorkGraphCompiler(root);
+  const entry = commandEntry(options.target, compiler.taskSurface);
+  const { inputs, input_environment } = commandInputContext(entry, selectionInputs(options), { surface: compiler.taskSurface });
+  compiler.targetInputs[options.target] = replayInputs(entry, inputs);
   const { runID, runRoot } = resolvedRunRoot();
   mark("configuration_catalog");
   const snapshot = captureCapabilitySnapshot({ root, override: process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE,
@@ -38,6 +39,7 @@ export function prepareRuntimePlan(argv) {
   compiler.availableGoLanes = availableGoWorkerBudget(snapshot.cpu_tokens, process.env);
   compiler.availablePostgresLanes = snapshot.postgres_lanes;
   mark("capability_capture");
+  const browserLaneLimit = compiler.resolveBrowserLaneLimit(inputs.BROWSER_LANES);
   const { graph, projections } = selectionFor(options, compiler);
   mark("graph_construction");
   const source = buildSourceSnapshot(root);
@@ -73,7 +75,7 @@ export function prepareRuntimePlan(argv) {
     ...(serviceSession.sessionFile ? { CARTULARY_TEST_SERVICES_SESSION_FILE: serviceSession.sessionFile } : {}) };
   mark("launch_bindings");
   const commandIDs = new Map(compiler.taskSurface.targets.map((target) => [target.name, target.command_id]));
-  const value = { schema_id: "cartulary.harness_runtime_plan.v5", graph, manifest, input_environment,
+  const value = { schema_id: "cartulary.harness_runtime_plan.v6", graph, manifest, input_environment, browser_lane_limit: browserLaneLimit,
     host_profile: { platform: os.platform(), architecture: os.arch(), kernel_release: os.release(), cpu_models: [...new Set(os.cpus().map((cpu) => cpu.model))].sort() },
     instrumentation_policy_bytes: readFileSync(path.join(root, "tools/harness_instrumentation_policy.json"), "utf8"),
     projections: Object.fromEntries(Object.entries(projections).map(([target, unit_ids]) => [target, { command_id: commandIDs.get(target) ?? entry.command_id, unit_ids }])),

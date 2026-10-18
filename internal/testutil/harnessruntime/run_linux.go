@@ -160,7 +160,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	var fixtureCleanupDiagnostic *harnesssession.CleanupDiagnostic
 	cleanup := []cleanupRecord{}
 	recordCleanup := func(r cleanupRecord) { cleanupMu.Lock(); defer cleanupMu.Unlock(); cleanup = append(cleanup, r) }
-	production := harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{Root: root, RunRoot: runRoot, Target: target, Runtime: runtime, Environment: fixtureEnv, ContainerProof: diagnostics.collector.containers}, harnessfixtures.Options{Observe: diagnostics.execution.fixture, Cleanup: func(r harnessfixtures.CleanupRecord) {
+	production := harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{BrowserLaneLimit: plan.facts.BrowserLaneLimit, Root: root, RunRoot: runRoot, Target: target, Runtime: runtime, Environment: fixtureEnv, ContainerProof: diagnostics.collector.containers}, harnessfixtures.Options{Observe: diagnostics.execution.fixture, Cleanup: func(r harnessfixtures.CleanupRecord) {
 		v := cleanupRecord{Operation: r.Operation, UnitID: r.UnitID, LeaseID: r.LeaseID, Outcome: "completed"}
 		if r.Err != nil {
 			v.Outcome = "failed"

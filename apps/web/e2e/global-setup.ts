@@ -21,10 +21,9 @@ export default async function globalSetup(config: FullConfig) {
   const configuredWorkerCount = positiveIntegerEnv(
     "CARTULARY_PLAYWRIGHT_WORKER_COUNT",
   );
-  const workerCount = Math.max(
-    typeof config.workers === "number" ? config.workers : 1,
-    configuredWorkerCount ?? 1,
-  );
+  if (config.workers !== 1 || configuredWorkerCount !== 1)
+    throw new Error("browser groups require exactly one worker account");
+  const workerCount = 1;
   await withSharedGlobalSetupLock(async () => {
     await verifyOwnedHarnessRuntime();
     await prepareSuiteAdminState();

@@ -88,7 +88,7 @@ export function retainedGoWorkerBudget(manifest) {
   return budget;
 }
 
-function automaticCapacities({ registry, cpuTokens, detectedMemory, detectedProcessLimit }) {
+export function automaticCapacities({ registry, cpuTokens, detectedMemory, detectedProcessLimit }) {
   const policies = registry.capacity_policies;
   const processBound = cpuTokens * policies.process_slots.cpu_multiplier;
   const fixed = (field) => {
@@ -203,29 +203,20 @@ export function captureCapabilitySnapshot({
     postgres_lanes: resolveIntegerCapacity({
       field: "postgres_lanes",
       override,
-      automatic: Math.min(
-        registry.capacity_policies.postgres_lanes.default,
-        fixedMaximum("postgres_lanes"),
-      ),
+      automatic: boundedAutomatic.postgres_lanes,
       maximum: fixedMaximum("postgres_lanes"),
     }),
     object_store_lanes: resolveIntegerCapacity({
       field: "object_store_lanes",
       override,
-      automatic: Math.min(
-        registry.capacity_policies.object_store_lanes.default,
-        fixedMaximum("object_store_lanes"),
-      ),
+      automatic: boundedAutomatic.object_store_lanes,
       maximum: fixedMaximum("object_store_lanes"),
     }),
     writable_volume: override?.writable_volume ?? writableVolume,
     port_lanes: resolveIntegerCapacity({
       field: "port_lanes",
       override,
-      automatic: Math.min(
-        registry.capacity_policies.port_lanes.default,
-        fixedMaximum("port_lanes"),
-      ),
+      automatic: boundedAutomatic.port_lanes,
       maximum: fixedMaximum("port_lanes"),
     }),
     services: { ...services, ...(override?.services ?? {}) },

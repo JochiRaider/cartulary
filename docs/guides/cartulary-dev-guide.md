@@ -1109,9 +1109,9 @@ This diagnostic is read-only. Any returned rows need incident-owner review befor
 | Developer verification | blocking lint, static, security, source and evidence checks; fast and standard rows; exactly three smoke roles; builds required by selected consumers | Any failure blocks ordinary development completion |
 | Release verification   | inherited CI policy and all tiers; one package and inventory for compatibility, installed-package, security and profile-specific checks | Any failure blocks release publication             |
 
-`make check` is the required developer gate. The owner catalog assigns every active row one `minimum_tier`; `check` selects `fast` and `standard` rows, while static, boundary, generated-drift, security, and evidence checks come from the aggregate policy. `test-fast`, `ci`, and `release-check` select the monotonic tier closures defined by the Testing Harness NLSpec. Owner slices are independent of tiers: omitting `ROWS` selects the complete active owner inventory.
+`make check` is the required developer gate. The owner catalog assigns every active row one `aggregate_placement`; `check` selects `fast` and `standard` rows, while static, boundary, generated-drift, security, and evidence checks come from the aggregate policy. `test-fast`, `ci`, and `release-check` select the monotonic tier closures defined by the Testing Harness NLSpec. Owner slices are independent of tiers: omitting `ROWS` selects the complete active owner inventory.
 
-All graph-backed public targets compile through the same work-graph owner, graph compiler, scheduler, capability snapshot, fixture broker, and canonical event writer. The scheduler uses critical-path rank, resource-fitting backfill, monotonic aging, and stable work-unit IDs. `CARTULARY_HARNESS_CAPACITY_OVERRIDE` is the only scheduler capacity override; it must name a schema-valid JSON declaration file. Inline JSON is unsupported. `PLAYWRIGHT_WORKERS` and `VITEST_MAX_WORKERS` remain runner-specific inputs, and their resource effects are represented in the affected work-unit claims.
+All graph-backed public targets compile through the same work-graph owner, graph compiler, scheduler, capability snapshot, fixture broker, and canonical event writer. The scheduler uses critical-path rank, resource-fitting backfill, monotonic aging, and stable work-unit IDs. `CARTULARY_HARNESS_CAPACITY_OVERRIDE` is the only scheduler capacity override; it must name a schema-valid JSON declaration file. Inline JSON is unsupported. `VITEST_MAX_WORKERS` remains a runner-specific input. `BROWSER_LANES` is a topology-owned logical limit, default four and maximum six; host resource admission can admit fewer groups. Every browser group uses one worker/account. `PLAYWRIGHT_WORKERS` is retired.
 
 Service-backed rows declare an explicit fixture capability rather than inheriting a clone-oriented fixture profile. The run-scoped broker owns managed resources, creates isolated databases on demand from sealed migrated templates, and keeps borrowed services borrowed. PostgreSQL prerequisites are initialized once per physical generation. Compatible browser groups borrow run-owned renderer infrastructure while preserving connection-owned browsers and fresh test contexts. Go work is grouped only when its runner, environment, fixture, and isolation semantics are compatible, then distributed deterministically from available Go capacity. Browser groups, resets, readiness, finalizers, and summaries are individual graph units; stateful groups preserve affinity and reset order while independent lanes can overlap.
 
@@ -1936,3 +1936,9 @@ trust the isolated CA through the already required proxy and frontend bindings.
 Ordinary `db-migrate` no longer reapplies provisioning before state admission;
 only fresh container initialization or the explicitly confirmed reset provisions
 roles. Keep historical development data with its matching release.
+
+Visual and UI-Review are explicit-only, including during release validation.
+Run `make browser-e2e SUITE=visual` and `make harness-contract SUITE=ui-review`
+when those results are needed. Aggregate and broad owner selections omit them;
+exact `ROWS` selections may include them. `browser-e2e SUITE=all` is retired with
+no compatibility alias. Aggregate success does not establish omitted assurance.

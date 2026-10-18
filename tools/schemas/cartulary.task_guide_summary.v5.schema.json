@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.task_guide_summary.v4",
+  "$id": "cartulary.task_guide_summary.v5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,11 +14,12 @@
     "broader_commands",
     "release_gate",
     "rows",
-    "coverage"
+    "coverage",
+    "explicit_commands"
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.task_guide_summary.v4"
+      "const": "cartulary.task_guide_summary.v5"
     },
     "evidence_epoch": {
       "const": "cartulary.test_evidence.nlspec.v1"
@@ -67,7 +68,7 @@
           "row_id",
           "runner",
           "evidence_class",
-          "minimum_tier",
+          "aggregate_placement",
           "fixture_capability",
           "service_dependencies",
           "command",
@@ -88,7 +89,7 @@
             "type": "string",
             "minLength": 1
           },
-          "minimum_tier": {
+          "aggregate_placement": {
             "type": "string",
             "minLength": 1
           },
@@ -126,7 +127,7 @@
         "service_backed_row_count",
         "runners",
         "evidence_classes",
-        "minimum_tiers",
+        "aggregate_placements",
         "fixture_capabilities",
         "families",
         "runtime_profiles",
@@ -155,7 +156,7 @@
             "minimum": 0
           }
         },
-        "minimum_tiers": {
+        "aggregate_placements": {
           "type": "object",
           "additionalProperties": {
             "type": "integer",
@@ -190,6 +191,18 @@
             "minimum": 0
           }
         }
+      }
+    },
+    "explicit_commands": {
+      "type": "array",
+      "minItems": 0,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "make browser-e2e SUITE=visual",
+          "make harness-contract SUITE=ui-review"
+        ]
       }
     }
   },

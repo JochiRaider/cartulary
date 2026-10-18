@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v9",
+  "schema_id": "cartulary.test_family_manifest.v10",
   "owner_id": "module.parties",
   "rows": [
     {
@@ -46,7 +46,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -81,7 +81,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -114,7 +114,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_migration",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -149,7 +149,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -176,7 +176,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -206,7 +206,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -234,7 +234,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -260,7 +260,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -290,7 +290,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -319,7 +319,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -343,7 +343,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -371,7 +371,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -395,7 +395,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -420,7 +420,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -446,7 +446,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -472,7 +472,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -497,7 +497,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -521,7 +521,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -545,7 +545,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     }
   ]

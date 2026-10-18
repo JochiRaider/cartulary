@@ -292,7 +292,7 @@ for name in \
   OWNER \
   ROWS \
   SCOPE \
-  PLAYWRIGHT_WORKERS \
+  BROWSER_LANES \
   VITEST_MAX_WORKERS; do
   if [[ -n "${!name+x}" ]]; then
     printf 'leaked %s\n' "$name" >&2
@@ -313,7 +313,7 @@ export JSON=1
 export OWNER=module.timeline
 export ROWS=module.timeline.measurement.timeline_virtualized_grid_render_latency_961a4ec1d3
 export SCOPE=services
-export PLAYWRIGHT_WORKERS=1
+export BROWSER_LANES=1
 export VITEST_MAX_WORKERS=1
 CARTULARY_FAKE_MAKE_LOG="$fake_make_log" PATH="$fake_make_dir:$PATH" \
   browser_prepare_frontend_toolchain || fail "nested frontend toolchain public-input isolation"
@@ -329,7 +329,7 @@ unset \
   OWNER \
   ROWS \
   SCOPE \
-  PLAYWRIGHT_WORKERS \
+  BROWSER_LANES \
   VITEST_MAX_WORKERS
 
 export CARTULARY_TEST_RUN_ID="$lifecycle_parent_run_id"

@@ -14,7 +14,7 @@ function assertPositiveInteger(value, label) {
 
 export function planBrowserFunctionalLanes(
   groups,
-  { estimateGroup, lanePrefix = "browser-functional", maxLanes = 4 } = {},
+  { estimateGroup, lanePrefix = "browser-functional", maxLanes } = {},
 ) {
   if (!Array.isArray(groups) || groups.length === 0) {
     throw new Error("browser functional lane planning requires selected groups");

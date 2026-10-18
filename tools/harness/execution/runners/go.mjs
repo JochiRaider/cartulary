@@ -26,11 +26,12 @@ export function buildGoInvocations(rows, workers, command, context) {
     .sort(([left], [right]) => asciiCompare(left, right))
     .map(([packageName, packageRows]) => ({
       command,
-      environment: context.environment,
+      environment: { ...context.environment, ...(context.goRace ? { CGO_ENABLED: "1" } : {}) },
       args: [
         "test",
         "-json",
         "-count=1",
+        ...(context.goRace ? ["-race"] : []),
         `-p=${Math.min(workers, 16)}`,
         "-run",
         exactAlternation(

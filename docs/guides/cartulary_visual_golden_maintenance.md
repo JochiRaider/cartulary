@@ -22,6 +22,9 @@ refresh. `docs/design.md` supplies design direction only.
 ## Canonical Commands and Paths
 
 - Validate committed goldens with `make browser-e2e SUITE=visual`.
+- Ordinary Visual validation also includes the five Visual support rows.
+- Visual and UI-Review never run implicitly in aggregate gates, including release.
+- Snapshot update selects only snapshot-producing rows, not support assertions.
 - Refresh goldens only with `make browser-e2e-visual-update`.
 - The Playwright source is `apps/web/e2e/workbook.visual.spec.ts`.
 - Committed goldens live in

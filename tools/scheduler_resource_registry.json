@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.scheduler_resource_registry.v6",
+  "schema_id": "cartulary.scheduler_resource_registry.v7",
   "capacity_override_schema": "cartulary.harness_capacity_override.v1",
   "capacity_policies": {
     "cpu_tokens": {
@@ -18,19 +18,19 @@
     },
     "object_store_lanes": {
       "source": "fixed_cpu_bounded",
-      "default": 3,
+      "default": 8,
       "minimum": 1,
       "maximum_cpu_multiplier": 1
     },
     "port_lanes": {
       "source": "fixed_cpu_bounded",
-      "default": 16,
+      "default": 32,
       "minimum": 1,
-      "maximum_cpu_multiplier": 1
+      "maximum_cpu_multiplier": 2
     },
     "postgres_lanes": {
       "source": "fixed_cpu_bounded",
-      "default": 8,
+      "default": 16,
       "minimum": 1,
       "maximum_cpu_multiplier": 1
     },
@@ -96,7 +96,6 @@
     }
   ],
   "runner_worker_inputs": [
-    "PLAYWRIGHT_WORKERS",
     "VITEST_MAX_WORKERS"
   ]
 }

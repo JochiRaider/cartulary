@@ -549,7 +549,7 @@ browser_prepare_frontend_toolchain() {
     -u ROWS \
     -u SCOPE \
     -u SUITE \
-    -u PLAYWRIGHT_WORKERS \
+    -u BROWSER_LANES \
     -u VITEST_MAX_WORKERS \
     MAKEFLAGS= \
     CARTULARY_FRONTEND_TOOLCHAIN_QUIET=1 \

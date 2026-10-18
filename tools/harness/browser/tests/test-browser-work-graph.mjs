@@ -1865,7 +1865,7 @@ const workbookOwner = compiler.compile({
 });
 const selectedWorkbookBrowserRows = compiler.catalog.rows
   .filter(
-    (row) => row.owner_id === "module.workbook" && row.runner === "playwright",
+    (row) => row.owner_id === "module.workbook" && row.runner === "playwright" && row.aggregate_placement !== "explicit_only",
   )
   .map((row) => row.row_id)
   .sort();

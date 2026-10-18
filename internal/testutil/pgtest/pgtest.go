@@ -118,8 +118,45 @@ type RollbackDB struct {
 }
 
 type transactionDatabase struct {
-	mu sync.Mutex
-	db *TestDatabase
+	mu       sync.Mutex
+	db       *TestDatabase
+	unusable error
+}
+
+func (f *transactionDatabase) lockForBorrow() error {
+	f.mu.Lock()
+	if f.unusable != nil {
+		err := f.unusable
+		f.mu.Unlock()
+		return err
+	}
+	return nil
+}
+
+// Called with the fixture mutex held. Even after cancellation, each client
+// operation gets its own bounded settlement budget. Uncertain state is never
+// handed to another borrower; ownership stays in the database cleanup ledger.
+func (f *transactionDatabase) settle(ctx context.Context, rollback, closeConnection func(context.Context) error) error {
+	base := context.WithoutCancel(ctx)
+	var failures []error
+	for _, operation := range []struct {
+		name string
+		run  func(context.Context) error
+	}{{"rollback", rollback}, {"connection close", closeConnection}} {
+		if operation.run == nil {
+			continue
+		}
+		attempt, cancel := context.WithTimeout(base, 5*time.Second)
+		err := operation.run(attempt)
+		cancel()
+		if err != nil {
+			failures = append(failures, fmt.Errorf("%s: %w", operation.name, err))
+		}
+	}
+	if err := errors.Join(failures...); err != nil {
+		f.unusable = err
+	}
+	return f.unusable
 }
 
 type fixtureAttribution struct {
@@ -848,7 +885,9 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	}
 	attribution.ReuseGroup = key
 	fixture := h.transactionDatabase(key)
-	fixture.mu.Lock()
+	if err := fixture.lockForBorrow(); err != nil {
+		t.Fatalf("transaction postgres fixture is unusable after cleanup failure: %v", err)
+	}
 
 	if fixture.db == nil {
 		testDB, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReuseTransaction, attribution)
@@ -868,8 +907,11 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	start := time.Now()
 	tx, err := conn.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
-		_ = conn.Close(context.Background())
+		cleanupErr := fixture.settle(t.Context(), nil, conn.Close)
 		fixture.mu.Unlock()
+		if cleanupErr != nil {
+			testfailure.CleanupFailure(t, "pgtest", "postgres", "capability", cleanupErr)
+		}
 		t.Fatalf("begin postgres rollback transaction: %v", err)
 	}
 	recordSuiteEvent(suiteservices.Event{
@@ -879,9 +921,10 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	})
 
 	t.Cleanup(func() {
-		_ = tx.Rollback(context.Background())
-		_ = conn.Close(context.Background())
-		fixture.mu.Unlock()
+		defer fixture.mu.Unlock()
+		if err := fixture.settle(t.Context(), tx.Rollback, conn.Close); err != nil {
+			testfailure.CleanupFailure(t, "pgtest", "postgres", "capability", err)
+		}
 	})
 	return &RollbackDB{tx: tx, conn: conn}
 }

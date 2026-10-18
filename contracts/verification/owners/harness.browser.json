@@ -3,6 +3,14 @@
   "owner_id": "harness.browser",
   "verifications": [
     {
+      "verification_id": "harness.browser.verification.browser_lane_policy",
+      "behavior_class": "harness",
+      "profile": "support",
+      "evidence_kinds": [
+        "shell"
+      ]
+    },
+    {
       "verification_id": "harness.browser.verification.fixture_broker_smoke",
       "behavior_class": "harness",
       "profile": "support",

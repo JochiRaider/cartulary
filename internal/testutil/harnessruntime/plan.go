@@ -9,6 +9,7 @@ import (
 	"maps"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/platform/canonicaljson"
@@ -16,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
-const planSchema = "cartulary.harness_runtime_plan.v5"
+const planSchema = "cartulary.harness_runtime_plan.v6"
 const maximumPlanBytes = harnesssession.MaximumPlan
 
 var errPlan = errors.New("invalid private harness runtime plan")
@@ -99,6 +100,7 @@ type inputEnvironment struct {
 	Forward map[string]string `json:"forward"`
 }
 type planWire struct {
+	BrowserLaneLimit int                   `json:"browser_lane_limit"`
 	InputEnvironment inputEnvironment      `json:"input_environment"`
 	SourceInputs     []sourceInput         `json:"source_inputs"`
 	CacheInputs      map[string][]int      `json:"cache_inputs"`
@@ -192,6 +194,11 @@ func decodePlan(data []byte) (*Plan, error) {
 	var facts planWire
 	if json.Unmarshal(data, &facts) != nil {
 		return nil, errPlan
+	}
+	if declared, ok := facts.Manifest["declared_inputs"].(map[string]any)["BROWSER_LANES"]; ok {
+		if declared != strconv.Itoa(facts.BrowserLaneLimit) {
+			return nil, errPlan
+		}
 	}
 	if !sortedUnique(facts.InputEnvironment.Clear) || !slices.Contains(facts.InputEnvironment.Clear, "CARTULARY_MAKE_INPUT_SOURCES") {
 		return nil, errPlan

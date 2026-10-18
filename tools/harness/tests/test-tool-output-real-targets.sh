@@ -47,7 +47,7 @@ run_target() {
       -u CARTULARY_TEST_RESULTS_DIR \
       -u CARTULARY_TEST_RUN_ID \
       -u CARTULARY_TEST_TARGET \
-      -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u PLAYWRIGHT_WORKERS -u JSON \
+      -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u BROWSER_LANES -u JSON \
       -u MAKEFLAGS -u MFLAGS \
       CARTULARY_OUTPUT_MODE=summary \
       CARTULARY_TEST_RESULTS_DIR="${RESULTS_ROOT}" \
@@ -252,7 +252,7 @@ run_machine_target() {
       -u CARTULARY_TEST_RESULTS_DIR \
       -u CARTULARY_TEST_RUN_ID \
       -u CARTULARY_TEST_TARGET \
-      -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u PLAYWRIGHT_WORKERS -u JSON \
+      -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u BROWSER_LANES -u JSON \
       -u MAKEFLAGS -u MFLAGS \
       CARTULARY_OUTPUT_MODE="${RUN_TARGET_OUTPUT_MODE:-machine}" \
       CARTULARY_TEST_RESULTS_DIR="${RESULTS_ROOT}" \
@@ -301,7 +301,7 @@ run_invalid_usage_check() {
       -u CARTULARY_TEST_RESULTS_DIR \
       -u CARTULARY_TEST_RUN_ID \
       -u CARTULARY_TEST_TARGET \
-      -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u PLAYWRIGHT_WORKERS -u JSON \
+      -u OWNER -u ROWS -u VITEST_MAX_WORKERS -u BROWSER_LANES -u JSON \
       -u MAKEFLAGS -u MFLAGS \
       "$MAKE_BIN" --no-print-directory target-plan TARGET=not-a-real-target DETAIL=summary
   ) >"${target_dir}/stdout.log" 2>"${target_dir}/stderr.log"

@@ -248,61 +248,15 @@ async function pageAuthStorageState(page: Page): Promise<StorageState> {
   return page.context().storageState();
 }
 
-function isScheduledBrowserGroupInvocation() {
-  return Boolean(
-    process.env.CARTULARY_BROWSER_SESSION_GROUP ||
-      process.env.CARTULARY_BROWSER_GROUP_KIND,
-  );
-}
-
-function integerEnv(name: string, options: { min: number; required: boolean }) {
-  const value = process.env[name];
-  if (value === undefined || value.trim() === "") {
-    if (options.required) {
-      throw new Error(`${name} is required for scheduled browser groups`);
-    }
-    return null;
-  }
-  const parsed = Number.parseInt(value, 10);
-  if (
-    !Number.isInteger(parsed) ||
-    parsed < options.min ||
-    String(parsed) !== value
-  ) {
-    const description =
-      options.min === 0 ? "a non-negative integer" : "a positive integer";
-    throw new Error(`${name} must be ${description}`);
-  }
-  return parsed;
-}
-
-function workerAdminIndexOffset(scheduled: boolean) {
-  return (
-    integerEnv("CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET", {
-      min: 0,
-      required: scheduled,
-    }) ?? 0
-  );
-}
-
 export function workerAdminIndexForParallelIndex(parallelIndex: number) {
-  if (!Number.isInteger(parallelIndex) || parallelIndex < 0) {
-    throw new Error("Playwright parallelIndex must be a non-negative integer");
+  if (process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET !== "0") {
+    throw new Error("owned browser worker offset must be exactly zero");
   }
-  const scheduled = isScheduledBrowserGroupInvocation();
-  const offset = workerAdminIndexOffset(scheduled);
-  if (!scheduled) {
-    return parallelIndex + offset;
+  if (process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT !== "1") {
+    throw new Error("owned browser worker count must be exactly one");
   }
-  const workerCount = integerEnv("CARTULARY_PLAYWRIGHT_WORKER_COUNT", {
-    min: 1,
-    required: true,
-  });
-  const workerAdminIndex = parallelIndex + offset;
-  if (workerCount === null || workerAdminIndex >= workerCount) {
-    throw new Error(
-      `scheduled browser group worker slot ${workerAdminIndex} is outside CARTULARY_PLAYWRIGHT_WORKER_COUNT=${workerCount}`,
-    );
+  if (parallelIndex !== 0) {
+    throw new Error("owned browser parallel index must be exactly zero");
   }
-  return workerAdminIndex;
+  return 0;
 }

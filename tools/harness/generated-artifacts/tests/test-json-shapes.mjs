@@ -37,10 +37,10 @@ try {
   rmSync(scratch, { recursive: true, force: true });
 }
 for (const [file, schemaID] of [
-  ["tools/execution_topology_manifest.json", "cartulary.execution_topology.v13"],
+  ["tools/execution_topology_manifest.json", "cartulary.execution_topology.v14"],
   ["tools/scheduler_manifest.json", "cartulary.scheduler_manifest.v3"],
   ["tools/browser_e2e_batch_manifest.json", "cartulary.browser_e2e_batch_manifest.v12"],
-  ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v4"],
+  ["tools/harness_work_graph_owner.json", "cartulary.harness_work_graph_owner.v5"],
 ]) {
   const value = JSON.parse(readFileSync(path.join(root, file), "utf8"));
   assert.equal(value.schema_id, schemaID);
@@ -48,6 +48,11 @@ for (const [file, schemaID] of [
 }
 const attachments = JSON.parse(readFileSync(path.join(root, "tools/harness_schema_attachments.json"), "utf8"));
 for (const retired of [
+  "cartulary.test_family_manifest.v9", "cartulary.postgres_fixture_policy_registry.v2",
+  "cartulary.task_guide_summary.v4", "cartulary.harness_target_plan.v5",
+  "cartulary.harness_work_graph_owner.v4", "cartulary.execution_topology.v13",
+  "cartulary.harness_runtime_plan.v5", "cartulary.harness_renderer_event.v1",
+  "cartulary.scheduler_resource_registry.v6",
   "cartulary.test_family_manifest.v2",
   "cartulary.execution_topology.v5",
   "cartulary.execution_topology.v8",

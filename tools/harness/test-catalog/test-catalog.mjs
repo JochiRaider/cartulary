@@ -20,7 +20,7 @@ import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v9";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v10";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v3";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
@@ -56,7 +56,7 @@ const expectedRunnerDefinitions = Object.freeze({
     selector_kind: "vitest_exact_titles",
     adapter_path: "tools/harness/execution/runners/vitest.mjs",
     approved_roots: ["apps/web", "packages"],
-    project_ids: ["browser-unit", "harness-node", "renderer-node"],
+    project_ids: ["browser-unit", "harness-node", "node-unit", "renderer-node"],
   },
 });
 const expectedProfiles = Object.freeze({
@@ -129,7 +129,7 @@ function assertExactIDs(entries, expected, label) {
 function loadTopologyProfiles(root) {
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
   const topology = readStrictJSON(topologyPath);
-  validateSchemaSync("cartulary.execution_topology.v13", topology);
+  validateSchemaSync("cartulary.execution_topology.v14", topology);
   for (const [key, ids] of Object.entries(expectedProfiles)) {
     if (!Array.isArray(topology[key])) {
       throw new Error(`${topologyPath}.${key} must be an array`);
@@ -319,7 +319,7 @@ function validateRowSemantics({
   if (
     row.evidence_class === "measurement" &&
     row.claim_posture === "informative" &&
-    new Set(["fast", "standard"]).has(row.minimum_tier)
+    new Set(["fast", "standard"]).has(row.aggregate_placement)
   ) {
     throw new Error(`${label} informative measurement must not enter fast or standard tiers`);
   }

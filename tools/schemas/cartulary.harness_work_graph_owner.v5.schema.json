@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_work_graph_owner.v4",
+  "$id": "cartulary.harness_work_graph_owner.v5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_work_graph_owner.v4"
+      "const": "cartulary.harness_work_graph_owner.v5"
     },
     "capacity_override_input": {
       "const": "CARTULARY_HARNESS_CAPACITY_OVERRIDE"
@@ -485,6 +485,9 @@
               "none",
               "content_addressed"
             ]
+          },
+          "go_race": {
+            "const": true
           }
         }
       }

@@ -200,7 +200,7 @@ function commandForGroup(rows, selection, group, artifactRoot) {
     "--test-list",
     selectionFile,
   ];
-  if (group.workers !== "default") args.push(`--workers=${group.workers}`);
+  args.push("--workers=1");
   if (group.kind === "visual" && process.env.CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS === "1") {
     args.push("--update-snapshots=changed");
   }
@@ -285,12 +285,8 @@ async function main() {
         ...process.env,
         ...rendererLease.environment,
         PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath,
-        PLAYWRIGHT_WORKERS: group.workers === "default" ? (process.env.PLAYWRIGHT_WORKERS || "2") : group.workers,
-        CARTULARY_PLAYWRIGHT_WORKER_COUNT:
-          process.env.CARTULARY_PLAYWRIGHT_WORKER_COUNT ||
-          (group.workers === "default" ? (process.env.PLAYWRIGHT_WORKERS || "2") : group.workers),
-        CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET:
-          process.env.CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET || "0",
+        CARTULARY_PLAYWRIGHT_WORKER_COUNT: "1",
+        CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET: "0",
         CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
         CARTULARY_VISUAL_SNAPSHOT_ROOT: visualSnapshotScratch(target),
         CARTULARY_FRONTEND_ACCESSIBILITY_CONTRAST_DIR:

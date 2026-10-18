@@ -2,7 +2,7 @@
   "commands": [
     {
       "name": "test-fast",
-      "command_id": "cartulary.harness.command.test_fast.v3",
+      "command_id": "cartulary.harness.command.test_fast.v4",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -64,6 +64,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       },
@@ -118,7 +137,7 @@
     },
     {
       "name": "check",
-      "command_id": "cartulary.harness.command.check.v3",
+      "command_id": "cartulary.harness.command.check.v4",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -180,6 +199,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       },

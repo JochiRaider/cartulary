@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v13",
+  "schema_id": "cartulary.execution_topology.v14",
   "runtime_profiles": [
     {
       "id": "default",
@@ -495,7 +495,7 @@
             "kind": "duration_balanced_specs",
             "coverage": "authoritative",
             "execution_dependency": "browser_functional",
-            "workers": "default",
+            "workers": "1",
             "runtime_profile_id": "default"
           },
           {
@@ -504,7 +504,7 @@
             "kind": "duration_balanced_specs",
             "coverage": "authoritative",
             "execution_dependency": "browser_functional",
-            "workers": "default",
+            "workers": "1",
             "runtime_profile_id": "network_flow_claimed",
             "browser_session_group": "browser-functional-network-flow-claimed",
             "browser_session_isolation_reason": "claimed Network Flow evidence requires immutable startup-only extension configuration"
@@ -525,7 +525,7 @@
             "kind": "support",
             "coverage": "supplemental",
             "execution_dependency": "browser_support",
-            "workers": "default",
+            "workers": "1",
             "browser_session_group": "browser-e2e-support-default",
             "browser_session_isolation_reason": "release support evidence owns an isolated fixture session"
           }
@@ -833,5 +833,9 @@
       "process": 2,
       "port_lane": 1
     }
+  },
+  "browser_lane_policy": {
+    "default": 4,
+    "maximum": 6
   }
 }

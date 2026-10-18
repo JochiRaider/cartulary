@@ -54,6 +54,9 @@ func (r *rendererOwner) setState(slot *rendererSlot, state string) {
 }
 func (r *rendererOwner) signal() { close(r.changed); r.changed = make(chan struct{}) }
 func (r *rendererOwner) reserve(ctx context.Context, unit, profile, policy string, diagnostics bool) (*rendererSlot, error) {
+	if r.options.BrowserLaneLimit < 1 || r.options.BrowserLaneLimit > 6 {
+		return nil, errors.New("missing or invalid resolved browser lane limit")
+	}
 	if policy != "pooled" && policy != "dedicated" {
 		return nil, errors.New("unknown renderer lifetime")
 	}
@@ -72,7 +75,7 @@ func (r *rendererOwner) reserve(ctx context.Context, unit, profile, policy strin
 			}
 		}
 		available := 0
-		for id := 1; id <= 4; id++ {
+		for id := 1; id <= r.options.BrowserLaneLimit; id++ {
 			if !slices.ContainsFunc(r.slots, func(s *rendererSlot) bool { return s.id == id }) {
 				available = id
 				break
@@ -105,12 +108,12 @@ func (r *rendererOwner) evidence(slot *rendererSlot, state, unit, borrow string)
 		return err
 	}
 	directory.Close()
-	record := map[string]any{"schema_id": "cartulary.harness_renderer_event.v1", "run_id": r.options.Runtime.RunID, "allocation_id": slot.allocation, "generation": slot.generation, "slot_id": slot.id, "runtime_profile_id": slot.profile, "state": state, "unit_id": unit, "borrow_id": borrow}
+	record := map[string]any{"schema_id": "cartulary.harness_renderer_event.v2", "run_id": r.options.Runtime.RunID, "allocation_id": slot.allocation, "generation": slot.generation, "slot_id": slot.id, "runtime_profile_id": slot.profile, "state": state, "unit_id": unit, "borrow_id": borrow}
 	identity := borrow
 	if identity == "" {
 		identity = identifier()
 	}
-	return privateJSON(filepath.Join(root, fmt.Sprintf("%s-%s.json", state, identity)), "cartulary.harness_renderer_event.v1", record, false)
+	return privateJSON(filepath.Join(root, fmt.Sprintf("%s-%s.json", state, identity)), "cartulary.harness_renderer_event.v2", record, false)
 }
 func (r *rendererOwner) borrow(ctx context.Context, slot *rendererSlot, environment map[string]string) (map[string]string, func(context.Context, bool) (bool, error), error) {
 	p := r.options

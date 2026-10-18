@@ -2,7 +2,7 @@
   "commands": [
     {
       "name": "test-fast",
-      "command_id": "cartulary.harness.command.test_fast.v3",
+      "command_id": "cartulary.harness.command.test_fast.v4",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -64,6 +64,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       },
@@ -118,7 +137,7 @@
     },
     {
       "name": "check",
-      "command_id": "cartulary.harness.command.check.v3",
+      "command_id": "cartulary.harness.command.check.v4",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -180,6 +199,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       },
@@ -234,7 +272,7 @@
     },
     {
       "name": "ci",
-      "command_id": "cartulary.harness.command.ci.v4",
+      "command_id": "cartulary.harness.command.ci.v5",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -296,6 +334,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       },
@@ -350,7 +407,7 @@
     },
     {
       "name": "release-check",
-      "command_id": "cartulary.harness.command.release_check.v3",
+      "command_id": "cartulary.harness.command.release_check.v4",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -412,6 +469,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       },
@@ -466,7 +542,7 @@
     },
     {
       "name": "test-slice",
-      "command_id": "cartulary.harness.command.test_slice.v3",
+      "command_id": "cartulary.harness.command.test_slice.v4",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -543,25 +619,6 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "argv"
-          },
-          {
-            "name": "PLAYWRIGHT_WORKERS",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "positive_integer",
-            "default": 3,
-            "empty_string": "invalid",
-            "normalization": "trim",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "runtime_env",
-            "min": 1,
-            "max": 16
           },
           {
             "name": "ROWS",
@@ -696,6 +753,25 @@
             "invalid_reason": "configuration_error",
             "summary_emission": "redacted_value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ],
         "constraints": [
@@ -764,7 +840,7 @@
     },
     {
       "name": "browser-e2e",
-      "command_id": "cartulary.harness.command.browser_e2e.v3",
+      "command_id": "cartulary.harness.command.browser_e2e.v4",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -842,7 +918,6 @@
             "summary_emission": "value",
             "child_forwarding": "argv",
             "values": [
-              "all",
               "functional",
               "stateful",
               "measurement",
@@ -888,6 +963,25 @@
             "invalid_reason": "configuration_error",
             "summary_emission": "redacted_value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       },
@@ -942,7 +1036,7 @@
     },
     {
       "name": "browser-e2e-visual-update",
-      "command_id": "cartulary.harness.command.browser_e2e_visual_update.v2",
+      "command_id": "cartulary.harness.command.browser_e2e_visual_update.v3",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -1004,6 +1098,25 @@
             "invalid_reason": "usage_error",
             "summary_emission": "value",
             "child_forwarding": "runtime_env"
+          },
+          {
+            "name": "BROWSER_LANES",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": 4,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "runtime_env",
+            "min": 1,
+            "max": 6
           }
         ]
       },
@@ -1066,7 +1179,7 @@
     },
     {
       "name": "harness-contract",
-      "command_id": "cartulary.harness.command.harness_contract.v3",
+      "command_id": "cartulary.harness.command.harness_contract.v4",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",

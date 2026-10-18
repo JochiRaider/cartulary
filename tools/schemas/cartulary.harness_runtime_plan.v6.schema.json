@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_runtime_plan.v5",
+  "$id": "cartulary.harness_runtime_plan.v6",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,11 +18,12 @@
     "cache_inputs",
     "host_profile",
     "instrumentation_policy_bytes",
-    "input_environment"
+    "input_environment",
+    "browser_lane_limit"
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_runtime_plan.v5"
+      "const": "cartulary.harness_runtime_plan.v6"
     },
     "graph": {
       "$ref": "cartulary.harness_execution_context.v3#/properties/graph"
@@ -278,6 +279,11 @@
           }
         }
       }
+    },
+    "browser_lane_limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 6
     }
   }
 }

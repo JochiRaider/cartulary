@@ -15,9 +15,22 @@ make target-plan JSON=1 TARGET=<target>
 ```
 
 Supply the target's discovered selection inputs when required. Owner/row IDs
-come from the current catalog. Omitted rows select the command's complete owner
-scope; explicit rows select a subset. A service-backed slice closes only its
+come from the current catalog. Omitted rows select the owner scope excluding `explicit_only` rows; exact
+rows authorize that subset, including explicit-only work. A service-backed slice closes only its
 service-backed dependency scope.
+
+Visual and UI-Review are explicit-only even for releases:
+
+```sh
+make browser-e2e SUITE=visual
+make harness-contract SUITE=ui-review
+make ci BROWSER_LANES=6
+```
+
+Browser lanes default to four and accept `1..6`; six is an upper bound subject to
+host admission. Each group uses one worker. `PLAYWRIGHT_WORKERS` and browser
+`SUITE=all` are retired without aliases. Snapshot update selects only screenshot
+rows and requires its existing authorization.
 
 ## Execution
 

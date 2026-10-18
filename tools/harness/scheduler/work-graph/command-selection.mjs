@@ -59,6 +59,7 @@ export function resolveCommandSelection(compiler, target, suppliedInputs) {
   const binding = entry.selection_binding;
   if (!binding) throw new Error(`${target} has no command selection binding`);
   let selection;
+  let explicit = Boolean(inputs.OWNER && inputs.ROWS);
   if (binding.kind === "owner_or_suite" && inputs.OWNER) {
     const ownerRows = compiler.catalog.rows.filter((row) => row.owner_id === inputs.OWNER).map((row) => row.row_id);
     if (ownerRows.length === 0) throw usage(`unknown active owner ${inputs.OWNER}`);
@@ -69,13 +70,15 @@ export function resolveCommandSelection(compiler, target, suppliedInputs) {
     const key = inputs[binding.input];
     const name = binding.kind === "fixed" ? binding.selection : key === undefined ? binding.default_selection : binding.variants[key];
     if (!name) throw new Error(`${target} has no selection for ${binding.input}=${key ?? "<omitted>"}`);
+    explicit = ["harness.suite_browser_visual", "harness.suite_browser_visual_snapshots", "harness.contract_ui_review"].includes(name);
     selection = resolvePrivateSelection(compiler, name);
   }
+  if (!explicit) selection.rows = selection.rows.filter((id) => compiler.catalog.rowByID.get(id).aggregate_placement !== "explicit_only");
   if (inputs.SCOPE === "services") {
     const serviceRows = selection.rows.filter((id) => compiler.catalog.rowByID.get(id).service_dependencies.length > 0);
     if (inputs.ROWS && serviceRows.length !== selection.rows.length) throw usage("requested row is outside service scope");
     if (serviceRows.length === 0 || selection.operations.length) throw usage("selection has no service-only row scope");
     selection = { ...selection, rows: serviceRows };
   }
-  return { inputs, rows: selection.rows.sort(compare), operations: selection.operations };
+  return { inputs, rows: selection.rows.sort(compare), operations: selection.operations, explicit };
 }

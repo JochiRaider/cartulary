@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v9",
+  "schema_id": "cartulary.test_family_manifest.v10",
   "owner_id": "module.assessments",
   "rows": [
     {
@@ -37,7 +37,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -73,7 +73,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -108,7 +108,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -143,7 +143,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -178,7 +178,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "browser_stack",
-      "minimum_tier": "full",
+      "aggregate_placement": "full",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -211,7 +211,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -238,7 +238,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -265,7 +265,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -292,7 +292,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -319,7 +319,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -346,7 +346,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -378,7 +378,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -406,7 +406,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -434,7 +434,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_migration",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -467,7 +467,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -500,7 +500,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -534,7 +534,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -569,7 +569,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -591,23 +591,9 @@
       "selector": {
         "package": "./internal/modules/assessments",
         "tests": [
-          "TestAssessmentAssemblyConstructorsRejectInvalidDependencies",
-          "TestAssessmentCreateIdentityCompatibility",
-          "TestAssessmentCreateInputFromImportAcceptsExactFieldKinds",
-          "TestAssessmentCreateInputFromImportRejectsNullForEveryField",
-          "TestAssessmentCreateInputFromImportRejectsUnsafeFieldKinds",
-          "TestAssessmentCreateInputFromImportRetainsSharedStructuralRejection",
-          "TestAssessmentExportSurface",
-          "TestAssessmentExportSurfaceClassifiesReceiverVisibility",
-          "TestAssessmentExportSurfaceRejectsInjectedExport",
-          "TestAssessmentFacadeConstructionRejectsNilAndTypedNilDependencies",
           "TestAssessmentFacadeCreateParticipantOrder",
           "TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipants",
-          "TestAssessmentImportFacadeConstructionRejectsNilAndTypedNilDependencies",
-          "TestAssessmentLiveRowVersionBoundary",
-          "TestAssessmentMergeAssemblyRejectsNilAndTypedNilDependencies",
-          "TestAssessmentMergeEffectsConstruction",
-          "TestAssessmentProjectionConstructionRejectsNilAndTypedNilDependencies"
+          "TestAssessmentLiveRowVersionBoundary"
         ]
       },
       "evidence_class": "integration",
@@ -616,7 +602,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_transaction",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ]
@@ -650,7 +636,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -683,7 +669,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "postgres_dedicated",
-      "minimum_tier": "standard",
+      "aggregate_placement": "standard",
       "service_dependencies": [
         "object_store",
         "postgres"
@@ -715,7 +701,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -743,7 +729,49 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
+      "service_dependencies": []
+    },
+    {
+      "row_id": "module.assessments.unit.facade_and_import_contracts",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.unit",
+      "collaborator_ids": [
+        "module.links",
+        "module.projections",
+        "module.records",
+        "module.revisions"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments",
+        "tests": [
+          "TestAssessmentAssemblyConstructorsRejectInvalidDependencies",
+          "TestAssessmentCreateIdentityCompatibility",
+          "TestAssessmentCreateInputFromImportAcceptsExactFieldKinds",
+          "TestAssessmentCreateInputFromImportRejectsNullForEveryField",
+          "TestAssessmentCreateInputFromImportRejectsUnsafeFieldKinds",
+          "TestAssessmentCreateInputFromImportRetainsSharedStructuralRejection",
+          "TestAssessmentExportSurface",
+          "TestAssessmentExportSurfaceClassifiesReceiverVisibility",
+          "TestAssessmentExportSurfaceRejectsInjectedExport",
+          "TestAssessmentFacadeConstructionRejectsNilAndTypedNilDependencies",
+          "TestAssessmentImportFacadeConstructionRejectsNilAndTypedNilDependencies",
+          "TestAssessmentMergeAssemblyRejectsNilAndTypedNilDependencies",
+          "TestAssessmentMergeEffectsConstruction",
+          "TestAssessmentProjectionConstructionRejectsNilAndTypedNilDependencies"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
       "service_dependencies": []
     },
     {
@@ -769,7 +797,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     },
     {
@@ -794,7 +822,7 @@
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
-      "minimum_tier": "fast",
+      "aggregate_placement": "fast",
       "service_dependencies": []
     }
   ]

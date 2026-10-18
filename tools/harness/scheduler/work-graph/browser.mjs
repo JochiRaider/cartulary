@@ -484,7 +484,7 @@ export function browserTargetStage(root, target) {
   return stage ? { stage, mode: "validation" } : null;
 }
 
-export function compileBrowserStageGraph(root, owner, stage, { mode = "validation", catalog } = {}) {
+export function compileBrowserStageGraph(root, owner, stage, { mode = "validation", catalog, maxLanes = topology(root).browser_lane_policy.default } = {}) {
   const getCatalog = () => catalog ??= loadTestCatalog(root);
   const units = [];
   const previousByLifecycle = new Map();
@@ -503,7 +503,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
     const catalog = getCatalog();
     const lanes = planBrowserFunctionalLanes(stage.groups, {
       lanePrefix: stage.name,
-      maxLanes: 4,
+      maxLanes,
       estimateGroup(group) {
         return group.selectedRowIDs.reduce((total, rowID) => {
           const row = catalog.rowByID.get(rowID);

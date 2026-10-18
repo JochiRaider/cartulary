@@ -178,7 +178,7 @@ test("fast smoke projections share exact units while broad and race contexts rem
     }
   }
   for (const rowID of ["harness.command_surface.unit.native_runtime", "harness.browser.unit.native_fixtures"]) {
-    assert.equal(compiler.catalog.rowByID.get(rowID).minimum_tier, "full");
+    assert.equal(compiler.catalog.rowByID.get(rowID).aggregate_placement, "full");
     assert.ok(!selectedRows(check.graph).includes(rowID));
     assert.ok(selectedRows(ci.graph).includes(rowID));
   }
@@ -199,8 +199,8 @@ test("fast smoke projections share exact units while broad and race contexts rem
 test("aggregate browser selection preserves tier rows without stage expansion or excluded preparation", () => {
   const compiler = new WorkGraphCompiler(new URL("../../../", import.meta.url).pathname);
   const measurement = compiler.catalog.rows.filter((row) => row.runner === "playwright" && compiler.rowTargets.get(row.row_id) === "browser-e2e-measurement");
-  const full = measurement.filter((row) => row.minimum_tier === "full").map((row) => row.row_id).sort();
-  const release = measurement.filter((row) => row.minimum_tier === "release").map((row) => row.row_id).sort();
+  const full = measurement.filter((row) => row.aggregate_placement === "full").map((row) => row.row_id).sort();
+  const release = measurement.filter((row) => row.aggregate_placement === "release").map((row) => row.row_id).sort();
   assert.equal(full.length, 4);
   assert.equal(release.length, 29);
   assert.deepEqual(selectedRows(compiler.compileTarget("harness.suite_browser_measurement")), [...full, ...release].sort());
@@ -220,7 +220,7 @@ test("conformance dependencies preserve required security rows without following
   const ids = policyDependencyRowIDs(compiler.owner, "harness.otel_conformance", compiler.catalog.rows);
   assert.equal(ids.length, 11);
   assert.throws(() => policyDependencyRowIDs(compiler.owner, "otel-conformance", compiler.catalog.rows), /unknown policy operation/u);
-  assert.equal(ids.filter((id) => compiler.catalog.rowByID.get(id).minimum_tier === "release").length, 7);
+  assert.equal(ids.filter((id) => compiler.catalog.rowByID.get(id).aggregate_placement === "release").length, 7);
   const before = compiler.compileTarget("otel-conformance");
   assert.deepEqual(selectedRows(before), ids);
   const source = compiler.catalog.rowByID.get(ids[0]);
@@ -313,7 +313,7 @@ test("public assurance unions select each surviving assertion entrypoint once", 
   const compiler = new WorkGraphCompiler(new URL("../../../", import.meta.url).pathname);
   // Public assurance responsibilities are stable. Private entrypoint filenames
   // may move; duplicate registration remains forbidden.
-  const common = ["harness-boundary-contract", "harness-command-surface-contract", "harness-evidence-contract", "harness-graph-contract", "harness-local-session-contract", "harness-scheduler-contract", "harness-ui-review-contract"];
+  const common = ["harness-boundary-contract", "harness-command-surface-contract", "harness-evidence-contract", "harness-graph-contract", "harness-local-session-contract", "harness-scheduler-contract"];
   const ci = compiler.compileAggregatePlan("ci");
   const target = "harness.contract_default";
   const operations = compiler.owner.target_members[target].map((member) => compiler.owner.operations[typeof member === "string" ? member : member.operation_id]);

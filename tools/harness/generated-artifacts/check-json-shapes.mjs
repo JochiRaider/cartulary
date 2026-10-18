@@ -118,6 +118,7 @@ const topologyTopLevelKeys = new Set([
   "resource_profiles",
   "physical_resource_claims",
   "browser_reset_policy",
+  "browser_lane_policy",
   "service_resource_minimums",
   "generated_outputs",
   "runtime_binaries",

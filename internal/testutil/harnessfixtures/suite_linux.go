@@ -68,6 +68,7 @@ func (s *SuiteOwner) Close(ctx context.Context) error {
 }
 
 type ProductionOptions struct {
+	BrowserLaneLimit      int
 	residency             *residency
 	Root, RunRoot, Target string
 	Runtime               *harnesssession.Runtime
