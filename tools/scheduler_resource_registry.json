@@ -24,7 +24,7 @@
     },
     "port_lanes": {
       "source": "fixed_cpu_bounded",
-      "default": 4,
+      "default": 16,
       "minimum": 1,
       "maximum_cpu_multiplier": 1
     },

@@ -103,7 +103,7 @@
         "tests": [
           "TestOwnedPostgresAppliesContainerLabels",
           "TestOwnedPostgresDoesNotRetryAuthenticationReadinessFailure",
-          "TestOwnedPostgresRetriesReadinessTimeoutAndTerminatesFailedAttempt",
+          "TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal",
           "TestPrepareDatabaseTemplateModeClonesWithoutMigrationReplay"
         ]
       },

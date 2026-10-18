@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_resident_allocation.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "admission_root",
+    "allocation"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_resident_allocation.v1"
+    },
+    "admission_root": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "allocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "token",
+        "reference",
+        "claims",
+        "capacities",
+        "parent"
+      ],
+      "properties": {
+        "token": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{32}$"
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "claims": {
+          "$ref": "#/$defs/quantities"
+        },
+        "capacities": {
+          "$ref": "#/$defs/quantities"
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "quantities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser_stack",
+        "cpu",
+        "io",
+        "memory_mb",
+        "object_store",
+        "port_lane",
+        "postgres",
+        "process",
+        "service_stack",
+        "volume"
+      ],
+      "properties": {
+        "browser_stack": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cpu": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "io": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "memory_mb": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "object_store": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "port_lane": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "postgres": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "process": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "service_stack": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "volume": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  }
+}

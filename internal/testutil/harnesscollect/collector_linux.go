@@ -147,7 +147,7 @@ func (c *collector) fenced(ctx context.Context, operation func(context.Context) 
 	token := hex.EncodeToString(nonce[:])
 	admissionCtx, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
 	defer cancel()
-	claims := harnessadmission.Quantities{"browser_stack": 0, "cpu": 0, "io": 0, "memory_mb": 0, "process": 0}
+	claims := harnessadmission.Quantities{"browser_stack": 0, "cpu": 0, "io": 0, "memory_mb": 0, "object_store": 0, "port_lane": 0, "postgres": 0, "process": 0, "service_stack": 0, "volume": 0}
 	granted, err := harnessadmission.Transact(admissionCtx, harnessadmission.Request{Root: c.admissionRoot, Operation: "admit", Token: token, Owner: c.owner, Mode: "observation", Claims: claims, Capacities: c.capacities})
 	// Release even a queued request and even when admission completed concurrently
 	// with cancellation. No parent event loop participates in this transaction.
@@ -483,7 +483,7 @@ func Main(input io.Reader, output io.Writer) int {
 	capacities := harnessadmission.Quantities{}
 	// Project graph-local fixture dimensions onto the existing host admission
 	// resource domain, exactly as the Node hostClaims boundary does.
-	for _, key := range []string{"browser_stack", "cpu", "io", "memory_mb", "process"} {
+	for _, key := range []string{"browser_stack", "cpu", "io", "memory_mb", "object_store", "port_lane", "postgres", "process", "service_stack", "volume"} {
 		value, present := caps[key]
 		if !present {
 			capacities[key] = 0

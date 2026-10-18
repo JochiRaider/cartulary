@@ -387,7 +387,7 @@ const generalCases = [
     acceptance_ids: ["TH-HARNESS-AC-082"],
     run(context) {
       assert.equal(context.taskSurface.schema_id, "cartulary.task_surface_owner.v4");
-      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v12");
+      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v13");
     },
   },
   {
@@ -524,7 +524,7 @@ async function assertBoundaryContract(context, kind) {
     }
     case "current_schema_presence":
       for (const schema of [
-        "cartulary.harness_work_graph.v6.schema.json",
+        "cartulary.harness_work_graph.v7.schema.json",
         "cartulary.harness_execution_context.v3.schema.json",
         "cartulary.harness_runtime_plan.v5.schema.json",
         "cartulary.harness_run_manifest.v3.schema.json",

@@ -27,6 +27,9 @@ type reviewInput struct {
 	VerifySamples bool    `json:"verify_samples"`
 }
 type productionDriver struct {
+	fixtureLease           *harnessfixtures.WorkLease
+	fixtureAdmission       *harnessadmission.Lease
+	fixtureFinish          func(context.Context) error
 	mu                     sync.Mutex
 	root, runRoot, session string
 	input                  reviewInput
@@ -76,7 +79,13 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 		parent = &v
 	}
 	admissionCtx, cancel := context.WithTimeout(ctx, time.Duration(LimitLock)*time.Millisecond)
-	d.admission, err = harnessadmission.Acquire(admissionCtx, "", harnessadmission.Quantities{"browser_stack": 1}, reply.Facts.Capacities, parent, false)
+	claims := harnessadmission.Quantities{"cpu": 1, "io": 1, "memory_mb": 64, "process": 1}
+	if d.input.Mode == "dev" {
+		// Explicit borrowed-origin review owns a host browser for its whole
+		// session. Its long-lived activity claim includes that physical cost.
+		claims["memory_mb"], claims["process"], claims["browser_stack"], claims["port_lane"] = 512, 2, 1, 1
+	}
+	d.admission, err = harnessadmission.Acquire(admissionCtx, "", claims, reply.Facts.Capacities, parent, false)
 	cancel()
 	if err != nil {
 		return nil, normalized(err, "capacity_exceeded")
@@ -111,12 +120,26 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 		environment["CARTULARY_HOST_ADMISSION_LEASE"] = d.admission.Token
 		d.fixtures = harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{Root: d.root, RunRoot: privateRoot, Target: "ui-review", Runtime: d.runtime, Environment: environment}, harnessfixtures.Options{})
 		acquire, cancel := d.producerContext(ctx)
-		lease, err := d.fixtures.Broker.Acquire(acquire, harnessfixtures.Request{Capability: "browser_stack", UnitID: "ui-review", Affinity: "design-review-" + *d.input.Profile, BrowserStage: "webserver-backed", RuntimeProfile: *d.input.Profile})
+		request := harnessfixtures.Request{Capability: "browser_stack", UnitID: "ui-review", Affinity: "design-review-" + *d.input.Profile, BrowserStage: "webserver-backed", RuntimeProfile: *d.input.Profile}
+		capacities := map[string]int64{}
+		for key, value := range reply.Facts.Capacities {
+			capacities[key] = int64(value)
+		}
+		work, err := d.fixtures.ConfigureDedicated(&d.admission.Token, capacities, request, d.input.Presentation != "design")
+		if err == nil {
+			d.fixtureAdmission, d.fixtureFinish, err = d.fixtures.Admit(acquire, work)
+		}
+		if err == nil {
+			d.fixtureLease, err = d.fixtures.Acquire(acquire, request)
+		}
 		cancel()
 		if err != nil {
 			return nil, preparationError(err, "service_acquisition", "browser_stack")
 		}
-		maps.Copy(environment, lease.Environment())
+		maps.Copy(environment, d.fixtureLease.Environment)
+		environment["CARTULARY_WORK_UNIT_ID"] = request.UnitID
+		environment["CARTULARY_BROWSER_RUNTIME_PROFILE_ID"] = request.RuntimeProfile
+		environment["CARTULARY_HOST_ADMISSION_LEASE"] = d.fixtureAdmission.Token
 		reply, err = d.produce(ctx, a, "seed", map[string]any{"environment": environment})
 		if err != nil {
 			return nil, err
@@ -132,7 +155,13 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 		go d.health(ctx, a)
 		return nil, nil
 	}
-	reply, err = d.produce(ctx, a, "prepare_browser", map[string]any{"admission_token": d.admission.Token})
+	// Browser diagnostics and artifact work execute inside the fixture's active
+	// claim. Making them siblings would charge the same execution twice.
+	browserAdmission := d.admission.Token
+	if d.fixtureAdmission != nil {
+		browserAdmission = d.fixtureAdmission.Token
+	}
+	reply, err = d.produce(ctx, a, "prepare_browser", map[string]any{"admission_token": browserAdmission})
 	if err != nil {
 		return nil, err
 	}
@@ -264,6 +293,12 @@ func (d *productionDriver) Close(ctx context.Context) []error {
 			return a.close(ctx)
 		}, time.Duration(LimitDrain)*time.Millisecond)
 	}
+	if d.fixtureLease != nil {
+		attempt("browser_renderer", func(ctx context.Context) error {
+			_, err := d.fixtureLease.Release(ctx, false, false)
+			return err
+		}, time.Duration(LimitDrain)*time.Millisecond)
+	}
 	// The adapter is quiescent before the fixture owner evaluates every
 	// retained resource. Review records outcomes without a second kind loop.
 	owner := harnessfixtures.ProductionOptions{Root: d.root, RunRoot: d.runRoot, Target: "ui-review", Runtime: d.runtime, Environment: d.environment}
@@ -281,7 +316,11 @@ func (d *productionDriver) Close(ctx context.Context) []error {
 	var err error
 	if d.fixtures != nil {
 		d.fixtures.Options.ReportCleanup = owner.ReportCleanup
-		err = d.fixtures.Close(context.WithoutCancel(ctx))
+		cleanup := context.WithoutCancel(ctx)
+		if d.fixtureAdmission != nil {
+			cleanup = harnessfixtures.WithActivity(cleanup, d.fixtureAdmission.Token)
+		}
+		err = d.fixtures.Close(cleanup)
 	} else {
 		err = owner.Recover(context.WithoutCancel(ctx))
 	}
@@ -289,6 +328,12 @@ func (d *productionDriver) Close(ctx context.Context) []error {
 		failures = append(failures, cleanupFailure("browser_stack", err))
 	}
 
+	if d.fixtureAdmission != nil {
+		if d.fixtureFinish != nil {
+			attempt("provider_close", d.fixtureFinish, time.Duration(LimitDrain)*time.Millisecond)
+		}
+		attempt("host_release", d.fixtureAdmission.Release, time.Duration(LimitLock)*time.Millisecond)
+	}
 	if d.admission != nil {
 		attempt("host_release", d.admission.Release, time.Duration(LimitLock)*time.Millisecond)
 	}

@@ -11,4 +11,5 @@ var cleanupDeadlinesMS = map[string]int{
 "object_store_proxy": 30000,
 "managed_suite": 120000,
 "borrowed_suite": 30000,
+"resident_allocation": 5000,
 }

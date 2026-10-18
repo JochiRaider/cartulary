@@ -85,7 +85,7 @@ func (e *graphEngine) work(u unit, c cacheResult) {
 		if host == nil {
 			return
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		cleanup("host_release", "", host.Release(ctx))
 		host = nil
@@ -117,7 +117,7 @@ func (e *graphEngine) work(u unit, c cacheResult) {
 		_ = e.send(engineMessage{ID: u.ID, Event: "fixture_released", Extra: extra})
 	}
 	defer finishFixture()
-	if u.Fixture != "none" {
+	if u.Fixture != "none" || u.Renderer != "none" && u.Renderer != "" {
 		activity("preparing", "fixture_acquisition")
 		err = e.workerPhase(u, "fixture_acquire", func() error {
 			if e.ports.Fixtures == nil {

@@ -22,10 +22,10 @@ function fixture(t) {
   const suiteLease = runtime.recoveryPath("test-services", "suite-lease.json");
   mkdirSync(path.dirname(suiteLease), { mode: 0o700 });
   const resultRoot = path.join(scratch, "results");
-  writeFileSync(suiteLease, JSON.stringify({ schema_id: "cartulary.test_services.lease.v1", run_id: runtime.runID, suite_id: "test-suite",
+  writeFileSync(suiteLease, JSON.stringify({ schema_id: "cartulary.test_services.lease.v2", run_id: runtime.runID, suite_id: "test-suite",
     lease_id: runtime.leaseID, result_root: resultRoot, run_root: path.join(resultRoot, runtime.runID), target: "browser-e2e",
     mode: "owned", ownership_mode: "owned", owner_pid: process.pid, created_at: new Date().toISOString(),
-    resources: [], proof_labels: {}, proof_prefixes: {}, cleanup_state: "not_started" }), { mode: 0o600 });
+    postgres_provisioning: null, resources: [], proof_labels: {}, proof_prefixes: {}, cleanup_state: "not_started" }), { mode: 0o600 });
   const sessionRoot = runtime.recoveryPath("browser-stack-leases", "attempt"); mkdirSync(sessionRoot, { recursive: true, mode: 0o700 });
   const file = path.join(sessionRoot, "acquisition", "owner.json");
   const suiteRef = runtime.record({ kind: "managed_suite", target: suiteLease, depends_on: [] });

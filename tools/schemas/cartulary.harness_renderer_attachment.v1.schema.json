@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_renderer_attachment.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "environment",
+    "attestation",
+    "trust",
+    "unit_id",
+    "borrow_id",
+    "allocation_id",
+    "generation",
+    "runtime_profile_id",
+    "trust_digest",
+    "attestation_ref",
+    "trust_ref",
+    "diagnostic_binding"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_renderer_attachment.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "CARTULARY_VISUAL_RENDERER_ATTESTED",
+        "CARTULARY_VISUAL_RENDERER_PROFILE_ID",
+        "CARTULARY_VISUAL_RENDERER_PROFILE_JSON",
+        "CARTULARY_VISUAL_RENDERER_WS_ENDPOINT"
+      ],
+      "properties": {
+        "CARTULARY_VISUAL_RENDERER_ATTESTED": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "CARTULARY_VISUAL_RENDERER_PROFILE_ID": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "CARTULARY_VISUAL_RENDERER_PROFILE_JSON": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "CARTULARY_VISUAL_RENDERER_WS_ENDPOINT": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "attestation": {
+      "$ref": "cartulary.frontend_visual_renderer_attestation.v1"
+    },
+    "trust": {
+      "$ref": "cartulary.browser_tls_trust.v1"
+    },
+    "unit_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "borrow_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "allocation_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "generation": {
+      "type": "string",
+      "pattern": "^[0-9a-f-]{36}$"
+    },
+    "runtime_profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "trust_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "attestation_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "trust_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "diagnostic_binding": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "containerPort",
+            "hostPort"
+          ],
+          "properties": {
+            "containerPort": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "hostPort": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        }
+      ]
+    }
+  }
+}

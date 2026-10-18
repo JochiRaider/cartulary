@@ -16,7 +16,7 @@ func engineUnit(id string, estimate int64, needs ...string) unit {
 	if needs == nil {
 		needs = []string{}
 	}
-	return unit{ID: id, Owner: "harness.command_surface", Kind: "runner", Needs: needs, Claims: map[string]int64{"cpu": 1}, SharedLocks: []string{"host_activity"}, ExclusiveLocks: []string{}, Fixture: "none", Services: []string{}, CachePolicy: "none", Evidence: []string{}, Artifacts: []artifact{}, EstimateMS: estimate, TimeoutMS: 1000, Command: command{Executable: "true", Args: []string{}, Environment: map[string]string{}}, FailurePolicy: failurePolicy{BlockDescendants: true, ContinueIndependent: true, AggregateEffect: "required"}}
+	return unit{Renderer: "none", Physical: map[string]map[string]int64{}, ID: id, Owner: "harness.command_surface", Kind: "runner", Needs: needs, Claims: map[string]int64{"cpu": 1}, SharedLocks: []string{"host_activity"}, ExclusiveLocks: []string{}, Fixture: "none", Services: []string{}, CachePolicy: "none", Evidence: []string{}, Artifacts: []artifact{}, EstimateMS: estimate, TimeoutMS: 1000, Command: command{Executable: "true", Args: []string{}, Environment: map[string]string{}}, FailurePolicy: failurePolicy{BlockDescendants: true, ContinueIndependent: true, AggregateEffect: "required"}}
 }
 func enginePlan(units ...unit) *Plan {
 	slices.SortFunc(units, func(a, b unit) int { return strings.Compare(a.ID, b.ID) })

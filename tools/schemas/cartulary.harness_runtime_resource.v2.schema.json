@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_runtime_resource.v1",
+  "$id": "cartulary.harness_runtime_resource.v2",
   "anyOf": [
     {
       "type": "object",
@@ -18,7 +18,8 @@
             "managed_suite",
             "borrowed_suite",
             "browser_stack",
-            "object_store_proxy"
+            "object_store_proxy",
+            "resident_allocation"
           ]
         },
         "target": {

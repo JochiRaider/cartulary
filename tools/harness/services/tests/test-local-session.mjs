@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -15,7 +15,8 @@ import {
   stopLocalSession,
 } from "../local-session.mjs";
 
-import { processIdentity } from "../../runtime/host-admission.mjs";
+import { acquireHostAdmission, hostClaims, processIdentity, transactAdmission } from "../../runtime/host-admission.mjs";
+import { lifecyclePolicy } from "../../contract/generated/lifecycle-policy.mjs";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../../../..");
 const taskSurface = JSON.parse(
@@ -46,7 +47,18 @@ function sessionFixture({ ageMS = 0 } = {}) {
   const now = new Date(Date.now() + ageMS);
   const containers = new Map();
   let terminateCount = 0;
+  const reservations = new Set();
   const dependencies = {
+    async acquireAdmission({ residents }) {
+      for (const allocation of residents) reservations.add(allocation.token);
+      return { token: "a".repeat(32), async release() {} };
+    },
+    admission(request) {
+      if (request.operation === "admit") { for (const allocation of request.residents) reservations.add(allocation.token); return true; }
+      if (request.operation === "resident_granted") return reservations.has(request.token);
+      if (request.operation === "release_resident") reservations.delete(request.token);
+      return false;
+    },
     now: () => now,
     sessionID: () => "0123456789abcdef01234567",
     testservicesOutput(args) {
@@ -90,6 +102,9 @@ function sessionFixture({ ageMS = 0 } = {}) {
         CARTULARY_PGTEST_ADMIN_DSN: "postgres://admin:session-password@127.0.0.1:5432/postgres",
         CARTULARY_PGTEST_DSN_TEMPLATE: "postgres://app:session-password@127.0.0.1:5432/%s",
         CARTULARY_PGTEST_SCHEMA_HASH: "c".repeat(64),
+ CARTULARY_PGTEST_GENERATION: "12345",
+ CARTULARY_PGTEST_PROVISIONING_DIGEST: "d".repeat(64),
+ CARTULARY_PGTEST_TEMPLATE_DIGEST: "e".repeat(64),
         CARTULARY_PGTEST_TEMPLATE_DB: "cartulary_template_session",
         CARTULARY_S3TEST_ACCESS_KEY_ID: "session-access-key",
         CARTULARY_S3TEST_ENDPOINT: "http://127.0.0.1:8333",
@@ -129,7 +144,8 @@ function sessionFixture({ ageMS = 0 } = {}) {
       });
       privateJSON(envFile, environmentValue);
       privateJSON(leaseFile, {
-        schema_id: "cartulary.test_services.lease.v1",
+        schema_id: "cartulary.test_services.lease.v2",
+ postgres_provisioning: {schema_id:"cartulary.test_services.postgres_provisioning.v1", generation:"12345",policy_digest:"d".repeat(64),template_digest:"e".repeat(64)},
         lease_id: "session-service-lease",
         suite_id: environment.CARTULARY_TEST_SUITE_ID,
         run_id: environment.CARTULARY_TEST_RUN_ID,
@@ -187,6 +203,73 @@ function rewriteDescriptor(fixture, mutate) {
   mutate(value);
   privateJSON(fixture.sessionFile, value);
 }
+
+test("local lifecycle holds its lock and publishes no service until queued admission succeeds", async () => {
+  const fixture = sessionFixture();
+  const acquire = fixture.dependencies.acquireAdmission;
+  const gate = Promise.withResolvers();
+  fixture.dependencies.acquireAdmission = async (options) => {
+    assert.equal(options.timeoutMs, lifecyclePolicy.limits.preparation);
+    assert.equal(options.residents[0].parent, null);
+    await gate.promise;
+    return acquire(options);
+  };
+  const creating = createFixtureSession(fixture);
+  try {
+    assert.equal(fixture.containers.size, 0);
+    assert.equal(existsSync(fixture.sessionFile), false);
+    await assert.rejects(createFixtureSession(fixture), /lifecycle is already active/u);
+    gate.resolve();
+    assert.equal((await creating).state, "active");
+    const stopping = Promise.withResolvers();
+    fixture.dependencies.acquireAdmission = async (options) => {
+      assert.equal(options.mode, "drain");
+      assert.equal(options.timeoutMs, lifecyclePolicy.limits.drain);
+      await stopping.promise;
+      return acquire(options);
+    };
+    const closed = stopLocalSession({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies });
+    assert.equal(fixture.terminateCount(), 0);
+    assert.equal(existsSync(fixture.sessionFile), true);
+    stopping.resolve();
+    assert.equal((await closed).state, "absent");
+    assert.equal(fixture.terminateCount(), 1);
+  } finally { gate.resolve(); await creating.catch(() => {}); fixture.cleanup(); }
+});
+
+test("queued physical admission withdraws on cancellation and retains residents until exact release", async () => {
+  const root = mkdtempSync(path.join(tmpdir(), "cartulary-session-admission-"));
+  const capacities = hostClaims({ cpu: 2, io: 1, memory_mb: 1024, process: 20, object_store: 1, postgres: 1, port_lane: 2 });
+  const resident = { token: "f".repeat(32), reference: path.join(root, "resident.json"), claims: hostClaims({ memory_mb: 512, process: 10, object_store: 1, postgres: 1, port_lane: 2 }), capacities, parent: null };
+  const leases = [];
+  const state = () => JSON.parse(readFileSync(path.join(root, "state.json")));
+  try {
+    const holder = await acquireHostAdmission({ root, capacities, claims: { cpu: 2 } }); leases.push(holder);
+    const controller = new AbortController();
+    const waiting = acquireHostAdmission({ root, capacities, claims: { cpu: 1 }, residents: [resident], signal: controller.signal });
+    const rejected = assert.rejects(waiting, /cancel queued session/u);
+    // Observe registration, not a guessed scheduler delay.
+    const deadline = performance.now() + 5000;
+    while (state().leases.length < 2) {
+      assert.ok(performance.now() < deadline, "pending admission was not registered");
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.equal(state().residents.length, 0);
+    controller.abort(new Error("cancel queued session"));
+    await rejected;
+    assert.equal(state().leases.length, 1);
+    const acquiring = acquireHostAdmission({ root, capacities, claims: { cpu: 1 }, residents: [resident] });
+    await holder.release();
+    const active = await acquiring; leases.push(active);
+    await active.release();
+    assert.equal(state().residents.length, 1);
+    const drain = await acquireHostAdmission({ root, capacities, claims: { cpu: 1 }, mode: "drain", residents: [resident] }); leases.push(drain);
+    assert.equal(state().residents.length, 1);
+    transactAdmission({ root, operation: "release_resident", token: resident.token, reference: resident.reference });
+    await drain.release();
+    assert.equal(state().residents.length, 0);
+  } finally { for (const lease of leases) await lease.release(); rmSync(root, { recursive: true, force: true }); }
+});
 
 test("session mode is explicit, closed, and limited to approved leaf targets", () => {
   assert.deepEqual(resolveServiceSessionMode({ target: "check", environment: {} }), {
@@ -277,10 +360,10 @@ test("session mode is explicit, closed, and limited to approved leaf targets", (
   }
 });
 
-test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", () => {
+test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", async () => {
   const fixture = sessionFixture();
   try {
-    const created = createFixtureSession(fixture);
+    const created = await createFixtureSession(fixture);
     assert.equal(created.state, "active");
     const descriptor = readLocalSessionDescriptor(fixture.sessionFile);
     assert.equal(descriptor.containers[0].service, "object_store");
@@ -334,7 +417,7 @@ test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", 
     for (const forbidden of ["session-password", "session-secret-key", postgresID, objectStoreID, descriptor.state_root]) {
       assert.equal(output.includes(forbidden), false);
     }
-    assert.throws(
+    await assert.rejects(
       () => stopLocalSession({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies }),
       /live borrower/u,
     );
@@ -345,12 +428,12 @@ test("session lifecycle is redacted, concurrent-borrower safe, and idempotent", 
       0,
     );
     assert.equal(
-      stopLocalSession({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies }).state,
+      (await stopLocalSession({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies })).state,
       "absent",
     );
     assert.equal(fixture.terminateCount(), 1);
     assert.equal(
-      stopLocalSession({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies }).state,
+      (await stopLocalSession({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies })).state,
       "absent",
     );
     assert.equal(fixture.terminateCount(), 1);
@@ -387,10 +470,10 @@ test("status rejects malformed, permissive, wrong-owner, and symlink descriptors
   }
 });
 
-test("status detects owner, digest, expiry, and container invalidation", () => {
+test("status detects owner, digest, expiry, and container invalidation", async () => {
   const ownerFixture = sessionFixture();
   try {
-    createFixtureSession(ownerFixture);
+    await createFixtureSession(ownerFixture);
     rewriteDescriptor(ownerFixture, (descriptor) => {
       descriptor.owner_uid += 1;
     });
@@ -401,7 +484,7 @@ test("status detects owner, digest, expiry, and container invalidation", () => {
 
   const digestFixture = sessionFixture();
   try {
-    createFixtureSession(digestFixture);
+    await createFixtureSession(digestFixture);
     rewriteDescriptor(digestFixture, (descriptor) => {
       descriptor.config_digest = `sha256:${"f".repeat(64)}`;
     });
@@ -414,7 +497,7 @@ test("status detects owner, digest, expiry, and container invalidation", () => {
 
   const expiredFixture = sessionFixture({ ageMS: -25 * 60 * 60 * 1000 });
   try {
-    createFixtureSession(expiredFixture);
+    await createFixtureSession(expiredFixture);
     assert.equal(localSessionStatus({ root: repositoryRoot, binary: expiredFixture.binary, sessionFile: expiredFixture.sessionFile, dependencies: expiredFixture.dependencies }).state, "expired");
   } finally {
     expiredFixture.cleanup();
@@ -422,7 +505,7 @@ test("status detects owner, digest, expiry, and container invalidation", () => {
 
   const containerFixture = sessionFixture();
   try {
-    createFixtureSession(containerFixture);
+    await createFixtureSession(containerFixture);
     containerFixture.containers.get(objectStoreID).State.Running = false;
     const status = localSessionStatus({ root: repositoryRoot, binary: containerFixture.binary, sessionFile: containerFixture.sessionFile, dependencies: containerFixture.dependencies });
     assert.equal(status.state, "stale");

@@ -123,8 +123,11 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 		return nil, artifactFailure(harnesslocal.ErrUnsafe)
 	}
 	source, ok := proof["lease"].(map[string]any)
-	if !ok || harnessschema.Validate("cartulary.test_services.lease.v1", source) != nil {
+	if !ok || harnessschema.Validate("cartulary.test_services.lease.v2", source) != nil {
 		return nil, artifactFailure(harnesslocal.ErrUnsafe)
+	}
+	if err := validatePostgresProvisioning(source, environment); err != nil {
+		return nil, artifactFailure(err)
 	}
 	// This run-scoped attachment proof permits browser fixture cleanup only. The
 	// borrowed-suite owner detaches; it never dispatches terminate-suite with it.
@@ -132,7 +135,7 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 	for key, value := range map[string]any{"lease_id": p.Runtime.LeaseID, "suite_id": environment["CARTULARY_TEST_SUITE_ID"], "run_id": p.Runtime.RunID, "result_root": filepath.Dir(p.RunRoot), "run_root": p.RunRoot, "target": p.Target, "mode": "attach", "ownership_mode": "attach", "owner_pid": os.Getpid(), "created_at": time.Now().UTC().Format(time.RFC3339Nano), "cleanup_state": "not_started"} {
 		lease[key] = value
 	}
-	if err := privateJSON(leaseFile, "cartulary.test_services.lease.v1", lease, false); err != nil {
+	if err := privateJSON(leaseFile, "cartulary.test_services.lease.v2", lease, false); err != nil {
 		return nil, artifactFailure(err)
 	}
 	p.containerProof(proof)

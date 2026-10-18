@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_lifecycle_policy.v1",
+  "schema_id": "cartulary.harness_lifecycle_policy.v2",
   "limits": {
     "frame": 1048576,
     "plan": 33554432,
@@ -210,6 +210,7 @@
     "browser_stack": 120000,
     "object_store_proxy": 30000,
     "managed_suite": 120000,
-    "borrowed_suite": 30000
+    "borrowed_suite": 30000,
+    "resident_allocation": 5000
   }
 }

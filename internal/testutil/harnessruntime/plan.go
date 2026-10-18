@@ -43,27 +43,29 @@ type rowBinding struct {
 	Runner string `json:"runner"`
 }
 type unit struct {
-	ID             string           `json:"unit_id"`
-	Owner          string           `json:"owner_id"`
-	Kind           string           `json:"kind"`
-	Command        command          `json:"command"`
-	Needs          []string         `json:"needs"`
-	Claims         map[string]int64 `json:"resource_claims"`
-	SharedLocks    []string         `json:"shared_locks"`
-	ExclusiveLocks []string         `json:"exclusive_locks"`
-	Affinity       string           `json:"affinity_key"`
-	Fixture        string           `json:"fixture_lease"`
-	FixtureProfile string           `json:"fixture_profile_id"`
-	SnapshotKey    string           `json:"snapshot_key"`
-	Services       []string         `json:"service_dependencies"`
-	CachePolicy    string           `json:"cache_policy"`
-	TimeoutMS      int64            `json:"timeout_ms"`
-	Evidence       []string         `json:"current_run_evidence_outputs"`
-	Rows           []rowBinding     `json:"row_bindings"`
-	Artifacts      []artifact       `json:"reusable_artifact_outputs"`
-	FailurePolicy  failurePolicy    `json:"failure_policy"`
-	EstimateMS     int64            `json:"estimated_work_ms"`
-	Digest         string           `json:"semantic_digest"`
+	Renderer       string                      `json:"renderer_requirement"`
+	Physical       map[string]map[string]int64 `json:"physical_allocations"`
+	ID             string                      `json:"unit_id"`
+	Owner          string                      `json:"owner_id"`
+	Kind           string                      `json:"kind"`
+	Command        command                     `json:"command"`
+	Needs          []string                    `json:"needs"`
+	Claims         map[string]int64            `json:"resource_claims"`
+	SharedLocks    []string                    `json:"shared_locks"`
+	ExclusiveLocks []string                    `json:"exclusive_locks"`
+	Affinity       string                      `json:"affinity_key"`
+	Fixture        string                      `json:"fixture_lease"`
+	FixtureProfile string                      `json:"fixture_profile_id"`
+	SnapshotKey    string                      `json:"snapshot_key"`
+	Services       []string                    `json:"service_dependencies"`
+	CachePolicy    string                      `json:"cache_policy"`
+	TimeoutMS      int64                       `json:"timeout_ms"`
+	Evidence       []string                    `json:"current_run_evidence_outputs"`
+	Rows           []rowBinding                `json:"row_bindings"`
+	Artifacts      []artifact                  `json:"reusable_artifact_outputs"`
+	FailurePolicy  failurePolicy               `json:"failure_policy"`
+	EstimateMS     int64                       `json:"estimated_work_ms"`
+	Digest         string                      `json:"semantic_digest"`
 }
 type workGraph struct {
 	Schema   string `json:"schema_id"`
@@ -226,6 +228,28 @@ func decodePlan(data []byte) (*Plan, error) {
 		}
 		if !sortedUnique(u.Needs) || !sortedUnique(u.Services) || !sortedUnique(u.SharedLocks) || !sortedUnique(u.ExclusiveLocks) || !sortedUnique(u.Evidence) || len(u.Claims) == 0 {
 			return nil, errPlan
+		}
+		if (u.Renderer == "none") != (len(u.Physical["renderer"]) == 0) || (u.Fixture == "browser_stack") != (len(u.Physical["browser_stack"]) != 0) {
+			return nil, errPlan
+		}
+		for _, service := range []string{"postgres", "object_store"} {
+			if slices.Contains(u.Services, service) != (len(u.Physical[service]) != 0) {
+				return nil, errPlan
+			}
+		}
+		combined := maps.Clone(u.Claims)
+		for _, claims := range u.Physical {
+			for name, amount := range claims {
+				if name == "cpu" || name == "io" {
+					return nil, errPlan
+				}
+				combined[name] += amount
+			}
+		}
+		for name, amount := range combined {
+			if amount > facts.Capacities[name] {
+				return nil, errPlan
+			}
 		}
 		outputs := []string{}
 		for _, output := range u.Evidence {

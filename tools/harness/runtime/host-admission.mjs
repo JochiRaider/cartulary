@@ -48,7 +48,7 @@ async function transaction(root, request, timeoutMs = 5000) {
 // Executed entirely inside the short-lived native transaction child. A synchronous build or
 // fixture operation in the scheduler must never hold the mutex awaiting its
 // parent's event loop. The child publishes and exits without a parent handshake.
-const resources = ["browser_stack", "cpu", "io", "memory_mb", "process"];
+const resources = ["browser_stack", "cpu", "io", "memory_mb", "object_store", "port_lane", "postgres", "process", "service_stack", "volume"];
 const quantities = (value) => value && Object.keys(value).length === resources.length && resources.every((key) => Number.isSafeInteger(value[key]) && value[key] >= 0);
 export const hostClaims = (value = {}) => Object.fromEntries(resources.map((key) => [key, value[key] ?? 0]));
 export function inheritedHostLease(environment = process.env) {
@@ -71,9 +71,9 @@ export function transactAdmission(request) {
  * Children inherit activity order but consume only unused parent claim credit.
  * Exact worker proof retains claims after controller death until reaping.
  */
-export async function acquireHostAdmission({ mode = "shared", claims: input = {}, capacities: available, parent = null, signal, timeoutMs = 5000, root = hostAdmissionRoot, ownerIdentity = processIdentity() } = {}) {
+export async function acquireHostAdmission({ mode = "shared", claims: input = {}, capacities: available, residents, parent = null, signal, timeoutMs = 5000, root = hostAdmissionRoot, ownerIdentity = processIdentity() } = {}) {
   const claims = hostClaims(input), capacities = hostClaims(available);
-  if (!["shared", "exclusive"].includes(mode) || !quantities(claims) || !quantities(capacities) || resources.some((key) => claims[key] > capacities[key])) throw conflict();
+  if (!["shared", "exclusive", "drain"].includes(mode) || !quantities(claims) || !quantities(capacities) || resources.some((key) => claims[key] > capacities[key])) throw conflict();
   const token = randomBytes(16).toString("hex"), owner = ownerIdentity, started = performance.now();
   let registered = false;
   const release = async () => { if (registered) { await transaction(root, { operation: "release", token }); registered = false; } };
@@ -81,7 +81,7 @@ export async function acquireHostAdmission({ mode = "shared", claims: input = {}
     while (true) {
       signal?.throwIfAborted();
       registered = true;
-      const admitted = await transaction(root, { operation: "admit", token, owner, mode, claims, capacities, parent }, Math.max(1, timeoutMs - (performance.now() - started)));
+      const admitted = await transaction(root, { operation: "admit", token, owner, mode, claims, capacities, parent, ...(residents ? { residents } : {}) }, Math.max(1, timeoutMs - (performance.now() - started)));
       signal?.throwIfAborted();
       if (admitted) return { token, release, bind: (guard) => transaction(root, { operation: "bind", token, guard }) };
       if (performance.now() - started >= timeoutMs) throw conflict();

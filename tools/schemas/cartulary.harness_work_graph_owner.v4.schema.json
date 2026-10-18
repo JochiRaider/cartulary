@@ -201,6 +201,7 @@
               "browser_isolated",
               "browser_measurement_quiet",
               "harness_contract",
+              "harness_installed_browser",
               "io_heavy",
               "managed_process",
               "package_qualification",

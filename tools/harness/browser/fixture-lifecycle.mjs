@@ -51,7 +51,9 @@ export async function fixtureLifecycle(operation, args, environment = process.en
     const admission = parseStrictJSON(readLocalFile(path.join(path.dirname(file), "service-admission.json"), { maximum: 1048576 }).toString());
     validateSchemaSync("cartulary.test_services.browser_admission.v1", admission);
     if ([stack,admission].some((value) => value.suite_id !== suite || value.browser_session_id !== session)) throw new Error("stack identity mismatch");
-    return attached;
+    // Trust admission is needed by the physical renderer before a group runs
+    // the complete application attachment check.
+    return { ...attached, CARTULARY_WEB_E2E_TLS_TRUST_SHA256: stack.tls_trust_sha256 };
   }
   throw new Error("unknown fixture lifecycle operation");
 }

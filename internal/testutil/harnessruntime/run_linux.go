@@ -242,6 +242,12 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	}
 	diagnostics.canonicalEpoch = monotonicNS()
 	diagnostics.mark("runtime_prepare")
+	requirements := []harnessfixtures.WorkRequirement{}
+	for _, unit := range plan.facts.Graph.Units {
+		requirements = append(requirements, workRequirement(unit))
+	}
+	production.ConfigureAdmission(admission, parent, plan.facts.Capacities, requirements)
+
 	ports := enginePorts{Now: func() time.Duration { return time.Duration(monotonicNS() - diagnostics.canonicalEpoch) }, Execute: func(ctx context.Context, r executionRequest) unitResult {
 		artifact := filepath.Join(runRoot, "unit-artifacts", safeUnitName.ReplaceAllString(r.Unit.ID, "-"))
 		d, err := harnesslocal.PrivateDirectory(artifact)
@@ -261,7 +267,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		}
 		r.Environment["CARTULARY_HARNESS_UNIT_EVENT_PREFIX"] = prefix
 		return processes.Execute(ctx, r)
-	}, Fixtures: fixtures, Cache: cache, Admit: nativeAdmission(plan.facts.Capacities, parent, admission), Terminal: publication.Terminal,
+	}, Fixtures: fixtures, Cache: cache, Admit: nativeAdmission(plan.facts.Capacities, parent, admission, production), Terminal: publication.Terminal,
 		Cleanup: recordCleanup, CleanupServices: production.Close, Finalize: func(_ context.Context, unresolved bool, _ []cleanupRecord) error {
 			err := closeRuntime(unresolved)
 			finalized = true

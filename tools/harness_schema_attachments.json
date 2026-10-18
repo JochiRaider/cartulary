@@ -86,8 +86,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.browser_group_result.v8",
-      "path": "tools/schemas/cartulary.browser_group_result.v8.schema.json",
+      "schema_id": "cartulary.browser_group_result.v9",
+      "path": "tools/schemas/cartulary.browser_group_result.v9.schema.json",
       "classification": "public_contract",
       "producer": "browser evidence adapter",
       "validation": "harness.json_shape_check"
@@ -126,7 +126,8 @@
       "path": "tools/schemas/cartulary.browser_tls_trust.v1.schema.json",
       "classification": "public_contract",
       "producer": "owned browser renderer TLS trust",
-      "validation": "harness.json_shape_check"
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.contract_family_registry.v5",
@@ -179,11 +180,12 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.execution_topology.v12",
-      "path": "tools/schemas/cartulary.execution_topology.v12.schema.json",
+      "schema_id": "cartulary.execution_topology.v13",
+      "path": "tools/schemas/cartulary.execution_topology.v13.schema.json",
       "classification": "owner_input",
       "producer": "execution topology owner",
-      "validation": "harness.json_shape_check"
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.fallow_reachability_owner.v1",
@@ -295,7 +297,8 @@
       "path": "tools/schemas/cartulary.frontend_visual_renderer_attestation.v1.schema.json",
       "classification": "public_contract",
       "producer": "canonical renderer lease",
-      "validation": "harness.json_shape_check"
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.frontend_visual_renderer_profile.v2",
@@ -502,8 +505,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_lifecycle_policy.v1",
-      "path": "tools/schemas/cartulary.harness_lifecycle_policy.v1.schema.json",
+      "schema_id": "cartulary.harness_lifecycle_policy.v2",
+      "path": "tools/schemas/cartulary.harness_lifecycle_policy.v2.schema.json",
       "classification": "owner_input",
       "producer": "harness shared lifecycle policy",
       "validation": "harness.json_shape_check"
@@ -543,6 +546,46 @@
       "path": "tools/schemas/cartulary.harness_private_launch_observation.v2.schema.json",
       "classification": "shared_component",
       "producer": "harness execution diagnostics",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_renderer_attachment.v1",
+      "path": "tools/schemas/cartulary.harness_renderer_attachment.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native renderer owner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_renderer_event.v1",
+      "path": "tools/schemas/cartulary.harness_renderer_event.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native renderer owner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_renderer_physical.v1",
+      "path": "tools/schemas/cartulary.harness_renderer_physical.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native renderer owner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_renderer_startup.v1",
+      "path": "tools/schemas/cartulary.harness_renderer_startup.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native renderer owner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.harness_resident_allocation.v1",
+      "path": "tools/schemas/cartulary.harness_resident_allocation.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native resource admission owner",
       "validation": "harness.json_shape_check",
       "foundation_runtime": true
     },
@@ -667,8 +710,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_runtime_resource.v1",
-      "path": "tools/schemas/cartulary.harness_runtime_resource.v1.schema.json",
+      "schema_id": "cartulary.harness_runtime_resource.v2",
+      "path": "tools/schemas/cartulary.harness_runtime_resource.v2.schema.json",
       "classification": "shared_component",
       "producer": "native private runtime resource journal",
       "validation": "harness.json_shape_check",
@@ -752,8 +795,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_work_graph.v6",
-      "path": "tools/schemas/cartulary.harness_work_graph.v6.schema.json",
+      "schema_id": "cartulary.harness_work_graph.v7",
+      "path": "tools/schemas/cartulary.harness_work_graph.v7.schema.json",
       "classification": "public_contract",
       "producer": "harness graph compiler",
       "validation": "harness.json_shape_check"
@@ -1389,8 +1432,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.test_services.lease.v1",
-      "path": "tools/schemas/cartulary.test_services.lease.v1.schema.json",
+      "schema_id": "cartulary.test_services.lease.v2",
+      "path": "tools/schemas/cartulary.test_services.lease.v2.schema.json",
       "classification": "public_contract",
       "producer": "service suite",
       "validation": "harness.json_shape_check",
@@ -1404,8 +1447,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.test_services.local_session.v1",
-      "path": "tools/schemas/cartulary.test_services.local_session.v1.schema.json",
+      "schema_id": "cartulary.test_services.local_session.v2",
+      "path": "tools/schemas/cartulary.test_services.local_session.v2.schema.json",
       "classification": "public_contract",
       "producer": "local service session manager",
       "validation": "harness.json_shape_check"
@@ -1416,6 +1459,14 @@
       "classification": "public_contract",
       "producer": "local service session manager",
       "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.test_services.postgres_provisioning.v1",
+      "path": "tools/schemas/cartulary.test_services.postgres_provisioning.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native suite service owner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.test_services.resource_ledger.v1",

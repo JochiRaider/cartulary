@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -59,6 +60,36 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 		t.Fatal("template copy was published without durable WAL progress")
 	}
 	second := h.PrepareIsolatedDatabaseT(t, "prepared_second")
+	// Database ACLs are database-specific, not inherited template authority.
+	for _, name := range []string{first.Name, second.Name} {
+		for _, login := range []string{"cartulary_migration_login", "cartulary_runtime_login", "cartulary_recovery_login"} {
+			var connect, temporary, create bool
+			if err := admin.QueryRowContext(ctx, `SELECT has_database_privilege($1,$2,'CONNECT'),has_database_privilege($1,$2,'TEMPORARY'),has_database_privilege($1,$2,'CREATE')`, login, name).Scan(&connect, &temporary, &create); err != nil || !connect || temporary || create {
+				t.Fatalf("clone grants %s: connect=%v temporary=%v create=%v error=%v", login, connect, temporary, create, err)
+			}
+		}
+	}
+	// Independent target locks permit concurrent clone finalization. The fixed
+	// roles and privileges already exist; no consumer may repair them.
+	var clones sync.WaitGroup
+	cloneErrors := make(chan error, 2)
+	for range 2 {
+		name := h.nextDatabaseName("parallel_clone")
+		clones.Go(func() {
+			err := h.createDatabase(ctx, name, h.templateDB)
+			if err == nil {
+				err = h.DropDatabase(ctx, name)
+			}
+			cloneErrors <- err
+		})
+	}
+	clones.Wait()
+	close(cloneErrors)
+	for err := range cloneErrors {
+		if err != nil {
+			t.Fatal("concurrent isolated clone", err)
+		}
+	}
 	firstDB, err := sql.Open("pgx", first.DSN)
 	if err != nil {
 		t.Fatal(err)
@@ -125,7 +156,7 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 		// CREATE's synchronous WAL commit is the publication boundary. An
 		// unrelated cluster-wide checkpoint must not be a clone prerequisite.
 		cloneName := h.nextDatabaseName("unprivileged_clone")
-		created, cloneErr := postgrescatalog.CloneDatabase(ctx, limited.String(), cloneName, h.templateDB, postgresCatalogAdmissionTimeout)
+		created, cloneErr := postgrescatalog.CloneDatabase(ctx, limited.String(), cloneName, h.templateDB, postgresCatalogAdmissionTimeout, func(*sql.Conn) error { return nil })
 		if created {
 			t.Cleanup(func() {
 				if _, err := postgrescleanup.DropOwnedDatabase(context.Background(), h.AdminDSN(), cloneName,
@@ -138,8 +169,19 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 			t.Fatalf("durable clone requires unrelated checkpoint privilege: created=%v error=%v", created, cloneErr)
 		}
 		name := h.nextDatabaseName("failed_preparation")
-		err = createDatabase(ctx, limited.String(), name, h.templateDB)
-		if !errors.As(err, &permission) || permission.Code != "42501" {
+		oldFinalizer := finalizeCloneFn
+		injected := errors.New("injected clone finalization failure")
+		finalizeCloneFn = func(ctx context.Context, connection *sql.Conn, target string) error {
+			var connects bool
+			if err := connection.QueryRowContext(ctx, `SELECT datallowconn FROM pg_database WHERE datname=$1`, target).Scan(&connects); err != nil || connects {
+				t.Fatal("unpublished clone allowed connections", connects, err)
+			}
+			return injected
+		}
+		t.Cleanup(func() { finalizeCloneFn = oldFinalizer })
+		err = createDatabase(ctx, h.AdminDSN(), name, h.templateDB)
+		finalizeCloneFn = oldFinalizer
+		if !errors.Is(err, injected) {
 			t.Fatalf("lost preparation failure: %v", err)
 		}
 		var present bool

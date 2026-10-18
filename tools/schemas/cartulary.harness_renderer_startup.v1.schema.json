@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_renderer_startup.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "stage",
+    "container_state",
+    "cleanup_failed"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_renderer_startup.v1"
+    },
+    "stage": {
+      "enum": [
+        "configuration",
+        "image",
+        "packages",
+        "fonts",
+        "ownership",
+        "container",
+        "trust",
+        "readiness",
+        "connection",
+        "quiescence",
+        "publication"
+      ]
+    },
+    "cleanup_failed": {
+      "type": "boolean"
+    },
+    "container_state": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "unavailable"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "running",
+            "oom_killed",
+            "exit_code"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "created",
+                "running",
+                "paused",
+                "restarting",
+                "removing",
+                "exited",
+                "dead"
+              ]
+            },
+            "running": {
+              "type": "boolean"
+            },
+            "oom_killed": {
+              "type": "boolean"
+            },
+            "exit_code": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -382,7 +382,7 @@ func (r *Runtime) referenceName(reference string) (string, error) {
 	return name + ".json", nil
 }
 func (r *Runtime) checkResource(v Resource) error {
-	if _, err := validateJSON("cartulary.harness_runtime_resource.v1", v); err != nil {
+	if _, err := validateJSON("cartulary.harness_runtime_resource.v2", v); err != nil {
 		return harnesslocal.ErrUnsafe
 	}
 	if v.LeaseID != r.LeaseID || v.RunID != r.RunID {
@@ -399,7 +399,7 @@ func (r *Runtime) checkResource(v Resource) error {
 		}
 	}
 	switch v.Kind {
-	case "managed_suite", "borrowed_suite", "browser_stack", "object_store_proxy":
+	case "managed_suite", "borrowed_suite", "browser_stack", "object_store_proxy", "resident_allocation":
 		target, err := v.Path()
 		if err != nil || !filepath.IsAbs(target) || filepath.Clean(target) != target || target == r.Root || !within(r.Root, target) || (within(filepath.Join(r.Root, "detail"), target) || within(filepath.Join(r.Root, "recovery-detail"), target) || within(filepath.Join(r.Root, "recovery-attempts"), target) || target == filepath.Join(r.Root, "detail-authority.json")) {
 			return harnesslocal.ErrUnsafe
@@ -569,7 +569,7 @@ func (r *Runtime) resources(maximum int) ([]Resource, error) {
 		if err != nil {
 			return nil, err
 		}
-		if harnessschema.Validate("cartulary.harness_runtime_resource.v1", value) != nil {
+		if harnessschema.Validate("cartulary.harness_runtime_resource.v2", value) != nil {
 			return nil, harnesslocal.ErrUnsafe
 		}
 		var v Resource

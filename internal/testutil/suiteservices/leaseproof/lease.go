@@ -13,23 +13,31 @@ const (
 	ManagedValue          = "true"
 )
 
+type PostgresProvisioning struct {
+	SchemaID       string `json:"schema_id"`
+	Generation     string `json:"generation"`
+	PolicyDigest   string `json:"policy_digest"`
+	TemplateDigest string `json:"template_digest"`
+}
+
 type Lease struct {
-	SchemaID      string            `json:"schema_id"`
-	LeaseID       string            `json:"lease_id"`
-	SuiteID       string            `json:"suite_id"`
-	RunID         string            `json:"run_id"`
-	ResultRoot    string            `json:"result_root"`
-	RunRoot       string            `json:"run_root"`
-	Target        string            `json:"target"`
-	Mode          string            `json:"mode"`
-	OwnershipMode string            `json:"ownership_mode"`
-	OwnerPID      int               `json:"owner_pid"`
-	CreatedAt     string            `json:"created_at"`
-	ExpiresAt     string            `json:"expires_at,omitempty"`
-	Resources     []LeaseResource   `json:"resources"`
-	ProofLabels   map[string]string `json:"proof_labels"`
-	ProofPrefixes map[string]string `json:"proof_prefixes"`
-	CleanupState  string            `json:"cleanup_state"`
+	PostgresProvisioning *PostgresProvisioning `json:"postgres_provisioning"`
+	SchemaID             string                `json:"schema_id"`
+	LeaseID              string                `json:"lease_id"`
+	SuiteID              string                `json:"suite_id"`
+	RunID                string                `json:"run_id"`
+	ResultRoot           string                `json:"result_root"`
+	RunRoot              string                `json:"run_root"`
+	Target               string                `json:"target"`
+	Mode                 string                `json:"mode"`
+	OwnershipMode        string                `json:"ownership_mode"`
+	OwnerPID             int                   `json:"owner_pid"`
+	CreatedAt            string                `json:"created_at"`
+	ExpiresAt            string                `json:"expires_at,omitempty"`
+	Resources            []LeaseResource       `json:"resources"`
+	ProofLabels          map[string]string     `json:"proof_labels"`
+	ProofPrefixes        map[string]string     `json:"proof_prefixes"`
+	CleanupState         string                `json:"cleanup_state"`
 }
 
 type LeaseResource struct {

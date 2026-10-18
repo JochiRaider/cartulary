@@ -33,7 +33,7 @@ export function rendererLifecycleFailureReason(result) {
   return "command_failed";
 }
 
-function docker(args, options = {}) {
+export function rendererDocker(args, options = {}) {
   const result = spawnSync("docker", args, {
     encoding: "utf8",
     maxBuffer: 1024 * 1024,
@@ -47,6 +47,7 @@ function docker(args, options = {}) {
   }
   return String(result.stdout ?? "").trim();
 }
+const docker = rendererDocker;
 
 export function assertVisualRendererEnvironmentIsPrivate(environment) {
   for (const key of visualRendererEnvironmentKeys) {
@@ -147,12 +148,16 @@ function rendererStateBeforeCleanup(containerID, run) {
 
 export function recoverVisualRenderer(proof, run = docker) { removeOwnedRenderer(proof, run); }
 
-export async function startVisualRendererLease({ root, environment, diagnostics = false, onOwnedResource = () => {}, run = docker, connect = verifyRemoteBrowser, endpointReady = waitForEndpoint, trust = stageBrowserTrust }) {
+export async function startVisualRendererLease({ root, environment, diagnostics = false, onStage = () => {}, onOwnedResource = () => {}, run = docker, connect = verifyRemoteBrowser, endpointReady = waitForEndpoint, trust = stageBrowserTrust }) {
+  onStage("configuration");
   assertVisualRendererEnvironmentIsPrivate(environment);
   const profile = loadVisualRendererProfile(root);
+  onStage("image");
   const image = verifyRendererImage(profile, run);
+  onStage("packages");
   const packages = resolvePlaywrightPackages(root);
   if (packages.version !== profile.playwright_version || packages.chromium.revision !== profile.chromium_revision || packages.chromium.browserVersion !== profile.chromium_version) throw new Error("renderer package descriptor mismatch");
+  onStage("fonts");
   const fonts = verifyRendererFonts(root, profile);
   const endpointToken = randomUUID().replaceAll("-", "");
   const containerName = `cartulary-visual-${process.pid}-${endpointToken.slice(0, 12)}`;
@@ -174,9 +179,11 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
   const terminate = () => { try { cleanup(); } catch { process.stderr.write("visual renderer cleanup failed (cleanup_error)\n"); } process.exit(143); };
   process.once("SIGINT", interrupt); process.once("SIGTERM", terminate);
   try {
+    onStage("ownership");
     published = true;
     onOwnedResource({ kind: "browser_renderer", target: proof, state: "pending" });
     creationAttempted = true;
+    onStage("container");
     containerID = run([
       "create",
       "--name",
@@ -212,8 +219,10 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
     ]);
     release = rendererRelease(containerID, run);
     onOwnedResource({ kind: "browser_renderer", target: proof, state: "acquired" });
+    onStage("packages");
     run(["cp", packages.playwrightPath, `${containerID}:/home/pwuser/playwright`]);
     run(["cp", packages.corePath, `${containerID}:/home/pwuser/playwright-core`]);
+    onStage("trust");
     const stagedTrust = trust({ root, environment, containerID, run });
     run(["start", containerID]);
     const ports = rendererPublishedPorts(JSON.parse(run(["inspect", containerID, "--format", "{{json .NetworkSettings.Ports}}"])), diagnostics);
@@ -222,8 +231,10 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
     if (observed.playwright !== profile.playwright_version || observed.core !== profile.playwright_version || observed.revision !== profile.chromium_revision || observed.version !== profile.chromium_version) throw new Error("container package identity mismatch");
     if (run(["inspect", containerID, "--format", "{{.Image}}"]) !== image.image_id) throw new Error("container image mismatch");
     const trustAttestation = stagedTrust.attestation;
+    onStage("readiness");
     const endpoint = await endpointReady(containerID, ports.renderer, run);
     let browserVersion;
+    onStage("connection");
     try { browserVersion = await connect(packages, endpoint, profile); }
     catch (cause) {
       const state = rendererStateBeforeCleanup(containerID, run);
@@ -237,6 +248,8 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
       font_manifest_sha256: sha256(fonts.manifestBytes), font_files: fonts.files,
     } }, profile, fonts.files);
     return {
+      proof,
+      containerID,
       profile,
       attestation,
       trustAttestation,

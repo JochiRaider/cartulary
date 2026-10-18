@@ -16,6 +16,13 @@ import (
 )
 
 const postgresTLSContainerRoot = "/etc/cartulary-postgres-tls"
+const postgresHBA = "local all all trust\nhostssl all all 0.0.0.0/0 cert\nhostssl all all ::/0 cert\nhostnossl all all 0.0.0.0/0 reject\nhostnossl all all ::/0 reject\n"
+const postgresDisablePasswordSQL = "ALTER ROLE cartulary PASSWORD NULL;\n"
+const postgresInitdbArgs = "--data-checksums --auth-host=reject"
+
+func postgresServerCommand() []string {
+	return []string{"postgres", "-c", "ssl=on", "-c", "ssl_min_protocol_version=TLSv1.3", "-c", "ssl_max_protocol_version=TLSv1.3", "-c", "ssl_ecdh_curve=prime256v1", "-c", "ssl_ca_file=" + postgresTLSContainerRoot + "/root.pem", "-c", "ssl_cert_file=" + postgresTLSContainerRoot + "/server.pem", "-c", "ssl_key_file=" + postgresTLSContainerRoot + "/server.key", "-c", "hba_file=" + postgresTLSContainerRoot + "/pg_hba.conf"}
+}
 
 func preparePostgresTLS(req testcontainers.ContainerRequest) (_ testcontainers.ContainerRequest, _ string, retErr error) {
 	parent, _, err := suiteservices.ResolveSuiteRuntimeDir(nil)
@@ -51,7 +58,7 @@ func preparePostgresTLS(req testcontainers.ContainerRequest) (_ testcontainers.C
 		mode int64
 	}{
 		{"server.pem", server.CertificatePEM, 0o644}, {"server.key", server.PrivateKeyPEM, 0o600},
-		{"pg_hba.conf", []byte("local all all trust\nhostssl all all 0.0.0.0/0 cert\nhostssl all all ::/0 cert\nhostnossl all all 0.0.0.0/0 reject\nhostnossl all all ::/0 reject\n"), 0o644},
+		{"pg_hba.conf", []byte(postgresHBA), 0o644},
 	} {
 		path, err := tlstest.WriteFile(directory, item.name, item.data)
 		if err != nil {
@@ -75,13 +82,13 @@ func preparePostgresTLS(req testcontainers.ContainerRequest) (_ testcontainers.C
 			}
 		}
 	}
-	initPath, err := tlstest.WriteFile(directory, "disable-admin-password.sql", []byte("ALTER ROLE cartulary PASSWORD NULL;\n"))
+	initPath, err := tlstest.WriteFile(directory, "disable-admin-password.sql", []byte(postgresDisablePasswordSQL))
 	if err != nil {
 		return req, "", err
 	}
 	req.Files = append(req.Files, testcontainers.ContainerFile{HostFilePath: initPath, ContainerFilePath: "/docker-entrypoint-initdb.d/10-disable-password.sql", FileMode: 0o644})
 	req.Entrypoint = []string{"/bin/sh", "-ec", "chown postgres:postgres /etc/cartulary-postgres-tls/server.key; exec /usr/local/bin/docker-entrypoint.sh \"$@\"", "--"}
-	req.Cmd = []string{"postgres", "-c", "ssl=on", "-c", "ssl_min_protocol_version=TLSv1.3", "-c", "ssl_max_protocol_version=TLSv1.3", "-c", "ssl_ecdh_curve=prime256v1", "-c", "ssl_ca_file=" + postgresTLSContainerRoot + "/root.pem", "-c", "ssl_cert_file=" + postgresTLSContainerRoot + "/server.pem", "-c", "ssl_key_file=" + postgresTLSContainerRoot + "/server.key", "-c", "hba_file=" + postgresTLSContainerRoot + "/pg_hba.conf"}
+	req.Cmd = postgresServerCommand()
 	ok = true
 	return req, directory, nil
 }

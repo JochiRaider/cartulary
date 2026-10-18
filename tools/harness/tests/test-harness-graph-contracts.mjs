@@ -14,6 +14,23 @@ import { policyDependencyRowIDs } from "../scheduler/work-graph/policy-rows.mjs"
 import { commandInputContext, selectionFor } from "../scheduler/work-graph/preparation.mjs";
 import { buildWorkGraph, unitSemanticDigest } from "../scheduler/work-graph/model.mjs";
 
+test("installed browser lifecycle parents reserve their dedicated footprint without unused outer services", () => {
+  const compiler = new WorkGraphCompiler(new URL("../../../", import.meta.url).pathname);
+  const topology = JSON.parse(fs.readFileSync(new URL("../../execution_topology_manifest.json", import.meta.url)));
+  const physical = Object.values(topology.physical_resource_claims);
+  for (const row of ["harness.browser.integration.native_fixture_lifecycle", "harness.browser.integration.ui_review_seeded_default", "harness.browser.integration.ui_review_seeded_network_flow_claimed"]) {
+    const graph = compiler.compileRows([row]);
+    const unit = graph.units.find((entry) => entry.row_bindings.some((binding) => binding.row_id === row));
+    assert.deepEqual(unit.service_dependencies, []);
+    assert.deepEqual(unit.physical_allocations, {});
+    for (const resource of ["port_lane", "process", "memory_mb", "browser_stack", "object_store", "postgres"]) {
+      const resident = physical.reduce((sum, claims) => sum + (claims[resource] ?? 0), 0);
+      const activity = resource === "memory_mb" ? 512 : resource === "process" ? 1 : 0;
+      assert.ok((unit.resource_claims[resource] ?? 0) >= resident + activity, `${row}: missing nested ${resource} entitlement`);
+    }
+  }
+});
+
 test("private input forwarding follows typed metadata including future selectors", () => {
   const compiler = new WorkGraphCompiler(new URL("../../../", import.meta.url).pathname);
   const surface = structuredClone(compiler.taskSurface);

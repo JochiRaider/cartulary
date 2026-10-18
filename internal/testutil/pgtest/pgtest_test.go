@@ -18,6 +18,7 @@ import (
 
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
 )
@@ -30,18 +31,14 @@ func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
 	t.Setenv(suiteservices.PGDSNTemplateEnv, "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable")
 	t.Setenv(suiteservices.PGTemplateDBEnv, "suite_template")
 
-	oldStart := startOwnedHarness
 	oldPing := pingAdminDSNFn
-	t.Cleanup(func() {
-		startOwnedHarness = oldStart
-		pingAdminDSNFn = oldPing
-	})
-
-	startCalls := 0
-	startOwnedHarness = func(ctx context.Context) (*Harness, error) {
-		startCalls++
-		return nil, errors.New("owned harness should not start when attach env is present")
-	}
+	oldInspect := inspectClusterGenerationFn
+	t.Cleanup(func() { pingAdminDSNFn = oldPing; inspectClusterGenerationFn = oldInspect })
+	t.Setenv(suiteservices.PGSchemaHashEnv, pgschema.MustHash())
+	t.Setenv(suiteservices.PGProvisioningDigestEnv, ProvisioningDigest())
+	t.Setenv(suiteservices.PGTemplateDigestEnv, TemplateDigest(pgschema.MustHash()))
+	t.Setenv(suiteservices.PGGenerationEnv, "12345")
+	inspectClusterGenerationFn = func(context.Context, string) (string, error) { return "12345", nil }
 
 	var pingDSN string
 	pingAdminDSNFn = func(ctx context.Context, dsn string) error {
@@ -52,9 +49,6 @@ func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
 	harness, err := StartShared(context.Background())
 	if err != nil {
 		t.Fatalf("start attached harness: %v", err)
-	}
-	if startCalls != 0 {
-		t.Fatalf("expected attach mode to skip owned startup, got %d calls", startCalls)
 	}
 	if !harness.attached {
 		t.Fatal("expected attached harness")
@@ -71,44 +65,23 @@ func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
 	if got := harness.dsnFor("tenant_one"); !strings.Contains(got, "/tenant_one?") {
 		t.Fatalf("expected attach dsn template replacement, got %q", got)
 	}
+	for _, key := range []string{suiteservices.PGSchemaHashEnv, suiteservices.PGProvisioningDigestEnv, suiteservices.PGTemplateDigestEnv, suiteservices.PGGenerationEnv} {
+		t.Run("reject_incompatible_"+key, func(t *testing.T) {
+			t.Setenv(key, "superseded")
+			if attached, _, err := startAttachedHarness(t.Context()); err == nil || attached != nil {
+				t.Fatal("incompatible attachment repaired or accepted")
+			}
+		})
+	}
 }
 
-func TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent(t *testing.T) {
+func TestStartSharedRequiresExplicitAttachment(t *testing.T) {
 	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
 	resetSharedHarness(t)
 	t.Setenv(suiteservices.PGAdminDSNEnv, "")
 	t.Setenv(suiteservices.PGDSNTemplateEnv, "")
-	t.Setenv(suiteservices.PGTemplateDBEnv, "")
-
-	oldStart := startOwnedHarness
-	t.Cleanup(func() {
-		startOwnedHarness = oldStart
-	})
-
-	startCalls := 0
-	want := &Harness{
-		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
-		dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
-		suiteHash:   "suitehash",
-		processHash: "processid",
-	}
-	startOwnedHarness = func(ctx context.Context) (*Harness, error) {
-		startCalls++
-		return want, nil
-	}
-
-	harness, err := StartShared(context.Background())
-	if err != nil {
-		t.Fatalf("start shared harness: %v", err)
-	}
-	if startCalls != 1 {
-		t.Fatalf("expected one owned startup, got %d", startCalls)
-	}
-	if harness != want {
-		t.Fatal("expected StartShared to return the owned harness")
-	}
-	if !harness.shared {
-		t.Fatal("expected owned harness returned by StartShared to be marked shared")
+	if _, err := StartShared(t.Context()); err == nil {
+		t.Fatal("missing attachment started a service")
 	}
 }
 
@@ -187,6 +160,15 @@ func TestPostgresContainerWaitStrategyOnlyWaitsForPortMapping(t *testing.T) {
 
 func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 	stubOwnedPostgresStartup(t)
+	initializations := 0
+	ready := false
+	initializeClusterFn = func(context.Context, string) (string, error) {
+		if !ready {
+			t.Fatal("prerequisites initialized before readiness")
+		}
+		initializations++
+		return "12345", nil
+	}
 
 	var gotRequest testcontainers.ContainerRequest
 	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
@@ -196,7 +178,7 @@ func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 			port: network.MustParsePort("5432/tcp"),
 		}, nil
 	}
-	waitReadyFn = func(context.Context, *Harness) error { return nil }
+	waitReadyFn = func(context.Context, *Harness) error { ready = true; return nil }
 
 	labels := map[string]string{"cartulary.test": "suite"}
 	harness, err := StartOwnedWithLabels(context.Background(), labels)
@@ -204,6 +186,9 @@ func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 		t.Fatalf("start labeled postgres: %v", err)
 	}
 	t.Cleanup(func() { _ = harness.Close(context.Background()) })
+	if initializations != 1 || harness.ProvisioningGeneration() != "12345" {
+		t.Fatalf("unpublished or repeated provisioning: count=%d generation=%q", initializations, harness.ProvisioningGeneration())
+	}
 	if gotRequest.Labels["cartulary.test"] != "suite" {
 		t.Fatalf("container labels not applied: %#v", gotRequest.Labels)
 	}
@@ -239,76 +224,33 @@ func mustPurposeKey(t *testing.T, purpose postgres.Purpose) string {
 	return key
 }
 
-func TestOwnedPostgresRetriesReadinessTimeoutAndTerminatesFailedAttempt(t *testing.T) {
-	stubOwnedPostgresStartup(t)
-
-	starts := 0
-	terminations := 0
-	readinessChecks := 0
-	var events []testcontainersx.StartEvent
-	var directories []string
-	ports := []network.Port{
-		network.MustParsePort("5433/tcp"),
-		network.MustParsePort("5434/tcp"),
-	}
-	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
-		starts++
-		directories = append(directories, filepath.Dir(req.Files[0].HostFilePath))
-		return fakePostgresContainer{
-			host: "127.0.0.1",
-			port: ports[starts-1],
-			terminate: func(context.Context) error {
-				terminations++
-				return nil
-			},
-		}, nil
-	}
-	waitReadyFn = func(ctx context.Context, harness *Harness) error {
-		readinessChecks++
-		if readinessChecks == 1 {
-			return &postgresReadinessError{
-				LastErr:         context.DeadlineExceeded,
-				DeadlineExpired: true,
+func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T) {
+	for _, stage := range []string{"readiness", "initialization"} {
+		t.Run(stage, func(t *testing.T) {
+			stubOwnedPostgresStartup(t)
+			starts, terminations, initializations := 0, 0, 0
+			var directory string
+			injected := errors.New("injected generation failure at 5432: context deadline exceeded")
+			startContainerFn = func(_ context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+				starts++
+				directory = filepath.Dir(req.Files[0].HostFilePath)
+				return fakePostgresContainer{host: "127.0.0.1", port: network.MustParsePort("5432/tcp"), terminate: func(context.Context) error { terminations++; return nil }}, nil
 			}
-		}
-		return nil
-	}
-
-	harness, err := StartOwnedWithOptions(context.Background(), StartOptions{
-		Observer: func(event testcontainersx.StartEvent) {
-			events = append(events, event)
-		},
-	})
-	if err != nil {
-		t.Fatalf("expected retry success, got %v", err)
-	}
-	t.Cleanup(func() { _ = harness.Close(context.Background()) })
-	if starts != 2 {
-		t.Fatalf("expected two container attempts, got %d", starts)
-	}
-	if readinessChecks != 2 {
-		t.Fatalf("expected two readiness checks, got %d", readinessChecks)
-	}
-	if terminations != 1 {
-		t.Fatalf("expected failed readiness attempt to terminate its container once, got %d", terminations)
-	}
-	if harness.Port != "5434" {
-		t.Fatalf("expected second attempt port, got %q", harness.Port)
-	}
-	if !observedRetry(events) {
-		t.Fatalf("expected observer to record retryable attempt and retry decision, got %#v", events)
-	}
-	if len(directories) != 2 || directories[0] == directories[1] {
-		t.Fatal("retry reused fixture certificate state")
-	}
-	if _, err := os.Stat(directories[0]); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("failed-attempt credentials retained: %v", err)
-	}
-	if err := harness.Close(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(directories[1]); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("successful-attempt credentials retained after cleanup: %v", err)
+			waitReadyFn = func(context.Context, *Harness) error {
+				if stage == "readiness" {
+					return &postgresReadinessError{LastErr: injected, DeadlineExpired: true}
+				}
+				return nil
+			}
+			initializeClusterFn = func(context.Context, string) (string, error) { initializations++; return "", injected }
+			harness, err := StartOwned(t.Context())
+			if harness != nil || err == nil || starts != 1 || terminations != 1 || (stage == "initialization" && initializations != 1) || (stage == "readiness" && initializations != 0) {
+				t.Fatalf("failed generation was published or retried: harness=%v error=%v starts=%d terminations=%d initializations=%d", harness, err, starts, terminations, initializations)
+			}
+			if _, err := os.Stat(directory); !errors.Is(err, os.ErrNotExist) {
+				t.Fatal("failed generation retained keys", err)
+			}
+		})
 	}
 }
 
@@ -1076,6 +1018,9 @@ func stubOwnedPostgresStartup(t testing.TB) {
 	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "postgres")
 	t.Setenv(suiteservices.SuiteIDEnv, "")
 
+	oldInitialize := initializeClusterFn
+	initializeClusterFn = func(context.Context, string) (string, error) { return "12345", nil }
+	t.Cleanup(func() { initializeClusterFn = oldInitialize })
 	oldStartContainer := startContainerFn
 	oldWaitReady := waitReadyFn
 	oldPreflight := startPreflightFn
@@ -1093,20 +1038,6 @@ func stubOwnedPostgresStartup(t testing.TB) {
 	startSleepFn = func(context.Context, time.Duration) error {
 		return nil
 	}
-}
-
-func observedRetry(events []testcontainersx.StartEvent) bool {
-	sawRetryableAttempt := false
-	sawRetryScheduled := false
-	for _, event := range events {
-		if event.Type == testcontainersx.StartEventAttemptEnd && event.Attempt == 1 && event.Retryable && event.Status == "fail" {
-			sawRetryableAttempt = true
-		}
-		if event.Type == testcontainersx.StartEventRetryScheduled && event.Attempt == 1 {
-			sawRetryScheduled = true
-		}
-	}
-	return sawRetryableAttempt && sawRetryScheduled
 }
 
 type fakePostgresContainer struct {

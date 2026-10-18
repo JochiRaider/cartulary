@@ -293,7 +293,7 @@
           "pattern": "^[0-9a-f-]{36}$"
         },
         "resource": {
-          "$ref": "cartulary.harness_runtime_resource.v1"
+          "$ref": "cartulary.harness_runtime_resource.v2"
         },
         "admission_token": {
           "type": "string",
@@ -596,7 +596,7 @@
           "const": true
         },
         "result": {
-          "$ref": "cartulary.harness_runtime_resource.v1#/$defs/resourceReference"
+          "$ref": "cartulary.harness_runtime_resource.v2#/$defs/resourceReference"
         }
       }
     },
@@ -897,7 +897,7 @@
           "pattern": "^[0-9a-f-]{36}$"
         },
         "scope": {
-          "$ref": "cartulary.harness_runtime_resource.v1#/$defs/diagnosticScope"
+          "$ref": "cartulary.harness_runtime_resource.v2#/$defs/diagnosticScope"
         }
       }
     },
@@ -938,7 +938,7 @@
               "type": "array",
               "maxItems": 4096,
               "items": {
-                "$ref": "cartulary.harness_runtime_resource.v1#/$defs/processProof"
+                "$ref": "cartulary.harness_runtime_resource.v2#/$defs/processProof"
               }
             },
             "rss_bytes": {
@@ -1002,7 +1002,7 @@
           "pattern": "^[0-9a-f-]{36}$"
         },
         "scope": {
-          "$ref": "cartulary.harness_runtime_resource.v1#/$defs/diagnosticScope"
+          "$ref": "cartulary.harness_runtime_resource.v2#/$defs/diagnosticScope"
         }
       }
     },
@@ -1092,7 +1092,7 @@
           "uniqueItems": true,
           "maxItems": 64,
           "items": {
-            "$ref": "cartulary.harness_runtime_resource.v1#/$defs/resourceReference"
+            "$ref": "cartulary.harness_runtime_resource.v2#/$defs/resourceReference"
           }
         }
       }
@@ -1123,7 +1123,7 @@
           "const": true
         },
         "result": {
-          "$ref": "cartulary.harness_runtime_resource.v1#/$defs/diagnosticScope"
+          "$ref": "cartulary.harness_runtime_resource.v2#/$defs/diagnosticScope"
         }
       }
     },

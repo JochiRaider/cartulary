@@ -42,13 +42,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 )
 
 const readySchemaID = "cartulary.restore.browser_restore_target.v1"
 const restoreBrowserRecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
-const restoreBrowserCatalogAdmissionLimit = 15 * time.Second
+
+const (
+	databaseNormalDropTimeout = 5 * time.Second
+	databaseForcedDropTimeout = 15 * time.Second
+)
 
 type readyPayload struct {
 	SchemaID            string                            `json:"schema_id"`
@@ -131,10 +134,8 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return err
 	}
 	lifecycle.event("source.database", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("source.database", 10*time.Second, func() error {
-		dropCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		return dropDatabase(dropCtx, baseDSN, sourceName)
+	defer lifecycle.cleanup("source.database", 0, func() error {
+		return dropDatabase(context.Background(), baseDSN, sourceName)
 	}, &retErr)
 	sourceRecovery, err := admitPostgres(ctx, sourceDSN, postgres.PurposeRecovery)
 	if err != nil {
@@ -267,10 +268,8 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return err
 	}
 	lifecycle.event("target.database", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("target.database", 10*time.Second, func() error {
-		dropCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		return dropDatabase(dropCtx, baseDSN, targetName)
+	defer lifecycle.cleanup("target.database", 0, func() error {
+		return dropDatabase(context.Background(), baseDSN, targetName)
 	}, &retErr)
 
 	targetRecovery, err := admitPostgres(ctx, targetDSN, postgres.PurposeRecovery)
@@ -724,11 +723,6 @@ func createFromTemplateDB(ctx context.Context, baseDSN string, databaseName stri
 	if err := createDatabase(ctx, adminDSN, databaseName, templateDatabase); err != nil {
 		return "", err
 	}
-	if err := pgtest.ProvisionDatabase(ctx, adminDSN, databaseName); err != nil {
-		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		return "", errors.Join(err, dropDatabase(cleanupCtx, baseDSN, databaseName))
-	}
 	return dsn, nil
 }
 
@@ -736,12 +730,10 @@ func createDatabase(ctx context.Context, adminDSN string, name string, templateD
 	if _, err := pgIdentifier(templateDatabase); err != nil {
 		return err
 	}
-	if err := postgrescleanup.ForceDropDatabase(ctx, adminDSN, name); err != nil {
-		return fmt.Errorf("drop existing target db: %w", err)
-	}
-	created, err := postgrescatalog.CloneDatabase(ctx, adminDSN, name, templateDatabase, restoreBrowserCatalogAdmissionLimit)
+	created, err := pgtest.CloneDatabase(ctx, adminDSN, name, templateDatabase)
 	if err != nil && created {
-		_, cleanupErr := postgrescleanup.DropOwnedDatabase(context.Background(), adminDSN, name, 5*time.Second, 15*time.Second)
+		_, cleanupErr := postgrescleanup.DropOwnedDatabase(context.Background(), adminDSN, name,
+			databaseNormalDropTimeout, databaseForcedDropTimeout)
 		return errors.Join(err, cleanupErr)
 	}
 	return err
@@ -752,7 +744,12 @@ func dropDatabase(ctx context.Context, sourceDSN string, name string) error {
 	if err != nil {
 		return err
 	}
-	return postgrescleanup.ForceDropDatabase(ctx, adminDSN, name)
+	// Successful CREATE is the ownership proof at both call sites. Use the same
+	// independently admitted, separately bounded attempts as ordinary pgtest
+	// finalizers; an aggregate deadline must not truncate a fallback's budget.
+	_, err = postgrescleanup.DropOwnedDatabase(ctx, adminDSN, name,
+		databaseNormalDropTimeout, databaseForcedDropTimeout)
+	return err
 }
 
 func databaseDSN(rawDSN string, database string) (string, error) {

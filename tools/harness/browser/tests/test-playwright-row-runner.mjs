@@ -1,3 +1,4 @@
+import { publishRendererFixture } from "./renderer-evidence-fixture.mjs";
 import assert from "node:assert/strict";
 import process from "node:process";
 import { spawnSync } from "node:child_process";
@@ -66,7 +67,7 @@ test("Playwright row adapter distinguishes primary asset failure from secondary 
   const assetResult = adapt(row("harness.browser.boundary_support.asset_probe", "assets"), report(broken));
   assert.equal(assetResult.failure_class, "artifact");
   const group = {
-    schema_id: "cartulary.browser_group_result.v8", target_id: "browser-e2e-visual",
+    schema_id: "cartulary.browser_group_result.v9", renderer_borrow: { unit_id:"fixture:group", borrow_id:"11111111-1111-4111-8111-111111111111", allocation_id:"22222222-2222-4222-8222-222222222222", generation:"33333333-3333-4333-8333-333333333333", attestation_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/renderer-profile-attestation.json", trust_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/tls-trust-attestation.json" }, target_id: "browser-e2e-visual",
     stage_id: "visual", group_id: "asset-probe", browser_session_id: "session",
     runtime_profile_id: "default", service_requirement: "test-services",
     fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
@@ -365,7 +366,7 @@ test("browser target finalization preserves typed row failures and cleanup prece
         const directory = path.join(scratch, id, target, "browser-groups", groupID);
         mkdirSync(directory, { recursive: true, mode: 0o700 });
         const group = {
-          schema_id: "cartulary.browser_group_result.v8", target_id: target,
+          schema_id: "cartulary.browser_group_result.v9", renderer_borrow: { unit_id:"fixture:group", borrow_id:"11111111-1111-4111-8111-111111111111", allocation_id:"22222222-2222-4222-8222-222222222222", generation:"33333333-3333-4333-8333-333333333333", attestation_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/renderer-profile-attestation.json", trust_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/tls-trust-attestation.json" }, target_id: target,
           stage_id: "webserver-backed", group_id: groupID, browser_session_id: `session-${index}`,
           runtime_profile_id: "default", service_requirement: "test-services",
           fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
@@ -379,6 +380,9 @@ test("browser target finalization preserves typed row failures and cleanup prece
             kind, ref: `${kind}.json`, sha256: `sha256:${"0".repeat(64)}`,
           })), artifacts: { playwright_report: "report.json", stdout: "stdout.log", stderr: "stderr.log" },
         };
+        group.renderer_borrow.borrow_id = `11111111-1111-4111-8111-${String(index).padStart(12,"0")}`;
+        group.renderer_borrow.unit_id = `fixture:${groupID}`;
+        publishRendererFixture(path.join(scratch,id),group,id);
         validateSchemaSync(group.schema_id, group);
         writeFileSync(path.join(directory, "browser-group-result.json"), JSON.stringify(group), { mode: 0o600 });
         return groupID;

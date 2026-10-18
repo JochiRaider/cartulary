@@ -294,6 +294,7 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
   const locks = groupLocks(group, mode);
   const target = mode === "snapshot_update" ? "browser-e2e-visual-update" : group.target;
   return {
+    renderer_requirement: group.resourceProfileID === "browser_measurement_quiet" ? "dedicated" : "pooled",
     unit_id: `browser_group:${safeID(stage.name)}:${safeID(group.name)}`,
     owner_id: "harness.browser",
     kind: "runner",
@@ -360,8 +361,6 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
     current_run_evidence_outputs: [
       ...group.selectedRowIDs.map((rowID) => `rows/${rowID}.json`),
       `${target}/browser-groups/${safeID(group.name)}/browser-group-result.json`,
-      `${target}/browser-groups/${safeID(group.name)}/renderer-profile-attestation.json`,
-      `${target}/browser-groups/${safeID(group.name)}/tls-trust-attestation.json`,
     ].sort(compareASCII),
     row_bindings: group.selectedRowIDs.map((row_id) => ({ row_id, runner: "playwright" })),
     failure_policy: finalizableFailurePolicy(),
@@ -605,7 +604,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
       owner,
     ),
   );
-  return buildWorkGraph(units);
+  return buildWorkGraph(units, topology(root));
 }
 
 export function selectBrowserRowStages(root, rowIDs) {

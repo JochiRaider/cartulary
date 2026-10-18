@@ -12,17 +12,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/browserpki"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 func (p ProductionOptions) browserOperation(ctx context.Context, operation string, args []string, environment map[string]string) (map[string]any, error) {
+	return p.physicalOperation(ctx, "fixture-lifecycle.mjs", operation, args, environment)
+}
+func (p ProductionOptions) physicalOperation(ctx context.Context, script, operation string, args []string, environment map[string]string) (map[string]any, error) {
 	node := p.Environment["NODE_BIN"]
 	if node == "" {
 		return nil, &Failure{Class: "config", Reason: "configuration_error"}
 	}
-	result, err := p.command()(ctx, node, append([]string{filepath.Join(p.Root, "tools/harness/browser/fixture-lifecycle.mjs"), operation}, args...), environment)
+	result, err := p.command()(ctx, node, append([]string{filepath.Join(p.Root, "tools/harness/browser", script), operation}, args...), environment)
 	if err != nil {
 		if diagnostic := harnesssession.DecodeCleanupDiagnostic(result.Stderr); diagnostic != nil {
 			err = errors.Join(err, diagnostic)
@@ -53,6 +57,7 @@ func (p ProductionOptions) browserOperation(ctx context.Context, operation strin
 }
 
 type browserProvider struct {
+	trust               browserpki.Owner
 	options             ProductionOptions
 	suite               *SuiteOwner
 	mu                  sync.Mutex
@@ -121,7 +126,8 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	p.Dependencies = []string{suite.ResourceRef, resourceRef}
 	lease := filepath.Join(root, "stack.lease")
 	envFile := filepath.Join(root, "stack.env")
-	if err := p.Runtime.RecordDependentResource("browser_stack", file, "pending", []string{suite.ResourceRef}); err != nil {
+	dependencies := append([]string{suite.ResourceRef}, p.residency.reference(stackKey(request))...)
+	if err := p.Runtime.RecordDependentResource("browser_stack", file, "pending", dependencies); err != nil {
 		return nil, artifactFailure(err)
 	}
 	var once sync.Once
@@ -138,7 +144,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 				if err := p.Runtime.RecordResource("browser_stack", file, "released"); err != nil {
 					return artifactFailure(err)
 				}
-				return errors.Join(harnesssession.RemoveOwnedTree(directory, root), directory.Close())
+				return errors.Join(harnesssession.RemoveOwnedTree(directory, root), directory.Close(), p.residency.close(ctx, stackKey(request)))
 			})
 		})
 		return closeErr
@@ -159,6 +165,24 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 		return nil, artifactFailure(harnesslocal.ErrUnsafe)
 	}
 	environment["CARTULARY_BROWSER_ACQUISITION_FILE"] = file
+	// Issuance belongs to the native physical owner, before any application
+	// child starts. The shell consumes these files but cannot mint identities.
+	tlsParent, err := harnesslocal.PrivateDirectory(filepath.Join(root, "runtime-root"))
+	if err != nil {
+		return nil, err
+	}
+	defer tlsParent.Close()
+	objectRoot, err := harnesslocal.ReadFile(suite.Environment["SSL_CERT_FILE"], 256*1024, false)
+	if err != nil {
+		return nil, err
+	}
+	trustScope := profile
+	if profiled || p.Target == "ui-review" {
+		trustScope += ":dedicated:" + session
+	}
+	if err := b.trust.Provision(filepath.Join(root, "runtime-root", "tls"), trustScope, objectRoot); err != nil {
+		return nil, err
+	}
 	if _, err := p.browserOperation(ctx, "start", []string{file, launch}, environment); err != nil {
 		return nil, err
 	}

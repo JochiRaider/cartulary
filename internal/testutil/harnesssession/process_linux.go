@@ -256,7 +256,7 @@ func ProcessMain(args []string, input io.Reader, diagnostic io.Writer) int {
 		return 11
 	}
 	// Reuse the generated process-proof projection at the physical boundary.
-	if harnessschema.Validate("cartulary.harness_runtime_resource.v1", map[string]any{"kind": "helper_process", "target": m["proof"], "state": "acquired", "run_id": "physical-process", "lease_id": "00000000-0000-0000-0000-000000000000"}) != nil {
+	if harnessschema.Validate("cartulary.harness_runtime_resource.v2", map[string]any{"kind": "helper_process", "target": m["proof"], "state": "acquired", "run_id": "physical-process", "lease_id": "00000000-0000-0000-0000-000000000000"}) != nil {
 		return 11
 	}
 	members, err := processMembers(q.Proof)

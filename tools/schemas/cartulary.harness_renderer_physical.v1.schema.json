@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_renderer_physical.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "environment",
+    "attestation",
+    "trust",
+    "proof",
+    "container_id",
+    "diagnostic_binding"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_renderer_physical.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "CARTULARY_VISUAL_RENDERER_ATTESTED",
+        "CARTULARY_VISUAL_RENDERER_PROFILE_ID",
+        "CARTULARY_VISUAL_RENDERER_PROFILE_JSON",
+        "CARTULARY_VISUAL_RENDERER_WS_ENDPOINT"
+      ],
+      "properties": {
+        "CARTULARY_VISUAL_RENDERER_ATTESTED": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "CARTULARY_VISUAL_RENDERER_PROFILE_ID": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "CARTULARY_VISUAL_RENDERER_PROFILE_JSON": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "CARTULARY_VISUAL_RENDERER_WS_ENDPOINT": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "attestation": {
+      "$ref": "cartulary.frontend_visual_renderer_attestation.v1"
+    },
+    "trust": {
+      "$ref": "cartulary.browser_tls_trust.v1"
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "daemon_id",
+        "image_id",
+        "name",
+        "token"
+      ],
+      "properties": {
+        "daemon_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9:._-]{1,128}$"
+        },
+        "image_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 71,
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^cartulary-visual-[1-9][0-9]*-[a-f0-9]{12}$"
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-f0-9]{32}$"
+        }
+      }
+    },
+    "container_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "diagnostic_binding": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "containerPort",
+            "hostPort"
+          ],
+          "properties": {
+            "containerPort": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "hostPort": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        }
+      ]
+    }
+  }
+}

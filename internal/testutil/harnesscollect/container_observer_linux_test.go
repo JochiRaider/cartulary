@@ -52,7 +52,7 @@ func (f *observationFake) ContainerStats(ctx context.Context, id string, options
 func observationFixture() (containerObservationProof, *observationFake) {
 	resource := leaseproof.LeaseResource{Kind: "container", Service: "postgres", ContainerID: "exact-container", Labels: map[string]string{
 		leaseproof.LabelManaged: leaseproof.ManagedValue, leaseproof.LabelRunID: "run", leaseproof.LabelSuiteID: "suite", leaseproof.LabelService: "postgres"}}
-	proof := containerObservationProof{Version: 1, RunID: "run", RuntimeLeaseID: "runtime", Ownership: "owned", Lease: leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "lease", SuiteID: "suite", RunID: "run", OwnershipMode: "owned", CleanupState: "not_started", Resources: []leaseproof.LeaseResource{resource}}}
+	proof := containerObservationProof{Version: 1, RunID: "run", RuntimeLeaseID: "runtime", Ownership: "owned", Lease: leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v2", LeaseID: "lease", SuiteID: "suite", RunID: "run", OwnershipMode: "owned", CleanupState: "not_started", Resources: []leaseproof.LeaseResource{resource}}}
 	fake := &observationFake{inspect: func(id string, _ int) (dockercontainer.InspectResponse, error) {
 		return dockercontainer.InspectResponse{ID: id, State: &dockercontainer.State{Running: true, StartedAt: "start:1"}, Config: &dockercontainer.Config{Labels: resource.Labels}}, nil
 	},

@@ -11,7 +11,7 @@ try {
   const data = buffer.subarray(0, size);
   if (data.length > maximum || process.argv.length !== 2) throw new Error("invalid private cleanup");
   const resource = parseStrictJSON(new TextDecoder("utf-8", { fatal: true }).decode(data));
-  validateSchemaSync("cartulary.harness_runtime_resource.v1", resource);
+  validateSchemaSync("cartulary.harness_runtime_resource.v2", resource);
   const runRoot = process.env.CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT;
   const runtime = borrowRuntime({ repoRoot: process.cwd(), runRoot });
   if (resource.run_id !== runtime.runID || resource.lease_id !== runtime.leaseID) throw new Error("foreign cleanup");

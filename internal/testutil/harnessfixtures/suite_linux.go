@@ -17,6 +17,9 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"golang.org/x/sys/unix"
 )
 
@@ -65,6 +68,7 @@ func (s *SuiteOwner) Close(ctx context.Context) error {
 }
 
 type ProductionOptions struct {
+	residency             *residency
 	Root, RunRoot, Target string
 	Runtime               *harnesssession.Runtime
 	Environment           map[string]string
@@ -84,14 +88,21 @@ func resourceDependencies(references []string) string {
 }
 
 func (p ProductionOptions) command() Command {
-	if p.Run != nil {
-		return p.Run
-	}
 	dependencies := p.Dependencies
 	if dependencies == nil {
 		dependencies = []string{}
 	}
-	return commandRunner(p.Root, p.Runtime, dependencies)
+	run := p.Run
+	if run == nil {
+		run = commandRunner(p.Root, p.Runtime, dependencies)
+	}
+	return func(ctx context.Context, command string, args []string, environment map[string]string) (CommandResult, error) {
+		if token, _ := ctx.Value(activityKey{}).(string); token != "" {
+			environment = maps.Clone(environment)
+			environment["CARTULARY_HOST_ADMISSION_LEASE"] = token
+		}
+		return run(ctx, command, args, environment)
+	}
 }
 func (p ProductionOptions) environment() map[string]string {
 	v := maps.Clone(p.Environment)
@@ -212,7 +223,8 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	environment := p.environment()
 	environment["CARTULARY_TEST_SUITE_ID"] = regexp.MustCompile(`[^A-Za-z0-9_.-]+`).ReplaceAllString("work-graph-"+p.Target, "-")
 	delete(environment, "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT")
-	if err := p.Runtime.RecordDependentResource("managed_suite", leaseFile, "pending", []string{}, environmentFile); err != nil {
+	dependencies := append([]string{}, p.residency.reference("services")...)
+	if err := p.Runtime.RecordDependentResource("managed_suite", leaseFile, "pending", dependencies, environmentFile); err != nil {
 		return nil, artifactFailure(err)
 	}
 	startup, commandErr := p.command()(ctx, p.serviceBinary(), []string{"start-suite", "--env-file", environmentFile, "--lease-file", leaseFile, "--result-file", resultFile}, environment)
@@ -317,9 +329,14 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 			return nil, artifactFailure(err)
 		}
 	}
-	if proof, err := readObject(leaseFile, "cartulary.test_services.lease.v1", 1048576); err == nil {
-		p.containerProof(map[string]any{"lease": proof, "ownership": "owned", "borrower_file": "", "borrower_id": ""})
+	proof, err := readObject(leaseFile, "cartulary.test_services.lease.v2", 1048576)
+	if err != nil {
+		return nil, artifactFailure(err)
 	}
+	if err := validatePostgresProvisioning(proof, admitted); err != nil {
+		return nil, artifactFailure(err)
+	}
+	p.containerProof(map[string]any{"lease": proof, "ownership": "owned", "borrower_file": "", "borrower_id": ""})
 	var once sync.Once
 	var closeErr error
 	admitted["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
@@ -328,6 +345,30 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 		return closeErr
 	}}
 	return suite, nil
+}
+
+// Only the native prerequisite owner computes policy identity. Attachments
+// carry that capability; consumers never repair a service in place.
+func validatePostgresProvisioning(lease map[string]any, env map[string]string) error {
+	hasPostgres := false
+	for _, resource := range lease["resources"].([]any) {
+		if resource.(map[string]any)["service"] == "postgres" {
+			hasPostgres = true
+		}
+	}
+	if !hasPostgres {
+		if lease["postgres_provisioning"] != nil || env[suiteservices.PGAdminDSNEnv] != "" {
+			return harnesslocal.ErrUnsafe
+		}
+		return nil
+	}
+	proof, ok := lease["postgres_provisioning"].(map[string]any)
+	if !ok || proof["generation"] != env[suiteservices.PGGenerationEnv] || env[suiteservices.PGGenerationEnv] == "" ||
+		proof["policy_digest"] != pgtest.ProvisioningDigest() || proof["policy_digest"] != env[suiteservices.PGProvisioningDigestEnv] ||
+		proof["template_digest"] != pgtest.TemplateDigest(pgschema.MustHash()) || proof["template_digest"] != env[suiteservices.PGTemplateDigestEnv] {
+		return errors.New("incompatible PostgreSQL provisioning capability")
+	}
+	return nil
 }
 
 // Recovery needs only physical cleanup bindings, not build or application secrets.

@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
@@ -142,6 +145,71 @@ func TestDatabaseDropObservation_Integration(t *testing.T) {
 		if err := blocker.Rollback(); err != nil {
 			t.Fatal(err)
 		}
+	})
+
+	t.Run("recovery_fixture_preserves_existing_targets_and_isolates_cleanup", func(t *testing.T) {
+		existing := h.NewDatabaseT(t, "recovery_fixture_existing")
+		template := os.Getenv("CARTULARY_PGTEST_TEMPLATE_DB")
+		if template == "" {
+			t.Fatal("owned integration fixture requires its migrated template")
+		}
+		var originalOID uint32
+		if err := admin.QueryRowContext(t.Context(), `SELECT oid FROM pg_catalog.pg_database WHERE datname = $1`, existing.Name).Scan(&originalOID); err != nil {
+			t.Fatal(err)
+		}
+		if err := createDatabase(t.Context(), h.AdminDSN(), existing.Name, template); err == nil {
+			t.Fatal("fixture acquisition replaced an existing database")
+		}
+		assertExisting := func() {
+			t.Helper()
+			var currentOID uint32
+			if err := admin.QueryRowContext(t.Context(), `SELECT oid FROM pg_catalog.pg_database WHERE datname = $1`, existing.Name).Scan(&currentOID); err != nil {
+				t.Fatal(err)
+			}
+			if currentOID != originalOID {
+				t.Fatal("fixture operation replaced its peer database")
+			}
+		}
+		assertExisting()
+		name := "recovery_fixture_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		dsn, err := createFromTemplateDB(t.Context(), h.AdminDSN(), name, template)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := dropDatabase(context.Background(), h.AdminDSN(), name); err != nil {
+				t.Error(err)
+			}
+		})
+		borrower, err := sql.Open("pgx", dsn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = borrower.Close() })
+		connection, err := borrower.Conn(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = connection.Close() })
+		if err := connection.PingContext(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		// The active connection exercises the ordinary-drop rejection and the
+		// common bounded forced fallback against only our proven-created clone.
+		if err := dropDatabase(t.Context(), h.AdminDSN(), name); err != nil {
+			t.Fatal(err)
+		}
+		if err := connection.PingContext(t.Context()); err == nil {
+			t.Fatal("fixture cleanup left its target connection usable")
+		}
+		var exists bool
+		if err := admin.QueryRowContext(t.Context(), `SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_database WHERE datname = $1)`, name).Scan(&exists); err != nil {
+			t.Fatal(err)
+		}
+		if exists {
+			t.Fatal("fixture cleanup retained its target database")
+		}
+		assertExisting()
 	})
 
 }

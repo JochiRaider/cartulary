@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func writeFixtureJSON(t *testing.T, name string, v any) {
@@ -44,7 +46,7 @@ func TestFixtureSuiteOwner(t *testing.T) {
 	t.Run("borrowed_suite_proof_and_detach_never_terminate", func(t *testing.T) {
 		runtime, root, run := runtimeFixture(t)
 		detached := 0
-		source := map[string]any{"schema_id": "cartulary.test_services.lease.v1", "lease_id": "foreign-lease", "suite_id": "persistent-suite", "run_id": "persistent-run", "result_root": "/private/persistent", "run_root": "/private/persistent/persistent-run", "target": "test-services-start", "mode": "owned", "ownership_mode": "owned", "owner_pid": os.Getpid(), "created_at": time.Now().UTC().Format(time.RFC3339Nano), "resources": []any{}, "proof_labels": map[string]any{}, "proof_prefixes": map[string]any{}, "cleanup_state": "not_started"}
+		source := map[string]any{"schema_id": "cartulary.test_services.lease.v2", "postgres_provisioning": nil, "lease_id": "foreign-lease", "suite_id": "persistent-suite", "run_id": "persistent-run", "result_root": "/private/persistent", "run_root": "/private/persistent/persistent-run", "target": "test-services-start", "mode": "owned", "ownership_mode": "owned", "owner_pid": os.Getpid(), "created_at": time.Now().UTC().Format(time.RFC3339Nano), "resources": []any{}, "proof_labels": map[string]any{}, "proof_prefixes": map[string]any{}, "cleanup_state": "not_started"}
 		p := ProductionOptions{Root: root, RunRoot: run, Target: "browser-e2e", Runtime: runtime, Environment: map[string]string{"NODE_BIN": "node"}}
 		p.Run = func(_ context.Context, _ string, args []string, _ map[string]string) (CommandResult, error) {
 			if len(args) != 2 {
@@ -65,7 +67,7 @@ func TestFixtureSuiteOwner(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		lease, err := readObject(suite.LeaseFile, "cartulary.test_services.lease.v1", 1048576)
+		lease, err := readObject(suite.LeaseFile, "cartulary.test_services.lease.v2", 1048576)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -137,7 +139,7 @@ func TestFixtureSuiteOwner(t *testing.T) {
 				suite := "work-graph-test"
 				scope := serviceScope(runtime.RunID, "test", suite)
 				status := map[string]any{"schema_id": "cartulary.test_services.start_result.v2", "recovery_files": []string{}, "status": "ready", "run_id": runtime.RunID, "target": "test", "suite_id": suite, "service_scope_ref": "_shared/test-services/" + suite + "/service-scope.json", "failure_class": nil, "failure_reason": nil}
-				writeFixtureJSON(t, args[4], map[string]string{"private": "lease"})
+				writeFixtureJSON(t, args[4], map[string]any{"schema_id": "cartulary.test_services.lease.v2", "postgres_provisioning": map[string]any{"schema_id": "cartulary.test_services.postgres_provisioning.v1", "generation": "12345", "policy_digest": pgtest.ProvisioningDigest(), "template_digest": pgtest.TemplateDigest(pgschema.MustHash())}, "lease_id": runtime.LeaseID, "suite_id": suite, "run_id": runtime.RunID, "result_root": filepath.Dir(run), "run_root": run, "target": "test", "mode": "owned", "ownership_mode": "owned", "owner_pid": os.Getpid(), "created_at": time.Now().UTC().Format(time.RFC3339Nano), "resources": []any{map[string]any{"kind": "container", "service": "postgres", "container_id": "fixture-postgres", "image": "fixture", "labels": map[string]any{}}}, "proof_labels": map[string]any{}, "proof_prefixes": map[string]any{}, "cleanup_state": "not_started"})
 				if variant == "missing_result" {
 					return CommandResult{Started: true, Exit: 1}, errors.New("worker death")
 				}
@@ -162,9 +164,9 @@ func TestFixtureSuiteOwner(t *testing.T) {
 						credentialFiles = append(credentialFiles, file)
 					}
 					writeFixtureJSON(t, filepath.Join(runtime.Root, "unrelated-secret.json"), map[string]string{"unneeded": "secret"})
-					writeFixtureJSON(t, args[2], map[string]string{"CARTULARY_PGTEST_ADMIN_DSN": "postgres://fixture@localhost/postgres?sslrootcert=" + credentialFiles[0] + "&sslcert=" + credentialFiles[1] + "&sslkey=" + credentialFiles[2]})
+					writeFixtureJSON(t, args[2], map[string]string{"CARTULARY_PGTEST_GENERATION": "12345", "CARTULARY_PGTEST_PROVISIONING_DIGEST": pgtest.ProvisioningDigest(), "CARTULARY_PGTEST_TEMPLATE_DIGEST": pgtest.TemplateDigest(pgschema.MustHash()), "CARTULARY_PGTEST_ADMIN_DSN": "postgres://fixture@localhost/postgres?sslrootcert=" + credentialFiles[0] + "&sslcert=" + credentialFiles[1] + "&sslkey=" + credentialFiles[2]})
 				} else {
-					writeFixtureJSON(t, args[2], map[string]string{"CARTULARY_PGTEST_ADMIN_DSN": "private-password", "IGNORE_THIS": "foreign"})
+					writeFixtureJSON(t, args[2], map[string]string{"CARTULARY_PGTEST_GENERATION": "12345", "CARTULARY_PGTEST_PROVISIONING_DIGEST": pgtest.ProvisioningDigest(), "CARTULARY_PGTEST_TEMPLATE_DIGEST": pgtest.TemplateDigest(pgschema.MustHash()), "CARTULARY_PGTEST_ADMIN_DSN": "private-password", "IGNORE_THIS": "foreign"})
 				}
 				if variant == "recovery_proof" {
 					status["recovery_files"] = credentialFiles

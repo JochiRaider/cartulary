@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { seedTimelineInvestigation, timelineRecipe, validateTimelineRecipe } from "../fixtures/timeline-investigation/index.mjs";
 import { writeReviewSamples } from "./design-review-samples.mjs";
-import { startVisualRendererLease } from "./visual-renderer-lease.mjs";
+import { readRendererAttachment } from "./renderer-attachment.mjs";
 
 export function reviewTotp(secret, now = Date.now()) {
   if (typeof secret !== "string" || !/^[A-Z2-7]{52}$/u.test(secret) || !Number.isSafeInteger(now) || now < 0) throw new Error("Invalid review authenticator key or time");
@@ -23,10 +23,10 @@ export function reviewTotp(secret, now = Date.now()) {
 }
 
 export async function seedDesignReview(options) {
-  const { root, environment, signal, onOwnedResource } = options;
+  const { root, environment, signal } = options;
   const require = createRequire(path.join(root, "apps/web/package.json"));
   const { chromium, expect } = require("@playwright/test");
-  const renderer = await startVisualRendererLease({ root, environment, onOwnedResource });
+  const renderer = readRendererAttachment(environment);
   let browser;
   const cancel = () => { void browser?.close().catch(() => {}); };
   signal?.addEventListener("abort", cancel, { once: true });
@@ -42,7 +42,6 @@ export async function seedDesignReview(options) {
     signal?.removeEventListener("abort", cancel);
     const failures = [];
     try { await browser?.close(); } catch (error) { failures.push(error); }
-    try { renderer.cleanup(); } catch (error) { failures.push(error); }
     if (failures.length) {
       if (primary) (primary.cleanupFailures ??= []).push(...failures);
       else throw Object.assign(new AggregateError(failures, "seeded renderer cleanup failed"), { failure_class: "harness", failure_reason: "cleanup_error", cleanupFailures: failures });

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,12 @@ import (
 )
 
 func testQuantities(cpu float64) Quantities {
-	return Quantities{"browser_stack": 0, "cpu": cpu, "io": 0, "memory_mb": 0, "process": 0}
+	q := Quantities{}
+	for _, key := range resources {
+		q[key] = 0
+	}
+	q["cpu"] = cpu
+	return q
 }
 func request(t *testing.T, root, token string, claim, capacity float64) Request {
 	t.Helper()
@@ -35,6 +41,218 @@ func apply(t *testing.T, r Request, expected bool) {
 	}
 }
 func TestAdmissionWeightedTree(t *testing.T) {
+	for _, nested := range []bool{false, true} {
+		t.Run("transient_pressure_preserves_waiter_priority_"+strconv.FormatBool(nested), func(t *testing.T) {
+			root := filepath.Join(t.TempDir(), "admission")
+			holder := request(t, root, "a", 2, 4)
+			apply(t, holder, true)
+			parent := request(t, root, "b", 1, 4)
+			if nested {
+				apply(t, parent, true)
+			}
+			older := request(t, root, "c", 3, 4)
+			if nested {
+				older.Parent = &parent.Token
+			}
+			apply(t, older, false)
+			later := request(t, root, "d", 1, 4)
+			apply(t, later, false) // Fits now, but must not starve the older request.
+			apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
+			apply(t, later, false) // Priority persists until the waiter takes admission.
+			apply(t, older, true)
+			apply(t, later, true) // Remaining capacity is usable after that grant.
+		})
+	}
+	t.Run("retirement_preserves_required_ancestor_claims", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		parent := request(t, root, "a", 1, 2)
+		parent.Claims["memory_mb"] = 500
+		parent.Capacities["memory_mb"] = 1024
+		resident := Resident{Token: strings.Repeat("b", 32), Reference: filepath.Join(root, "retained.json"), Claims: testQuantities(0), Capacities: parent.Capacities}
+		resident.Claims["memory_mb"] = 80
+		parent.Residents = []Resident{resident}
+		apply(t, parent, true)
+		child := request(t, root, "c", 1, 2)
+		child.Parent = &parent.Token
+		child.Claims["memory_mb"] = 120
+		child.Capacities["memory_mb"] = 512
+		apply(t, child, false)
+		apply(t, Request{Root: root, Operation: "retirement_required", Token: child.Token, Claims: resident.Claims}, true)
+		if err := ReleaseResident(t.Context(), root, resident); err != nil {
+			t.Fatal(err)
+		}
+		apply(t, child, true)
+		apply(t, Request{Root: root, Operation: "release", Token: child.Token}, false)
+		apply(t, Request{Root: root, Operation: "release", Token: parent.Token}, false)
+	})
+	t.Run("retirement_distinguishes_transient_work_from_resident_pressure", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		owner := request(t, root, "a", 1, 2)
+		owner.Capacities["memory_mb"] = 512
+		owner.Capacities["port_lane"] = 16
+		owner.Claims["memory_mb"] = 400
+		resident := Resident{Token: strings.Repeat("b", 32), Reference: filepath.Join(root, "retained.json"), Claims: testQuantities(0), Capacities: owner.Capacities}
+		resident.Claims["memory_mb"], resident.Claims["port_lane"] = 80, 14
+		owner.Residents = []Resident{resident}
+		apply(t, owner, true)
+		pending := request(t, root, "c", 1, 2)
+		pending.Capacities = owner.Capacities
+		pending.Claims["memory_mb"] = 120
+		apply(t, pending, false)
+		query := Request{Root: root, Operation: "retirement_required", Token: pending.Token, Claims: resident.Claims}
+		apply(t, query, false) // Completing the active work frees enough memory.
+		apply(t, Request{Root: root, Operation: "release", Token: pending.Token}, false)
+		pending.Token = strings.Repeat("d", 32)
+		pending.Claims["port_lane"] = 3
+		apply(t, pending, false)
+		query.Token = pending.Token
+		apply(t, query, true) // The physical port shortage survives active work.
+		query.Claims = testQuantities(0)
+		query.Claims["memory_mb"] = 80
+		apply(t, query, false) // Retiring unrelated memory cannot free a port.
+		apply(t, Request{Root: root, Operation: "resident_granted", Token: resident.Token, Reference: resident.Reference}, true)
+		apply(t, Request{Root: root, Operation: "release", Token: owner.Token}, false)
+		if err := ReleaseResident(t.Context(), root, resident); err != nil {
+			t.Fatal(err)
+		}
+		query.Claims = resident.Claims
+		apply(t, query, false)
+		apply(t, pending, true)
+		if _, err := (&Lease{root: root, Token: pending.Token}).NeedsRetirement(t.Context(), resident.Claims); !errors.Is(err, ErrConflict) {
+			t.Fatal("granted activity used as a pending eviction decision", err)
+		}
+	})
+	t.Run("resident_pressure_allows_fitting_consumers_but_preserves_exclusive_priority", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		owner := request(t, root, "a", 1, 2)
+		owner.Capacities["port_lane"] = 16
+		resident := Resident{Token: strings.Repeat("b", 32), Reference: filepath.Join(root, "retained.json"), Claims: testQuantities(0), Capacities: owner.Capacities}
+		resident.Claims["port_lane"] = 14
+		owner.Residents = []Resident{resident}
+		apply(t, owner, true)
+		apply(t, Request{Root: root, Operation: "release", Token: owner.Token}, false)
+		probe := testQuantities(1)
+		probe["port_lane"] = 3
+		if lease, err := TryAcquireWithResidents(t.Context(), root, probe, owner.Capacities, nil, nil, nil); err != nil || lease != nil {
+			t.Fatal("capacity miss retained an active lease", lease, err)
+		}
+		probeQuiet := request(t, root, "9", 1, 2)
+		probeQuiet.Capacities = owner.Capacities
+		probeQuiet.Mode = "exclusive"
+		apply(t, probeQuiet, true) // A failed try left no queued reservation.
+		apply(t, Request{Root: root, Operation: "release", Token: probeQuiet.Token}, false)
+		large := request(t, root, "c", 1, 2)
+		large.Capacities = owner.Capacities
+		large.Claims["port_lane"] = 3
+		apply(t, large, false)
+		consumer := request(t, root, "d", 1, 2)
+		consumer.Capacities = owner.Capacities
+		consumer.Claims["port_lane"] = 1
+		consumer.Residents = []Resident{resident}
+		apply(t, consumer, true)
+		quiet := request(t, root, "e", 1, 2)
+		quiet.Capacities = owner.Capacities
+		quiet.Mode = "exclusive"
+		apply(t, quiet, false)
+		later := request(t, root, "f", 0, 2)
+		later.Capacities = owner.Capacities
+		apply(t, later, false)
+		if err := ReleaseResident(t.Context(), root, resident); err != nil {
+			t.Fatal(err)
+		}
+		apply(t, Request{Root: root, Operation: "release", Token: consumer.Token}, false)
+		apply(t, large, true)
+		apply(t, Request{Root: root, Operation: "release", Token: large.Token}, false)
+		apply(t, quiet, true)
+		apply(t, later, false)
+		apply(t, Request{Root: root, Operation: "release", Token: quiet.Token}, false)
+		apply(t, later, true)
+	})
+	t.Run("dead_owner_retains_physical_capacity_and_allows_bounded_drain", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		process := exec.Command("/bin/sh", "-c", "read value")
+		input, err := process.StdinPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := process.Start(); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { input.Close(); process.Process.Kill(); process.Wait() })
+		parent := request(t, root, "a", 1, 2)
+		parent.Owner, err = Identity(process.Process.Pid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		parent.Capacities["memory_mb"] = 256
+		parent.Capacities["process"] = 2
+		apply(t, parent, true)
+		work := request(t, root, "b", 1, 2)
+		work.Parent = &parent.Token
+		work.Capacities = parent.Capacities
+		allocation := Resident{Token: strings.Repeat("c", 32), Reference: filepath.Join(root, "allocation.json"), Claims: testQuantities(0), Capacities: parent.Capacities, Parent: &parent.Token}
+		allocation.Claims["memory_mb"] = 80
+		work.Residents = []Resident{allocation}
+		apply(t, work, true)
+		apply(t, Request{Root: root, Operation: "release", Token: work.Token}, false)
+		input.Close()
+		process.Wait()
+		contender := request(t, root, "d", 1, 2)
+		contender.Capacities = parent.Capacities
+		contender.Claims["memory_mb"] = 177
+		apply(t, contender, false)
+		drain := request(t, root, "e", 1, 2)
+		drain.Capacities = parent.Capacities
+		drain.Parent = &parent.Token
+		drain.Mode = "drain"
+		drain.Residents = []Resident{allocation}
+		drain.Claims["memory_mb"] = 64
+		drain.Claims["process"] = 1
+		apply(t, drain, true) // The queued contender cannot obstruct cleanup.
+		if err := ReleaseResident(t.Context(), root, allocation); err != nil {
+			t.Fatal(err)
+		}
+		apply(t, Request{Root: root, Operation: "release", Token: drain.Token}, false)
+		apply(t, contender, true)
+	})
+	t.Run("resident_ownership_is_atomic_durable_and_not_activity", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		first := request(t, root, "a", 1, 1)
+		first.Capacities["memory_mb"] = 200
+		allocation := Resident{Token: strings.Repeat("c", 32), Reference: filepath.Join(root, "owned-allocation.json"), Claims: testQuantities(0), Capacities: first.Capacities}
+		allocation.Claims["memory_mb"] = 80
+		first.Residents = []Resident{allocation}
+		apply(t, first, true)
+		second := request(t, root, "b", 1, 1)
+		second.Capacities = first.Capacities
+		second.Residents = first.Residents
+		apply(t, second, false)
+		apply(t, Request{Root: root, Operation: "release", Token: first.Token}, false)
+		apply(t, second, true) // Reborrowing charges the physical allocation once.
+		apply(t, Request{Root: root, Operation: "release", Token: second.Token}, false)
+		quiet := request(t, root, "d", 1, 1)
+		quiet.Capacities = first.Capacities
+		quiet.Mode = "exclusive"
+		quiet.Claims["memory_mb"] = 121
+		apply(t, quiet, false) // Idle infrastructure remains resident.
+		apply(t, Request{Root: root, Operation: "release", Token: quiet.Token}, false)
+		quiet.Token = strings.Repeat("e", 32)
+		quiet.Claims["memory_mb"] = 120
+		apply(t, quiet, true) // Residents alone hold no activity fence.
+		apply(t, Request{Root: root, Operation: "release", Token: quiet.Token}, false)
+		if err := ReleaseResident(context.Background(), root, Resident{Token: allocation.Token, Reference: filepath.Join(root, "foreign"), Claims: allocation.Claims, Capacities: allocation.Capacities}); !errors.Is(err, ErrConflict) {
+			t.Fatal("foreign release accepted", err)
+		}
+		for range 2 {
+			if err := ReleaseResident(context.Background(), root, allocation); err != nil {
+				t.Fatal(err)
+			}
+		}
+		last := request(t, root, "f", 1, 1)
+		last.Capacities = first.Capacities
+		last.Claims["memory_mb"] = 200
+		apply(t, last, true)
+	})
 	t.Run("terminal child binding retains exact proof and reservation", func(t *testing.T) {
 		root := filepath.Join(t.TempDir(), "admission")
 		parent := request(t, root, "a", 1, 1)
@@ -112,7 +330,7 @@ func TestAdmissionWeightedTree(t *testing.T) {
 		apply(t, queued, false)
 		later := request(t, root, "f", 0, 2)
 		later.Parent = &holder.Token
-		apply(t, later, false) // A smaller sibling cannot bypass the FIFO waiter.
+		apply(t, later, false) // An older sibling keeps priority while active work drains.
 		grandchild := request(t, root, "1", 1, 2)
 		grandchild.Parent = &child.Token
 		apply(t, grandchild, true)

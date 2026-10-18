@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -26,7 +27,7 @@ import (
 )
 
 var ErrConflict = errors.New("host admission unavailable")
-var resources = []string{"browser_stack", "cpu", "io", "memory_mb", "process"}
+var resources = []string{"browser_stack", "cpu", "io", "memory_mb", "object_store", "port_lane", "postgres", "process", "service_stack", "volume"}
 
 const maxInteger = 9007199254740991
 
@@ -39,7 +40,19 @@ type Proof struct {
 	Start string `json:"start"`
 }
 type Quantities map[string]float64
+
+// Resident is a durable physical allocation, not permission to perform work.
+// Reference binds it to the native resource journal until proven cleanup.
+type Resident struct {
+	Token      string     `json:"token"`
+	Reference  string     `json:"reference"`
+	Claims     Quantities `json:"claims"`
+	Capacities Quantities `json:"capacities"`
+	Parent     *string    `json:"parent"`
+}
 type Request struct {
+	Residents  []Resident `json:"residents,omitempty"`
+	Reference  string     `json:"reference,omitempty"`
 	Root       string     `json:"root"`
 	Operation  string     `json:"operation"`
 	Token      string     `json:"token"`
@@ -51,6 +64,7 @@ type Request struct {
 	Guard      Proof      `json:"guard"`
 }
 type lease struct {
+	Residents  []Resident `json:"residents"`
 	Token      string     `json:"token"`
 	Process    Proof      `json:"process"`
 	Guards     []Proof    `json:"guards"`
@@ -63,8 +77,10 @@ type lease struct {
 	Released   bool       `json:"released"`
 }
 type state struct {
-	Sequence float64  `json:"sequence"`
-	Leases   []*lease `json:"leases"`
+	Generation int        `json:"generation"`
+	Residents  []Resident `json:"residents"`
+	Sequence   float64    `json:"sequence"`
+	Leases     []*lease   `json:"leases"`
 }
 
 func integer(n float64) bool { return n >= 0 && n <= maxInteger && math.Trunc(n) == n }
@@ -81,7 +97,7 @@ func quantities(q Quantities) bool {
 	return true
 }
 func validMode(mode string, claims Quantities, parent *string) bool {
-	if mode == "shared" || mode == "exclusive" {
+	if mode == "shared" || mode == "exclusive" || mode == "drain" {
 		return true
 	}
 	if mode != "observation" || parent != nil {
@@ -155,9 +171,21 @@ func quantityShape(raw json.RawMessage) bool {
 	}
 	return true
 }
+func residentShape(raw json.RawMessage) bool {
+	var values []map[string]json.RawMessage
+	if json.Unmarshal(raw, &values) != nil || values == nil {
+		return false
+	}
+	for _, value := range values {
+		if len(value) != 5 || value["parent"] == nil || !quantityShape(value["claims"]) || !quantityShape(value["capacities"]) {
+			return false
+		}
+	}
+	return true
+}
 func ReadRequest(data []byte) (Request, error) {
 	var r Request
-	if len(data) > 8192 {
+	if len(data) > 65536 {
 		return r, ErrConflict
 	}
 	err := strict(data, &r)
@@ -166,32 +194,36 @@ func ReadRequest(data []byte) (Request, error) {
 		if json.Unmarshal(data, &shape) != nil || !quantityShape(shape["claims"]) || !quantityShape(shape["capacities"]) {
 			err = ErrConflict
 		}
+		if value, present := shape["residents"]; present && !residentShape(value) {
+			err = ErrConflict
+		}
 	}
 	return r, err
 }
 func readState(directory *os.File, mutable bool) (*state, error) {
 	data, err := harnesslocal.ReadFileAt(directory, "state.json", 4*1024*1024, mutable)
 	if errors.Is(err, os.ErrNotExist) {
-		return &state{Leases: []*lease{}}, nil
+		return &state{Generation: 2, Residents: []Resident{}, Leases: []*lease{}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 	var s state
-	if strict(data, &s) != nil || !integer(s.Sequence) || s.Leases == nil || len(s.Leases) > 4096 {
+	if strict(data, &s) != nil || s.Generation != 2 || s.Residents == nil || len(s.Residents) > 4096 || !integer(s.Sequence) || s.Leases == nil || len(s.Leases) > 4096 {
 		return nil, ErrConflict
 	}
 	// Structural required-field checks distinguish omitted false/zero from facts.
 	var shape struct {
-		Sequence *float64                     `json:"sequence"`
-		Leases   []map[string]json.RawMessage `json:"leases"`
+		Residents json.RawMessage              `json:"residents"`
+		Sequence  *float64                     `json:"sequence"`
+		Leases    []map[string]json.RawMessage `json:"leases"`
 	}
-	if json.Unmarshal(data, &shape) != nil || shape.Sequence == nil {
+	if json.Unmarshal(data, &shape) != nil || shape.Sequence == nil || !residentShape(shape.Residents) {
 		return nil, ErrConflict
 	}
 	tokens := map[string]*lease{}
 	for i, l := range s.Leases {
-		if l == nil || len(shape.Leases[i]) != 10 || !proofShape(l.Process) || l.Guards == nil || len(l.Guards) > 64 || !tokenPattern.MatchString(l.Token) || tokens[l.Token] != nil || !validMode(l.Mode, l.Claims, l.Parent) || !integer(l.Sequence) || l.Sequence < 1 || l.Sequence > s.Sequence || !quantities(l.Claims) || !quantities(l.Capacities) || (l.Parent != nil && (tokens[*l.Parent] == nil || tokens[*l.Parent].Mode == "observation")) || (l.Mode == "observation" && len(l.Guards) != 0) {
+		if l == nil || len(shape.Leases[i]) != 11 || l.Residents == nil || !proofShape(l.Process) || l.Guards == nil || len(l.Guards) > 64 || !tokenPattern.MatchString(l.Token) || tokens[l.Token] != nil || !validMode(l.Mode, l.Claims, l.Parent) || !integer(l.Sequence) || l.Sequence < 1 || l.Sequence > s.Sequence || !quantities(l.Claims) || !quantities(l.Capacities) || (l.Parent != nil && (tokens[*l.Parent] == nil || tokens[*l.Parent].Mode == "observation")) || (l.Mode == "observation" && len(l.Guards) != 0) {
 			return nil, ErrConflict
 		}
 		for _, p := range l.Guards {
@@ -205,10 +237,29 @@ func readState(directory *os.File, mutable bool) (*state, error) {
 				return nil, ErrConflict
 			}
 		}
-		if !quantityShape(shape.Leases[i]["claims"]) || !quantityShape(shape.Leases[i]["capacities"]) {
+		if !quantityShape(shape.Leases[i]["claims"]) || !quantityShape(shape.Leases[i]["capacities"]) || !residentShape(shape.Leases[i]["residents"]) {
 			return nil, ErrConflict
 		}
 		tokens[l.Token] = l
+	}
+	for _, allocation := range s.Residents {
+		if !validResident(allocation) || allocation.Parent != nil && tokens[*allocation.Parent] == nil {
+			return nil, ErrConflict
+		}
+	}
+	seen := map[string]bool{}
+	for _, allocation := range s.Residents {
+		if seen[allocation.Token] {
+			return nil, ErrConflict
+		}
+		seen[allocation.Token] = true
+	}
+	for _, l := range s.Leases {
+		for _, allocation := range l.Residents {
+			if !validResident(allocation) {
+				return nil, ErrConflict
+			}
+		}
 	}
 	return &s, nil
 }
@@ -265,10 +316,22 @@ func mutate(s *state, r Request) (bool, error) {
 		}
 		return false
 	}
+	// Durable allocations keep ancestor identities, never a dead controller's
+	// activity entitlement. Only proven live descendants retain active claims.
+	for _, l := range s.Leases {
+		if !live(l.Process) && !guarded(l) {
+			l.Released = true
+		}
+	}
 	retain := map[string]bool{}
 	for _, l := range s.Leases {
 		if !l.Released && live(l.Process) || guarded(l) {
 			retain[l.Token] = true
+		}
+	}
+	for _, allocation := range s.Residents {
+		if allocation.Parent != nil {
+			retain[*allocation.Parent] = true
 		}
 	}
 	for i := len(s.Leases) - 1; i >= 0; i-- {
@@ -292,7 +355,138 @@ func mutate(s *state, r Request) (bool, error) {
 		}
 		return nil
 	}
+	capacityFor := func(candidate *lease, active []*lease) (Quantities, []Resident) {
+		included := map[string]bool{candidate.Token: true}
+		charged := map[string]bool{candidate.Token: true}
+		for _, entry := range active {
+			included[entry.Token] = true
+			charged[entry.Token] = true
+		}
+		for _, entry := range s.Leases {
+			if included[entry.Token] {
+				for parent := entry.Parent; parent != nil; parent = find(*parent).Parent {
+					included[*parent] = true
+				}
+			}
+		}
+		allocations := slices.Clone(s.Residents)
+		for _, candidate := range candidate.Residents {
+			found := false
+			for _, existing := range allocations {
+				found = found || existing.Token == candidate.Token
+			}
+			if !found {
+				allocations = append(allocations, candidate)
+			}
+		}
+		// Include retained ancestors for weighted nesting, without granting them
+		// activity or charging a released ancestor's former active claim.
+		for _, allocation := range allocations {
+			for parent := allocation.Parent; parent != nil; parent = find(*parent).Parent {
+				included[*parent] = true
+			}
+		}
+		var total func(*lease, string) float64
+		total = func(entry *lease, key string) float64 {
+			sum := float64(0)
+			for _, child := range s.Leases {
+				if child.Parent != nil && *child.Parent == entry.Token && included[child.Token] {
+					sum += total(child, key)
+				}
+			}
+			for _, allocation := range allocations {
+				if allocation.Parent != nil && *allocation.Parent == entry.Token {
+					sum += allocation.Claims[key]
+				}
+			}
+			claim := entry.Claims[key]
+			if !charged[entry.Token] {
+				claim = 0
+			}
+			return math.Max(claim, sum)
+		}
+		deficits := Quantities{}
+		for _, key := range resources {
+			if candidate.Mode == "observation" {
+				break
+			}
+			capacity := candidate.Capacities[key]
+			for _, entry := range active {
+				if entry.Mode != "observation" {
+					capacity = math.Min(capacity, entry.Capacities[key])
+				}
+			}
+			sum := float64(0)
+			residentTotal := float64(0)
+			for _, allocation := range allocations {
+				capacity = math.Min(capacity, allocation.Capacities[key])
+				residentTotal += allocation.Claims[key]
+				if allocation.Parent == nil {
+					sum += allocation.Claims[key]
+				}
+			}
+			for _, entry := range s.Leases {
+				if entry.Parent == nil && included[entry.Token] {
+					sum += total(entry, key)
+				}
+			}
+			if sum > capacity {
+				deficits[key] = sum - capacity
+			}
+			// Keep bounded cleanup possible after all active work drains. Idle
+			// physical resources cannot consume the final cleanup process/memory.
+			if residentTotal > 0 && residentTotal+cleanupHeadroom(key) > capacity {
+				deficits[key] = math.Max(deficits[key], residentTotal+cleanupHeadroom(key)-capacity)
+			}
+		}
+		return deficits, allocations
+	}
+	// Independent active work can drain; a waiting descendant must still
+	// account for the ancestors whose entitlement it needs to execute.
+	requiredAncestors := func(candidate *lease) []*lease {
+		ancestors := []*lease{}
+		for parent := candidate.Parent; parent != nil; {
+			ancestor := find(*parent)
+			if ancestor.Granted && (!ancestor.Released || guarded(ancestor)) {
+				ancestors = append(ancestors, ancestor)
+			}
+			parent = ancestor.Parent
+		}
+		return ancestors
+	}
 	switch r.Operation {
+	case "retirement_required":
+		pending := find(r.Token)
+		if pending == nil || pending.Granted || pending.Released || !quantities(r.Claims) {
+			return false, ErrConflict
+		}
+		// Ancestors retain their activity entitlement while this request waits;
+		// independent active work can finish without retiring infrastructure.
+		deficits, _ := capacityFor(pending, requiredAncestors(pending))
+		for _, key := range resources {
+			if r.Claims[key] > 0 && deficits[key] > 0 {
+				return true, nil
+			}
+		}
+		return false, nil
+	case "resident_granted":
+		for _, allocation := range s.Residents {
+			if allocation.Token == r.Token {
+				return allocation.Reference == r.Reference, nil
+			}
+		}
+		return false, nil
+	case "release_resident":
+		for i, a := range s.Residents {
+			if a.Token == r.Token {
+				if a.Reference != r.Reference {
+					return false, ErrConflict
+				}
+				s.Residents = append(s.Residents[:i], s.Residents[i+1:]...)
+				return false, nil
+			}
+		}
+		return false, nil
 	case "release":
 		if l := find(r.Token); l != nil {
 			l.Released = true
@@ -304,6 +498,11 @@ func mutate(s *state, r Request) (bool, error) {
 				if child.Parent != nil && *child.Parent == l.Token {
 					hasChild = true
 					break
+				}
+			}
+			for _, allocation := range s.Residents {
+				if allocation.Parent != nil && *allocation.Parent == l.Token {
+					hasChild = true
 				}
 			}
 			if l.Released && !guarded(l) && !hasChild {
@@ -346,6 +545,38 @@ func mutate(s *state, r Request) (bool, error) {
 		l.Guards = guards
 		return true, nil
 	case "admit":
+		if r.Residents == nil {
+			r.Residents = []Resident{}
+		}
+		if len(r.Residents) > 64 || r.Mode == "observation" && len(r.Residents) != 0 {
+			return false, ErrConflict
+		}
+		seen := map[string]bool{}
+		for _, allocation := range r.Residents {
+			if !validResident(allocation) || seen[allocation.Token] || allocation.Parent != nil && !reflect.DeepEqual(allocation.Parent, r.Parent) {
+				return false, ErrConflict
+			}
+			seen[allocation.Token] = true
+			for _, existing := range s.Residents {
+				if existing.Token == allocation.Token && !reflect.DeepEqual(existing, allocation) {
+					return false, ErrConflict
+				}
+			}
+		}
+		if r.Mode == "drain" {
+			if len(r.Residents) == 0 {
+				return false, ErrConflict
+			}
+			for _, allocation := range r.Residents {
+				found := false
+				for _, existing := range s.Residents {
+					found = found || reflect.DeepEqual(existing, allocation)
+				}
+				if !found {
+					return false, ErrConflict
+				}
+			}
+		}
 		if !quantities(r.Claims) || !quantities(r.Capacities) || !validMode(r.Mode, r.Claims, r.Parent) {
 			return false, ErrConflict
 		}
@@ -368,14 +599,14 @@ func mutate(s *state, r Request) (bool, error) {
 			}
 			if r.Parent != nil {
 				ancestor := find(*r.Parent)
-				if ancestor == nil || !ancestor.Granted || ancestor.Released || ancestor.Mode == "observation" {
+				if ancestor == nil || !ancestor.Granted || ancestor.Released && r.Mode != "drain" || ancestor.Mode == "observation" {
 					return false, ErrConflict
 				}
 			}
 			s.Sequence++
-			l = &lease{r.Token, r.Owner, []Proof{}, s.Sequence, r.Mode, r.Claims, r.Capacities, r.Parent, false, false}
+			l = &lease{Residents: slices.Clone(r.Residents), Token: r.Token, Process: r.Owner, Guards: []Proof{}, Sequence: s.Sequence, Mode: r.Mode, Claims: r.Claims, Capacities: r.Capacities, Parent: r.Parent}
 			s.Leases = append(s.Leases, l)
-		} else if l.Released || l.Process != r.Owner || l.Mode != r.Mode || !reflect.DeepEqual(l.Claims, r.Claims) || !reflect.DeepEqual(l.Capacities, r.Capacities) || !reflect.DeepEqual(l.Parent, r.Parent) {
+		} else if !reflect.DeepEqual(l.Residents, r.Residents) || l.Released || l.Process != r.Owner || l.Mode != r.Mode || !reflect.DeepEqual(l.Claims, r.Claims) || !reflect.DeepEqual(l.Capacities, r.Capacities) || !reflect.DeepEqual(l.Parent, r.Parent) {
 			return false, ErrConflict
 		}
 		rootOf := func(l *lease) *lease {
@@ -387,12 +618,12 @@ func mutate(s *state, r Request) (bool, error) {
 		root := rootOf(l)
 		active, predecessors, roots := []*lease{}, []*lease{}, []*lease{}
 		for _, entry := range s.Leases {
-			if entry.Granted {
+			if entry.Granted && (!entry.Released || guarded(entry)) {
 				active = append(active, entry)
 				if entry.Parent == nil {
 					roots = append(roots, entry)
 				}
-			} else if entry.Sequence < l.Sequence {
+			} else if !entry.Released && entry.Sequence < l.Sequence {
 				predecessors = append(predecessors, entry)
 			}
 		}
@@ -400,20 +631,37 @@ func mutate(s *state, r Request) (bool, error) {
 		for entry := l; entry.Parent != nil; entry = find(*entry.Parent) {
 			ancestors[*entry.Parent] = true
 		}
+		// Preserve priority while independent active work drains. Only durable
+		// resident pressure permits backfill: its consumers may need to run
+		// before those allocations can release capacity.
+		fitsFor := func(candidate *lease) (bool, []Resident) {
+			deficits, allocations := capacityFor(candidate, active)
+			return len(deficits) == 0, allocations
+		}
+		blocks := func(entry *lease) bool {
+			if entry.Mode == "exclusive" {
+				return true
+			}
+			if entry.Mode == "observation" {
+				return false
+			}
+			deficits, _ := capacityFor(entry, requiredAncestors(entry))
+			return len(deficits) == 0
+		}
 		compatible := true
 		if l.Parent != nil {
 			for _, entry := range predecessors {
 				// An admitted parent retains its entitlement to drain. A
 				// waiter in another branch must not block the descendants
 				// needed to release that branch's existing reservation.
-				// Siblings share one FIFO queue; the weighted tree below
+				// Siblings preserve transient wait priority; the weighted tree
 				// still checks every request against host capacity.
-				if entry.Parent != nil && *entry.Parent == *l.Parent {
+				if r.Mode != "drain" && entry.Parent != nil && *entry.Parent == *l.Parent && blocks(entry) {
 					compatible = false
 				}
 			}
 			for _, entry := range active {
-				if r.Mode == "exclusive" && !ancestors[entry.Token] || r.Mode == "shared" && entry.Mode == "exclusive" && !ancestors[entry.Token] {
+				if r.Mode == "exclusive" && !ancestors[entry.Token] || (r.Mode == "shared" || r.Mode == "drain") && entry.Mode == "exclusive" && !ancestors[entry.Token] {
 					compatible = false
 				}
 			}
@@ -435,52 +683,30 @@ func mutate(s *state, r Request) (bool, error) {
 				}
 			}
 			for _, entry := range predecessors {
-				if entry.Parent == nil || rootOf(entry) != root {
+				if r.Mode != "drain" && (entry.Parent == nil || rootOf(entry) != root) && blocks(entry) {
 					compatible = false
 				}
 			}
 		}
-		included := map[string]bool{l.Token: true}
-		for _, entry := range active {
-			included[entry.Token] = true
-		}
-		var total func(*lease, string) float64
-		total = func(entry *lease, key string) float64 {
-			sum := float64(0)
-			for _, child := range s.Leases {
-				if child.Parent != nil && *child.Parent == entry.Token && included[child.Token] {
-					sum += total(child, key)
-				}
-			}
-			return math.Max(entry.Claims[key], sum)
-		}
-		fits := true
-		for _, key := range resources {
-			if r.Mode == "observation" {
-				break
-			}
-			capacity := r.Capacities[key]
-			for _, entry := range active {
-				if entry.Mode != "observation" {
-					capacity = math.Min(capacity, entry.Capacities[key])
-				}
-			}
-			sum := float64(0)
-			for _, entry := range s.Leases {
-				if entry.Parent == nil && included[entry.Token] {
-					sum += total(entry, key)
-				}
-			}
-			if sum > capacity {
-				fits = false
-			}
-		}
+		fits, allocations := fitsFor(l)
 		if fits && compatible {
 			l.Granted = true
+			s.Residents = allocations
 		}
 		return l.Granted, nil
 	default:
 		return false, ErrConflict
+	}
+}
+
+func cleanupHeadroom(resource string) float64 {
+	switch resource {
+	case "memory_mb":
+		return 64
+	case "process":
+		return 1
+	default:
+		return 0
 	}
 }
 

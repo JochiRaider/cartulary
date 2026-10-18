@@ -7,6 +7,7 @@ import (
 	"errors"
 	"maps"
 	"path/filepath"
+	"sync"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 )
@@ -14,12 +15,18 @@ import (
 // Production owns one dependency tree: leases -> physical allocations -> suite.
 // Closing dependent allocations never closes the shared suite underneath them.
 type Production struct {
-	Broker  *Broker
-	Suite   *SuiteOwner
-	Options ProductionOptions
+	renderers     *rendererOwner
+	workMu        sync.Mutex
+	work          map[string]*admittedWork
+	serviceClaims map[string]int64
+	Broker        *Broker
+	Suite         *SuiteOwner
+	Options       ProductionOptions
 }
 
 func NewProduction(p ProductionOptions, options Options) *Production {
+	p.residency = &residency{allocations: map[string]*residentRecord{}}
+	p.residency.options = p
 	suite := &SuiteOwner{Acquire: p.StartSuite}
 	if p.Environment["CARTULARY_TEST_SERVICES_MODE"] == "attach" {
 		suite.Acquire = p.AttachSuite
@@ -55,10 +62,26 @@ func NewProduction(p ProductionOptions, options Options) *Production {
 			return harnesslocal.ReplaceFileAt(parent, record.ID+".json", append(bytes, '\n'))
 		}
 	}
-	return &Production{Broker: New(options), Suite: suite, Options: p}
+	return &Production{Broker: New(options), Suite: suite, Options: p, work: map[string]*admittedWork{}, renderers: &rendererOwner{options: p, changed: make(chan struct{}), remaining: map[string]int{}}}
 }
 func (p *Production) Close(ctx context.Context) error {
-	err := p.Broker.Close(ctx)
+	return p.Options.withResidentActivity(ctx, p.close)
+}
+func (p *Production) CloseFixtures(ctx context.Context) error {
+	return p.Options.withResidentActivity(ctx, func(ctx context.Context) error {
+		var rendererErr error
+		if p.renderers != nil {
+			p.renderers.mu.Lock()
+			p.renderers.closed = true
+			p.renderers.signal()
+			p.renderers.mu.Unlock()
+			rendererErr = p.renderers.evictIdle(ctx, nil)
+		}
+		return errors.Join(rendererErr, p.Broker.Close(ctx))
+	})
+}
+func (p *Production) close(ctx context.Context) error {
+	err := p.CloseFixtures(ctx)
 	// Resource-specific release closures use the same dependency evaluator.
 	// Sweep remaining retained resources, including partial acquisitions, before
 	// the suite handle closes. Unresolved consumers retain their dependencies.

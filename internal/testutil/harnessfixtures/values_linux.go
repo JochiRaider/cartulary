@@ -33,6 +33,9 @@ func validateJSON(schema string, value any) ([]byte, error) {
 	if err == nil {
 		err = harnessschema.Validate(schema, v)
 	}
+	if err != nil {
+		err = fmt.Errorf("%s: %w", schema, err)
+	}
 	return bytes, err
 }
 func privateJSON(name, schema string, value any, replace bool) error {

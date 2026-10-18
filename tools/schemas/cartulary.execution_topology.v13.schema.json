@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.execution_topology.v12",
+  "$id": "cartulary.execution_topology.v13",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,11 +14,12 @@
     "execution_dependencies",
     "go_targets",
     "browser_e2e_batch",
-    "task_surface_owner"
+    "task_surface_owner",
+    "physical_resource_claims"
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.execution_topology.v12"
+      "const": "cartulary.execution_topology.v13"
     },
     "runtime_profiles": {
       "type": "array",
@@ -138,6 +139,30 @@
     "task_surface_owner": {
       "type": "string",
       "const": "tools/task_surface_owner.json"
+    },
+    "physical_resource_claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "postgres",
+        "object_store",
+        "browser_stack",
+        "renderer"
+      ],
+      "properties": {
+        "postgres": {
+          "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims"
+        },
+        "object_store": {
+          "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims"
+        },
+        "browser_stack": {
+          "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims"
+        },
+        "renderer": {
+          "$ref": "cartulary.harness_execution_defs.v1#/$defs/resource_claims"
+        }
+      }
     }
   },
   "$defs": {

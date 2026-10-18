@@ -23,7 +23,7 @@ printf '{"schema_id":"cartulary.harness_run_manifest.v3","toolchain_digest":"sha
   "$(printf '3%.0s' {1..64})" >"$run_root/run-manifest.json"
 mkdir -p "$private_suite_root/test-services"
 chmod 700 "$private_suite_root/test-services"
-printf '{"schema_id":"cartulary.test_services.lease.v1","lease_id":"00000000-0000-4000-8000-000000000001","suite_id":"%s","run_id":"%s","cleanup_state":"not_started","resources":[{"kind":"container","service":"postgres","container_id":"postgres-container-proof"},{"kind":"container","service":"object_store","container_id":"object-store-container-proof"}]}\n' \
+printf '{"schema_id":"cartulary.test_services.lease.v2","lease_id":"00000000-0000-4000-8000-000000000001","suite_id":"%s","run_id":"%s","cleanup_state":"not_started","resources":[{"kind":"container","service":"postgres","container_id":"postgres-container-proof"},{"kind":"container","service":"object_store","container_id":"object-store-container-proof"}]}\n' \
   "$suite_id" "$run_id" >"$private_suite_root/test-services/service-lease.json"
 chmod 600 "$private_suite_root/test-services/service-lease.json"
 printf '{"database_name":"ct_web_test","bucket":"ct-web-test"}\n' >"$runtime_root/test-services-web-e2e.json"

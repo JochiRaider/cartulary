@@ -6,7 +6,7 @@ import {
   validateSchemaSync,
 } from "../../contract/index.mjs";
 
-const graphSchemaID = "cartulary.harness_work_graph.v6";
+const graphSchemaID = "cartulary.harness_work_graph.v7";
 
 export function loadWorkGraphOwner(root) {
   const owner = readOperationOwner(root);
@@ -66,6 +66,10 @@ export function validateWorkGraph(graph, { capacities } = {}) {
     if (Object.keys(unit.resource_claims).length === 0) {
       throw new Error(`${unit.unit_id}.resource_claims must bound executable work`);
     }
+    if ((unit.renderer_requirement === "none") !== !unit.physical_allocations.renderer ||
+        (unit.fixture_lease === "browser_stack") !== !!unit.physical_allocations.browser_stack ||
+        ["postgres","object_store"].some(service => unit.service_dependencies.includes(service) !== !!unit.physical_allocations[service])) throw new Error(`${unit.unit_id} physical allocation requirements do not match execution`);
+    if (Object.values(unit.physical_allocations).some(claims => claims.cpu || claims.io)) throw new Error(`${unit.unit_id} resident allocation contains active claims`);
     assertSortedUnique(unit.needs, `${unit.unit_id}.needs`);
     assertSortedUnique(
       unit.service_dependencies,
@@ -141,7 +145,9 @@ export function validateWorkGraph(graph, { capacities } = {}) {
       }
     }
     if (capacities) {
-      for (const [resource, amount] of Object.entries(unit.resource_claims)) {
+      const combined = {...unit.resource_claims};
+      for (const claims of Object.values(unit.physical_allocations)) for (const [key,amount] of Object.entries(claims)) combined[key] = (combined[key] ?? 0) + amount;
+      for (const [resource, amount] of Object.entries(combined)) {
         const limit = capacities.get(resource);
         if (!Number.isInteger(limit) || limit < amount) {
           throw new Error(
@@ -174,7 +180,7 @@ export function validateWorkGraph(graph, { capacities } = {}) {
   return graph;
 }
 
-export function buildWorkGraph(units) {
+export function buildWorkGraph(units, topology) {
   const byID = new Map();
   for (const rawUnit of units) {
     if (!Array.isArray(rawUnit.service_dependencies)) {
@@ -197,6 +203,12 @@ export function buildWorkGraph(units) {
     }
     const unit = finalizeUnit({
       ...rawUnit,
+      renderer_requirement: rawUnit.renderer_requirement ?? "none",
+      physical_allocations: rawUnit.physical_allocations ?? (topology ? Object.fromEntries([
+        ...rawUnit.service_dependencies,
+        ...(rawUnit.fixture_lease === "browser_stack" ? ["browser_stack"] : []),
+        ...(rawUnit.renderer_requirement && rawUnit.renderer_requirement !== "none" ? ["renderer"] : []),
+      ].sort().map(kind => [kind, topology.physical_resource_claims[kind]])) : {}),
       row_bindings: [...(rawUnit.row_bindings ?? [])].sort((a, b) => a.row_id < b.row_id ? -1 : a.row_id > b.row_id ? 1 : 0),
       service_dependencies: [...rawUnit.service_dependencies],
       shared_locks: [...new Set(sharedLocks)].sort(),

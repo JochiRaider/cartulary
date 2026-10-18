@@ -13,19 +13,26 @@ import (
 // is unnecessary for WAL durability. Unlike FILE_COPY's file-sync traversal,
 // this uses PostgreSQL's ordinary interrupt-aware block-copy path.
 // created reports successful CREATE even if lock release fails. The caller
-// owns subsequent provisioning and cleanup of that proven-created target.
+// owns cleanup of that proven-created target after any finalization failure.
 // Failed CREATE never grants ownership of an existing database.
-func CloneDatabase(ctx context.Context, adminDSN, target, template string, admissionLimit time.Duration) (created bool, err error) {
+func CloneDatabase(ctx context.Context, adminDSN, target, template string, admissionLimit time.Duration, finalize func(*sql.Conn) error) (created bool, err error) {
+	if finalize == nil {
+		return false, errors.New("postgres clone finalizer required")
+	}
 	if !cloneIdentifier(target) || !cloneIdentifier(template) || target == template {
 		return false, errors.New("postgres template clone requires distinct safe database identities")
 	}
 	err = WithMutation(ctx, adminDSN, target, admissionLimit, func(admin *sql.Conn) error {
-		statement := fmt.Sprintf(`CREATE DATABASE "%s" TEMPLATE "%s" STRATEGY WAL_LOG`, target, template)
+		statement := fmt.Sprintf(`CREATE DATABASE "%s" TEMPLATE "%s" STRATEGY WAL_LOG ALLOW_CONNECTIONS false`, target, template)
 		if _, err := admin.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("create postgres template clone: %w", err)
 		}
 		created = true
-		return nil
+		if err := finalize(admin); err != nil {
+			return err
+		}
+		_, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" ALLOW_CONNECTIONS true`, target))
+		return err
 	})
 	return created, err
 }

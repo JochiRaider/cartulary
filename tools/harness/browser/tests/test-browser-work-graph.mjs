@@ -1285,9 +1285,9 @@ for (const unit of visualGraph.units.filter((entry) =>
 )) {
   assert.ok(
     unit.current_run_evidence_outputs.some((output) =>
-      output.endsWith("/renderer-profile-attestation.json"),
+      output.endsWith("/browser-group-result.json"),
     ),
-    `${unit.unit_id} must retain renderer attestation`,
+    `${unit.unit_id} must retain its logical borrow and physical attestation reference`,
   );
 }
 const visualUpdateGraph = compiler.compile({
@@ -1640,10 +1640,13 @@ for (const unit of [...functionalResets, ...functionalGroups]) {
   assert.equal(unit.resource_claims.postgres,
     resourceProfiles.get(unit.command.environment.CARTULARY_BROWSER_RESOURCE_PROFILE_ID).postgres,
     `${unit.unit_id} must claim its authored profile's PostgreSQL tokens`);
-  assert.equal(unit.resource_claims.browser_stack, 1);
-  assert.equal(unit.resource_claims.port_lane, 1);
+  assert.equal(unit.resource_claims.browser_stack, undefined);
+  assert.equal(unit.resource_claims.port_lane, undefined);
+  assert.deepEqual(unit.physical_allocations.browser_stack, compiler.topology.physical_resource_claims.browser_stack);
 }
 for (const unit of functionalGroups) {
+  assert.equal(unit.renderer_requirement, "pooled");
+  assert.deepEqual(unit.physical_allocations.renderer, compiler.topology.physical_resource_claims.renderer);
   assert.equal(unit.command.environment.CARTULARY_BROWSER_SESSION_CONTRACT,
     functionalContracts.get(unit.unit_id.split(":").at(-1)),
     "lane isolation must preserve the authored attachment contract");

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.browser_group_result.v8",
+  "$id": "cartulary.browser_group_result.v9",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -22,11 +22,12 @@
     "exit_code",
     "row_results",
     "session_artifacts",
-    "artifacts"
+    "artifacts",
+    "renderer_borrow"
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.browser_group_result.v8"
+      "const": "cartulary.browser_group_result.v9"
     },
     "target_id": {
       "type": "string",
@@ -200,6 +201,47 @@
         "stderr": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "renderer_borrow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "borrow_id",
+        "allocation_id",
+        "generation",
+        "attestation_ref",
+        "trust_ref",
+        "unit_id"
+      ],
+      "properties": {
+        "borrow_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "allocation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "generation": {
+          "type": "string",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "attestation_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "trust_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "unit_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
         }
       }
     }

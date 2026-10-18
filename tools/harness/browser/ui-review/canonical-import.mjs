@@ -98,7 +98,8 @@ export async function importCanonical(request) {
     if (fixture && !fixture.capture_profiles[capture.expected_golden_path]) throw new ReviewFailure("invalid_artifact");
     if (fixture) for (const [key, value] of Object.entries(fixture.capture_profiles[capture.expected_golden_path] ?? {})) if (capture.capture_profile[key] !== value) throw new ReviewFailure("invalid_artifact");
     const groups = target.group_results.map((ref) => {
-      const group = readJSON(containedFile(root, ref.ref), "cartulary.browser_group_result.v8", ref.sha256).value;
+      const group = readJSON(containedFile(root, ref.ref), "cartulary.browser_group_result.v9", ref.sha256).value;
+      readRendererEvidence(root, group, manifest.run_id);
       if (group.target_id !== target.target_id || group.group_id !== ref.group_id || group.browser_session_id !== ref.browser_session_id || group.stage_id !== "visual") throw new ReviewFailure("invalid_artifact");
       return group;
     });
@@ -162,3 +163,4 @@ export function canonicalComparison(source) {
   if (!metadata || !fixture?.capture_scope || !Array.isArray(fixture.dynamic_masks) || typeof fixture.no_dynamic_regions !== "boolean" || (fixture.no_dynamic_regions ? fixture.dynamic_masks.length !== 0 : fixture.dynamic_masks.length === 0)) return null;
   return freeze({ renderer: source.renderer_profile_id, source_kind: source.kind, runtime: source.runtime_profile_id, profile: structuredClone(metadata.capture_intent.capture_profile), capture_id: metadata.capture_intent.capture_id, scenario: metadata.capture_intent.scenario_id, scope: structuredClone(fixture.capture_scope), masks: [...fixture.dynamic_masks].sort(), no_dynamic_regions: fixture.no_dynamic_regions });
 }
+import { readRendererEvidence } from "../renderer-attachment.mjs";

@@ -10,6 +10,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -200,6 +201,7 @@ type Broker struct {
 	options        Options
 	shared         map[string]*entry
 	pending        map[string]chan struct{}
+	reserved       map[string]int
 	allocations    []*entry
 	active         map[*Lease]bool
 	acquiring      sync.WaitGroup
@@ -220,7 +222,52 @@ func New(options Options) *Broker {
 		options.Publish = func(LeaseRecord) error { return nil }
 	}
 	life, cancel := context.WithCancel(context.Background())
-	return &Broker{options: options, shared: map[string]*entry{}, pending: map[string]chan struct{}{}, active: map[*Lease]bool{}, life: life, cancel: cancel}
+	return &Broker{options: options, shared: map[string]*entry{}, pending: map[string]chan struct{}{}, reserved: map[string]int{}, active: map[*Lease]bool{}, life: life, cancel: cancel}
+}
+
+func sharedKey(request Request) string {
+	if request.Capability == "browser_stack" {
+		return request.Capability + ":" + request.Affinity + ":" + request.FixtureProfile + ":" + request.SnapshotKey
+	}
+	return ""
+}
+
+// Pin the stack identity while admission refers to its resident generation.
+// This is logical ownership only, never permission to start physical work.
+func (b *Broker) reserveStack(ctx context.Context, request Request) (func(), error) {
+	key := sharedKey(request)
+	if key == "" {
+		return func() {}, nil
+	}
+	for {
+		b.mu.Lock()
+		if b.closed || ctx.Err() != nil {
+			b.mu.Unlock()
+			return nil, context.Canceled
+		}
+		if pending := b.pending[key]; pending != nil {
+			b.mu.Unlock()
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-pending:
+			}
+			continue
+		}
+		b.reserved[key]++
+		b.mu.Unlock()
+		var once sync.Once
+		return func() {
+			once.Do(func() {
+				b.mu.Lock()
+				defer b.mu.Unlock()
+				b.reserved[key]--
+				if b.reserved[key] == 0 {
+					delete(b.reserved, key)
+				}
+			})
+		}, nil
+	}
 }
 func validRecord(record LeaseRecord) error {
 	bytes, err := json.Marshal(record)
@@ -285,10 +332,7 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 	if err := validRecord(probe); err != nil {
 		return nil, fixtureFailure(err)
 	}
-	key := ""
-	if request.Capability == "browser_stack" {
-		key = request.Capability + ":" + request.Affinity + ":" + request.FixtureProfile + ":" + request.SnapshotKey
-	}
+	key := sharedKey(request)
 	var e *entry
 	creator := false
 	for {
@@ -311,6 +355,14 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 			continue
 		}
 		e = b.shared[key]
+		if key != "" {
+			for _, prior := range b.allocations {
+				if prior.key == key && prior.tainted && !prior.settled && prior.refs == 0 {
+					b.mu.Unlock()
+					return nil, CleanupFailure(ErrCleanupBlocked)
+				}
+			}
+		}
 		if e == nil {
 			creator = true
 			if key != "" {
@@ -443,6 +495,7 @@ func (b *Broker) clean(ctx context.Context, e *entry) error {
 		}
 		b.mu.Lock()
 		e.settled = physical == nil
+		e.tainted = e.tainted || physical != nil
 		if lease != nil {
 			lease.record.State = "released"
 			if tainted {
@@ -540,6 +593,62 @@ func (b *Broker) Unresolved() bool {
 	}
 	return false
 }
+
+// RetireIdle closes ordinary, unborrowed stacks before an exclusive allocation.
+// Future consumers acquire a fresh database or their sealed fixture snapshot;
+// existing reset operations and group boundaries still execute unchanged.
+func (b *Broker) RetireIdle(ctx context.Context) error {
+	_, err := b.retireIdle(ctx, 0, nil, b.clean)
+	return err
+}
+
+// Pressure retirement uses the same settlement path as exclusive retirement,
+// selecting at most one eligible allocation before admission is evaluated again.
+func (b *Broker) retireIdle(ctx context.Context, maximum int, needed func(Request) (bool, error), cleanup func(context.Context, *entry) error) (int, error) {
+	b.mu.Lock()
+	entries := []*entry{}
+	for _, e := range b.allocations {
+		if e.request.Capability == "browser_stack" && e.refs == 0 && b.reserved[e.key] == 0 && !e.settled && b.shared[e.key] == e {
+			entries = append(entries, e)
+		}
+	}
+	b.mu.Unlock()
+	slices.SortFunc(entries, func(a, b *entry) int { return strings.Compare(a.request.AllocationRef, b.request.AllocationRef) })
+	var result error
+	retired := 0
+	for _, e := range entries {
+		if needed != nil {
+			match, err := needed(e.request)
+			if err != nil {
+				return retired, errors.Join(result, err)
+			}
+			if !match {
+				continue
+			}
+		}
+		b.mu.Lock()
+		// Selection runs outside the broker lock. Recheck the borrower boundary
+		// before revoking this allocation and blocking a concurrent acquisition.
+		if e.refs != 0 || b.reserved[e.key] != 0 || e.settled || b.shared[e.key] != e {
+			b.mu.Unlock()
+			continue
+		}
+		b.unshare(e)
+		b.pending[e.key] = make(chan struct{})
+		b.mu.Unlock()
+		result = errors.Join(result, cleanup(ctx, e))
+		b.mu.Lock()
+		close(b.pending[e.key])
+		delete(b.pending, e.key)
+		b.mu.Unlock()
+		retired++
+		if maximum > 0 && retired >= maximum {
+			break
+		}
+	}
+	return retired, result
+}
+
 func (b *Broker) Close(ctx context.Context) error {
 	b.closeOnce.Do(func() {
 		b.mu.Lock()

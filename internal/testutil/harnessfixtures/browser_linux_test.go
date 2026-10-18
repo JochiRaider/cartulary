@@ -17,6 +17,7 @@ import (
 )
 
 func TestFixtureBrowserAdapter(t *testing.T) {
+	testRendererOwnership(t)
 	node := os.Getenv("NODE_BIN")
 	if node == "" {
 		t.Fatal("Make-owned Node binding required")
@@ -71,7 +72,7 @@ func TestFixtureBrowserAdapter(t *testing.T) {
 		}
 		defer runtime.Close()
 		suite := filepath.Join(runtime.Root, "test-services", "suite-lease.json")
-		writeFixtureJSON(t, suite, map[string]any{"schema_id": "cartulary.test_services.lease.v1", "run_id": runtime.RunID, "suite_id": "fixture-suite", "lease_id": runtime.LeaseID, "result_root": filepath.Dir(run), "run_root": filepath.Join(filepath.Dir(run), runtime.RunID), "target": "browser-e2e", "mode": "owned", "ownership_mode": "owned", "owner_pid": os.Getpid(), "created_at": time.Now().UTC().Format(time.RFC3339Nano), "resources": []any{}, "proof_labels": map[string]any{}, "proof_prefixes": map[string]any{}, "cleanup_state": "not_started"})
+		writeFixtureJSON(t, suite, map[string]any{"schema_id": "cartulary.test_services.lease.v2", "postgres_provisioning": nil, "run_id": runtime.RunID, "suite_id": "fixture-suite", "lease_id": runtime.LeaseID, "result_root": filepath.Dir(run), "run_root": filepath.Join(filepath.Dir(run), runtime.RunID), "target": "browser-e2e", "mode": "owned", "ownership_mode": "owned", "owner_pid": os.Getpid(), "created_at": time.Now().UTC().Format(time.RFC3339Nano), "resources": []any{}, "proof_labels": map[string]any{}, "proof_prefixes": map[string]any{}, "cleanup_state": "not_started"})
 		sessionRoot, _ := runtime.RecoveryPath("browser-stack-leases", "attempt")
 		directory, err := harnesslocal.PrivateDirectory(sessionRoot)
 		if err != nil {

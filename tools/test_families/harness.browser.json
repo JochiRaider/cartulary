@@ -1219,8 +1219,8 @@
         ]
       },
       "evidence_class": "integration",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "harness_contract",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "harness_installed_browser",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
@@ -1510,15 +1510,12 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "browser_functional",
+      "resource_profile_id": "harness_installed_browser",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+      "service_dependencies": []
     },
     {
       "row_id": "harness.browser.integration.ui_review_seeded_network_flow_claimed",
@@ -1536,15 +1533,12 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "network_flow_claimed",
-      "resource_profile_id": "browser_functional",
+      "resource_profile_id": "harness_installed_browser",
       "claim_posture": "implementation",
       "status": "active",
       "fixture_capability": "none",
       "minimum_tier": "full",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+      "service_dependencies": []
     },
     {
       "row_id": "harness.browser.integration.wstest_helper_contract",
@@ -1621,11 +1615,9 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "object_store_namespace",
+      "fixture_capability": "none",
       "minimum_tier": "full",
-      "service_dependencies": [
-        "object_store"
-      ]
+      "service_dependencies": []
     },
     {
       "row_id": "harness.browser.unit.httptestx_helper_contract",
@@ -1905,7 +1897,7 @@
           "TestPostgresSetupEnvelopeNormalizesReadinessAndCancellation",
           "TestPostgresWaitReadyRespectsContextCancellation",
           "TestPrepareIsolatedDatabaseTUsesFreshTemplateClones",
-          "TestStartSharedFallsBackToOwnedHarnessWhenAttachEnvIsAbsent",
+          "TestStartSharedRequiresExplicitAttachment",
           "TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness",
           "TestValidateSelectedPostgresFixturePolicy"
         ]

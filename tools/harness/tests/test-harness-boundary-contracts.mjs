@@ -109,10 +109,10 @@ test("retired private process dispatch rejects without signaling a live owned pr
   await once(child.stdout,"data");
   const proof=ownedProcess(child.pid);
   const resource={kind:"helper_process",target:proof,state:"acquired",run_id:runtime.runID,lease_id:runtime.leaseID,depends_on:[],recovery_files:[]};
-  validateSchemaSync("cartulary.harness_runtime_resource.v1",resource);
+  validateSchemaSync("cartulary.harness_runtime_resource.v2",resource);
   runtime.record(resource);
   try {
-    assert.throws(()=>validateSchemaSync("cartulary.harness_runtime_resource.v1",{...resource,kind:"preparation_process"}));
+    assert.throws(()=>validateSchemaSync("cartulary.harness_runtime_resource.v2",{...resource,kind:"preparation_process"}));
     const result=spawnSync(process.execPath,[path.join(repository,"tools/harness/runtime/resource-stop-private.mjs")],{
       cwd:repository,env:{...process.env,...runtime.producerEnvironment(),CARTULARY_HARNESS_PHYSICAL_OUTPUT_ROOT:runRoot},input:JSON.stringify(resource),timeout:10000,encoding:"utf8"});
     assert.equal(result.error,undefined);assert.equal(result.status,12);

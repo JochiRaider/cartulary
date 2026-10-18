@@ -246,7 +246,7 @@ credentials and must never be copied into retained diagnostics. Cleanup-only
 failure is `harness/cleanup_error`; an accompanying product failure keeps its
 primary classification while the cleanup observation remains in the report and
 failure dossiers. Current row results use `cartulary.harness_row_result.v4` and
-browser-group results use `cartulary.browser_group_result.v8`; prior versions are
+browser-group results use `cartulary.browser_group_result.v9`; prior versions are
 archival inputs, not active-run fallbacks. Forced termination or missing terminal
 evidence cannot pass.
 
@@ -297,8 +297,8 @@ strategy diagnostic is capped at the deterministic 32 most costly aggregates;
 the ten slowest individual fixture activities remain separately bounded.
 Browser sessions retain only a compact
 `cartulary.test_services.browser_admission.v1` proof and publish
-`cartulary.web_e2e_stack.v6`; scope v1, per-event JSON directories, copied scope
-admissions, and stack v5 are historical archives rather than current inputs.
+`cartulary.web_e2e_stack.v8`; scope v1, per-event JSON directories, copied scope
+admissions, and stacks v5–v7 are historical archives rather than current inputs.
 
 Per-test Postgres databases are eager-cleanup resources. Create unmigrated
 scratch databases with `NewDatabaseT`, current-head clones with
@@ -359,11 +359,11 @@ finalizer still deletes the bucket exactly once.
 The first executable browser group owns its stack lease directly; there is no
 synthetic readiness borrower between stack publication and attachment. Reset
 and later group units retain the same healthy affinity allocation, and the
-terminal group releases it. This keeps immutable stack-v6 and compact admission
+terminal group releases it. This keeps immutable stack-v8 and compact admission
 evidence available throughout the consuming command while preserving exact
 process, port, database, bucket, and private-runtime cleanup. Session startup
 binds both readiness timestamps after their probes and fails unless the broker
-can verify the complete owner-only stack-v6/admission pair before returning the
+can verify the complete owner-only stack-v8/admission pair before returning the
 allocation; a diagnostics-only session is never attachable. Publication steps
 propagate their status explicitly through timing wrappers, and retained session
 directories are single-use identities: a collision is rejected rather than
@@ -372,7 +372,7 @@ cleared or republished.
 ## Harness Evidence and Cache Cutover
 
 Current harness runs emit `cartulary.harness_unit_event.v2`, compile
-`cartulary.harness_work_graph.v6`, and read or write only
+`cartulary.harness_work_graph.v7`, and read or write only
 `cartulary.harness_cache_record.v2`. There are no compatibility readers or dual
 writes for the retired event v1, graph v3, or cache-record v1 formats. Historical
 result roots remain manually inspectable archives, but cannot be retained as
@@ -478,9 +478,9 @@ After narrow checks pass, select broader validation in proportion to risk. The
 common progression is:
 
 ```sh
-make test-fast
-make check
+make test-slice OWNER=<owner-id> ROWS=<selected-row-ids>
 make agent-finalize
+make ci
 ```
 
 Run `make agent-finalize RESULTS_DIR=<compatible-successful-run-root>` only when
@@ -524,6 +524,46 @@ retained run with the existing `explain-run` performance/resources views and
 `harness-observability-check`; use `make help` for the public command surface.
 A passing diagnostic inspection does not establish test acceptance or performance
 qualification.
+
+## Shared Test Infrastructure
+
+The native fixture owner separates resident infrastructure from active work.
+Ordinary browser groups borrow a renderer attachment; they do not start or stop
+the container. Reuse retains the Playwright server, installed packages and
+immutable public trust. Chromium connections and test contexts remain fresh.
+Application affinity, reset boundaries and fixture quarantine remain independent
+of renderer sharing. Measurement and seeded UI review use dedicated lifetimes.
+
+Idle stacks retain ports as well as memory and processes. Under persistent
+capacity pressure, the owner retires one eligible idle renderer or stack and
+rechecks admission. Pending borrowers pin their selected stack generation;
+later consumers of a retired stack receive fresh database and certificate state.
+Installed browser lifecycle tests reserve their dedicated infrastructure footprint
+before execution, without provisioning unused outer services. An older admission
+request keeps priority while active work drains; durable resident pressure alone
+permits fitting consumers to bypass it.
+
+PostgreSQL owners initialize fixed cluster prerequisites before publishing a
+service generation. Fresh databases receive database-local preparation before
+migration. Template clones are created with connections disabled, receive only
+their own database grants, and then become connectable. Canonical consumers
+require current explicit service metadata. A consumer never repairs an old
+service or starts a replacement because attachment failed.
+Local-session creation and cleanup queue within the existing preparation and
+drain bounds. Their lifecycle lock spans admission, services start only after a
+grant, and cancellation withdraws a pending request without publishing a session.
+
+For the pre-production cutover, finish old invocations before replacing the
+admission format. Close existing local sessions with their owning version before
+recreating them. Do not delete a sibling run or manually sweep its resources.
+Historical attachments and evidence are not converted into current acceptance.
+
+Validate structural guarantees with focused owner selections and the existing
+lifecycle evidence: one cluster initialization, no role DDL on ordinary clones,
+one physical renderer generation across compatible borrows, separate row
+outcomes, and capacity release only after confirmed physical cleanup. Run one
+comprehensive completion gate after finalization. A new timing baseline,
+benchmark gate or golden refresh is not part of this infrastructure change.
 
 The terminal execution index distinguishes launch attempts, physical process
 proof, allocation attempts, successful leases, and owner-local activities. A

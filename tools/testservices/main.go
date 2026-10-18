@@ -94,6 +94,7 @@ var (
 )
 
 type postgresService struct {
+	generation   string
 	cleanupFiles []string
 	adminDSN     string
 	dsnTemplate  string
@@ -508,6 +509,9 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	childEnv[suiteservices.PGDSNTemplateEnv] = postgresSvc.dsnTemplate
 	childEnv[suiteservices.PGTemplateDBEnv] = templateDB
 	childEnv[suiteservices.PGSchemaHashEnv] = schemaHash
+	childEnv[suiteservices.PGGenerationEnv] = postgresSvc.generation
+	childEnv[suiteservices.PGProvisioningDigestEnv] = pgtest.ProvisioningDigest()
+	childEnv[suiteservices.PGTemplateDigestEnv] = pgtest.TemplateDigest(schemaHash)
 	childEnv[suiteservices.S3EndpointEnv] = objectStoreSvc.endpoint
 	childEnv[suiteservices.S3AccessKeyEnv] = objectStoreSvc.accessKey
 	childEnv[suiteservices.S3SecretKeyEnv] = objectStoreSvc.secretKey
@@ -750,6 +754,9 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	childEnv[suiteservices.PGDSNTemplateEnv] = postgresSvc.dsnTemplate
 	childEnv[suiteservices.PGTemplateDBEnv] = templateDB
 	childEnv[suiteservices.PGSchemaHashEnv] = schemaHash
+	childEnv[suiteservices.PGGenerationEnv] = postgresSvc.generation
+	childEnv[suiteservices.PGProvisioningDigestEnv] = pgtest.ProvisioningDigest()
+	childEnv[suiteservices.PGTemplateDigestEnv] = pgtest.TemplateDigest(schemaHash)
 	childEnv[suiteservices.S3EndpointEnv] = objectStoreSvc.endpoint
 	childEnv[suiteservices.S3AccessKeyEnv] = objectStoreSvc.accessKey
 	childEnv[suiteservices.S3SecretKeyEnv] = objectStoreSvc.secretKey
@@ -1474,7 +1481,7 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 	delete(proofLabels, leaseproof.LabelService)
 	now := time.Now().UTC()
 	lease := leaseproof.Lease{
-		SchemaID:      "cartulary.test_services.lease.v1",
+		SchemaID:      "cartulary.test_services.lease.v2",
 		LeaseID:       leaseID,
 		SuiteID:       suiteservices.SuiteID(env),
 		RunID:         runID,
@@ -1515,6 +1522,9 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 	if err != nil {
 		return "", err
 	}
+	if postgresSvc.generation != "" {
+		lease.PostgresProvisioning = &leaseproof.PostgresProvisioning{SchemaID: "cartulary.test_services.postgres_provisioning.v1", Generation: postgresSvc.generation, PolicyDigest: pgtest.ProvisioningDigest(), TemplateDigest: pgtest.TemplateDigest(pgschema.MustHash())}
+	}
 	lease.Resources = slices.DeleteFunc(lease.Resources, func(resource leaseproof.LeaseResource) bool {
 		return !slices.Contains(services, resource.Service)
 	})
@@ -1541,7 +1551,7 @@ func readServiceLease(path string) (leaseproof.Lease, error) {
 	if err := json.Unmarshal(raw, &lease); err != nil {
 		return leaseproof.Lease{}, err
 	}
-	if lease.SchemaID != "cartulary.test_services.lease.v1" {
+	if lease.SchemaID != "cartulary.test_services.lease.v2" {
 		return leaseproof.Lease{}, fmt.Errorf("unsupported suite service lease schema %q", lease.SchemaID)
 	}
 	if strings.TrimSpace(lease.SuiteID) == "" {
@@ -1683,6 +1693,7 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 	}
 	return postgresService{
 		cleanupFiles: harness.CleanupFiles(),
+		generation:   harness.ProvisioningGeneration(),
 		adminDSN:     harness.AdminDSN(),
 		dsnTemplate:  harness.DSNTemplate(),
 		host:         harness.Host,
@@ -1813,7 +1824,7 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 	if err := createDatabase(ctx, adminDSN, templateDB); err != nil {
 		return err
 	}
-	if err := pgtest.ProvisionDatabase(ctx, adminDSN, templateDB); err != nil {
+	if err := pgtest.PrepareFreshDatabase(ctx, adminDSN, templateDB); err != nil {
 		return err
 	}
 
@@ -3255,7 +3266,7 @@ func generateLeaseID() (string, error) {
 }
 
 func templateDatabaseName(suiteID string, schemaHash string) string {
-	return fmt.Sprintf("ct_tpl_%s_%s", suiteservices.ShortHash(suiteID, 8), pgschema.ShortHash(schemaHash))
+	return fmt.Sprintf("ct_tpl_%s_%s", suiteservices.ShortHash(suiteID, 8), pgschema.ShortHash(pgtest.TemplateDigest(schemaHash)))
 }
 
 func writeFileAtomic(path string, payload []byte, mode os.FileMode) error {

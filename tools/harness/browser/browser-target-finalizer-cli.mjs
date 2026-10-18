@@ -36,6 +36,7 @@ import {
 import { promoteVisualSnapshotCandidate } from "./visual-snapshot-promotion.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import { reportCommandFailure } from "../runtime/command-failure.mjs";
+import { readRendererEvidence } from "./renderer-attachment.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
@@ -94,8 +95,10 @@ function groupResult(base, groupID, target) {
   }
   const bytes = readFileSync(file);
   const result = JSON.parse(bytes.toString("utf8"));
-  validateSchemaSync("cartulary.browser_group_result.v8", result);
+  validateSchemaSync("cartulary.browser_group_result.v9", result);
+  const renderer = readRendererEvidence(base, result, process.env.CARTULARY_TEST_RUN_ID);
   return {
+    renderer,
     file,
     bytes,
     result,
@@ -153,9 +156,7 @@ function relativeToRun(base, file) {
 }
 
 function rendererAttestationPaths(groups) {
-  return groups.map((group) =>
-    path.join(path.dirname(group.file), "renderer-profile-attestation.json"),
-  );
+  return [...new Set(groups.map(group => group.renderer.attestationPath))];
 }
 
 async function measurementSchedulerOverlapCount(base, groups) {
@@ -167,6 +168,7 @@ async function measurementSchedulerOverlapCount(base, groups) {
 }
 
 async function writeTargetResult(base, options, groups, resets) {
+  if (new Set(groups.map(group => group.result.renderer_borrow.borrow_id)).size !== groups.length) throw new Error("renderer borrow claimed by multiple groups");
   const targetDirectory = path.join(base, options.target);
   const output = path.join(targetDirectory, "browser-target-result.json");
   if (existsSync(output)) {

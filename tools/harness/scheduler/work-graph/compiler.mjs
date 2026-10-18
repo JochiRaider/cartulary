@@ -228,6 +228,7 @@ function goShardUnit(
 }
 
 export class WorkGraphCompiler {
+  buildGraph(units) { return buildWorkGraph(units, this.topology); }
   constructor(root, { targetInputs = {} } = {}) {
     this.root = root;
     this.targetInputs = targetInputs;
@@ -437,7 +438,7 @@ export class WorkGraphCompiler {
         .flatMap((rowID) => needsForRow(this.catalog.rowByID.get(rowID))))].sort(compareASCII);
       return graph.units.map((unit) => unit.needs.length === 0 ? { ...unit, needs: prerequisites } : unit);
     });
-    return buildWorkGraph([
+    return this.buildGraph([
       ...prerequisiteUnits,
       ...goUnits,
       ...vitestUnits,
@@ -495,7 +496,7 @@ export class WorkGraphCompiler {
     const selected = resolvePrivateSelection(this, selection);
     const units = selected.rows.length ? this.compileRows(selected.rows, stack).units : [];
     for (const id of selected.operations) units.push(...this.compilePolicyTarget(id, stack).units);
-    return this.attachDependencies(buildWorkGraph(units), this.compileDependencies(selection, stack));
+    return this.attachDependencies(this.buildGraph(units), this.compileDependencies(selection, stack));
   }
 
   compileCommand(target, inputs) {
@@ -505,7 +506,7 @@ export class WorkGraphCompiler {
     const entry = this.taskSurface.targets.find((value) => value.name === target);
     const forwardedInputs = this.forwardedInputs(entry, selection.inputs);
     for (const id of selection.operations) units.push(...this.compilePolicyTarget(id, [], forwardedInputs).units);
-    return { graph: buildWorkGraph(units), inputs: selection.inputs };
+    return { graph: this.buildGraph(units), inputs: selection.inputs };
   }
 
   forwardedInputs(entry, inputs) {
@@ -535,7 +536,7 @@ export class WorkGraphCompiler {
       serviceDependencies,
       `policy ${target}`,
     );
-    return buildWorkGraph([
+    return this.buildGraph([
       {
         unit_id: `operation:${operationID}`,
         owner_id: "harness.command_surface",
@@ -578,7 +579,7 @@ export class WorkGraphCompiler {
       throw new Error(`policy dependency cycle ${[...stack, target].join(" -> ")}`);
     }
     const definition = this.policyForTarget(target);
-    if (!definition) return buildWorkGraph([]);
+    if (!definition) return this.buildGraph([]);
     const dependencyGraphs = [
       ...definition.needs.map((dependency) =>
         this.owner.target_members[dependency]
@@ -589,7 +590,7 @@ export class WorkGraphCompiler {
         ? [this.compileRows(policyDependencyRowIDs(this.owner, this.policyKeyForTarget(target), this.catalog.rows), [...stack, target])]
         : []),
     ];
-    return buildWorkGraph(dependencyGraphs.flatMap((graph) => graph.units));
+    return this.buildGraph(dependencyGraphs.flatMap((graph) => graph.units));
   }
 
   compilePolicyTarget(operationID, stack = [], forwardedInputs = {}) {
@@ -617,7 +618,7 @@ export class WorkGraphCompiler {
         ? { ...unit, needs: [...dependencyTerminals] }
         : unit,
     );
-    return buildWorkGraph([...dependencyUnits, ...attachedBase]);
+    return this.buildGraph([...dependencyUnits, ...attachedBase]);
   }
 
   aggregatePolicyRoots(target, seen = new Set()) {
@@ -771,7 +772,7 @@ export class WorkGraphCompiler {
           : this.compilePolicyTarget(policyTarget);
       units.push(...graph.units);
     }
-    return buildWorkGraph(units);
+    return this.buildGraph(units);
   }
 
   compile(selection) {

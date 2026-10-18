@@ -19,6 +19,7 @@ import {
   validateProfileMeasurementObservation,
 } from "../performance-fixture/index.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
+import { readRendererEvidence } from "./renderer-attachment.mjs";
 import {
   collectFrontendMeasurementObservations,
   currentUnitEventSource,
@@ -136,7 +137,7 @@ async function main() {
   );
   let group;
   try {
-    group = readArtifact(base, groupResultRelative, "cartulary.browser_group_result.v8");
+    group = readArtifact(base, groupResultRelative, "cartulary.browser_group_result.v9");
   } catch (error) {
     if (error.code === "ENOENT" && schedulerEvidence.dependency_skipped) return;
     throw error;
@@ -144,6 +145,7 @@ async function main() {
   if (schedulerEvidence.dependency_skipped) {
     throw new Error("measurement group result exists for a dependency-skipped scheduler unit");
   }
+  readRendererEvidence(base, group.artifact, process.env.CARTULARY_TEST_RUN_ID);
   if (
     group.artifact.target_id !== options.target ||
     group.artifact.stage_id !== options.stage ||

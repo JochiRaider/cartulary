@@ -33,7 +33,9 @@ function visualRendererUse(): NonNullable<PlaywrightTestConfig["use"]> {
   const profileId = process.env.CARTULARY_VISUAL_RENDERER_PROFILE_ID ?? "";
   const attested = process.env.CARTULARY_VISUAL_RENDERER_ATTESTED ?? "";
   const supplied = endpoint !== "" || profileId !== "" || attested !== "";
-  if (!supplied) return {};
+  if (!supplied || !process.env.CARTULARY_RENDERER_ATTACHMENT) {
+    throw new Error("Playwright requires a native renderer borrow attachment");
+  }
   const profile = attestedVisualRendererProfile();
   if (
     attested !== "1" ||

@@ -290,7 +290,7 @@ function writeServiceAdmission() {
   const serviceLeaseBytes = readFileSync(serviceLease);
   const activeLease = JSON.parse(serviceLeaseBytes);
   if (
-    activeLease.schema_id !== "cartulary.test_services.lease.v1" ||
+    activeLease.schema_id !== "cartulary.test_services.lease.v2" ||
     activeLease.suite_id !== scope.suite_id ||
     activeLease.run_id !== scope.run_id ||
     activeLease.cleanup_state !== "not_started"

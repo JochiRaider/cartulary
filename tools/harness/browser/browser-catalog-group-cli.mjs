@@ -30,7 +30,7 @@ import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
 import { selectedBrowserGroupRowIDs } from "./browser-group-selection.mjs";
 import { attachmentAssignments } from "./browser-session-evidence.mjs";
 import { collectFrontendMeasurementObservations } from "./frontend-measurement-evidence.mjs";
-import { startVisualRendererLease } from "./visual-renderer-lease.mjs";
+import { readRendererAttachment } from "./renderer-attachment.mjs";
 import { stageVisualSnapshotCandidate } from "./visual-snapshot-promotion.mjs";
 import { removePlaywrightWorkingTraces } from "./playwright-output-cleanup.mjs";
 
@@ -260,12 +260,11 @@ async function main() {
   const stderrPath = path.join(artifactRoot, "stderr.log");
   const selection = resolvePlaywrightSelection(root, rows);
   const invocation = commandForGroup(rows, selection, group, artifactRoot);
-  const rendererLease = await startVisualRendererLease({ root, environment: process.env });
+  const rendererLease = readRendererAttachment(process.env);
   let captureProof, captureStop, signalCleanupError, interruptedSignal;
   const onSignal = (signal) => {
     interruptedSignal ??= signal;
     if (captureProof) captureStop ??= stopOwnedProcess(captureProof).catch((error) => { signalCleanupError = error; });
-    try { rendererLease?.cleanup(); } catch (error) { signalCleanupError = error; }
   };
   const onInterrupt = () => onSignal("SIGINT");
   const onTerminate = () => onSignal("SIGTERM");
@@ -277,13 +276,6 @@ async function main() {
   let primaryError;
   let cleanupError;
   try {
-  if (rendererLease !== null) {
-    secureWriteFile(path.join(artifactRoot, "tls-trust-attestation.json"), `${JSON.stringify(rendererLease.trustAttestation, null, 2)}\n`);
-    secureWriteFile(
-      path.join(artifactRoot, "renderer-profile-attestation.json"),
-      `${JSON.stringify(rendererLease.attestation, null, 2)}\n`,
-    );
-  }
     child = await runPrivateCapturedProcess(invocation.command, invocation.args, {
       producer: "playwright", dependencies: JSON.parse(process.env.CARTULARY_HARNESS_RESOURCE_DEPENDENCIES),
       cwd: root,
@@ -291,7 +283,7 @@ async function main() {
       onSpawn: (process) => { captureProof = ownedProcess(process.pid); if (interruptedSignal) onSignal(interruptedSignal); },
       env: {
         ...process.env,
-        ...(rendererLease?.environment ?? {}),
+        ...rendererLease.environment,
         PLAYWRIGHT_JSON_OUTPUT_FILE: reportPath,
         PLAYWRIGHT_WORKERS: group.workers === "default" ? (process.env.PLAYWRIGHT_WORKERS || "2") : group.workers,
         CARTULARY_PLAYWRIGHT_WORKER_COUNT:
@@ -319,7 +311,7 @@ async function main() {
       if (captureProof) await stopOwnedProcess(captureProof);
       removePlaywrightWorkingTraces(path.join(artifactRoot, "playwright-output"));
     } catch (error) { cleanupError ??= error; }
-    for (const release of [() => child?.cleanup(), () => rendererLease?.cleanup()]) {
+    for (const release of [() => child?.cleanup()]) {
       try { release(); }
       catch (error) { cleanupError ??= error; }
     }
@@ -374,7 +366,8 @@ async function main() {
   const wallDurationMs = Date.now() - started;
   writeRowResults(rowResults, "playwright", startedAt, finishedAt, wallDurationMs);
   const result = {
-    schema_id: "cartulary.browser_group_result.v8",
+    schema_id: "cartulary.browser_group_result.v9",
+    renderer_borrow: { unit_id: rendererLease.unit_id, borrow_id: rendererLease.borrow_id, allocation_id: rendererLease.allocation_id, generation: rendererLease.generation, attestation_ref: rendererLease.attestation_ref, trust_ref: rendererLease.trust_ref },
     target_id: target,
     stage_id: stage.name,
     group_id: group.name,

@@ -3,6 +3,7 @@ package harnessfixtures
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,6 +17,81 @@ func testRequest() Request {
 	return Request{Capability: "browser_stack", UnitID: "unit:a", Affinity: "browser"}
 }
 func TestFixtureBrokerOwnership(t *testing.T) {
+	t.Run("pressure_retires_one_eligible_idle_stack_and_reacquires_fresh_state", func(t *testing.T) {
+		released := []string{}
+		b := New(Options{Providers: map[string]Provider{"browser_stack": &ProviderFuncs{AcquireFunc: func(_ context.Context, request Request) (*Allocation, error) {
+			return ownedAllocation(func(context.Context, bool) error { released = append(released, request.Affinity); return nil }), nil
+		}}}})
+		leases := map[string]*Lease{}
+		for _, name := range []string{"active", "idle-a", "idle-b", "unrelated"} {
+			request := testRequest()
+			request.Affinity, request.UnitID = name, name
+			lease, err := b.Acquire(t.Context(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			leases[name] = lease
+			if name != "active" {
+				if _, err := lease.Release(t.Context(), true, true); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		reservation := testRequest()
+		reservation.Affinity = "idle-a"
+		unpin, err := b.reserveStack(t.Context(), reservation)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer unpin()
+		needed := func(request Request) (bool, error) { return request.Affinity != "unrelated", nil }
+		count, err := b.retireIdle(t.Context(), 1, needed, b.clean)
+		if err != nil || count != 1 || !slices.Equal(released, []string{"idle-b"}) {
+			t.Fatal("pressure retirement crossed its borrower or selection boundary", count, released, err)
+		}
+		request := testRequest()
+		request.Affinity, request.UnitID = released[0], "replacement"
+		replacement, err := b.Acquire(t.Context(), request)
+		if err != nil || replacement.AllocationRef() == leases[released[0]].AllocationRef() {
+			t.Fatal("retired state reused", err)
+		}
+		if _, err := b.retireIdle(t.Context(), 1, func(Request) (bool, error) { return false, nil }, b.clean); err != nil || len(released) != 1 {
+			t.Fatal("unrelated pressure retired a stack", err)
+		}
+		if err := b.Close(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("idle_retirement_preserves_borrowers_and_reacquires_fresh_state", func(t *testing.T) {
+		acquired, released := 0, 0
+		b := New(Options{Providers: map[string]Provider{"browser_stack": &ProviderFuncs{AcquireFunc: func(context.Context, Request) (*Allocation, error) {
+			acquired++
+			return ownedAllocation(func(context.Context, bool) error { released++; return nil }), nil
+		}}}})
+		first, err := b.Acquire(t.Context(), testRequest())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := b.RetireIdle(t.Context()); err != nil || released != 0 {
+			t.Fatal("retired active borrower", err, released)
+		}
+		if _, err := first.Release(t.Context(), true, true); err != nil {
+			t.Fatal(err)
+		}
+		if err := b.RetireIdle(t.Context()); err != nil || released != 1 {
+			t.Fatal("idle retirement", err, released)
+		}
+		second, err := b.Acquire(t.Context(), testRequest())
+		if err != nil || acquired != 2 || first.AllocationRef() == second.AllocationRef() {
+			t.Fatal("fresh allocation required", err, acquired)
+		}
+		if _, err := second.Release(t.Context(), true, false); err != nil {
+			t.Fatal(err)
+		}
+		if err := b.Close(t.Context()); err != nil || released != 2 {
+			t.Fatal(err, released)
+		}
+	})
 	for _, borrowed := range []bool{false, true} {
 		name := "owned"
 		if borrowed {

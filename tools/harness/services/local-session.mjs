@@ -17,12 +17,14 @@ import {
 import path from "node:path";
 
 import { semanticJSONDigest, validateSchemaSync } from "../contract/index.mjs";
-import { processIdentity, processIdentityAlive } from "../runtime/host-admission.mjs";
+import { acquireHostAdmission, processIdentity, processIdentityAlive, hostClaims, hostAdmissionRoot, inheritedHostLease, transactAdmission } from "../runtime/host-admission.mjs";
+import { lifecyclePolicy } from "../contract/generated/lifecycle-policy.mjs";
+import { captureCapabilitySnapshot, resourceCapacities } from "../scheduler/work-graph/capability.mjs";
 import { parseStrictJSON } from "../contract/index.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { recoverRuntime, borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
 
-const descriptorSchemaID = "cartulary.test_services.local_session.v1";
+const descriptorSchemaID = "cartulary.test_services.local_session.v2";
 const statusSchemaID = "cartulary.test_services.local_session_status.v1";
 const sessionDurationMS = 24 * 60 * 60 * 1000;
 export function attachedSelectionAllowed(target, inputs) {
@@ -37,7 +39,7 @@ const callerServiceInputs = new Set([
 // The private schema owns the closed attachment environment; selection is its
 // projection so physical TLS bindings cannot drift from descriptor acceptance.
 const serviceEnvironmentNames = Object.freeze(JSON.parse(readFileSync(
-  new URL("../../schemas/cartulary.test_services.local_session.v1.schema.json", import.meta.url), "utf8",
+  new URL("../../schemas/cartulary.test_services.local_session.v2.schema.json", import.meta.url), "utf8",
 )).properties.environment.propertyNames.enum);
 
 const configInputs = ["db/migrations", "go.mod", "go.sum", "tools/toolchain_pins.json"];
@@ -267,8 +269,15 @@ function validateDescriptorSecurity(sessionFile, descriptor) {
   if (!contained(descriptor.state_root, descriptor.runtime_root)) {
     throw new Error("local service session runtime root escapes session state");
   }
+  if (!contained(descriptor.runtime_root, descriptor.resident_allocation.allocation.reference) || descriptor.resident_allocation.admission_root !== hostAdmissionRoot || descriptor.resident_allocation.allocation.parent !== null) throw new Error("local service reservation is outside its owner");
   if (!contained(descriptor.state_root, descriptor.service_lease.result_root)) {
     throw new Error("local service session lease result root escapes session state");
+  }
+  const provisioning = descriptor.service_lease.postgres_provisioning;
+  if (!provisioning || provisioning.generation !== descriptor.environment.CARTULARY_PGTEST_GENERATION ||
+      provisioning.policy_digest !== descriptor.environment.CARTULARY_PGTEST_PROVISIONING_DIGEST ||
+      provisioning.template_digest !== descriptor.environment.CARTULARY_PGTEST_TEMPLATE_DIGEST) {
+    throw new Error("local service session provisioning identity mismatch");
   }
   if (descriptor.service_lease.suite_id !== descriptor.session_id) {
     throw new Error("local service session lease identity does not match the descriptor");
@@ -358,6 +367,10 @@ function borrowerRecords(descriptor) {
 }
 
 function inspectDescriptor(descriptor, { root, binary, dependencies, strictCompatibility }) {
+  const reservation = descriptor.resident_allocation;
+  if (!(dependencies.admission ?? transactAdmission)({ root: reservation.admission_root, operation: "resident_granted", token: reservation.allocation.token, reference: reservation.allocation.reference })) {
+    return { state: "stale", compatible: false, reason: "container_missing", services: [] };
+  }
   const services = [];
   const inspected = [];
   for (const declared of descriptor.containers) {
@@ -423,7 +436,7 @@ function statusValue(assessment, descriptor, borrowerCount) {
   return value;
 }
 
-function withLifecycleLock(sessionFile, operation) {
+function acquireLifecycleLock(sessionFile) {
   ensurePrivateDirectory(path.dirname(sessionFile), "local service session directory");
   const lock = `${sessionFile}.lock`;
   try {
@@ -432,11 +445,16 @@ function withLifecycleLock(sessionFile, operation) {
     if (error?.code === "EEXIST") throw new Error("local service session lifecycle is already active");
     throw error;
   }
+  assertPrivateDirectory(lock, "local service session lifecycle lock");
+  return () => rmSync(lock, { recursive: true, force: false });
+}
+
+function withLifecycleLock(sessionFile, operation) {
+  const unlock = acquireLifecycleLock(sessionFile);
   try {
-    assertPrivateDirectory(lock, "local service session lifecycle lock");
     return operation();
   } finally {
-    rmSync(lock, { recursive: true, force: false });
+    unlock();
   }
 }
 
@@ -467,9 +485,10 @@ export function localSessionStatus({ root, binary, sessionFile, dependencies = {
   }
 }
 
-export function createLocalSession({ root, binary, sessionFile, environment = process.env, dependencies = {} }) {
+export async function createLocalSession({ root, binary, sessionFile, environment = process.env, signal, dependencies = {} }) {
   assertNoCallerServiceState(environment);
-  return withLifecycleLock(sessionFile, () => {
+  const unlock = acquireLifecycleLock(sessionFile);
+  try {
     if (existsSync(sessionFile)) {
       throw new Error("a local service session descriptor already exists; inspect or stop it first");
     }
@@ -493,7 +512,20 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
     const envFile = path.join(stateRoot, "suite-environment.json");
     const leaseFile = suiteRuntime.recoveryPath("test-services", "persistent-suite.json");
     ensurePrivateDirectory(path.dirname(leaseFile), "persistent suite proof directory");
-    suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "pending", depends_on: [] });
+    const physical = JSON.parse(readFileSync(path.join(root, "tools/execution_topology_manifest.json"))).physical_resource_claims;
+    const claims = hostClaims();
+    for (const service of ["postgres", "object_store"]) for (const [key, amount] of Object.entries(physical[service])) claims[key] += amount;
+    const reservationFile = suiteRuntime.recoveryPath("resident-allocations", "services.json");
+    const reservation = { schema_id: "cartulary.harness_resident_allocation.v1", admission_root: hostAdmissionRoot, allocation: { token: randomBytes(16).toString("hex"), reference: reservationFile, claims, capacities: hostClaims(Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({root})))), parent: null } };
+    writePrivateJSON(reservationFile, reservation);
+    const residentRef = suiteRuntime.record({ kind: "resident_allocation", target: reservationFile, state: "pending", depends_on: [], recovery_files: [reservationFile] });
+    suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "pending", depends_on: [residentRef] });
+    const admission = dependencies.admission ?? transactAdmission;
+    let active, primary;
+    const releaseReservation = () => {
+      admission({ root: reservation.admission_root, operation: "release_resident", token: reservation.allocation.token, reference: reservationFile });
+      suiteRuntime.record({ kind: "resident_allocation", target: reservationFile, state: "released" });
+    };
     const resultFile = path.join(stateRoot, "suite-start-result.json");
     const startEnvironment = {
       CARTULARY_TEST_SERVICES_PERSISTENT_SESSION: "1",
@@ -507,6 +539,9 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
       CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "session-up",
     };
     try {
+      active = await (dependencies.acquireAdmission ?? acquireHostAdmission)({ root: reservation.admission_root, mode: "shared", parent: inheritedHostLease(environment), claims: { cpu: 1, io: 1, memory_mb: 64, process: 1 }, capacities: reservation.allocation.capacities, residents: [reservation.allocation], signal, timeoutMs: lifecyclePolicy.limits.preparation });
+      startEnvironment.CARTULARY_HOST_ADMISSION_LEASE = active.token;
+      suiteRuntime.record({ kind: "resident_allocation", target: reservationFile, state: "acquired" });
       runTestservices(binary, [
         "start-suite",
         "--env-file", envFile,
@@ -579,6 +614,7 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
         environment: selectedEnvironment,
         containers,
         service_lease: serviceLease,
+        resident_allocation: reservation,
       };
       validateSchemaSync(descriptor.schema_id, descriptor);
       suiteRuntime.registerEnvironment(selectedEnvironment);
@@ -592,6 +628,7 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
         0,
       );
     } catch (error) {
+      primary = error;
       if (existsSync(leaseFile)) {
         try {
           runTestservices(binary, ["terminate-suite", "--lease", leaseFile], {
@@ -600,19 +637,25 @@ export function createLocalSession({ root, binary, sessionFile, environment = pr
             dependencies,
           });
           suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "released" });
-        } catch {
+          releaseReservation();
+        } catch (secondary) {
+          (error.cleanupFailures ??= []).push(secondary);
           // Preserve the primary creation failure; the state root remains for exact recovery.
         }
       }
       try {
         suiteRuntime.close();
         rmSync(stateRoot, { recursive: true, force: true });
-      } catch {
+      } catch (secondary) {
+        (error.cleanupFailures ??= []).push(secondary);
         // Preserve exact state for manual recovery if ownership validation fails.
       }
       throw error;
+    } finally {
+      try { await active?.release(); }
+      catch (error) { if (primary) (primary.cleanupFailures ??= []).push(error); else throw error; }
     }
-  });
+  } finally { unlock(); }
 }
 
 export function attachLocalSession({
@@ -713,8 +756,9 @@ export function detachLocalBorrower({ sessionFile, borrower }) {
   });
 }
 
-export function stopLocalSession({ root, binary, sessionFile, dependencies = {} }) {
-  return withLifecycleLock(sessionFile, () => {
+export async function stopLocalSession({ root, binary, sessionFile, signal, dependencies = {} }) {
+  const unlock = acquireLifecycleLock(sessionFile);
+  try {
     if (!existsSync(sessionFile)) {
       return statusValue(
         { state: "absent", compatible: false, reason: "descriptor_missing", services: [] },
@@ -745,6 +789,12 @@ export function stopLocalSession({ root, binary, sessionFile, dependencies = {} 
       CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: descriptor.runtime_lease_id,
       CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: descriptor.service_lease.run_id,
     };
+    const reservation = descriptor.resident_allocation;
+    const admission = dependencies.admission ?? transactAdmission;
+    const active = await (dependencies.acquireAdmission ?? acquireHostAdmission)({ root: reservation.admission_root, mode: "drain", parent: inheritedHostLease(), claims: { cpu: 1, io: 1, memory_mb: 64, process: 1 }, capacities: reservation.allocation.capacities, residents: [reservation.allocation], signal, timeoutMs: lifecyclePolicy.limits.drain });
+    terminateEnvironment.CARTULARY_HOST_ADMISSION_LEASE = active.token;
+    let primary;
+    try {
     runTestservices(binary, ["terminate-suite", "--lease", leaseFile], {
       root,
       environment: terminateEnvironment,
@@ -754,6 +804,8 @@ export function stopLocalSession({ root, binary, sessionFile, dependencies = {} 
     const runRoot = path.join(descriptor.service_lease.result_root, descriptor.service_lease.run_id);
     const runtime = borrowRuntime({ repoRoot: root, runRoot, environment: { ...process.env, ...terminateEnvironment } });
     runtime.record({ kind: "managed_suite", target: runtime.recoveryPath("test-services", "persistent-suite.json"), state: "released" });
+    admission({root:reservation.admission_root,operation:"release_resident",token:reservation.allocation.token,reference:reservation.allocation.reference});
+    runtime.record({kind:"resident_allocation",target:reservation.allocation.reference,state:"released"});
     recoverRuntime({ repoRoot: root, runRoot, root: runtime.root, runID: runtime.runID, leaseID: runtime.leaseID });
     rmSync(sessionFile, { force: false });
     rmSync(descriptor.state_root, { recursive: true, force: false });
@@ -762,7 +814,12 @@ export function stopLocalSession({ root, binary, sessionFile, dependencies = {} 
       null,
       0,
     );
-  });
+    } catch (error) { primary = error; throw error; }
+    finally {
+      try { await active.release(); }
+      catch (error) { if (primary) (primary.cleanupFailures ??= []).push(error); else throw error; }
+    }
+  } finally { unlock(); }
 }
 
 export function resolveServiceSessionMode({ target, environment = process.env }) {

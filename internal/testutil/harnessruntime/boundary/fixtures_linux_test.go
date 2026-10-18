@@ -113,8 +113,11 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 				// context, so this fixture owns its executable for the whole lease.
 				environment["CARTULARY_TEST_SERVICES_BIN"] = physicalFixtureExecutable(t, environment["CARTULARY_TEST_SERVICES_BIN"])
 				sessionFile = filepath.Join(r.Root, "persistent-owner", "session.json")
-				source := `import {createLocalSession} from './tools/harness/services/local-session.mjs';createLocalSession({root:process.cwd(),binary:process.env.CARTULARY_TEST_SERVICES_BIN,sessionFile:process.argv[1],environment:{}});`
+				source := `import {createLocalSession} from './tools/harness/services/local-session.mjs';await createLocalSession({root:process.cwd(),binary:process.env.CARTULARY_TEST_SERVICES_BIN,sessionFile:process.argv[1],environment:{CARTULARY_HOST_ADMISSION_LEASE:process.env.CARTULARY_HOST_ADMISSION_LEASE}});`
 				if _, err := invoke(source, sessionFile); err != nil {
+					if exit, ok := err.(*exec.ExitError); ok {
+						t.Fatalf("persistent owner start: %v: %.8192s", err, exit.Stderr)
+					}
 					t.Fatal("persistent owner start", err)
 				}
 				environment["CARTULARY_TEST_SERVICES_MODE"] = "attach"
@@ -139,7 +142,7 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 					return
 				}
 				if sessionFile != "" {
-					if _, err := invoke(`import {stopLocalSession} from './tools/harness/services/local-session.mjs';stopLocalSession({root:process.cwd(),binary:process.env.CARTULARY_TEST_SERVICES_BIN,sessionFile:process.argv[1]});`, sessionFile); err != nil {
+					if _, err := invoke(`import {stopLocalSession} from './tools/harness/services/local-session.mjs';await stopLocalSession({root:process.cwd(),binary:process.env.CARTULARY_TEST_SERVICES_BIN,sessionFile:process.argv[1]});`, sessionFile); err != nil {
 						t.Error("persistent owner stop", err)
 					}
 				}
@@ -159,8 +162,78 @@ func TestNativeFixturePhysicalLifecycle(t *testing.T) {
 				if lease.Record().Ownership != "borrowed" {
 					t.Fatal("borrowed ownership lost")
 				}
-				if _, err := invoke(`import assert from 'node:assert/strict';import {stopLocalSession,localSessionStatus} from './tools/harness/services/local-session.mjs';const options={root:process.cwd(),binary:process.env.CARTULARY_TEST_SERVICES_BIN,sessionFile:process.argv[1]};assert.equal(localSessionStatus(options).borrower_count,1);assert.throws(()=>stopLocalSession(options),/live borrower/);`, sessionFile); err != nil {
+				if _, err := invoke(`import assert from 'node:assert/strict';import {stopLocalSession,localSessionStatus} from './tools/harness/services/local-session.mjs';const options={root:process.cwd(),binary:process.env.CARTULARY_TEST_SERVICES_BIN,sessionFile:process.argv[1]};assert.equal(localSessionStatus(options).borrower_count,1);await assert.rejects(()=>stopLocalSession(options),/live borrower/);`, sessionFile); err != nil {
 					t.Fatal("live borrower protection", err)
+				}
+			}
+			if variant == "owned" {
+				// Exercise real connection-owned Chromium and fresh contexts through
+				// two logical groups, followed by an interrupted client. The stack
+				// remains an independently owned fixture throughout these borrows.
+				for key, value := range lease.Environment() {
+					owner.Options.Environment[key] = value
+				}
+				output, err := invoke(`import {captureCapabilitySnapshot,resourceCapacities} from './tools/harness/scheduler/work-graph/capability.mjs';process.stdout.write(JSON.stringify(Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({root:process.cwd()})))));`)
+				if err != nil {
+					t.Fatal("renderer capacity", err)
+				}
+				capacities := map[string]int64{}
+				if json.Unmarshal(output, &capacities) != nil {
+					t.Fatal("renderer capacity shape")
+				}
+				var parent *string
+				if value := environment["CARTULARY_HOST_ADMISSION_LEASE"]; value != "" {
+					parent = &value
+				}
+				works := []harnessfixtures.WorkRequirement{}
+				for _, unit := range []string{"suite-a:one", "suite-b:two", "suite-c:interrupted"} {
+					works = append(works, harnessfixtures.WorkRequirement{Request: harnessfixtures.Request{UnitID: unit, Capability: "none", RuntimeProfile: "default"}, Renderer: "pooled", Physical: map[string]map[string]int64{"renderer": {"browser_stack": 1, "memory_mb": 512, "process": 2, "port_lane": 1}}, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}})
+				}
+				owner.ConfigureAdmission("", parent, capacities, works)
+				generation := ""
+				for index, work := range works {
+					host, finish, err := owner.Admit(ctx, work)
+					if err != nil {
+						t.Fatal("renderer admission", err)
+					}
+					borrow, err := owner.Acquire(ctx, work.Request)
+					if err != nil {
+						t.Fatal("renderer acquisition", err)
+					}
+					var attachment map[string]any
+					readSelectedBoundaryJSON(t, borrow.Environment["CARTULARY_RENDERER_ATTACHMENT"], &attachment)
+					current := attachment["generation"].(string)
+					if generation != "" && generation != current {
+						t.Fatal("compatible groups did not reuse renderer generation")
+					}
+					generation = current
+					for key, value := range borrow.Environment {
+						environment[key] = value
+					}
+					source := `import assert from 'node:assert/strict';import {pathToFileURL} from 'node:url';import {resolvePlaywrightPackages} from './tools/harness/readiness/playwright-packages.mjs';const packages=resolvePlaywrightPackages(process.cwd());const {chromium}=await import(pathToFileURL(packages.playwrightPath+'/index.mjs'));const browser=await chromium.connect(process.env.CARTULARY_VISUAL_RENDERER_WS_ENDPOINT,{exposeNetwork:'<loopback>',timeout:30000});const context=await browser.newContext();assert.deepEqual(await context.cookies(),[]);const page=await context.newPage();await page.goto(process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN);assert.equal(await page.evaluate(()=>localStorage.getItem('reuse-probe')),null);await page.evaluate(()=>localStorage.setItem('reuse-probe','private'));await context.addCookies([{name:'reuse-probe',value:'private',url:process.env.CARTULARY_WEB_E2E_PUBLIC_ORIGIN}]);if(process.argv[1]==='interrupt')process.exit(0);await context.close();await browser.close();`
+					mode := "close"
+					if index == 2 {
+						mode = "interrupt"
+					}
+					if _, err := invoke(source, mode); err != nil {
+						if exit, ok := err.(*exec.ExitError); ok {
+							t.Fatalf("renderer connection: %v: %s", err, exit.Stderr)
+						}
+						t.Fatal(err)
+					}
+					retained, err := borrow.Release(ctx, index != 2, false)
+					if err != nil || retained != (index < 2) {
+						t.Fatal("renderer settlement", retained, err)
+					}
+					if err := finish(ctx); err != nil {
+						t.Fatal("borrow finish", err)
+					}
+					if err := host.Release(ctx); err != nil {
+						t.Fatal("activity release", err)
+					}
+				}
+				for _, key := range []string{"CARTULARY_RENDERER_ATTACHMENT", "CARTULARY_VISUAL_RENDERER_ATTESTED", "CARTULARY_VISUAL_RENDERER_PROFILE_ID", "CARTULARY_VISUAL_RENDERER_PROFILE_JSON", "CARTULARY_VISUAL_RENDERER_WS_ENDPOINT", "CARTULARY_RENDERER_RESOURCE_REF"} {
+					delete(environment, key)
 				}
 			}
 			if variant == "failed_cleanup" {

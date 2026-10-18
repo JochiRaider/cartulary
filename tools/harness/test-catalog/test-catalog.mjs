@@ -67,6 +67,7 @@ const expectedProfiles = Object.freeze({
     "browser_isolated",
     "browser_measurement_quiet",
     "harness_contract",
+    "harness_installed_browser",
     "io_heavy",
     "managed_process",
     "package_qualification",
@@ -128,7 +129,7 @@ function assertExactIDs(entries, expected, label) {
 function loadTopologyProfiles(root) {
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
   const topology = readStrictJSON(topologyPath);
-  validateSchemaSync("cartulary.execution_topology.v12", topology);
+  validateSchemaSync("cartulary.execution_topology.v13", topology);
   for (const [key, ids] of Object.entries(expectedProfiles)) {
     if (!Array.isArray(topology[key])) {
       throw new Error(`${topologyPath}.${key} must be an array`);

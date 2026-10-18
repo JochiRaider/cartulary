@@ -25,7 +25,7 @@ function inside(parent, child) {
 function suiteProof(bytes, runID) {
   try {
     const suite = parseStrictJSON(bytes.toString());
-    validateSchemaSync("cartulary.test_services.lease.v1", suite);
+    validateSchemaSync("cartulary.test_services.lease.v2", suite);
     if (suite.run_id !== runID || !path.isAbsolute(suite.result_root) ||
         suite.run_root !== path.join(suite.result_root, suite.run_id)) throw invalid();
     return suite;

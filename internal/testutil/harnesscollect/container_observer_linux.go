@@ -90,7 +90,7 @@ func readContainerObservationProof(file, runID, leaseID string) (containerObserv
 	proof := *published
 	lease := proof.Lease
 	if proof.Version != 1 || proof.RunID != runID || runID == "" || proof.RuntimeLeaseID != leaseID || leaseID == "" ||
-		lease.SchemaID != "cartulary.test_services.lease.v1" || lease.SuiteID == "" || lease.LeaseID == "" || lease.RunID == "" || lease.CleanupState != "not_started" || len(lease.Resources) > 256 {
+		lease.SchemaID != "cartulary.test_services.lease.v2" || lease.SuiteID == "" || lease.LeaseID == "" || lease.RunID == "" || lease.CleanupState != "not_started" || len(lease.Resources) > 256 {
 		return proof, errors.New("foreign or inactive observation proof")
 	}
 	switch proof.Ownership {

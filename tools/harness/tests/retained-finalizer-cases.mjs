@@ -19,11 +19,11 @@ function fixture(parent, name, second = 0) {
   const row = { row_id: "harness.evidence_accounting.unit.finalizer_fixture", runner: "go" };
   const unit = { unit_id: "a", owner_id: "harness.evidence_accounting", kind: "runner",
     command: { executable: "true", args: [], environment: {} }, needs: [], resource_claims: { cpu: 1, process: 1 },
-    shared_locks: [], exclusive_locks: [], fixture_lease: "none", service_dependencies: [], cache_policy: "none", timeout_ms: 1000,
+    shared_locks: [], exclusive_locks: [], fixture_lease: "none", renderer_requirement: "none", physical_allocations: {}, service_dependencies: [], cache_policy: "none", timeout_ms: 1000,
     row_bindings: [{ row_id: row.row_id, runner: "go" }], current_run_evidence_outputs: [`rows/${row.row_id}.json`, "unit-results/a.json"], reusable_artifact_outputs: [],
     failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" }, estimated_work_ms: 10 };
   unit.semantic_digest = hash(unit);
-  const graph = { schema_id: "cartulary.harness_work_graph.v6", selector: "fixture", units: [unit], graph_digest: hash({ units: [unit] }) };
+  const graph = { schema_id: "cartulary.harness_work_graph.v7", selector: "fixture", units: [unit], graph_digest: hash({ units: [unit] }) };
   const policyBytes = fs.readFileSync(path.join(repository, "tools/harness_instrumentation_policy.json"), "utf8");
   const inputs = [
     { path: "tools/harness_instrumentation_policy.json", kind: "file", mode: "0644", byte_digest: byteHash(policyBytes) },

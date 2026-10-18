@@ -222,7 +222,7 @@ func TestRuntimePrivateFailureScope(t *testing.T) {
 func TestRuntimeHostAdmission(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "host")
 	capacities := map[string]int64{"cpu": 1, "process": 2, "io": 1, "memory_mb": 100, "browser_stack": 1}
-	admit := nativeAdmission(capacities, nil, root)
+	admit := nativeAdmission(capacities, nil, root, nil)
 	u := engineUnit("a", 1)
 	lease, err := admit(context.Background(), u)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
@@ -49,7 +50,7 @@ func (p ProductionOptions) Recover(ctx context.Context) (result error) {
 	if err := p.Runtime.AuthorizeOutputRoot(p.RunRoot); err != nil {
 		return err
 	}
-	return p.closeResources(ctx, "", nil)
+	return p.withResidentActivity(ctx, func(ctx context.Context) error { return p.closeResources(ctx, "", nil) })
 }
 
 func (p ProductionOptions) cleanupResource(ctx context.Context, resource harnesssession.Resource, resources []harnesssession.Resource) error {
@@ -63,6 +64,12 @@ func (p ProductionOptions) cleanupResource(ctx context.Context, resource harness
 		}
 	}
 	switch resource.Kind {
+	case "resident_allocation":
+		file, err := resource.Path()
+		if err != nil {
+			return err
+		}
+		return releaseResident(ctx, file)
 	case "helper_process", "browser_process", "diagnostic_scope", "browser_renderer", "object_store_proxy":
 		return p.stopResource(ctx, resource)
 	case "borrowed_suite":
@@ -94,12 +101,12 @@ func (p ProductionOptions) recoverBrowser(ctx context.Context, resource harnesss
 		return err
 	}
 	return p.Runtime.AttemptCleanup(ctx, "browser_stack", file, func(step context.Context) error {
-		if len(resource.Dependencies) != 1 {
+		if len(resource.Dependencies) < 1 || len(resource.Dependencies) > 2 {
 			return errCleanupUncertain
 		}
 		var dependency *harnesssession.Resource
 		for i := range resources {
-			if resources[i].Reference() == resource.Dependencies[0] {
+			if (resources[i].Kind == "managed_suite" || resources[i].Kind == "borrowed_suite") && slices.Contains(resource.Dependencies, resources[i].Reference()) {
 				dependency = &resources[i]
 				break
 			}

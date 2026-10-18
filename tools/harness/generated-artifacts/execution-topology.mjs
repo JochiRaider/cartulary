@@ -9,7 +9,7 @@ import { validateSchemaSync } from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v12";
+export const executionTopologySchemaID = "cartulary.execution_topology.v13";
 import { projectOperationBindings, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v4";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v16";

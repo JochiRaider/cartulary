@@ -13,6 +13,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
@@ -39,7 +40,7 @@ func cloneDatabase(ctx context.Context, adminDSN string, source string, target s
 	if !safePostgresIdentifier(source) || !safePostgresIdentifier(target) {
 		return errors.New("performance fixture database identity is unsafe")
 	}
-	created, err := postgrescatalog.CloneDatabase(ctx, adminDSN, target, source, performanceFixtureCatalogLimit)
+	created, err := pgtest.CloneDatabase(ctx, adminDSN, target, source)
 	if err != nil && created {
 		return errors.Join(err, dropProvenDatabase(context.Background(), adminDSN, target))
 	}

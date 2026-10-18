@@ -7,8 +7,7 @@ import { preparationFailure } from "./failure.mjs";
 import { ReviewFailure, limits, schemaID, validate } from "./contract.mjs";
 import { reviewTotp } from "../design-review-seed.mjs";
 import { ownedProcess } from "./ownership.mjs";
-import { startVisualRendererLease } from "../visual-renderer-lease.mjs";
-import { repoRoot } from "./policy.mjs";
+import { readRendererAttachment } from "../renderer-attachment.mjs";
 
 export function browserReady() {
   try { browserReadiness(); }
@@ -34,7 +33,7 @@ export class ReviewBrowser {
     browserReady();
     try {
       if (this.mode === "seeded") {
-        this.renderer = await startVisualRendererLease({ root: repoRoot, environment: this.environment, diagnostics: true, onOwnedResource: this.onOwnedResource });
+        this.renderer = readRendererAttachment(this.environment);
         this.browser = await chromium.connect(this.renderer.environment.CARTULARY_VISUAL_RENDERER_WS_ENDPOINT, { exposeNetwork: "<loopback>", timeout: 30000 });
       } else {
       this.server = await chromium.launchServer({ host: "127.0.0.1", headless: true, timeout: 30000, env: { PATH: "/usr/bin:/bin", HOME: process.env.HOME ?? "/tmp", LANG: "en_US.UTF-8" } });

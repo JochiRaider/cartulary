@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v12",
+  "schema_id": "cartulary.execution_topology.v13",
   "runtime_profiles": [
     {
       "id": "default",
@@ -40,11 +40,9 @@
     {
       "id": "browser_functional",
       "resource_claims": {
-        "browser_stack": 1,
         "cpu": 1,
         "io": 1,
         "memory_mb": 512,
-        "port_lane": 1,
         "postgres": 2,
         "process": 1
       }
@@ -52,11 +50,9 @@
     {
       "id": "browser_isolated",
       "resource_claims": {
-        "browser_stack": 1,
         "cpu": 1,
         "io": 1,
         "memory_mb": 512,
-        "port_lane": 1,
         "postgres": 2,
         "process": 1
       }
@@ -64,11 +60,9 @@
     {
       "id": "browser_measurement_quiet",
       "resource_claims": {
-        "browser_stack": 1,
         "cpu": 1,
         "io": 1,
         "memory_mb": 512,
-        "port_lane": 1,
         "postgres": 4,
         "process": 1
       },
@@ -80,6 +74,19 @@
         "cpu": 4,
         "io": 1,
         "memory_mb": 1536,
+        "process": 20
+      }
+    },
+    {
+      "id": "harness_installed_browser",
+      "resource_claims": {
+        "browser_stack": 1,
+        "cpu": 4,
+        "io": 1,
+        "memory_mb": 2048,
+        "object_store": 1,
+        "port_lane": 5,
+        "postgres": 2,
         "process": 20
       }
     },
@@ -801,5 +808,30 @@
       }
     }
   },
-  "task_surface_owner": "tools/task_surface_owner.json"
+  "task_surface_owner": "tools/task_surface_owner.json",
+  "physical_resource_claims": {
+    "postgres": {
+      "memory_mb": 256,
+      "process": 8,
+      "port_lane": 1,
+      "postgres": 1
+    },
+    "object_store": {
+      "memory_mb": 256,
+      "process": 2,
+      "port_lane": 1,
+      "object_store": 1
+    },
+    "browser_stack": {
+      "memory_mb": 384,
+      "process": 4,
+      "port_lane": 2
+    },
+    "renderer": {
+      "browser_stack": 1,
+      "memory_mb": 512,
+      "process": 2,
+      "port_lane": 1
+    }
+  }
 }

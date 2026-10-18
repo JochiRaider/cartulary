@@ -107,7 +107,7 @@ func TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent(t *testing.T) {
 		deps := defaultTestDependencies(t)
 		env := cloneEnv(deps.env)
 		env[suiteservices.SuiteIDEnv] = "suite-redaction"
-		lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "recovery-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", ResultRoot: env["CARTULARY_TEST_RESULTS_DIR"], RunRoot: filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], "wrapper-tests"), OwnershipMode: "attach"}
+		lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v2", LeaseID: "recovery-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", ResultRoot: env["CARTULARY_TEST_RESULTS_DIR"], RunRoot: filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], "wrapper-tests"), OwnershipMode: "attach"}
 		payload, err := json.Marshal(lease)
 		if err != nil {
 			t.Fatal(err)
@@ -134,7 +134,7 @@ func TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent(t *testing.T) {
 	}
 	// Attached services exercise terminal publication without owning a Docker
 	// resource. Real owned-service termination uses the same publication path.
-	lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v1", LeaseID: "cleanup-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", ResultRoot: env["CARTULARY_TEST_RESULTS_DIR"], RunRoot: filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], "wrapper-tests"), OwnershipMode: "attach"}
+	lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v2", LeaseID: "cleanup-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", ResultRoot: env["CARTULARY_TEST_RESULTS_DIR"], RunRoot: filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], "wrapper-tests"), OwnershipMode: "attach"}
 	payload, err := json.Marshal(lease)
 	if err != nil {
 		t.Fatal(err)
@@ -2101,7 +2101,7 @@ func defaultTestDependencies(t testing.TB) testDeps {
 		t.Fatal(err)
 	}
 	serviceLeaseBytes, err := json.Marshal(map[string]any{
-		"schema_id":      "cartulary.test_services.lease.v1",
+		"schema_id":      "cartulary.test_services.lease.v2",
 		"lease_id":       "service-lease-test",
 		"suite_id":       "suite-redaction",
 		"run_id":         "wrapper-tests",

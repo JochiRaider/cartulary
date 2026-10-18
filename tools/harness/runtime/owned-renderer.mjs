@@ -11,17 +11,24 @@ export function validateRendererProof(proof) {
   return proof;
 }
 
-export function removeOwnedRenderer(proof, run) {
+export function findOwnedRenderer(proof, run) {
   validateRendererProof(proof);
   if (run(["info", "--format", "{{.ID}}"]) !== proof.daemon_id) throw new Error("renderer daemon identity mismatch");
   const query = ["ps", "--all", "--no-trunc", "--filter", `name=^/${proof.name}$`, "--filter", `label=cartulary.visual-owner=${proof.token}`, "--format", "{{.ID}}"];
   const id = run(query);
-  if (!id) return;
+  if (!id) return "";
   if (!/^[a-f0-9]{64}$/u.test(id)) throw new Error("ambiguous renderer ownership");
   const values = JSON.parse(run(["inspect", id]));
   const value = values[0];
   if (values.length !== 1 || value.Id !== id || value.Name !== `/${proof.name}` ||
       value.Image !== proof.image_id || value.Config?.Labels?.["cartulary.visual-owner"] !== proof.token) throw new Error("renderer ownership mismatch");
+  return id;
+}
+
+export function removeOwnedRenderer(proof, run) {
+  const id = findOwnedRenderer(proof, run);
+  if (!id) return;
+  const query = ["ps", "--all", "--no-trunc", "--filter", `name=^/${proof.name}$`, "--filter", `label=cartulary.visual-owner=${proof.token}`, "--format", "{{.ID}}"];
   let removalError;
   try { run(["rm", "--force", id]); } catch (error) { removalError = error; }
   if (run(query)) throw removalError ?? new Error("renderer removal not confirmed");

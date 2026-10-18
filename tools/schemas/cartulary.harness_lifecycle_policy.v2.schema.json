@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_lifecycle_policy.v1",
+  "$id": "cartulary.harness_lifecycle_policy.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_lifecycle_policy.v1"
+      "const": "cartulary.harness_lifecycle_policy.v2"
     },
     "limits": {
       "type": "object",
@@ -664,7 +664,8 @@
         "browser_stack",
         "object_store_proxy",
         "managed_suite",
-        "borrowed_suite"
+        "borrowed_suite",
+        "resident_allocation"
       ],
       "properties": {
         "diagnostic_scope": {
@@ -703,6 +704,11 @@
           "maximum": 300000
         },
         "borrowed_suite": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300000
+        },
+        "resident_allocation": {
           "type": "integer",
           "minimum": 1,
           "maximum": 300000

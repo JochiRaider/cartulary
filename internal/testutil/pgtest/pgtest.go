@@ -16,7 +16,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -70,6 +69,7 @@ type Harness struct {
 	Port         string
 	User         string
 	tlsDirectory string
+	generation   string
 
 	adminDSN    string
 	dsnTemplate string
@@ -132,14 +132,16 @@ type fixtureAttribution struct {
 }
 
 var (
-	sharedHarnessMu   sync.Mutex
-	sharedHarness     *Harness
-	schemaHashOnce    sync.Once
-	schemaHashValue   string
-	schemaHashErr     error
-	startOwnedHarness = StartOwned
-	startContainerFn  = testcontainersx.GenericContainer
-	waitReadyFn       = func(ctx context.Context, harness *Harness) error {
+	sharedHarnessMu            sync.Mutex
+	sharedHarness              *Harness
+	schemaHashOnce             sync.Once
+	schemaHashValue            string
+	schemaHashErr              error
+	initializeClusterFn        = initializeCluster
+	inspectClusterGenerationFn = inspectClusterGeneration
+	finalizeCloneFn            = finalizeClone
+	startContainerFn           = testcontainersx.GenericContainer
+	waitReadyFn                = func(ctx context.Context, harness *Harness) error {
 		return harness.WaitReady(ctx)
 	}
 	startPreflightFn          func(context.Context) (string, error)
@@ -183,7 +185,7 @@ func StartShared(ctx context.Context) (*Harness, error) {
 		return nil, err
 	}
 	if !attached {
-		harness, err = startOwnedHarness(ctx)
+		return nil, errors.New("postgres requires an explicit suite attachment; dedicated lifecycle fixtures must use StartOwned")
 	}
 	if err != nil {
 		return nil, err
@@ -233,7 +235,7 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 			"POSTGRES_DB":          "postgres",
 			"POSTGRES_USER":        "cartulary",
 			"POSTGRES_PASSWORD":    "cartulary",
-			"POSTGRES_INITDB_ARGS": "--data-checksums --auth-host=reject",
+			"POSTGRES_INITDB_ARGS": postgresInitdbArgs,
 		},
 		WaitingFor: postgresPortWaitStrategy(),
 	}
@@ -312,9 +314,13 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 	harness.adminDSN = harness.dsnFor("postgres")
 
 	if err := waitReadyFn(ctx, harness); err != nil {
-		return nil, fmt.Errorf("wait for postgres readiness: %w", err)
+		return nil, &postgresGenerationFailure{fmt.Errorf("wait for postgres readiness: %w", err)}
 	}
 
+	harness.generation, err = initializeClusterFn(ctx, harness.adminDSN)
+	if err != nil {
+		return nil, &postgresGenerationFailure{fmt.Errorf("initialize postgres generation: %w", err)}
+	}
 	attemptSucceeded = true
 	return harness, nil
 }
@@ -345,9 +351,19 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 		processHash: suiteservices.ProcessHash(),
 		attached:    true,
 	}
-	if advertisedHash := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGSchemaHashEnv)); advertisedHash != "" && advertisedHash != harness.schemaHash {
+	if advertisedHash := strings.TrimSpace(suiteservices.LookupEnvValue(nil, suiteservices.PGSchemaHashEnv)); advertisedHash != harness.schemaHash {
 		return nil, false, fmt.Errorf("attach postgres harness: %s mismatch: got %s want %s", suiteservices.PGSchemaHashEnv, advertisedHash, harness.schemaHash)
 	}
+	if suiteservices.LookupEnvValue(nil, suiteservices.PGProvisioningDigestEnv) != ProvisioningDigest() || suiteservices.LookupEnvValue(nil, suiteservices.PGTemplateDigestEnv) != TemplateDigest(harness.schemaHash) || harness.templateDB == "" {
+		return nil, false, errors.New("attach postgres harness: incompatible provisioning or template identity")
+	}
+	generation := suiteservices.LookupEnvValue(nil, suiteservices.PGGenerationEnv)
+	actual, err := inspectClusterGenerationFn(ctx, harness.adminDSN)
+	if err != nil || generation == "" || actual != generation {
+		return nil, false, errors.New("attach postgres harness: physical generation mismatch")
+	}
+	harness.generation = generation
+
 	if err := pingAdminDSNFn(ctx, adminDSN); err != nil {
 		return nil, false, fmt.Errorf("attach postgres harness: ping admin dsn: %w", err)
 	}
@@ -420,13 +436,18 @@ func (e *postgresReadinessError) Unwrap() error {
 	return e.LastErr
 }
 
+type postgresGenerationFailure struct{ error }
+
+func (e *postgresGenerationFailure) Unwrap() error { return e.error }
+
 func isRetryablePostgresStartupFailure(err error) bool {
+	var generation *postgresGenerationFailure
+	if errors.As(err, &generation) {
+		return false
+	}
 	var readinessErr *postgresReadinessError
 	if errors.As(err, &readinessErr) {
-		if !readinessErr.DeadlineExpired {
-			return false
-		}
-		return !isNonRetryablePostgresReadinessError(readinessErr.LastErr)
+		return false
 	}
 
 	lower := strings.ToLower(err.Error())
@@ -996,7 +1017,7 @@ func (db *TestDatabase) EnvForServiceRef(serviceRef string, purpose postgres.Pur
 }
 
 // DSNForPurpose returns a test-only credential for the exact deployment login
-// associated with purpose. ProvisionDatabase owns these disposable-harness
+// associated with purpose. The physical PostgreSQL initializer owns these disposable-harness
 // login credentials and their fixed, non-inheriting role memberships.
 func (db *TestDatabase) DSNForPurpose(purpose postgres.Purpose) (string, error) {
 	if db == nil {
@@ -1161,7 +1182,7 @@ func createDatabase(ctx context.Context, adminDSN string, name string, templateD
 	var err error
 	created := false
 	if templateDB != "" {
-		created, err = postgrescatalog.CloneDatabase(ctx, adminDSN, name, templateDB, postgresCatalogAdmissionTimeout)
+		created, err = CloneDatabase(ctx, adminDSN, name, templateDB)
 	} else {
 		err = postgrescatalog.WithMutation(
 			ctx,
@@ -1178,8 +1199,8 @@ func createDatabase(ctx context.Context, adminDSN string, name string, templateD
 			},
 		)
 	}
-	if err == nil {
-		err = ProvisionDatabase(ctx, adminDSN, name)
+	if err == nil && templateDB == "" {
+		err = PrepareFreshDatabase(ctx, adminDSN, name)
 	}
 	if err != nil && created {
 		// Setup cancellation must not suppress disposal of our committed CREATE.
@@ -1238,144 +1259,6 @@ func purposeDSN(dsn string, purpose postgres.Purpose) (string, error) {
 	return purposeCertificateDSN(dsn, contract.login)
 }
 
-// ProvisionDatabase establishes the administrator-owned PostgreSQL
-// prerequisites for one disposable test database.
-func ProvisionDatabase(ctx context.Context, adminDSN string, name string) error {
-	admin, err := sql.Open("pgx", adminDSN)
-	if err != nil {
-		return fmt.Errorf("open postgres provisioning lock handle: %w", err)
-	}
-	defer admin.Close()
-	lockConnection, err := admin.Conn(ctx)
-	if err != nil {
-		return fmt.Errorf("acquire postgres provisioning lock connection: %w", err)
-	}
-	defer lockConnection.Close()
-	if _, err := lockConnection.ExecContext(ctx, `SELECT pg_catalog.pg_advisory_lock(44836342409088450)`); err != nil {
-		return fmt.Errorf("acquire postgres provisioning lock: %w", err)
-	}
-	defer func() {
-		_, _ = lockConnection.ExecContext(context.Background(), `SELECT pg_catalog.pg_advisory_unlock(44836342409088450)`)
-	}()
-	if err := provisionClusterRoles(ctx, lockConnection); err != nil {
-		return err
-	}
-	config, err := pgx.ParseConfig(adminDSN)
-	if err != nil {
-		return fmt.Errorf("parse postgres test provisioning config: %w", err)
-	}
-	config.Database = name
-	db := stdlib.OpenDB(*config)
-	defer db.Close()
-
-	statement := fmt.Sprintf(`
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public VERSION '1.3';
-CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public VERSION '1.6';
-ALTER SCHEMA public OWNER TO cartulary_schema_owner;
-REVOKE CREATE, USAGE ON SCHEMA public FROM PUBLIC;
-GRANT ALL ON SCHEMA public TO cartulary_schema_owner;
-GRANT USAGE ON SCHEMA public TO cartulary_runtime, cartulary_recovery;
-REVOKE CONNECT, TEMPORARY ON DATABASE %q FROM PUBLIC;
-GRANT CONNECT ON DATABASE %q TO cartulary_migration_login, cartulary_runtime_login, cartulary_recovery_login;
-GRANT SET ON PARAMETER session_replication_role TO cartulary_recovery;
-DO $extension_acl$
-DECLARE
-    routine pg_catalog.regprocedure;
-BEGIN
-    FOR routine IN
-        SELECT procedure.oid::pg_catalog.regprocedure
-          FROM pg_catalog.pg_proc AS procedure
-          JOIN pg_catalog.pg_depend AS dependency
-            ON dependency.classid = 'pg_catalog.pg_proc'::pg_catalog.regclass
-           AND dependency.objid = procedure.oid
-           AND dependency.deptype = 'e'
-          JOIN pg_catalog.pg_extension AS extension
-            ON extension.oid = dependency.refobjid
-         WHERE extension.extname IN ('pgcrypto', 'citext')
-         ORDER BY procedure.oid::pg_catalog.regprocedure::text
-    LOOP
-        EXECUTE format('REVOKE EXECUTE ON FUNCTION %%s FROM PUBLIC', routine);
-        EXECUTE format('GRANT EXECUTE ON FUNCTION %%s TO cartulary_schema_owner, cartulary_runtime, cartulary_recovery', routine);
-    END LOOP;
-END
-$extension_acl$;
-DO $extension_type_acl$
-DECLARE
-    extension_type text;
-BEGIN
-    FOR extension_type IN
-        SELECT format('%%I.%%I', type_namespace.nspname, candidate.typname)
-          FROM pg_catalog.pg_type AS candidate
-          JOIN pg_catalog.pg_namespace AS type_namespace
-            ON type_namespace.oid = candidate.typnamespace
-          JOIN pg_catalog.pg_depend AS dependency
-            ON dependency.classid = 'pg_catalog.pg_type'::pg_catalog.regclass
-           AND dependency.objid = candidate.oid
-           AND dependency.deptype = 'e'
-         JOIN pg_catalog.pg_extension AS extension
-            ON extension.oid = dependency.refobjid
-         WHERE extension.extname IN ('pgcrypto', 'citext')
-           AND candidate.typelem = 0
-         ORDER BY type_namespace.nspname, candidate.typname
-    LOOP
-        EXECUTE format('REVOKE USAGE ON TYPE %%s FROM PUBLIC', extension_type);
-        EXECUTE format('GRANT USAGE ON TYPE %%s TO cartulary_schema_owner, cartulary_runtime, cartulary_recovery', extension_type);
-    END LOOP;
-END
-$extension_type_acl$;
-ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC;
-ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner IN SCHEMA public REVOKE ALL ON SEQUENCES FROM PUBLIC;
-ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
-ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner REVOKE USAGE ON TYPES FROM PUBLIC;
-`, name, name)
-	if _, err := db.ExecContext(ctx, statement); err != nil {
-		return fmt.Errorf("provision test database %s: %w", name, err)
-	}
-	return nil
-}
-
-func provisionClusterRoles(ctx context.Context, admin *sql.Conn) error {
-	const statement = `
-DO $cartulary_roles$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_schema_owner') THEN
-        CREATE ROLE cartulary_schema_owner NOLOGIN;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_runtime') THEN
-        CREATE ROLE cartulary_runtime NOLOGIN;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_recovery') THEN
-        CREATE ROLE cartulary_recovery NOLOGIN;
-    END IF;
-	IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_migration_login') THEN
-		CREATE ROLE cartulary_migration_login LOGIN PASSWORD NULL;
-	END IF;
-	IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_runtime_login') THEN
-		CREATE ROLE cartulary_runtime_login LOGIN PASSWORD NULL;
-	END IF;
-	IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'cartulary_recovery_login') THEN
-		CREATE ROLE cartulary_recovery_login LOGIN PASSWORD NULL;
-	END IF;
-END
-$cartulary_roles$;
-ALTER ROLE cartulary_schema_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-ALTER ROLE cartulary_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-ALTER ROLE cartulary_recovery NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
-ALTER ROLE cartulary_migration_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD NULL;
-ALTER ROLE cartulary_runtime_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD NULL;
-ALTER ROLE cartulary_recovery_login LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS PASSWORD NULL;
-GRANT cartulary_schema_owner TO cartulary_migration_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
-GRANT cartulary_runtime TO cartulary_runtime_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
-GRANT cartulary_recovery TO cartulary_recovery_login WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
-REVOKE cartulary_runtime, cartulary_recovery FROM cartulary_migration_login;
-REVOKE cartulary_schema_owner, cartulary_recovery FROM cartulary_runtime_login;
-REVOKE cartulary_schema_owner, cartulary_runtime FROM cartulary_recovery_login;`
-	if _, err := admin.ExecContext(ctx, statement); err != nil {
-		return fmt.Errorf("provision postgres test roles: %w", err)
-	}
-	return nil
-}
-
 func markTemplateDatabase(ctx context.Context, adminDSN string, name string) error {
 	return postgrescatalog.WithMutation(
 		ctx,
@@ -1401,7 +1284,7 @@ func templateDatabaseName(suiteHash string, schemaHash string) string {
 	if suiteHash == "" {
 		suiteHash = resolveSuiteHash()
 	}
-	return truncateIdentifier(fmt.Sprintf("ct_tpl_%s_%s", suiteHash, pgschema.ShortHash(schemaHash)), 63)
+	return truncateIdentifier(fmt.Sprintf("ct_tpl_%s_%s", suiteHash, pgschema.ShortHash(TemplateDigest(schemaHash))), 63)
 }
 
 func recordSuiteEvent(event suiteservices.Event) {
