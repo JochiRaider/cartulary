@@ -302,7 +302,7 @@ func TestFixtureSuiteOwner(t *testing.T) {
 			}
 		}
 	})
-	for _, variant := range []string{"ready", "recovery_proof", "missing_recovery_file", "foreign_recovery_file", "unsafe_recovery_file", "forged_scope", "duplicate_environment", "startup_failure", "missing_result", "missing_result_cleanup_failure"} {
+	for _, variant := range []string{"ready", "recovery_proof", "missing_recovery_file", "foreign_recovery_file", "unsafe_recovery_file", "forged_scope", "duplicate_environment", "startup_failure", "startup_settled", "startup_cleanup_failed", "missing_result", "missing_result_cleanup_failure"} {
 		t.Run(variant, func(t *testing.T) {
 			runtime, root, run := runtimeFixture(t)
 			stops := 0
@@ -336,11 +336,16 @@ func TestFixtureSuiteOwner(t *testing.T) {
 				if variant == "forged_scope" {
 					scope["run_id"] = "foreign"
 				}
-				if variant == "startup_failure" {
+				if strings.HasPrefix(variant, "startup_") {
 					status["status"] = "failed"
 					status["failure_class"] = "infra"
 					status["failure_reason"] = "service_start_error"
 					scope["failure"] = map[string]any{"failure_class": "infra", "failure_reason": "service_start_error", "attempts_started": 1, "max_attempts": 1, "retryable": false, "retry_blocked_by_context": false}
+					if variant == "startup_settled" {
+						scope["cleanup"] = map[string]any{"status": "startup_failed", "physical_settlement": "completed"}
+					} else if variant == "startup_cleanup_failed" {
+						scope["cleanup"] = map[string]any{"status": "startup_failed", "physical_settlement": "unresolved"}
+					}
 				}
 				writeFixtureJSON(t, filepath.Join(run, status["service_scope_ref"].(string)), scope)
 				if variant == "duplicate_environment" {
@@ -380,12 +385,41 @@ func TestFixtureSuiteOwner(t *testing.T) {
 					status["recovery_files"] = []string{file}
 				}
 				writeFixtureJSON(t, args[6], status)
-				if variant == "startup_failure" {
+				if strings.HasPrefix(variant, "startup_") {
 					return CommandResult{Started: true, Exit: 1}, errors.New("startup")
 				}
 				return CommandResult{Started: true}, nil
 			}
 			suite, err := options.StartSuite(context.Background())
+			if variant == "startup_settled" || variant == "startup_cleanup_failed" {
+				if err == nil || stops != 0 {
+					t.Fatal("startup failure concealed or cleanup repeated", stops, err)
+				}
+				resources, resourceErr := runtime.Resources(64)
+				if resourceErr != nil {
+					t.Fatal(resourceErr)
+				}
+				if variant == "startup_settled" {
+					if suite != nil || len(resources) != 0 {
+						t.Fatal("settlement receipt ignored")
+					}
+				} else {
+					if suite == nil || len(resources) == 0 {
+						t.Fatal("partial ownership lost")
+					}
+					for range 2 {
+						if suite.Close(t.Context()) == nil || stops != 0 {
+							t.Fatal("unresolved startup cleanup retried")
+						}
+					}
+					for _, resource := range resources {
+						if err := runtime.RecordResource(resource.Kind, resource.Target, "released"); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+				return
+			}
 			if variant == "missing_result_cleanup_failure" {
 				if err == nil || suite == nil || !errors.Is(err, uncertain) {
 					t.Fatal("partial acquisition lost unresolved ownership", err)

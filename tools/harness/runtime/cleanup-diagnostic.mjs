@@ -1,6 +1,6 @@
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 
-const schema = "cartulary.harness_cleanup_diagnostic.v3";
+const schema = "cartulary.harness_cleanup_diagnostic.v4";
 
 export function parseCleanupDiagnostic(data) {
   if (!data || data.length > 4096) return null;

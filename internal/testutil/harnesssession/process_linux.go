@@ -86,16 +86,16 @@ func processMembers(p ProcessProof) ([]processState, error) {
 			return nil, nil
 		}
 		if err != nil {
-			return nil, err
+			return nil, atIdentityBoundary("process_read", err)
 		}
 		if !sameProcess(v.ProcessProof, p) {
-			return nil, AtCleanupStage("process_identity", ErrUnresolved)
+			return nil, AtCleanupStage("process_identity", atIdentityBoundary("producer_identity", ErrUnresolved))
 		}
 		return []processState{v}, nil
 	}
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
-		return nil, err
+		return nil, atIdentityBoundary("process_read", err)
 	}
 	if len(entries) > 65536 {
 		return nil, ErrUnresolved
@@ -111,11 +111,11 @@ func processMembers(p ProcessProof) ([]processState, error) {
 			continue
 		}
 		if e != nil {
-			return nil, e
+			return nil, atIdentityBoundary("process_read", e)
 		}
 		if v.PGID == p.PGID {
 			if v.SID != p.SID {
-				return nil, AtCleanupStage("process_identity", ErrUnresolved)
+				return nil, AtCleanupStage("process_identity", atIdentityBoundary("group_session", ErrUnresolved))
 			}
 			members = append(members, v)
 		}
@@ -136,7 +136,7 @@ func StopProcess(ctx context.Context, p ProcessProof, grace time.Duration) error
 		return err
 	}
 	if strings.TrimSpace(string(boot)) != p.Boot {
-		return ErrUnresolved
+		return AtCleanupStage("process_identity", atIdentityBoundary("boot_identity", ErrUnresolved))
 	}
 	return settleProcess(ctx, p, grace, processMembers, signalProcess)
 }
@@ -158,10 +158,10 @@ func signalProcess(m processState, sig unix.Signal) error {
 	defer unix.Close(fd)
 	current, err := readProcess(m.PID)
 	if err != nil {
-		return AtCleanupStage("process_identity", err)
+		return AtCleanupStage("process_identity", atIdentityBoundary("process_read", err))
 	}
 	if !sameProcess(current.ProcessProof, m.ProcessProof) {
-		return AtCleanupStage("process_identity", ErrUnresolved)
+		return AtCleanupStage("process_identity", atIdentityBoundary("pre_signal_identity", ErrUnresolved))
 	}
 	return unix.PidfdSendSignal(fd, sig, nil, 0)
 }
@@ -185,7 +185,7 @@ func settleProcess(ctx context.Context, p ProcessProof, grace time.Duration, ins
 		}
 		var pending error
 		if !anchored {
-			pending = AtCleanupStage("process_group_anchor", ErrUnresolved)
+			pending = AtCleanupStage("process_group_anchor", atIdentityBoundary("group_anchor", ErrUnresolved))
 			if _, bounded := ctx.Deadline(); !bounded {
 				return pending
 			}

@@ -4,6 +4,8 @@ package harnesssession
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +15,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func testDetailLifecycle(t *testing.T) {
@@ -70,6 +74,17 @@ func detailProcessFixture() bool {
 		os.Exit(2)
 	}
 	defer r.ReleaseHandles()
+	if mode == "branch" || mode == "unmarked_branch" {
+		child := exec.Command(os.Args[0], "-test.run=^TestSessionRuntimeProof$")
+		child.Env = append(os.Environ(), "CARTULARY_DETAIL_TEST_MODE=write")
+		child.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+		child.Stdout, child.Stderr = os.Stdout, os.Stderr
+		if err := child.Start(); err != nil {
+			os.Exit(9)
+		}
+		_, _ = io.Copy(io.Discard, os.Stdin)
+		return true
+	}
 	if mode == "borrow" {
 		fmt.Fprintln(os.Stdout, "ready")
 		if _, err := bufio.NewReader(os.Stdin).ReadString('\n'); err != nil {
@@ -108,7 +123,7 @@ func detailChild(t *testing.T, r *Runtime, repo, run, mode string) (*exec.Cmd, *
 	t.Helper()
 	cmd := exec.Command(os.Args[0], "-test.run=^TestSessionRuntimeProof$")
 	cmd.Env = append(os.Environ(), "CARTULARY_DETAIL_TEST_MODE="+mode, "DETAIL_REPO="+repo, "DETAIL_RUN="+run, "DETAIL_ROOT="+r.Root, "DETAIL_LEASE="+r.LeaseID)
-	if mode == "write" {
+	if mode == "write" || mode == "branch" {
 		for key, value := range r.Environment() {
 			cmd.Env = append(cmd.Env, key+"="+value)
 		}
@@ -134,6 +149,155 @@ func detailChild(t *testing.T, r *Runtime, repo, run, mode string) (*exec.Cmd, *
 }
 
 func testDetailAdversaries(t *testing.T) {
+	t.Run("unmarked_detached_producer_retains_individual_authority", func(t *testing.T) {
+		r, repo, run := runtimeFixture(t)
+		cmd, _, input := detailChild(t, r, repo, run, "unmarked_branch")
+		launch, err := CaptureProcess(cmd.Process.Pid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		authority, err := r.readDetail("ordinary")
+		if err != nil || len(authority.Producers) != 1 {
+			t.Fatal("missing detached producer", err)
+		}
+		producer := authority.Producers[0]
+		if producer.Launch != nil {
+			t.Fatal("unmarked producer transferred to inherited scope")
+		}
+		t.Cleanup(func() {
+			ctx, done := context.WithTimeout(context.Background(), time.Second)
+			defer done()
+			_ = StopProcess(ctx, producer.Proof, 0)
+		})
+		_ = input.Close()
+		var info unix.Siginfo
+		if err := unix.Waitid(unix.P_PID, launch.PID, &info, unix.WEXITED|unix.WNOWAIT, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := r.RetireDetailProducers(launch); err != nil {
+			t.Fatal(err)
+		}
+		_ = cmd.Wait()
+		authority, err = r.readDetail("ordinary")
+		if err != nil || authority.Producers[0].State != "active" {
+			t.Fatal("unmarked producer authority lost", err)
+		}
+		if _, err := r.BeginFinalization(); err != nil {
+			t.Fatal(err)
+		}
+		state, err := readProcess(producer.Proof.PID)
+		if err == nil && state.state != "Z" && state.state != "X" {
+			t.Fatal("unmarked producer survived purge")
+		}
+		if err != nil && !processGone(err) {
+			t.Fatal(err)
+		}
+	})
+	t.Run("nested_detached_producer_retires_under_native_launch_but_scope_still_settles", func(t *testing.T) {
+		r, repo, run := runtimeFixture(t)
+		cmd, _, input := detailChild(t, r, repo, run, "branch")
+		launch, err := CaptureProcess(cmd.Process.Pid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		authority, err := r.readDetail("ordinary")
+		if err != nil || len(authority.Producers) != 1 {
+			t.Fatal("missing nested producer", err)
+		}
+		producer := authority.Producers[0]
+		if producer.Launch == nil || *producer.Launch != launch || producer.Proof.SID == launch.SID {
+			t.Fatal("nested registration was not anchored to the native launch")
+		}
+		t.Cleanup(func() {
+			ctx, done := context.WithTimeout(context.Background(), time.Second)
+			defer done()
+			_ = StopProcess(ctx, producer.Proof, 0)
+		})
+		_ = input.Close()
+		var info unix.Siginfo
+		if err := unix.Waitid(unix.P_PID, launch.PID, &info, unix.WEXITED|unix.WNOWAIT, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := r.RetireDetailProducers(launch); err != nil {
+			t.Fatal(err)
+		}
+		_ = cmd.Wait()
+		state, err := readProcess(producer.Proof.PID)
+		if err != nil || state.state == "Z" || state.state == "X" {
+			t.Fatal("fixture descendant did not survive its launch", err)
+		}
+		authority, err = r.readDetail("ordinary")
+		if err != nil || authority.Producers[0].State != "retired" {
+			t.Fatal("missing durable retirement", err)
+		}
+		if _, err := r.BeginFinalization(); err != nil {
+			t.Fatal(err)
+		}
+		state, err = readProcess(producer.Proof.PID)
+		if err == nil && state.state != "Z" && state.state != "X" {
+			t.Fatal("retirement bypassed inherited descendant settlement")
+		}
+		if err != nil && !processGone(err) {
+			t.Fatal(err)
+		}
+	})
+	t.Run("native_supervisor_retires_only_settled_exact_group", func(t *testing.T) {
+		r, repo, run := runtimeFixture(t)
+		cmd, _, _ := detailChild(t, r, repo, run, "write")
+		proof, err := CaptureProcess(cmd.Process.Pid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := r.RetireDetailProducers(proof); err == nil {
+			t.Fatal("live producer retired")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := StopProcess(ctx, proof, 0); err != nil {
+			t.Fatal(err)
+		}
+		var info unix.Siginfo
+		if err := unix.Waitid(unix.P_PID, cmd.Process.Pid, &info, unix.WEXITED|unix.WNOWAIT, nil); err != nil {
+			t.Fatal(err)
+		}
+		foreign := proof
+		foreign.Start = "0"
+		if err := r.RetireDetailProducers(foreign); err == nil {
+			t.Fatal("reused producer identity retired")
+		}
+		publicationFailure := errors.New("injected durable retirement publication failure")
+		if err := r.retireDetailProducers(proof, func(detailAuthority) error { return publicationFailure }); !errors.Is(err, publicationFailure) {
+			t.Fatal("retirement publication failure became success", err)
+		}
+		unsettled, err := r.readDetail("ordinary")
+		if err != nil || unsettled.Producers[0].State != "active" {
+			t.Fatal("failed retirement lost outstanding authority", err)
+		}
+		if err := r.RetireDetailProducers(proof); err != nil {
+			t.Fatal(err)
+		}
+		v, err := r.readDetail("ordinary")
+		if err != nil || len(v.Producers) != 1 || v.Producers[0].State != "retired" || v.Producers[0].Launch == nil || *v.Producers[0].Launch != proof {
+			t.Fatal("retirement receipt missing", err)
+		}
+		_ = cmd.Wait()
+		if err := r.RetireDetailProducers(proof); err == nil {
+			t.Fatal("missing anchor accepted")
+		}
+		// Simulate reuse after durable retirement. Purge must not compare or
+		// signal historical retired authority; the scope still settles children.
+		v.Producers[0].Proof, err = CaptureProcess(os.Getpid())
+		if err != nil {
+			t.Fatal(err)
+		}
+		v.Producers[0].Proof.Start = "0"
+		if err := r.writeDetail(v); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := r.BeginFinalization(); err != nil {
+			t.Fatal("retired identity was revisited", err)
+		}
+	})
 	t.Run("separate_handles_allocation_serializes_with_fence", func(t *testing.T) {
 		r, repo, run := runtimeFixture(t)
 		borrowed, err := BorrowRuntime(repo, run, r.Root, r.RunID, r.LeaseID)
@@ -227,7 +391,7 @@ func testDetailAdversaries(t *testing.T) {
 			t.Fatal(err)
 		}
 		proof.Start = "0"
-		authority.Producers = []ProcessProof{proof}
+		authority.Producers = []detailProducer{{Proof: proof, State: "active"}}
 		if err := r.writeDetail(authority); err != nil {
 			t.Fatal(err)
 		}

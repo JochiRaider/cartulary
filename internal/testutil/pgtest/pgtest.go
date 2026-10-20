@@ -63,12 +63,16 @@ func ContainerImage() string {
 }
 
 type Harness struct {
-	Container    testcontainers.Container
-	Host         string
-	Port         string
-	User         string
-	tlsDirectory string
-	generation   string
+	Container          testcontainers.Container
+	Host               string
+	Port               string
+	User               string
+	tlsDirectory       string
+	generation         string
+	closeOnce          sync.Once
+	closeErr           error
+	readinessProbes    atomic.Int64
+	readinessConnected func(context.Context)
 
 	adminDSN    string
 	dsnTemplate string
@@ -112,6 +116,10 @@ type StartOptions struct {
 	Labels         map[string]string
 	Observer       testcontainersx.StartObserver
 	AttemptTimeout time.Duration
+	// Acquired publishes private cleanup authority before starting the container.
+	// It must not publish a ready binding.
+	Acquired  func(*Harness) error
+	Readiness func(suiteservices.PostgresReadinessDiagnostic)
 }
 
 type RollbackDB struct {
@@ -191,7 +199,7 @@ var (
 	applyMigrationsThrough    = applyCanonicalMigrationsThrough
 	rollbackMigrationsThrough = rollbackCanonicalMigrationsThrough
 	createDatabaseFn          = createDatabase
-	dropOwnedDatabaseFn       = postgrescleanup.DropOwnedDatabase
+	dropOwnedDatabaseFn       = postgrescleanup.DropOwnedDatabaseWithObservation
 	markTemplateDBFn          = markTemplateDatabase
 	openMigrationDatabaseFn   = OpenPurposeDatabase
 )
@@ -303,74 +311,97 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 		Sleep:          startSleepFn,
 		Observer:       options.Observer,
 	}, func(ctx context.Context) (*Harness, error) {
-		return startHarnessAttempt(ctx, req)
+		return startHarnessAttempt(ctx, req, options)
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	return harness, nil
+	return harness, err
 }
 
-func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest) (_ *Harness, retErr error) {
+func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest, options StartOptions) (partial *Harness, retErr error) {
+	diagnostic := newStartupDiagnostic(ctx)
+	stage := "container_start"
 	req, tlsDirectory, err := preparePostgresTLS(req)
 	if err != nil {
 		return nil, err
 	}
-	attemptSucceeded := false
+	harness := &Harness{User: "cartulary", tlsDirectory: tlsDirectory, schemaHash: pgschema.MustHash(), suiteHash: resolveSuiteHash(), processHash: suiteservices.ProcessHash()}
 	defer func() {
-		if !attemptSucceeded {
-			retErr = errors.Join(retErr, os.RemoveAll(tlsDirectory))
+		if retErr == nil {
+			diagnostic.advance(stage)
+			diagnostic.Stage, diagnostic.Outcome, diagnostic.CleanupOutcome = stage, "ready", "not_needed"
+			diagnostic.ElapsedMS = time.Since(diagnostic.start).Milliseconds()
+			diagnostic.ProbeCount = int(harness.readinessProbes.Load())
+			if options.Readiness != nil {
+				options.Readiness(diagnostic.PostgresReadinessDiagnostic)
+			}
+			return
 		}
+		diagnostic.finish(stage, retErr)
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		cleanupErr := harness.closeOwned(cleanupCtx)
+		cancel()
+		diagnostic.CleanupOutcome = "completed"
+		partial = nil
+		if cleanupErr != nil {
+			diagnostic.CleanupOutcome = "unresolved"
+			partial = harness
+		}
+		retErr = &postgresStartupFailure{primary: retErr, cleanup: cleanupErr, diagnostic: diagnostic}
 	}()
 	container, err := startContainerFn(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
-		Started:          true,
+		Started:          false,
 	})
+	harness.Container = container
+	if container != nil && options.Acquired != nil {
+		if publicationErr := options.Acquired(harness); publicationErr != nil {
+			return nil, errors.Join(err, publicationErr)
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
-
-	defer func() {
-		if attemptSucceeded {
-			return
-		}
-		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		retErr = errors.Join(retErr, container.Terminate(cleanupCtx))
-	}()
-
-	host, err := container.Host(ctx)
+	if container == nil {
+		return nil, errors.New("postgres provider returned no container")
+	}
+	if err := container.Start(ctx); err != nil {
+		return nil, err
+	}
+	diagnostic.advance(stage)
+	stage = "endpoint_resolution"
+	endpointCtx, cancelEndpoint := context.WithTimeout(ctx, postgresPortMappingTimeout)
+	defer cancelEndpoint()
+	host, err := container.Host(endpointCtx)
 	if err != nil {
 		return nil, fmt.Errorf("resolve postgres host: %w", err)
 	}
 
-	port, err := container.MappedPort(ctx, "5432/tcp")
+	port, err := container.MappedPort(endpointCtx, "5432/tcp")
 	if err != nil {
 		return nil, fmt.Errorf("resolve postgres mapped port: %w", err)
 	}
+	cancelEndpoint()
 
-	harness := &Harness{
-		Container:    container,
-		Host:         host,
-		Port:         port.Port(),
-		User:         "cartulary",
-		tlsDirectory: tlsDirectory,
-		schemaHash:   pgschema.MustHash(),
-		suiteHash:    resolveSuiteHash(),
-		processHash:  suiteservices.ProcessHash(),
-	}
+	harness.Host, harness.Port = host, port.Port()
 	harness.adminDSN = harness.dsnFor("postgres")
-
+	diagnostic.advance(stage)
+	stage = "sql_connectivity"
+	harness.readinessConnected = func(probeCtx context.Context) {
+		if stage == "sql_connectivity" {
+			diagnostic.advance(stage)
+			stage = "security_capability"
+			diagnostic.phaseContext = probeCtx
+		}
+	}
+	defer func() { harness.readinessConnected = nil }()
 	if err := waitReadyFn(ctx, harness); err != nil {
 		return nil, &postgresGenerationFailure{fmt.Errorf("wait for postgres readiness: %w", err)}
 	}
-
+	diagnostic.advance(stage)
+	stage = "generation_initialization"
 	harness.generation, err = initializeClusterFn(ctx, harness.adminDSN)
 	if err != nil {
 		return nil, &postgresGenerationFailure{fmt.Errorf("initialize postgres generation: %w", err)}
 	}
-	attemptSucceeded = true
 	return harness, nil
 }
 
@@ -416,7 +447,7 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 	}
 	harness.generation = generation
 
-	if err := pingAdminDSNFn(ctx, adminDSN); err != nil {
+	if err := pingAdminDSNFn(ctx, adminDSN, nil); err != nil {
 		return nil, false, fmt.Errorf("attach postgres harness: ping admin dsn: %w", err)
 	}
 	recordSuiteEvent(suiteservices.Event{
@@ -438,9 +469,13 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 	attempts := 0
 	var lastErr error
 	for {
+		if err := readyCtx.Err(); err != nil {
+			return &postgresReadinessError{Attempts: attempts, LastErr: errors.Join(lastErr, err), DeadlineExpired: errors.Is(err, context.DeadlineExceeded)}
+		}
 		attempts++
+		h.readinessProbes.Store(int64(attempts))
 		attemptCtx, attemptCancel := context.WithTimeout(readyCtx, postgresClientAttemptTimeout)
-		err := pingAdminDSNFn(attemptCtx, h.adminDSN)
+		err := pingAdminDSNFn(attemptCtx, h.adminDSN, h.readinessConnected)
 		attemptCancel()
 		if err == nil {
 			return nil
@@ -457,7 +492,7 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 			}
 			return &postgresReadinessError{
 				Attempts:        attempts,
-				LastErr:         lastErr,
+				LastErr:         errors.Join(lastErr, readyCtx.Err()),
 				DeadlineExpired: errors.Is(readyCtx.Err(), context.DeadlineExceeded),
 			}
 		case <-ticker.C:
@@ -493,6 +528,13 @@ type postgresGenerationFailure struct{ error }
 func (e *postgresGenerationFailure) Unwrap() error { return e.error }
 
 func isRetryablePostgresStartupFailure(err error) bool {
+	var startup *postgresStartupFailure
+	if errors.As(err, &startup) {
+		if startup.RetryForbidden() {
+			return false
+		}
+		err = startup.primary
+	}
 	var generation *postgresGenerationFailure
 	if errors.As(err, &generation) {
 		return false
@@ -519,7 +561,7 @@ func isNonRetryablePostgresReadinessError(err error) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
-		case "28P01", "28000", "3D000":
+		case "28P01", "28000", "3D000", "42501":
 			return true
 		}
 	}
@@ -991,7 +1033,15 @@ func (h *Harness) dropDatabase(ctx context.Context, name string, reuseScope stri
 		return fmt.Errorf("refuse to drop postgres database %q without exact harness ownership", name)
 	}
 	start := time.Now()
-	if err := dropOwnedDatabaseFn(ctx, h.adminDSN, name); err != nil {
+	if err := dropOwnedDatabaseFn(ctx, h.adminDSN, name, func(attempt postgrescleanup.DropAttempt) {
+		if h.generation != "" {
+			generation := h.generation
+			attempt.ServiceGeneration = &generation
+		}
+		if attempt.Validate() == nil {
+			recordSuiteEvent(suiteservices.Event{Type: suiteservices.EventPostgresDropAttempt, Details: map[string]any{"attempt": attempt}})
+		}
+	}); err != nil {
 		h.quarantined.Store(true)
 		return err
 	}
@@ -1013,7 +1063,7 @@ func (h *Harness) ownsDatabase(name string) bool {
 }
 
 func (h *Harness) Close(ctx context.Context) error {
-	if h == nil || h.Container == nil {
+	if h == nil {
 		return nil
 	}
 	// Shared harnesses stay alive until StopShared or test-process teardown.
@@ -1025,13 +1075,15 @@ func (h *Harness) Close(ctx context.Context) error {
 }
 
 func (h *Harness) closeOwned(ctx context.Context) error {
-	if err := h.Container.Terminate(ctx); err != nil {
-		return err
-	}
-	if h.tlsDirectory != "" {
-		return os.RemoveAll(h.tlsDirectory)
-	}
-	return nil
+	h.closeOnce.Do(func() {
+		if h.Container != nil {
+			h.closeErr = h.Container.Terminate(ctx)
+		}
+		if h.closeErr == nil && h.tlsDirectory != "" {
+			h.closeErr = os.RemoveAll(h.tlsDirectory)
+		}
+	})
+	return h.closeErr
 }
 
 func (h *Harness) ContainerID() string {
@@ -1233,7 +1285,7 @@ func postgresSetupEnvelope(defaultStage string, err error) testfailure.Envelope 
 	)
 }
 
-func pingAdminDSN(ctx context.Context, dsn string) error {
+func pingAdminDSN(ctx context.Context, dsn string, connected func(context.Context)) error {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return err
@@ -1241,6 +1293,9 @@ func pingAdminDSN(ctx context.Context, dsn string) error {
 	defer db.Close()
 	if err := db.PingContext(ctx); err != nil {
 		return err
+	}
+	if connected != nil {
+		connected(ctx)
 	}
 	var version int
 	var checksums string

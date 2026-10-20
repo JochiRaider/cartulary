@@ -8961,7 +8961,7 @@ test("a11y.contextual-create target fields reference cancellation and retained r
   const actor = await readCurrentSession(page);
   for (const target of ["task_request", "decision"] as const) {
     await page.setViewportSize({ width: 1280, height: 720 });
-    const { view } = await openContextualCreationFixture(page, target);
+    const { view, source } = await openContextualCreationFixture(page, target);
     const field = page.getByTestId(
       genericCreateFieldTestId(
         target === "decision" ? "decision.rationale" : "task.title",
@@ -9039,24 +9039,37 @@ test("a11y.contextual-create target fields reference cancellation and retained r
       name: target === "decision" ? "Support Refs" : "Linked Records",
       exact: true,
     });
-    const originalIds = await candidates.evaluate((element) =>
-      Array.from(
-        element.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'),
-      )
-        .filter((input) => input.checked)
-        .map((input) => input.value),
-    );
+    const originalIds = [source.record_id];
+    const expectAcceptedSelection = async (ids: readonly string[]) => {
+      await expect(
+        picker.getByRole("status").filter({
+          hasText:
+            /^Page \d+: \d+ candidates; (more available|end of this query)\.$/,
+        }),
+      ).toBeVisible();
+      await expect(
+        candidates.locator(
+          `input[type="checkbox"][value="${source.record_id}"]`,
+        ),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          candidates
+            .getByRole("checkbox", { checked: true })
+            .evaluateAll((inputs) =>
+              inputs.map((input) => (input as HTMLInputElement).value).sort(),
+            ),
+        )
+        .toEqual([...ids].sort());
+    };
+    await expectAcceptedSelection(originalIds);
     await activateCandidateIdentities(candidates, []);
+    await expectAcceptedSelection([]);
     await candidates.press("Escape");
+    await expect(picker).toBeHidden();
     await expect(choose).toBeFocused();
     await choose.press("Enter");
-    expect(
-      await candidates
-        .getByRole("checkbox", { checked: true })
-        .evaluateAll((inputs) =>
-          inputs.map((input) => (input as HTMLInputElement).value),
-        ),
-    ).toEqual(originalIds);
+    await expectAcceptedSelection(originalIds);
     await candidates.press("Escape");
     for (const viewport of [
       { width: 1280, height: 720 },

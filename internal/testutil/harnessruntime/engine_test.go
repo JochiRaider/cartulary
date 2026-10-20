@@ -339,8 +339,9 @@ func TestRuntimeLifecycle(t *testing.T) {
 		if err := bridge.Close(context.Background()); err != nil {
 			t.Fatal(err)
 		}
-		f := failureOf(&harnessfixtures.Failure{Class: "artifact", Reason: "artifact_error"})
-		if f.Class != "artifact" || f.Reason != "artifact_error" {
+		ref := "_shared/test-services/fixture/service-scope.json"
+		f := failureOf(&harnessfixtures.Failure{Class: "artifact", Reason: "artifact_error", Refs: []string{ref, "/private/foreign"}})
+		if f.Class != "artifact" || f.Reason != "artifact_error" || len(f.ServiceRefs) != 1 || f.ServiceRefs[0] != ref {
 			t.Fatal(f)
 		}
 	})

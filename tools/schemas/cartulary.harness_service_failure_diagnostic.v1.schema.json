@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_service_failure_diagnostic.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "service_scope_refs"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_service_failure_diagnostic.v1"
+    },
+    "service_scope_refs": {
+      "type": "array",
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^_shared/test-services/[A-Za-z0-9][A-Za-z0-9._-]*/service-scope\\.json$"
+      },
+      "minItems": 1
+    }
+  }
+}

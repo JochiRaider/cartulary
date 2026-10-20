@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -18,7 +17,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 )
 
-const detailSchema = "cartulary.harness_detail_authority.v1"
+const detailSchema = "cartulary.harness_detail_authority.v2"
 const detailMarker = "CARTULARY_HARNESS_DETAIL_TOKEN"
 
 // Detail authority is independent of the external-resource journal. Corruption
@@ -31,7 +30,16 @@ type detailAuthority struct {
 	Owner     harnessadmission.Proof `json:"owner"`
 	Scope     diagnosticScope        `json:"scope"`
 	State     string                 `json:"state"`
-	Producers []ProcessProof         `json:"producers"`
+	Producers []detailProducer       `json:"producers"`
+}
+
+// Launch binds registration to the runtime owner's exact direct child while
+// ancestry is observable. Nested producers may create other groups/sessions;
+// their inherited responsibility remains under the detail scope after retirement.
+type detailProducer struct {
+	Proof  ProcessProof  `json:"proof"`
+	Launch *ProcessProof `json:"launch"`
+	State  string        `json:"state"`
 }
 
 func (r *Runtime) detailFile(id string) string {
@@ -81,7 +89,7 @@ func (r *Runtime) createDetail(id string, owner harnessadmission.Proof) (detailA
 	if err != nil {
 		return detailAuthority{}, err
 	}
-	v := detailAuthority{Schema: detailSchema, RunID: r.RunID, LeaseID: r.LeaseID, ID: id, Owner: owner, Scope: scope, State: "open", Producers: []ProcessProof{}}
+	v := detailAuthority{Schema: detailSchema, RunID: r.RunID, LeaseID: r.LeaseID, ID: id, Owner: owner, Scope: scope, State: "open", Producers: []detailProducer{}}
 	return v, r.writeDetail(v)
 }
 func (r *Runtime) actorProof() (harnessadmission.Proof, error) {
@@ -202,11 +210,24 @@ func (r *Runtime) detailPath(id string, parts ...string) (string, error) {
 	if err != nil || proof.Boot != actor.Boot || proof.Start != actor.Start {
 		return "", errors.Join(err, harnesslocal.ErrUnsafe)
 	}
-	if !slices.Contains(v.Producers, proof) {
+	found := false
+	for _, producer := range v.Producers {
+		if producer.Proof == proof {
+			if producer.State != "active" {
+				return "", harnesslocal.ErrUnsafe
+			}
+			found = true
+		}
+	}
+	if !found {
 		if len(v.Producers) >= 4096 {
 			return "", harnesslocal.ErrUnsafe
 		}
-		v.Producers = append(v.Producers, proof)
+		launch, err := enclosingDetailLaunch(proof, v.Owner, v.Scope)
+		if err != nil {
+			return "", err
+		}
+		v.Producers = append(v.Producers, detailProducer{Proof: proof, Launch: launch, State: "active"})
 		if err := r.writeDetail(v); err != nil {
 			return "", err
 		}
@@ -218,6 +239,116 @@ func (r *Runtime) detailPath(id string, parts ...string) (string, error) {
 	dir.Close()
 	relative, _ := filepath.Rel(r.Root, path)
 	return filepath.Join(r.detailRoot(id), relative), nil
+}
+
+// An unanchored registration remains active for explicit settlement. Neither
+// reparenting nor a group ID alone can manufacture a supervisor relationship.
+func enclosingDetailLaunch(producer ProcessProof, owner harnessadmission.Proof, scope diagnosticScope) (*ProcessProof, error) {
+	if producer.PID == owner.PID {
+		return nil, nil
+	}
+	chain := []processState{}
+	pid := producer.PID
+	for range 128 {
+		member, err := readProcess(pid)
+		if processGone(err) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, atIdentityBoundary("process_read", err)
+		}
+		if len(chain) == 0 && !sameProcess(member.ProcessProof, producer) {
+			return nil, atIdentityBoundary("producer_identity", ErrUnresolved)
+		}
+		chain = append(chain, member)
+		if member.parent == owner.PID {
+			alive, err := harnessadmission.Alive(owner)
+			if err != nil || !alive || owner.Boot != producer.Boot {
+				return nil, atIdentityBoundary("group_anchor", errors.Join(err, ErrUnresolved))
+			}
+			for _, captured := range chain {
+				current, err := readProcess(captured.PID)
+				if err != nil || !sameProcess(current.ProcessProof, captured.ProcessProof) || current.parent != captured.parent {
+					return nil, atIdentityBoundary("group_anchor", errors.Join(err, ErrUnresolved))
+				}
+			}
+			if !member.Group {
+				return nil, nil
+			}
+			// Only inherited scope authority can retain responsibility for a
+			// producer outside the group this supervisor physically drains.
+			// Unmarked producers keep their individual outstanding proof.
+			if producer.PGID != member.PGID || producer.SID != member.SID {
+				current, marked, _, err := scopedMember(scope, producer.PID, detailMarker)
+				if err != nil {
+					return nil, atIdentityBoundary("descendant_membership", err)
+				}
+				if !marked || !sameProcess(current.ProcessProof, producer) {
+					return nil, nil
+				}
+			}
+			launch := member.ProcessProof
+			launch.Boot = producer.Boot
+			return &launch, nil
+		}
+		if member.parent <= 1 || member.parent == pid {
+			return nil, nil
+		}
+		pid = member.parent
+	}
+	return nil, atIdentityBoundary("group_anchor", ErrUnresolved)
+}
+
+// RetireDetailProducers is called by the native supervisor before reaping its
+// child. It does not signal anything. A live, foreign, reused or missing group
+// anchor cannot authorize retirement, even if a previous settlement succeeded.
+func (r *Runtime) RetireDetailProducers(launch ProcessProof) error {
+	return r.retireDetailProducers(launch, r.writeDetail)
+}
+
+func (r *Runtime) retireDetailProducers(launch ProcessProof, publish func(detailAuthority) error) error {
+	unlock, err := r.lock()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	current, err := CaptureProcess(launch.PID)
+	if err != nil || current != launch || !launch.Group {
+		return atIdentityBoundary("producer_identity", errors.Join(err, ErrUnresolved))
+	}
+	leader, err := readProcess(launch.PID)
+	if err != nil || leader.parent != os.Getpid() || (leader.state != "Z" && leader.state != "X") {
+		return atIdentityBoundary("group_anchor", errors.Join(err, ErrUnresolved))
+	}
+	members, err := processMembers(launch)
+	if err != nil {
+		return err
+	}
+	for _, member := range members {
+		if member.state != "Z" && member.state != "X" {
+			return atIdentityBoundary("group_anchor", ErrUnresolved)
+		}
+	}
+	id := "ordinary"
+	if r.attempt != "" {
+		id = r.attempt
+	}
+	v, err := r.readDetail(id)
+	if err != nil {
+		return err
+	}
+	changed := false
+	for i := range v.Producers {
+		producer := &v.Producers[i]
+		if producer.State == "active" && producer.Launch != nil && *producer.Launch == launch {
+			producer.State = "retired"
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return AtCleanupStage("detail_authority", publish(v))
 }
 
 func (r *Runtime) fenceDetails() error {
@@ -267,16 +398,31 @@ func (r *Runtime) purgeDetail(id string) error {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cleanupDeadlinesMS["helper_process"])*time.Millisecond)
 		defer cancel()
-		for _, proof := range v.Producers {
+		var failures []error
+		retired := false
+		for ordinal, producer := range v.Producers {
+			if producer.State == "retired" {
+				continue
+			}
+			proof := producer.Proof
 			if exempt, ok := excluded[proof.PID]; ok && exempt.Boot == proof.Boot && sameProcess(exempt, proof) {
 				continue
 			}
 			if err := StopProcess(ctx, proof, 200*time.Millisecond); err != nil {
-				return AtCleanupStage("detail_producer", err)
+				failures = append(failures, AtCleanupStage("detail_producer", atDetailProducer(ordinal+1, err)))
+				continue
 			}
+			v.Producers[ordinal].State = "retired"
+			retired = true
+		}
+		if retired {
+			failures = append(failures, AtCleanupStage("detail_authority", r.writeDetail(v)))
 		}
 		if err := settleScope(ctx, v.Scope, detailMarker, excluded); err != nil {
-			return AtCleanupStage("detail_descendants", err)
+			failures = append(failures, AtCleanupStage("detail_descendants", atIdentityBoundary("descendant_membership", err)))
+		}
+		if err := errors.Join(failures...); err != nil {
+			return err
 		}
 	}
 	root := r.detailRoot(id)

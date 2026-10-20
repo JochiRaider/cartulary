@@ -68,7 +68,7 @@ test("recovery inspection reports a bounded diagnostic without private proof", (
     assert.equal(result.status, 11);
     assert.deepEqual(JSON.parse(result.stdout), { failure_class: "artifact", failure_reason: "artifact_error" });
     const diagnostic = JSON.parse(result.stderr);
-    assert.equal(diagnostic.schema_id, "cartulary.harness_cleanup_diagnostic.v3");
+    assert.equal(diagnostic.schema_id, "cartulary.harness_cleanup_diagnostic.v4");
     assert.equal(diagnostic.stage, "recovery_proof");
     assert.deepEqual(Object.keys(diagnostic).sort(), ["cause", "errno", "schema_id", "stage"]);
     assert.equal((result.stdout + result.stderr).includes(secret), false);
@@ -217,7 +217,7 @@ test("explicit browser recovery attempts cannot overwrite earlier immutable reti
 });
 
 test("browser retirement imports only bounded child diagnostics and preserves failed ownership", async (t) => {
-  const valid = { schema_id: "cartulary.harness_cleanup_diagnostic.v3", stage: "browser_namespace", cause: "io", errno: 13 };
+  const valid = { schema_id: "cartulary.harness_cleanup_diagnostic.v4", stage: "browser_namespace", cause: "io", errno: 13 };
   for (const [label, stderr, expected] of [
     ["typed", JSON.stringify(valid), valid],
     ["private", JSON.stringify({ ...valid, credential: "private-sentinel" }), null],

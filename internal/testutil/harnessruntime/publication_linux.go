@@ -142,6 +142,9 @@ func (p *graphPublication) publishRows(u unit, terminal canonicalTerminal) error
 		value := map[string]any{"schema_id": "cartulary.harness_row_result.v6", "row_id": row.ID, "runner": row.Runner,
 			"terminal_state": state, "duration_ms": 0, "wall_duration_ms": 0, "exit_code": failureExitCode(failure, ""),
 			"failure_class": failure.Class, "failure_reason": failure.Reason, "failure_diagnostic": nil, "started_at": stamp, "finished_at": stamp}
+		if len(failure.ServiceRefs) > 0 {
+			value["failure_diagnostic"] = map[string]any{"schema_id": "cartulary.harness_service_failure_diagnostic.v1", "service_scope_refs": failure.ServiceRefs}
+		}
 		if err := writeEvidence(p.root, relative, "cartulary.harness_row_result.v6", value, false); err != nil {
 			return err
 		}
@@ -295,6 +298,9 @@ var serviceScopeReference = regexp.MustCompile(`^_shared/test-services/[A-Za-z0-
 
 func serviceReferences(r unitResult) []string {
 	refs := []string{}
+	if r.Failure != nil {
+		refs = append(refs, r.Failure.ServiceRefs...)
+	}
 	for _, ref := range r.ArtifactRefs {
 		if serviceScopeReference.MatchString(ref) {
 			refs = append(refs, ref)

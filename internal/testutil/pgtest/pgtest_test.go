@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -48,7 +49,7 @@ func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
 	inspectClusterGenerationFn = func(context.Context, string) (string, error) { return "12345", nil }
 
 	var pingDSN string
-	pingAdminDSNFn = func(ctx context.Context, dsn string) error {
+	pingAdminDSNFn = func(ctx context.Context, dsn string, _ func(context.Context)) error {
 		pingDSN = dsn
 		return nil
 	}
@@ -232,6 +233,83 @@ func mustPurposeKey(t *testing.T, purpose postgres.Purpose) string {
 }
 
 func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T) {
+	t.Run("capability_validation_has_a_distinct_terminal_boundary", func(t *testing.T) {
+		stubOwnedPostgresStartup(t)
+		oldPing := pingAdminDSNFn
+		t.Cleanup(func() { pingAdminDSNFn = oldPing })
+		pingAdminDSNFn = func(ctx context.Context, _ string, connected func(context.Context)) error {
+			connected(ctx)
+			return errors.New(postgres.ReasonDataChecksumsDisabled)
+		}
+		waitReadyFn = func(ctx context.Context, h *Harness) error { return h.WaitReady(ctx) }
+		starts := 0
+		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+			starts++
+			return fakePostgresContainer{host: "127.0.0.1", port: network.MustParsePort("5432/tcp")}, nil
+		}
+		h, err := StartOwned(t.Context())
+		diagnostic, ok := ReadinessDiagnosticFromError(err)
+		if h != nil || !ok || starts != 1 || diagnostic.Stage != "security_capability" || diagnostic.Outcome != "capability_rejected" || diagnostic.ProbeCount != 1 {
+			t.Fatal("capability rejection lost or retried", starts, diagnostic, err)
+		}
+		last := diagnostic.Phases[len(diagnostic.Phases)-1]
+		if last.ConfiguredMS != 5000 || last.EffectiveMS > 5000 || last.EffectiveMS <= 0 {
+			t.Fatal("validation exceeded the SQL probe deadline", last)
+		}
+	})
+	t.Run("authority_publication_precedes_start_and_failure_settles", func(t *testing.T) {
+		stubOwnedPostgresStartup(t)
+		acquired, starts, terminations := false, 0, 0
+		publicationErr := errors.New("injected ownership publication failure")
+		startContainerFn = func(_ context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+			if req.Started {
+				t.Fatal("container started before cleanup authority publication")
+			}
+			return fakePostgresContainer{
+				start:     func(context.Context) error { starts++; return nil },
+				terminate: func(context.Context) error { terminations++; return nil },
+			}, nil
+		}
+		harness, err := StartOwnedWithOptions(t.Context(), StartOptions{Acquired: func(h *Harness) error {
+			acquired = h.Container != nil && len(h.CleanupFiles()) != 0
+			return publicationErr
+		}})
+		if harness != nil || !errors.Is(err, publicationErr) || !acquired || starts != 0 || terminations != 1 {
+			t.Fatal("failed publication lost ownership or started the container", starts, terminations, err)
+		}
+	})
+	t.Run("partial_container_cleanup_failure_preserves_one_attempt", func(t *testing.T) {
+		stubOwnedPostgresStartup(t)
+		starts, terminations := 0, 0
+		cleanupErr := errors.New("injected cleanup failure")
+		var directory string
+		startContainerFn = func(_ context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+			starts++
+			directory = filepath.Dir(req.Files[0].HostFilePath)
+			return fakePostgresContainer{terminate: func(context.Context) error { terminations++; return cleanupErr }}, errors.New("connection reset by peer")
+		}
+		harness, err := StartOwned(t.Context())
+		if harness == nil || !errors.Is(err, cleanupErr) || starts != 1 || terminations != 1 {
+			t.Fatal("partial ownership discarded or retried", starts, terminations, err)
+		}
+		for range 2 {
+			if !errors.Is(harness.Close(t.Context()), cleanupErr) {
+				t.Fatal("cleanup receipt lost")
+			}
+		}
+		if terminations != 1 {
+			t.Fatal("ordinary cleanup repeated", terminations)
+		}
+		diagnostic, ok := ReadinessDiagnosticFromError(err)
+		if !ok || diagnostic.Stage != "container_start" || diagnostic.CleanupOutcome != "unresolved" || strings.Contains(err.Error(), "connection reset") {
+			t.Fatal("unbounded or missing diagnostic", diagnostic, err)
+		}
+		if _, err := os.Stat(directory); err != nil {
+			t.Fatal("unsettled credentials removed", err)
+		}
+		// The fake container has no physical resources; only its test keys remain.
+		t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	})
 	for _, stage := range []string{"readiness", "initialization"} {
 		t.Run(stage, func(t *testing.T) {
 			stubOwnedPostgresStartup(t)
@@ -256,6 +334,10 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 			}
 			if _, err := os.Stat(directory); !errors.Is(err, os.ErrNotExist) {
 				t.Fatal("failed generation retained keys", err)
+			}
+			diagnostic, ok := ReadinessDiagnosticFromError(err)
+			if !ok || diagnostic.CleanupOutcome != "completed" || diagnostic.SQLWindowMS != 15000 || diagnostic.PollMS != 250 || diagnostic.ProbeCapMS != 5000 {
+				t.Fatal("readiness evidence missing", diagnostic)
 			}
 		})
 	}
@@ -308,11 +390,51 @@ func TestOwnedPostgresDoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
 }
 
 func TestPostgresWaitReadyRespectsContextCancellation(t *testing.T) {
+	t.Run("success_caps_each_probe", func(t *testing.T) {
+		oldPing := pingAdminDSNFn
+		t.Cleanup(func() { pingAdminDSNFn = oldPing })
+		calls := 0
+		pingAdminDSNFn = func(ctx context.Context, _ string, _ func(context.Context)) error {
+			calls++
+			deadline, ok := ctx.Deadline()
+			if !ok || time.Until(deadline) <= 0 || time.Until(deadline) > 5*time.Second {
+				t.Fatal("probe was not capped at five seconds")
+			}
+			return nil
+		}
+		ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+		defer cancel()
+		if err := (&Harness{}).WaitReady(ctx); err != nil || calls != 1 {
+			t.Fatal("ready probe repeated or rejected", calls, err)
+		}
+	})
+	t.Run("shorter_parent_deadline_bounds_first_probe_and_prevents_another", func(t *testing.T) {
+		oldPing := pingAdminDSNFn
+		t.Cleanup(func() { pingAdminDSNFn = oldPing })
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		parentDeadline, _ := ctx.Deadline()
+		calls := 0
+		pingAdminDSNFn = func(probe context.Context, _ string, _ func(context.Context)) error {
+			calls++
+			deadline, ok := probe.Deadline()
+			if !ok || deadline.After(parentDeadline) {
+				t.Fatal("probe outlived its parent")
+			}
+			<-probe.Done()
+			return probe.Err()
+		}
+		err := (&Harness{}).WaitReady(ctx)
+		var readiness *postgresReadinessError
+		if calls != 1 || !errors.As(err, &readiness) || !readiness.DeadlineExpired || !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatal("deadline lost or readiness repeated", calls, err)
+		}
+	})
 	oldPing := pingAdminDSNFn
 	t.Cleanup(func() {
 		pingAdminDSNFn = oldPing
 	})
-	pingAdminDSNFn = func(ctx context.Context, dsn string) error {
+	pingAdminDSNFn = func(ctx context.Context, dsn string, _ func(context.Context)) error {
 		return ctx.Err()
 	}
 
@@ -485,7 +607,7 @@ func TestPrepareIsolatedDatabaseTUsesFreshTemplateClones(t *testing.T) {
 		return nil
 	}
 	var drops []string
-	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, _ func(postgrescleanup.DropAttempt)) error {
 		drops = append(drops, name)
 		return nil
 	}
@@ -538,7 +660,7 @@ func TestPrepareIsolatedDatabaseTCleanupDropsStandaloneDatabase(t *testing.T) {
 	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
 		return nil
 	}
-	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, _ func(postgrescleanup.DropAttempt)) error {
 		dropped = append(dropped, name)
 		return nil
 	}
@@ -574,7 +696,7 @@ func TestDatabaseCleanupUsesSingleDropOnlyForOwnedDatabase(t *testing.T) {
 		},
 	}
 	dropCalls := 0
-	dropOwnedDatabaseFn = func(ctx context.Context, _ string, _ string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, _ string, _ string, _ func(postgrescleanup.DropAttempt)) error {
 		dropCalls++
 		if ctx.Err() != nil {
 			t.Fatalf("cleanup delegate received canceled parent: %v", ctx.Err())
@@ -613,7 +735,7 @@ func TestDatabaseCleanupPassesOwnerContext(t *testing.T) {
 	parent, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	dropCalls := 0
-	dropOwnedDatabaseFn = func(ctx context.Context, _ string, _ string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, _ string, _ string, _ func(postgrescleanup.DropAttempt)) error {
 		dropCalls++
 		if ctx != parent || ctx.Err() != nil {
 			t.Fatalf("coordinated cleanup inherited an expired child context: %v", ctx.Err())
@@ -656,7 +778,7 @@ func TestDatabaseCleanupRetainsFailedRecoveryAuthority(t *testing.T) {
 		t.Fatalf("record owned database: %v", err)
 	}
 	dropCalls := 0
-	dropOwnedDatabaseFn = func(context.Context, string, string) error {
+	dropOwnedDatabaseFn = func(_ context.Context, _ string, _ string, _ func(postgrescleanup.DropAttempt)) error {
 		dropCalls++
 		return errors.New("permission denied")
 	}
@@ -674,7 +796,7 @@ func TestDatabaseCleanupRetainsFailedRecoveryAuthority(t *testing.T) {
 		t.Fatalf("failed cleanup lost recovery authority: %#v", ledger.Databases)
 	}
 
-	dropOwnedDatabaseFn = func(context.Context, string, string) error {
+	dropOwnedDatabaseFn = func(_ context.Context, _ string, _ string, _ func(postgrescleanup.DropAttempt)) error {
 		dropCalls++
 		return context.Canceled
 	}
@@ -734,7 +856,7 @@ func TestDatabaseCleanupRetainsFailedRecoveryAuthority(t *testing.T) {
 
 	// Existing owned resources may finish cleanup, but success cannot restore
 	// this generation's eligibility or erase its prior failed row outcome.
-	dropOwnedDatabaseFn = func(context.Context, string, string) error {
+	dropOwnedDatabaseFn = func(_ context.Context, _ string, _ string, _ func(postgrescleanup.DropAttempt)) error {
 		dropCalls++
 		return nil
 	}
@@ -826,7 +948,7 @@ func TestPrepareIsolatedDatabaseTCleanupDropsAttachedSuiteTemplateClone(t *testi
 		return nil
 	}
 	dropCalls := 0
-	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, _ func(postgrescleanup.DropAttempt)) error {
 		dropCalls++
 		return nil
 	}
@@ -879,7 +1001,7 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 		scratchName = name
 		return nil
 	}
-	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, _ func(postgrescleanup.DropAttempt)) error {
 		dropped = append(dropped, name)
 		return nil
 	}
@@ -931,7 +1053,7 @@ func TestMigrationDatabaseTCleanupDropsAttachedSuiteScratchDatabase(t *testing.T
 		scratchName = name
 		return nil
 	}
-	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, _ func(postgrescleanup.DropAttempt)) error {
 		dropCalls++
 		return nil
 	}
@@ -1177,11 +1299,19 @@ type fakePostgresContainer struct {
 	testcontainers.Container
 	host      string
 	port      network.Port
+	start     func(context.Context) error
 	terminate func(context.Context) error
 }
 
 func (c fakePostgresContainer) Host(context.Context) (string, error) {
 	return c.host, nil
+}
+
+func (c fakePostgresContainer) Start(ctx context.Context) error {
+	if c.start != nil {
+		return c.start(ctx)
+	}
+	return nil
 }
 
 func (c fakePostgresContainer) MappedPort(context.Context, string) (network.Port, error) {

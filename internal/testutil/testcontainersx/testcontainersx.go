@@ -43,6 +43,14 @@ type StartConfig struct {
 
 type StartObserver func(StartEvent)
 
+// StartupDisposition lets an acquisition owner veto retries after entering a
+// terminal phase or when its previous attempt has unresolved physical resources.
+// Returning a partial value on failure preserves that owner's cleanup authority.
+type StartupDisposition interface {
+	error
+	RetryForbidden() bool
+}
+
 type StartEvent struct {
 	Type                  string
 	Operation             string
@@ -258,6 +266,10 @@ func StartWithRetry[T any](ctx context.Context, config StartConfig, startup func
 		if config.Retryable != nil && config.Retryable(startErr) {
 			retryable = true
 		}
+		var disposition StartupDisposition
+		if errors.As(startErr, &disposition) && disposition.RetryForbidden() {
+			retryable = false
+		}
 		observeStart(config.Observer, StartEvent{
 			Type:           StartEventAttemptEnd,
 			Operation:      "start",
@@ -274,7 +286,7 @@ func StartWithRetry[T any](ctx context.Context, config StartConfig, startup func
 			Err:            startErr,
 		})
 		if attempt >= maxAttempts || !retryable {
-			return zero, newStartFailure("start", service, image, endpoint, attempt, maxAttempts, retryable, startErr)
+			return value, newStartFailure("start", service, image, endpoint, attempt, maxAttempts, retryable, startErr)
 		}
 		lastRetryableErr = startErr
 
@@ -373,20 +385,29 @@ func isTransientDockerStartupError(err error) bool {
 		return false
 	}
 
-	lower := strings.ToLower(err.Error())
 	if errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.EPIPE) {
 		return true
 	}
-
-	if strings.Contains(lower, "unexpected eof") {
-		return true
+	// Closed public errors may wrap private transport detail. Classification
+	// may inspect that cause without copying it into retained diagnostics.
+	pending := []error{err}
+	for visited := 0; len(pending) > 0 && visited < 16; visited++ {
+		current := pending[0]
+		pending = pending[1:]
+		if current == nil {
+			continue
+		}
+		if hasDockerTransportContext(strings.ToLower(current.Error())) {
+			return true
+		}
+		switch wrapped := current.(type) {
+		case interface{ Unwrap() []error }:
+			pending = append(pending, wrapped.Unwrap()...)
+		case interface{ Unwrap() error }:
+			pending = append(pending, wrapped.Unwrap())
+		}
 	}
-
-	if errors.Is(err, context.DeadlineExceeded) {
-		return hasDockerTransportContext(lower)
-	}
-
-	return hasDockerTransportContext(lower)
+	return false
 }
 
 func hasDockerTransportContext(lower string) bool {

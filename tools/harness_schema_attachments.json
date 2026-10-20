@@ -367,8 +367,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_cleanup_diagnostic.v3",
-      "path": "tools/schemas/cartulary.harness_cleanup_diagnostic.v3.schema.json",
+      "schema_id": "cartulary.harness_cleanup_diagnostic.v4",
+      "path": "tools/schemas/cartulary.harness_cleanup_diagnostic.v4.schema.json",
       "classification": "shared_component",
       "producer": "native physical cleanup owner",
       "validation": "harness.json_shape_check",
@@ -391,8 +391,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_detail_authority.v1",
-      "path": "tools/schemas/cartulary.harness_detail_authority.v1.schema.json",
+      "schema_id": "cartulary.harness_detail_authority.v2",
+      "path": "tools/schemas/cartulary.harness_detail_authority.v2.schema.json",
       "classification": "shared_component",
       "producer": "native private detail and recovery-attempt owner",
       "validation": "harness.json_shape_check",
@@ -747,6 +747,14 @@
       "classification": "owner_input",
       "producer": "schema attachment owner",
       "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.harness_service_failure_diagnostic.v1",
+      "path": "tools/schemas/cartulary.harness_service_failure_diagnostic.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native fixture failure publication",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.harness_suite_runtime_owner.v2",
@@ -1236,6 +1244,14 @@
       "classification": "owner_input",
       "producer": "PostgreSQL fixture policy registry",
       "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.postgres_readiness_diagnostic.v1",
+      "path": "tools/schemas/cartulary.postgres_readiness_diagnostic.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "PostgreSQL startup owner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
     },
     {
       "schema_id": "cartulary.presence_measurement_proof.v1",

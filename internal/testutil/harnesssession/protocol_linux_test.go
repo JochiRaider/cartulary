@@ -87,8 +87,15 @@ func TestSessionProtocol(t *testing.T) {
 			t.Fatal("mismatched identity accepted", code)
 		}
 		d := DecodeCleanupDiagnostic(output.Bytes())
-		if d == nil || d.Stage != "process_identity" || d.Cause != "unresolved" {
+		if d == nil || d.Stage != "process_identity" || d.Cause != "unresolved" || d.IdentityBoundary != "producer_identity" {
 			t.Fatal("lost native diagnostic", output.String())
+		}
+		wrapped := DescribeCleanupFailure(atDetailProducer(17, AtCleanupStage("process_identity",
+			atIdentityBoundary("pre_signal_identity", ErrUnresolved))))
+		encoded, err := json.Marshal(wrapped)
+		if err != nil || DecodeCleanupDiagnostic(encoded) == nil || wrapped.ProducerRef != "producer:0017" ||
+			wrapped.IdentityBoundary != "pre_signal_identity" {
+			t.Fatal("producer context did not survive normalization", err)
 		}
 		if unix.Kill(os.Getpid(), 0) != nil {
 			t.Fatal("rejected proof affected the live process")
@@ -96,9 +103,9 @@ func TestSessionProtocol(t *testing.T) {
 		for _, input := range [][]byte{
 			bytes.Repeat([]byte(" "), 4097),
 			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v2","stage":"process_identity","cause":"unresolved","errno":0}`),
-			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v3","stage":"process_identity","cause":"unresolved","errno":0,"pid":123}`),
-			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v3","stage":"process_identity","cause":"credential-sentinel","errno":0}`),
-			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v3","stage":"process_identity","cause":"unresolved","errno":0,"errno":13}`),
+			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v4","stage":"process_identity","cause":"unresolved","errno":0,"pid":123}`),
+			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v4","stage":"process_identity","cause":"credential-sentinel","errno":0}`),
+			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v4","stage":"process_identity","cause":"unresolved","errno":0,"errno":13}`),
 		} {
 			if DecodeCleanupDiagnostic(input) != nil {
 				t.Fatal("unsafe diagnostic accepted")

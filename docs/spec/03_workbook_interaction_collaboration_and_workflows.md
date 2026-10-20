@@ -3988,6 +3988,13 @@ replay. Acceptance survives detachment and refresh-only recovery MUST issue no
 creation write. Existing account/incident suspension, concealment and retirement
 rules apply; no persistent browser storage or cross-account draft archive is added.
 
+Reference-picker changes remain local staging until explicit Apply. Cancel or
+Escape MUST discard that staging without changing the parent draft's exact
+reference identities or persisted state, and MUST restore focus to the invoking
+control. Reopening initializes staging from the retained parent draft. Candidate
+loading is independent of retained selection; a late response from a dismissed
+picker MUST NOT mutate the draft or reclaim focus.
+
 Communications logs, handoffs, status reviews, and lesson artifacts MUST remain explicit workbook-native actions. The implementation MAY assist creation from the inspector or a coordination view, but it MUST NOT require creation of those artifacts during ordinary row capture or ordinary grid editing, and it MUST NOT interrupt ordinary grid editing to solicit them.
 Profiles: base
 Verified by: AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231

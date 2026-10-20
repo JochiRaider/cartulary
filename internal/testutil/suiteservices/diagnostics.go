@@ -15,6 +15,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 )
 
 const (
@@ -31,6 +33,8 @@ const (
 	EventPostgresAttach         = "postgres-attach"
 	EventPostgresDBCreated      = "postgres-db-created"
 	EventPostgresDBDropped      = "postgres-db-dropped"
+	EventPostgresDropAttempt    = "postgres-drop-attempt"
+	EventPostgresReady          = "postgres-ready"
 	EventPostgresDBMigrated     = "postgres-db-migrated"
 	EventPostgresTransaction    = "postgres-transaction"
 	EventPostgresTemplateUse    = "postgres-template-clone"
@@ -155,6 +159,7 @@ type FailureSummary struct {
 	Retryable             bool                            `json:"retryable"`
 	RetryBlockedByContext bool                            `json:"retry_blocked_by_context"`
 	ObjectStoreReadiness  *ObjectStoreReadinessDiagnostic `json:"-"`
+	PostgresReadiness     *PostgresReadinessDiagnostic    `json:"-"`
 }
 
 type FailureDiagnostics struct {
@@ -164,12 +169,16 @@ type FailureDiagnostics struct {
 }
 
 type CleanupSummary struct {
-	Status          string `json:"status,omitempty"`
-	CompletedAt     string `json:"completed_at,omitempty"`
-	ChildExitStatus *int   `json:"child_exit_status,omitempty"`
+	PhysicalSettlement string `json:"physical_settlement,omitempty"`
+	Status             string `json:"status,omitempty"`
+	CompletedAt        string `json:"completed_at,omitempty"`
+	ChildExitStatus    *int   `json:"child_exit_status,omitempty"`
 }
 
 type PostgresSummary struct {
+	AllocationRef         string                        `json:"allocation_ref,omitempty"`
+	DropAttempts          []PostgresDropAttempt         `json:"drop_attempts,omitempty"`
+	OmittedDropAttempts   int                           `json:"omitted_drop_attempts,omitempty"`
 	Started               bool                          `json:"started"`
 	StartedAt             string                        `json:"started_at,omitempty"`
 	User                  string                        `json:"user,omitempty"`
@@ -180,6 +189,11 @@ type PostgresSummary struct {
 	MigratedDatabaseCount int                           `json:"migrated_database_count"`
 	TemplateCloneCount    int                           `json:"template_clone_count"`
 	DatabasePreparations  []PostgresDatabasePreparation `json:"preparation_examples,omitempty"`
+}
+
+type PostgresDropAttempt struct {
+	CompletedAt string                      `json:"completed_at"`
+	Attempt     postgrescleanup.DropAttempt `json:"attempt"`
 }
 
 type PostgresDatabasePreparation struct {
@@ -445,6 +459,7 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 		switch event.Type {
 		case EventWrapperOwnedStart:
 			scope.Wrapper.OwnedCount++
+			scope.Postgres.AllocationRef = stringDetail(event.Details, "postgres_allocation_ref")
 		case EventWrapperPassThrough:
 			scope.Wrapper.PassThroughCount++
 		case EventSuitePreflight:
@@ -500,6 +515,18 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 					scope.Extensions[ObjectStoreReadinessExtensionKey] = diagnostic
 				}
 			}
+			postgresDiagnostic, postgresPresent, postgresErr := postgresReadinessDiagnosticDetail(event.Details)
+			if postgresErr != nil {
+				return ServiceScope{}, true, fmt.Errorf("decode postgres readiness diagnostic: %w", postgresErr)
+			}
+			if postgresPresent {
+				if scope.Extensions == nil {
+					scope.Extensions = make(map[string]any)
+				}
+				if _, present := scope.Extensions[PostgresReadinessExtensionKey]; !present {
+					scope.Extensions[PostgresReadinessExtensionKey] = postgresDiagnostic
+				}
+			}
 		case EventServiceStarted:
 			startedServices[event.Service] = struct{}{}
 			switch event.Service {
@@ -517,6 +544,7 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			}
 		case EventCleanupCompleted:
 			scope.Cleanup.Status = event.Status
+			scope.Cleanup.PhysicalSettlement = stringDetail(event.Details, "physical_settlement")
 			scope.Cleanup.CompletedAt = latestTimestamp(scope.Cleanup.CompletedAt, event.Timestamp)
 			if childExit, ok := intDetail(event.Details, "child_exit_status"); ok {
 				value := childExit
@@ -524,6 +552,15 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			}
 		case EventPostgresAttach:
 			scope.Postgres.AttachedHarnessCount++
+		case EventPostgresReady:
+			diagnostic, present, err := postgresReadinessDiagnosticDetail(event.Details)
+			if err != nil || !present {
+				return ServiceScope{}, true, errors.New("invalid PostgreSQL readiness observation")
+			}
+			if scope.Extensions == nil {
+				scope.Extensions = map[string]any{}
+			}
+			scope.Extensions[PostgresReadinessExtensionKey] = diagnostic
 		case EventPostgresDBCreated:
 			scope.Postgres.CreatedDatabaseCount++
 			if event.Kind == "template" && event.Name != "" {
@@ -533,6 +570,17 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
 		case EventPostgresDBDropped:
 			recordFixtureActivity(&scope.Fixture, packageFixtures, testFixtures, strategyFixtures, &slowestFixtures, event)
+		case EventPostgresDropAttempt:
+			if len(scope.Postgres.DropAttempts) >= 32 {
+				scope.Postgres.OmittedDropAttempts++
+				continue
+			}
+			data, err := json.Marshal(event.Details["attempt"])
+			var attempt postgrescleanup.DropAttempt
+			if err != nil || json.Unmarshal(data, &attempt) != nil || attempt.Validate() != nil {
+				return ServiceScope{}, true, errors.New("invalid PostgreSQL drop observation")
+			}
+			scope.Postgres.DropAttempts = append(scope.Postgres.DropAttempts, PostgresDropAttempt{CompletedAt: event.Timestamp, Attempt: attempt})
 		case EventPostgresDBMigrated:
 			scope.Postgres.MigratedDatabaseCount++
 			upsertPostgresPreparation(databasePreparations, event, strategyForPostgresMigratedEvent(event))

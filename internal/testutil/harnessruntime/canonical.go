@@ -263,6 +263,13 @@ func (f *canonicalFacts) consume(e map[string]any) error {
 			reason, _ := e["failure_reason"].(string)
 			failure = failed(class, reason)
 			failure.Sequence = seq
+			if refs, ok := e["service_scope_refs"].([]any); ok {
+				for _, ref := range refs {
+					failure.ServiceRefs = append(failure.ServiceRefs, ref.(string))
+				}
+			} else if refs, ok := e["service_scope_refs"].([]string); ok {
+				failure.ServiceRefs = append([]string{}, refs...)
+			}
 		}
 		f.terminals[id] = canonicalTerminal{event, status, at, seq, failure}
 	default:

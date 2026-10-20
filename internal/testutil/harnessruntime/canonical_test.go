@@ -278,7 +278,7 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 		}
 		defer publisher.Abort()
 		private := &os.PathError{Op: "open", Path: "/private/credential-sentinel", Err: syscall.EACCES}
-		imported := &harnesssession.CleanupDiagnostic{Schema: "cartulary.harness_cleanup_diagnostic.v3", Stage: "browser_namespace", Cause: "deadline"}
+		imported := &harnesssession.CleanupDiagnostic{Schema: "cartulary.harness_cleanup_diagnostic.v4", Stage: "browser_namespace", Cause: "deadline"}
 		result, err := executeGraph(context.Background(), p, enginePorts{
 			Event: publisher.Event, Terminal: publisher.Terminal,
 			Execute: func(context.Context, executionRequest) unitResult {
@@ -436,6 +436,9 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 				publisher := &graphPublication{plan: p, root: root, facts: newCanonicalFacts(p)}
 				publisher.facts.starts[u.ID] = 0
 				terminal := canonicalTerminal{status: "failed", failure: failed("infra", "service_start_error")}
+				if mode == "setup" {
+					terminal.failure.ServiceRefs = []string{"_shared/test-services/fixture/service-scope.json"}
+				}
 				if mode == "timeout" {
 					terminal.failure = failed("timing", "timeout_failure")
 				}
@@ -484,6 +487,12 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 					var v map[string]any
 					if json.Unmarshal(data, &v) != nil || v["terminal_state"] != "infrastructure_failed" || v["failure_reason"] != terminal.failure.Reason {
 						t.Fatal(v)
+					}
+					if mode == "setup" {
+						diagnostic, ok := v["failure_diagnostic"].(map[string]any)
+						if !ok || diagnostic["schema_id"] != "cartulary.harness_service_failure_diagnostic.v1" || !reflect.DeepEqual(diagnostic["service_scope_refs"], []any{"_shared/test-services/fixture/service-scope.json"}) {
+							t.Fatal("prelaunch service reference lost", v)
+						}
 					}
 				}
 			})

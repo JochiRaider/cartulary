@@ -174,7 +174,7 @@
               "type": "null"
             },
             {
-              "$ref": "cartulary.harness_cleanup_diagnostic.v3"
+              "$ref": "cartulary.harness_cleanup_diagnostic.v4"
             }
           ]
         }

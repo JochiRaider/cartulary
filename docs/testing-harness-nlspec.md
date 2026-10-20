@@ -3802,7 +3802,7 @@ claim publication.
 | `cartulary.harness_unit_result.v1`              | `tools/schemas/cartulary.harness_unit_result.v1.schema.json`              | present           | Graph runner             | Before unit completion is accepted.       |
 | `cartulary.harness_row_result.v6`               | `tools/schemas/cartulary.harness_row_result.v6.schema.json`               | present           | Runner adapters          | Before selected-row closure.              |
 | `cartulary.harness_go_failure_diagnostic.v3` | `tools/schemas/cartulary.harness_go_failure_diagnostic.v3.schema.json` | present | Go row adapter | Before retaining independent setup and cleanup evidence. |
-| `cartulary.harness_cleanup_diagnostic.v3` | `tools/schemas/cartulary.harness_cleanup_diagnostic.v3.schema.json` | present | Native physical cleanup owner | Before forwarding safe terminal cleanup detail across adapters. |
+| `cartulary.harness_cleanup_diagnostic.v4` | `tools/schemas/cartulary.harness_cleanup_diagnostic.v4.schema.json` | present | Native physical cleanup owner | Before forwarding safe terminal cleanup detail across adapters. |
 | `cartulary.harness_test_failure.v4`             | `tools/schemas/cartulary.harness_test_failure.v4.schema.json`             | present           | Go test-support helpers  | Before a setup failure marker is emitted or accepted. |
 | `cartulary.harness_run_summary.v1`              | `tools/schemas/cartulary.harness_run_summary.v1.schema.json`              | present           | Event projection         | Before graph command exit.                |
 | `cartulary.harness_target_summary.v1`           | `tools/schemas/cartulary.harness_target_summary.v1.schema.json`           | present           | Target projection        | Before graph command exit.                |
@@ -6892,9 +6892,10 @@ request values or arbitrary error strings. Transport failures remain distinct.
 Process-proof diagnostics remain private and MUST NOT enter retained public
 receipts. The native physical-process adapter and browser lifecycle adapters MUST
 preserve a closed cleanup diagnostic on failed settlement. The shared
-`cartulary.harness_cleanup_diagnostic.v3` attachment contains only schema identity,
-closed stage and cause categories, and a bounded errno; its transport is limited
-to 4,096 bytes. It excludes process identities, proof paths, credentials and
+`cartulary.harness_cleanup_diagnostic.v4` attachment contains only schema identity,
+closed stage and cause categories, a bounded errno and optional closed identity
+boundary/opaque producer-registration reference; its transport is limited to
+4,096 bytes. It excludes process identities, proof paths, credentials and
 arbitrary exception strings. Adapters validate it before forwarding; malformed,
 oversized or missing diagnostics cannot turn a failed cleanup into success.
 Native fixture diagnostics MUST distinguish resource-inventory/graph validation,
@@ -7303,6 +7304,34 @@ Lease files MUST be written before child work starts, MUST be redacted before re
 
 ### 11.4 Readiness Deadlines
 
+Owned PostgreSQL acquisition distinguishes container startup, mapped-endpoint
+resolution, SQL readiness, security/capability validation, generation initialization
+and ready-binding publication.
+The outer startup cap is 180 seconds and each startup attempt is capped at
+35 seconds. Mapped-port resolution is capped at 15 seconds. After endpoint
+resolution, SQL readiness has one 15-second window, with 250 ms polling and
+individual probes capped at 5 seconds. Every phase is bounded by its remaining
+parent deadline; these caps do not add time to that deadline. Authentication,
+security-policy and required-capability rejection are terminal. Reaching SQL
+readiness excludes a replacement startup attempt. Generation initialization and
+template migration are distinct from connectivity; a ready binding is published
+only after its required prerequisites succeed.
+
+PostgreSQL startup failures MUST retain bounded normalized phase, probe counts,
+configured and effective budgets, limiting deadline, elapsed time and cleanup
+outcome through the existing service-scope diagnostic extension boundary.
+Transport text, endpoints, credentials and raw provider errors MUST NOT enter
+that diagnostic. A failed allocation MUST retain the validated service-scope
+reference even when no ready lease was published. Missing or contradictory
+evidence remains an artifact failure, not inferred success.
+
+An acquired physical resource MUST remain represented by partial ownership or
+an explicit completed-settlement receipt on every failed-start path. The generic
+startup wrapper MUST NOT discard partial ownership. `startup_failed` describes
+the startup outcome and is not physical-settlement proof. Failed cleanup retains
+its exact recovery dependencies and resident claims, and cannot authorize another
+ordinary cleanup attempt or a replacement service.
+
 Browser owned-stack readiness is an ownership predicate, not only an HTTP availability predicate. The backend is ready only when all of the following hold before the deadline:
 
 - the wrapper-started backend process group is still alive;
@@ -7407,7 +7436,7 @@ and its declared report is complete.
 | Resource                     | Deadline | Poll interval | Failure reason                       |
 | ---------------------------- | -------: | ------------: | ------------------------------------ |
 | Docker preflight             |    `15s` |          `1s` | `preflight_error`                    |
-| Postgres container readiness |   `180s` |       `500ms` | `service_readiness_timeout`          |
+| Postgres SQL readiness      |    `15s` |       `250ms` | `service_readiness_timeout`          |
 | local object-store readiness |   `120s` |       `500ms` | `service_readiness_timeout`          |
 | Template DB migration        |   `180s` |           n/a | `fixture_error`                      |
 | Browser backend readiness    |   `120s` |       `500ms` | `service_readiness_timeout`          |
@@ -7454,7 +7483,7 @@ Destructive reset, cleanup, attach-mode service mutation, and non-idempotent ope
 | Resource operation          | `max_attempts` | Backoff | Retryable failure reasons                                  | Overall deadline | Safe retry scope                                  |
 | --------------------------- | -------------: | ------- | ---------------------------------------------------------- | ---------------- | ------------------------------------------------- |
 | Docker preflight            |            `1` | none    | none                                                       | `15s`            | none                                              |
-| Postgres owned startup      |            `3` | `500ms` | transient Docker startup or transport failure before readiness polling begins | attempt startup only; readiness deadline is Section 11.4 `180s` | Failed attempt container is terminated first.     |
+| Postgres owned startup      |            `3` | `500ms` | transient Docker startup or transport failure before readiness polling begins | `180s` outer startup, `35s` per attempt; SQL readiness is Section 11.4 `15s` | Failed attempt container is proved settled first. |
 | object-store owned startup  |            `2` | `250ms` | transient Docker startup or transport failure before readiness polling begins | attempt startup only; readiness deadline is Section 11.4 `120s` | Failed attempt container is terminated first.     |
 | Template DB migration       |            `1` | none    | none                                                       | `180s`           | none                                              |
 | Browser backend startup     |            `1` | none    | none                                                       | `120s`           | readiness polling only                            |
@@ -8589,6 +8618,23 @@ lease. Neither ambient environment nor a previously used output authorizes a
 new recovery writer.
 
 Private detail and minimum recovery proof have separate deletion boundaries.
+Private-detail producer authority MUST have an immutable registration and an
+explicit retirement outcome bound to its exact supervised process and runtime
+scope. Admission precedes private-path or inherited-detail access. Supervised
+exit alone does not settle descendants. The native owner MUST retain the process
+anchor through group settlement and durably acknowledge retirement before later
+cleanup can omit that producer. Any inherited descendant responsibility remains
+an explicit dependency of the runtime scope until its settlement. Missing or
+failed retirement publication preserves authority and prevents successful purge.
+Transferring responsibility for a producer outside the settled launch group
+requires verified inherited scope membership as well as immutable launch ancestry.
+An unmarked producer retains its individual outstanding authority.
+Retired producer identities MUST NOT be signaled again. Private-detail purge
+requires settlement of every outstanding producer and descendant obligation.
+Identity diagnostics distinguish producer comparison, group/session comparison,
+pre-signal revalidation, boot identity, process-read failure and descendant-scope
+membership using closed categories and opaque registration references only.
+
 The disposable-detail boundary MUST be independently identifiable from validated
 runtime ownership, without decoding resource journals. Corrupt or incomplete
 journals prevent a successful recovery verdict but MUST NOT prevent removal of

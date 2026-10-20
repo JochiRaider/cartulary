@@ -511,6 +511,7 @@
           "authoring candidate presentation refreshes only selected labels and preserves duplicate off-page identities and metadata",
           "authoring candidate presentation restores focused selected-reference removal to the next surviving identity",
           "authoring candidate presentation retains a reviewed source version and captures only source identity metadata for explicit replacement",
+          "authoring candidate presentation retains parent references when a cancelled pending picker resolves after reopening",
           "authoring candidate presentation retains selected identities across twelve evicted pages with bounded options and reduced payloads",
           "authoring candidate presentation retires held read focus after outside interaction scope replacement and authority loss",
           "authoring candidate presentation returns sole single-choice removal focus to its candidate control",

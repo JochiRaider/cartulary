@@ -14,12 +14,13 @@ import (
 )
 
 type failure struct {
-	Class      string `json:"failure_class"`
-	Reason     string `json:"failure_reason"`
-	Lifecycle  string `json:"lifecycle_step,omitempty"`
-	Sequence   int64  `json:"scheduler_event_sequence,omitempty"`
-	ChildOrder int64  `json:"child_registry_order,omitempty"`
-	Artifact   string `json:"artifact,omitempty"`
+	Class       string   `json:"failure_class"`
+	Reason      string   `json:"failure_reason"`
+	Lifecycle   string   `json:"lifecycle_step,omitempty"`
+	Sequence    int64    `json:"scheduler_event_sequence,omitempty"`
+	ChildOrder  int64    `json:"child_registry_order,omitempty"`
+	Artifact    string   `json:"artifact,omitempty"`
+	ServiceRefs []string `json:"-"`
 }
 
 func (f *failure) Error() string           { return f.Class + "/" + f.Reason }
@@ -33,7 +34,16 @@ func failureOf(err error) *failure {
 	var typed interface{ HarnessFailure() (string, string) }
 	if errors.As(err, &typed) {
 		class, reason := typed.HarnessFailure()
-		return normalizedFailure(failed(class, reason))
+		failure := normalizedFailure(failed(class, reason))
+		var references interface{ ArtifactReferences() []string }
+		if errors.As(err, &references) {
+			for _, ref := range references.ArtifactReferences() {
+				if serviceScopeReference.MatchString(ref) {
+					failure.ServiceRefs = append(failure.ServiceRefs, ref)
+				}
+			}
+		}
+		return failure
 	}
 	if errors.Is(err, context.Canceled) {
 		return failed("interrupted", "cancelled_or_interrupted")
@@ -705,7 +715,11 @@ func (e *graphEngine) complete(m engineMessage) {
 			e.stopAdmission = true
 		}
 	}
-	e.emit(m.At.Milliseconds(), event, m.ID, r.Status, failureFields(r.Failure))
+	fields := failureFields(r.Failure)
+	if r.Failure != nil && len(r.Failure.ServiceRefs) > 0 {
+		fields["service_scope_refs"] = r.Failure.ServiceRefs
+	}
+	e.emit(m.At.Milliseconds(), event, m.ID, r.Status, fields)
 	e.refreshWaits(e.lastMS)
 	e.observe()
 }

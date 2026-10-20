@@ -370,7 +370,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
 	ownedEnv[suiteservices.CallModeEnv] = "owned"
 
-	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
+	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart, Details: map[string]any{"postgres_allocation_ref": ownedEnv[suiteservices.PGAllocationRefEnv]}})
 	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartServices, ""); err != nil {
 		fmt.Fprintf(os.Stderr, "record service lifecycle start: %v\n", err)
 		return 1
@@ -615,7 +615,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 		}
 	}()
 
-	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart})
+	deps.recordEvent(ownedEnv, suiteservices.Event{Type: suiteservices.EventWrapperOwnedStart, Details: map[string]any{"postgres_allocation_ref": ownedEnv[suiteservices.PGAllocationRefEnv]}})
 	if err := suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartServices, ""); err != nil {
 		fmt.Fprintf(os.Stderr, "record service lifecycle start: %v\n", err)
 		return 1
@@ -643,7 +643,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	var postgresSvc postgresService
 	var objectStoreSvc objectStoreService
 	var schemaHash, templateDB, generatedLeasePath string
-	startupCtx, cancelStartup := context.WithCancel(context.Background())
+	startupCtx, cancelStartup := context.WithCancel(context.WithValue(context.Background(), partialSuiteKey{}, &partialSuiteOwnership{env: cloneEnv(ownedEnv), path: leaseFile}))
 	defer cancelStartup()
 	var objectStoreResultCh <-chan objectStoreStartResult
 	if slices.Contains(services, suiteservices.ServiceObjectStore) {
@@ -667,7 +667,19 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 		if !ready {
 			cancelStartup()
 			_ = settleObjectStore()
-			cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
+			recoveryFiles = append(recoveryFiles, postgresSvc.cleanupFiles...)
+			if generatedLeasePath == "" && (postgresSvc.containerID != "" || objectStoreSvc.containerID != "") {
+				path, proofErr := writeServiceLease(ownedEnv, postgresSvc, objectStoreSvc)
+				if proofErr == nil {
+					proofErr = copyFile(path, leaseFile, 0o600)
+				}
+				if proofErr != nil {
+					recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "preserve partial suite ownership", proofErr))
+				}
+			}
+			// Startup owns one synchronous settlement. Do not delegate to a
+			// reaper or make the broker retry a failed lower-layer attempt.
+			cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		}
 	}()
 	if slices.Contains(services, suiteservices.ServicePostgres) {
@@ -1019,7 +1031,7 @@ func writeBrowserCleanupFailure(out io.Writer, stage string, err error) {
 		cause, number = "io", int(errno)
 	}
 	_ = json.NewEncoder(out).Encode(map[string]any{
-		"schema_id": "cartulary.harness_cleanup_diagnostic.v3", "stage": stage, "cause": cause, "errno": number,
+		"schema_id": "cartulary.harness_cleanup_diagnostic.v4", "stage": stage, "cause": cause, "errno": number,
 	})
 }
 
@@ -1246,12 +1258,15 @@ func parseStartSuiteArgs(args []string) (string, string, string, error) {
 }
 
 func writeStartSuiteResult(path string, env map[string]string, ready bool, recoveryFiles []string) error {
+	recoveryFiles = slices.Clone(recoveryFiles)
+	slices.Sort(recoveryFiles)
+	recoveryFiles = slices.Compact(recoveryFiles)
 	suiteID := suiteservices.SuiteID(env)
 	runID := suiteservices.ResolveRunID(env)
 	target := firstNonEmptyString(strings.TrimSpace(suiteservices.LookupEnvValue(env, suiteservices.TargetEnv)), "test-services")
 	result := startSuiteResult{
 		SchemaID:        "cartulary.test_services.start_result.v2",
-		RecoveryFiles:   []string{},
+		RecoveryFiles:   append([]string{}, recoveryFiles...),
 		Status:          "failed",
 		RunID:           runID,
 		Target:          target,
@@ -1260,7 +1275,6 @@ func writeStartSuiteResult(path string, env map[string]string, ready bool, recov
 	}
 	if ready {
 		result.Status = "ready"
-		result.RecoveryFiles = append(result.RecoveryFiles, recoveryFiles...)
 	} else {
 		failureClass := suiteservices.FailureClassHelper
 		failureReason := "fixture_error"
@@ -1571,7 +1585,7 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 		lease.PostgresProvisioning = &leaseproof.PostgresProvisioning{SchemaID: "cartulary.test_services.postgres_provisioning.v2", Generation: postgresSvc.generation, PostgresIsolation: env[suiteservices.PGIsolationEnv], AllocationRef: env[suiteservices.PGAllocationRefEnv], PolicyDigest: pgtest.ProvisioningDigest(), TemplateDigest: pgtest.TemplateDigest(pgschema.MustHash())}
 	}
 	lease.Resources = slices.DeleteFunc(lease.Resources, func(resource leaseproof.LeaseResource) bool {
-		return !slices.Contains(services, resource.Service)
+		return !slices.Contains(services, resource.Service) || resource.ContainerID == ""
 	})
 	if objectStoreSvc.probeBucket != "" {
 		lease.ProofPrefixes["object_store_probe_bucket"] = objectStoreSvc.probeBucket
@@ -1736,8 +1750,14 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 		Labels:         labels,
 		Observer:       suiteServiceStartObserver(env, suiteservices.ServicePostgres),
 		AttemptTimeout: suitePostgresAttemptLimit,
+		Readiness: func(diagnostic suiteservices.PostgresReadinessDiagnostic) {
+			_ = suiteservices.RecordEvent(env, suiteservices.Event{Type: suiteservices.EventPostgresReady, Details: map[string]any{suiteservices.PostgresReadinessExtensionKey: diagnostic}})
+		},
+		Acquired: func(harness *pgtest.Harness) error {
+			return publishPartialSuite(ctx, postgresService{containerID: harness.ContainerID(), image: pgtest.ContainerImage(), labels: labels, cleanupFiles: harness.CleanupFiles()}, objectStoreService{})
+		},
 	})
-	if err != nil {
+	if harness == nil {
 		return postgresService{}, err
 	}
 	return postgresService{
@@ -1753,7 +1773,7 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 		name:         containerName(ctx, harness.Container),
 		image:        pgtest.ContainerImage(),
 		labels:       labels,
-	}, nil
+	}, err
 }
 
 func startObjectStoreService(ctx context.Context, env map[string]string) (objectStoreService, error) {
@@ -1762,16 +1782,25 @@ func startObjectStoreService(ctx context.Context, env map[string]string) (object
 		Labels:         labels,
 		Observer:       suiteServiceStartObserver(env, suiteservices.ServiceObjectStore),
 		AttemptTimeout: suiteObjectStoreAttemptLimit,
+		Acquired: func(harness *s3test.Harness) error {
+			return publishPartialSuite(ctx, postgresService{}, objectStoreService{containerID: harness.ContainerID(), image: s3test.ContainerImage(), labels: labels})
+		},
 	})
-	if err != nil {
+	if harness == nil {
 		return objectStoreService{}, err
 	}
-	probeBucket, err := bootstrapObjectStoreProbeBucket(ctx, harness)
-	if err != nil {
-		cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
-		closeErr := harness.Close(cleanupCtx)
-		cancel()
-		return objectStoreService{}, errors.Join(err, closeErr)
+	probeBucket := ""
+	if err == nil {
+		probeBucket, err = bootstrapObjectStoreProbeBucket(ctx, harness)
+		if err != nil {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+			closeErr := harness.Close(cleanupCtx)
+			cancel()
+			if closeErr == nil {
+				return objectStoreService{}, err
+			}
+			err = errors.Join(err, closeErr)
+		}
 	}
 	proxyCertificate, proxyPrivateKey := harness.ProxyTLSFiles()
 	return objectStoreService{
@@ -1783,6 +1812,9 @@ func startObjectStoreService(ctx context.Context, env map[string]string) (object
 		proxyCertificatePath: proxyCertificate, proxyPrivateKeyPath: proxyPrivateKey,
 		probeBucket: probeBucket,
 		cleanupProbe: func(cleanupCtx context.Context) error {
+			if probeBucket == "" {
+				return nil
+			}
 			return harness.CleanupBucket(cleanupCtx, probeBucket)
 		},
 		close:       harness.Close,
@@ -1790,7 +1822,7 @@ func startObjectStoreService(ctx context.Context, env map[string]string) (object
 		name:        containerName(ctx, harness.Container),
 		image:       s3test.ContainerImage(),
 		labels:      labels,
-	}, nil
+	}, err
 }
 
 func suiteServiceStartObserver(env map[string]string, service string) testcontainersx.StartObserver {
@@ -1844,7 +1876,11 @@ func recordServiceStartupAttempt(env map[string]string, service string, event te
 		"retry_blocked_by_context": event.RetryBlockedByContext,
 	}
 	if event.Err != nil {
-		details["message"] = suiteservices.SanitizeDiagnosticText(event.Err.Error())
+		if service == suiteservices.ServicePostgres {
+			details["message"] = "postgres startup attempt failed"
+		} else {
+			details["message"] = suiteservices.SanitizeDiagnosticText(event.Err.Error())
+		}
 	}
 	_ = suiteservices.RecordEvent(env, suiteservices.Event{
 		Type:    suiteservices.EventTimingSpan,
@@ -2262,11 +2298,16 @@ func readWebE2EMetadata(path string) (webE2EMetadata, error) {
 }
 
 func recordCleanupAndRefresh(deps dependencies, env map[string]string, status string, childExitCode int) {
+	settlement := "completed"
+	if status == "cleanup_failed" {
+		settlement = "unresolved"
+	}
 	deps.recordEvent(env, suiteservices.Event{
 		Type:   suiteservices.EventCleanupCompleted,
 		Status: status,
 		Details: map[string]any{
-			"child_exit_status": childExitCode,
+			"child_exit_status":   childExitCode,
+			"physical_settlement": settlement,
 		},
 	})
 	deps.refreshSummary(env)
@@ -3086,12 +3127,26 @@ func failureSummary(service string, stage string, operation string, err error) s
 			failure.Message = message
 		}
 	}
+	if diagnostic, present := pgtest.ReadinessDiagnosticFromError(err); present {
+		failure.PostgresReadiness = &diagnostic
+		failure.Message = "postgres acquisition " + diagnostic.Stage + ": " + diagnostic.Outcome
+	}
 
 	failure.Message = suiteservices.SanitizeDiagnosticText(failure.Message)
 	return failure
 }
 
 func classifyFailureReason(stage string, operation string, err error) string {
+	if diagnostic, present := pgtest.ReadinessDiagnosticFromError(err); present {
+		switch diagnostic.Outcome {
+		case "deadline_expired":
+			return "service_readiness_timeout"
+		case "authentication_rejected", "capability_rejected", "initialization_failed":
+			return "fixture_error"
+		case "cancelled":
+			return "cancelled_or_interrupted"
+		}
+	}
 	if diagnostic, present := s3test.ReadinessDiagnosticFromError(err); present {
 		switch diagnostic.Outcome {
 		case "deadline_expired":
@@ -3171,6 +3226,9 @@ func recordFailureAndRefresh(deps dependencies, env map[string]string, failure s
 	}
 	if failure.ObjectStoreReadiness != nil {
 		details[suiteservices.ObjectStoreReadinessExtensionKey] = failure.ObjectStoreReadiness
+	}
+	if failure.PostgresReadiness != nil {
+		details[suiteservices.PostgresReadinessExtensionKey] = failure.PostgresReadiness
 	}
 	deps.recordEvent(env, suiteservices.Event{
 		Type:    suiteservices.EventFailureRecorded,

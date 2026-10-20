@@ -204,7 +204,7 @@ func testLifecycleGaps(t *testing.T) {
 		defer cancel()
 		cmd := exec.CommandContext(ctx, "/bin/sh", "-c", `sleep 60 </dev/null >/dev/null 2>&1 & echo $! > "$1"; exit 0`, "fixture", file)
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-		if err := waitPhysicalCommand(ctx, cmd); err != nil {
+		if err := waitPhysicalCommand(ctx, cmd, nil); err != nil {
 			t.Fatal(err)
 		}
 		data, err := os.ReadFile(file)

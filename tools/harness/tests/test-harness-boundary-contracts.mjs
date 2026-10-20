@@ -163,7 +163,7 @@ test("physical cleanup diagnostics remain bounded and cannot authorize success",
   const { findCleanupDiagnostic, withCleanupDiagnostic } = await import("../runtime/cleanup-diagnostic.mjs");
   const scratch = mkdtempSync(path.join(os.tmpdir(), "cleanup-diagnostic-"));
   t.after(() => rmSync(scratch, {recursive:true,force:true}));
-  const valid = {schema_id:"cartulary.harness_cleanup_diagnostic.v3",stage:"process_signal",cause:"io",errno:13};
+  const valid = {schema_id:"cartulary.harness_cleanup_diagnostic.v4",stage:"process_signal",cause:"io",errno:13};
   const cases = [
     [JSON.stringify(valid), "process_signal"],
     [JSON.stringify({...valid,process_id:123}), "process_protocol"],

@@ -83,6 +83,9 @@ func startProxy(p ProductionOptions, binary string, args []string, environment m
 			}
 			settleCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			settleErr := harnesssession.StopProcess(settleCtx, target, 0)
+			if settleErr == nil {
+				settleErr = p.Runtime.RetireDetailProducers(target)
+			}
 			cancel()
 			_ = cmd.Wait()
 			if proofErr == nil && settleErr == nil {

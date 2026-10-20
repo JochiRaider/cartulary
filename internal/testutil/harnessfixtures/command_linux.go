@@ -97,6 +97,9 @@ func commandRunner(root string, runtime *harnesssession.Runtime, dependencies []
 		// Keep the zombie leader reserved until group signaling has finished.
 		settleCtx, settleCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		settleErr := harnesssession.StopProcess(settleCtx, target, 0)
+		if settleErr == nil {
+			settleErr = runtime.RetireDetailProducers(target)
+		}
 		settleCancel()
 		waitErr := cmd.Wait()
 		if cmd.ProcessState != nil {

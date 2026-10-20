@@ -17764,3 +17764,65 @@ duration 38030ms, root
 `/tmp/cartulary-pg07-readiness-markdown.{log,exit}`. No product regeneration or
 additional warm run was triggered for this documentation update. The handoff is
 recorded; PG06/PG07/V00 acceptance remains BLOCKED for the stated obligations.
+
+## Remediation 02 implementation handoff — 2026-10-20
+
+The preceding entries remain historical evidence. The current implementation
+and obligation matrix are in
+[testing-harness-remediation-02.md](testing-harness-remediation-02.md).
+The four failures were treated independently; no common root cause is asserted.
+
+Completed executable source:
+`sha256:54b53ac3f86228bdc8967604ce0d103488e5c3ae4196f65b690bc44ae7ecec3a`.
+The changes reconcile the 15-second SQL readiness contract, preserve partial
+startup ownership and physical-settlement evidence, link failed allocations to
+service diagnostics, add bounded drop/identity observations, give private-detail
+producers durable retirement, and synchronize exact picker selection assertions.
+The production picker, durability settings, resource ceilings and cleanup
+deadlines are unchanged.
+
+Fresh final CI `remediation02-aggregate-ci` completed with native session
+71887 / exit 0: 741/741 work units passed with no skips. All 55 accessibility
+rows passed together, including the seven formerly skipped rows. The Graph
+Projection cleanup/locking row launched and passed its assertions. All 1,398
+cleanup steps completed, including both fixture settlement and runtime closure.
+The retained-secret scan and public evidence-closure audit passed.
+
+The exact old runtime recorded above was recovered through
+`make test-run-recover` under `remediation02-retained-recovery`, native
+29442 / exit 0, using the original exact runtime root and lease binding before
+the private v2 cutover. The root is absent. No historical retirement
+acknowledgements were fabricated; original CI and failed recovery receipts
+remain unchanged. PID reuse is still an unproved historical hypothesis.
+
+Required explicit validation also passed on the completed source:
+
+| Run ID | Selection | Native session / exit | Result |
+| --- | --- | --- | --- |
+| remediation02-visual | `make browser-e2e SUITE=visual HARNESS_DIAGNOSTICS=basic` | 51616 / 0 | All 49 rows; 53/53 work units; all 106 cleanup steps completed |
+| remediation02-ui-review | `make harness-contract SUITE=ui-review HARNESS_DIAGNOSTICS=basic` | 11981 / 0 | 10/10 work units; all 19 cleanup steps completed |
+| remediation02-imports | Four exact Imports measurement rows recorded in remediation 02 | 82601 / 0 | All four rows; 21/21 work units; all 40 cleanup steps completed |
+
+All three scans and evidence-closure audits passed. CI supplies the four
+Network Flow measurement passes. The three affected PostgreSQL selections and
+Graph Projection also passed in isolation; three further matched batches used
+the exact CI commands, fixture populations, claims and isolation. Their retained
+roots and full commands are recorded in remediation 02.
+
+The current execution blockers did not reproduce, but full causal remediation
+is not claimed. W1's historical checkpoint overrun remains an open storage/
+workload investigation; current aggregate samples still show higher sync cost.
+W2's historical timeout cannot be linked conclusively to the old failed service
+scope because that evidence lacks an allocation binding. The new linkage and
+phase diagnostics address that evidence gap; passing current readiness does not
+prove the old cause. Follow the bounded next experiments and owner assignments
+in remediation 02, without speculative costs, retries or timeout changes.
+
+`make agent-finalize` passed under `remediation02-scope-finalize` before final
+validation, with generated files unchanged. Retained-run maintenance remains
+explicitly skipped with `RESULTS_DIR` unset: cache-disabled CI is not a compatible
+full warm `make check` root. Final documentation verification is
+`CARTULARY_TEST_RUN_ID=remediation02-final-markdown make lint-markdown`; the exact
+root and owning receipt record its outcome. Current-source execution acceptance
+is verified; the overall remediation remains open for the stated causal
+investigations and human review of specification fidelity.

@@ -1432,6 +1432,49 @@ describe("authoring candidate presentation", () => {
       { recordId: "off-page", displayText: "Retained", viewSchemaId: view },
     ]);
   });
+  it("retains parent references when a cancelled pending picker resolves after reopening", async () => {
+    const { props, reader, onApply } = setup();
+    const oldPage = readGate();
+    vi.mocked(reader.page)
+      .mockImplementationOnce(() => oldPage.promise)
+      .mockResolvedValue(page(1));
+    const retained = candidate("1-0");
+    render(
+      <WorkbookAuthoringReferenceControl {...props} selected={[retained]} />,
+    );
+    try {
+      click("Choose parties");
+      await waitFor(() => expect(reader.page).toHaveBeenCalledTimes(1));
+      click("Remove selected Parties Party 1-0");
+      fireEvent.keyDown(
+        screen.getByRole("region", { name: "Choose parties" }),
+        {
+          key: "Escape",
+        },
+      );
+      const trigger = screen.getByRole("button", { name: "Choose parties" });
+      expect(document.activeElement).toBe(trigger);
+      expect(onApply).not.toHaveBeenCalled();
+      click("Choose parties");
+      const original = await screen.findByRole("checkbox", {
+        name: candidateName("Party 1-0"),
+      });
+      expect(original).toHaveProperty("checked", true);
+      const cancel = screen.getByRole("button", { name: "Cancel references" });
+      expect(document.activeElement).toBe(cancel);
+      await act(async () => oldPage.resolve(page(2)));
+      expect(original).toHaveProperty("checked", true);
+      expect(
+        screen.queryByRole("checkbox", { name: candidateName("Party 2-0") }),
+      ).toBeNull();
+      expect(document.activeElement).toBe(cancel);
+      expect(onApply).not.toHaveBeenCalled();
+      click("Apply references");
+      expect(onApply).toHaveBeenCalledWith([retained]);
+    } finally {
+      await act(async () => oldPage.resolve(page(2)));
+    }
+  });
   it("conceals typed authorization failures and fences obsolete authority callbacks on target replacement", async () => {
     const { props, reader } = setup();
     const onAuthorityFailure = vi.fn();

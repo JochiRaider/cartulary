@@ -136,6 +136,9 @@ func startAdapter(root, session string, runtime *harnesssession.Runtime, environ
 		settleErr := harnesssession.StopProcess(settleCtx, target, 0)
 		settleCancel()
 		if settleErr == nil && proofErr == nil {
+			settleErr = runtime.RetireDetailProducers(target)
+		}
+		if settleErr == nil && proofErr == nil {
 			settleErr = runtime.RecordResource("helper_process", target, "released")
 		}
 		waitErr = errors.Join(waitErr, settleErr, cmd.Wait())

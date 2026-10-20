@@ -38,12 +38,13 @@ type failureScope interface {
 	Close() error
 }
 type processRunner struct {
-	Root         string
-	Environment  map[string]string
-	Commands     map[string]string
-	FailureScope func(map[string]any) (failureScope, error)
-	Observe      func(map[string]any) processObservation
-	KillGrace    time.Duration
+	Root            string
+	Environment     map[string]string
+	Commands        map[string]string
+	FailureScope    func(map[string]any) (failureScope, error)
+	Observe         func(map[string]any) processObservation
+	KillGrace       time.Duration
+	RetireProducers func(harnesssession.ProcessProof) error
 }
 type boundedTail struct {
 	bytes []byte
@@ -343,6 +344,9 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	settleErr := proofErr
 	if settleErr == nil {
 		settleErr = harnesssession.StopProcess(settleCtx, processProof, 0)
+	}
+	if settleErr == nil && p.RetireProducers != nil {
+		settleErr = p.RetireProducers(processProof)
 	}
 	settleCancel()
 	cmd.WaitDelay = grace

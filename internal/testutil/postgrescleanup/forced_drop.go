@@ -28,6 +28,7 @@ type databaseDropLock func(context.Context, string, string, func(databaseDropExe
 
 type dropOperations struct {
 	withAdmission databaseDropLock
+	observe       func(DropAttempt)
 }
 
 var productionDropOperations = dropOperations{withAdmission: withDropAdmission}
@@ -63,6 +64,14 @@ func DropOwnedDatabase(ctx context.Context, adminDSN, name string) error {
 	return dropOwnedDatabase(ctx, adminDSN, name, productionDropOperations)
 }
 
+// DropOwnedDatabaseWithObservation publishes the same bounded attempt on
+// success and failure. Observation grants no authority and adds no SQL probes.
+func DropOwnedDatabaseWithObservation(ctx context.Context, adminDSN, name string, observe func(DropAttempt)) error {
+	operations := productionDropOperations
+	operations.observe = observe
+	return dropOwnedDatabase(ctx, adminDSN, name, operations)
+}
+
 func dropOwnedDatabase(ctx context.Context, adminDSN, name string, operations dropOperations) (resultErr error) {
 	if ctx == nil {
 		return errors.New("database drop requires a parent context")
@@ -85,6 +94,11 @@ func dropOwnedDatabase(ctx context.Context, adminDSN, name string, operations dr
 	defer func() {
 		observation.DurationMS = time.Since(started).Milliseconds()
 		observation.Outcome = "completed"
+		defer func() {
+			if operations.observe != nil {
+				operations.observe(observation)
+			}
+		}()
 		if resultErr == nil {
 			return
 		}

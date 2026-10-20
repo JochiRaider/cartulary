@@ -96,12 +96,13 @@ rules above. The setting does not enable application telemetry or network export
 ```sh
 make test-slice OWNER=<owner> ROWS=<exact-row-ids> HARNESS_DIAGNOSTICS=basic
 make explain-run RESULTS_DIR=<exact-run-dir> DETAIL=performance
-make explain-run RESULTS_DIR=<exact-run-dir> DETAIL=resources JSON=1
+make explain-run RESULTS_DIR=<exact-run-dir> DETAIL=performance JSON=1
 make harness-observability-check RESULTS_DIR=<exact-run-dir>
 ```
 
-Performance/resource detail requires an exact run (or parent plus RUN_ID).
-`JSON=1` on explain-run supports these two details only. These are current-epoch
+Performance detail, including resource observations, requires an exact run (or
+parent plus RUN_ID). Use `JSON=1` with `DETAIL=performance`; there is no separate
+`DETAIL=resources` selection in the current public command. These are current-epoch
 readers; older schemas are historical evidence, not silently translated inputs.
 Live status includes the last resource sample when available, its graph-process
 clock, age and staleness. Keep using the native session during measurement pause.

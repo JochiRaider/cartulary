@@ -257,12 +257,18 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	// Successful helper exit is insufficient: exact start/scope evidence must
 	// agree before bindings or container proof become available to consumers.
 	settled := false
+	settlementAttempted := false
 	defer func() {
 		if result == nil {
 			return
 		}
 		var settlement error
-		if _, err := harnesslocal.ReadFile(leaseFile, 1048576, false); err == nil {
+		if settled {
+			return
+		}
+		if settlementAttempted {
+			settlement = harnesssession.ErrUnresolved
+		} else if _, err := harnesslocal.ReadFile(leaseFile, 1048576, false); err == nil {
 			cleanupCtx, done := context.WithTimeout(context.Background(), 2*time.Minute)
 			settlement = p.stopSuite(cleanupCtx, leaseFile, environment)
 			done()
@@ -310,11 +316,22 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 		if !ok || start["status"] != "failed" || failure["failure_class"] != start["failure_class"] || failure["failure_reason"] != start["failure_reason"] {
 			return nil, artifactFailure(errors.New("startup failure evidence mismatch"))
 		}
-		if cleanup, ok := scope["cleanup"].(map[string]any); ok && cleanup["status"] == "startup_failed" {
-			if err := p.Runtime.RecordResource("managed_suite", leaseFile, "released"); err != nil {
-				return nil, artifactFailure(err)
+		if cleanup, ok := scope["cleanup"].(map[string]any); ok {
+			settlementAttempted = cleanup["physical_settlement"] == "completed" || cleanup["physical_settlement"] == "unresolved"
+			if cleanup["physical_settlement"] == "completed" {
+				if err := p.Runtime.RecordResource("managed_suite", leaseFile, "released"); err != nil {
+					return nil, artifactFailure(err)
+				}
+				settled = true
+			} else if settlementAttempted {
+				files := []string{environmentFile}
+				for _, file := range start["recovery_files"].([]any) {
+					files = append(files, file.(string))
+				}
+				if err := p.Runtime.RecordResource("managed_suite", leaseFile, "acquired", files...); err != nil {
+					return nil, artifactFailure(err)
+				}
 			}
-			settled = true
 		}
 		class, _ := start["failure_class"].(string)
 		reason, _ := start["failure_reason"].(string)

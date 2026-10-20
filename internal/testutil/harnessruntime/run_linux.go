@@ -230,7 +230,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	for name, projection := range plan.facts.Projections {
 		commands[name] = projection.CommandID
 	}
-	processes := processRunner{Root: root, Environment: child, Commands: commands, FailureScope: func(identity map[string]any) (failureScope, error) {
+	processes := processRunner{Root: root, Environment: child, Commands: commands, RetireProducers: runtime.RetireDetailProducers, FailureScope: func(identity map[string]any) (failureScope, error) {
 		return createFailureScope(runtime.Directory, identity)
 	}, Observe: diagnostics.execution.launch}
 	var parent *string

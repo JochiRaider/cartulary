@@ -17,6 +17,36 @@ type cleanupError struct {
 	err   error
 }
 
+// Identity context is observational. It never changes the underlying rejection
+// or contains a kernel identity, private path or provider error string.
+type identityError struct {
+	boundary string
+	producer string
+	err      error
+}
+
+func (e *identityError) Error() string { return "runtime process identity unresolved" }
+func (e *identityError) Unwrap() error { return e.err }
+
+func atIdentityBoundary(boundary string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &identityError{boundary: boundary, err: err}
+}
+
+func atDetailProducer(ordinal int, err error) error {
+	if err == nil {
+		return nil
+	}
+	var identity *identityError
+	boundary := ""
+	if errors.As(err, &identity) {
+		boundary = identity.boundary
+	}
+	return &identityError{boundary: boundary, producer: fmt.Sprintf("producer:%04d", ordinal), err: err}
+}
+
 func (e *cleanupError) Error() string { return "runtime cleanup failed" }
 func (e *cleanupError) Unwrap() error { return e.err }
 
@@ -36,13 +66,15 @@ func AtCleanupStage(stage string, err error) error {
 // CleanupDiagnostic is a non-authoritative terminal diagnostic. Unlike private
 // protocol rejections, it contains no process identity, proof path or payload.
 type CleanupDiagnostic struct {
-	Schema string `json:"schema_id"`
-	Stage  string `json:"stage"`
-	Cause  string `json:"cause"`
-	Errno  int    `json:"errno"`
+	Schema           string `json:"schema_id"`
+	Stage            string `json:"stage"`
+	Cause            string `json:"cause"`
+	Errno            int    `json:"errno"`
+	IdentityBoundary string `json:"identity_boundary,omitempty"`
+	ProducerRef      string `json:"producer_ref,omitempty"`
 }
 
-const cleanupDiagnosticSchema = "cartulary.harness_cleanup_diagnostic.v3"
+const cleanupDiagnosticSchema = "cartulary.harness_cleanup_diagnostic.v4"
 
 func (d *CleanupDiagnostic) Error() string { return d.String() }
 
@@ -94,6 +126,14 @@ func DescribeCleanupFailure(err error) *CleanupDiagnostic {
 	d.Cause = r.Reason
 	if r.Errno != nil {
 		d.Errno = *r.Errno
+	}
+	var identity *identityError
+	if errors.As(err, &identity) {
+		switch identity.boundary {
+		case "producer_identity", "group_session", "pre_signal_identity", "boot_identity", "process_read", "descendant_membership", "group_anchor":
+			d.IdentityBoundary = identity.boundary
+		}
+		d.ProducerRef = identity.producer
 	}
 	return d
 }

@@ -54,6 +54,8 @@ func ContainerImage() string {
 }
 
 type Harness struct {
+	closeOnce           sync.Once
+	closeErr            error
 	Container           testcontainers.Container
 	Endpoint            string
 	AccessKey           string
@@ -79,6 +81,7 @@ type StartOptions struct {
 	Labels         map[string]string
 	Observer       testcontainersx.StartObserver
 	AttemptTimeout time.Duration
+	Acquired       func(*Harness) error
 }
 
 type packageBucket struct {
@@ -268,10 +271,10 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 		Sleep:          startSleepFn,
 		Observer:       options.Observer,
 	}, func(ctx context.Context) (*Harness, error) {
-		return startHarnessAttempt(ctx, req)
+		return startHarnessAttempt(ctx, req, options)
 	})
 	if err != nil {
-		return nil, err
+		return harness, err
 	}
 	if err := waitReadyFn(ctx, harness); err != nil {
 		attachOwnedContainerDiagnostic(err, harness)
@@ -279,7 +282,10 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 		cleanupErr := harness.Close(cleanupCtx)
 		cancel()
 		setOwnedLaneCleanupOutcome(err, cleanupErr)
-		return nil, errors.Join(fmt.Errorf("wait for object-store readiness: %w", err), cleanupErr)
+		if cleanupErr != nil {
+			return harness, &unsettledStartup{errors.Join(err, cleanupErr)}
+		}
+		return nil, fmt.Errorf("wait for object-store readiness: %w", err)
 	}
 	return harness, nil
 }
@@ -302,57 +308,57 @@ func defaultSeaweedFSS3AllowedOrigins() string {
 	return strings.Join(origins, ",")
 }
 
-func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest) (_ *Harness, retErr error) {
+// Only an unresolved attempt carries a partial handle. Its ordinary cleanup
+// receipt is memoized, and cannot authorize a replacement physical generation.
+type unsettledStartup struct{ error }
+
+func (e *unsettledStartup) Unwrap() error        { return e.error }
+func (e *unsettledStartup) RetryForbidden() bool { return true }
+
+func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerRequest, options StartOptions) (partial *Harness, retErr error) {
 	req, directory, err := prepareObjectStoreTLS(req)
 	if err != nil {
 		return nil, err
 	}
-	attemptSucceeded := false
+	harness := &Harness{AccessKey: objectStoreAccessKey, SecretKey: objectStoreSecretKey, Secure: true, tlsDirectory: directory, suiteHash: resolveSuiteHash(), processHash: suiteservices.ProcessHash()}
 	defer func() {
-		if !attemptSucceeded {
-			retErr = errors.Join(retErr, os.RemoveAll(directory))
-		}
-	}()
-
-	container, err := startContainerFn(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if attemptSucceeded {
+		if retErr == nil {
 			return
 		}
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		retErr = errors.Join(retErr, container.Terminate(cleanupCtx))
+		cleanupErr := harness.Close(cleanupCtx)
+		cancel()
+		partial = nil
+		if cleanupErr != nil {
+			partial = harness
+			retErr = &unsettledStartup{errors.Join(retErr, cleanupErr)}
+		}
 	}()
-
+	container, err := startContainerFn(ctx, testcontainers.GenericContainerRequest{ContainerRequest: req, Started: false})
+	harness.Container = container
+	if container != nil && options.Acquired != nil {
+		if publicationErr := options.Acquired(harness); publicationErr != nil {
+			return nil, errors.Join(err, publicationErr)
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if container == nil {
+		return nil, errors.New("object-store provider returned no container")
+	}
+	if err := container.Start(ctx); err != nil {
+		return nil, err
+	}
 	host, err := container.Host(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("resolve object-store host: %w", err)
 	}
-
 	port, err := container.MappedPort(ctx, seaweedFSS3Port)
 	if err != nil {
 		return nil, fmt.Errorf("resolve object-store mapped port: %w", err)
 	}
-
-	harness := &Harness{
-		Container:    container,
-		Endpoint:     host + ":" + port.Port(),
-		AccessKey:    objectStoreAccessKey,
-		SecretKey:    objectStoreSecretKey,
-		Secure:       true,
-		tlsDirectory: directory,
-		suiteHash:    resolveSuiteHash(),
-		processHash:  suiteservices.ProcessHash(),
-	}
-
-	attemptSucceeded = true
+	harness.Endpoint = host + ":" + port.Port()
 	return harness, nil
 }
 
@@ -1256,21 +1262,21 @@ func (h *Harness) Close(ctx context.Context) error {
 		return nil
 	}
 
-	h.clientMu.Lock()
-	if h.connection != nil {
-		_ = h.connection.Close()
-		h.connection = nil
-	}
-	h.clientMu.Unlock()
-	if h.Container != nil {
-		if err := h.Container.Terminate(ctx); err != nil {
-			return err
+	h.closeOnce.Do(func() {
+		h.clientMu.Lock()
+		if h.connection != nil {
+			h.closeErr = h.connection.Close()
+			h.connection = nil
 		}
-	}
-	if h.tlsDirectory != "" {
-		return os.RemoveAll(h.tlsDirectory)
-	}
-	return nil
+		h.clientMu.Unlock()
+		if h.Container != nil {
+			h.closeErr = errors.Join(h.closeErr, h.Container.Terminate(ctx))
+		}
+		if h.closeErr == nil && h.tlsDirectory != "" {
+			h.closeErr = os.RemoveAll(h.tlsDirectory)
+		}
+	})
+	return h.closeErr
 }
 
 func (h *Harness) ContainerID() string {

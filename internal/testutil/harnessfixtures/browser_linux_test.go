@@ -135,8 +135,8 @@ func TestFixtureBrowserAdapter(t *testing.T) {
 	t.Run("closed_cleanup_detail_survives_browser_failure_without_reclassification", func(t *testing.T) {
 		primary := errors.New("private transport sentinel")
 		for index, data := range []string{
-			`{"schema_id":"cartulary.harness_cleanup_diagnostic.v3","stage":"process_authority","cause":"unresolved","errno":0}`,
-			`{"schema_id":"cartulary.harness_cleanup_diagnostic.v3","stage":"process_authority","cause":"unresolved","errno":0,"pid":123}`,
+			`{"schema_id":"cartulary.harness_cleanup_diagnostic.v4","stage":"process_authority","cause":"unresolved","errno":0}`,
+			`{"schema_id":"cartulary.harness_cleanup_diagnostic.v4","stage":"process_authority","cause":"unresolved","errno":0,"pid":123}`,
 		} {
 			p := ProductionOptions{Environment: map[string]string{"NODE_BIN": node}, Run: func(context.Context, string, []string, map[string]string) (CommandResult, error) {
 				return CommandResult{Exit: 12, Stdout: []byte(`{"failure_class":"harness","failure_reason":"cleanup_error"}`), Stderr: []byte(data)}, primary

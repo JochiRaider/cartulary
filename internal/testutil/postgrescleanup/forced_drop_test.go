@@ -25,6 +25,7 @@ func TestDropOwnedDatabaseRunsOneBoundedOperation(t *testing.T) {
 	} {
 		t.Run(outcome.name, func(t *testing.T) {
 			admissions, statements := 0, 0
+			observations := []DropAttempt{}
 			operations := dropOperations{withAdmission: func(ctx context.Context, dsn, name string, operation func(databaseDropExecutor) error) error {
 				admissions++
 				if deadline, ok := ctx.Deadline(); !ok || time.Until(deadline) > 35*time.Second {
@@ -44,10 +45,13 @@ func TestDropOwnedDatabaseRunsOneBoundedOperation(t *testing.T) {
 					}
 					return outcome.err
 				})
-			}}
+			}, observe: func(attempt DropAttempt) { observations = append(observations, attempt) }}
 			err := dropOwnedDatabase(context.Background(), "postgres://admin", testDatabaseName, operations)
 			if !errors.Is(err, outcome.err) || admissions != 1 || statements != 1 {
 				t.Fatalf("error=%v admissions=%d statements=%d", err, admissions, statements)
+			}
+			if len(observations) != 1 || observations[0].Validate() != nil || observations[0].Admission != "acquired" || (observations[0].Outcome == "completed") != (outcome.err == nil) {
+				t.Fatal("attempt observation differs from operation", observations)
 			}
 		})
 	}

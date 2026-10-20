@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -233,11 +234,13 @@ func TestOwnedObjectStoreCleanupFailureRemainsSecondaryTypedEvidence(t *testing.
 
 	const rawCleanupIdentity = "container b56c88f3a1b0 via unix:///var/run/docker.sock"
 	cleanupErr := errors.New(rawCleanupIdentity)
+	terminations := 0
 	startContainerFn = func(context.Context, testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
 		return fakeObjectStoreContainer{
 			host: "127.0.0.1",
 			port: network.MustParsePort("8333/tcp"),
 			terminate: func(context.Context) error {
+				terminations++
 				return cleanupErr
 			},
 		}, nil
@@ -260,9 +263,18 @@ func TestOwnedObjectStoreCleanupFailureRemainsSecondaryTypedEvidence(t *testing.
 		}
 	}
 
-	_, err := startHarness(context.Background(), nil)
-	if err == nil {
+	partial, err := startHarness(context.Background(), nil)
+	if err == nil || partial == nil {
 		t.Fatal("expected terminal readiness failure")
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(partial.tlsDirectory) })
+	for range 2 {
+		if !errors.Is(partial.Close(t.Context()), cleanupErr) {
+			t.Fatal("partial cleanup receipt lost")
+		}
+	}
+	if terminations != 1 {
+		t.Fatal("partial startup cleanup retried", terminations)
 	}
 	if !errors.Is(err, cleanupErr) {
 		t.Fatalf("secondary cleanup error was not preserved internally: %v", err)
@@ -1015,6 +1027,8 @@ type fakeObjectStoreContainer struct {
 	stateErr  error
 	terminate func(context.Context) error
 }
+
+func (c fakeObjectStoreContainer) Start(context.Context) error { return nil }
 
 func (c fakeObjectStoreContainer) Host(context.Context) (string, error) {
 	return c.host, nil

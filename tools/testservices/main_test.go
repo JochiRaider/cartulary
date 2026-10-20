@@ -1351,7 +1351,7 @@ func TestCleanupWebE2ERetiresDatabaseAndClearsOwnedBucket(t *testing.T) {
 			writeBrowserCleanupFailure(&output, "browser_namespace", test.cause)
 			var diagnostic map[string]any
 			if json.Unmarshal([]byte(output.String()), &diagnostic) != nil || len(diagnostic) != 4 ||
-				diagnostic["schema_id"] != "cartulary.harness_cleanup_diagnostic.v3" || diagnostic["stage"] != "browser_namespace" ||
+				diagnostic["schema_id"] != "cartulary.harness_cleanup_diagnostic.v4" || diagnostic["stage"] != "browser_namespace" ||
 				diagnostic["cause"] != test.condition || diagnostic["errno"] != float64(test.errno) || strings.Contains(output.String(), "private") {
 				t.Fatal("invalid public cleanup diagnostic", output.String())
 			}
@@ -2406,11 +2406,11 @@ func TestStartSuiteHonorsSelectedServices(t *testing.T) {
 			postgresCalls, objectCalls, templateCalls := 0, 0, 0
 			deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 				postgresCalls++
-				return postgresService{cleanupFiles: []string{"/private/pg/root.pem", "/private/pg/admin.pem", "/private/pg/admin.key"}}, nil
+				return postgresService{containerID: "fixture-postgres", image: "fixture", cleanupFiles: []string{"/private/pg/root.pem", "/private/pg/admin.pem", "/private/pg/admin.key"}}, nil
 			}
 			deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
 				objectCalls++
-				return objectStoreService{rootCertificatePath: "/private/s3/root.pem"}, nil
+				return objectStoreService{containerID: "fixture-object-store", image: "fixture", rootCertificatePath: "/private/s3/root.pem"}, nil
 			}
 			deps.createTemplate = func(context.Context, string, string) error { templateCalls++; return nil }
 			dir := t.TempDir()
@@ -2447,6 +2447,7 @@ func TestStartSuiteHonorsSelectedServices(t *testing.T) {
 			if wantObject == 1 {
 				expectedFiles = append(expectedFiles, "/private/s3/root.pem")
 			}
+			slices.Sort(expectedFiles)
 			if !slices.Equal(startResult.RecoveryFiles, expectedFiles) {
 				t.Fatal("startup lost selected cleanup authority")
 			}

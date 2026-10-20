@@ -97,10 +97,10 @@ func (runtime *Runtime) stopResource(ctx context.Context, root, runRoot string, 
 		}
 		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
-	return waitPhysicalCommand(ctx, cmd)
+	return waitPhysicalCommand(ctx, cmd, runtime.RetireDetailProducers)
 }
 
-func waitPhysicalCommand(ctx context.Context, cmd *exec.Cmd) error {
+func waitPhysicalCommand(ctx context.Context, cmd *exec.Cmd, retire func(ProcessProof) error) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -131,6 +131,9 @@ func waitPhysicalCommand(ctx context.Context, cmd *exec.Cmd) error {
 		select {
 		case terminalErr = <-terminal:
 			cancel()
+			if settleErr == nil && retire != nil {
+				settleErr = retire(proof)
+			}
 			return errors.Join(ctx.Err(), terminalErr, settleErr, cmd.Wait())
 		case <-settleCtx.Done():
 			cancel()
@@ -148,5 +151,8 @@ func waitPhysicalCommand(ctx context.Context, cmd *exec.Cmd) error {
 		settleErr = StopProcess(settleCtx, proof, 0)
 	}
 	cancel()
+	if settleErr == nil && retire != nil {
+		settleErr = retire(proof)
+	}
 	return errors.Join(terminalErr, settleErr, cmd.Wait())
 }

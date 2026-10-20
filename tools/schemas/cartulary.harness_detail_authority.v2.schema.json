@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_detail_authority.v1",
+  "$id": "cartulary.harness_detail_authority.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,7 +15,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_detail_authority.v1"
+      "const": "cartulary.harness_detail_authority.v2"
     },
     "run_id": {
       "type": "string",
@@ -75,7 +75,7 @@
       "maxItems": 4096,
       "uniqueItems": true,
       "items": {
-        "$ref": "#/$defs/process"
+        "$ref": "#/$defs/producer"
       }
     }
   },
@@ -153,6 +153,36 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 2147483647
+        }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proof",
+        "launch",
+        "state"
+      ],
+      "properties": {
+        "proof": {
+          "$ref": "#/$defs/process"
+        },
+        "launch": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/process"
+            }
+          ]
+        },
+        "state": {
+          "enum": [
+            "active",
+            "retired"
+          ]
         }
       }
     }
