@@ -13,9 +13,13 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
+	if suiteservices.LookupEnvValue(nil, suiteservices.PGAdminDSNEnv) != "" {
+		t.Fatal("self-owned lifecycle selection acquired an unused broker cluster")
+	}
 	// A separate physical cluster makes WAL publication and ownership assertions
 	// independent of other test processes and their template preparation.
 	h, err := StartOwned(t.Context())
@@ -30,6 +34,15 @@ func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
 		}
 	})
 	ctx := t.Context()
+	clone := func(prefix string) *TestDatabase {
+		t.Helper()
+		database, err := h.PrepareDatabase(ctx, prefix)
+		if err != nil {
+			t.Fatal(err)
+		}
+		h.registerDatabaseCleanupT(t, database.Name, suiteservices.FixtureReusePerTest, fixtureAttributionFor(t, "pgtest"))
+		return database
+	}
 	if err := h.ensureLocalTemplateDatabase(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +64,7 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 	if err := admin.QueryRowContext(ctx, "SELECT pg_current_wal_insert_lsn()::text").Scan(&before); err != nil {
 		t.Fatal(err)
 	}
-	first := h.PrepareIsolatedDatabaseT(t, "prepared_first")
+	first := clone("prepared_first")
 	var walFlushed bool
 	if err := admin.QueryRowContext(ctx, "SELECT pg_current_wal_flush_lsn() > $1::pg_lsn", before).Scan(&walFlushed); err != nil {
 		t.Fatal(err)
@@ -59,7 +72,7 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 	if !walFlushed {
 		t.Fatal("template copy was published without durable WAL progress")
 	}
-	second := h.PrepareIsolatedDatabaseT(t, "prepared_second")
+	second := clone("prepared_second")
 	// Database ACLs are database-specific, not inherited template authority.
 	for _, name := range []string{first.Name, second.Name} {
 		for _, login := range []string{"cartulary_migration_login", "cartulary_runtime_login", "cartulary_recovery_login"} {
@@ -159,8 +172,7 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 		created, cloneErr := postgrescatalog.CloneDatabase(ctx, limited.String(), cloneName, h.templateDB, postgresCatalogAdmissionTimeout, func(*sql.Conn) error { return nil })
 		if created {
 			t.Cleanup(func() {
-				if _, err := postgrescleanup.DropOwnedDatabase(context.Background(), h.AdminDSN(), cloneName,
-					postgresDatabaseNormalDropTimeout, postgresDatabaseForcedDropTimeout); err != nil {
+				if err := postgrescleanup.DropOwnedDatabase(context.Background(), h.AdminDSN(), cloneName); err != nil {
 					t.Error(err)
 				}
 			})

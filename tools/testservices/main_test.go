@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -107,7 +108,7 @@ func TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent(t *testing.T) {
 		deps := defaultTestDependencies(t)
 		env := cloneEnv(deps.env)
 		env[suiteservices.SuiteIDEnv] = "suite-redaction"
-		lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v2", LeaseID: "recovery-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", ResultRoot: env["CARTULARY_TEST_RESULTS_DIR"], RunRoot: filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], "wrapper-tests"), OwnershipMode: "attach"}
+		lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v3", LeaseID: "recovery-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", ResultRoot: env["CARTULARY_TEST_RESULTS_DIR"], RunRoot: filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], "wrapper-tests"), OwnershipMode: "attach"}
 		payload, err := json.Marshal(lease)
 		if err != nil {
 			t.Fatal(err)
@@ -134,7 +135,7 @@ func TestTerminateSuitePublishesCanonicalCleanupAndIsIdempotent(t *testing.T) {
 	}
 	// Attached services exercise terminal publication without owning a Docker
 	// resource. Real owned-service termination uses the same publication path.
-	lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v2", LeaseID: "cleanup-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", ResultRoot: env["CARTULARY_TEST_RESULTS_DIR"], RunRoot: filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], "wrapper-tests"), OwnershipMode: "attach"}
+	lease := leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v3", LeaseID: "cleanup-test", SuiteID: "suite-redaction", RunID: "wrapper-tests", ResultRoot: env["CARTULARY_TEST_RESULTS_DIR"], RunRoot: filepath.Join(env["CARTULARY_TEST_RESULTS_DIR"], "wrapper-tests"), OwnershipMode: "attach"}
 	payload, err := json.Marshal(lease)
 	if err != nil {
 		t.Fatal(err)
@@ -290,8 +291,9 @@ func TestRunReturnsBeforeSlowServiceTerminationAfterChildSuccess(t *testing.T) {
 			dsnTemplate: "postgres://cartulary:cartulary@127.0.0.1:5432/{database}?sslmode=disable",
 			containerID: "postgres-container",
 			image:       "postgres:test",
-			labels:      suiteServiceLabels(map[string]string{suiteservices.SuiteIDEnv: "suite-redaction", "CARTULARY_TEST_RUN_ID": "wrapper-tests"}, suiteservices.ServicePostgres),
-			close:       func(context.Context) error { closeCalled <- struct{}{}; time.Sleep(time.Second); return nil },
+			labels: suiteServiceLabels(map[string]string{suiteservices.SuiteIDEnv: "suite-redaction", suiteservices.PGIsolationEnv: "exclusive", suiteservices.PGAllocationRefEnv: "testservices-unit-fixture",
+				"CARTULARY_TEST_RUN_ID": "wrapper-tests"}, suiteservices.ServicePostgres),
+			close: func(context.Context) error { closeCalled <- struct{}{}; time.Sleep(time.Second); return nil },
 		}, nil
 	}
 	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
@@ -301,8 +303,9 @@ func TestRunReturnsBeforeSlowServiceTerminationAfterChildSuccess(t *testing.T) {
 			secretKey:   "object-store-secret",
 			containerID: "object-store-container",
 			image:       "object-store:test",
-			labels:      suiteServiceLabels(map[string]string{suiteservices.SuiteIDEnv: "suite-redaction", "CARTULARY_TEST_RUN_ID": "wrapper-tests"}, suiteservices.ServiceObjectStore),
-			close:       func(context.Context) error { closeCalled <- struct{}{}; time.Sleep(time.Second); return nil },
+			labels: suiteServiceLabels(map[string]string{suiteservices.SuiteIDEnv: "suite-redaction", suiteservices.PGIsolationEnv: "exclusive", suiteservices.PGAllocationRefEnv: "testservices-unit-fixture",
+				"CARTULARY_TEST_RUN_ID": "wrapper-tests"}, suiteservices.ServiceObjectStore),
+			close: func(context.Context) error { closeCalled <- struct{}{}; time.Sleep(time.Second); return nil },
 		}, nil
 	}
 	reaperScheduled := false
@@ -455,9 +458,10 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 	resultRoot := t.TempDir()
 	resultEnv := map[string]string{
 		"CARTULARY_TEST_RESULTS_DIR": resultRoot,
-		"CARTULARY_TEST_RUN_ID":      "run-start-result",
-		suiteservices.SuiteIDEnv:     "0123456789abcdef01234567",
-		suiteservices.TargetEnv:      "test-slice",
+		suiteservices.PGIsolationEnv: "exclusive", suiteservices.PGAllocationRefEnv: "testservices-unit-fixture",
+		"CARTULARY_TEST_RUN_ID":  "run-start-result",
+		suiteservices.SuiteIDEnv: "0123456789abcdef01234567",
+		suiteservices.TargetEnv:  "test-slice",
 	}
 	if err := suiteservices.RecordEvent(resultEnv, suiteservices.Event{
 		Type:    suiteservices.EventFailureRecorded,
@@ -1287,7 +1291,7 @@ func TestResetWebE2ERequiresActiveSuiteAndUsesOnlyPaths(t *testing.T) {
 		if credentialRoot != "/runtime/credentials" || bootstrapManifest != "/config/bootstrap.json" {
 			t.Fatalf("unexpected reset paths: credential_root=%q bootstrap_manifest=%q", credentialRoot, bootstrapManifest)
 		}
-		return harnessruntime.DatabaseResetResult{MigrationMetadataPreserved: true, BootstrapAdminRestored: true}, nil
+		return harnessruntime.DatabaseResetResult{TransactionSettlement: "committed", MigrationMetadataPreserved: true, BootstrapAdminRestored: true}, nil
 	}
 	resultFile := filepath.Join(t.TempDir(), "database-reset.json")
 	metadataFile := filepath.Join(t.TempDir(), "metadata.json")
@@ -1312,6 +1316,17 @@ func TestResetWebE2ERequiresActiveSuiteAndUsesOnlyPaths(t *testing.T) {
 	if !called {
 		t.Fatal("expected active suite reset")
 	}
+	primary := harnessruntime.NewDatabaseResetFailure("recovery_reset_bootstrap_failed", errors.New("secret bootstrap detail"))
+	rollback := harnessruntime.NewDatabaseResetFailure("recovery_reset_rollback_failed", context.DeadlineExceeded)
+	release := harnessruntime.NewDatabaseResetFailure("recovery_reset_target_release_failed", errors.New("secret release detail"))
+	diagnostic := newDatabaseResetDiagnostic("reset-failed", harnessruntime.DatabaseResetResult{TransactionSettlement: "unknown", SettlementFailures: []*harnessruntime.DatabaseResetFailure{rollback, release}}, errors.Join(primary, rollback, release), time.Millisecond)
+	if diagnostic.Stage != primary.Stage() || diagnostic.TransactionSettlement != "unknown" || len(diagnostic.SettlementFailures) != 2 || !diagnostic.SettlementFailures[0].TimedOut {
+		t.Fatalf("lost failure ordering or settlement: %#v", diagnostic)
+	}
+	payload, err := json.Marshal(diagnostic)
+	if err != nil || strings.Contains(string(payload), "secret") {
+		t.Fatalf("unsafe diagnostic: %v", err)
+	}
 }
 
 func TestRenewWebE2EIsRetired(t *testing.T) {
@@ -1321,8 +1336,39 @@ func TestRenewWebE2EIsRetired(t *testing.T) {
 	}
 }
 
-func TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup(t *testing.T) {
+func TestCleanupWebE2ERetiresDatabaseAndClearsOwnedBucket(t *testing.T) {
+	t.Run("bounded_cleanup_diagnostic", func(t *testing.T) {
+		for _, test := range []struct {
+			cause     error
+			condition string
+			errno     int
+		}{
+			{fmt.Errorf("private namespace: %w", context.DeadlineExceeded), "deadline", 0},
+			{&os.PathError{Op: "read", Path: "private-credential-path", Err: syscall.EACCES}, "io", 13},
+			{errors.New("private credential detail"), "internal", 0},
+		} {
+			var output strings.Builder
+			writeBrowserCleanupFailure(&output, "browser_namespace", test.cause)
+			var diagnostic map[string]any
+			if json.Unmarshal([]byte(output.String()), &diagnostic) != nil || len(diagnostic) != 4 ||
+				diagnostic["schema_id"] != "cartulary.harness_cleanup_diagnostic.v3" || diagnostic["stage"] != "browser_namespace" ||
+				diagnostic["cause"] != test.condition || diagnostic["errno"] != float64(test.errno) || strings.Contains(output.String(), "private") {
+				t.Fatal("invalid public cleanup diagnostic", output.String())
+			}
+		}
+	})
 	deps := defaultTestDependencies(t)
+	cleared := 0
+	deps.cleanupWebE2EBucket = func(ctx context.Context, metadata webE2EMetadata, _ map[string]string) error {
+		if _, ok := ctx.Deadline(); !ok {
+			t.Fatal("unbounded namespace settlement")
+		}
+		if metadata.Bucket != "ct-web" {
+			t.Fatal("foreign bucket selected")
+		}
+		cleared++
+		return nil
+	}
 	metadataFile := filepath.Join(t.TempDir(), "browser.json")
 	if err := writeWebE2EMetadata(metadataFile, webE2EMetadata{DatabaseName: "ct_web", Bucket: "ct-web"}); err != nil {
 		t.Fatalf("write metadata: %v", err)
@@ -1353,6 +1399,9 @@ func TestCleanupWebE2ERetiresFixtureWithoutImmediateCleanup(t *testing.T) {
 	retired := ledger.BrowserFixtures[0]
 	if retired.DatabaseName != "ct_web" || retired.Bucket != "ct-web" || retired.Target != "browser-e2e-webserver-backed" {
 		t.Fatalf("unexpected retired browser fixture: %#v", retired)
+	}
+	if cleared != 1 {
+		t.Fatal("independent object-store cleanup was deferred", cleared)
 	}
 	requireTimingEvent(t, loadTestEventsForEnv(t, activeEnv), bucketTeardown, "test-services retire browser e2e fixture")
 }
@@ -1450,13 +1499,16 @@ func TestCleanupOwnedServicesReclaimsRetiredWebE2EFixturesOnce(t *testing.T) {
 
 func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
 		lease := leaseproof.Lease{Resources: []leaseproof.LeaseResource{{Service: suiteservices.ServicePostgres}, {Service: suiteservices.ServiceObjectStore}}}
 		started := make(chan struct{}, 2)
 		results := terminateIndependentServices(ctx, lease, func(ctx context.Context, service leaseproof.LeaseResource) error {
 			if ctx.Err() != nil {
-				t.Error("cleanup inherited expired deadline")
+				t.Error("cleanup started after its owner deadline")
+			}
+			if deadline, ok := ctx.Deadline(); !ok || time.Until(deadline) > time.Second {
+				t.Error("cleanup escaped owner deadline")
 			}
 			started <- struct{}{}
 			if service.Service == suiteservices.ServicePostgres {
@@ -1472,6 +1524,9 @@ func TestCleanupOwnedServicesTerminatesServicesConcurrently(t *testing.T) {
 			} else {
 				passed++
 			}
+		}
+		if time.Since(results[0].start) > time.Second {
+			t.Fatal("cleanup exceeded parent lifetime")
 		}
 		if len(started) != 2 || failed != 1 || passed != 1 {
 			t.Fatal("independent service starvation", len(started), failed, passed)
@@ -1575,6 +1630,13 @@ func TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures(t *testing.T) {
 	if err := cleanupStaleWebE2EFixtures(context.Background(), deps.dependencies, activeEnv); err != nil {
 		t.Fatalf("cleanup stale browser fixtures: %v", err)
 	}
+	if len(cleaned) != 0 {
+		t.Fatalf("new physical suite cleaned sibling fixtures: %#v", cleaned)
+	}
+	// Cleanup may use the same generated names only through the owning suite.
+	if err := cleanupStaleWebE2EFixtures(context.Background(), deps.dependencies, staleEnv); err != nil {
+		t.Fatalf("cleanup current suite fixtures: %v", err)
+	}
 	if len(cleaned) != staleFixtureMaxCandidates {
 		t.Fatalf("expected janitor to clean bounded generated fixtures, got %d want %d", len(cleaned), staleFixtureMaxCandidates)
 	}
@@ -1583,7 +1645,11 @@ func TestStaleWebE2EJanitorBoundsAndFiltersGeneratedFixtures(t *testing.T) {
 			t.Fatalf("janitor cleaned non-generated fixture: %#v", fixture)
 		}
 	}
-	events := loadTestEventsForEnv(t, activeEnv)
+	remaining, err := staleWebE2EFixtures(staleEnv)
+	if err != nil || len(remaining) != 3 {
+		t.Fatalf("cleanup must update its own ledger: remaining=%d err=%v", len(remaining), err)
+	}
+	events := loadTestEventsForEnv(t, staleEnv)
 	requireTimingEventStatus(t, events, bucketTeardown, "test-services cleanup browser e2e fixture database", "pass")
 	requireTimingEventStatus(t, events, bucketTeardown, "test-services cleanup browser e2e fixture bucket", "pass")
 }
@@ -2101,7 +2167,7 @@ func defaultTestDependencies(t testing.TB) testDeps {
 		t.Fatal(err)
 	}
 	serviceLeaseBytes, err := json.Marshal(map[string]any{
-		"schema_id":      "cartulary.test_services.lease.v2",
+		"schema_id":      "cartulary.test_services.lease.v3",
 		"lease_id":       "service-lease-test",
 		"suite_id":       "suite-redaction",
 		"run_id":         "wrapper-tests",
@@ -2115,15 +2181,16 @@ func defaultTestDependencies(t testing.TB) testDeps {
 	if err != nil {
 		t.Fatal(err)
 	}
-	privateServiceRoot := filepath.Join(runtimeRoot, "test-services")
-	if err := os.Mkdir(privateServiceRoot, 0o700); err != nil {
+	privateServiceRoot := filepath.Join(runtimeRoot, "test-services", "suite-redaction")
+	if err := os.MkdirAll(privateServiceRoot, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(privateServiceRoot, "service-lease.json"), append(serviceLeaseBytes, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	env := map[string]string{
-		"CARTULARY_TEST_RESULTS_DIR":         resultsDir,
+		"CARTULARY_TEST_RESULTS_DIR": resultsDir,
+		suiteservices.PGIsolationEnv: "exclusive", suiteservices.PGAllocationRefEnv: "testservices-unit-fixture",
 		"CARTULARY_TEST_RUN_ID":              "wrapper-tests",
 		suiteservices.SuiteRuntimeRootEnv:    runtimeRoot,
 		suiteservices.SuiteRuntimeLeaseIDEnv: "00000000-0000-4000-8000-000000000001",
@@ -2148,7 +2215,7 @@ func defaultTestDependencies(t testing.TB) testDeps {
 			createTemplate: func(context.Context, string, string) error { return nil },
 			prepareWebE2E:  func(context.Context, map[string]string) (webE2EFixture, error) { return webE2EFixture{}, nil },
 			resetWebE2EDB: func(context.Context, string, string) (harnessruntime.DatabaseResetResult, error) {
-				return harnessruntime.DatabaseResetResult{}, nil
+				return harnessruntime.DatabaseResetResult{TransactionSettlement: "committed"}, nil
 			},
 			resetWebE2EBucket:     func(context.Context, webE2EMetadata, map[string]string) error { return nil },
 			cleanupWebE2EDB:       func(context.Context, webE2EMetadata, map[string]string) error { return nil },

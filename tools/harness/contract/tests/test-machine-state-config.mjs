@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import {
   HarnessConfigError,
@@ -38,6 +40,7 @@ try {
       GO_CACHE_DIR: path.join(xdg, "cartulary", "go", "build"),
       GO_MOD_CACHE_DIR: path.join(xdg, "cartulary", "go", "mod"),
       GO_TMP_DIR: path.join(xdg, "cartulary", "go", "tmp"),
+      CARTULARY_HARNESS_SCRATCH_ROOT: path.join(xdg, "cartulary", "harness-scratch"),
     },
   );
   assert.equal(
@@ -56,10 +59,27 @@ try {
       GO_CACHE_DIR: path.join(scratch, "build-override"),
       GO_MOD_CACHE_DIR: path.join(scratch, "mod-override"),
       GO_TMP_DIR: path.join(scratch, "tmp-override"),
+      CARTULARY_HARNESS_SCRATCH_ROOT: path.join(scratch, "scratch-override"),
     },
     { root: repo },
   );
   assert.equal(override.GO_CACHE_DIR.value, path.join(scratch, "build-override"));
+  assert.equal(override.CARTULARY_HARNESS_SCRATCH_ROOT.value, path.join(scratch, "scratch-override"));
+  for (const [value, pattern] of [["", /must/u], ["relative", /absolute/u], [repo, /outside/u]]) {
+    assertConfigError(() => resolveMachineStatePaths({ HOME: home, CARTULARY_MACHINE_CACHE_DIR: custom, CARTULARY_HARNESS_SCRATCH_ROOT: value }, { root: repo }), pattern);
+  }
+
+  const helper = fileURLToPath(new URL("../../test-support/harness-scratch.sh", import.meta.url));
+  for (const [environment, expected] of [
+    [{ CARTULARY_MACHINE_CACHE_DIR: custom, TMPDIR: path.join(scratch, "small-tmpfs") }, path.join(custom, "harness-scratch")],
+    [{ XDG_CACHE_HOME: xdg }, path.join(xdg, "cartulary", "harness-scratch")],
+    [{ XDG_CACHE_HOME: "relative" }, path.join(home, ".cache", "cartulary", "harness-scratch")],
+    [{ CARTULARY_HARNESS_SCRATCH_ROOT: path.join(scratch, "explicit") }, path.join(scratch, "explicit")],
+  ]) {
+    const directory = execFileSync("bash", ["-c", 'source "$1"; cartulary_harness_mktemp_dir placement.XXXXXX', "scratch-test", helper], { encoding: "utf8", env: { PATH: process.env.PATH, HOME: home, CARTULARY_HARNESS_REPO_ROOT: repo, ...environment } }).trim();
+    assert.equal(path.dirname(directory), expected);
+    rmSync(directory, { recursive: true });
+  }
 
   assertConfigError(
     () =>

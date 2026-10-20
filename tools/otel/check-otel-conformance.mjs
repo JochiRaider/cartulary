@@ -2102,7 +2102,7 @@ function validateRuntimeBehavior(checks) {
       continue;
     }
     const result = JSON.parse(readFileSync(resultFile, "utf8"));
-    if (result.schema_id !== "cartulary.harness_row_result.v4" || result.row_id !== rowID || result.terminal_state !== "passed") {
+    if (result.schema_id !== "cartulary.harness_row_result.v6" || result.row_id !== rowID || result.terminal_state !== "passed") {
       failures.push(`${rowID}:${result.terminal_state ?? "invalid"}`);
     }
   }

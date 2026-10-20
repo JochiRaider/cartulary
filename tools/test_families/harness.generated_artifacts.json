@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "harness.generated_artifacts",
   "rows": [
     {
@@ -21,7 +21,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.generated_artifacts.support.enforce_generated_protocol_policy_and_detect_gen_49d1469511",
@@ -44,7 +45,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.generated_artifacts.support.migration_input_integrity",
@@ -65,7 +67,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.generated_artifacts.unit.collaboration_contract_rejects_compatibility_and_5e312f0753",
@@ -89,7 +92,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.generated_artifacts.unit.decode_contract_rejects_duplicate_jsonmembers_005d1b3b94",
@@ -141,7 +145,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.generated_artifacts.unit.import_target_registry_derivation_is_determinist_50c76524f5",
@@ -170,7 +175,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.generated_artifacts.unit.runtime_go_files_do_not_import_internal_testutil_f162342f15",
@@ -195,7 +201,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.generated_artifacts.unit.sqlcimports_stay_behind_persistence_adapters_61a4cd5750",
@@ -219,7 +226,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.generated_artifacts.unit.validate_canonical_artifact_source_catalog_famil_ad826b0a16",
@@ -244,7 +252,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.generated_artifacts.unit.validate_canonical_tasks_decisions_source_catalo_946e23109a",
@@ -269,7 +278,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.generated_artifacts.unit.write_client_build_contracts_binds_exact_static_26b5141e93",
@@ -296,7 +306,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

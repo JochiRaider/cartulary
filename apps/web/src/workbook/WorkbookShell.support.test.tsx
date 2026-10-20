@@ -35,13 +35,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
 import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
-  buildRecordChangedPayload,
   emitRecordChanged,
   extractTimelineJSONBody,
+} from "../testing/timelineWorkbookTestSupport";
+import {
+  buildRecordChangedPayload,
   successEnvelope,
   timelineRow,
   timelineRowsEnvelope,
-} from "../testing/timelineWorkbookTestSupport";
+} from "../testing/workbookFixtureData";
 import { buildMentionActionPayload } from "./collaboration/workbookCollaborationMessages";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import {

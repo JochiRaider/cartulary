@@ -69,12 +69,30 @@ func TestResolveSuiteRuntimeDirRejectsUnsafeRoots(t *testing.T) {
 		env[SuiteRuntimeLeaseIDEnv] = "00000000-0000-4000-8000-000000000001"
 		env[SuiteRuntimeRunIDEnv] = "run-runtime-contract"
 		got, ok, err := ResolveSuiteRuntimeDir(env)
-		if err != nil || !ok || got != filepath.Join(runtimeRoot, "test-services") {
+		if err != nil || !ok || got != filepath.Join(runtimeRoot, "test-services", baseEnv[SuiteIDEnv]) {
 			t.Fatalf("ResolveSuiteRuntimeDir got %q ok=%v err=%v", got, ok, err)
 		}
 		info, err := os.Lstat(got)
 		if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 {
 			t.Fatalf("private service root mode is invalid: info=%v err=%v", info, err)
+		}
+		marker := []byte("first suite remains independently owned")
+		if err := os.WriteFile(filepath.Join(got, "owner-proof"), marker, 0600); err != nil {
+			t.Fatal(err)
+		}
+		env[SuiteIDEnv] = "second-suite"
+		second, ok, err := ResolveSuiteRuntimeDir(env)
+		if err != nil || !ok || second != filepath.Join(runtimeRoot, "test-services", "second-suite") {
+			t.Fatalf("second suite root %q ok=%v err=%v", second, ok, err)
+		}
+		if _, err := os.Stat(filepath.Join(second, "owner-proof")); !os.IsNotExist(err) {
+			t.Fatal("second suite inherited another suite's private proof", err)
+		}
+		if err := os.Remove(second); err != nil {
+			t.Fatal(err)
+		}
+		if actual, err := os.ReadFile(filepath.Join(got, "owner-proof")); err != nil || string(actual) != string(marker) {
+			t.Fatal("retiring one suite changed another suite", err)
 		}
 	})
 

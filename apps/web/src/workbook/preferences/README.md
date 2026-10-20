@@ -21,4 +21,4 @@ lifetime and departure review through [app hooks](../../app/README.md).
 | File | Responsibility |
 | --- | --- |
 | [workbookPreferenceCharacterization.test.tsx](workbookPreferenceCharacterization.test.tsx) | Tests explicit clearing and independent preference publication during delayed reads. |
-| [WorkbookPreferenceController.test.ts](WorkbookPreferenceController.test.ts) | Tests independent home/default resources, set/clear operations, and preference admission. |
+| [WorkbookPreferenceController.node.test.ts](WorkbookPreferenceController.node.test.ts) | Tests independent home/default resources, set/clear operations, and preference admission. |

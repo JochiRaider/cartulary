@@ -25,6 +25,12 @@ func fixtureReference(t *testing.T, runtime *harnesssession.Runtime, kind string
 	}
 	return reference
 }
+func recordBrowserRecoveryFixture(t *testing.T, runtime *harnesssession.Runtime, browser, kind, dependency, binding string) error {
+	t.Helper()
+	environmentFile := filepath.Join(filepath.Dir(filepath.Dir(browser)), "stack-environment.json")
+	writeFixtureJSON(t, environmentFile, map[string]string{})
+	return runtime.RecordDependentResource("browser_stack", browser, "pending", []string{fixtureReference(t, runtime, kind, dependency)}, binding, environmentFile)
+}
 func TestFixtureRecovery(t *testing.T) {
 	testRecoveryCommand(t)
 	testCleanupDependencies(t)
@@ -73,7 +79,7 @@ func TestFixtureRecovery(t *testing.T) {
 			}
 			defer runtime.RecordResource("managed_suite", suite, "released")
 		}
-		if err := runtime.RecordDependentResource("browser_stack", browser, "pending", []string{fixtureReference(t, runtime, "managed_suite", a)}); err != nil {
+		if err := recordBrowserRecoveryFixture(t, runtime, browser, "managed_suite", a, a); err != nil {
 			t.Fatal(err)
 		}
 		defer runtime.RecordResource("browser_stack", browser, "released")
@@ -128,7 +134,7 @@ func TestFixtureRecovery(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer runtime.RecordResource("managed_suite", suite, "released")
-		if err := runtime.RecordDependentResource("browser_stack", browser, "pending", []string{fixtureReference(t, runtime, "managed_suite", suite)}); err != nil {
+		if err := recordBrowserRecoveryFixture(t, runtime, browser, "managed_suite", suite, suite); err != nil {
 			t.Fatal(err)
 		}
 		defer runtime.RecordResource("browser_stack", browser, "released")
@@ -159,7 +165,7 @@ func TestFixtureRecovery(t *testing.T) {
 			}
 		})
 	})
-	for _, variant := range []string{"success", "missing_dependency", "unknown_dependency", "failed_browser", "borrowed", "borrowed_browser_failure"} {
+	for _, variant := range []string{"success", "missing_dependency", "unknown_dependency", "failed_browser", "failed_suite", "borrowed", "borrowed_browser_failure"} {
 		t.Run(variant, func(t *testing.T) {
 			runtime, root, run := runtimeFixture(t)
 			suite := filepath.Join(runtime.Root, "test-services", "suite-lease.json")
@@ -185,7 +191,11 @@ func TestFixtureRecovery(t *testing.T) {
 				if strings.HasPrefix(variant, "borrowed") {
 					kind, dependency = "borrowed_suite", filepath.Join(runtime.Root, "borrowed-suite.json")
 				}
-				err := runtime.RecordDependentResource("browser_stack", browser, "pending", []string{fixtureReference(t, runtime, kind, dependency)})
+				binding := suite
+				if kind == "borrowed_suite" {
+					binding = filepath.Join(runtime.Root, "borrowed-service-lease.json")
+				}
+				err := recordBrowserRecoveryFixture(t, runtime, browser, kind, dependency, binding)
 				if variant == "missing_dependency" {
 					if err == nil {
 						t.Fatal("unresolved dependency admitted")
@@ -216,6 +226,9 @@ func TestFixtureRecovery(t *testing.T) {
 					if _, err := harnesslocal.ReadFile(args[2], 1048576, false); err != nil {
 						t.Fatal(err)
 					}
+					if variant == "failed_suite" {
+						return CommandResult{Started: true, Exit: 12}, errors.New("physical parent unresolved")
+					}
 					return CommandResult{Started: true}, nil
 				}
 				op := args[1]
@@ -232,7 +245,13 @@ func TestFixtureRecovery(t *testing.T) {
 					return CommandResult{Started: true, Stdout: data}, nil
 				}
 				if op == "recover" && (variant == "failed_browser" || variant == "borrowed_browser_failure") {
+					if variant == "borrowed_browser_failure" && len(args) != 3 {
+						t.Fatal("borrowed service granted destruction authority")
+					}
 					return CommandResult{Started: true, Exit: 12}, errors.New("physical stop failed")
+				}
+				if op == "recover" && (len(args) != 4 || args[3] != suite) {
+					t.Fatal("missing exact owned parent proof")
 				}
 				return CommandResult{Started: true, Stdout: []byte(`{}`)}, nil
 			}
@@ -251,6 +270,10 @@ func TestFixtureRecovery(t *testing.T) {
 			if variant == "success" {
 				if err != nil || joined != "inspect,recover,suite" {
 					t.Fatal(calls, err)
+				}
+			} else if variant == "failed_suite" {
+				if err == nil || joined != "inspect,recover,suite" || len(resources) != 1 || resources[0].Kind != "managed_suite" {
+					t.Fatal("logical browser release concealed unresolved parent", calls, err, resources)
 				}
 			} else if variant == "borrowed" {
 				if err != nil || joined != "detach" {

@@ -97,16 +97,18 @@ import {
   lifecycleRow,
 } from "../testing/indicatorLifecycleTestSupport";
 import {
-  errorEnvelope,
   flushWorkbookAsync,
-  fullWorkbookViewRow,
-  successEnvelope,
   waitForWorkbookRows,
 } from "../testing/timelineWorkbookTestSupport";
 import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
+import {
+  errorEnvelope,
+  fullWorkbookViewRow,
+  successEnvelope,
+  withWorkbookQueryFixtureMetadata,
+} from "../testing/workbookFixtureData";
 import { waitForEntityInspectorReady } from "../testing/workbookInspectorTestSupport";
 import { useWorkbookMutationRuntimeTestRegistry } from "../testing/workbookMutationRuntimeTestSupport";
-import { withWorkbookQueryFixtureMetadata } from "../testing/workbookQueryTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { publicWorkbookSchema } from "../testing/workbookSchemaTestSupport";
 import { createIndicatorLifecycleAdapter } from "./adapters/createIndicatorLifecycleAdapter";

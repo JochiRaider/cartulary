@@ -279,7 +279,7 @@ write_fixture_event() {
   local sequence_number=$((10#$sequence))
 
   mkdir -p "$journal_dir"
-  printf '{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":"%s","seq":%d,"type":"%s","timestamp":"2026-01-01T00:00:%sZ","pid":100,"service":"postgres","name":"ct_fixture_%s","kind":"template-clone","details":{"target":"%s","duration_ms":%d,"fixture_policy":"%s","fixture_class":"%s","reuse_scope":"%s","caller_package":"%s","caller_file":"%s/fixture_test.go","test_name":"%s","preparation_strategy":"template-clone"}}\n' \
+  printf '{"schema_id":"cartulary.test_services.journal_event.v2","producer_id":"%s","seq":%d,"type":"%s","timestamp":"2026-01-01T00:00:%sZ","pid":100,"service":"postgres","name":"ct_fixture_%s","kind":"template-clone","details":{"target":"%s","duration_ms":%d,"fixture_policy":"%s","fixture_class":"%s","reuse_scope":"%s","caller_package":"%s","caller_file":"%s/fixture_test.go","test_name":"%s","preparation_strategy":"template-clone"}}\n' \
     "$producer_id" "$sequence_number" "$event_type" "$sequence" "$sequence" "$target" "$duration_ms" "$fixture_policy" "$fixture_class" "$reuse_scope" "$caller_package" "$caller_package" "$test_name" \
     >>"${journal_dir}/${producer_id}.ndjson"
   chmod 600 "${journal_dir}/${producer_id}.ndjson"
@@ -985,7 +985,7 @@ cat >"$infra_step_dir/step-summary.json" <<'JSON'
   "manifest_mismatch": null
 }
 JSON
-printf '%s\n' '{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":"fixture-infra","seq":1,"type":"timing-span","timestamp":"2026-01-01T00:00:02Z","pid":100,"details":{"target":"infra-target","bucket":"service_wait","label":"test-services start object-store","start_time":"2026-01-01T00:00:01Z","end_time":"2026-01-01T00:00:02Z","duration_ms":1000,"status":"fail"}}' >"$infra_service_dir/fixture-infra.ndjson"
+printf '%s\n' '{"schema_id":"cartulary.test_services.journal_event.v2","producer_id":"fixture-infra","seq":1,"type":"timing-span","timestamp":"2026-01-01T00:00:02Z","pid":100,"details":{"target":"infra-target","bucket":"service_wait","label":"test-services start object-store","start_time":"2026-01-01T00:00:01Z","end_time":"2026-01-01T00:00:02Z","duration_ms":1000,"status":"fail"}}' >"$infra_service_dir/fixture-infra.ndjson"
 chmod 600 "$infra_service_dir/fixture-infra.ndjson"
 infra_timing_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
@@ -1005,7 +1005,7 @@ retry_timing_results="$(cartulary_harness_mktemp_dir "target-summary-retry-timin
 cleanup_paths+=("$retry_timing_results")
 retry_service_dir="$retry_timing_results/retry-timing/_shared/test-services/suite/journals"
 mkdir -p "$retry_service_dir"
-printf '%s\n' '{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":"fixture-retry","seq":1,"type":"timing-span","timestamp":"2026-01-01T00:00:02Z","pid":100,"details":{"target":"retry-target","bucket":"service_wait","label":"test-services start object-store attempt 1","start_time":"2026-01-01T00:00:01Z","end_time":"2026-01-01T00:00:02Z","duration_ms":1000,"status":"fail","service":"object_store","startup_attempt":true,"attempt":1,"max_attempts":2,"retryable":true,"retry_scheduled":true,"retry_blocked_by_context":false}}' >"$retry_service_dir/fixture-retry.ndjson"
+printf '%s\n' '{"schema_id":"cartulary.test_services.journal_event.v2","producer_id":"fixture-retry","seq":1,"type":"timing-span","timestamp":"2026-01-01T00:00:02Z","pid":100,"details":{"target":"retry-target","bucket":"service_wait","label":"test-services start object-store attempt 1","start_time":"2026-01-01T00:00:01Z","end_time":"2026-01-01T00:00:02Z","duration_ms":1000,"status":"fail","service":"object_store","startup_attempt":true,"attempt":1,"max_attempts":2,"retryable":true,"retry_scheduled":true,"retry_blocked_by_context":false}}' >"$retry_service_dir/fixture-retry.ndjson"
 chmod 600 "$retry_service_dir/fixture-retry.ndjson"
 retry_timing_output="$(
   CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
@@ -1532,7 +1532,7 @@ CARTULARY_TIMING_START_TIME="2026-01-01T00:00:01.800Z" \
 CARTULARY_TIMING_END_TIME="2026-01-01T00:00:02.100Z" \
 CARTULARY_TIMING_DURATION_MS="300" \
   "$ROOT_DIR/tools/harness/output/test-output.sh" timing-span
-printf '%s\n' '{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":"fixture-teardown","seq":1,"type":"timing-span","name":"test-services cleanup browser e2e fixture","status":"fail","timestamp":"2026-01-01T00:00:01.800Z","pid":100,"details":{"target":"browser-e2e-webserver-backed","bucket":"teardown","label":"test-services cleanup browser e2e fixture","start_time":"2026-01-01T00:00:01.100Z","end_time":"2026-01-01T00:00:01.800Z","duration_ms":700,"status":"fail"}}' >"$teardown_services_dir/fixture-teardown.ndjson"
+printf '%s\n' '{"schema_id":"cartulary.test_services.journal_event.v2","producer_id":"fixture-teardown","seq":1,"type":"timing-span","name":"test-services cleanup browser e2e fixture","status":"fail","timestamp":"2026-01-01T00:00:01.800Z","pid":100,"details":{"target":"browser-e2e-webserver-backed","bucket":"teardown","label":"test-services cleanup browser e2e fixture","start_time":"2026-01-01T00:00:01.100Z","end_time":"2026-01-01T00:00:01.800Z","duration_ms":700,"status":"fail"}}' >"$teardown_services_dir/fixture-teardown.ndjson"
 chmod 600 "$teardown_services_dir/fixture-teardown.ndjson"
 CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
 CARTULARY_TEST_RUN_ID="teardown-accounting" \

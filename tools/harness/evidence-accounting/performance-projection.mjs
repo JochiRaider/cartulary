@@ -120,9 +120,16 @@ export function projectResourcePressure(facts, graph, capacities) {
   const saturationStart = new Map();
   const saturationMs = new Map();
   const peak = new Map();
-  const add = (resource, amount, now) => {
+  const volumes = new Map();
+  const add = (resource, amount, boundary) => {
+    const now = boundary.time;
     const before = active.get(resource) ?? 0;
-    const after = before + amount;
+    let after = before + amount;
+    if (resource === "volume") {
+      if (boundary.direction > 0) volumes.set(boundary.id, amount);
+      else volumes.delete(boundary.id);
+      after = Math.max(0, ...volumes.values());
+    }
     active.set(resource, after);
     peak.set(resource, Math.max(peak.get(resource) ?? 0, after));
     const capacity = capacities[resource];
@@ -144,7 +151,7 @@ export function projectResourcePressure(facts, graph, capacities) {
   for (const boundary of boundaries) {
     const unit = byID.get(boundary.id);
     if (!unit) continue;
-    for (const [resource, amount] of Object.entries(unit.resource_claims)) add(resource, boundary.direction * amount, boundary.time);
+    for (const [resource, amount] of Object.entries(unit.resource_claims)) add(resource, boundary.direction * amount, boundary);
   }
   const completedAt = facts.finalMonotonicMs;
   for (const [resource, startedAt] of saturationStart) {

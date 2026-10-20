@@ -9,10 +9,6 @@ import {
   workbookShellSlotTestId,
   workbookViewBarQueryControlsTestId,
 } from "@cartulary/ui-contracts";
-import type {
-  ViewContract,
-  ViewFieldContract,
-} from "@cartulary/view-contracts";
 import {
   cleanup,
   fireEvent,
@@ -25,7 +21,7 @@ import { expect, vi } from "vitest";
 import type { RecordChangedPayload } from "../workbook/collaboration/workbookCollaborationMessages";
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { requireJSONBodyAt } from "./fetchMockTestSupport";
-import { workbookQueryMeta } from "./workbookQueryTestSupport";
+import { errorEnvelope } from "./workbookFixtureData";
 
 type WebSocketLike = {
   onmessage: ((event: MessageEvent) => void) | null;
@@ -81,52 +77,6 @@ function timelineServerMessage(message: Record<string, unknown>) {
     ...message,
   };
 }
-
-type TimelineRowOptions = {
-  recordId: string;
-  rowVersion: number;
-  dateEnteredText?: string;
-  analystText?: string;
-  mitreStageText?: string;
-  deviceObjectText?: string;
-  ipAddressText?: string;
-  activityUTCText?: string;
-  activityLocalText?: string;
-  rawActivityText?: string;
-  activitySynopsisText?: string;
-  dataSourceText?: string;
-  occurredAt?: string;
-  summary?: string;
-  details?: string;
-  sourceText?: string;
-  captureState: string;
-  evidenceCount?: number;
-  tags?: string[];
-  editedAt?: string;
-  hasEvidence?: boolean;
-  hostRefs?: Array<Record<string, unknown>>;
-  identityRefs?: Array<Record<string, unknown>>;
-};
-
-export type WorkbookViewApiRow = {
-  record_id: string;
-  row_version: number;
-  cells: Record<string, { value: unknown }>;
-  group_values?: Record<string, unknown>;
-  view_schema_id?: string;
-};
-
-export type WorkbookViewRowOverrides = Record<string, unknown>;
-
-type RecordChangedPayloadOptions = {
-  recordId: string;
-  rowVersion: number;
-  clientTxnId: string;
-  changeSetId?: string;
-  actorUserId?: string;
-  changedFieldKeys?: string[];
-  affectedViews?: RecordChangedPayload["affected_views"];
-};
 
 export function installTimelineWorkbookTestGlobals(): TimelineWorkbookFetchMock {
   const fetchMock = vi.fn();
@@ -298,199 +248,6 @@ export function latestTimelineWebSocket(): TimelineWebSocketMock | null {
   return timelineWebSockets[timelineWebSockets.length - 1] ?? null;
 }
 
-export function successEnvelope(data: unknown, status = 200) {
-  const isWorkbookQuery =
-    data !== null &&
-    typeof data === "object" &&
-    "incident_id" in data &&
-    "view_schema_id" in data &&
-    "rows" in data;
-  const isSavedViewList =
-    data !== null &&
-    typeof data === "object" &&
-    "saved_views" in data &&
-    Array.isArray(data.saved_views);
-  return new Response(
-    JSON.stringify({
-      data,
-      meta: {
-        request_id: `req-${status}`,
-        ...(isWorkbookQuery
-          ? {
-              ...workbookQueryMeta(String(data.view_schema_id)),
-            }
-          : {}),
-        ...(isSavedViewList
-          ? {
-              paging: { has_more: false, limit: 100, next_cursor: null },
-            }
-          : {}),
-      },
-    }),
-    {
-      status,
-      headers: { "Content-Type": "application/json" },
-    },
-  );
-}
-
-export function workbookCollectionValue(
-  ordered: boolean,
-  items: readonly Record<string, unknown>[] = [],
-) {
-  return {
-    kind: "collection_value_v1",
-    ordered,
-    items: [...items],
-  };
-}
-
-function defaultWorkbookViewCellValue(field: ViewFieldContract): unknown {
-  if (field.readKind === "collection") {
-    return workbookCollectionValue(false);
-  }
-  if (field.readKind === "number") {
-    return 0;
-  }
-  if (field.readKind === "boolean") {
-    return false;
-  }
-  return null;
-}
-
-export function fullWorkbookViewRow(
-  contract: ViewContract,
-  recordId: string,
-  rowVersion: number,
-  overrides: WorkbookViewRowOverrides,
-): WorkbookViewApiRow {
-  const cells = Object.fromEntries(
-    contract.fields.map((field) => [
-      field.fieldKey,
-      {
-        value:
-          field.fieldKey in overrides
-            ? overrides[field.fieldKey]
-            : defaultWorkbookViewCellValue(field),
-      },
-    ]),
-  );
-  return {
-    record_id: recordId,
-    row_version: rowVersion,
-    view_schema_id: contract.viewSchemaId,
-    cells,
-    ...(contract.groupingFields.length === 0
-      ? {}
-      : {
-          group_values: Object.fromEntries(
-            contract.groupingFields.map((fieldKey) => [
-              fieldKey,
-              cells[fieldKey]?.value,
-            ]),
-          ),
-        }),
-  };
-}
-
-function viewRowsEnvelope(
-  viewSchemaId: string,
-  rows: readonly WorkbookViewApiRow[],
-  incidentId = "incident-1",
-) {
-  return successEnvelope({
-    incident_id: incidentId,
-    view_schema_id: viewSchemaId,
-    rows: rows.map(({ view_schema_id: rowViewSchemaId, ...row }) => {
-      void rowViewSchemaId;
-      return row;
-    }),
-  });
-}
-
-export function viewRowsEnvelopeForView(
-  viewSchemaId: string,
-  rowsByView: Record<string, readonly WorkbookViewApiRow[]>,
-  incidentId = "incident-1",
-) {
-  return viewRowsEnvelope(
-    viewSchemaId,
-    rowsByView[viewSchemaId] ?? [],
-    incidentId,
-  );
-}
-
-export function timelineRowsEnvelope(
-  rows: readonly ReturnType<typeof timelineRow>[],
-  incidentId = "10000000-0000-4000-8000-000000000001",
-) {
-  return successEnvelope({
-    incident_id: incidentId,
-    view_schema_id: timelineViewSchemaId,
-    rows: [...rows],
-  });
-}
-
-export function timelineMutationEnvelope(
-  row: ReturnType<typeof timelineRow>,
-  changeSetId: string,
-) {
-  return successEnvelope({
-    view_schema_id: timelineViewSchemaId,
-    change_set_id: changeSetId,
-    row,
-  });
-}
-
-export function errorEnvelope(
-  code: string,
-  status: number,
-  conflict?: unknown,
-) {
-  return new Response(
-    JSON.stringify({
-      error: {
-        status,
-        code,
-        message: code,
-        request_id: "req-error",
-        retryable: false,
-        details: {},
-        ...(conflict === undefined ? {} : { conflict }),
-      },
-    }),
-    {
-      status,
-      headers: { "Content-Type": "application/json" },
-    },
-  );
-}
-
-export function buildRecordChangedPayload({
-  recordId,
-  rowVersion,
-  clientTxnId,
-  changeSetId = `change-set-${rowVersion}`,
-  actorUserId = "user-1",
-  changedFieldKeys = ["timeline.host_refs"],
-  affectedViews = [
-    {
-      view_schema_id: timelineViewSchemaId,
-      change_kind: "invalidate",
-    },
-  ],
-}: RecordChangedPayloadOptions): RecordChangedPayload {
-  return {
-    record_id: recordId,
-    row_version: rowVersion,
-    change_set_id: changeSetId,
-    client_txn_id: clientTxnId,
-    actor_user_id: actorUserId,
-    changed_field_keys: changedFieldKeys,
-    affected_views: affectedViews,
-  };
-}
-
 export function emitRecordChanged(
   socket: WebSocketLike | null | undefined,
   payload: RecordChangedPayload,
@@ -511,76 +268,6 @@ export function emitRecordChanged(
       ),
     }),
   );
-}
-
-export function timelineRow({
-  recordId,
-  rowVersion,
-  dateEnteredText = "",
-  analystText = "",
-  mitreStageText = "",
-  deviceObjectText = "",
-  ipAddressText = "",
-  activityUTCText,
-  activityLocalText = "",
-  rawActivityText,
-  activitySynopsisText,
-  dataSourceText = "",
-  occurredAt = "",
-  summary = "",
-  details = "",
-  sourceText = "",
-  captureState,
-  evidenceCount = 0,
-  tags = [],
-  editedAt = "",
-  hasEvidence = false,
-  hostRefs = [],
-  identityRefs = [],
-}: TimelineRowOptions) {
-  const utcText = activityUTCText ?? occurredAt;
-  const rawText = rawActivityText ?? (sourceText !== "" ? sourceText : details);
-  const synopsisText = activitySynopsisText ?? summary;
-  return {
-    record_id: recordId,
-    row_version: rowVersion,
-    cells: {
-      "timeline.date_entered_text": { value: dateEnteredText },
-      "timeline.analyst_text": { value: analystText },
-      "timeline.mitre_stage_text": { value: mitreStageText },
-      "timeline.device_object_text": { value: deviceObjectText },
-      "timeline.ip_address_text": { value: ipAddressText },
-      "timeline.activity_utc_text": { value: utcText },
-      "timeline.activity_local_text": { value: activityLocalText },
-      "timeline.raw_activity_text": { value: rawText },
-      "timeline.activity_synopsis_text": { value: synopsisText },
-      "timeline.data_source_text": { value: dataSourceText },
-      "timeline.host_refs": { value: collectionValue(true, hostRefs) },
-      "timeline.identity_refs": { value: collectionValue(true, identityRefs) },
-      "timeline.evidence_count": { value: evidenceCount },
-      "timeline.tags": { value: collectionValue(false, tags.map(tagItem)) },
-      "timeline.attached_evidence_ids": { value: collectionValue(false, []) },
-      "timeline.edited_at": { value: editedAt },
-      "timeline.recorded_at": { value: "" },
-      "timeline.activity_sort_ts": { value: utcText },
-      "timeline.date_entered_sort_day": {
-        value: dateEnteredText === "" ? null : dateEnteredText.slice(0, 10),
-      },
-      "timeline.activity_time_pair_state": { value: "disabled" },
-      "timeline.capture_state": { value: captureState },
-      "timeline.replacement_record_id": { value: null },
-      "timeline.has_evidence": { value: hasEvidence },
-      "timeline.has_unresolved_mentions": { value: false },
-    },
-    group_values: {
-      "timeline.date_entered_sort_day":
-        dateEnteredText === "" ? null : dateEnteredText.slice(0, 10),
-      "timeline.activity_time_pair_state": "disabled",
-      "timeline.capture_state": captureState,
-      "timeline.has_evidence": hasEvidence,
-      "timeline.has_unresolved_mentions": false,
-    },
-  };
 }
 
 export function visibleGridRows(container: HTMLElement): HTMLDivElement[] {
@@ -1286,20 +973,4 @@ export function extractTimelineJSONBody(
     index,
     `timeline JSON request body at index ${index}`,
   );
-}
-
-function collectionValue(
-  ordered: boolean,
-  items: Array<Record<string, unknown>>,
-) {
-  return workbookCollectionValue(ordered, items);
-}
-
-function tagItem(value: string) {
-  return {
-    item_ref: `record_tag:${value}`,
-    item_kind: "tag",
-    display_text: value,
-    raw_text: value,
-  };
 }

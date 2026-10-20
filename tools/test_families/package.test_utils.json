@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "package.test_utils",
   "rows": [
     {
@@ -65,7 +65,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

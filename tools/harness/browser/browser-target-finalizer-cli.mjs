@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   primaryPublicFailure,
+  parseStrictJSON,
   publicExitCodeForFailure,
   secureMkdir,
   secureWriteFile,
@@ -35,7 +36,8 @@ import {
 } from "./frontend-measurement-evidence.mjs";
 import { promoteVisualSnapshotCandidate } from "./visual-snapshot-promotion.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
-import { reportCommandFailure } from "../runtime/command-failure.mjs";
+import { readBrowserUnitResult, readUnlaunchedBrowserFailures } from "./browser-target-outcomes.mjs";
+import { CommandFailure, reportCommandFailure } from "../runtime/command-failure.mjs";
 import { readRendererEvidence } from "./renderer-attachment.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -52,7 +54,7 @@ function parse(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--target") options.target = argv[++index] ?? "";
-    else if (arg === "--groups") options.groups = (argv[++index] ?? "").split(",").filter(Boolean);
+    else if (arg === "--groups") options.groups.push(...(argv[++index] ?? "").split(",").filter(Boolean));
     else if (arg === "--group-targets") {
       for (const entry of (argv[++index] ?? "").split(",").filter(Boolean)) {
         const separator = entry.lastIndexOf("=");
@@ -94,8 +96,9 @@ function groupResult(base, groupID, target) {
     throw new Error(`browser group result exceeds its bounded JSON contract: ${file}`);
   }
   const bytes = readFileSync(file);
-  const result = JSON.parse(bytes.toString("utf8"));
-  validateSchemaSync("cartulary.browser_group_result.v9", result);
+  const result = parseStrictJSON(bytes.toString("utf8"));
+  validateSchemaSync("cartulary.browser_group_result.v11", result);
+  if (result.group_id !== groupID || result.target_id !== target) throw new Error("browser group result identity mismatch");
   const renderer = readRendererEvidence(base, result, process.env.CARTULARY_TEST_RUN_ID);
   return {
     renderer,
@@ -105,22 +108,6 @@ function groupResult(base, groupID, target) {
   };
 }
 
-function resetResult(base, unitID) {
-  const file = path.join(base, "unit-results", `${safeID(unitID)}.json`);
-  if (!existsSync(file)) {
-    throw new Error(`browser target reset result is missing: ${unitID}`);
-  }
-  const stat = lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 1024 * 1024) {
-    throw new Error(`browser target reset result exceeds its bounded JSON contract: ${file}`);
-  }
-  const result = JSON.parse(readFileSync(file, "utf8"));
-  validateSchemaSync("cartulary.harness_unit_result.v1", result);
-  if (result.unit_id !== unitID) {
-    throw new Error(`browser target reset result identity mismatch: ${unitID}`);
-  }
-  return result;
-}
 
 function resetResults(base, prefix) {
   const directory = path.join(base, "unit-results");
@@ -131,14 +118,14 @@ function resetResults(base, prefix) {
     .filter((file) => {
       const stat = lstatSync(file);
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 1024 * 1024) {
-        throw new Error(`browser target reset result exceeds its bounded JSON contract: ${file}`);
+        throw new Error(`browser target unit result exceeds its bounded JSON contract: ${file}`);
       }
-      const result = JSON.parse(readFileSync(file, "utf8"));
+      const result = parseStrictJSON(readFileSync(file, "utf8"));
       return typeof result.unit_id === "string" && result.unit_id.startsWith(prefix);
     })
     .map((file) => {
-      const result = JSON.parse(readFileSync(file, "utf8"));
-      return resetResult(base, result.unit_id);
+      const result = parseStrictJSON(readFileSync(file, "utf8"));
+      return readBrowserUnitResult(base, result.unit_id);
     })
     .sort((left, right) => left.unit_id.localeCompare(right.unit_id));
 }
@@ -417,7 +404,7 @@ async function writeTargetResult(base, options, groups, resets) {
     sessionsByID.set(group.result.browser_session_id, session);
   }
   const payload = {
-    schema_id: "cartulary.browser_target_result.v7",
+    schema_id: "cartulary.browser_target_result.v8",
     target_id: options.target,
     status:
       groups.every((group) => group.result.status === "pass") &&
@@ -448,44 +435,40 @@ async function writeTargetResult(base, options, groups, resets) {
   return payload;
 }
 
-async function main() {
-const options = parse(process.argv.slice(2));
-const base = runRoot();
-const groups = options.groups
-  .map((group) =>
-    groupResult(base, group, options.groupTargets.get(group)),
-  )
-  .filter((group) => group !== null);
-const resets = resetResults(base, options.resetPrefix);
-const complete = groups.length === options.groups.length;
-const targetResult = complete
-  ? await writeTargetResult(base, options, groups, resets)
-  : null;
-if (!complete) {
-  process.stderr.write(`browser target ${options.target} is missing group results\n`);
-  process.exitCode = 11;
-} else if (targetResult.status !== "pass") {
-  process.stderr.write(
-    `browser target ${options.target} contains failed groups or target artifacts\n`,
-  );
+export async function finalizeBrowserTarget(options, base, eventSource) {
+  const groups = options.groups
+    .map((group) =>
+      groupResult(base, group, options.groupTargets.get(group)),
+    )
+    .filter((group) => group !== null);
+  const resets = resetResults(base, options.resetPrefix);
+  const complete = groups.length === options.groups.length;
   const failures = groups.flatMap(({ result }) => {
-    const rows = result.row_results.filter((row) => row.failure_reason !== null);
+    const rows = result.row_results.filter(row => row.failure_reason !== null);
     if (rows.length || result.status === "pass") return rows;
     // A group can fail during physical release after every row passed.
     return [{ failure_class: result.exit_code === 12 ? "harness" : "unknown",
       failure_reason: result.exit_code === 12 ? "cleanup_error" : "unknown_failure" }];
   });
-  failures.push(...resets.filter((reset) => reset.failure_reason !== null));
-  const failure = primaryPublicFailure(failures, {
-    failure_class: "product", failure_reason: "test_assertion_failure",
-  });
-  process.stderr.write(`failure_class=${failure.failure_class} failure_reason=${failure.failure_reason}\n`);
-  process.exitCode = publicExitCodeForFailure(failure);
-}
+  failures.push(...resets.filter(reset => reset.failure_reason !== null));
+  if (!complete) {
+    failures.push(...await readUnlaunchedBrowserFailures(base, options, groups, eventSource ?? currentUnitEventSource(base)));
+    const failure = primaryPublicFailure(failures);
+    process.stderr.write(`browser target ${options.target} has unlaunched groups; complete target evidence unavailable\n`);
+    throw new CommandFailure("browser target dependencies did not launch", failure);
+  }
+  const targetResult = await writeTargetResult(base, options, groups, resets);
+  if (targetResult.status !== "pass") {
+    const failure = primaryPublicFailure(failures, { failure_class: "product", failure_reason: "test_assertion_failure" });
+    process.stderr.write(`browser target ${options.target} contains failed groups or target artifacts\nfailure_class=${failure.failure_class} failure_reason=${failure.failure_reason}\n`);
+    throw new CommandFailure("browser target failed", failure);
+  }
 
 }
 
-main().catch((error) => {
+async function main() { return finalizeBrowserTarget(parse(process.argv.slice(2)), runRoot()); }
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((error) => {
   process.stderr.write("browser target evidence finalization failed\n");
   process.exitCode = publicExitCodeForFailure(reportCommandFailure(root, error, { failure_class: "artifact", failure_reason: "artifact_error" }));
 });

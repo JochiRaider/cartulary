@@ -1339,7 +1339,7 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
 
 test("Verify Timeline inspector Workflow create-related actions stay in the workbook shell.", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -1484,7 +1484,7 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
     actionKey: "create_related.handoff",
     targetViewSchemaId: handoffViewSchemaId,
     fields: [
-      ["handoff.incoming_owner_user_id", workerAdmin.user_id],
+      ["handoff.incoming_owner_user_id", testActor.user_id],
       [
         "handoff.current_state_summary",
         "end-to-end.inspector-history.row-03 workflow handoff",
@@ -1494,7 +1494,7 @@ test("Verify Timeline inspector Workflow create-related actions stay in the work
     waitValue: "end-to-end.inspector-history.row-03 workflow handoff",
   });
   expect(handoff.cells["handoff.incoming_owner_user_id"]?.value).toBe(
-    workerAdmin.user_id,
+    testActor.user_id,
   );
 
   const statusReview = await createFromTimelineWorkflow(page, incidentId, {
@@ -1742,7 +1742,7 @@ async function exerciseDecisionRecovery(
 
 test("Task lifecycle binds selected rows and atomically blocks completes and reopens", async ({
   page,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
   const incidentId = await createIncident(
     page,
@@ -1800,7 +1800,7 @@ test("Task lifecycle binds selected rows and atomically blocks completes and reo
   await selectReferenceCandidates(
     page,
     "task-lifecycle-owner",
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   const ownerValue = page.getByLabel("Task lifecycle owner value", {
     exact: true,
@@ -1828,7 +1828,7 @@ test("Task lifecycle binds selected rows and atomically blocks completes and reo
   await page.keyboard.press("Escape");
   await expect(ownerPicker).toHaveCount(0);
   await expect(ownerValue).toBeFocused();
-  await expect(ownerValue).toHaveValue(workerAdmin.user_id);
+  await expect(ownerValue).toHaveValue(testActor.user_id);
   await status.focus();
   await page.keyboard.press("Tab");
   await expect(
@@ -1871,7 +1871,7 @@ test("Task lifecycle binds selected rows and atomically blocks completes and reo
     expect.arrayContaining([
       { field_key: "task.status", value: "blocked" },
       { field_key: "task.blocked_reason", value: "Waiting on evidence" },
-      { field_key: "task.owner_user_id", value: workerAdmin.user_id },
+      { field_key: "task.owner_user_id", value: testActor.user_id },
     ]),
   );
   await expectWorkbookSaved(page);
@@ -2664,7 +2664,7 @@ test("Task Request and Decision workbook workflows stay native", async ({
 
 test("coordination workbook workflows stay native", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -2791,7 +2791,7 @@ test("coordination workbook workflows stay native", async ({
   await setGenericCreateField(
     page,
     "handoff.incoming_owner_user_id",
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   await page
     .getByTestId(genericCreateSubmitTestId(handoffViewSchemaId))

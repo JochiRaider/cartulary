@@ -3,6 +3,7 @@ package harnessfixtures
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -14,7 +15,7 @@ func ownedAllocation(release func(context.Context, bool) error) *Allocation {
 	return &Allocation{Ownership: "owned", ResourceIDs: []string{"fixture:one"}, Environment: map[string]string{"FIXTURE": "value"}, Release: release}
 }
 func testRequest() Request {
-	return Request{Capability: "browser_stack", UnitID: "unit:a", Affinity: "browser"}
+	return Request{PostgresIsolation: "exclusive", Services: []string{"object_store", "postgres"}, Capability: "browser_stack", UnitID: "unit:a", Affinity: "browser"}
 }
 func TestFixtureBrokerOwnership(t *testing.T) {
 	t.Run("pressure_retires_one_eligible_idle_stack_and_reacquires_fresh_state", func(t *testing.T) {
@@ -272,6 +273,67 @@ func TestFixtureBrokerConcurrency(t *testing.T) {
 	})
 }
 func TestFixtureBrokerFaults(t *testing.T) {
+	t.Run("quarantine_excludes_replacement_while_another_borrower_is_active", func(t *testing.T) {
+		for _, cleanupFails := range []bool{false, true} {
+			t.Run(fmt.Sprint(cleanupFails), func(t *testing.T) {
+				starts, closes := 0, 0
+				b := New(Options{Providers: map[string]Provider{"browser_stack": &ProviderFuncs{AcquireFunc: func(_ context.Context, request Request) (*Allocation, error) {
+					starts++
+					return ownedAllocation(func(context.Context, bool) error {
+						closes++
+						if cleanupFails && request.Affinity == testRequest().Affinity {
+							return errors.New("uncertain cleanup")
+						}
+						return nil
+					}), nil
+				}}}})
+				defer b.Close(t.Context())
+				first, err := b.Acquire(t.Context(), testRequest())
+				if err != nil {
+					t.Fatal(err)
+				}
+				second, err := b.Acquire(t.Context(), testRequest())
+				if err != nil || first.AllocationRef() != second.AllocationRef() {
+					t.Fatal("initial borrowers must share the same allocation", err)
+				}
+				if _, err := first.Release(t.Context(), false, false); err != nil || closes != 0 {
+					t.Fatal("active sibling must retain physical ownership", err, closes)
+				}
+				if _, err := b.reserveStack(t.Context(), testRequest()); !errors.Is(err, ErrCleanupBlocked) {
+					t.Fatal("quarantined generation accepted a provisional reservation", err)
+				}
+				if _, err := b.Acquire(t.Context(), testRequest()); !errors.Is(err, ErrCleanupBlocked) || starts != 1 {
+					t.Fatal("quarantined generation permitted same-affinity replacement", err, starts)
+				}
+				independent := testRequest()
+				independent.Affinity = "independent"
+				other, err := b.Acquire(t.Context(), independent)
+				if err != nil || other.AllocationRef() == second.AllocationRef() {
+					t.Fatal("independent allocation blocked or reused quarantined identity", err)
+				}
+				if _, err := other.Release(t.Context(), true, false); err != nil {
+					t.Fatal(err)
+				}
+				_, err = second.Release(t.Context(), true, false)
+				if (err != nil) != cleanupFails {
+					t.Fatal("physical cleanup outcome lost", err)
+				}
+				replacement, err := b.Acquire(t.Context(), testRequest())
+				if cleanupFails {
+					if !errors.Is(err, ErrCleanupBlocked) || starts != 2 {
+						t.Fatal("uncertain settlement cleared quarantine", err, starts)
+					}
+				} else {
+					if err != nil || replacement.AllocationRef() == second.AllocationRef() {
+						t.Fatal("settled generation was not replaced", err)
+					}
+					if _, err := replacement.Release(t.Context(), true, false); err != nil {
+						t.Fatal(err)
+					}
+				}
+			})
+		}
+	})
 	t.Run("invalid_capability_has_no_side_effect", func(t *testing.T) {
 		b := New(Options{Providers: map[string]Provider{"invalid": &ProviderFuncs{AcquireFunc: func(context.Context, Request) (*Allocation, error) {
 			t.Fatal("invalid capability reached provider")
@@ -324,7 +386,7 @@ func TestFixtureBrokerFaults(t *testing.T) {
 	}
 	t.Run("optional_observation_failure_preserves_lifecycle", func(t *testing.T) {
 		b := New(Options{Observe: func(Observation) { panic("optional") }})
-		l, err := b.Acquire(context.Background(), Request{Capability: "none", UnitID: "unit"})
+		l, err := b.Acquire(context.Background(), Request{PostgresIsolation: "none", Capability: "none", UnitID: "unit"})
 		if err != nil {
 			t.Fatal(err)
 		}

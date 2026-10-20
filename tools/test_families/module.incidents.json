@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.incidents",
   "rows": [
     {
@@ -35,7 +35,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.incident_admins_manage_memberships_on_the_ordina_f26145a162",
@@ -72,7 +74,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.incident_creation_native_keyboard_payload_and_fi_b6b4631f5f",
@@ -107,7 +111,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.incident_creation_preserves_chosen_navigation_af_24cb9bd4de",
@@ -142,7 +148,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.incident_creation_uncertain_replay_and_committed_985931d51a",
@@ -177,7 +185,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.lifecycle_acknowledgement",
@@ -214,7 +224,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.lifecycle_boundaries",
@@ -251,7 +263,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.lifecycle_departure",
@@ -288,7 +302,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.lifecycle_replay",
@@ -325,7 +341,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.lifecycle_workbook",
@@ -362,7 +380,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.membership_audit_access_recovery",
@@ -397,7 +417,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.membership_audit_read_recovery",
@@ -432,7 +454,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.membership_audit_real_browsing",
@@ -467,7 +491,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.membership_audit_response_inspection",
@@ -502,7 +528,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.membership_management_departure",
@@ -539,7 +567,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.membership_management_live_pages",
@@ -576,7 +606,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.membership_management_mutation_recovery",
@@ -613,7 +645,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.membership_management_self_actions",
@@ -650,7 +684,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.metadata_authority",
@@ -687,7 +723,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.metadata_departure",
@@ -724,7 +762,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.metadata_live",
@@ -761,7 +801,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.metadata_pending_departure",
@@ -798,7 +840,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.metadata_recovery",
@@ -835,7 +879,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.real_browser_incident_create_bootstraps_the_crea_6b8248fece",
@@ -870,7 +916,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.the_ordinary_authenticated_landing_screen_create_fa80fbfef5",
@@ -905,7 +953,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5",
@@ -940,7 +990,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser_support.supports_reserved_family_dispatch_precedence_pro_d831d613fa",
@@ -975,7 +1027,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.browser_support.supports_route_owned_incident_validation_errors_c277ce45ee",
@@ -1010,7 +1064,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.frontend.incident_creation_lifecycle_keyboard_replay_and_e99c1bedb1",
@@ -1045,7 +1101,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.frontend.incident_creation_operation_payload_outcomes_and_2ecdf8c632",
@@ -1059,7 +1116,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/incidentCreationModel.test.ts",
+        "file": "apps/web/src/app/incidentCreationModel.node.test.ts",
         "titles": [
           "incident creation operation bounds handoff observation and prevents its late result from replacing a new draft",
           "incident creation operation captures only declared values and omits blank optional metadata",
@@ -1077,7 +1134,7 @@
           "incident creation operation retains confirmation when membership refresh fails and retries only handoff",
           "incident creation operation times out observation and ignores a later original success"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1086,7 +1143,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.frontend.lifecycle_characterization",
@@ -1124,7 +1182,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.frontend.lifecycle_product_surface",
@@ -1152,7 +1211,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.frontend.membership_audit_characterization",
@@ -1185,7 +1245,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.frontend.membership_audit_product_surface",
@@ -1216,7 +1277,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.frontend.membership_management_characterization",
@@ -1250,7 +1312,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.frontend.metadata_characterization",
@@ -1286,7 +1349,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.frontend.the_ordinary_landing_shell_creates_an_incident_r_b64ef5986b",
@@ -1313,7 +1377,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.integration.concurrent_cross_admin_deletion_preserves_an_ad_9f25d8ef61",
@@ -1339,7 +1404,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.integration.incident_create_persists_the_incident_row_bootst_0bd8d02f12",
@@ -1367,7 +1433,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.integration.incident_lifecycle_close_reopen_authorization_re_6ac1f84d20",
@@ -1396,7 +1463,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.integration.incident_list_search_status_and_cursor_scope_80dd540eb3",
@@ -1423,7 +1491,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.integration.live_membership_patch_to_the_current_role_return_7a14cba87a",
@@ -1450,7 +1519,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.integration.membership_audit_route_is_scope_safe_and_keyset_8e31c7f24a",
@@ -1480,7 +1550,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.integration.one_same_session_role_progression_no_membership_6df5c1b9fb",
@@ -1512,7 +1583,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.integration.real_create_with_trimmed_decomposed_input_normal_f1c6efb6b6",
@@ -1539,7 +1611,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.integration.real_incident_patch_persists_only_patchable_meta_9fc8fc207f",
@@ -1566,7 +1639,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.integration.reserved_but_unclaimed_family_roots_and_descenda_3cbf9bf6e6",
@@ -1593,7 +1667,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.store.concurrent_mutation_admission",
@@ -1619,7 +1694,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.store.incident_create_idempotency_scopes_by_actor_plus_b2c23d5e25",
@@ -1645,7 +1721,68 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.incidents.store.managed_service_assertions_for_store_create_inci_a391a222d4",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.incident_portability",
+        "module.incidents.verification.incident_portability_actors"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentBundleImportFinalizationCommitsBootstrapState",
+          "TestIncidentBundleImportFinalizationRejectsMissingSubmitter",
+          "TestMutationCommandTimeIsSharedAcrossDomainRawAndProjectedAuditRows_Unit",
+          "TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit",
+          "TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.incidents.store.service_free_contract_assertions_for_store_creat_f476b0f36b",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract",
+        "module.incidents.verification.incident_portability",
+        "module.incidents.verification.incident_portability_actors"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentBundleImportFinalizerRejectsInvalidDependenciesAndParamsBeforeDatabaseAccess"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.store.store_backed_membership_patch_and_delete_reject_17d0f4ff28",
@@ -1671,40 +1808,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
-    },
-    {
-      "row_id": "module.incidents.store.store_create_incident_commits_the_bootstrap_admi_01ff2d008d",
-      "owner_id": "module.incidents",
-      "family_id": "module.incidents.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.incidents.verification.behavior_contract",
-        "module.incidents.verification.incident_portability",
-        "module.incidents.verification.incident_portability_actors"
       ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/incidents",
-        "tests": [
-          "TestIncidentBundleImportFinalizationCommitsBootstrapState",
-          "TestIncidentBundleImportFinalizationRejectsMissingSubmitter",
-          "TestIncidentBundleImportFinalizerRejectsInvalidDependenciesAndParamsBeforeDatabaseAccess",
-          "TestMutationCommandTimeIsSharedAcrossDomainRawAndProjectedAuditRows_Unit",
-          "TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit",
-          "TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_transaction",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ]
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.incidents.store.store_update_incident_returns_a_typed_incident_v_0669e48fa6",
@@ -1730,7 +1835,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.incidents.store.terminal_mutation_results_distinguish_fresh_comm_2101097f8d",
@@ -1759,7 +1865,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.incidents.store.the_committed_create_result_returns_the_stable_a_5f64fd9d84",
@@ -1783,7 +1890,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.support_integration.control_boundary_incident_core_deployment_admin_9ba3db3d5f",
@@ -1814,7 +1922,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.support_integration.incident_create_bootstraps_creator_and_workbook_e012cac972",
@@ -1845,7 +1954,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.support_integration.incident_list_uses_live_first_page_independently_f2ad5f1106",
@@ -1875,7 +1985,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.support_integration.membership_create_replay_returns_original_and_di_98e85ad975",
@@ -1904,7 +2015,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.support_integration.public_route_inventory_incident_surfaces_d792370039",
@@ -1934,7 +2046,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.incidents.support_unit.open_apiworkbook_preferences_expose_get_and_put_67f5449133",
@@ -1958,7 +2071,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.support_unit.unit_membership_patch_and_delete_decode_stays_stable_i2",
@@ -1982,7 +2096,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.admitted_mutation_hashes_match_compatibility_dig_6c66c494bf",
@@ -2006,7 +2121,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.application_constructor_guards_i2",
@@ -2030,7 +2146,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.idempotency_and_private_helper_contracts_i2",
@@ -2064,7 +2181,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.incident_16_source_catalog_i3",
@@ -2094,7 +2212,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.incident_16_source_codec_i3",
@@ -2127,7 +2246,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.incident_admission_role_sets_and_denials_are_closed_0ed8398f44",
@@ -2154,7 +2274,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.incident_create_decode_rejects_undeclared_member_6b93095d4c",
@@ -2178,7 +2299,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.incident_lifecycle_request_and_openapi_contract_9466dfc2b1",
@@ -2206,7 +2328,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.incident_openapi_runtime_parity_d7253c90ae",
@@ -2232,7 +2355,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.incident_patch_decode_allows_only_description_se_e8dc75dbf4",
@@ -2256,7 +2380,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.incident_request_string_contracts_9d044fc800",
@@ -2281,7 +2406,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.incidents_http_dependencies_i2",
@@ -2308,7 +2434,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.membership_audit_openapi_is_complete_and_exact_40d92e7a6b",
@@ -2335,7 +2462,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.membership_create_requires_exactly_one_selector_0cc3c22ea2",
@@ -2359,7 +2487,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.membership_management_openapi",
@@ -2386,7 +2515,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.metadata_field_intent",
@@ -2413,7 +2543,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.metadata_openapi",
@@ -2440,7 +2571,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.reserved_family_dispatch_preserves_base_route_pr_2645a84b6e",
@@ -2464,7 +2596,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.incidents.unit.the_incident_access_decision_helper_returns_inci_0c366be0d2",
@@ -2488,7 +2621,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

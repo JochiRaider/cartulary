@@ -14,7 +14,7 @@ func TestStartStoreUsesRollbackDBForSeedsAssertionsAndNestedTransactions(t *test
 
 	t.Run("seed visible inside rollback fixture", func(t *testing.T) {
 		harness := StartStore(t, "authenticationstore-rollback")
-		user := SeedLocalUserRecord(t, harness.DB, email, "Rollback User", "RollbackPass1!", false, false, true)
+		user := SeedActor(t, harness.DB, ActorAttributes{Email: email, DisplayName: "Rollback User"})
 
 		store := authn.NewStore(harness.DB)
 		lookedUp, err := store.GetUserByNormalizedEmail(context.Background(), email)

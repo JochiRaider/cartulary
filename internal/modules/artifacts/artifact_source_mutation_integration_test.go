@@ -21,16 +21,7 @@ import (
 func TestArtifactWorkbookMutationContractMatrix(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "artifacts-workbook-mutation-contract")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"artifact-contract-owner@example.test",
-		"Artifact Contract Owner",
-		"ArtifactContractOwner1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "artifact-contract-owner@example.test", DisplayName: "Artifact Contract Owner"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,

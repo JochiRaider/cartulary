@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "package.grid_adapter",
   "rows": [
     {
@@ -36,7 +36,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "package.grid_adapter.frontend_unit.fail_before_mutation_capable_rendering_when_data_3a49635f8c",
@@ -48,11 +50,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "Reject unsafe record identities and keep non-record semantic rows from mutation-capable anchors."
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -61,7 +63,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.frontend_unit.translate_vendor_row_column_coordinates_to_recor_652aef8a27",
@@ -73,11 +76,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "Translate private RDG positions through stable record_id and field_key anchors."
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -86,7 +89,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.frontend_unit.verify_editability_derives_from_explicit_editor_b4d5d35a4f",
@@ -98,11 +102,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "Resolve grid editability from explicit editor adapters and contract writeability only."
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -111,7 +115,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.frontend_unit.verify_renderer_editor_registry_precedence_deter_869e70b60f",
@@ -123,11 +128,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "Resolve renderers and editors deterministically and clean adapter-owned resources."
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -136,7 +141,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.clipboard_representation",
@@ -161,7 +167,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.column_sizing_contract",
@@ -188,7 +195,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_builds_one_group_bucket_per_normalized_comm_ba814e2f02",
@@ -200,11 +208,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grouping model builds one typed bucket per normalized committed group value"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -213,7 +221,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_clears_anchors_for_invalid_row_field_group_a1ceaa23dc",
@@ -225,11 +234,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid policies clears anchors for invalid row, field, group, and recordless targets"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -238,7 +247,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_creates_an_unassigned_group_when_empty_labe_5bd9483098",
@@ -250,11 +260,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grouping model preserves first-seen order when an unassigned bucket follows a named bucket"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -263,7 +273,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_does_not_treat_vendor_selection_changes_alo_e3405c5d7a",
@@ -275,11 +286,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid policies does not change semantic anchors without an explicit adapter operation"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -288,7 +299,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_keeps_recordless_draft_rows_outside_grouped_6ef906adea",
@@ -300,11 +312,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grouping model keeps recordless drafts outside semantic group buckets"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -313,7 +325,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_maps_filtered_overflow_to_explicit_create_r_e4b08f0386",
@@ -325,11 +338,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid policies maps filtered overflow to explicit create-row targets"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -338,7 +351,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_maps_rows_directly_to_data_presentation_row_8f047d4faa",
@@ -350,11 +364,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grouping model preserves ungrouped semantic row order"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -363,7 +377,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_merges_owner_state_with_adapter_derived_con_f37c0f4dca",
@@ -375,11 +390,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid state precedence merges owner state with adapter-derived context without weakening state"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -388,7 +403,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_normalizes_committed_empty_group_labels_to_9d131706c0",
@@ -400,11 +416,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grouping model groups committed empty values in the unassigned bucket without test IDs"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -413,7 +429,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_orders_invalid_pending_active_selected_read_cd0d921838",
@@ -425,11 +442,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid state precedence orders invalid, pending, active, selected, read-only, and saved states"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -438,7 +455,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_rejects_duplicate_extension_identities_and_7d5d2cedee",
@@ -450,11 +468,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "extension grid semantic identities rejects duplicate extension identities and all mutation target compilation"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -463,7 +481,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_rejects_group_and_presentation_only_paste_a_f51e06013b",
@@ -475,11 +494,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid policies rejects invalid anchors and create-disabled grouped overflow"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -488,7 +507,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_requires_a_cartulary_anchor_instead_of_vend_6ccefa24e2",
@@ -500,11 +520,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid policies requires a valid semantic anchor for paste planning"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -513,7 +533,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_resolves_extension_anchors_ranges_grouping_b260d43ca7",
@@ -525,11 +546,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "extension grid semantic identities resolves extension semantic positions, ranges, grouping, and navigation without Core aliases"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -538,7 +559,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_resolves_the_design_priority_while_retainin_2a42c990b3",
@@ -550,11 +572,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid state precedence resolves the design priority while retaining declared co-displays"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -563,7 +585,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_supports_semantic_page_row_edge_and_grid_ed_67abf2c145",
@@ -575,11 +598,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid policies supports semantic page, row-edge, and grid-edge navigation"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -588,7 +611,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_targets_sorted_paste_rows_by_stable_visible_6e95f39b53",
@@ -600,11 +624,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid policies targets sorted paste rows by stable visible record identities"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -613,7 +637,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_translates_valid_presentation_coordinates_i_00d120407c",
@@ -625,11 +650,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid policies resolves valid semantic positions to stable record_id and field_key anchors"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -638,7 +663,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_trims_labels_before_comparing_groups_and_ge_29b2b26405",
@@ -650,11 +676,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grouping model normalizes owner group values before typed bucket identity"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -663,7 +689,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_updates_anchors_for_keyboard_navigation_and_e40887173d",
@@ -675,11 +702,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid policies moves semantic anchors for keyboard navigation and rejects missing targets"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -688,7 +715,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_verifies_a_surface_valid_capability_admissi_33749dc7a6",
@@ -700,11 +728,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/semanticKernel.test.ts",
+        "file": "packages/grid-adapter/src/semanticKernel.node.test.ts",
         "titles": [
           "shared semantic grid kernel admits only surface-valid capabilities and derives one effective mode"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -713,7 +741,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_verifies_b_every_grid_data_state_branch_thr_a380db8f73",
@@ -725,11 +754,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/semanticKernel.test.ts",
+        "file": "packages/grid-adapter/src/semanticKernel.node.test.ts",
         "titles": [
           "shared semantic grid kernel resolves every data-state branch through one precedence table"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -738,7 +767,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_verifies_c_closed_semantic_keyboard_decisio_23d2a0e429",
@@ -750,11 +780,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/semanticKernel.test.ts",
+        "file": "packages/grid-adapter/src/semanticKernel.node.test.ts",
         "titles": [
           "shared semantic grid kernel returns closed keyboard decisions for edit, rejection, exit, navigation, range, fill, and ignore"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -763,7 +793,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_verifies_d_semantic_copy_paste_and_fill_pla_bb3dff1073",
@@ -775,11 +806,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/semanticKernel.test.ts",
+        "file": "packages/grid-adapter/src/semanticKernel.node.test.ts",
         "titles": [
           "shared semantic grid kernel plans copy, paste, and fill without binding coordinates or effects"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -788,7 +819,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.core_verifies_e_sorting_and_bulk_selection_with_35401b075c",
@@ -800,11 +832,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/semanticKernel.test.ts",
+        "file": "packages/grid-adapter/src/semanticKernel.node.test.ts",
         "titles": [
           "shared semantic grid kernel plans sorting and bulk selection with reference-preserving rejected transitions"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -813,7 +845,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.creation_focus_authority",
@@ -838,7 +871,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.draft_clipboard_insertion",
@@ -863,7 +897,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.frozen_column_placement",
@@ -888,7 +923,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.index_suite_d804ef9789",
@@ -957,7 +993,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.mounted_editor_reveal_d7786aa49d",
@@ -987,7 +1024,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.nested_editor_interaction",
@@ -1012,7 +1050,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.overlay_focus_preserves_selection",
@@ -1037,7 +1076,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.range_interaction",
@@ -1070,7 +1110,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.range_keyboard_entry",
@@ -1082,7 +1123,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/rangeKeyboard.test.ts",
+        "file": "packages/grid-adapter/src/rangeKeyboard.node.test.ts",
         "titles": [
           "range keyboard entry cycles every member and boundary in both orders and directions without changing reversed geometry",
           "range keyboard entry preserves ordinary draft shell and region navigation unless a valid multi-cell range is adopted",
@@ -1091,7 +1132,7 @@
           "selected-cell clear capture admits only unmodified Delete as the optional clear chord",
           "selected-cell clear capture captures reversed visible membership including offscreen rows without filtering fields"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1100,7 +1141,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.range_pointer_binding",
@@ -1126,7 +1168,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.semantic_cell_navigation",
@@ -1138,7 +1181,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/semanticCellNavigation.test.ts",
+        "file": "packages/grid-adapter/src/semanticCellNavigation.node.test.ts",
         "titles": [
           "retains a captured range across compatible appends and cancels changed membership scope or authority",
           "semantic cell navigation allows read-only navigation without an editor or mutation capability",
@@ -1148,7 +1191,7 @@
           "semantic cell navigation waits for the existing editor gate and passes the abort signal to virtualized focus",
           "semantic presentation port publishes ordered identity-only membership without changing revision for value-only refresh"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1157,7 +1200,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.semantic_focus_requests",
@@ -1186,7 +1230,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.source_index_test_tsx_acaaa93e3d",
@@ -1212,7 +1257,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.regression.window_range_retention",
@@ -1224,11 +1270,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/grid-adapter/src/core.test.ts",
+        "file": "packages/grid-adapter/src/core.node.test.ts",
         "titles": [
           "semantic grid policies preserves original range membership on append and clears evicted or noncontiguous ranges"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1237,7 +1283,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
@@ -1274,7 +1321,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     }
   ]
 }

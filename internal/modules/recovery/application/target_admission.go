@@ -64,6 +64,8 @@ type RestoreTargetMarker struct {
 type TargetServingAdmission interface {
 	Context() context.Context
 	AssertHeld() error
+	// Release settles the admission and preserves ErrTargetServingLeaseLost
+	// when continuous ownership was lost, including on repeated calls.
 	Release(context.Context) error
 }
 

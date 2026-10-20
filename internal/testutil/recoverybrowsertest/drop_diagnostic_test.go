@@ -44,12 +44,12 @@ func TestDatabaseDropObservation_Integration(t *testing.T) {
 	if _, err := transaction.ExecContext(ctx, "ALTER DATABASE "+name+" RENAME TO "+heldName); err != nil {
 		t.Fatal(err)
 	}
-	dropCtx, cancelDrop := context.WithCancel(ctx)
+	dropCtx, cancelDrop := context.WithTimeout(ctx, 2500*time.Millisecond)
 	stopped := make(chan struct{})
 	var dropErr error
 	go func() {
 		defer close(stopped)
-		dropErr = postgrescleanup.ForceDropDatabase(dropCtx, h.AdminDSN(), database.Name)
+		dropErr = postgrescleanup.DropOwnedDatabase(dropCtx, h.AdminDSN(), database.Name)
 	}()
 	t.Cleanup(func() {
 		cancelDrop()
@@ -80,9 +80,19 @@ func TestDatabaseDropObservation_Integration(t *testing.T) {
 		case <-ticker.C:
 		}
 	}
-	observationCtx, cancelObservation := context.WithTimeout(ctx, 2200*time.Millisecond)
-	observation := postgrescleanup.ObserveDatabaseDrop(observationCtx, h.AdminDSN(), database.Name, true).String()
-	cancelObservation()
+	select {
+	case <-stopped:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	value := postgrescleanup.ObservationFromError(dropErr)
+	if !errors.Is(dropErr, context.DeadlineExceeded) || value == nil {
+		t.Fatalf("missing attributed drop observation: %v", dropErr)
+	}
+	if value.ServiceGeneration == nil || *value.ServiceGeneration != h.ProvisioningGeneration() {
+		t.Fatal("drop wait lacks the actual owned PostgreSQL generation")
+	}
+	observation := value.Wait.String()
 	for _, expected := range []string{"type=Lock event=object blockers=1", "checkpointer={", "requested=", "done=", "buffers="} {
 		if !strings.Contains(observation, expected) {
 			t.Errorf("drop observation %q lacks %q", observation, expected)
@@ -96,7 +106,7 @@ func TestDatabaseDropObservation_Integration(t *testing.T) {
 	}
 	select {
 	case <-stopped:
-		if dropErr != nil {
+		if !errors.Is(dropErr, context.DeadlineExceeded) {
 			t.Fatal(dropErr)
 		}
 	case <-ctx.Done():
@@ -122,17 +132,17 @@ func TestDatabaseDropObservation_Integration(t *testing.T) {
 		}
 		deadline, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
-		failure := postgrescleanup.ForceDropDatabase(deadline, h.AdminDSN(), held.Name)
+		failure := postgrescleanup.DropOwnedDatabase(deadline, h.AdminDSN(), held.Name)
 		if !errors.Is(failure, context.DeadlineExceeded) {
 			t.Fatal("failed drop lost its original deadline")
 		}
 		var observed interface {
-			CleanupWait() postgrescleanup.DropObservation
+			PostgresCleanup() postgrescleanup.DropAttempt
 		}
 		if !errors.As(failure, &observed) {
 			t.Fatal("failed drop lost the shared wait observation")
 		}
-		value := observed.CleanupWait()
+		value := observed.PostgresCleanup().Wait
 		if err := value.Validate(); err != nil {
 			t.Fatal(err)
 		}
@@ -157,7 +167,7 @@ func TestDatabaseDropObservation_Integration(t *testing.T) {
 		if err := admin.QueryRowContext(t.Context(), `SELECT oid FROM pg_catalog.pg_database WHERE datname = $1`, existing.Name).Scan(&originalOID); err != nil {
 			t.Fatal(err)
 		}
-		if err := createDatabase(t.Context(), h.AdminDSN(), existing.Name, template); err == nil {
+		if created, err := createDatabase(t.Context(), h.AdminDSN(), existing.Name, template); err == nil || created {
 			t.Fatal("fixture acquisition replaced an existing database")
 		}
 		assertExisting := func() {
@@ -172,9 +182,9 @@ func TestDatabaseDropObservation_Integration(t *testing.T) {
 		}
 		assertExisting()
 		name := "recovery_fixture_" + strings.ReplaceAll(uuid.NewString(), "-", "")
-		dsn, err := createFromTemplateDB(t.Context(), h.AdminDSN(), name, template)
-		if err != nil {
-			t.Fatal(err)
+		dsn, created, err := createFromTemplateDB(t.Context(), h.AdminDSN(), name, template)
+		if err != nil || !created {
+			t.Fatal("clone ownership", created, err)
 		}
 		t.Cleanup(func() {
 			if err := dropDatabase(context.Background(), h.AdminDSN(), name); err != nil {
@@ -194,8 +204,8 @@ func TestDatabaseDropObservation_Integration(t *testing.T) {
 		if err := connection.PingContext(t.Context()); err != nil {
 			t.Fatal(err)
 		}
-		// The active connection exercises the ordinary-drop rejection and the
-		// common bounded forced fallback against only our proven-created clone.
+		// The active connection exercises atomic termination through the
+		// common single bounded forced drop against only our proven-created clone.
 		if err := dropDatabase(t.Context(), h.AdminDSN(), name); err != nil {
 			t.Fatal(err)
 		}

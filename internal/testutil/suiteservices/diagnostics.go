@@ -35,6 +35,7 @@ const (
 	EventPostgresTransaction    = "postgres-transaction"
 	EventPostgresTemplateUse    = "postgres-template-clone"
 	EventS3Attach               = "s3-attach"
+	EventS3BucketReserved       = "s3-bucket-reserved"
 	EventS3BucketCreated        = "s3-bucket-created"
 	EventS3BucketCleaned        = "s3-bucket-cleaned"
 	EventS3PrefixCleaned        = "s3-prefix-cleaned"
@@ -297,7 +298,7 @@ func RecordEvent(env map[string]string, event Event) error {
 	if event.PID == 0 {
 		event.PID = os.Getpid()
 	}
-	event.SchemaID = "cartulary.test_services.journal_event.v1"
+	event.SchemaID = "cartulary.test_services.journal_event.v2"
 	event.ProducerID = producerIdentity
 	event = sanitizeEvent(event)
 
@@ -742,7 +743,7 @@ func readJournal(path string, producerID string) ([]Event, error) {
 			return nil, fmt.Errorf("decode completed suite-service journal record %s: %w", path, err)
 		}
 		expected := uint64(len(events) + 1)
-		if event.SchemaID != "cartulary.test_services.journal_event.v1" || event.ProducerID != producerID || event.Sequence != expected {
+		if event.SchemaID != "cartulary.test_services.journal_event.v2" || event.ProducerID != producerID || event.Sequence != expected {
 			return nil, fmt.Errorf("suite-service journal %s has invalid producer identity or sequence: got %s/%d, want %s/%d", path, event.ProducerID, event.Sequence, producerID, expected)
 		}
 		if event.Type == "" || event.PID < 1 {

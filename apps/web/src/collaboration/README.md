@@ -21,4 +21,4 @@ This layer owns transport lifetime and typed publication. The
 | File | Responsibility |
 | --- | --- |
 | [IncidentCollaborationSession.test.tsx](IncidentCollaborationSession.test.tsx) | Tests for single-socket lifetime, surface presence changes, replay deduplication/gaps, heartbeat, and unknown-message safety. |
-| [incidentCollaborationSessionPlan.test.ts](incidentCollaborationSessionPlan.test.ts) | Tests handshake and terminal-message classification, sequence deduplication, gaps, and reset suppression. |
+| [incidentCollaborationSessionPlan.node.test.ts](incidentCollaborationSessionPlan.node.test.ts) | Tests handshake and terminal-message classification, sequence deduplication, gaps, and reset suppression. |

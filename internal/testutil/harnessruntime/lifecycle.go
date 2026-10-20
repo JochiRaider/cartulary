@@ -50,7 +50,7 @@ func (e *graphEngine) work(u unit, c cacheResult) {
 		}
 	}
 	cleanup := func(operation, lease string, err error) {
-		record := cleanupRecord{Operation: operation, UnitID: u.ID, LeaseID: lease, Outcome: "completed"}
+		record := cleanupRecord{Operation: operation, UnitID: u.ID, LeaseID: lease, Outcome: "completed", Cause: err}
 		if err != nil {
 			record.Outcome = "failed"
 			record.Failure = cleanupFailureOf(err)
@@ -124,7 +124,7 @@ func (e *graphEngine) work(u unit, c cacheResult) {
 				return failed("harness", "fixture_error")
 			}
 			var err error
-			lease, err = e.ports.Fixtures.Acquire(e.ctx, fixtureRequest{UnitID: u.ID, Owner: u.Owner, Capability: u.Fixture, Affinity: fixtureAffinity(u), Environment: maps.Clone(u.Command.Environment)})
+			lease, err = e.ports.Fixtures.Acquire(e.ctx, fixtureRequest{PostgresIsolation: u.PostgresIsolation, Services: u.Services, UnitID: u.ID, Owner: u.Owner, Capability: u.Fixture, Affinity: fixtureAffinity(u), Environment: maps.Clone(u.Command.Environment)})
 			return err
 		})
 		if err != nil {
@@ -152,7 +152,7 @@ func (e *graphEngine) work(u unit, c cacheResult) {
 		r = e.ports.Execute(e.ctx, executionRequest{Unit: u, Environment: environment, Host: host})
 		r.Cache = c
 		for _, secondary := range r.Cleanup {
-			_ = e.send(engineMessage{ID: u.ID, Cleanup: &cleanupRecord{Operation: "runtime_close", UnitID: u.ID, Outcome: "failed", Failure: cleanupFailureOf(secondary)}})
+			_ = e.send(engineMessage{ID: u.ID, Cleanup: &cleanupRecord{Operation: "runtime_close", UnitID: u.ID, Outcome: "failed", Cause: secondary, Failure: cleanupFailureOf(secondary)}})
 		}
 		if r.Status != "passed" && r.Status != "failed" && r.Status != "cancelled" {
 			return failed("harness", "scheduler_accounting_error")

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.stagedobjects",
   "rows": [
     {
@@ -32,7 +32,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.stagedobjects.unit.lifecycle_cleanup_outcomes_7f6ad80724",
@@ -62,7 +63,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.stagedobjects.unit.server_readiness_and_fatal_routing_7f6ad80724",
@@ -90,7 +92,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

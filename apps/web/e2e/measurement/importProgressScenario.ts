@@ -13,7 +13,7 @@ import {
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { Browser, Page, TestInfo } from "@playwright/test";
-import type { WorkerAdminEntry } from "../support/auth/workerAdmin";
+import type { FixtureActorCredentials } from "../support/auth/sessions";
 import {
   type Ac043TrafficDriver,
   prepareAc043Snapshot,
@@ -32,7 +32,7 @@ export async function runImportProgress(
   purpose: "discovery" | "apply",
   browser: Browser,
   page: Page,
-  workerAdmin: WorkerAdminEntry,
+  testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
   info: TestInfo,
   format: ImportSourceFormat,
@@ -48,7 +48,7 @@ export async function runImportProgress(
   try {
     expect(info.retry).toBe(0);
     const source = importDiscoveryWorkbook(format);
-    const snapshot = await prepareAc043Snapshot(page, workerAdmin, {
+    const snapshot = await prepareAc043Snapshot(page, testActor, {
       fixtureProfileId: contract.fixture_profile_id,
     });
     const firstPage = [...snapshot.timelineRows]

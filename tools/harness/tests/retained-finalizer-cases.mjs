@@ -19,11 +19,11 @@ function fixture(parent, name, second = 0) {
   const row = { row_id: "harness.evidence_accounting.unit.finalizer_fixture", runner: "go" };
   const unit = { unit_id: "a", owner_id: "harness.evidence_accounting", kind: "runner",
     command: { executable: "true", args: [], environment: {} }, needs: [], resource_claims: { cpu: 1, process: 1 },
-    shared_locks: [], exclusive_locks: [], fixture_lease: "none", renderer_requirement: "none", physical_allocations: {}, service_dependencies: [], cache_policy: "none", timeout_ms: 1000,
+    shared_locks: [], exclusive_locks: [], fixture_lease: "none", renderer_requirement: "none", physical_allocations: {}, postgres_isolation: "none", service_dependencies: [], cache_policy: "none", timeout_ms: 1000,
     row_bindings: [{ row_id: row.row_id, runner: "go" }], current_run_evidence_outputs: [`rows/${row.row_id}.json`, "unit-results/a.json"], reusable_artifact_outputs: [],
     failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" }, estimated_work_ms: 10 };
   unit.semantic_digest = hash(unit);
-  const graph = { schema_id: "cartulary.harness_work_graph.v7", selector: "fixture", units: [unit], graph_digest: hash({ units: [unit] }) };
+  const graph = { schema_id: "cartulary.harness_work_graph.v8", selector: "fixture", units: [unit], graph_digest: hash({ units: [unit] }) };
   const policyBytes = fs.readFileSync(path.join(repository, "tools/harness_instrumentation_policy.json"), "utf8");
   const inputs = [
     { path: "tools/harness_instrumentation_policy.json", kind: "file", mode: "0644", byte_digest: byteHash(policyBytes) },
@@ -56,11 +56,11 @@ function fixture(parent, name, second = 0) {
   fs.writeFileSync(path.join(root, "unit-events.ndjson"), events.map((event) => JSON.stringify(event)).join("\n") + "\n");
   save("unit-results/a.json", { schema_id: "cartulary.harness_unit_result.v1", unit_id: "a", semantic_digest: unit.semantic_digest,
     status: "passed", exit_code: 0, signal: null, failure_class: null, failure_reason: null, evidence_outputs: unit.current_run_evidence_outputs, missing_outputs: [] });
-  save(`rows/${row.row_id}.json`, { schema_id: "cartulary.harness_row_result.v4", row_id: row.row_id, runner: "go", terminal_state: "passed",
+  save(`rows/${row.row_id}.json`, { schema_id: "cartulary.harness_row_result.v6", row_id: row.row_id, runner: "go", terminal_state: "passed",
     duration_ms: 1, exit_code: 0, failure_class: null, failure_reason: null, failure_diagnostic: null,
     started_at: "2026-10-16T00:00:00.000Z", finished_at: "2026-10-16T00:00:00.001Z", wall_duration_ms: 1 });
-  save("cleanup-results.json", { schema_id: "cartulary.harness_cleanup_results.v1", run_id: name, results: [{ sequence: 1, operation: "host_release", unit_id: "a",
-    fixture_lease_id: null, outcome: "completed", failure_class: null, failure_reason: null, failures: [], artifact_refs: [] }] });
+  save("cleanup-results.json", { schema_id: "cartulary.harness_cleanup_results.v2", run_id: name, results: [{ sequence: 1, operation: "host_release", unit_id: "a",
+    fixture_lease_id: null, outcome: "completed", failure_class: null, failure_reason: null, failures: [], artifact_refs: [], diagnostic: null }] });
   // Scan and instrumentation policies are independent identities in production.
   save("retained-secret-scan.json", { schema_id: "cartulary.harness_retained_secret_scan.v1", status: "pass", scanned_files: 10, policy_digest: byteHash("independent scanner fixture") });
   const plan = { graph: structuredClone(graph), projections: { check: ["a"] } };

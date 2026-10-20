@@ -37,7 +37,7 @@ import { openGenericInspectorForRecord } from "./support/workbook/rowMutations";
 
 test("Entity contextual Task creation retains editable references and replays a lost response exactly after navigation", async ({
   page,
-  workerAdmin,
+  testActor,
 }, info) => {
   const incident = await createIncident(
     page,
@@ -117,7 +117,7 @@ test("Entity contextual Task creation retains editable references and replays a 
     page,
     taskRequestsViewSchemaId,
     "task.owner_user_id",
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   await choose(
     page,
@@ -180,7 +180,7 @@ test("Entity contextual Task creation retains editable references and replays a 
   expect(rows).toHaveLength(1);
   expect(rows[0]?.cells["task.status"]?.value).toBe("open");
   expect(rows[0]?.cells["task.priority"]?.value).toBe("normal");
-  expect(rows[0]?.cells["task.owner_user_id"]?.value).toBe(workerAdmin.user_id);
+  expect(rows[0]?.cells["task.owner_user_id"]?.value).toBe(testActor.user_id);
   expect(
     JSON.stringify(rows[0]?.cells["task.linked_record_ids"]?.value),
   ).toContain(support.record_id);

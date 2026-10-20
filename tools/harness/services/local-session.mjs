@@ -24,7 +24,7 @@ import { parseStrictJSON } from "../contract/index.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { recoverRuntime, borrowRuntime, createRuntime } from "../runtime/session-client.mjs";
 
-const descriptorSchemaID = "cartulary.test_services.local_session.v2";
+const descriptorSchemaID = "cartulary.test_services.local_session.v3";
 const statusSchemaID = "cartulary.test_services.local_session_status.v1";
 const sessionDurationMS = 24 * 60 * 60 * 1000;
 export function attachedSelectionAllowed(target, inputs) {
@@ -39,7 +39,7 @@ const callerServiceInputs = new Set([
 // The private schema owns the closed attachment environment; selection is its
 // projection so physical TLS bindings cannot drift from descriptor acceptance.
 const serviceEnvironmentNames = Object.freeze(JSON.parse(readFileSync(
-  new URL("../../schemas/cartulary.test_services.local_session.v2.schema.json", import.meta.url), "utf8",
+  new URL("../../schemas/cartulary.test_services.local_session.v3.schema.json", import.meta.url), "utf8",
 )).properties.environment.propertyNames.enum);
 
 const configInputs = ["db/migrations", "go.mod", "go.sum", "tools/toolchain_pins.json"];
@@ -269,12 +269,12 @@ function validateDescriptorSecurity(sessionFile, descriptor) {
   if (!contained(descriptor.state_root, descriptor.runtime_root)) {
     throw new Error("local service session runtime root escapes session state");
   }
-  if (!contained(descriptor.runtime_root, descriptor.resident_allocation.allocation.reference) || descriptor.resident_allocation.admission_root !== hostAdmissionRoot || descriptor.resident_allocation.allocation.parent !== null) throw new Error("local service reservation is outside its owner");
+  if (!contained(descriptor.runtime_root, descriptor.resident_allocation.allocation.reference) || descriptor.resident_allocation.admission_root !== hostAdmissionRoot) throw new Error("local service reservation is outside its owner");
   if (!contained(descriptor.state_root, descriptor.service_lease.result_root)) {
     throw new Error("local service session lease result root escapes session state");
   }
   const provisioning = descriptor.service_lease.postgres_provisioning;
-  if (!provisioning || provisioning.generation !== descriptor.environment.CARTULARY_PGTEST_GENERATION ||
+  if (!provisioning || provisioning.postgres_isolation!=="shared" || provisioning.postgres_isolation!==descriptor.environment.CARTULARY_PGTEST_ISOLATION || provisioning.allocation_ref!==descriptor.environment.CARTULARY_PGTEST_ALLOCATION_REF || provisioning.generation !== descriptor.environment.CARTULARY_PGTEST_GENERATION ||
       provisioning.policy_digest !== descriptor.environment.CARTULARY_PGTEST_PROVISIONING_DIGEST ||
       provisioning.template_digest !== descriptor.environment.CARTULARY_PGTEST_TEMPLATE_DIGEST) {
     throw new Error("local service session provisioning identity mismatch");
@@ -516,7 +516,10 @@ export async function createLocalSession({ root, binary, sessionFile, environmen
     const claims = hostClaims();
     for (const service of ["postgres", "object_store"]) for (const [key, amount] of Object.entries(physical[service])) claims[key] += amount;
     const reservationFile = suiteRuntime.recoveryPath("resident-allocations", "services.json");
-    const reservation = { schema_id: "cartulary.harness_resident_allocation.v1", admission_root: hostAdmissionRoot, allocation: { token: randomBytes(16).toString("hex"), reference: reservationFile, claims, capacities: hostClaims(Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({root})))), parent: null } };
+    // Keep the starter's admitted envelope in the native weighted tree. The
+    // durable allocation remains charged after that ancestor releases or dies.
+    const parent = inheritedHostLease(environment);
+    const reservation = { schema_id: "cartulary.harness_resident_allocation.v1", admission_root: hostAdmissionRoot, allocation: { token: randomBytes(16).toString("hex"), reference: reservationFile, claims, capacities: hostClaims(Object.fromEntries(resourceCapacities(captureCapabilitySnapshot({root})))), parent } };
     writePrivateJSON(reservationFile, reservation);
     const residentRef = suiteRuntime.record({ kind: "resident_allocation", target: reservationFile, state: "pending", depends_on: [], recovery_files: [reservationFile] });
     suiteRuntime.record({ kind: "managed_suite", target: leaseFile, state: "pending", depends_on: [residentRef] });
@@ -529,6 +532,8 @@ export async function createLocalSession({ root, binary, sessionFile, environmen
     const resultFile = path.join(stateRoot, "suite-start-result.json");
     const startEnvironment = {
       CARTULARY_TEST_SERVICES_PERSISTENT_SESSION: "1",
+      CARTULARY_PGTEST_ISOLATION: "shared",
+      CARTULARY_PGTEST_ALLOCATION_REF: `session:${sessionID}`,
       CARTULARY_TEST_SERVICES_SESSION_EXPIRES_AT: expiresAt,
       CARTULARY_TEST_SUITE_ID: sessionID,
       CARTULARY_TEST_TARGET: "test-services-session-up",
@@ -539,7 +544,7 @@ export async function createLocalSession({ root, binary, sessionFile, environmen
       CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: "session-up",
     };
     try {
-      active = await (dependencies.acquireAdmission ?? acquireHostAdmission)({ root: reservation.admission_root, mode: "shared", parent: inheritedHostLease(environment), claims: { cpu: 1, io: 1, memory_mb: 64, process: 1 }, capacities: reservation.allocation.capacities, residents: [reservation.allocation], signal, timeoutMs: lifecyclePolicy.limits.preparation });
+      active = await (dependencies.acquireAdmission ?? acquireHostAdmission)({ root: reservation.admission_root, mode: "shared", parent, claims: { cpu: 1, io: 1, memory_mb: 64, process: 1 }, capacities: reservation.allocation.capacities, residents: [reservation.allocation], signal, timeoutMs: lifecyclePolicy.limits.preparation });
       startEnvironment.CARTULARY_HOST_ADMISSION_LEASE = active.token;
       suiteRuntime.record({ kind: "resident_allocation", target: reservationFile, state: "acquired" });
       runTestservices(binary, [
@@ -791,7 +796,7 @@ export async function stopLocalSession({ root, binary, sessionFile, signal, depe
     };
     const reservation = descriptor.resident_allocation;
     const admission = dependencies.admission ?? transactAdmission;
-    const active = await (dependencies.acquireAdmission ?? acquireHostAdmission)({ root: reservation.admission_root, mode: "drain", parent: inheritedHostLease(), claims: { cpu: 1, io: 1, memory_mb: 64, process: 1 }, capacities: reservation.allocation.capacities, residents: [reservation.allocation], signal, timeoutMs: lifecyclePolicy.limits.drain });
+    const active = await (dependencies.acquireAdmission ?? acquireHostAdmission)({ root: reservation.admission_root, mode: "drain", parent: reservation.allocation.parent ?? inheritedHostLease(), claims: { cpu: 1, io: 1, memory_mb: 64, process: 1 }, capacities: reservation.allocation.capacities, residents: [reservation.allocation], signal, timeoutMs: lifecyclePolicy.limits.drain });
     terminateEnvironment.CARTULARY_HOST_ADMISSION_LEASE = active.token;
     let primary;
     try {

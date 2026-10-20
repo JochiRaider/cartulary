@@ -79,15 +79,15 @@ test("browser fixture trust accepts its authority and rejects foreign authoritie
 });
 
 test("rich Timeline recipe preserves owner states and source text during capture preparation", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }, testInfo) => {
   let exampleRequests = 0;
   await page.route(/^https?:\/\/[^/]*\.example\.test(?:[/:]|$)/, (route) => {
     exampleRequests++;
     return route.abort();
   });
-  await installVisualPreferences(page, workerAdmin.user_id);
+  await installVisualPreferences(page, testActor.user_id);
   const investigation = registerTimelineVisualFixture(
     await seedVisualTimelineInvestigation(page, {
       continuationCount: 36,
@@ -434,10 +434,10 @@ test("rich Timeline recipe preserves owner states and source text during capture
 });
 
 test("visual harness retains loaded assets across an independent frontend publication", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }, testInfo) => {
-  await installVisualPreferences(page, workerAdmin.user_id);
+  await installVisualPreferences(page, testActor.user_id);
   const failures = installApplicationAssetMonitor(page);
   const incidentId = await createIncident(
     page,
@@ -497,14 +497,12 @@ test("visual harness retains loaded assets across an independent frontend public
 });
 
 test("visual harness preferences remain local across density order and page closure", async ({
-  workerAdminPage: page,
-  workerAdminRequest,
-  workerAdmin,
+  testActorPage: page,
+  testActorRequest,
+  testActor,
 }, testInfo) => {
   const readPersisted = async () => {
-    const response = await workerAdminRequest.get(
-      "/api/v1/account/preferences",
-    );
+    const response = await testActorRequest.get("/api/v1/account/preferences");
     expect(response.status()).toBe(200);
     return ((await response.json()) as GetCurrentAccountPreferencesResponse)
       .data;
@@ -521,10 +519,9 @@ test("visual harness preferences remain local across density order and page clos
       client_txn_id: uniqueTxn("visual-isolation-seed"),
       density_mode: density,
     };
-    const response = await workerAdminRequest.put(
-      "/api/v1/account/preferences",
-      { data },
-    );
+    const response = await testActorRequest.put("/api/v1/account/preferences", {
+      data,
+    });
     expect(response.status()).toBe(200);
   };
   let primary: unknown;
@@ -545,7 +542,7 @@ test("visual harness preferences remain local across density order and page clos
     ] as const) {
       const preferences = await installVisualPreferences(
         current,
-        workerAdmin.user_id,
+        testActor.user_id,
       );
       expect(preferences.read().density_mode).toBeNull();
       installApplicationAssetMonitor(current);
@@ -572,7 +569,7 @@ test("visual harness preferences remain local across density order and page clos
       await current.close();
       current = await page.context().newPage();
     }
-    const fresh = await installVisualPreferences(current, workerAdmin.user_id);
+    const fresh = await installVisualPreferences(current, testActor.user_id);
     expect(fresh.read().density_mode).toBeNull();
     expect(await readPersisted()).toEqual(before);
     await current.close();

@@ -176,6 +176,12 @@ test("Timeline Create ignores cancelled and non-primary presses without blur-sub
     exact: true,
   });
   await input.fill(raw);
+  // Own both the native selection and clipboard before testing auxiliary presses.
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await input.press("ControlOrMeta+A");
+  await input.press("ControlOrMeta+C");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(raw);
+  await input.press("ArrowRight");
   // This observation records the native sequence without replacing any handler.
   await input.evaluate((element) =>
     element.addEventListener("blur", () =>
@@ -192,6 +198,7 @@ test("Timeline Create ignores cancelled and non-primary presses without blur-sub
   for (const button of ["right", "middle"] as const) {
     await create.click({ button });
     expect(f.creates).toHaveLength(0);
+    await expect(input).toHaveValue(raw);
     await expect(input).toBeFocused();
   }
   // A browser-native cancelled contact must not synthesize an activation click.
@@ -1022,7 +1029,7 @@ test("uses public history and visible state to prove replay avoids duplicate mut
 
 test("Timeline exact action recovery preserves committed transitions change sets and replacement links", async ({
   page,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
   const incidentId = await createIncident(
     page,
@@ -1199,7 +1206,7 @@ test("Timeline exact action recovery preserves committed transitions change sets
     expect(new Set(transition.map((item) => item.change_set_id)).size).toBe(1);
     expect(new Set(transition.map((item) => item.actor_user_id)).size).toBe(1);
     expect([...new Set(transition.map((item) => item.actor_user_id))]).toEqual([
-      workerAdmin.user_id,
+      testActor.user_id,
     ]);
     const linkUnits = transition
       .flatMap((item) => item.diff_summary.units)

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.tasksdecisions",
   "rows": [
     {
@@ -26,7 +26,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.tasksdecisions.browser.decision_supersession_exact_recovery",
@@ -64,7 +65,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.tasksdecisions.browser.task_lifecycle_patch_recovery",
@@ -108,7 +111,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.tasksdecisions.browser.the_browser_workbook_opens_task_requests_and_dec_8048a75ceb",
@@ -143,7 +148,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.tasksdecisions.composition.link_facts_adapter_is_copy_safe_3f86c2a1d4",
@@ -169,7 +176,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.tasksdecisions.composition.mutation_and_import_composition_fails_closed_and_9add8849f4",
@@ -200,7 +208,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.tasksdecisions.conflict_composition.application_workbook_conflict_resolution_contrib_10e9976746",
@@ -229,7 +238,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.tasksdecisions.frontend_unit.coordination_workflow_lifecycle_7a8d13c2f0",
@@ -263,7 +273,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.tasksdecisions.idempotency_adapter.application_workbook_idempotency_adapter_boundar_90a3399bf6",
@@ -291,7 +302,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.tasksdecisions.import_create.owner_reference_contract_and_atomicity",
@@ -321,7 +333,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.tasksdecisions.incident_portability.source_port_invariants_and_atomicity",
@@ -356,7 +369,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.tasksdecisions.rollback_provider.source_policy_null_and_owner_validation",
@@ -381,7 +395,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.tasksdecisions.source_catalog.generated_owner_facts_fail_closed",
@@ -406,7 +421,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.tasksdecisions.source_mutations.task_and_decision_mutation_admission_and_replay_6d4ea5900a",
@@ -432,10 +448,11 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
-      "row_id": "module.tasksdecisions.source_workbook.task_requests_and_decisions_persist_as_workbook_887d6b579e",
+      "row_id": "module.tasksdecisions.source_workbook.managed_service_assertions_for_task_requests_and_9063e4f330",
       "owner_id": "module.tasksdecisions",
       "family_id": "module.tasksdecisions.source_workbook",
       "collaborator_ids": [],
@@ -448,7 +465,6 @@
         "tests": [
           "TestDecisionLifecycleSupersessionAndConsistency_Unit",
           "TestDecisionTerminalTransitionMatrix_Unit",
-          "TestStoredMutationOperationMismatchRejectedBeforeSourceMutation_Unit",
           "TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit",
           "TestTaskLifecycleGuardFailures_Unit",
           "TestTaskLifecycleStatusMatrixAndExactReplay_Unit",
@@ -464,7 +480,33 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.tasksdecisions.source_workbook.service_free_contract_assertions_for_task_reques_6b1b390c49",
+      "owner_id": "module.tasksdecisions",
+      "family_id": "module.tasksdecisions.source_workbook",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.tasksdecisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/tasksdecisions",
+        "tests": [
+          "TestStoredMutationOperationMismatchRejectedBeforeSourceMutation_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.tasksdecisions.unit.task_decision_direct_references_admit_exact_stab_7bf2beff80",
@@ -490,7 +532,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

@@ -2,12 +2,13 @@
 import { beginActivity } from "../runtime/local-activity.mjs";
 import { workspaceLayout } from "../../workspace_layout.generated.mjs";
 
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import {
+  parseStrictJSON,
   publicExitCodeForFailure,
   redactString,
   redactValue,
@@ -19,15 +20,20 @@ import {
   adaptPlaywrightReport,
   playwrightTestList,
   playwrightGroupExitCode,
+  playwrightGroupFailure,
+  playwrightReportMaximumBytes,
 } from "../execution/runners/playwright.mjs";
 import { groupRowsByPerformanceFixture } from "../performance-fixture/index.mjs";
-import { reportCommandFailure } from "../runtime/command-failure.mjs";
+import { publishCommandFailure, reportCommandFailure } from "../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../runtime/private-child-process.mjs";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
 import { enforcePrivateProcessUmask } from "../runtime/private-process.mjs";
 import { loadTestCatalog, resolvePlaywrightSelection } from "../test-catalog/index.mjs";
 import { resolveBrowserBatchStage } from "./browser-batch-manifest.mjs";
-import { selectedBrowserGroupRowIDs } from "./browser-group-selection.mjs";
+import { readLocalFile } from "../runtime/secure-local-files.mjs";
+import { publishRowResult } from "../execution/runners/row-results.mjs";
+import { browserCohort } from "./browser-cohorts.mjs";
+import { readPublishedUnit } from "../execution/runners/unit-selection.mjs";
 import { attachmentAssignments } from "./browser-session-evidence.mjs";
 import { collectFrontendMeasurementObservations } from "./frontend-measurement-evidence.mjs";
 import { readRendererAttachment } from "./renderer-attachment.mjs";
@@ -38,19 +44,20 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "../../..");
 
 function usage() {
-  return "usage: browser-catalog-group-cli.mjs --manifest <path> --stage <stage> --group <group>";
+  return "usage: browser-catalog-group-cli.mjs --manifest <path> --stage <stage> --partition <partition> --group <group>";
 }
 
 function parseArgs(argv) {
-  const options = { manifest: "", stage: "", group: "" };
+  const options = { manifest: "", stage: "", partition: "", group: "" };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--manifest") options.manifest = argv[++index] ?? "";
     else if (arg === "--stage") options.stage = argv[++index] ?? "";
+    else if (arg === "--partition") options.partition = argv[++index] ?? "";
     else if (arg === "--group") options.group = argv[++index] ?? "";
     else throw new Error(usage());
   }
-  if (!options.manifest || !options.stage || !options.group) throw new Error(usage());
+  if (!options.manifest || !options.stage || !options.partition || !options.group) throw new Error(usage());
   return options;
 }
 
@@ -73,7 +80,7 @@ function writeRowResults(rowResults, runner, startedAt, finishedAt, wallDuration
   secureMkdir(rowsRoot);
   for (const row of rowResults) {
     const payload = {
-      schema_id: "cartulary.harness_row_result.v4",
+      schema_id: "cartulary.harness_row_result.v6",
       ...row,
       runner,
       started_at: startedAt,
@@ -81,7 +88,7 @@ function writeRowResults(rowResults, runner, startedAt, finishedAt, wallDuration
       wall_duration_ms: wallDurationMs,
     };
     validateSchemaSync(payload.schema_id, payload);
-    secureWriteFile(path.join(rowsRoot, `${row.row_id}.json`), `${JSON.stringify(payload, null, 2)}\n`);
+    publishRowResult(runRoot(), payload);
   }
 }
 
@@ -140,15 +147,13 @@ function executionTarget(group) {
 }
 
 function readPlaywrightReport(reportPath) {
-  const stat = lstatSync(reportPath);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 32 * 1024 * 1024) {
-    throw new Error("Playwright JSON report exceeds the 32 MiB selected-group contract");
-  }
-  return JSON.parse(readFileSync(reportPath, "utf8"));
+  return parseStrictJSON(readLocalFile(reportPath, {
+    maximum: playwrightReportMaximumBytes, privateFile: false, allowReplacement: true,
+  }).toString("utf8"));
 }
 
 function groupRows(catalog, group) {
-  const selectedRowIDs = selectedBrowserGroupRowIDs(group);
+  const selectedRowIDs = group.selectedRowIDs;
   const rows = selectedRowIDs.map((rowID) => {
     const row = catalog.rowByID.get(rowID);
     if (!row || row.runner !== "playwright") {
@@ -190,8 +195,8 @@ function commandForGroup(rows, selection, group, artifactRoot) {
     "playwright",
     "test",
     "--config",
-    "playwright.config.ts",
-    "--reporter=json",
+    group.config,
+    `--reporter=json,${path.join(root, "tools/harness/browser/playwright-cohort-reporter.mjs")}`,
     "--project",
     projectIDs[0],
     "--output",
@@ -200,7 +205,7 @@ function commandForGroup(rows, selection, group, artifactRoot) {
     "--test-list",
     selectionFile,
   ];
-  args.push("--workers=1");
+  args.push("--workers=1", "--max-failures=1");
   if (group.kind === "visual" && process.env.CARTULARY_PLAYWRIGHT_UPDATE_SNAPSHOTS === "1") {
     args.push("--update-snapshots=changed");
   }
@@ -222,8 +227,17 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const manifest = path.resolve(root, options.manifest);
   const stage = resolveBrowserBatchStage(manifest, options.stage);
-  const group = stage.groups.find((entry) => entry.name === options.group);
-  if (!group) throw new Error(`browser stage ${options.stage} has no group ${options.group}`);
+  const partition = stage.groups.find((entry) => entry.name === options.partition);
+  if (!partition) throw new Error(`browser stage ${options.stage} has no partition ${options.partition}`);
+  const catalog = loadTestCatalog(root);
+  const unit = readPublishedUnit(runRoot(), process.env.CARTULARY_TEST_RUN_ID, process.env.CARTULARY_WORK_UNIT_ID);
+  if (unit.command.args[0] !== "tools/harness/browser/browser-catalog-group-cli.mjs" ||
+      JSON.stringify(unit.command.args.slice(1)) !== JSON.stringify(process.argv.slice(2)) ||
+      !unit.row_bindings?.length || unit.row_bindings.some((row) => row.runner !== "playwright")) {
+    throw new Error("browser selection requires its exact published work unit");
+  }
+  const group = browserCohort(partition, unit.row_bindings.map(({ row_id }) => catalog.rowByID.get(row_id)), stage.invocationPolicy);
+  if (group.name !== options.group) throw new Error("browser cohort identity does not bind selected rows and policy");
   validateCurrentSessionAttachment();
   const attachedSessionID =
     process.env.CARTULARY_BROWSER_SESSION_GROUP?.trim() ?? "";
@@ -240,7 +254,6 @@ async function main() {
   ) {
     throw new Error(`browser group ${group.name} session attachment mismatch`);
   }
-  const catalog = loadTestCatalog(root);
   const rows = groupRows(catalog, group);
   const snapshotKey = process.env.CARTULARY_FIXTURE_SNAPSHOT_KEY?.trim() ?? "";
   if (
@@ -323,7 +336,8 @@ async function main() {
     report = readPlaywrightReport(reportPath);
     secureWriteFile(reportPath, `${JSON.stringify(redactValue(report), null, 2)}\n`);
   } catch {
-    report = null;
+    try { report = readPlaywrightReport(path.join(artifactRoot, "playwright-checkpoint.json")); }
+    catch { report = null; }
   }
   let rowResults;
   try { rowResults = adaptPlaywrightReport(
@@ -355,14 +369,14 @@ async function main() {
     }
   }
   const primaryExitCode = measurementEvidenceError === null
-    ? playwrightGroupExitCode(rowResults, child)
+    ? playwrightGroupExitCode(rowResults, child, report)
     : 11;
   const exitCode = primaryExitCode || (cleanupError ? 12 : 0);
   const finishedAt = new Date().toISOString();
   const wallDurationMs = Date.now() - started;
   writeRowResults(rowResults, "playwright", startedAt, finishedAt, wallDurationMs);
   const result = {
-    schema_id: "cartulary.browser_group_result.v9",
+    schema_id: "cartulary.browser_group_result.v11",
     renderer_borrow: { unit_id: rendererLease.unit_id, borrow_id: rendererLease.borrow_id, allocation_id: rendererLease.allocation_id, generation: rendererLease.generation, attestation_ref: rendererLease.attestation_ref, trust_ref: rendererLease.trust_ref },
     target_id: target,
     stage_id: stage.name,
@@ -401,6 +415,11 @@ async function main() {
   secureWriteFile(path.join(artifactRoot, "browser-group-result.json"), `${JSON.stringify(result, null, 2)}\n`);
   if (exitCode === 12 && cleanupError) process.stderr.write("failure_class=harness failure_reason=cleanup_error\n");
   if (exitCode !== 0) {
+    const failure = measurementEvidenceError
+      ? { failure_class: "artifact", failure_reason: "artifact_error" }
+      : playwrightGroupFailure(rowResults, child, report) ?? { failure_class: "harness", failure_reason: "cleanup_error" };
+    publishCommandFailure(root, failure);
+    process.stderr.write(`failure_class=${failure.failure_class} failure_reason=${failure.failure_reason}\n`);
     process.stderr.write(
       `[FAIL] target=${group.target} group=${group.name} exit_code=${exitCode} failed_rows=${rowResults.filter((row) => row.terminal_state !== "passed").length}\n`,
     );

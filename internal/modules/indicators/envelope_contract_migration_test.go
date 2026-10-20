@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -15,7 +16,7 @@ import (
 
 func TestIndicatorEnvelopeHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.OpenIsolatedDatabaseT(t, "indicator-envelope-head-contract", postgres.PurposeRecovery)
+	db := harness.BeginRollbackDBT(t, "indicator-envelope-head-contract")
 	ctx := context.Background()
 
 	const (
@@ -27,13 +28,13 @@ func TestIndicatorEnvelopeHeadSchemaContract_Integration(t *testing.T) {
 		otherSrcID  = "57000000-0000-4000-8000-000000000008"
 		dedupeKey   = "domain_name:contract.example"
 	)
-	if _, err := db.ExecContext(ctx, `
+	if _, err := db.Exec(ctx, `
 INSERT INTO users (id, email, display_name, password_hash)
 VALUES ($1, 'indicator-contract@example.test', 'Indicator Contract', 'not-used')
 `, actorID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `
+	if _, err := db.Exec(ctx, `
 INSERT INTO incidents (
     id, incident_key, incident_key_canonical, title, status,
     created_by_user_id, updated_by_user_id
@@ -42,7 +43,7 @@ VALUES ($1, 'IR-IND-CONTRACT', 'ir-ind-contract', 'Indicator contract', 'active'
 `, incidentID, actorID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `
+	if _, err := db.Exec(ctx, `
 INSERT INTO incidents (
     id, incident_key, incident_key_canonical, title, status,
     created_by_user_id, updated_by_user_id
@@ -51,7 +52,7 @@ VALUES ($1, 'IR-IND-CONTRACT-OTHER', 'ir-ind-contract-other', 'Other incident', 
 `, otherIncID, actorID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `
+	if _, err := db.Exec(ctx, `
 INSERT INTO records (
     record_id, incident_id, record_type, created_by_user_id,
     updated_by_user_id, row_version
@@ -62,7 +63,7 @@ VALUES
 `, indicatorID, incidentID, actorID, sourceID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `
+	if _, err := db.Exec(ctx, `
 INSERT INTO records (
     record_id, incident_id, record_type, created_by_user_id,
     updated_by_user_id, row_version
@@ -71,7 +72,7 @@ VALUES ($1, $2, 'timeline_event', $3, $3, 1)
 `, otherSrcID, otherIncID, actorID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `
+	if _, err := db.Exec(ctx, `
 INSERT INTO indicators (
 	record_id, incident_id, indicator_type, value_kind, display_value,
 	normalized_value, dedupe_key
@@ -80,7 +81,7 @@ VALUES ($1, $2, 'domain_name', 'atomic', 'contract.example', 'contract.example',
 `, indicatorID, incidentID, dedupeKey); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `
+	if _, err := db.Exec(ctx, `
 INSERT INTO indicator_observations (
     indicator_observation_id, incident_id, source_record_id, source_field_key,
     origin_kind, origin_locator, observed_text, parsed_indicator_type,
@@ -94,7 +95,7 @@ VALUES (
 `, incidentID, sourceID, actorID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `
+	if _, err := db.Exec(ctx, `
 INSERT INTO indicator_state_intervals (
     indicator_state_interval_id, incident_id, indicator_record_id,
     lifecycle_state, valid_from, support_refs, created_by_user_id
@@ -107,10 +108,25 @@ VALUES (
 		t.Fatal(err)
 	}
 
+	expectRejection := func(want string, query string, args ...any) {
+		t.Helper()
+		tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := tx.Rollback(ctx); err != nil {
+				t.Fatalf("roll back rejected Indicator statement: %v", err)
+			}
+		}()
+		_, err = tx.Exec(ctx, query, args...)
+		requireIndicatorContractRejection(t, err, want)
+	}
+
 	requireIndicatorMirrorColumns(t, db, false)
 	requireIndicatorContractConstraintsValidated(t, db)
 
-	expectIndicatorContractRejection(t, db, "indicators_indicator_type_ck", `
+	expectRejection("indicators_indicator_type_ck", `
 INSERT INTO indicators (
     record_id, incident_id, indicator_type, value_kind, display_value, normalized_value, dedupe_key
 ) VALUES (
@@ -118,13 +134,13 @@ INSERT INTO indicators (
     'invalid.example', 'invalid.example', 'legacy_domain:invalid.example'
 )
 `, incidentID)
-	expectIndicatorContractRejection(t, db, "indicator_state_intervals_lifecycle_state_ck", `
+	expectRejection("indicator_state_intervals_lifecycle_state_ck", `
 INSERT INTO indicator_state_intervals (
     incident_id, indicator_record_id, lifecycle_state, valid_from,
     support_refs, created_by_user_id
 ) VALUES ($1, $2, 'unknown', now(), '[]'::jsonb, $3)
 `, incidentID, indicatorID, actorID)
-	expectIndicatorContractRejection(t, db, "indicator_observations_resolution_tuple_ck", `
+	expectRejection("indicator_observations_resolution_tuple_ck", `
 INSERT INTO indicator_observations (
     incident_id, source_record_id, source_field_key, origin_kind,
     origin_locator, observed_text, resolution_status,
@@ -134,13 +150,13 @@ INSERT INTO indicator_observations (
     'record://source/field/0:1', 'x', 'resolved', $3, $4
 )
 `, incidentID, sourceID, indicatorID, actorID)
-	expectIndicatorContractRejection(t, db, "indicator lifecycle support reference is outside the incident", `
+	expectRejection("indicator lifecycle support reference is outside the incident", `
 INSERT INTO indicator_state_intervals (
     incident_id, indicator_record_id, lifecycle_state, valid_from,
     support_refs, created_by_user_id
 ) VALUES ($1, $2, 'active', now(), jsonb_build_array($3::text), $4)
 `, incidentID, indicatorID, otherSrcID, actorID)
-	expectIndicatorContractRejection(t, db, "indicator_state_intervals_support_refs_ck", `
+	expectRejection("indicator_state_intervals_support_refs_ck", `
 INSERT INTO indicator_state_intervals (
     incident_id, indicator_record_id, lifecycle_state, valid_from,
     support_refs, created_by_user_id
@@ -148,10 +164,10 @@ INSERT INTO indicator_state_intervals (
 `, incidentID, indicatorID, actorID)
 }
 
-func requireIndicatorMirrorColumns(t testing.TB, db *sql.DB, want bool) {
+func requireIndicatorMirrorColumns(t testing.TB, db postgres.DB, want bool) {
 	t.Helper()
 	var count int
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT count(*)
   FROM information_schema.columns
  WHERE table_schema = 'public'
@@ -168,10 +184,10 @@ SELECT count(*)
 	}
 }
 
-func requireIndicatorContractConstraintsValidated(t testing.TB, db *sql.DB) {
+func requireIndicatorContractConstraintsValidated(t testing.TB, db postgres.DB) {
 	t.Helper()
 	var invalidCount int
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT count(*)
   FROM pg_constraint
  WHERE connamespace = 'public'::regnamespace
@@ -194,7 +210,13 @@ SELECT count(*)
 
 func expectIndicatorContractRejection(t testing.TB, db *sql.DB, want string, query string, args ...any) {
 	t.Helper()
-	if _, err := db.ExecContext(context.Background(), query, args...); err == nil {
+	_, err := db.ExecContext(context.Background(), query, args...)
+	requireIndicatorContractRejection(t, err, want)
+}
+
+func requireIndicatorContractRejection(t testing.TB, err error, want string) {
+	t.Helper()
+	if err == nil {
 		t.Fatal("invalid Indicator contract row unexpectedly succeeded")
 	} else {
 		var postgresError *pgconn.PgError

@@ -42,14 +42,7 @@ func TestAssessmentFixtureMutationSQLTransaction(t *testing.T) {
 	ctx := context.Background()
 	harness := pgtest.Start(t)
 	db := harness.OpenIsolatedDatabaseT(t, "assessment-projection-sql-fixture", postgres.PurposeRecovery)
-	actorID := uuid.MustParse(authflowtest.SeedLocalUser(
-		t,
-		db,
-		"assessment-projection-sql@example.test",
-		"Assessment Projection SQL",
-		"AssessmentProjectionSQL1!",
-		false,
-	))
+	actorID := authflowtest.SeedActor(t, db, authflowtest.ActorAttributes{Email: "assessment-projection-sql@example.test", DisplayName: "Assessment Projection SQL"}).ID
 	incidentID := uuid.MustParse(incidentstoretest.SeedIncidentMembershipSQL(
 		t,
 		db,
@@ -116,7 +109,7 @@ func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	)
 	assessmentOwner := appsupport.NewAssessmentOwner(harness.DB)
 	partyOwner := appsupport.NewPartyOwner(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-parity@example.test", "Projection Parity", "ProjectionParity1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "projection-parity@example.test", DisplayName: "Projection Parity"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-parity-incident", "IR-PROJECTION-PARITY", "Projection parity")
 
 	hostID := uuid.New()

@@ -57,7 +57,7 @@ export function buildOwnerTaskGuide(root, ownerID) {
   }
   const releaseRequired = evidenceClasses.has("release");
   return {
-    schema_id: "cartulary.task_guide_summary.v5",
+    schema_id: "cartulary.task_guide_summary.v6",
     evidence_epoch: projection.catalog.summary.evidence_epoch,
     owner_id: projection.owner.owner_id,
     test_catalog_digest: projection.catalog.summary.test_catalog_digest,
@@ -74,7 +74,7 @@ export function buildOwnerTaskGuide(root, ownerID) {
     release_gate: releaseRequired ? "make release-check" : null,
     rows: projection.rows.map((row) => ({ row_id: row.row_id, family_id: row.family_id, runtime_profile_id: row.runtime_profile_id, resource_profile_id: row.resource_profile_id, runner: row.runner, evidence_class: row.evidence_class,
       aggregate_placement: row.aggregate_placement, fixture_capability: row.fixture_capability,
-      service_dependencies: row.service_dependencies,
+      service_dependencies: row.service_dependencies, postgres_isolation:row.postgres_isolation,
       command: `make test-slice OWNER=${projection.owner.owner_id} ROWS=${row.row_id}` })),
     coverage: { row_count: projection.rows.length, service_backed_row_count: projection.serviceRows.length,
       families: sortedCounts(projection.rows.map((row) => row.family_id)),

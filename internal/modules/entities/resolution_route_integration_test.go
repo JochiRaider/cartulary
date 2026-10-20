@@ -355,7 +355,7 @@ UPDATE incident_memberships
 			t.Fatalf("restore incident membership: %v", err)
 		}
 
-		otherActor := authflowtest.SeedLocalUserRecord(t, harness.DB, "entity_linking-i401-other@example.test", "EntityLinking I401 Other", "EntityLinkingI401OtherPass1!", false, false, true)
+		otherActor := authflowtest.SeedActor(t, harness.DB, authflowtest.ActorAttributes{Email: "entity_linking-i401-other@example.test", DisplayName: "EntityLinking I401 Other"})
 		otherIncident := appsupport.CreateIncidentInStore(t, harness.Pool, otherActor, "txn-entity_linking-i-4-01-hidden-incident", "IR-I401-H", "Record relationships entity-resolution hidden")
 		entitytest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, entitytest.DuplicateHostRecordID, "Hidden WS-023", "HIDDEN-WS-023", "", "")
 

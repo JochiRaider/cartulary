@@ -18,16 +18,7 @@ import (
 func TestArtifactRollbackProviderExecutionMatrix(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "artifacts-rollback-execution")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"artifact-rollback-owner@example.test",
-		"Artifact Rollback Owner",
-		"ArtifactRollbackOwner1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "artifact-rollback-owner@example.test", DisplayName: "Artifact Rollback Owner"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,

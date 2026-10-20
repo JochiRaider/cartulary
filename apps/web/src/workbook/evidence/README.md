@@ -18,4 +18,4 @@ announcements. Attachment and related-record workflows live in
 
 | File | Responsibility |
 | --- | --- |
-| [evidenceAccessPresentation.test.ts](evidenceAccessPresentation.test.ts) | Tests for blocking and non-blocking Evidence live-region outcomes. |
+| [evidenceAccessPresentation.node.test.ts](evidenceAccessPresentation.node.test.ts) | Tests for blocking and non-blocking Evidence live-region outcomes. |

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "app.migrate",
   "rows": [
     {
@@ -28,7 +28,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.migrate.unit.migrate_facade_contract",
@@ -62,7 +63,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

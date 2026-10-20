@@ -28,7 +28,28 @@ cartulary_harness_mktemp_dir() {
   repo_root="$(__cartulary_harness_realpath "${CARTULARY_HARNESS_REPO_ROOT:-$(__cartulary_harness_default_repo_root)}")" || return 2
 
   local scratch_root
-  scratch_root="$(__cartulary_harness_realpath "${CARTULARY_HARNESS_SCRATCH_ROOT:-${TMPDIR:-/tmp}/cartulary-harness-scratch}")" || return 2
+  if [[ -v CARTULARY_HARNESS_SCRATCH_ROOT ]]; then
+    scratch_root="${CARTULARY_HARNESS_SCRATCH_ROOT}"
+  else
+    local machine_cache
+    if [[ -v CARTULARY_MACHINE_CACHE_DIR ]]; then
+      machine_cache="${CARTULARY_MACHINE_CACHE_DIR}"
+    elif [[ "${XDG_CACHE_HOME:-}" == /* ]]; then
+      machine_cache="${XDG_CACHE_HOME}/cartulary"
+    elif [[ "${HOME:-}" == /* ]]; then
+      machine_cache="${HOME}/.cache/cartulary"
+    else
+      echo "harness scratch requires an absolute machine-cache or scratch root" >&2
+      return 2
+    fi
+    [[ "${machine_cache}" == /* ]] || return 2
+    scratch_root="${machine_cache}/harness-scratch"
+  fi
+  if [[ "${scratch_root}" != /* ]]; then
+    echo "CARTULARY_HARNESS_SCRATCH_ROOT must be absolute and nonempty" >&2
+    return 2
+  fi
+  scratch_root="$(__cartulary_harness_realpath "${scratch_root}")" || return 2
 
   case "${scratch_root}" in
     "${repo_root}"|"${repo_root}"/*)

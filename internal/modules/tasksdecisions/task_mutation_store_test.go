@@ -22,7 +22,7 @@ func TestTaskRequestLifecycleDecisionLinksAndProjection_Unit(t *testing.T) {
 	codec := conflicttest.NewCodec("workbook")
 	store := appsupport.NewWorkbookCatalog(harness.DB, codec)
 	owner := appsupport.NewTaskDecisionOwner(harness.DB, codec)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-task@example.test", "TaskDecision Task", "TaskDecisionTask1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "task-decision-task@example.test", DisplayName: "TaskDecision Task"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-incident", "IR-TASK-DECISION-TASK", "Workbook inspector task and decision workflow task requests")
 
 	beforeRecords := countRecords(t, harness.DB, incident.ID)
@@ -222,7 +222,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-task-decision-task-guard-failures")
 	codec := conflicttest.NewCodec("workbook")
 	owner := appsupport.NewTaskDecisionOwner(harness.DB, codec)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-task-guards@example.test", "TaskDecision Task Guards", "TaskDecisionTaskGuards1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "task-decision-task-guards@example.test", DisplayName: "TaskDecision Task Guards"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-task-guard-incident", "IR-TASK-DECISION-TASK-GUARDS", "Workbook inspector task and decision workflow task guard failures")
 
 	beforeCreatedAt := testTime(-time.Hour)
@@ -324,7 +324,7 @@ func TestTaskLifecycleGuardFailures_Unit(t *testing.T) {
 func TestTaskLifecycleStatusMatrixAndExactReplay_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "task-lifecycle-matrix")
 	owner := appsupport.NewTaskDecisionOwner(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-matrix@example.test", "Task Matrix", "TaskMatrix1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "task-matrix@example.test", DisplayName: "Task Matrix"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "task-matrix-incident", "IR-TASK-MATRIX", "Task lifecycle matrix")
 	statuses := []string{"open", "in_progress", "blocked", "done", "canceled"}
 	for _, from := range statuses {

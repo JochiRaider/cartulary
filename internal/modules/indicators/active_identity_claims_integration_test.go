@@ -19,10 +19,7 @@ func TestIndicatorActiveIdentityClaimsFollowRecordsAndRebuild_Integration(t *tes
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "indicators-active-identity-claims")
 	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
-	actor := authstoretest.SeedLocalUserRecord(
-		t, harness.DB, "indicator-claims@example.test", "Indicator Claims",
-		"IndicatorClaimsPass1!", false, false, true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "indicator-claims@example.test", DisplayName: "Indicator Claims"})
 	incident := appsupport.CreateIncidentInStore(
 		t, harness.DB, actor, "txn-indicator-claims-incident", "IR-IND-CLAIMS",
 		"Indicator identity claims",

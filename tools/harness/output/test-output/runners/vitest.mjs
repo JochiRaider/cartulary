@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { publicExitCodeForFailure, publicExitCodeForFailures, repoRoot } from "../../../contract/index.mjs";
-import { diagnosticFailure, readVitestJSON, reconcileVitestReport } from "../../../diagnostics/vitest-failure-details.mjs";
+import { diagnosticFailure, readVitestJSON, reconcileVitestReport, vitestReportProjection } from "../../../diagnostics/vitest-failure-details.mjs";
 import { readCommandFailure } from "../../../runtime/command-failure.mjs";
 
 import {
@@ -593,10 +593,11 @@ function summarizeVitestRun(
   rawFiles = [reportFile],
   failureDetailsFile = "",
 ) {
-  const report = readVitestJSON(reportFile);
+  const nativeReports = readVitestJSON(reportFile);
   const failureDetails = readVitestJSON(failureDetailsFile);
   validateSchemaSync(vitestFailureDetailsSchemaID, failureDetails);
-  reconcileVitestReport(failureDetails, report, repoRoot);
+  reconcileVitestReport(failureDetails, nativeReports, repoRoot);
+  const report = vitestReportProjection(nativeReports);
   const owners = new Set();
   const inventory = [];
   const dossiers = [];

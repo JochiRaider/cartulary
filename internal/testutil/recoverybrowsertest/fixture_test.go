@@ -45,7 +45,7 @@ func TestRuntimeServerCloseCancelsHTTPAndWebSocketRequests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = server.Close() })
+	t.Cleanup(func() { _ = server.Close(ctx) })
 	client := identity.Client(t, "127.0.0.1")
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+listener.Addr().String()+"/waiting", nil)
 	if err != nil {
@@ -74,7 +74,7 @@ func TestRuntimeServerCloseCancelsHTTPAndWebSocketRequests(t *testing.T) {
 	}
 	defer connection.CloseNow()
 	// Neither client closes first: EOF retirement must end both request lifetimes.
-	if err := server.Close(); err != nil {
+	if err := server.Close(ctx); err != nil {
 		t.Fatal(err)
 	}
 	for name, stopped := range map[string]<-chan struct{}{"HTTP": httpStopped, "WebSocket": websocketStopped} {
@@ -84,7 +84,7 @@ func TestRuntimeServerCloseCancelsHTTPAndWebSocketRequests(t *testing.T) {
 			t.Errorf("%s handler remains active after Close", name)
 		}
 	}
-	if err := server.Close(); err != nil {
+	if err := server.Close(ctx); err != nil {
 		t.Fatalf("repeated Close: %v", err)
 	}
 	for name, result := range map[string]<-chan error{"Serve": served, "HTTP response": responseDone} {
@@ -114,7 +114,7 @@ func TestRuntimeServerCloseRetiresTLSConnectionsWithoutRequests(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = server.Close() })
+	t.Cleanup(func() { _ = server.Close(ctx) })
 	client := identity.Client(t, "127.0.0.1")
 	dialer := tls.Dialer{Config: client.Transport.(*http.Transport).TLSClientConfig}
 	connection, err := dialer.DialContext(ctx, "tcp", listener.Addr().String())
@@ -146,10 +146,10 @@ func TestRuntimeServerCloseRetiresTLSConnectionsWithoutRequests(t *testing.T) {
 		case <-tick.C:
 		}
 	}
-	if err := server.Close(); err != nil {
+	if err := server.Close(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.Close(); err != nil {
+	if err := server.Close(ctx); err != nil {
 		t.Fatal(err)
 	}
 	select {

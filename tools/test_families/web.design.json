@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "web.design",
   "rows": [
     {
@@ -36,7 +36,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.account_settings_forms_radios_recovery_71b288da44",
@@ -73,7 +75,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.administrative_audit_browsing",
@@ -109,7 +113,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.assessment_authoring",
@@ -146,7 +152,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802",
@@ -183,7 +191,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
@@ -219,7 +229,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.incident_import_workflow",
@@ -256,7 +268,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.lifecycle",
@@ -292,7 +306,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.membership_audit_browsing",
@@ -328,7 +344,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.membership_management_accessibility",
@@ -364,7 +382,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.metadata_editing",
@@ -400,7 +420,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.reference_pack_administration",
@@ -437,7 +459,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666",
@@ -472,7 +496,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220",
@@ -508,7 +534,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.browser.account_settings_keyboard_responsive_781bd74a33",
@@ -545,7 +573,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.browser.account_settings_real_conflict_replay_46b2ec9831",
@@ -582,7 +612,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.browser.incident_import_action_access_hardening",
@@ -620,7 +652,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.browser.incident_import_observation_recovery",
@@ -658,7 +692,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.browser.incident_import_real_workflow",
@@ -696,7 +732,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3",
@@ -731,7 +769,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
@@ -768,7 +808,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.account_settings_editing_states_5af731dc29",
@@ -806,7 +848,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.administrative_audit_browsing",
@@ -843,7 +887,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
@@ -879,7 +925,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
@@ -915,7 +963,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
@@ -952,7 +1002,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.incident_import_workflow",
@@ -990,7 +1042,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.lifecycle",
@@ -1027,7 +1081,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.membership_audit_browsing",
@@ -1064,7 +1120,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.membership_management_visual",
@@ -1101,7 +1159,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.metadata_editing",
@@ -1138,7 +1198,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.reference_pack_administration",
@@ -1176,7 +1238,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878",
@@ -1212,7 +1276,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     }
   ]
 }

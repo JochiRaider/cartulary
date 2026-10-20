@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "app.server",
   "rows": [
     {
@@ -37,7 +37,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.all_optional_profiles_unclaimed_publish_quiescen_fb3409e200",
@@ -69,7 +71,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.collaboration_dispatcher_startup_loss_uses_web_s_834db67d15",
@@ -95,7 +98,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.config_failures_on_real_postgres_and_object_stor_c832f91897",
@@ -119,7 +123,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.integration.existing_active_admins_skip_stale_or_invalid_man_c8b4b869ec",
@@ -146,7 +151,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.extension_application_process_lease_43130392c4",
@@ -175,7 +181,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.extension_discovery_session_sliding_7f6ad80724",
@@ -205,7 +212,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.extension_state_logical_store_adapter_7f6ad80724",
@@ -236,7 +244,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.http_harness_restart_storage",
@@ -266,7 +275,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.required_bootstrap_failures_for_missing_unreadab_4ca79573fd",
@@ -293,7 +303,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.server_shared_and_restore_exclusive_serving_leas_1da2a38098",
@@ -322,7 +333,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.single_active_process_fencing_6a57fb3221",
@@ -354,7 +366,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.integration.successful_bootstrap_commits_exactly_one_active_9859f7c12b",
@@ -381,7 +394,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.a_fresh_process_reaches_health_and_ready_only_af_c93818219a",
@@ -410,7 +424,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.a_real_process_requiring_bootstrap_becomes_ready_41afb1f3e5",
@@ -437,7 +452,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.a_running_server_exposes_no_public_http_or_web_s_2934cde8e0",
@@ -464,7 +480,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.effective_deployment_configuration_fails_the_rea_c17cbafdfc",
@@ -491,7 +508,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.invalid_config_exits_non_zero_emits_structured_s_6c0922ea28",
@@ -518,7 +536,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.process_smoke_exercises_incident_creation_valida_541e2263d1",
@@ -550,7 +569,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.process_smoke_exercises_login_csrf_session_revoc_c6fd6eb90f",
@@ -584,7 +604,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.required_bootstrap_failures_on_the_real_process_9dbfe1d620",
@@ -611,7 +632,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.stale_or_invalid_manifests_are_ignored_when_an_a_1d42fdeb31",
@@ -638,7 +660,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.the_packaged_standalone_server_serves_its_embedd_9d0f816da3",
@@ -665,7 +688,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.the_standalone_server_keeps_harness_routes_disab_4dc8b1f7d9",
@@ -694,7 +718,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.process.the_standalone_server_process_can_create_evidenc_4ca93ab308",
@@ -721,7 +746,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.server.support_unit.incident_create_commit_fault_requires_validated_efdc344831",
@@ -749,7 +775,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.support_unit.server_runner_writes_diagnostics_and_returns_fai_1f2addc1fd",
@@ -785,7 +812,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.build_collaboration_publication_catalog_joins_in_b6b966ea6e",
@@ -809,7 +837,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.evidence_cleanup_activation_and_telemetry_a1b2c3d4e5",
@@ -842,7 +871,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.evidence_owner_runtime_has_no_store_exposure_a36f2c981d",
@@ -869,7 +899,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.extension_discovery_transport_7f6ad80724",
@@ -900,7 +931,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.extension_policy_catalog_7f6ad80724",
@@ -934,7 +966,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.extension_process_lifecycle_f9457096a3",
@@ -967,7 +1000,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.extension_publication_epoch_characterization_7f6ad80724",
@@ -1011,7 +1045,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.extension_readiness_admission_gate_05faff0b60",
@@ -1037,7 +1072,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.internal_error_boundary",
@@ -1062,7 +1098,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.invalid_deployment_config_and_bootstrap_prefligh_a87fd921ec",
@@ -1094,7 +1131,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.process_lease_acquisition_deadline",
@@ -1122,7 +1160,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.process_lease_monitor_shutdown",
@@ -1151,7 +1190,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.server.unit.server_environment_snapshot_preserves_explicit_c_3f6c720841",
@@ -1177,7 +1217,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

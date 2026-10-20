@@ -55,7 +55,7 @@ export function readExecutionIndex(runRoot, run) {
     if (record.kind === "lease") {
       if (record.ref !== `lease:${record.lease_ref}` || !/^[A-Za-z0-9_.-]+$/u.test(record.lease_ref)) throw new Error("invalid lease identity");
       const lease = parseStrictJSON(readLocalFile(path.join(runRoot, "_shared/fixture-leases", `${record.lease_ref}.json`)).toString("utf8"));
-      validateSchemaSync("cartulary.harness_fixture_lease.v4", lease);
+      validateSchemaSync("cartulary.harness_fixture_lease.v5", lease);
       if (lease.lease_id !== record.lease_ref || lease.capability !== record.capability || lease.ownership !== record.ownership) throw new Error("canonical lease identity mismatch");
       if (leaseIDs.has(record.lease_ref)) throw new Error("duplicate execution lease");
       leaseIDs.add(record.lease_ref);

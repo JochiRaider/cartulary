@@ -16,7 +16,7 @@ func engineUnit(id string, estimate int64, needs ...string) unit {
 	if needs == nil {
 		needs = []string{}
 	}
-	return unit{Renderer: "none", Physical: map[string]map[string]int64{}, ID: id, Owner: "harness.command_surface", Kind: "runner", Needs: needs, Claims: map[string]int64{"cpu": 1}, SharedLocks: []string{"host_activity"}, ExclusiveLocks: []string{}, Fixture: "none", Services: []string{}, CachePolicy: "none", Evidence: []string{}, Artifacts: []artifact{}, EstimateMS: estimate, TimeoutMS: 1000, Command: command{Executable: "true", Args: []string{}, Environment: map[string]string{}}, FailurePolicy: failurePolicy{BlockDescendants: true, ContinueIndependent: true, AggregateEffect: "required"}}
+	return unit{PostgresIsolation: "none", Renderer: "none", Physical: map[string]map[string]int64{}, ID: id, Owner: "harness.command_surface", Kind: "runner", Needs: needs, Claims: map[string]int64{"cpu": 1}, SharedLocks: []string{"host_activity"}, ExclusiveLocks: []string{}, Fixture: "none", Services: []string{}, CachePolicy: "none", Evidence: []string{}, Artifacts: []artifact{}, EstimateMS: estimate, TimeoutMS: 1000, Command: command{Executable: "true", Args: []string{}, Environment: map[string]string{}}, FailurePolicy: failurePolicy{BlockDescendants: true, ContinueIndependent: true, AggregateEffect: "required"}}
 }
 func enginePlan(units ...unit) *Plan {
 	slices.SortFunc(units, func(a, b unit) int { return strings.Compare(a.ID, b.ID) })
@@ -36,6 +36,45 @@ func boundedGraph(t *testing.T, p *Plan, ports enginePorts) graphResult {
 	return r
 }
 func TestRuntimeScheduling(t *testing.T) {
+	t.Run("writable_root_is_shared_while_cpu_and_settlement_remain_accounted", func(t *testing.T) {
+		a, b, c := engineUnit("a", 3), engineUnit("b", 2), engineUnit("c", 1, "a", "b")
+		for _, u := range []unit{a, b, c} {
+			u.Claims["volume"] = 1
+		}
+		p := enginePlan(a, b, c)
+		p.facts.Capacities["cpu"], p.facts.Capacities["volume"] = 2, 1
+		var arrived atomic.Int64
+		both := make(chan struct{})
+		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Execute: func(ctx context.Context, req executionRequest) unitResult {
+			if req.Unit.ID != "c" {
+				if arrived.Add(1) == 2 {
+					close(both)
+				}
+				select {
+				case <-both:
+				case <-ctx.Done():
+					return unitResult{Status: "cancelled", Failure: failureOf(ctx.Err())}
+				}
+			}
+			return unitResult{Status: "passed"}
+		}})
+		if r.Status != "passed" || !slices.Equal(r.Admissions, []string{"a", "b", "c"}) {
+			t.Fatal("volume serialized or stranded admitted work", r.Admissions, r.Status)
+		}
+		facts := newCanonicalFacts(p)
+		for _, event := range r.Events {
+			if err := facts.consume(event); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := facts.validate(); err != nil {
+			t.Fatal(err)
+		}
+		peaks := facts.pressure()["peak_use"].(map[string]int64)
+		if peaks["cpu"] != 2 || peaks["volume"] != 1 {
+			t.Fatal("capability and additive reservations diverged", peaks)
+		}
+	})
 	t.Run("wait_segments_follow_reservations_and_barriers", func(t *testing.T) {
 		p := enginePlan(engineUnit("holder", 10), engineUnit("waiter", 1))
 		r := boundedGraph(t, p, enginePorts{RetainEvents: true, Execute: func(context.Context, executionRequest) unitResult { return unitResult{Status: "passed"} }})
@@ -261,8 +300,23 @@ func TestRuntimeLifecycle(t *testing.T) {
 	t.Run("native_fixture_bridge_preserves_owner_facts_and_failure", func(t *testing.T) {
 		acquired := false
 		released := false
+		environment := map[string]string{
+			"CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "network_flow_claimed", "CARTULARY_BROWSER_STAGE": "measurement",
+			"CARTULARY_FIXTURE_PROFILE_ID": "import-snapshot", "CARTULARY_FIXTURE_SNAPSHOT_KEY": "snapshot-key",
+			"CARTULARY_FIXTURE_SNAPSHOT_BUILDER_UNIT_ID": "default-builder", "CARTULARY_FIXTURE_ROW_ID": "row", "CARTULARY_FIXTURE_PREDICATE_ID": "predicate",
+		}
+		assertIdentity := func(r harnessfixtures.Request) {
+			t.Helper()
+			if r.RuntimeProfile != "network_flow_claimed" || r.BrowserStage != "measurement" || r.FixtureProfile != "import-snapshot" || r.SnapshotKey != "snapshot-key" || r.BuilderUnit != "default-builder" || r.RowID != "row" || r.PredicateID != "predicate" {
+				t.Fatal("snapshot owner facts lost between graph, admission and acquisition", r)
+			}
+		}
+		u := engineUnit("unit", 1)
+		u.PostgresIsolation, u.Fixture, u.Services, u.Command.Environment = "exclusive", "browser_stack", []string{"object_store", "postgres"}, environment
+		assertIdentity(workRequirement(u).Request)
 		broker := harnessfixtures.New(harnessfixtures.Options{Providers: map[string]harnessfixtures.Provider{"browser_stack": &harnessfixtures.ProviderFuncs{AcquireFunc: func(_ context.Context, r harnessfixtures.Request) (*harnessfixtures.Allocation, error) {
-			if r.UnitID != "unit" || r.Affinity != "affinity" || r.RuntimeProfile != "default" || r.BrowserStage != "webserver-backed" {
+			assertIdentity(r)
+			if r.UnitID != "unit" || r.Affinity != "affinity" {
 				t.Fatal(r)
 			}
 			acquired = true
@@ -275,7 +329,7 @@ func TestRuntimeLifecycle(t *testing.T) {
 			}}, nil
 		}}}})
 		bridge := nativeFixtures{production: &harnessfixtures.Production{Broker: broker}}
-		lease, err := bridge.Acquire(context.Background(), fixtureRequest{UnitID: "unit", Capability: "browser_stack", Affinity: "affinity", Environment: map[string]string{"CARTULARY_BROWSER_RUNTIME_PROFILE_ID": "default", "CARTULARY_BROWSER_STAGE": "webserver-backed"}})
+		lease, err := bridge.Acquire(context.Background(), fixtureRequest{PostgresIsolation: "exclusive", Services: []string{"object_store", "postgres"}, UnitID: "unit", Capability: "browser_stack", Affinity: "affinity", Environment: environment})
 		if err != nil || !acquired || lease.Environment["PORT"] != "1234" || lease.ID == "" {
 			t.Fatal(lease, err)
 		}

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "app.operator",
   "rows": [
     {
@@ -28,7 +28,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.operator.process.collaboration_requeue_v2_process_contract_4ce8fef4eb",
@@ -57,7 +58,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.operator.process.object_store_init_process_transport_400591b90d",
@@ -86,7 +88,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "app.operator.unit.collaboration_requeue_v2_transport_contract_11562cd85f",
@@ -114,7 +117,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.operator.unit.migration_evidence_cli_transport_and_redaction_906768574c",
@@ -140,7 +144,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.operator.unit.object_store_init_typed_failure_transport_5cee6a5190",
@@ -168,7 +173,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.operator.unit.operator_facade_and_nested_recovery_cli_expose_o_0b8f75c21c",
@@ -192,7 +198,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.operator.unit.operator_registry_eight_paths_and_collaboration_01217009b8",
@@ -221,7 +228,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.operator.unit.recovery_cli_parser_and_invalid_invocation_trans_b3caf1f612",
@@ -247,7 +255,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.operator.unit.recovery_failure_mapping_is_exhaustive_465f2ab0de",
@@ -273,7 +282,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "app.operator.unit.the_due_verification_timeout_is_passed_to_recove_cbf25983a5",
@@ -299,7 +309,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

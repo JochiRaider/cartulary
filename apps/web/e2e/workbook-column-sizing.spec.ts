@@ -872,9 +872,9 @@ test("Workbook sizing preserves production geometry drafts and saved configurati
 
 test("Workbook sizing binds empty and hidden columns across all surface families and densities", async ({
   page,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
-  const preferences = await installVisualPreferences(page, workerAdmin.user_id);
+  const preferences = await installVisualPreferences(page, testActor.user_id);
   const incident = await createIncident(
     page,
     uniqueIncidentKey("CSL-SURFACES"),
@@ -1644,10 +1644,10 @@ test("Workbook frozen gutter occludes crossing cell paint and owns its pointer t
 
 test("Workbook frozen data cell occludes scrolling paint at the effective boundary", async ({
   page,
-  workerAdmin,
+  testActor,
 }, info) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const preferences = await installVisualPreferences(page, workerAdmin.user_id);
+  const preferences = await installVisualPreferences(page, testActor.user_id);
   preferences.select("comfortable");
   const fixture = await seed(page);
   const recordId = fixture.rows[0]?.record_id;

@@ -17,7 +17,7 @@ import {
   workbookSortMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
 import type { Browser, Page, TestInfo } from "@playwright/test";
-import type { WorkerAdminEntry } from "../support/auth/workerAdmin";
+import type { FixtureActorCredentials } from "../support/auth/sessions";
 import {
   type Ac043TrafficDriver,
   prepareAc043Snapshot,
@@ -150,7 +150,7 @@ async function restoreDefaultQuery(
 async function runMeasurement(
   browser: Browser,
   page: Page,
-  workerAdmin: WorkerAdminEntry,
+  testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
   testInfo: TestInfo,
   predicateId: CartularyAc044PredicateId,
@@ -161,7 +161,7 @@ async function runMeasurement(
   let attached = false;
   try {
     expect(testInfo.retry).toBe(0);
-    const snapshot = await prepareAc043Snapshot(page, workerAdmin);
+    const snapshot = await prepareAc043Snapshot(page, testActor);
     await page.goto(`/?incident_id=${snapshot.incidentId}`);
     const defaultRows = [...snapshot.timelineRows].sort(byId).slice(0, 100);
     const destination =
@@ -322,13 +322,13 @@ async function runMeasurement(
 test("measures Timeline sort first useful viewport within AC-044", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
     "perf.timeline_sort.first_useful_viewport.v1",
@@ -337,13 +337,13 @@ test("measures Timeline sort first useful viewport within AC-044", async ({
 test("measures Timeline sort stable viewport within AC-044", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
     "perf.timeline_sort.stable_viewport.v1",
@@ -352,13 +352,13 @@ test("measures Timeline sort stable viewport within AC-044", async ({
 test("measures Timeline filter first useful viewport within AC-044", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
     "perf.timeline_filter.first_useful_viewport.v1",
@@ -367,13 +367,13 @@ test("measures Timeline filter first useful viewport within AC-044", async ({
 test("measures Timeline filter stable viewport within AC-044", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
     "perf.timeline_filter.stable_viewport.v1",
@@ -382,13 +382,13 @@ test("measures Timeline filter stable viewport within AC-044", async ({
 test("measures Timeline group first useful viewport within AC-044", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
     "perf.timeline_group.first_useful_viewport.v1",
@@ -397,13 +397,13 @@ test("measures Timeline group first useful viewport within AC-044", async ({
 test("measures Timeline group stable viewport within AC-044", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
     "perf.timeline_group.stable_viewport.v1",

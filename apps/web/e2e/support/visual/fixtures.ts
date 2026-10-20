@@ -6,10 +6,10 @@ import {
 } from "../runtime/applicationReadiness";
 
 export const test = base.extend({
-  page: async ({ page, workerAdmin }, use, testInfo) => {
+  page: async ({ page, testActor }, use, testInfo) => {
     const { preferences, assets } = await initializeVisualPage(
       page,
-      workerAdmin.user_id,
+      testActor.user_id,
     );
     await use(page);
     if (assets.length) {

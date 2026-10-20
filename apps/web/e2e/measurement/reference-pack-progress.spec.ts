@@ -11,9 +11,9 @@ import {
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { Browser, Page, Request, TestInfo } from "@playwright/test";
+import type { FixtureActorCredentials } from "../support/auth/sessions";
 import { readCurrentSession } from "../support/auth/sessions";
 import { authHeadersForStorageState } from "../support/auth/storageState";
-import type { WorkerAdminEntry } from "../support/auth/workerAdmin";
 import {
   type Ac043TrafficDriver,
   prepareAc043Snapshot,
@@ -69,7 +69,7 @@ async function runReferencePackProgress(
   purpose: ReferencePackProgressPurpose,
   browser: Browser,
   page: Page,
-  workerAdmin: WorkerAdminEntry,
+  testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
   info: TestInfo,
 ) {
@@ -98,7 +98,7 @@ async function runReferencePackProgress(
   };
   try {
     expect(info.retry).toBe(0);
-    const snapshot = await prepareAc043Snapshot(page, workerAdmin);
+    const snapshot = await prepareAc043Snapshot(page, testActor);
     const foreground = await readCurrentSession(page);
     expect(foreground.is_deployment_admin).toBe(true);
     expect(foreground.memberships).toContainEqual({
@@ -367,45 +367,45 @@ async function runReferencePackProgress(
 
 test("measures Reference Pack import progress and cancel while Timeline accepts editing", async ({
   browser,
-  workerAdminPage,
-  workerAdmin,
+  testActorPage,
+  testActor,
   sessionTracker,
 }, info) => {
   await runReferencePackProgress(
     "import",
     browser,
-    workerAdminPage,
-    workerAdmin,
+    testActorPage,
+    testActor,
     sessionTracker,
     info,
   );
 });
 test("measures Reference Pack reverify progress and cancel while Timeline accepts editing", async ({
   browser,
-  workerAdminPage,
-  workerAdmin,
+  testActorPage,
+  testActor,
   sessionTracker,
 }, info) => {
   await runReferencePackProgress(
     "reverify",
     browser,
-    workerAdminPage,
-    workerAdmin,
+    testActorPage,
+    testActor,
     sessionTracker,
     info,
   );
 });
 test("measures Reference Pack refresh progress and cancel while Timeline accepts editing", async ({
   browser,
-  workerAdminPage,
-  workerAdmin,
+  testActorPage,
+  testActor,
   sessionTracker,
 }, info) => {
   await runReferencePackProgress(
     "refresh",
     browser,
-    workerAdminPage,
-    workerAdmin,
+    testActorPage,
+    testActor,
     sessionTracker,
     info,
   );

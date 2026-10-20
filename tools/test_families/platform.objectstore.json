@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "platform.objectstore",
   "rows": [
     {
@@ -17,16 +17,15 @@
           "TestObjectStoreInitialization_Integration"
         ]
       },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ]
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.objectstore.support_integration.managed_service_object_store_binding_4d6aaf4bd9",
@@ -48,12 +47,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "object_store_namespace",
       "aggregate_placement": "full",
       "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+        "object_store"
+      ],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.objectstore.support_integration.object_store_init_durable_effect_578bf55fdf",
@@ -82,7 +81,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "platform.objectstore.support_integration.qualified_streaming",
@@ -106,12 +106,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "object_store_namespace",
       "aggregate_placement": "full",
       "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+        "object_store"
+      ],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.objectstore.unit.cryptographic_policy",
@@ -137,7 +137,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.objectstore.unit.probe_cors_contract",
@@ -163,7 +164,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.objectstore.unit.proxy_cors_lifecycle",
@@ -194,7 +196,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.objectstore.unit.telemetry_store_preserves_store_behavior_no_sdk_698de09dc3",
@@ -220,7 +223,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.objectstore.unit.typed_adapter_purpose_and_error_contract_a1b2c3d4e5",
@@ -246,7 +250,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

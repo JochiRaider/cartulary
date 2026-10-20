@@ -417,6 +417,7 @@ export function assertPostgresPolicyFixtures(context) {
     fixture_capability: capability,
     status,
     service_dependencies: capability === "none" ? [] : ["postgres"],
+    postgres_isolation: capability === "none" ? "none" : ["browser_stack", "postgres_dedicated", "postgres_migration"].includes(capability) ? "exclusive" : "shared",
   });
   const transaction = row("transaction", "postgres_transaction");
   const rows = [
@@ -425,8 +426,8 @@ export function assertPostgresPolicyFixtures(context) {
     row("inactive", "postgres_dedicated", "inactive"),
     row("browser", "browser_stack"), row("none", "none"),
   ];
-  const validate = (input, approvals = [transaction.row_id]) => {
-    writeFileSync(policyPath, JSON.stringify({ ...base, transaction_row_approvals: approvals }));
+  const validate = (input, approvals = [transaction.row_id], policy = base) => {
+    writeFileSync(policyPath, JSON.stringify({ ...policy, transaction_row_approvals: approvals }));
     return validatePostgresFixturePolicy(context.root, input, { policyPath });
   };
   try {
@@ -442,7 +443,27 @@ export function assertPostgresPolicyFixtures(context) {
       postgres_dedicated: 0, postgres_migration: 0, postgres_transaction: 0,
     });
     assert.throws(() => validate([{ ...rows[0], service_dependencies: [] }], []),
-      /lacks the postgres service/u);
+      /compatible postgres_isolation/u);
+    const omitted={...rows[0]}; delete omitted.postgres_isolation;
+    assert.throws(()=>validate([omitted],[]),/postgres_isolation/u);
+    for (const fixture of [rows[0], rows[1], rows[4]]) {
+      assert.throws(() => validate([{ ...fixture, postgres_isolation: "shared" }], []), /exclusive cluster/u);
+    }
+    assert.equal(validate([{ ...transaction, postgres_isolation: "exclusive" }]).row_count, 1);
+    assert.throws(() => validate(rows, [transaction.row_id], {
+      ...base, schema_id: "cartulary.postgres_fixture_policy_registry.v4",
+    }), /schema|const/u);
+    for (const change of [
+      (policies) => { policies[0].cluster_scopes = ["shared"]; },
+      (policies) => { policies[2].cluster_scopes = ["unknown"]; },
+      (policies) => { policies[2].cluster_scopes = ["shared", "exclusive"]; },
+      (policies) => { policies[1] = { ...policies[0] }; },
+      (policies) => { delete policies[0].cluster_scopes; },
+    ]) {
+      const invalid = structuredClone(base);
+      change(invalid.capability_policies);
+      assert.throws(() => validate(rows, [transaction.row_id], invalid), /validation failed|ASCII-sorted|duplicate/u);
+    }
     assert.throws(() => validate(rows, []), /must exactly cover current transaction rows/u);
     assert.throws(() => validate(rows, ["harness.test_catalog.fixture.extra", transaction.row_id]),
       /must exactly cover current transaction rows/u);

@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import {
   type APIRequestContext,
   type Browser,
@@ -8,10 +9,11 @@ import {
   request,
 } from "@playwright/test";
 import { applyStorageState } from "./support/auth/browserSession";
+import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import {
   loginBootstrapControlPlaneContext,
+  loginFixtureActorContext,
   loginTrackedUserViaPage,
-  loginWorkerAdminContext,
   logoutAndVerify,
   revokeAllSessions,
   verifyRevokedSession,
@@ -65,18 +67,19 @@ type SessionTracker = {
 };
 
 type CartularyTestFixtures = {
+  testActor: Omit<WorkerAdmin, "parallel_index">;
   sessionTracker: SessionTracker;
-  workerAdminPage: Page;
-  workerAdminRequest: APIRequestContext;
+  testActorPage: Page;
+  testActorRequest: APIRequestContext;
 };
 
 type CartularyWorkerFixtures = {
-  workerAdmin: WorkerAdmin;
+  fixtureProvisioner: APIRequestContext;
 };
 
 export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
   {
-    workerAdmin: [
+    fixtureProvisioner: [
       async ({ browserName }, use, workerInfo) => {
         void browserName;
         const workerAdminIndex = workerAdminIndexForParallelIndex(
@@ -92,18 +95,26 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
           );
         }
 
-        const workerAdmin = await loginWorkerAdminContext(entry);
-        await use(workerAdmin);
+        const testActor = await loginFixtureActorContext(entry);
+        const provisioner = await request.newContext({
+          baseURL: apiBase,
+          extraHTTPHeaders: authHeadersForStorageState(testActor.storageState),
+        });
+        try {
+          await use(provisioner);
+        } finally {
+          await provisioner.dispose();
+        }
 
         const controlPlane = await loginBootstrapControlPlaneContext();
         try {
           await revokeAllSessions(
             controlPlane.request,
-            workerAdmin.user_id,
+            testActor.user_id,
             `playwright worker teardown worker=${workerAdminIndex}`,
           );
           await verifySessionUnauthorized(
-            workerAdmin.storageState,
+            testActor.storageState,
             `worker admin cached session worker=${workerAdminIndex}`,
           );
           markWorkerAdminCleaned(workerAdminIndex);
@@ -119,12 +130,50 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
       { scope: "worker" },
     ],
 
+    testActor: async ({ fixtureProvisioner }, use, testInfo) => {
+      // Stable presentation identity, independently persisted for each selected
+      // test. Credentials are ephemeral and never enter retained diagnostics.
+      const identity = createHash("sha256")
+        .update(testInfo.testId)
+        .digest("hex")
+        .slice(0, 24);
+      const email = `playwright-test-${identity}@example.test`;
+      const password = `Playwright-${randomUUID()}-A1!`;
+      const user = await createDeploymentUser(fixtureProvisioner, {
+        email,
+        initial_password: password,
+        display_name: "Playwright Test Actor",
+        is_deployment_admin: true,
+        mfa_required: false,
+      });
+      let actor: Omit<WorkerAdmin, "parallel_index"> | undefined;
+      try {
+        actor = await loginFixtureActorContext({
+          user_id: user.user_id,
+          email,
+          password,
+        });
+        await use(actor);
+      } finally {
+        await revokeAllSessions(
+          fixtureProvisioner,
+          user.user_id,
+          "playwright test actor teardown",
+        );
+        if (actor)
+          await verifySessionUnauthorized(
+            actor.storageState,
+            "test actor cached session",
+          );
+      }
+    },
+
     context: async (
-      { browser, workerAdmin, viewport, deviceScaleFactor },
+      { browser, testActor, viewport, deviceScaleFactor },
       use,
     ) => {
       const context = await browser.newContext({
-        storageState: workerAdmin.storageState,
+        storageState: testActor.storageState,
         viewport,
         ...(deviceScaleFactor === undefined ? {} : { deviceScaleFactor }),
       });
@@ -137,24 +186,24 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
       await use(page);
     },
 
-    workerAdminPage: async ({ page }, use) => {
+    testActorPage: async ({ page }, use) => {
       await use(page);
     },
 
-    workerAdminRequest: async ({ workerAdmin }, use) => {
+    testActorRequest: async ({ testActor }, use) => {
       const authRequests = await request.newContext({
         baseURL: apiBase,
-        extraHTTPHeaders: authHeadersForStorageState(workerAdmin.storageState),
+        extraHTTPHeaders: authHeadersForStorageState(testActor.storageState),
       });
       await use(authRequests);
       await authRequests.dispose();
     },
 
-    sessionTracker: async ({ workerAdminRequest }, use, testInfo) => {
+    sessionTracker: async ({ fixtureProvisioner }, use, testInfo) => {
       const tracker = new OwnedSessionTracker({
         label: `${testInfo.file} :: ${testInfo.title}`,
         revokeAllSessions: async (userId, reason) => {
-          await revokeAllSessions(workerAdminRequest, userId, reason);
+          await revokeAllSessions(fixtureProvisioner, userId, reason);
         },
         verifyRevokedSession,
       });

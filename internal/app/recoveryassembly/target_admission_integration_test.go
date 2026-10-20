@@ -68,7 +68,21 @@ func TestTargetServingAdmissionCancelsOnLeaseLoss_Integration(t *testing.T) {
 	if !errors.Is(admission.AssertHeld(), application.ErrTargetServingLeaseLost) {
 		t.Fatalf("lease-loss assertion = %v", admission.AssertHeld())
 	}
-	if err := admission.Release(context.Background()); err != nil {
-		t.Fatalf("release lost target serving admission: %v", err)
+	settleCtx, cancelSettle := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelSettle()
+	for range 2 {
+		if err := admission.Release(settleCtx); !errors.Is(err, application.ErrTargetServingLeaseLost) {
+			t.Fatalf("release lost target serving admission: %v", err)
+		}
+	}
+	if !errors.Is(context.Cause(admission.Context()), application.ErrTargetServingLeaseLost) {
+		t.Fatalf("release replaced the primary lease-loss cause: %v", context.Cause(admission.Context()))
+	}
+	replacement, err := AcquireTargetServingAdmission(settleCtx, pool, 5*time.Second, 20*time.Millisecond)
+	if err != nil {
+		t.Fatalf("acquire independent admission after lost session cleanup: %v", err)
+	}
+	if err := replacement.Release(settleCtx); err != nil {
+		t.Fatalf("release independent admission: %v", err)
 	}
 }

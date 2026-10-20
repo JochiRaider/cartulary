@@ -3,7 +3,7 @@ import { resourceCapacities } from "../scheduler/work-graph/index.mjs";
 import path from "node:path";
 
 import { assertRetainedArtifactFile, readRetainedArtifactBytes, validateSchemaSync } from "../contract/index.mjs";
-import { reduceCanonicalUnitIntervals } from "../evidence-accounting/index.mjs";
+import { reduceCanonicalUnitIntervals, notLaunchedUnitIDs } from "../evidence-accounting/index.mjs";
 
 import { actualCriticalPath, intervalUnion, canonicalTimingAccounting, projectResourcePressure } from "../evidence-accounting/index.mjs";
 
@@ -72,6 +72,21 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "", { evide
   for (const artifact of evidence ? summary.artifact_refs : []) {
     assertRetainedArtifactFile(runRoot, artifact);
   }
+  // Unit results are always required. Their declared outputs bind an absence
+  // to canonical dispatch facts, rather than interpreting a filesystem error
+  // or a failure string as evidence that work never started.
+  const unitEvidence = new Map(), outputOwners = new Map();
+  const notLaunched = notLaunchedUnitIDs(eventState);
+  const unavailable = new Set(notLaunched);
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const [id, unit] of eventState.registrations) {
+      if (!unavailable.has(id) && ["finalizer", "projection"].includes(unit.kind) && terminal.get(id).status !== "passed" && unit.needs.some((need) => unavailable.has(need))) {
+        unavailable.add(id); changed = true;
+      }
+    }
+  }
+  const evidenceAbsences = new Map();
   const targetSummaries = new Map();
   for (const artifact of summary.artifact_refs.filter((value) => value.startsWith("target-summaries/"))) {
     const targetSummary = readJSON(path.join(runRoot, artifact));
@@ -79,8 +94,24 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "", { evide
     if (targetSummary.unit_ids.some((unitID) => !terminal.has(unitID))) {
       throw new Error(`${artifact} references a unit outside the canonical terminal roster`);
     }
+    for (const reference of evidence ? targetSummary.evidence_refs.filter((ref) => ref.startsWith("unit-results/")) : []) {
+      if (unitEvidence.has(reference)) continue;
+      const result = readJSON(path.join(runRoot, reference));
+      validateSchemaSync("cartulary.harness_unit_result.v1", result);
+      if (!targetSummary.unit_ids.includes(result.unit_id) || result.status !== terminal.get(result.unit_id)?.status) throw new Error("unit evidence contradicts canonical outcome");
+      unitEvidence.set(reference, result);
+      for (const output of result.evidence_outputs) {
+        if (!outputOwners.has(output)) outputOwners.set(output, new Set());
+        outputOwners.get(output).add(result.unit_id);
+      }
+    }
     for (const reference of evidence ? targetSummary.evidence_refs : []) {
-      assertRetainedArtifactFile(runRoot, reference);
+      try { assertRetainedArtifactFile(runRoot, reference); }
+      catch (error) {
+        const owners = [...(outputOwners.get(reference) ?? [])];
+        if (error.code !== "ENOENT" || /^(?:unit-results|rows)\//u.test(reference) || !owners.length || !owners.every((id) => unavailable.has(id))) throw error;
+        evidenceAbsences.set(reference, { reference, unit_ids: owners.sort(), reason: owners.every((id) => notLaunched.has(id)) ? "not_launched" : "dependency_unavailable" });
+      }
     }
     const selectedIntervals = targetSummary.unit_ids
       .filter((unitID) => started.has(unitID) && terminal.has(unitID))
@@ -104,6 +135,7 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "", { evide
     same(target.exclusive_wall_ms, intervalUnion(target.unit_ids.filter((id) => !childUnits.has(id)).map((id) => intervals.get(id)).filter(Boolean)), "exclusive interval union");
   }
   return {
+    notLaunched: [...notLaunched].sort(), evidenceAbsences: [...evidenceAbsences.values()],
     waits: eventState.waits, phases: eventState.phases, registrations: eventState.registrations, intervals,
     eventCount: eventState.eventCount,
     manifest,

@@ -140,6 +140,8 @@ func validateExplicitCacheInputs(globals []inputPolicy, sources map[string]strin
 				raw = filepath.Join(root, "go/mod")
 			case "GO_TMP_DIR":
 				raw = filepath.Join(root, "go/tmp")
+			case "CARTULARY_HARNESS_SCRATCH_ROOT":
+				raw = filepath.Join(root, "harness-scratch")
 			default:
 				return errConfiguration
 			}

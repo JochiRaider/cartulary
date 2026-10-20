@@ -7,11 +7,11 @@ import { fileURLToPath } from "node:url";
 import { createSecureWriteStream, parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { CommandFailure, publishCommandFailure, readCommandFailure } from "../runtime/command-failure.mjs";
 import { ownedProcess, stopOwnedProcess } from "../runtime/owned-process.mjs";
-import { withCleanupDiagnostic } from "../runtime/cleanup-diagnostic.mjs";
+import { parseCleanupDiagnostic, withCleanupDiagnostic } from "../runtime/cleanup-diagnostic.mjs";
 import { atomicLocalFile, privateDirectory, readLocalFile, removePrivateFile, removePrivateTree } from "../runtime/secure-local-files.mjs";
 import { borrowRuntime } from "../runtime/session-client.mjs";
 
-const schemaID = "cartulary.browser_acquisition.v1";
+const schemaID = "cartulary.browser_acquisition.v2";
 const bytes = (value) => `${JSON.stringify(value)}\n`;
 const digest = (value) => createHash("sha256").update(value).digest("hex");
 const read = (file) => parseStrictJSON(readLocalFile(file, { maximum: 1048576 }).toString());
@@ -25,7 +25,7 @@ function inside(parent, child) {
 function suiteProof(bytes, runID) {
   try {
     const suite = parseStrictJSON(bytes.toString());
-    validateSchemaSync("cartulary.test_services.lease.v2", suite);
+    validateSchemaSync("cartulary.test_services.lease.v3", suite);
     if (suite.run_id !== runID || !path.isAbsolute(suite.result_root) ||
         suite.run_root !== path.join(suite.result_root, suite.run_id)) throw invalid();
     return suite;
@@ -46,7 +46,6 @@ export function createBrowserAcquisition({ runtime, sessionRoot, leaseFile, suit
     ready_lease: leaseFile, suite_lease: suiteLease, suite_digest: digest(suiteBytes), suite_id: suite.suite_id };
   validateSchemaSync(schemaID, value);
   const dependencies = [suiteLease];
-  if (suite.ownership_mode === "attach") dependencies.push(path.join(runtime.root, "borrowed-environment.json"));
   runtime.record({ kind: "browser_stack", target: file, state: "pending", recovery_files: dependencies });
   atomicLocalFile(file, bytes(value));
   return file;
@@ -147,15 +146,18 @@ export function reserveAcquisitionPort(file, directory, pid) {
   const journal = resourceFile(file, `port-${digest(directory)}.json`);
   const prior = existsSync(journal);
   writeResource(file, `port-${digest(directory)}.json`, { directory });
+  const outcome = resources(file).portOutcomes.get(directory);
+  if (outcome === "declined") return false;
+  if (outcome === "released") throw invalid();
+  if (prior) {
+    const marker = read(path.join(directory, "acquisition.json"));
+    if (Object.keys(marker).join(",") !== "attempt_id" || marker.attempt_id !== readBrowserAcquisition(file).attempt_id) throw invalid();
+    return true;
+  }
   try { mkdirSync(directory, { mode: 0o700 }); }
   catch (error) {
     if (error.code !== "EEXIST") throw error;
-    if (prior) {
-      const marker = read(path.join(directory, "acquisition.json"));
-      if (Object.keys(marker).join(",") !== "attempt_id" || marker.attempt_id !== readBrowserAcquisition(file).attempt_id) throw invalid();
-      return true;
-    }
-    removePrivateFile(journal);
+    writeResource(file, `port-outcome-${digest(directory)}.json`, { directory, state: "declined" });
     return false;
   }
   const owner = readBrowserAcquisition(file);
@@ -168,7 +170,7 @@ function resources(file) {
   const owner = readBrowserAcquisition(file);
   const names = readdirSync(path.dirname(file));
   if (names.length > 256) throw invalid();
-  const result = { launches: [], closed: new Set(), processes: [], ports: [] };
+  const result = { launches: [], closed: new Set(), processes: [], ports: [], portOutcomes: new Map() };
   for (const name of names) {
     if (name === "owner.json" || name === "settlement.json" || name === "stopping.json" || name.startsWith(".publishing-")) continue;
     const value = read(resourceFile(file, name));
@@ -187,12 +189,21 @@ function resources(file) {
           !p || Object.keys(p).sort().join(",") !== "boot,group,pgid,pid,sid,start" || !Number.isSafeInteger(p.pid) || p.pid < 2 ||
           typeof p.boot !== "string" || !Number.isSafeInteger(p.pgid) || p.pgid < 1 || !Number.isSafeInteger(p.sid) || p.sid < 1 || typeof p.group !== "boolean" || !/^\d+$/u.test(p.start) || name !== `process-${value.launch_id}-${p.pid}.json`) throw invalid();
       result.processes.push(value);
+    } else if (name.startsWith("port-outcome-")) {
+      if (Object.keys(value).sort().join(",") !== "attempt_id,directory,state" || typeof value.directory !== "string" ||
+          !path.isAbsolute(value.directory) || name !== `port-outcome-${digest(value.directory)}.json` ||
+          !["declined", "released"].includes(value.state)) throw invalid();
+      result.portOutcomes.set(value.directory, value.state);
     } else if (name.startsWith("port-")) {
       if (Object.keys(value).sort().join(",") !== "attempt_id,directory" || typeof value.directory !== "string" ||
           !path.isAbsolute(value.directory) || name !== `port-${digest(value.directory)}.json`) throw invalid();
       result.ports.push(value);
     } else throw invalid();
   }
+  for (const directory of result.portOutcomes.keys()) {
+    if (!result.ports.some((port) => port.directory === directory)) throw invalid();
+  }
+  result.ports = result.ports.filter(({ directory }) => !result.portOutcomes.has(directory));
   if (new Set(result.processes.map((entry) => entry.launch_id)).size !== result.processes.length) throw invalid();
   return result;
 }
@@ -235,15 +246,15 @@ export async function settleAcquisitionService(file, pid, { stop = stopOwnedProc
   closeAcquisitionLaunch(file, matches[0].launch_id, environment);
 }
 
-export function releaseAcquisitionPorts(file) {
+export function releaseAcquisitionPorts(file, environment = process.env) {
   const owner = readBrowserAcquisition(file);
   const failures = [];
   for (const { directory } of resources(file).ports) {
     try {
-      if (!existsSync(directory)) continue;
       const marker = read(path.join(directory, "acquisition.json"));
       if (Object.keys(marker).join(",") !== "attempt_id" || marker.attempt_id !== owner.attempt_id) throw invalid();
       removePrivateTree(directory);
+      writeResource(file, `port-outcome-${digest(directory)}.json`, { directory, state: "released" }, { duringStop: true, environment });
     } catch (error) { failures.push(error); }
   }
   if (failures.length) throw new AggregateError(failures, "browser port cleanup failed");
@@ -257,64 +268,121 @@ export function acknowledgeBrowserSettlement(file, environment = process.env) {
   } catch (error) { if (error.code !== "EEXIST" || !receipt(file)) throw error; }
 }
 
+// Only the native dependency evaluator supplies these physical parent leases.
+// The browser binding must be exactly their union; a merely reachable endpoint
+// or a borrowed service never grants terminal destruction authority.
+function validateOwnedServiceRetirement(owner, binding, files) {
+  if (files.length < 1 || files.length > 2 || new Set(files).size !== files.length) throw invalid();
+  const physical = new Map();
+  for (const file of files) {
+    inside(owner.runtime_root, file);
+    const parent = suiteProof(readLocalFile(file, { maximum: 1048576 }), owner.run_id);
+    if (parent.mode !== "owned" || parent.ownership_mode !== "owned" || parent.cleanup_state !== "not_started" || parent.run_root !== binding.run_root) throw invalid();
+    for (const resource of parent.resources) {
+      if (resource.kind !== "container" || !resource.container_id || !["postgres", "object_store"].includes(resource.service) ||
+          resource.labels["cartulary.test-services.managed"] !== "true" || resource.labels["cartulary.test-services.run-id"] !== owner.run_id ||
+          resource.labels["cartulary.test-services.suite-id"] !== parent.suite_id || resource.labels["cartulary.test-services.service"] !== resource.service ||
+          physical.has(resource.service)) throw invalid();
+      physical.set(resource.service, resource);
+    }
+  }
+  if (physical.size !== 2 || binding.resources.length !== 2) throw invalid();
+  const seen = new Set();
+  for (const resource of binding.resources) {
+    const parent = physical.get(resource.service);
+    if (!parent || seen.has(resource.service) || resource.kind !== parent.kind || resource.container_id !== parent.container_id ||
+        resource.image !== parent.image || Object.entries(parent.labels).some(([key, value]) => resource.labels[key] !== value) ||
+        Object.keys(resource.labels).length !== Object.keys(parent.labels).length) throw invalid();
+    seen.add(resource.service);
+  }
+}
+
 // Service data remains owned by the exact managed suite, including allocations
 // interrupted before fixture metadata publication. Releasing this dependent
 // permits that suite's existing ledger/container finalizer to run; it never
 // deletes or reconstructs database/bucket identities here.
-async function settle({ file, runtime, root, environment = {}, producerActive = false, recovery = false, recoveryResultsRoot,
+async function settle({ file, runtime, root, environment = {}, producerActive = false, recovery = false, recoveryResultsRoot, ownedServices = [],
   stop = stopOwnedProcess, run = spawnSync } = {}) {
-  const owner = readBrowserAcquisition(file, runtime);
-  if (receipt(file)) return { state: "released" };
-  const suiteBytes = readLocalFile(owner.suite_lease, { maximum: 1048576 });
-  if (digest(suiteBytes) !== owner.suite_digest) throw invalid();
-  const suite = suiteProof(suiteBytes, owner.run_id);
-  if (suite.suite_id !== owner.suite_id) throw invalid();
-  const metadata = path.join(owner.session_root, "runtime-root", "test-services-web-e2e.json");
-  if (recovery && existsSync(metadata)) {
-    if (typeof recoveryResultsRoot !== "string") throw invalid();
-    const output = path.join(recoveryResultsRoot, owner.run_id);
-    const writer = borrowRuntime({ repoRoot: root, runRoot: output, environment: { ...environment,
-      CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id,
-      CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id } });
-    try { writer.claimRecoveryOutput(); } finally { writer.close(); }
-  }
-  writeResource(file, "stopping.json", {}, { duringStop: true, environment });
-  await stopAcquisitionProcesses(file, { producerActive, stop, environment });
-  releaseAcquisitionPorts(file);
-  if (existsSync(metadata)) {
-    readLocalFile(metadata, { maximum: 1048576 });
-    // Ordinary retirement belongs to the original run, even when the provider
-    // has only tool/service environment. Later recovery must never backfill that
-    // run or collide with immutable output from an earlier recovery attempt.
-    const resultsRoot = recovery
-      ? recoveryResultsRoot
-      : suite.result_root;
-    if (recovery) {
-      if (typeof resultsRoot !== "string") throw invalid();
-      const proof = read(path.join(owner.runtime_root, "runtime-owner.json"));
-      validateSchemaSync("cartulary.harness_suite_runtime_owner.v2", proof);
-      const output = path.join(resultsRoot, owner.run_id);
-      if (proof.repository !== root || !proof.output_roots.includes(output)) throw invalid();
-      privateDirectory(output);
+  let stage = "recovery_proof";
+  try {
+    const owner = readBrowserAcquisition(file, runtime);
+    if (receipt(file)) return { state: "released" };
+    const suiteBytes = readLocalFile(owner.suite_lease, { maximum: 1048576 });
+    if (digest(suiteBytes) !== owner.suite_digest) throw invalid();
+    const suite = suiteProof(suiteBytes, owner.run_id);
+    if (suite.suite_id !== owner.suite_id) throw invalid();
+    if (ownedServices.length) {
+      if (!recovery || producerActive) throw invalid();
+      validateOwnedServiceRetirement(owner, suite, ownedServices);
     }
-    const result = run(path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), ["cleanup-web-e2e", "--metadata-file", metadata], {
-      cwd: root, env: { ...environment, CARTULARY_TEST_SUITE_ID: owner.suite_id, CARTULARY_TEST_SERVICES_CALL_MODE: "attach",
-        CARTULARY_TEST_RESULTS_DIR: resultsRoot, CARTULARY_TEST_RUN_ID: owner.run_id, CARTULARY_TEST_TARGET: suite.target,
+    const metadata = path.join(owner.session_root, "runtime-root", "test-services-web-e2e.json");
+    if (recovery && existsSync(metadata)) {
+      stage = "detail_authority";
+      if (typeof recoveryResultsRoot !== "string") throw invalid();
+      const output = path.join(recoveryResultsRoot, owner.run_id);
+      const writer = borrowRuntime({ repoRoot: root, runRoot: output, environment: { ...environment,
         CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id,
-        CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id, CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE: "1" },
-      timeout: 120000, killSignal: "SIGKILL", stdio: "ignore",
-    });
-    if (result.error || result.status !== 0) throw new CommandFailure("browser fixture retirement failed", {
-      failure_class: "harness", failure_reason: "cleanup_error",
-    }, { cause: result.error });
-    removePrivateFile(metadata);
-  }
-  removePrivateTree(path.join(owner.session_root, "runtime-root"));
-  // An exit trap can release services but cannot prove its own producer has
-  // exited. Only the external owner may publish terminal settlement after reaping.
-  if (producerActive) return { state: "recovery_required", acquisition_file: file };
-  acknowledgeBrowserSettlement(file, environment);
-  return { state: "released" };
+        CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id } });
+      try { writer.claimRecoveryOutput(); } finally { writer.close(); }
+    }
+    stage = "recovery_proof";
+    writeResource(file, "stopping.json", {}, { duringStop: true, environment });
+    stage = "process_settlement";
+    await stopAcquisitionProcesses(file, { producerActive, stop, environment });
+    stage = "browser_ports";
+    releaseAcquisitionPorts(file, environment);
+    if (existsSync(metadata)) {
+      stage = "browser_metadata";
+      const fixture = read(metadata);
+      const ordinaryFixture = fixture && typeof fixture === "object" && !Array.isArray(fixture) &&
+        typeof fixture.database_name === "string" && fixture.database_name.length > 0 && typeof fixture.bucket === "string" && fixture.bucket.length > 0 &&
+        Object.keys(fixture).every(key => ["database_name", "bucket", "target"].includes(key)) && (fixture.target === undefined || typeof fixture.target === "string");
+      const retireWithParents = ownedServices.length > 0 && ordinaryFixture;
+      if (!retireWithParents) {
+        // Ordinary retirement belongs to the original run, even when the provider
+        // has only tool/service environment. Later recovery must never backfill that
+        // run or collide with immutable output from an earlier recovery attempt.
+        const resultsRoot = recovery
+          ? recoveryResultsRoot
+          : suite.result_root;
+        if (recovery) {
+          stage = "detail_authority";
+          if (typeof resultsRoot !== "string") throw invalid();
+          const proof = read(path.join(owner.runtime_root, "runtime-owner.json"));
+          validateSchemaSync("cartulary.harness_suite_runtime_owner.v2", proof);
+          const output = path.join(resultsRoot, owner.run_id);
+          if (proof.repository !== root || !proof.output_roots.includes(output)) throw invalid();
+          privateDirectory(output);
+        }
+        stage = "browser_data_retirement";
+        const result = run(path.join(root, `${workspaceLayout.toolbin}/cartulary-test-services`), ["cleanup-web-e2e", "--metadata-file", metadata], {
+          cwd: root, env: { ...environment, CARTULARY_TEST_SUITE_ID: owner.suite_id, CARTULARY_TEST_SERVICES_CALL_MODE: "attach",
+            CARTULARY_TEST_RESULTS_DIR: resultsRoot, CARTULARY_TEST_RUN_ID: owner.run_id, CARTULARY_TEST_TARGET: suite.target,
+            CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: owner.runtime_root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: owner.runtime_lease_id,
+            CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: owner.run_id, CARTULARY_FIXTURE_PROCESS_CLEANUP_COMPLETE: "1" },
+          timeout: 120000, killSignal: "SIGKILL", stdio: ["ignore", "ignore", "pipe"], maxBuffer: 4096,
+        });
+        if (result.error || result.status !== 0) {
+          const failure = new CommandFailure("browser fixture retirement failed", {
+            failure_class: "harness", failure_reason: "cleanup_error",
+          }, { cause: result.error });
+          const diagnostic = parseCleanupDiagnostic(result.stderr);
+          if (diagnostic) Object.defineProperty(failure, "cleanupDiagnostic", { value: diagnostic, configurable: true });
+          throw failure;
+        }
+      }
+      stage = "detail_remove";
+      removePrivateFile(metadata);
+    }
+    stage = "detail_remove";
+    removePrivateTree(path.join(owner.session_root, "runtime-root"));
+    // An exit trap can release services but cannot prove its own producer has
+    // exited. Only the external owner may publish terminal settlement after reaping.
+    if (producerActive) return { state: "recovery_required", acquisition_file: file };
+    stage = "browser_acknowledgement";
+    acknowledgeBrowserSettlement(file, environment);
+    return { state: "released" };
+  } catch (error) { throw withCleanupDiagnostic(error, stage); }
 }
 
 const settlements = new Map();

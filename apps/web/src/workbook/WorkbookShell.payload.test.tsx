@@ -22,11 +22,10 @@ import {
   cleanupTimelineWorkbookTestGlobals,
   extractTimelineJSONBody,
   installTimelineWorkbookTestGlobals,
-  successEnvelope,
   type TimelineWorkbookFetchMock,
-  timelineRow,
   visibleGridRows,
 } from "../testing/timelineWorkbookTestSupport";
+import { successEnvelope, timelineRow } from "../testing/workbookFixtureData";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { buildCreatePayload } from "./timeline/models/timelineMutationIntents";
 import { createDraftRow } from "./timeline/models/timelineRowModel";

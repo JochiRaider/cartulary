@@ -8,6 +8,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -27,6 +28,8 @@ const (
 	PGDSNTemplateEnv        = "CARTULARY_PGTEST_DSN_TEMPLATE"
 	PGTemplateDBEnv         = "CARTULARY_PGTEST_TEMPLATE_DB"
 	PGSchemaHashEnv         = "CARTULARY_PGTEST_SCHEMA_HASH"
+	PGIsolationEnv          = "CARTULARY_PGTEST_ISOLATION"
+	PGAllocationRefEnv      = "CARTULARY_PGTEST_ALLOCATION_REF"
 	PGGenerationEnv         = "CARTULARY_PGTEST_GENERATION"
 	PGProvisioningDigestEnv = "CARTULARY_PGTEST_PROVISIONING_DIGEST"
 	PGTemplateDigestEnv     = "CARTULARY_PGTEST_TEMPLATE_DIGEST"
@@ -187,7 +190,21 @@ func ResolveSuiteRuntimeDir(env map[string]string) (string, bool, error) {
 	if err != nil {
 		return "", false, err
 	}
-	privateDir := filepath.Join(root, "test-services")
+	if !regexp.MustCompile(`^[A-Za-z0-9_.-]+$`).MatchString(suiteID) || suiteID == "." || suiteID == ".." {
+		return "", false, errors.New("invalid suite identity")
+	}
+	parent := filepath.Join(root, "test-services")
+	if err := os.Mkdir(parent, 0700); err != nil && !errors.Is(err, os.ErrExist) {
+		return "", false, err
+	}
+	parentInfo, err := os.Lstat(parent)
+	if err != nil || !parentInfo.IsDir() || parentInfo.Mode()&os.ModeSymlink != 0 || parentInfo.Mode().Perm() != 0700 {
+		return "", false, errors.New("unsafe suite runtime parent")
+	}
+	if stat, ok := parentInfo.Sys().(*syscall.Stat_t); ok && int(stat.Uid) != os.Getuid() {
+		return "", false, errors.New("foreign suite runtime parent")
+	}
+	privateDir := filepath.Join(parent, suiteID)
 	if _, err := os.Lstat(privateDir); errors.Is(err, os.ErrNotExist) {
 		if err := os.Mkdir(privateDir, 0o700); err != nil {
 			return "", false, fmt.Errorf("create private suite service directory: %w", err)

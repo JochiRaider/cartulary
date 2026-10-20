@@ -103,6 +103,8 @@ function sessionFixture({ ageMS = 0 } = {}) {
         CARTULARY_PGTEST_DSN_TEMPLATE: "postgres://app:session-password@127.0.0.1:5432/%s",
         CARTULARY_PGTEST_SCHEMA_HASH: "c".repeat(64),
  CARTULARY_PGTEST_GENERATION: "12345",
+ CARTULARY_PGTEST_ISOLATION: "shared",
+ CARTULARY_PGTEST_ALLOCATION_REF: `session:${environment.CARTULARY_TEST_SUITE_ID}`,
  CARTULARY_PGTEST_PROVISIONING_DIGEST: "d".repeat(64),
  CARTULARY_PGTEST_TEMPLATE_DIGEST: "e".repeat(64),
         CARTULARY_PGTEST_TEMPLATE_DB: "cartulary_template_session",
@@ -144,8 +146,8 @@ function sessionFixture({ ageMS = 0 } = {}) {
       });
       privateJSON(envFile, environmentValue);
       privateJSON(leaseFile, {
-        schema_id: "cartulary.test_services.lease.v2",
- postgres_provisioning: {schema_id:"cartulary.test_services.postgres_provisioning.v1", generation:"12345",policy_digest:"d".repeat(64),template_digest:"e".repeat(64)},
+        schema_id: "cartulary.test_services.lease.v3",
+ postgres_provisioning: {schema_id:"cartulary.test_services.postgres_provisioning.v2", generation:"12345",postgres_isolation:"shared",allocation_ref:`session:${environment.CARTULARY_TEST_SUITE_ID}`,policy_digest:"d".repeat(64),template_digest:"e".repeat(64)},
         lease_id: "session-service-lease",
         suite_id: environment.CARTULARY_TEST_SUITE_ID,
         run_id: environment.CARTULARY_TEST_RUN_ID,
@@ -235,6 +237,52 @@ test("local lifecycle holds its lock and publishes no service until queued admis
     assert.equal((await closed).state, "absent");
     assert.equal(fixture.terminateCount(), 1);
   } finally { gate.resolve(); await creating.catch(() => {}); fixture.cleanup(); }
+});
+
+test("nested persistent startup shares its ancestor envelope and retains residency after the ancestor exits", async () => {
+  const fixture = sessionFixture();
+  const root = path.join(fixture.temporary, "admission");
+  const capacities = hostClaims({ cpu: 2, io: 4, memory_mb: 1536, process: 32, object_store: 1, postgres: 1, port_lane: 2, volume: 1 });
+  const leases = [];
+  const pendingToken = "c".repeat(32), contenderToken = "d".repeat(32);
+  let resident;
+  const transaction = request => transactAdmission({ ...request, root });
+  try {
+    const parent = await acquireHostAdmission({ root, capacities, claims: { cpu: 1, memory_mb: 768, process: 20 } }); leases.push(parent);
+    const sibling = await acquireHostAdmission({ root, capacities, claims: { cpu: 1, memory_mb: 768, process: 12 } }); leases.push(sibling);
+    fixture.dependencies.admission = transaction;
+    fixture.dependencies.acquireAdmission = async options => {
+      assert.equal(options.parent, parent.token);
+      resident = { ...options.residents[0], capacities };
+      assert.equal(resident.parent, parent.token);
+      if (options.mode === "shared") {
+        // The old root-resident shape cannot fit while the enclosing test and
+        // an unrelated sibling hold their otherwise sufficient reservations.
+        assert.equal(transaction({ operation: "admit", token: pendingToken, owner: processIdentity(), mode: "shared", parent: parent.token,
+          claims: hostClaims(options.claims), capacities, residents: [{ ...resident, parent: null }] }), false);
+        transaction({ operation: "release", token: pendingToken });
+        assert.equal(fixture.containers.size, 0);
+      }
+      return acquireHostAdmission({ ...options, root, capacities, residents: [resident], timeoutMs: 1000 });
+    };
+    await createLocalSession({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile,
+      environment: { CARTULARY_HOST_ADMISSION_LEASE: parent.token }, dependencies: fixture.dependencies });
+    assert.equal(readLocalSessionDescriptor(fixture.sessionFile).resident_allocation.allocation.parent, parent.token);
+    await parent.release();
+    assert.equal(transaction({ operation: "resident_granted", token: resident.token, reference: resident.reference }), true);
+    assert.equal(transaction({ operation: "admit", token: contenderToken, owner: processIdentity(), mode: "shared", parent: null,
+      claims: hostClaims({ memory_mb: 600, process: 20 }), capacities }), false);
+    await stopLocalSession({ root: repositoryRoot, binary: fixture.binary, sessionFile: fixture.sessionFile, dependencies: fixture.dependencies });
+    assert.equal(fixture.terminateCount(), 1);
+    assert.equal(transaction({ operation: "resident_granted", token: resident.token, reference: resident.reference }), false);
+    assert.equal(transaction({ operation: "admit", token: contenderToken, owner: processIdentity(), mode: "shared", parent: null,
+      claims: hostClaims({ memory_mb: 600, process: 20 }), capacities }), true);
+  } finally {
+    for (const token of [pendingToken, contenderToken]) transaction({ operation: "release", token });
+    if (resident) transaction({ operation: "release_resident", token: resident.token, reference: resident.reference });
+    for (const lease of leases.reverse()) await lease.release();
+    fixture.cleanup();
+  }
 });
 
 test("queued physical admission withdraws on cancellation and retains residents until exact release", async () => {

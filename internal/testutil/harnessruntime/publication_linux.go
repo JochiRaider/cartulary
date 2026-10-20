@@ -15,6 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 type graphPublication struct {
@@ -65,6 +66,9 @@ func (p *graphPublication) Event(record map[string]any) error {
 			if err := p.publishRows(p.facts.byID[id], terminal); err != nil {
 				return err
 			}
+			if err := p.publishPrelaunchUnit(p.facts.byID[id], terminal); err != nil {
+				return err
+			}
 		}
 	}
 	bytes, err := json.Marshal(record)
@@ -74,6 +78,23 @@ func (p *graphPublication) Event(record map[string]any) error {
 	return p.events.Write(append(bytes, '\n'))
 }
 
+// Admission/acquisition failures and dependency skips do not reach Terminal.
+// Their unit projection must accompany the canonical terminal event so that
+// dependent finalizers can read it before whole-invocation publication.
+func (p *graphPublication) publishPrelaunchUnit(u unit, terminal canonicalTerminal) error {
+	if terminal.status == "passed" {
+		return nil
+	}
+	for _, phase := range p.facts.phases {
+		if phase.unit == u.ID && phase.phase == "runner" {
+			return nil
+		}
+	}
+	_, started := p.facts.starts[u.ID]
+	r := unitResult{Status: terminal.status, Failure: terminal.failure, ExitCode: failureExitCode(terminal.failure, "")}
+	return p.writeUnit(u, r, started, false)
+}
+
 func (p *graphPublication) publishRows(u unit, terminal canonicalTerminal) error {
 	_, started := p.facts.starts[u.ID]
 	for _, row := range u.Rows {
@@ -81,7 +102,7 @@ func (p *graphPublication) publishRows(u unit, terminal canonicalTerminal) error
 		bytes, err := harnesslocal.ReadFile(filepath.Join(p.root, relative), 1024*1024, false)
 		if err == nil {
 			value, err := harnessschema.Decode(bytes)
-			if err != nil || harnessschema.Validate("cartulary.harness_row_result.v4", value) != nil {
+			if err != nil || harnessschema.Validate("cartulary.harness_row_result.v6", value) != nil {
 				return errCanonical
 			}
 			result := value.(map[string]any)
@@ -118,10 +139,10 @@ func (p *graphPublication) publishRows(u unit, terminal canonicalTerminal) error
 		// A missing runner record has no observed row-execution duration. Its
 		// equal timestamps denote terminal publication, not invented execution.
 		stamp := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-		value := map[string]any{"schema_id": "cartulary.harness_row_result.v4", "row_id": row.ID, "runner": row.Runner,
+		value := map[string]any{"schema_id": "cartulary.harness_row_result.v6", "row_id": row.ID, "runner": row.Runner,
 			"terminal_state": state, "duration_ms": 0, "wall_duration_ms": 0, "exit_code": failureExitCode(failure, ""),
 			"failure_class": failure.Class, "failure_reason": failure.Reason, "failure_diagnostic": nil, "started_at": stamp, "finished_at": stamp}
-		if err := writeEvidence(p.root, relative, "cartulary.harness_row_result.v4", value, false); err != nil {
+		if err := writeEvidence(p.root, relative, "cartulary.harness_row_result.v6", value, false); err != nil {
 			return err
 		}
 	}
@@ -247,9 +268,9 @@ func (p *graphPublication) Terminal(u unit, r *unitResult) error {
 			r.ExitCode = 11
 		}
 	}
-	return p.writeUnit(u, *r, true)
+	return p.writeUnit(u, *r, true, true)
 }
-func (p *graphPublication) writeUnit(u unit, r unitResult, executed bool) error {
+func (p *graphPublication) writeUnit(u unit, r unitResult, executed, replace bool) error {
 	evidence := slices.Clone(u.Evidence)
 	evidence = append(evidence, serviceReferences(r)...)
 	if ids := rowIDs(u); len(ids) > 0 {
@@ -264,7 +285,7 @@ func (p *graphPublication) writeUnit(u unit, r unitResult, executed bool) error 
 	evidence = slices.Compact(evidence)
 	for _, relative := range u.Evidence {
 		if strings.HasPrefix(relative, "unit-results/") {
-			return writeEvidence(p.root, relative, "cartulary.harness_unit_result.v1", unitDocument(u, r, evidence, executed), true)
+			return writeEvidence(p.root, relative, "cartulary.harness_unit_result.v1", unitDocument(u, r, evidence, executed), replace)
 		}
 	}
 	return errCanonical
@@ -334,7 +355,7 @@ func (p *graphPublication) Finish(result graphResult) (map[string]any, error) {
 				}
 			}
 		}
-		if err := p.writeUnit(u, r, executed); err != nil {
+		if err := p.writeUnit(u, r, executed, true); err != nil {
 			return nil, err
 		}
 	}
@@ -342,14 +363,20 @@ func (p *graphPublication) Finish(result graphResult) (map[string]any, error) {
 	for i, r := range result.Cleanup {
 		failures := []map[string]any{}
 		var class, reason any
+		var diagnostic *harnesssession.CleanupDiagnostic
 		if r.Failure != nil {
+			cause := r.Cause
+			if cause == nil {
+				cause = r.Failure
+			}
+			diagnostic = harnesssession.DescribeCleanupFailure(harnesssession.AtCleanupStage(r.Operation, cause))
 			class = r.Failure.Class
 			reason = r.Failure.Reason
 			failures = append(failures, failureFields(r.Failure))
 		}
-		cleanup = append(cleanup, map[string]any{"sequence": i + 1, "operation": r.Operation, "unit_id": nullableString(r.UnitID), "fixture_lease_id": nullableString(r.LeaseID), "outcome": r.Outcome, "failure_class": class, "failure_reason": reason, "failures": failures, "artifact_refs": []string{}})
+		cleanup = append(cleanup, map[string]any{"sequence": i + 1, "operation": r.Operation, "unit_id": nullableString(r.UnitID), "fixture_lease_id": nullableString(r.LeaseID), "outcome": r.Outcome, "failure_class": class, "failure_reason": reason, "failures": failures, "artifact_refs": []string{}, "diagnostic": diagnostic})
 	}
-	if err := writeEvidence(p.root, "cleanup-results.json", "cartulary.harness_cleanup_results.v1", map[string]any{"schema_id": "cartulary.harness_cleanup_results.v1", "run_id": p.plan.facts.Manifest["run_id"], "results": cleanup}, true); err != nil {
+	if err := writeEvidence(p.root, "cleanup-results.json", "cartulary.harness_cleanup_results.v2", map[string]any{"schema_id": "cartulary.harness_cleanup_results.v2", "run_id": p.plan.facts.Manifest["run_id"], "results": cleanup}, true); err != nil {
 		return nil, err
 	}
 	projectionNames := []string{}

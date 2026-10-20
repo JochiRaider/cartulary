@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "harness.command_surface",
   "rows": [
     {
@@ -21,7 +21,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.command_surface.behavior.public_registry_parity",
@@ -42,7 +43,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.command_surface.behavior.scheduler_contract",
@@ -63,7 +65,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.command_surface.process.processtest_helper_contract",
@@ -98,7 +101,8 @@
       "fixture_capability": "none",
       "aggregate_placement": "full",
       "service_dependencies": [],
-      "process_isolation": "exclusive"
+      "process_isolation": "exclusive",
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.command_surface.unit.configtest_helper_contract",
@@ -125,7 +129,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.command_surface.unit.embedded_asset_layout",
@@ -153,7 +158,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.command_surface.unit.native_runtime",
@@ -195,7 +201,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.command_surface.unit.scheduler_smoke",
@@ -223,7 +230,8 @@
       "process_isolation": "exclusive",
       "preparation_operations": [
         "harness.toolchain_drift"
-      ]
+      ],
+      "postgres_isolation": "none"
     }
   ]
 }

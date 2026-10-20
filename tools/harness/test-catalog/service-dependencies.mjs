@@ -14,3 +14,10 @@ export function assertFixtureServiceDependencies(fixtureCapability, dependencies
     }
   }
 }
+
+export function assertPostgresIsolation(scope, dependencies, label) {
+  if (!["none", "shared", "exclusive"].includes(scope) ||
+      (scope === "none") === dependencies.includes("postgres")) {
+    throw new Error(`${label} requires an explicit compatible postgres_isolation`);
+  }
+}

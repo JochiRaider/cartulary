@@ -64,24 +64,22 @@ func AcquireWithResidents(ctx context.Context, root string, claims, capacities Q
 	if exclusive {
 		mode = "exclusive"
 	}
-	return acquire(ctx, root, claims, capacities, parent, mode, residents, waiting)
+	return acquire(ctx, root, claims, capacities, parent, mode, residents, nil, waiting)
 }
 func AcquireDrain(ctx context.Context, root string, claims, capacities Quantities, parent *string, residents []Resident) (*Lease, error) {
-	return acquire(ctx, root, claims, capacities, parent, "drain", residents, nil)
+	return acquire(ctx, root, claims, capacities, parent, "drain", residents, nil, nil)
 }
 
-// TryAcquireWithResidents lets a physical owner coordinate a scarce logical slot
-// with host admission. A miss withdraws the queued request before the caller
-// releases its slot; no active or prospective reservation survives the miss.
-func TryAcquireWithResidents(ctx context.Context, root string, claims, capacities Quantities, parent *string, residents []Resident, waiting func(context.Context, *Lease) error) (*Lease, error) {
-	return acquire(ctx, root, claims, capacities, parent, "shared", residents, func(ctx context.Context, pending *Lease) error {
-		if waiting != nil {
-			if err := waiting(ctx, pending); err != nil {
-				return err
-			}
-		}
-		return errNotAdmitted
-	})
+// AcquireWithPreparedResidents keeps one queue position while the physical owner
+// reacquires logical slots and refreshes resident references before each attempt.
+// waiting yields those logical reservations before the next queue wait. The owner
+// also settles them on return errors; a granted lease retains exact references.
+func AcquireWithPreparedResidents(ctx context.Context, root string, claims, capacities Quantities, parent *string, exclusive bool, prepare func(context.Context) ([]Resident, error), waiting func(context.Context, *Lease) error) (*Lease, error) {
+	mode := "shared"
+	if exclusive {
+		mode = "exclusive"
+	}
+	return acquire(ctx, root, claims, capacities, parent, mode, nil, prepare, waiting)
 }
 
 // NeedsRetirement reports whether releasing a resident with these claims can
@@ -91,9 +89,7 @@ func (l *Lease) NeedsRetirement(ctx context.Context, claims Quantities) (bool, e
 	return Transact(ctx, Request{Root: l.root, Operation: "retirement_required", Token: l.Token, Claims: claims})
 }
 
-var errNotAdmitted = errors.New("host admission not granted")
-
-func acquire(ctx context.Context, root string, claims, capacities Quantities, parent *string, mode string, residents []Resident, waiting func(context.Context, *Lease) error) (*Lease, error) {
+func acquire(ctx context.Context, root string, claims, capacities Quantities, parent *string, mode string, residents []Resident, prepare func(context.Context) ([]Resident, error), waiting func(context.Context, *Lease) error) (*Lease, error) {
 	if root == "" {
 		root = DefaultRoot()
 	}
@@ -115,7 +111,14 @@ func acquire(ctx context.Context, root string, claims, capacities Quantities, pa
 	}
 	request := Request{Root: root, Operation: "admit", Token: lease.Token, Owner: owner, Mode: mode, Claims: quantities(claims), Capacities: quantities(capacities), Parent: parent, Residents: residents}
 	for {
-		admitted, err := Transact(ctx, request)
+		var admitted bool
+		err := ctx.Err()
+		if err == nil && prepare != nil {
+			request.Residents, err = prepare(ctx)
+		}
+		if err == nil {
+			admitted, err = Transact(ctx, request)
+		}
 		if err == nil && !admitted && waiting != nil {
 			err = waiting(ctx, lease)
 		}
@@ -127,13 +130,10 @@ func acquire(ctx context.Context, root string, claims, capacities Quantities, pa
 			releaseErr := lease.Release(cleanup)
 			done()
 			if releaseErr != nil {
-				return nil, errors.Join(ErrRelease, releaseErr)
+				return nil, errors.Join(err, ctx.Err(), ErrRelease, releaseErr)
 			}
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
-			}
-			if errors.Is(err, errNotAdmitted) {
-				return nil, nil
 			}
 			return nil, err
 		}

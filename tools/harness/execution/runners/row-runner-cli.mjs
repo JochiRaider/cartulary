@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-import { workspaceLayout } from "../../../workspace_layout.generated.mjs";
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,15 +12,18 @@ import { createCommandFailureContext, reportCommandFailure } from "../../runtime
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
 import { adaptGoInvocationFile, buildGoInvocations } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
+import { publishRowResult } from "./row-results.mjs";
+import { readUnitSelection } from "./unit-selection.mjs";
 import { adaptVitestInvocationFile, buildVitestInvocations } from "./vitest.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
 function usage() {
-  return "usage: row-runner-cli.mjs --row-id <row-id> | --row-ids <row-id,...>";
+  return "usage: row-runner-cli.mjs --row-id <row-id> | --row-ids <row-id,...> | --unit-rows";
 }
 
 function parseArgs(argv) {
+  if (argv.length === 1 && argv[0] === "--unit-rows") return readUnitSelection(runRoot(), process.env.CARTULARY_TEST_RUN_ID, process.env.CARTULARY_WORK_UNIT_ID);
   if (argv.length !== 2 || !new Set(["--row-id", "--row-ids"]).has(argv[0]) || !argv[1]) {
     throw new Error(usage());
   }
@@ -41,13 +43,6 @@ function runRoot() {
     throw new Error("row runner requires CARTULARY_TEST_RESULTS_DIR and CARTULARY_TEST_RUN_ID");
   }
   return path.resolve(root, resultsDir, runID);
-}
-
-function writeResult(result) {
-  validateSchemaSync(result.schema_id, result);
-  const output = path.join(runRoot(), "rows", `${result.row_id}.json`);
-  mkdirSync(path.dirname(output), { recursive: true, mode: 0o700 });
-  writeFileSync(output, `${JSON.stringify(result, null, 2)}\n`, { mode: 0o600 });
 }
 
 async function execute(invocation, producer) {
@@ -89,7 +84,7 @@ function invocationsForRows(rows) {
   const runner = rows[0].runner;
   const workers = Number.parseInt(
     runner === "vitest"
-      ? process.env.VITEST_MAX_WORKERS ?? "4"
+      ? process.env.VITEST_MAX_WORKERS ?? "1"
       : process.env.CARTULARY_UNIT_CPU_TOKENS ?? "1",
     10,
   );
@@ -98,7 +93,7 @@ function invocationsForRows(rows) {
   }
   if (runner === "go") {
     return {
-      invocations: buildGoInvocations(rows, workers, process.env.GO || "go", { ...goRunnerBuildContext(root), goRace: process.env.CARTULARY_GO_RACE === "1" }).map((invocation) => ({
+      invocations: buildGoInvocations(rows, workers, process.env.GO || "go", { ...goRunnerBuildContext(root), goRace: process.env.CARTULARY_GO_RACE === "1", goShuffleSeed: process.env.CARTULARY_GO_SHUFFLE_SEED || undefined }).map((invocation) => ({
         ...invocation,
         // Explicit test credentials: production key loading has no default.
         environment: { ...invocation.environment, CARTULARY_AUTH_MASTER_KEY: readFileSync(path.join(root, "internal/testutil/fixtures/auth/master-key.base64"), "utf8").trim() },
@@ -107,9 +102,8 @@ function invocationsForRows(rows) {
     };
   }
   if (runner === "vitest") {
-    const command = process.env.PNPM || path.join(root, `${workspaceLayout.node_runtime}/bin/pnpm`);
     return {
-      invocations: buildVitestInvocations(root, rows, command, runRoot()),
+      invocations: buildVitestInvocations(root, rows, runRoot()),
       adapt: adaptVitestInvocationFile,
     };
   }
@@ -197,8 +191,8 @@ async function main() {
     }
   }
   for (const result of results) {
-    writeResult({
-      schema_id: "cartulary.harness_row_result.v4",
+    publishRowResult(runRoot(), {
+      schema_id: "cartulary.harness_row_result.v6",
       ...result,
       runner: rows[0].runner,
       started_at: startedAt,

@@ -12,13 +12,13 @@ import (
 // CleanupDiagnostic intentionally excludes error text and resource identity.
 // Stage, cause and optional wait details are checked again when encoding.
 type CleanupDiagnostic struct {
-	Stage string                           `json:"stage"`
-	Cause string                           `json:"cause"`
-	Wait  *postgrescleanup.DropObservation `json:"wait,omitempty"`
+	Stage    string                       `json:"stage"`
+	Cause    string                       `json:"cause"`
+	Postgres *postgrescleanup.DropAttempt `json:"postgres,omitempty"`
 }
 
 func validCleanupStage(stage string) bool {
-	return member(stage, "unknown", "catalog_open", "catalog_connection", "catalog_lock", "catalog_unlock", "catalog_close", "normal_drop", "forced_drop")
+	return member(stage, "unknown", "catalog_open", "catalog_connection", "catalog_lock", "catalog_unlock", "catalog_close", "forced_drop")
 }
 
 func validCleanupCause(cause string) bool {
@@ -29,11 +29,8 @@ func describeCleanupFailure(err error) []CleanupDiagnostic {
 	var result []CleanupDiagnostic
 	visited := 0
 	limited := false
-	appendDiagnostic := func(stage, cause string, wait *postgrescleanup.DropObservation) {
-		if stage != "normal_drop" && stage != "forced_drop" {
-			wait = nil
-		}
-		diagnostic := CleanupDiagnostic{Stage: stage, Cause: cause, Wait: wait}
+	appendDiagnostic := func(stage, cause string, observation *postgrescleanup.DropAttempt) {
+		diagnostic := CleanupDiagnostic{Stage: stage, Cause: cause, Postgres: observation}
 		for _, existing := range result {
 			if reflect.DeepEqual(existing, diagnostic) {
 				return
@@ -45,8 +42,8 @@ func describeCleanupFailure(err error) []CleanupDiagnostic {
 		}
 		result = append(result, diagnostic)
 	}
-	var visit func(error, string, *postgrescleanup.DropObservation)
-	visit = func(current error, stage string, wait *postgrescleanup.DropObservation) {
+	var visit func(error, string, *postgrescleanup.DropAttempt)
+	visit = func(current error, stage string, observation *postgrescleanup.DropAttempt) {
 		visited++
 		if visited > 32 {
 			limited = true
@@ -59,35 +56,35 @@ func describeCleanupFailure(err error) []CleanupDiagnostic {
 			}
 		}
 		if observed, ok := current.(interface {
-			CleanupWait() postgrescleanup.DropObservation
+			PostgresCleanup() postgrescleanup.DropAttempt
 		}); ok {
-			observation := observed.CleanupWait()
-			if observation.Validate() != nil {
-				observation = postgrescleanup.DropObservation{Status: "unavailable"}
+			value := observed.PostgresCleanup()
+			if value.Validate() != nil {
+				value = postgrescleanup.UnavailableAttempt()
 			}
-			wait = &observation
+			observation = &value
 		}
 		// Inspect typed causes before unwrapping: driver errors may carry a
 		// normalized SQLSTATE and also wrap a lower-level transport error.
 		cause := cleanupCause(current)
 		if cause != "unknown" {
-			appendDiagnostic(stage, cause, wait)
+			appendDiagnostic(stage, cause, observation)
 			return
 		}
 		switch wrapped := current.(type) {
 		case interface{ Unwrap() []error }:
 			for _, child := range wrapped.Unwrap() {
 				if child != nil {
-					visit(child, stage, wait)
+					visit(child, stage, observation)
 				}
 				if limited {
 					break
 				}
 			}
 		case interface{ Unwrap() error }:
-			visit(wrapped.Unwrap(), stage, wait)
+			visit(wrapped.Unwrap(), stage, observation)
 		default:
-			appendDiagnostic(stage, "unknown", wait)
+			appendDiagnostic(stage, "unknown", observation)
 		}
 	}
 	visit(err, "unknown", nil)

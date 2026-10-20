@@ -1,0 +1,658 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.postgres_cleanup_observation.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "duration_ms",
+    "admission_ms",
+    "admission_budget_ms",
+    "operation_ms",
+    "operation_budget_ms",
+    "admission",
+    "outcome",
+    "wait",
+    "service_generation"
+  ],
+  "properties": {
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 86400000
+    },
+    "admission_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 86400000
+    },
+    "admission_budget_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 15000
+    },
+    "operation_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 86400000
+    },
+    "operation_budget_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20000
+    },
+    "admission": {
+      "enum": [
+        "acquired",
+        "rejected",
+        "not_attempted",
+        "unavailable"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "completed",
+        "failed",
+        "cancelled",
+        "deadline_exceeded",
+        "unavailable"
+      ]
+    },
+    "wait": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "first",
+            "last"
+          ],
+          "properties": {
+            "status": {
+              "const": "sampled"
+            },
+            "first": {
+              "$ref": "#/$defs/drop_wait_snapshot"
+            },
+            "last": {
+              "$ref": "#/$defs/drop_wait_snapshot"
+            },
+            "checkpoint": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "requested",
+                "done",
+                "buffers",
+                "write_ms",
+                "sync_ms"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "sampled",
+                    "unavailable",
+                    "not_observed",
+                    "reset"
+                  ]
+                },
+                "requested": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "done": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "buffers": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "write_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "sync_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "not": {
+                          "const": "sampled"
+                        }
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "requested": {
+                        "const": 0
+                      },
+                      "done": {
+                        "const": 0
+                      },
+                      "buffers": {
+                        "const": 0
+                      },
+                      "write_ms": {
+                        "const": 0
+                      },
+                      "sync_ms": {
+                        "const": 0
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "first",
+            "last"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "unavailable",
+                "not_observed"
+              ]
+            },
+            "first": {
+              "type": "null"
+            },
+            "last": {
+              "type": "null"
+            },
+            "checkpoint": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "status",
+                "requested",
+                "done",
+                "buffers",
+                "write_ms",
+                "sync_ms"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "sampled",
+                    "unavailable",
+                    "not_observed",
+                    "reset"
+                  ]
+                },
+                "requested": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "done": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "buffers": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "write_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "sync_ms": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "not": {
+                          "const": "sampled"
+                        }
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "requested": {
+                        "const": 0
+                      },
+                      "done": {
+                        "const": 0
+                      },
+                      "buffers": {
+                        "const": 0
+                      },
+                      "write_ms": {
+                        "const": 0
+                      },
+                      "sync_ms": {
+                        "const": 0
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "service_generation": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[1-9][0-9]{0,19}$"
+    }
+  },
+  "$defs": {
+    "drop_wait_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "event",
+        "blockers",
+        "checkpointer_type",
+        "checkpointer_event",
+        "checkpointer_blockers",
+        "requested",
+        "done",
+        "buffers",
+        "write_ms",
+        "sync_ms"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "",
+            "unknown",
+            "Activity",
+            "BufferPin",
+            "Client",
+            "Extension",
+            "IO",
+            "IPC",
+            "Lock",
+            "LWLock",
+            "Timeout"
+          ]
+        },
+        "event": {
+          "enum": [
+            "",
+            "other",
+            "ProcSignalBarrier",
+            "DataFileRead",
+            "DataFileWrite",
+            "DataFileSync",
+            "WALWrite",
+            "WALSync",
+            "SyncRep",
+            "CheckpointDone",
+            "CheckpointStart",
+            "CheckpointWriteDelay",
+            "CheckpointDelayStart",
+            "CheckpointDelayComplete",
+            "CheckpointerMain",
+            "BufferIO",
+            "relation",
+            "transactionid",
+            "virtualxid",
+            "object",
+            "advisory",
+            "extend",
+            "frozenid",
+            "ClientRead",
+            "ClientWrite"
+          ]
+        },
+        "blockers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "checkpointer_type": {
+          "enum": [
+            "",
+            "unknown",
+            "Activity",
+            "BufferPin",
+            "Client",
+            "Extension",
+            "IO",
+            "IPC",
+            "Lock",
+            "LWLock",
+            "Timeout"
+          ]
+        },
+        "checkpointer_event": {
+          "enum": [
+            "",
+            "other",
+            "ProcSignalBarrier",
+            "DataFileRead",
+            "DataFileWrite",
+            "DataFileSync",
+            "WALWrite",
+            "WALSync",
+            "SyncRep",
+            "CheckpointDone",
+            "CheckpointStart",
+            "CheckpointWriteDelay",
+            "CheckpointDelayStart",
+            "CheckpointDelayComplete",
+            "CheckpointerMain",
+            "BufferIO",
+            "relation",
+            "transactionid",
+            "virtualxid",
+            "object",
+            "advisory",
+            "extend",
+            "frozenid",
+            "ClientRead",
+            "ClientWrite"
+          ]
+        },
+        "checkpointer_blockers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "requested": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "buffers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "barrier": {
+          "$ref": "#/$defs/barrier_wait_snapshot"
+        },
+        "write_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "sync_ms": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "barrier_wait_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "backend",
+        "state",
+        "type",
+        "event",
+        "blockers",
+        "operation",
+        "database_scope",
+        "operation_age_ms"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "sampled",
+            "unavailable",
+            "not_observed"
+          ]
+        },
+        "backend": {
+          "enum": [
+            "",
+            "other",
+            "client backend",
+            "autovacuum worker",
+            "autovacuum launcher",
+            "background writer",
+            "checkpointer",
+            "walwriter",
+            "walsender",
+            "walreceiver",
+            "startup",
+            "archiver",
+            "parallel worker",
+            "logical replication launcher",
+            "logical replication worker",
+            "io worker"
+          ]
+        },
+        "state": {
+          "enum": [
+            "",
+            "other",
+            "active",
+            "idle",
+            "idle in transaction",
+            "idle in transaction (aborted)",
+            "fastpath function call",
+            "disabled"
+          ]
+        },
+        "type": {
+          "enum": [
+            "",
+            "unknown",
+            "Activity",
+            "BufferPin",
+            "Client",
+            "Extension",
+            "IO",
+            "IPC",
+            "Lock",
+            "LWLock",
+            "Timeout"
+          ]
+        },
+        "event": {
+          "enum": [
+            "",
+            "other",
+            "ProcSignalBarrier",
+            "DataFileRead",
+            "DataFileWrite",
+            "DataFileSync",
+            "WALWrite",
+            "WALSync",
+            "SyncRep",
+            "CheckpointDone",
+            "CheckpointStart",
+            "CheckpointWriteDelay",
+            "CheckpointDelayStart",
+            "CheckpointDelayComplete",
+            "CheckpointerMain",
+            "BufferIO",
+            "relation",
+            "transactionid",
+            "virtualxid",
+            "object",
+            "advisory",
+            "extend",
+            "frozenid",
+            "ClientRead",
+            "ClientWrite"
+          ]
+        },
+        "blockers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "operation": {
+          "enum": [
+            "",
+            "none",
+            "other",
+            "create_database",
+            "alter_database",
+            "drop_database",
+            "select",
+            "with",
+            "insert",
+            "update",
+            "delete",
+            "copy",
+            "create",
+            "alter",
+            "drop",
+            "do",
+            "begin",
+            "commit",
+            "rollback",
+            "vacuum",
+            "analyze",
+            "checkpoint",
+            "discard",
+            "show",
+            "set"
+          ]
+        },
+        "database_scope": {
+          "enum": [
+            "",
+            "none",
+            "admin",
+            "target",
+            "other"
+          ]
+        },
+        "operation_age_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "sampled"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "backend": {
+                "not": {
+                  "const": ""
+                }
+              },
+              "operation": {
+                "not": {
+                  "const": ""
+                }
+              },
+              "database_scope": {
+                "not": {
+                  "const": ""
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "backend": {
+                "const": ""
+              },
+              "state": {
+                "const": ""
+              },
+              "type": {
+                "const": ""
+              },
+              "event": {
+                "const": ""
+              },
+              "blockers": {
+                "const": 0
+              },
+              "operation": {
+                "const": ""
+              },
+              "database_scope": {
+                "const": ""
+              },
+              "operation_age_ms": {
+                "const": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "admission": {
+            "not": {
+              "const": "acquired"
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "operation_ms": {
+            "const": 0
+          },
+          "operation_budget_ms": {
+            "const": 0
+          },
+          "wait": {
+            "properties": {
+              "status": {
+                "not": {
+                  "const": "sampled"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

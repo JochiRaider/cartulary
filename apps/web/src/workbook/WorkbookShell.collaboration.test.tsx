@@ -27,25 +27,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../testing/fetchMockTestSupport";
 import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
-  buildRecordChangedPayload,
   changeInputValue,
   changeQueuedCellValue,
   cleanupTimelineWorkbookTestGlobals,
-  errorEnvelope,
   extractTimelineConflictResolutionBody,
   extractTimelineRecordPatchBody,
   findWorkbookCell,
   installTimelineWorkbookTestGlobals,
   latestTimelineWebSocket,
   routeTimelineWorkbookFetchMock,
-  successEnvelope,
   type TimelineWorkbookFetchMock,
   timelineRecordPatchCallURLs,
-  timelineRow,
   waitForPendingQueueState,
   waitForTimelineConflictResolutionCalls,
   waitForTimelineRecordPatchCalls,
 } from "../testing/timelineWorkbookTestSupport";
+import {
+  buildRecordChangedPayload,
+  errorEnvelope,
+  successEnvelope,
+  timelineRow,
+} from "../testing/workbookFixtureData";
 import { createWorkbookPendingMutationAdapter } from "./adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { createBrowserSecureTransactionIdPort } from "./mutations/secureTransactionId";

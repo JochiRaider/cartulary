@@ -30,15 +30,15 @@ import {
   sessionResource,
 } from "../testing/appShellTestSupport";
 import { deferred, requireJSONBodyAt } from "../testing/fetchMockTestSupport";
+import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
 import {
   errorEnvelope,
   timelineRow as fullTimelineRow,
   fullWorkbookViewRow,
   successEnvelope,
-} from "../testing/timelineWorkbookTestSupport";
-import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
+  withWorkbookQueryFixtureMetadata,
+} from "../testing/workbookFixtureData";
 import { useWorkbookMutationRuntimeTestRegistry } from "../testing/workbookMutationRuntimeTestSupport";
-import { withWorkbookQueryFixtureMetadata } from "../testing/workbookQueryTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { NetworkFlowImportController } from "./features/NetworkFlowOperations";
 import {

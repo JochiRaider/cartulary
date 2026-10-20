@@ -28,8 +28,8 @@ navigation uses semantic element refs without timers.
 
 | File | Responsibility |
 | --- | --- |
-| [publicError.test.ts](publicError.test.ts) | Direct tests for allowlisted public detail projection and unsafe-message sanitization. |
-| [publicErrorPresentation.test.ts](publicErrorPresentation.test.ts) | Tests structured error presentation by operation context without inspecting human messages. |
+| [publicError.node.test.ts](publicError.node.test.ts) | Direct tests for allowlisted public detail projection and unsafe-message sanitization. |
+| [publicErrorPresentation.node.test.ts](publicErrorPresentation.node.test.ts) | Tests structured error presentation by operation context without inspecting human messages. |
 | [useRegisteredOverlayNavigation.test.tsx](useRegisteredOverlayNavigation.test.tsx) | Tests registered overlay focus reconciliation, restoration cancellation, and removed items. |
 | [useTransientMessageController.test.tsx](useTransientMessageController.test.tsx) | Tests visible-time dismissal, hover/focus pausing, and transient-message lifetime. |
 
@@ -39,7 +39,7 @@ navigation uses semantic element refs without timers.
 | --- | --- |
 | [workbookRecoveryNavigation.ts](workbookRecoveryNavigation.ts) | Instance-scoped metadata registration, logical-work counts, semantic parent routing, selected attachment and disposal. No execution state. |
 | [WorkbookRecoveryBoundary.tsx](WorkbookRecoveryBoundary.tsx) | Owner adapters, detail portals and inspector/dialog attachment coordination. |
-| [workbookRecoveryNavigation.test.ts](workbookRecoveryNavigation.test.ts) | Identity continuity, deduplication, ordering, stale registration/activation, withdrawal and disposal. |
+| [workbookRecoveryNavigation.node.test.ts](workbookRecoveryNavigation.node.test.ts) | Identity continuity, deduplication, ordering, stale registration/activation, withdrawal and disposal. |
 
 Publish safe metadata only while the owner authorizes it. Preserve the owner's
 logical identity through capture and refresh, with child conflicts and covered

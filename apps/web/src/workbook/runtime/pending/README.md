@@ -8,7 +8,7 @@ replay, authorization gates, overflow refusal, and conflict settlement.
 
 The runtime retains one model independently of mounted surfaces. Source drivers
 own domain payloads and transport; the queue does not persist drafts or interpret
-presentation order as dispatch order. `workbookPendingQueue.test.ts` retains its
+presentation order as dispatch order. `workbookPendingQueue.node.test.ts` retains its
 Workbook and Collaboration verification rows and semantic test titles.
 
 Queue lifecycle is private: open, closed, reopened with retained work, or retired.

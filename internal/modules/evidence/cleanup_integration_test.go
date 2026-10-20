@@ -17,7 +17,7 @@ import (
 
 func TestEvidenceDurableCleanupClaimEngine_Integration(t *testing.T) {
 	database := newTestStore(t, "evidence-durable-cleanup-claims")
-	actor := authstoretest.SeedLocalUserRecord(t, database, "evidence-cleanup@example.test", "Evidence Cleanup", "EvidenceCleanup1!", false, false, true)
+	actor := authstoretest.SeedActor(t, database, authstoretest.ActorAttributes{Email: "evidence-cleanup@example.test", DisplayName: "Evidence Cleanup"})
 	incident := createTestIncident(t, database, actor, "txn-evidence-durable-cleanup-claims-incident", "evidence-durable-cleanup-claims", "Evidence durable cleanup claims")
 	adminID := actor.ID
 	incidentID := incident.ID

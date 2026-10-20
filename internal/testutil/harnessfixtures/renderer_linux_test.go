@@ -12,11 +12,187 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 func testRendererOwnership(t *testing.T) {
+	t.Run("unstarted_profile_changes_reuse_bounded_logical_ownership", func(t *testing.T) {
+		runtime, root, run := runtimeFixture(t)
+		owner := NewProduction(ProductionOptions{BrowserLaneLimit: 1, Root: root, RunRoot: run, Runtime: runtime}, Options{})
+		t.Cleanup(func() {
+			cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := owner.Close(cleanup); err != nil {
+				t.Error(err)
+			}
+		})
+		owner.ConfigureAdmission(filepath.Join(root, "admission"), nil, map[string]int64{"cpu": 2, "memory_mb": 512, "process": 8}, nil)
+		first, err := owner.renderers.reserve(t.Context(), "first", "default", "pooled", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		record, err := owner.Options.residency.ensure("renderer:"+first.allocation, map[string]int64{"process": 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		first.resident = record
+		owner.renderers.unreserve(first)
+		for i := range 64 {
+			profile, policy, diagnostics := "default", "pooled", false
+			if i%2 == 0 {
+				profile, policy, diagnostics = "network_flow_claimed", "dedicated", true
+			}
+			slot, err := owner.renderers.reserve(t.Context(), fmt.Sprintf("waiter-%d", i), profile, policy, diagnostics)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if slot.allocation != first.allocation || slot.generation != first.generation || slot.resident != record || slot.profile != profile || slot.policy != policy || slot.diagnostics != diagnostics {
+				t.Fatal("unstarted reassignment replaced ownership or retained an incompatible preparation")
+			}
+			owner.renderers.unreserve(slot)
+		}
+		if _, err := os.Stat(filepath.Join(run, "_shared", "renderers")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatal("logical reassignment published physical lifecycle evidence", err)
+		}
+		if _, err := owner.Options.residency.ensure("renderer:"+first.allocation, map[string]int64{"process": 2}); err == nil {
+			t.Fatal("reassignment changed immutable residency quantities")
+		}
+		if err := owner.Close(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		resources, err := runtime.Resources(4096)
+		if err != nil || len(resources) != 0 {
+			t.Fatal("unstarted ownership did not settle", resources, err)
+		}
+	})
+	pressure := func(t *testing.T, interrupted bool, policy string) {
+		runtime, root, run := runtimeFixture(t)
+		owner := NewProduction(ProductionOptions{BrowserLaneLimit: 2, Root: root, RunRoot: run, Runtime: runtime}, Options{})
+		admissionRoot := filepath.Join(root, "admission")
+		requests := []WorkRequirement{}
+		for i := range 2 {
+			request := WorkRequirement{Request: Request{PostgresIsolation: "exclusive", Services: []string{"postgres", "object_store"}, Capability: "browser_stack", UnitID: fmt.Sprintf("seed-%d", i), Affinity: fmt.Sprintf("stack-%d", i), RuntimeProfile: "default"}, Renderer: "none", Physical: map[string]map[string]int64{"browser_stack": {"port_lane": 2, "memory_mb": 128, "process": 1}, "renderer": {"process": 1}}, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 64, "process": 1}}
+			requests = append(requests, request)
+			request.Request.UnitID = fmt.Sprintf("waiter-%d", i)
+			request.Renderer = policy
+			request.Active = map[string]int64{"cpu": 1, "io": 1, "memory_mb": 64, "process": 1, "port_lane": 1}
+			requests = append(requests, request)
+		}
+		owner.ConfigureAdmission(admissionRoot, nil, map[string]int64{"cpu": 2, "io": 2, "memory_mb": 4096, "process": 32, "port_lane": 4}, requests)
+		var started, released atomic.Int32
+		owner.Broker.options.Providers["browser_stack"] = &ProviderFuncs{AcquireFunc: func(_ context.Context, request Request) (*Allocation, error) {
+			started.Add(1)
+			return ownedAllocation(func(ctx context.Context, _ bool) error {
+				released.Add(1)
+				return owner.Options.residency.close(ctx, stackKey(request))
+			}), nil
+		}}
+		t.Cleanup(func() {
+			cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := owner.Close(cleanup); err != nil {
+				t.Error("pressure fixture cleanup", err)
+			}
+		})
+		for _, request := range []WorkRequirement{requests[0], requests[2]} {
+			host, finish, err := owner.Admit(t.Context(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lease, err := owner.Acquire(t.Context(), request.Request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := lease.Release(t.Context(), true, true); err != nil {
+				t.Fatal(err)
+			}
+			if err := errors.Join(finish(t.Context()), host.Release(t.Context())); err != nil {
+				t.Fatal(err)
+			}
+		}
+		// Hold the existing host mutex until both provisional stack pins exist.
+		// This establishes the deadlock precondition without scheduler timing.
+		mutex, err := os.OpenFile(filepath.Join(admissionRoot, "mutex"), os.O_RDONLY, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer mutex.Close()
+		if err := syscall.Flock(int(mutex.Fd()), syscall.LOCK_EX); err != nil {
+			t.Fatal(err)
+		}
+		defer syscall.Flock(int(mutex.Fd()), syscall.LOCK_UN)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		defer cancel()
+		results := make(chan error, 2)
+		for _, request := range []WorkRequirement{requests[1], requests[3]} {
+			go func() {
+				host, finish, err := owner.Admit(ctx, request)
+				if err != nil {
+					results <- err
+					return
+				}
+				lease, err := owner.Broker.Acquire(WithActivity(ctx, host.Token), request.Request)
+				if err == nil {
+					_, err = lease.Release(WithActivity(ctx, host.Token), true, false)
+				}
+				results <- errors.Join(err, finish(ctx), host.Release(ctx))
+			}()
+		}
+		condition := time.NewTicker(time.Millisecond)
+		defer condition.Stop()
+		bothPinned := false
+		for !bothPinned && ctx.Err() == nil {
+			owner.Broker.mu.Lock()
+			bothPinned = owner.Broker.reserved[sharedKey(requests[1].Request)] == 1 && owner.Broker.reserved[sharedKey(requests[3].Request)] == 1
+			owner.Broker.mu.Unlock()
+			if !bothPinned {
+				select {
+				case <-ctx.Done():
+				case <-condition.C:
+				}
+			}
+		}
+		if interrupted {
+			cancel()
+		}
+		if err := syscall.Flock(int(mutex.Fd()), syscall.LOCK_UN); err != nil {
+			t.Fatal(err)
+		}
+		for range 2 {
+			err := <-results
+			if interrupted && !errors.Is(err, context.Canceled) {
+				t.Error("admission cancellation was not preserved", err)
+			} else if !interrupted && err != nil {
+				t.Error("pooled admission did not progress", err)
+			}
+		}
+		if !bothPinned {
+			t.Fatal("failed to establish concurrent provisional ownership")
+		}
+		owner.Broker.mu.Lock()
+		pins := len(owner.Broker.reserved)
+		owner.Broker.mu.Unlock()
+		if pins != 0 {
+			t.Fatal("provisional pins leaked", pins)
+		}
+		cleanup, cleanupDone := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cleanupDone()
+		if err := owner.Close(cleanup); err != nil {
+			t.Fatal("pressure settlement", err)
+		}
+		if (!interrupted && started.Load() < 3) || started.Load() != released.Load() {
+			t.Fatal("retirement must reacquire fresh state and settle all physical allocations", started.Load(), released.Load())
+		}
+	}
+	for _, policy := range []string{"pooled", "dedicated"} {
+		t.Run(policy+"_waiters_yield_idle_stack_pins_under_pressure", func(t *testing.T) { pressure(t, false, policy) })
+		t.Run("cancelled_"+policy+"_waiters_release_provisional_pins", func(t *testing.T) { pressure(t, true, policy) })
+	}
 	t.Run("six_slots_and_waiting_seventh", func(t *testing.T) {
 		owner := &rendererOwner{options: ProductionOptions{BrowserLaneLimit: 6}, changed: make(chan struct{}), remaining: map[string]int{}}
 		for i := 0; i < 6; i++ {
@@ -54,7 +230,7 @@ func testRendererOwnership(t *testing.T) {
 		owner := NewProduction(ProductionOptions{BrowserLaneLimit: 4, Root: root, RunRoot: run, Runtime: runtime}, Options{})
 		requests := []WorkRequirement{}
 		for i := range 8 {
-			requests = append(requests, WorkRequirement{Request: Request{Capability: "browser_stack", UnitID: fmt.Sprintf("unit-%d", i), Affinity: fmt.Sprintf("stack-%d", i)}, Renderer: "none", Physical: map[string]map[string]int64{"browser_stack": {"port_lane": 2, "memory_mb": 384, "process": 4}}, Active: map[string]int64{"cpu": 1, "io": 1, "process": 1, "memory_mb": 64}})
+			requests = append(requests, WorkRequirement{Request: Request{PostgresIsolation: "exclusive", Services: []string{"object_store", "postgres"}, Capability: "browser_stack", UnitID: fmt.Sprintf("unit-%d", i), Affinity: fmt.Sprintf("stack-%d", i)}, Renderer: "none", Physical: map[string]map[string]int64{"browser_stack": {"port_lane": 2, "memory_mb": 384, "process": 4}}, Active: map[string]int64{"cpu": 1, "io": 1, "process": 1, "memory_mb": 64}})
 		}
 		requests[7].Active["port_lane"] = 1
 		owner.ConfigureAdmission(filepath.Join(root, "admission"), nil, map[string]int64{"cpu": 2, "io": 2, "memory_mb": 8192, "process": 128, "port_lane": 16}, requests)
@@ -158,6 +334,15 @@ func testRendererOwnership(t *testing.T) {
 		}
 		owner := NewProduction(options, Options{})
 		owner.renderers.remaining["default"] = 4
+		clusters := []string{}
+		for _, name := range []string{"cluster-a", "cluster-b"} {
+			file := filepath.Join(runtime.Root, name+".json")
+			if err := runtime.RecordDependentResource("managed_suite", file, "acquired", []string{}); err != nil {
+				t.Fatal(err)
+			}
+			clusters = append(clusters, file)
+			t.Cleanup(func() { _ = runtime.RecordResource("managed_suite", file, "released") })
+		}
 		environment := map[string]string{"CARTULARY_WEB_E2E_TLS_TRUST_SHA256": "sha256:" + strings.Repeat("b", 64)}
 		first, err := owner.renderers.reserve(t.Context(), "suite-a/group-one", "default", "pooled", false)
 		if err != nil {
@@ -166,6 +351,29 @@ func testRendererOwnership(t *testing.T) {
 		one, release, err := owner.renderers.borrow(t.Context(), first, environment)
 		if err != nil {
 			t.Fatal(err)
+		}
+		// Retiring either independent cluster must leave the active renderer
+		// untouched. Its admitted trust is an owned immutable copy, not a live
+		// service dependency. Exercise the ordinary/recovery cleanup evaluator.
+		for _, cluster := range clusters {
+			resources, err := runtime.Resources(4096)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ref := fixtureReference(t, runtime, "managed_suite", cluster)
+			selected := []string{}
+			if err := evaluateCleanup(resources, ref, func(resource harnesssession.Resource) error {
+				selected = append(selected, resource.Reference())
+				return nil
+			}, nil); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(selected, []string{ref}) {
+				t.Fatal("cluster retirement reached a live renderer", selected)
+			}
+			if err := runtime.RecordResource("managed_suite", cluster, "released"); err != nil {
+				t.Fatal(err)
+			}
 		}
 		if retained, err := release(t.Context(), true); err != nil || !retained {
 			t.Fatal(retained, err)
@@ -263,11 +471,19 @@ func testRendererOwnership(t *testing.T) {
 		}
 		idle := []*rendererSlot{}
 		for index := range 4 {
-			slot, err := owner.renderers.reserve(t.Context(), "idle", fmt.Sprintf("profile-%d", index), "pooled", false)
+			profile := fmt.Sprintf("profile-%d", index)
+			owner.renderers.remaining[profile] = 2
+			slot, err := owner.renderers.reserve(t.Context(), "idle", profile, "pooled", false)
 			if err != nil {
 				t.Fatal(err)
 			}
-			owner.renderers.unreserve(slot)
+			_, release, err := owner.renderers.borrow(t.Context(), slot, environment)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if retained, err := release(t.Context(), true); err != nil || !retained {
+				t.Fatal("physical slot was not retained", retained, err)
+			}
 			idle = append(idle, slot)
 		}
 		newSlot, err := owner.renderers.reserve(t.Context(), "different", "different-profile", "pooled", false)

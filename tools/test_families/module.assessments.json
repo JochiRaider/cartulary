@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.assessments",
   "rows": [
     {
@@ -41,7 +41,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.assessments.browser.contextual_decision_refresh",
@@ -77,7 +79,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.assessments.browser.the_browser_appends_a_subject_only_assessment_fo_2a82260393",
@@ -112,7 +116,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.assessments.browser.the_browser_workbook_assessment_workflow_appends_aefa86174b",
@@ -147,7 +153,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.assessments.browser.the_browser_workbook_drives_the_assessments_surf_4f277414a9",
@@ -182,7 +190,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.assessments.frontend.assessment_surface_query_owner_5e0cb851de",
@@ -212,7 +222,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.frontend.the_assessment_model_owns_confidence_mapping_and_f155fcd292",
@@ -226,11 +237,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
+        "file": "apps/web/src/workbook/models/assessmentWorkbookModel.node.test.ts",
         "titles": [
           "owns confidence mapping and normalized create payload construction"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -239,7 +250,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.frontend.the_assessment_model_seeds_follow_on_drafts_from_dceba9cd61",
@@ -253,11 +265,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/models/assessmentWorkbookModel.test.ts",
+        "file": "apps/web/src/workbook/models/assessmentWorkbookModel.node.test.ts",
         "titles": [
           "seeds follow-on drafts from subject identity only"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -266,7 +278,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.frontend.the_assessment_surface_preserves_stable_selectio_ab289a0995",
@@ -293,7 +306,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.frontend.the_ordinary_workbook_assessment_panel_submits_t_3f8efe2007",
@@ -320,7 +334,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.frontend.the_workbook_assessment_payload_builder_maps_ban_0e5d9eb77a",
@@ -347,7 +362,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.store.assessment_assessor_membership_contract_743da311fe",
@@ -381,7 +397,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.assessments.store.assessment_create_idempotency_codec_rejects_malf_9c202126fd",
@@ -407,7 +424,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.store.assessment_create_idempotency_migration_preserve_b451ac58f2",
@@ -437,7 +455,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.assessments.store.assessment_import_create_facade_contract_7282c4a7e3",
@@ -470,7 +489,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.assessments.store.assessment_projection_query_remains_owner_backed_172051cb0d",
@@ -503,7 +523,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.assessments.store.assessment_support_refs_task_linked_record_ids_d_9c08a8f2f2",
@@ -537,42 +558,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
-    },
-    {
-      "row_id": "module.assessments.store.compromise_assessments_append_incident_scoped_ho_f6cf5d55c6",
-      "owner_id": "module.assessments",
-      "family_id": "module.assessments.store",
-      "collaborator_ids": [
-        "module.entities",
-        "module.projections",
-        "module.records",
-        "module.revisions",
-        "module.workbook"
       ],
-      "verification_ids": [
-        "module.assessments.verification.behavior_contract",
-        "module.assessments.verification.incident_portability"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/assessments",
-        "tests": [
-          "TestAssessmentPolicyCanonicalVocabulary_Unit",
-          "TestAssessmentProjectionContributionConstruction_Unit",
-          "TestAssessmentsAppendOnlyStatesAndBands_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_transaction",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ]
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.assessments.store.facade_transaction_participant_rollback_and_replay",
@@ -605,7 +592,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.assessments.store.http_create_replay_projection_publication_characterization",
@@ -640,7 +628,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.assessments.store.http_filter_validation_characterization",
@@ -673,7 +662,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.assessments.store.import_binding_identity_characterization",
@@ -702,7 +692,75 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.assessments.store.managed_service_assertions_for_compromise_assess_98ae87986a",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [
+        "module.entities",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract",
+        "module.assessments.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments",
+        "tests": [
+          "TestAssessmentsAppendOnlyStatesAndBands_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.assessments.store.service_free_contract_assertions_for_compromise_d48d9308ef",
+      "owner_id": "module.assessments",
+      "family_id": "module.assessments.store",
+      "collaborator_ids": [
+        "module.entities",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.assessments.verification.behavior_contract",
+        "module.assessments.verification.incident_portability"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/assessments",
+        "tests": [
+          "TestAssessmentPolicyCanonicalVocabulary_Unit",
+          "TestAssessmentProjectionContributionConstruction_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.unit.assessment_create_admission_and_replay_hashing_r_40fd1c88bb",
@@ -730,7 +788,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.unit.facade_and_import_contracts",
@@ -772,7 +831,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.unit.new_contribution_requires_source_26ecdba696",
@@ -798,7 +858,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.assessments.unit.source_for_rollback_value_excludes_derived_confi_07ea307691",
@@ -823,7 +884,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

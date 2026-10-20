@@ -21,7 +21,7 @@ import (
 
 func TestPartyAssignmentSnapshotSource(t *testing.T) {
 	harness := appsupport.StartStore(t, "party-assignment-source")
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "assignment-source@example.test", "Assignment source", "AssignmentSourcePass1!", false, true, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "assignment-source@example.test", DisplayName: "Assignment source", DeploymentAdmin: true})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "assignment-source-incident", "IR-ASSIGNMENT", "Assignment snapshot isolation")
 	testPartyAssignmentFacts(t, harness.DB, incident.ID, actor.ID)
 }

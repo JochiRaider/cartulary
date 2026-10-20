@@ -7337,7 +7337,7 @@ test("Capture claimed Network Analysis accepted inspector, rejected diagnostics,
 });
 
 test("Capture incident creation form validation pending recovery and confirmed handoff states.", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   const form = await openCreationPresentation(page);
@@ -7438,8 +7438,8 @@ test("Capture incident creation form validation pending recovery and confirmed h
 });
 
 test("Capture account application menu root and nested Controls across contexts and constrained viewports.", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }) => {
   await installAccountEditingFixture(page, { profileOnly: true });
   const incidentId = await createRichTimelineIncident(
@@ -7492,7 +7492,7 @@ test("Capture account application menu root and nested Controls across contexts 
   ).toBeFocused();
   await page
     .getByRole("textbox", { name: "Search users", exact: true })
-    .fill(workerAdmin.email);
+    .fill(testActor.email);
   await expect(
     page.getByTestId(deploymentAdminTestId("user-list")).getByRole("button"),
   ).toHaveCount(1);
@@ -7560,7 +7560,7 @@ test("Capture account application menu root and nested Controls across contexts 
 });
 
 test("Capture account settings drafts pending conflict recovery and responsive states.", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installAccountEditingFixture(page);
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -7681,7 +7681,7 @@ test("Capture account settings drafts pending conflict recovery and responsive s
 });
 
 test("Capture Administrative audit loading empty unavailable paging and inspected values.", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installAuditPresentation(page);
   const loading = auditBrowserBarrier();
@@ -7781,12 +7781,12 @@ test("Capture Administrative audit loading empty unavailable paging and inspecte
 });
 
 test("Capture Reference Pack catalog selection admission recovery and all job states.", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }) => {
   const fixture = await installReferencePackPresentation(
     page,
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   await page.setViewportSize({ width: 1280, height: 900 });
   const panel = await openReferencePacks(page);
@@ -7898,12 +7898,12 @@ test("Capture Reference Pack catalog selection admission recovery and all job st
 });
 
 test("Capture incident import admission observation cancellation and result recovery states.", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }) => {
   const fixture = await installImportObservationFixture(
     page,
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   await page.setViewportSize({ width: 1280, height: 720 });
   const form = await openImportPresentation(page);
@@ -8100,7 +8100,7 @@ test("Capture incident import admission observation cancellation and result reco
 });
 
 test("Capture Membership audit loading inspected stale empty cursor recovery and density.", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const richIncidentId = await createRichTimelineIncident(
     page,
@@ -8238,7 +8238,7 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
 });
 
 test("Capture Membership management drafts pending uncertainty confirmed recovery and density.", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const richIncidentId = await createRichTimelineIncident(
     page,
@@ -8400,7 +8400,7 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
 });
 
 test("Capture Metadata editing loading dirty conflict uncertainty confirmation responsive and density.", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const richIncidentId = await createRichTimelineIncident(
     page,
@@ -8549,7 +8549,7 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
 });
 
 test("Capture Lifecycle review pending exact recovery confirmation responsive and density.", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const inspectionReady = async () => {
     // Independent observations can change the drawer height. Settle them before
@@ -8710,7 +8710,7 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
 });
 
 test("Capture workbook preferences inspection uncertainty confirmation responsive and density.", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const incidentId = await createRichTimelineIncident(
     page,

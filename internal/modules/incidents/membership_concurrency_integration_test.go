@@ -29,14 +29,8 @@ func TestConcurrentCrossAdminDeletionPreservesAnIncidentAdmin_Integration(t *tes
 	}
 	t.Cleanup(pool.Close)
 
-	firstAdmin := authstoretest.SeedLocalUserRecord(
-		t, pool, "incident-admin-concurrency-first@example.test", "First concurrent admin",
-		"IncidentAdminConcurrencyFirst1!", false, false, true,
-	)
-	secondAdmin := authstoretest.SeedLocalUserRecord(
-		t, pool, "incident-admin-concurrency-second@example.test", "Second concurrent admin",
-		"IncidentAdminConcurrencySecond1!", false, false, true,
-	)
+	firstAdmin := authstoretest.SeedActor(t, pool, authstoretest.ActorAttributes{Email: "incident-admin-concurrency-first@example.test", DisplayName: "First concurrent admin"})
+	secondAdmin := authstoretest.SeedActor(t, pool, authstoretest.ActorAttributes{Email: "incident-admin-concurrency-second@example.test", DisplayName: "Second concurrent admin"})
 	application, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            pool,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),

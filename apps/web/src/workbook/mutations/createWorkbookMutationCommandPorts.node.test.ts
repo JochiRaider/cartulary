@@ -1,0 +1,635 @@
+import { requireViewContract } from "@cartulary/view-contracts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { decisionReview } from "../../testing/decisionSupersessionTestSupport";
+import { mergeReview } from "../../testing/entityMergeTestSupport";
+import {
+  taskAuthority,
+  taskIntent,
+  taskRow,
+} from "../../testing/taskWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../testing/workbookFixtureData";
+import { createWorkbookDecisionSupersessionAdapter } from "../adapters/createWorkbookDecisionSupersessionAdapter";
+import { createWorkbookEntityMergeAdapter } from "../adapters/createWorkbookEntityMergeAdapter";
+import { createWorkbookOperationExecutor } from "../adapters/workbookOperationExecutor";
+import {
+  captureRecordPatch,
+  createRecordPatchTransport,
+} from "../adapters/workbookRecordPatchTransport";
+import { hostsViewSchemaId } from "../models/workbookSurfaceRegistry";
+import { WorkbookExplicitPatchOwner } from "../runtime/WorkbookExplicitPatchOwner";
+import { createWorkbookMutationCommandPorts } from "./createWorkbookMutationCommandPorts";
+
+async function sendPatch(
+  input: Omit<Parameters<typeof captureRecordPatch>[0], "clientTxnId"> & {
+    purpose: string;
+  },
+) {
+  const captured = captureRecordPatch({
+    ...input,
+    clientTxnId: `${input.purpose}-${input.viewSchemaId}-id`,
+  });
+  if (!captured) throw new Error("Invalid test patch");
+  return createRecordPatchTransport(
+    createWorkbookOperationExecutor({ apiBase: undefined }),
+  ).send(captured, new AbortController().signal);
+}
+
+function successResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      data: {
+        change_set_id: "change-set-1",
+        row: {
+          cells: {},
+          record_id: "00000000-0000-4000-8000-000000000010",
+          row_version: 1,
+        },
+        view_schema_id: "cartulary.view.timeline.v2",
+      },
+      meta: { request_id: "request-success" },
+    }),
+    {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    },
+  );
+}
+
+function requestBodies(fetchMock: ReturnType<typeof vi.fn>) {
+  return fetchMock.mock.calls.map((call) => {
+    const init = call[1] as RequestInit | undefined;
+    return JSON.parse(String(init?.body)) as Record<string, unknown>;
+  });
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+describe("semantic mutation command ports", () => {
+  it("validates generated Workbook operation responses and contains public failures", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              incident_id: "00000000-0000-4000-8000-000000000001",
+              rows: [],
+              view_schema_id: "cartulary.view.timeline.v2",
+            },
+            meta: {
+              query: { filters: [], sort: [] },
+              paging: { limit: 50, has_more: false, next_cursor: null },
+              request_id: "request-query",
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { rows: [] } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "authorization_denied",
+              conflict: undefined,
+              details: { reason_code: "incident_access_lost" },
+              message: "Access denied.",
+              request_id: "request-denied",
+              retryable: false,
+              status: 403,
+            },
+          }),
+          { status: 403, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { message: "raw detail" } }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "evidence_access_unavailable",
+              details: { reason_code: "unsupported_preview" },
+              message: "object://must-not-cross-the-adapter",
+              request_id: "request-evidence-denied",
+              retryable: false,
+              status: 409,
+            },
+          }),
+          { status: 409, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "row_version_conflict",
+              details: {},
+              message: "Server conflict prose.",
+              request_id: "request-row-version-conflict",
+              retryable: false,
+              status: 409,
+            },
+          }),
+          { status: 409, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+    const operations = createWorkbookOperationExecutor({ apiBase: undefined });
+    const queryInput = {
+      operationID: "queryWorkbookView" as const,
+      pathParameters: {
+        incident_id: "00000000-0000-4000-8000-000000000001",
+        view_schema_id: "cartulary.view.timeline.v2",
+      },
+      request: { limit: 50 },
+    };
+
+    await expect(operations.execute(queryInput)).resolves.toMatchObject({
+      kind: "accepted",
+      value: { data: { rows: [] } },
+    });
+    await expect(operations.execute(queryInput)).resolves.toMatchObject({
+      kind: "rejected",
+      failure: {
+        kind: "invalid_contract",
+        message: "The server returned an invalid public contract response.",
+        presentation: { family: "initial_load_failure" },
+      },
+    });
+    await expect(operations.execute(queryInput)).resolves.toMatchObject({
+      kind: "rejected",
+      failure: {
+        kind: "authorization_lost",
+        message: "Access denied.",
+        publicCode: "authorization_denied",
+        presentation: { family: "permission_or_incident_access_loss" },
+      },
+    });
+    await expect(operations.execute(queryInput)).resolves.toMatchObject({
+      kind: "rejected",
+      failure: {
+        kind: "invalid_contract",
+        message: "The server returned an invalid public error response.",
+        presentation: { family: "initial_load_failure" },
+      },
+    });
+    await expect(
+      operations.execute({
+        operationID: "issueEvidencePreviewHandle",
+        pathParameters: {
+          record_id: "00000000-0000-4000-8000-000000000010",
+        },
+        request: {},
+      }),
+    ).resolves.toMatchObject({
+      kind: "rejected",
+      failure: {
+        kind: "terminal",
+        message: "Evidence request failed.",
+        publicReason: "unsupported_preview",
+        publicCode: "evidence_access_unavailable",
+        presentation: { family: "evidence_preview_blocked" },
+      },
+    });
+    await expect(operations.execute(queryInput)).resolves.toMatchObject({
+      kind: "rejected",
+      failure: {
+        kind: "stale_target",
+        publicCode: "row_version_conflict",
+      },
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/v1/incidents/00000000-0000-4000-8000-000000000001/views/cartulary.view.timeline.v2/query",
+      expect.objectContaining({ method: "POST", body: '{"limit":50}' }),
+    );
+  });
+
+  it("owns exact generic, entity, assessment, and coordination request identities and payloads", async () => {
+    const fetchMock = vi.fn(async () => successResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    const commands = createWorkbookMutationCommandPorts({
+      batches: { admit: vi.fn(() => "batch") },
+      apiBase: undefined,
+      incidentId: "incident-1",
+      transactionIds: {
+        create: (prefix) => `${prefix}-id`,
+      },
+    });
+
+    await sendPatch({
+      baseRowVersion: 4,
+      changes: [{ field_key: "task.title", value: "Updated" }],
+      purpose: "generic-patch",
+      recordId: "task-1",
+      viewSchemaId: "cartulary.view.task_requests.v1",
+    });
+    const merge = createWorkbookEntityMergeAdapter({
+      apiBase: undefined,
+      incidentId: "incident-1",
+    });
+    const review = mergeReview();
+    const attempt = merge.capture(
+      {
+        ...review,
+        reason: "Duplicate",
+        authority: { ...review.authority, incidentId: "incident-1" },
+        survivor: { ...review.survivor, recordId: "host-1", baseRowVersion: 5 },
+        loser: { ...review.loser, recordId: "host-2", baseRowVersion: 6 },
+      },
+      "merge-id",
+    );
+    await merge.send(attempt, new AbortController().signal);
+    const assessmentAttempt = commands.assessment.capture(
+      {
+        authority: {
+          actorId: "actor",
+          sessionIdentity: "session",
+          incidentId: "incident-1",
+          role: "editor",
+          closed: false,
+        },
+        sheetRef: { kind: "view_schema", id: "cartulary.view.assessments.v1" },
+        draft: {
+          mode: "standalone",
+          origin: null,
+          revision: 0,
+          values: {
+            assessedAt: "2026-07-31T05:00:00Z",
+            assessmentState: "confirmed",
+            confidenceBand: "high",
+            rationale: "Correlated evidence",
+            subjectRecordId: "host-1",
+            subjectType: "host",
+            supportRecordIds: ["evidence-1"],
+          },
+        },
+      },
+      "assessment-id",
+    );
+    await commands.assessment.send(
+      assessmentAttempt,
+      new AbortController().signal,
+    );
+    await sendPatch({
+      baseRowVersion: 7,
+      purpose: "task-lifecycle",
+      viewSchemaId: "cartulary.view.task_requests.v1",
+      changes: [
+        { field_key: "task.status", value: "blocked" },
+        { field_key: "task.blocked_reason", value: "Waiting for owner" },
+      ],
+      recordId: "task-2",
+    });
+
+    expect(requestBodies(fetchMock)).toEqual([
+      {
+        view_schema_id: "cartulary.view.task_requests.v1",
+        base_row_version: 4,
+        client_txn_id: "generic-patch-cartulary.view.task_requests.v1-id",
+        changes: [{ field_key: "task.title", value: "Updated" }],
+      },
+      {
+        loser_record_id: "host-2",
+        survivor_base_row_version: 5,
+        loser_base_row_version: 6,
+        client_txn_id: "merge-id",
+        reason: "Duplicate",
+      },
+      {
+        client_txn_id: "assessment-id",
+        "assessment.subject_ref": "host-1",
+        "assessment.subject_type": "host",
+        "assessment.assessment_state": "confirmed",
+        "assessment.confidence_score": 85,
+        "assessment.rationale": "Correlated evidence",
+        "assessment.assessed_at": "2026-07-31T05:00:00Z",
+        "assessment.support_refs": {
+          kind: "collection_actions_v1",
+          actions: [{ op: "add_record_ref", linked_record_id: "evidence-1" }],
+        },
+      },
+      {
+        view_schema_id: "cartulary.view.task_requests.v1",
+        base_row_version: 7,
+        client_txn_id: "task-lifecycle-cartulary.view.task_requests.v1-id",
+        changes: [
+          { field_key: "task.status", value: "blocked" },
+          {
+            field_key: "task.blocked_reason",
+            value: "Waiting for owner",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("normalizes task lifecycle and decision supersede into owner-specific outcomes", async () => {
+    const taskRecordId = "00000000-0000-4000-8000-000000000410";
+    const decisionTargetId = "00000000-0000-4000-8000-000000000420";
+    const decisionReplacementId = "00000000-0000-4000-8000-000000000421";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              change_set_id: "00000000-0000-4000-8000-000000000510",
+              row: taskRow(8, "done"),
+              view_schema_id: "cartulary.view.task_requests.v1",
+            },
+            meta: { request_id: "request-task" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              change_set_id: "00000000-0000-4000-8000-000000000511",
+              reason: "Replaced after review",
+              superseding_record_id: decisionReplacementId,
+              superseding_row_version: 7,
+              target_record_id: decisionTargetId,
+              target_row_version: 5,
+              target_status: "superseded",
+              view_schema_id: "cartulary.view.decisions.v1",
+            },
+            meta: { request_id: "request-decision" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              capture_state: "superseded",
+              change_set_id: "00000000-0000-4000-8000-000000000512",
+              incident_id: "00000000-0000-4000-8000-000000000001",
+              reason: "Wrong owner response",
+              record_id: decisionTargetId,
+              replacement_record_id: decisionReplacementId,
+              row_version: 6,
+            },
+            meta: { request_id: "request-wrong-owner" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      sendPatch({
+        baseRowVersion: 7,
+        recordId: taskRecordId,
+        purpose: "task-lifecycle",
+        viewSchemaId: "cartulary.view.task_requests.v1",
+        changes: [{ field_key: "task.status", value: "done" }],
+      }),
+    ).resolves.toEqual({
+      kind: "acknowledged",
+      receipt: {
+        changeSetId: "00000000-0000-4000-8000-000000000510",
+        row: taskRow(8, "done"),
+        viewSchemaId: "cartulary.view.task_requests.v1",
+      },
+    });
+    const decisionPort = createWorkbookDecisionSupersessionAdapter({
+      apiBase: undefined,
+      incidentId: "00000000-0000-4000-8000-000000000001",
+    });
+    const attempt = decisionPort.capture(
+      { ...decisionReview(), reason: "Replaced after review" },
+      "captured-decision",
+    );
+    await expect(
+      decisionPort.send(attempt, new AbortController().signal),
+    ).resolves.toMatchObject({
+      kind: "acknowledged",
+      receipt: {
+        change_set_id: "00000000-0000-4000-8000-000000000511",
+        target_record_id: decisionTargetId,
+        superseding_record_id: decisionReplacementId,
+        target_row_version: 5,
+        superseding_row_version: 7,
+        target_status: "superseded",
+        reason: "Replaced after review",
+        view_schema_id: "cartulary.view.decisions.v1",
+      },
+    });
+    await expect(
+      decisionPort.send(attempt, new AbortController().signal),
+    ).resolves.toEqual({ kind: "uncertain" });
+  });
+
+  it("keeps secure transaction identity failure local without transport", async () => {
+    const send = vi.fn();
+    const owner = new WorkbookExplicitPatchOwner(
+      taskAuthority.incidentId,
+      {
+        create: () => {
+          throw new Error("randomness unavailable");
+        },
+      },
+      {
+        coordinate: async () => ({
+          kind: "settled" as const,
+          minimumRowVersion: 0,
+        }),
+        accepted: () => {},
+        registerConflict: () => {},
+      },
+    );
+    owner.configure({ send }, undefined, async () => taskIntent().baseline);
+    owner.setAuthority(taskAuthority);
+    expect(await owner.submit(taskIntent())).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("executes record lifecycle actions through the declared existing route", async () => {
+    const recordId = "20000000-0000-4000-8000-000000000001";
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            change_set_id: "30000000-0000-4000-8000-000000000001",
+            deleted: true,
+            deleted_at: "2026-08-30T20:00:00Z",
+            deleted_by_user_id: "40000000-0000-4000-8000-000000000001",
+            incident_id: "10000000-0000-4000-8000-000000000001",
+            record_id: recordId,
+            row_version: 6,
+          },
+          meta: { request_id: "request-record-delete" },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const commands = createWorkbookMutationCommandPorts({
+      batches: { admit: vi.fn(() => "batch") },
+      apiBase: undefined,
+      incidentId: "10000000-0000-4000-8000-000000000001",
+      transactionIds: { create: (prefix) => `${prefix}-id` },
+    });
+
+    await expect(
+      commands.records.send(
+        {
+          id: "record-delete-id",
+          actorId: "reviewer",
+          incidentId: "10000000-0000-4000-8000-000000000001",
+          operation: "delete",
+          subject: {
+            kind: "live",
+            recordId,
+            rowVersion: 5,
+            viewSchemaId: "cartulary.view.timeline.v2",
+            surfaceLabel: "Timeline",
+            label: "A row",
+          },
+          pending: {
+            kind: "destructive",
+            operation: "delete",
+            recordId,
+            rowVersion: 5,
+          },
+          body: JSON.stringify({
+            base_row_version: 5,
+            client_txn_id: "record-delete-id",
+            reason: "Deleted from the inspector",
+          }),
+        },
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({
+      kind: "acknowledged",
+      receipt: { kind: "delete", recordId, rowVersion: 6 },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/records/${recordId}`,
+      expect.objectContaining({
+        body: JSON.stringify({
+          base_row_version: 5,
+          client_txn_id: "record-delete-id",
+          reason: "Deleted from the inspector",
+        }),
+        method: "DELETE",
+      }),
+    );
+  });
+
+  it("normalizes generic same-field conflicts before they reach controllers", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "same_field_conflict",
+              conflict: {
+                base_row_version: 3,
+                base_value: "before",
+                client_value: "local",
+                conflict_resolution_class: "text_compare_merge",
+                conflict_token: "conflict-1",
+                current_row_version: 4,
+                field_key: "task.title",
+                record_id: "task-1",
+                server_value: "server",
+              },
+              details: {},
+              message: "Conflict.",
+              request_id: "request-conflict",
+              retryable: false,
+              status: 409,
+            },
+          }),
+          { status: 409, headers: { "content-type": "application/json" } },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      sendPatch({
+        baseRowVersion: 3,
+        changes: [{ field_key: "task.title", value: "local" }],
+        purpose: "generic-patch",
+        recordId: "task-1",
+        viewSchemaId: "cartulary.view.task_requests.v1",
+      }),
+    ).resolves.toMatchObject({
+      kind: "rejected",
+      failure: {
+        kind: "same_field_conflict",
+        conflict: {
+          conflict_token: "conflict-1",
+          field_key: "task.title",
+          record_id: "task-1",
+        },
+      },
+    });
+  });
+
+  it("normalizes entity patch results", async () => {
+    const recordId = "00000000-0000-4000-8000-000000000210";
+    const viewMutation = {
+      data: {
+        change_set_id: "00000000-0000-4000-8000-000000000310",
+        row: fullWorkbookViewRow(
+          requireViewContract(hostsViewSchemaId),
+          recordId,
+          2,
+          { "host.display_name": "Edge 01" },
+        ),
+        view_schema_id: hostsViewSchemaId,
+      },
+      meta: { request_id: "request-entity" },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(viewMutation), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(viewMutation), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      sendPatch({
+        baseRowVersion: 1,
+        changes: [{ field_key: "host.display_name", value: "Edge 01" }],
+        purpose: "entity-patch",
+        recordId,
+        viewSchemaId: hostsViewSchemaId,
+      }),
+    ).resolves.toMatchObject({
+      kind: "acknowledged",
+      receipt: {
+        row: { record_id: recordId },
+        viewSchemaId: hostsViewSchemaId,
+      },
+    });
+  });
+});

@@ -80,5 +80,9 @@ export function resolveCommandSelection(compiler, target, suppliedInputs) {
     if (serviceRows.length === 0 || selection.operations.length) throw usage("selection has no service-only row scope");
     selection = { ...selection, rows: serviceRows };
   }
+  if (inputs.GO_SHUFFLE_SEED !== undefined && (selection.operations.length || !selection.rows.length ||
+    selection.rows.some((id) => compiler.catalog.rowByID.get(id).runner !== "go"))) {
+    throw usage("GO_SHUFFLE_SEED requires a nonempty Go-only selection");
+  }
   return { inputs, rows: selection.rows.sort(compare), operations: selection.operations, explicit };
 }

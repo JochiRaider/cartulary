@@ -11,7 +11,7 @@ preserves typed failures, and fences disposal using the existing 30-second
 read deadline. Field target meaning comes from the view-contracts projection.
 Membership discovery retains its separate route and ordering.
 
-workbookReferenceSelection.test.ts verifies paging bounds, independent selections,
+workbookReferenceSelection.node.test.ts verifies paging bounds, independent selections,
 source replacement, continuation recovery, cancellation and authority concealment.
 
 ## Authoring candidate discovery
@@ -19,4 +19,4 @@ source replacement, continuation recovery, cancellation and authority concealmen
 | File | Responsibility |
 | --- | --- |
 | [WorkbookCandidateDiscovery.ts](WorkbookCandidateDiscovery.ts) | One-page authoring discovery, bounded navigation and exact read recovery. |
-| [WorkbookCandidateDiscovery.test.ts](WorkbookCandidateDiscovery.test.ts) | Finite retention, typed failures, cancellation, deadlines and stale-response tests. |
+| [WorkbookCandidateDiscovery.node.test.ts](WorkbookCandidateDiscovery.node.test.ts) | Finite retention, typed failures, cancellation, deadlines and stale-response tests. |

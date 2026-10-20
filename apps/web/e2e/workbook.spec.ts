@@ -2402,7 +2402,7 @@ function rowIDs(rows: Array<Record<string, unknown>>) {
 }
 
 test("Saved-view authoring reviews real conflicts and normalized no-ops while Reset preserves identity", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   const id = await createIncident(
     page,
@@ -2532,7 +2532,7 @@ test("Saved-view authoring reviews real conflicts and normalized no-ops while Re
 });
 
 test("Saved-view authoring retains uncertain committed creates and requires a deliberate new attempt", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   const id = await createIncident(
     page,
@@ -2613,7 +2613,7 @@ test("Saved-view authoring retains uncertain committed creates and requires a de
 });
 
 test("Saved-view authoring accepts delayed receipts after navigation without changing the active surface", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const id = await createIncident(
     page,

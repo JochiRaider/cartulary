@@ -49,7 +49,7 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [App.timeline-invalidation.support.test.tsx](App.timeline-invalidation.support.test.tsx) | Tests self-originated Timeline invalidation suppression without moving draft-row focus. |
 | [App.tsx](App.tsx) | Top-level application composition and route/surface selection for the web app. |
 | [AppRoot.tsx](AppRoot.tsx) | Root React wrapper that connects app-level providers and the rendered `App`. |
-| [fontBundle.test.ts](fontBundle.test.ts) | Font bundle availability and packaging boundary tests. |
+| [fontBundle.node.test.ts](fontBundle.node.test.ts) | Font bundle availability and packaging boundary tests. |
 | [fontRoles.test.tsx](fontRoles.test.tsx) | Font-role presentation tests for app and workbook surfaces. |
 | [IncidentLanding.tsx](IncidentLanding.tsx) | Incident directory landing panel, search/filter controls, and create-incident dialog. |
 | [LandingAdminDisplay.tsx](LandingAdminDisplay.tsx) | Shared display helpers for landing/admin panels. |
@@ -67,7 +67,7 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | --- | --- |
 | [AccountApplicationMenu.test.tsx](AccountApplicationMenu.test.tsx) | Tests menu keyboard handling, nested navigation, focus handoff, and focus restoration. |
 | [AccountApplicationMenu.tsx](AccountApplicationMenu.tsx) | Account and application menu with nested navigation and semantic focus handoff. |
-| [accountAuthenticationLifecycle.test.ts](accountAuthenticationLifecycle.test.ts) | Tests bounded session observations, outstanding login admission, and security transport retirement. |
+| [accountAuthenticationLifecycle.node.test.ts](accountAuthenticationLifecycle.node.test.ts) | Tests bounded session observations, outstanding login admission, and security transport retirement. |
 | [AccountDialog.tsx](AccountDialog.tsx) | Shared account-action dialog with dismissal and focus restoration. |
 | [accountFrontendBoundaries.test.tsx](accountFrontendBoundaries.test.tsx) | Tests account dialog dismissal, focus restoration, and single-source error announcements. |
 | [accountInputValidation.ts](accountInputValidation.ts) | Account email and provisioning-password validation shared by account controls. |
@@ -77,7 +77,7 @@ Workbook internals are documented in the [workbook guide](../workbook/README.md)
 | [AccountSecurityPanel.tsx](AccountSecurityPanel.tsx) | Account security controls for credentials, password changes, TOTP, and session actions. |
 | [AccountSettingsDialog.tsx](AccountSettingsDialog.tsx) | Account-settings dialog that hosts profile, appearance, and security panels. |
 | [accountSettingsEditing.test.tsx](accountSettingsEditing.test.tsx) | Tests profile retry, accessible field validation, and draft preservation during refresh. |
-| [accountSettingsModel.test.ts](accountSettingsModel.test.ts) | Tests account edit admission, revision acknowledgements, conflicts, and explicit review. |
+| [accountSettingsModel.node.test.ts](accountSettingsModel.node.test.ts) | Tests account edit admission, revision acknowledgements, conflicts, and explicit review. |
 | [accountSettingsModel.ts](accountSettingsModel.ts) | Profile and appearance draft state, validation, review, and save coordination. |
 | [AccountSettingsPanels.tsx](AccountSettingsPanels.tsx) | Account profile and appearance settings panels. |
 | [appSessionController.test.tsx](appSessionController.test.tsx) | Tests session discovery, anonymous confirmation, supporting-read isolation, and replacement fencing. |
@@ -100,7 +100,7 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 
 | File | Responsibility |
 | --- | --- |
-| [appDepartureReview.test.ts](appDepartureReview.test.ts) | Tests sequential owner departure review, Stay cancellation, and newly outstanding work. |
+| [appDepartureReview.node.test.ts](appDepartureReview.node.test.ts) | Tests sequential owner departure review, Stay cancellation, and newly outstanding work. |
 | [appDepartureReview.ts](appDepartureReview.ts) | Sequences outstanding owner reviews before app navigation can proceed. |
 | [IncidentAdminPanel.test.tsx](IncidentAdminPanel.test.tsx) | Incident administration panel tests. |
 | [IncidentAdminPanel.tsx](IncidentAdminPanel.tsx) | Incident administration panel UI for incident metadata, preferences, membership, and audit affordances. |
@@ -111,7 +111,7 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 | File | Responsibility |
 | --- | --- |
 | [IncidentCreationForm.tsx](IncidentCreationForm.tsx) | Incident-creation form with field errors, pending feedback, and recovery actions. |
-| [incidentCreationModel.test.ts](incidentCreationModel.test.ts) | Tests exact creation payloads, synchronous admission, uncertain replay, and late-response rejection. |
+| [incidentCreationModel.node.test.ts](incidentCreationModel.node.test.ts) | Tests exact creation payloads, synchronous admission, uncertain replay, and late-response rejection. |
 | [incidentCreationModel.ts](incidentCreationModel.ts) | Incident-creation drafts, request capture, operation recovery, and successful workbook handoff. |
 | [incidentDirectoryModel.test.ts](incidentDirectoryModel.test.ts) | Tests search debounce, immediate filter application, continuation, and obsolete-response suppression. |
 | [incidentDirectoryModel.ts](incidentDirectoryModel.ts) | Incident directory query controller with search, filtering, continuation, and read-state feedback. |
@@ -123,7 +123,7 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 | File | Responsibility |
 | --- | --- |
 | [incidentMetadataCharacterization.test.tsx](incidentMetadataCharacterization.test.tsx) | Tests sparse metadata saves, duplicate admission, and acknowledgement of captured revisions. |
-| [incidentMetadataController.test.ts](incidentMetadataController.test.ts) | Tests sparse field construction, immutable save attempts, and authority-bound admission. |
+| [incidentMetadataController.node.test.ts](incidentMetadataController.node.test.ts) | Tests sparse field construction, immutable save attempts, and authority-bound admission. |
 | [incidentMetadataController.ts](incidentMetadataController.ts) | Incident metadata draft ownership, sparse saves, conflict review, and acknowledgement reconciliation. |
 | [incidentMetadataLifecycle.test.tsx](incidentMetadataLifecycle.test.tsx) | Tests metadata drafts across drawer transitions, role changes, access loss, and session replacement. |
 | [incidentMetadataModel.ts](incidentMetadataModel.ts) | Incident metadata values, field revisions, authority, drafts, and review models. |
@@ -135,7 +135,7 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 | File | Responsibility |
 | --- | --- |
 | [incidentLifecycleCharacterization.test.tsx](incidentLifecycleCharacterization.test.tsx) | Tests lifecycle action deduplication, uncertain replay, and distinct conflict recovery paths. |
-| [incidentLifecycleController.test.ts](incidentLifecycleController.test.ts) | Tests reviewed lifecycle admission, current authority, secure identity, and exact replay. |
+| [incidentLifecycleController.node.test.ts](incidentLifecycleController.node.test.ts) | Tests reviewed lifecycle admission, current authority, secure identity, and exact replay. |
 | [incidentLifecycleController.ts](incidentLifecycleController.ts) | Incident close/reopen operation ownership, reviewed request capture, replay, and recovery. |
 | [incidentLifecycleIntegration.test.tsx](incidentLifecycleIntegration.test.tsx) | Tests lifecycle draft retention across drawer transitions, role changes, and session replacement. |
 | [incidentLifecycleModel.ts](incidentLifecycleModel.ts) | Lifecycle authority, action drafts, reviews, captured attempts, and problem-state models. |
@@ -147,7 +147,7 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 | File | Responsibility |
 | --- | --- |
 | [incidentMembershipManagementCharacterization.test.tsx](incidentMembershipManagementCharacterization.test.tsx) | Tests membership continuation, repeated-create admission, and newer-draft preservation. |
-| [incidentMembershipManagementController.test.ts](incidentMembershipManagementController.test.ts) | Tests bounded membership browsing, request fencing, cursor cycles, and refresh recovery. |
+| [incidentMembershipManagementController.node.test.ts](incidentMembershipManagementController.node.test.ts) | Tests bounded membership browsing, request fencing, cursor cycles, and refresh recovery. |
 | [incidentMembershipManagementController.ts](incidentMembershipManagementController.ts) | Membership browsing and reviewed mutation ownership with retained drafts and operation recovery. |
 | [incidentMembershipManagementLifecycle.test.tsx](incidentMembershipManagementLifecycle.test.tsx) | Tests membership draft lifetime, role-loss retirement, and account or incident access boundaries. |
 | [incidentMembershipManagementModel.ts](incidentMembershipManagementModel.ts) | Membership page, authority, draft, review, and mutation-attempt models. |
@@ -160,10 +160,10 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 | File | Responsibility |
 | --- | --- |
 | [incidentMembershipAuditCharacterization.test.tsx](incidentMembershipAuditCharacterization.test.tsx) | Tests audit loading presentation, accepted-query continuation, and duplicate-read coalescing. |
-| [incidentMembershipAuditController.test.ts](incidentMembershipAuditController.test.ts) | Tests membership audit query replacement, stale-response fencing, and bounded cursor history. |
+| [incidentMembershipAuditController.node.test.ts](incidentMembershipAuditController.node.test.ts) | Tests membership audit query replacement, stale-response fencing, and bounded cursor history. |
 | [incidentMembershipAuditController.ts](incidentMembershipAuditController.ts) | Incident membership audit read ownership with applied filters and bounded page navigation. |
 | [incidentMembershipAuditLifecycle.test.tsx](incidentMembershipAuditLifecycle.test.tsx) | Tests audit drawer lifetime, role-loss cleanup, and incident-scoped access retirement. |
-| [incidentMembershipAuditModel.test.ts](incidentMembershipAuditModel.test.ts) | Tests membership audit vocabulary, timestamp precision, target validation, and authority binding. |
+| [incidentMembershipAuditModel.node.test.ts](incidentMembershipAuditModel.node.test.ts) | Tests membership audit vocabulary, timestamp precision, target validation, and authority binding. |
 | [incidentMembershipAuditModel.ts](incidentMembershipAuditModel.ts) | Membership audit filter validation, paging, authority, and read-state models. |
 | [IncidentMembershipAuditPanel.test.tsx](IncidentMembershipAuditPanel.test.tsx) | Tests incident audit placement, exact-filter validation, and stale or unavailable read feedback. |
 | [IncidentMembershipAuditPanel.tsx](IncidentMembershipAuditPanel.tsx) | Incident membership audit filters, event browsing, paging, and read-state presentation. |
@@ -173,12 +173,12 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 
 | File | Responsibility |
 | --- | --- |
-| [incidentImportHardening.test.ts](incidentImportHardening.test.ts) | Tests malformed import outcomes, retained result actions, and fresh-read admission before opening. |
-| [incidentImportModel.test.ts](incidentImportModel.test.ts) | Tests immutable import replay, uncertain admission, read recovery, and retained validated status. |
+| [incidentImportHardening.node.test.ts](incidentImportHardening.node.test.ts) | Tests malformed import outcomes, retained result actions, and fresh-read admission before opening. |
+| [incidentImportModel.node.test.ts](incidentImportModel.node.test.ts) | Tests immutable import replay, uncertain admission, read recovery, and retained validated status. |
 | [incidentImportModel.ts](incidentImportModel.ts) | Session-bound incident import admission, observation, cancellation, and result-access coordination. |
 | [IncidentImportPanel.test.tsx](IncidentImportPanel.test.tsx) | Tests single import admission, uncertain-response recovery, and file-replacement locking. |
 | [IncidentImportPanel.tsx](IncidentImportPanel.tsx) | Incident bundle import panel and import-job polling controls. |
-| [incidentImportState.test.ts](incidentImportState.test.ts) | Tests immutable import transitions, terminal-result consistency, protected reset, and unavailable state. |
+| [incidentImportState.node.test.ts](incidentImportState.node.test.ts) | Tests immutable import transitions, terminal-result consistency, protected reset, and unavailable state. |
 | [incidentImportState.ts](incidentImportState.ts) | Pure incident import state transitions, authority checks, and action availability. |
 | [useIncidentImport.ts](useIncidentImport.ts) | React binding and presentation projection for incident import ownership and recovery. |
 | [useNetworkFlowImport.test.tsx](useNetworkFlowImport.test.tsx) | Tests analytical import intent retention, claim withdrawal, and account/incident replacement fencing. |
@@ -192,7 +192,7 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 | --- | --- |
 | [DeploymentUserActionDialog.tsx](DeploymentUserActionDialog.tsx) | Reviewed deployment-user action dialog for the selected administrative operation. |
 | [DeploymentUserLeaveDialog.tsx](DeploymentUserLeaveDialog.tsx) | Departure review for unresolved deployment-user edits and operations. |
-| [deploymentUsersModel.test.ts](deploymentUsersModel.test.ts) | Tests user browsing activation, uncertain-operation review, stale pages, and cursor recovery. |
+| [deploymentUsersModel.node.test.ts](deploymentUsersModel.node.test.ts) | Tests user browsing activation, uncertain-operation review, stale pages, and cursor recovery. |
 | [deploymentUsersModel.ts](deploymentUsersModel.ts) | Deployment-user browsing and administrative-operation controller tied to session authority. |
 | [DeploymentUsersPanel.tsx](DeploymentUsersPanel.tsx) | Deployment-user browsing, selection, editing, and administrative action controls. |
 | [useDeploymentUsers.ts](useDeploymentUsers.ts) | React binding for deployment-user browsing and administrative operations. |
@@ -201,9 +201,9 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 
 | File | Responsibility |
 | --- | --- |
-| [administrativeAuditController.test.ts](administrativeAuditController.test.ts) | Tests draft/applied/accepted audit state, stale-response suppression, and bounded paging. |
+| [administrativeAuditController.node.test.ts](administrativeAuditController.node.test.ts) | Tests draft/applied/accepted audit state, stale-response suppression, and bounded paging. |
 | [administrativeAuditController.ts](administrativeAuditController.ts) | Deployment audit read controller with applied queries, paging, and injected transport ports. |
-| [administrativeAuditModel.test.ts](administrativeAuditModel.test.ts) | Tests exact audit query vocabulary, filter dependencies, and timestamp boundaries. |
+| [administrativeAuditModel.node.test.ts](administrativeAuditModel.node.test.ts) | Tests exact audit query vocabulary, filter dependencies, and timestamp boundaries. |
 | [administrativeAuditModel.ts](administrativeAuditModel.ts) | Deployment audit query, authority, paging, validation, and read-state models. |
 | [DeploymentAuditPanel.test.tsx](DeploymentAuditPanel.test.tsx) | Tests applied audit filters, native form submission, continuation, and read feedback. |
 | [DeploymentAuditPanel.tsx](DeploymentAuditPanel.tsx) | Deployment administrative audit panel and audit-event formatting. |
@@ -213,9 +213,9 @@ abandoned rendering do not subscribe, dispatch or change active bindings.
 
 | File | Responsibility |
 | --- | --- |
-| [referencePackAdminController.test.ts](referencePackAdminController.test.ts) | Tests Reference Pack operation capture, replay reconciliation, and capability-loss retirement. |
+| [referencePackAdminController.node.test.ts](referencePackAdminController.node.test.ts) | Tests Reference Pack operation capture, replay reconciliation, and capability-loss retirement. |
 | [referencePackAdminController.ts](referencePackAdminController.ts) | Reference Pack catalog reads, upload/reload operations, job observation, and authority retirement. |
-| [referencePackAdminModel.test.ts](referencePackAdminModel.test.ts) | Tests Reference Pack read generations, version identity, ordering, and search normalization. |
+| [referencePackAdminModel.node.test.ts](referencePackAdminModel.node.test.ts) | Tests Reference Pack read generations, version identity, ordering, and search normalization. |
 | [referencePackAdminModel.ts](referencePackAdminModel.ts) | Reference Pack query, resource identity, authority, paging, and operation-state models. |
 | [ReferencePackAdminPanel.test.tsx](ReferencePackAdminPanel.test.tsx) | Reference-pack administration panel tests. |
 | [ReferencePackAdminPanel.tsx](ReferencePackAdminPanel.tsx) | Reference-pack administration panel UI for import, reload, cancellation, and job-status controls. |

@@ -408,7 +408,7 @@ test("Committed grid invalid timestamps survive detachment and clear only with e
 
 test("Committed grid direct editors cover all fifteen adopted surfaces", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   const incident = await createIncident(
     page,
@@ -499,7 +499,7 @@ test("Committed grid direct editors cover all fifteen adopted surfaces", async (
     {
       view: handoffViewSchemaId,
       seed: {
-        "handoff.incoming_owner_user_id": workerAdmin.user_id,
+        "handoff.incoming_owner_user_id": testActor.user_id,
         "handoff.current_state_summary": "State",
       },
       field: "handoff.current_state_summary",
@@ -836,7 +836,7 @@ test("Committed grid closure retains copyable original-cell drafts and reopening
 test("Committed grid session suspension conceals raw work and account replacement retires it", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const f = await fixture(page, evidenceViewSchemaId);
   const members = [];
@@ -878,7 +878,7 @@ test("Committed grid session suspension conceals raw work and account replacemen
   const input = await activate(page, f.view, f.row.record_id, f.field);
   await input.fill("Protected exact local text");
   await revokeAllSessions(
-    workerAdminRequest,
+    testActorRequest,
     original.user_id,
     "Grid suspension evidence",
   );
@@ -893,7 +893,7 @@ test("Committed grid session suspension conceals raw work and account replacemen
   const restored = await activate(page, f.view, f.row.record_id, f.field);
   await expect(restored).toHaveValue("Protected exact local text");
   await revokeAllSessions(
-    workerAdminRequest,
+    testActorRequest,
     original.user_id,
     "Replace author account",
   );
@@ -904,7 +904,7 @@ test("Committed grid session suspension conceals raw work and account replacemen
   await expect(fresh).toHaveValue("Original row");
   await fresh.press("Escape");
   expect(writes).toBe(0);
-  const history = await workerAdminRequest.get(
+  const history = await testActorRequest.get(
     `/api/v1/records/${f.row.record_id}/history`,
   );
   expect(history.ok()).toBe(true);
@@ -914,7 +914,7 @@ test("Committed grid session suspension conceals raw work and account replacemen
 test("Committed grid role loss retains readable text and incident revocation retires protected presentation", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const f = await fixture(page, evidenceViewSchemaId);
   const member = await createIncidentMemberUser(page, f.incident, {
@@ -948,7 +948,7 @@ test("Committed grid role loss retains readable text and incident revocation ret
   const path = `/api/v1/incidents/${f.incident}/memberships/${member.user_id}`;
   expect(
     (
-      await workerAdminRequest.patch(path, {
+      await testActorRequest.patch(path, {
         data: { base_membership_version: 1, role: "viewer" },
       })
     ).ok(),
@@ -965,7 +965,7 @@ test("Committed grid role loss retains readable text and incident revocation ret
   expect(writes).toBe(1);
   expect(
     (
-      await workerAdminRequest.delete(path, {
+      await testActorRequest.delete(path, {
         data: { base_membership_version: 2 },
       })
     ).status(),
@@ -1972,7 +1972,7 @@ test("Existing reference cell picker keeps keyboard browsing local and commits e
 test("Existing reference drafts survive same-account recovery while staged late lookups and replaced accounts are fenced", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const f = await fixture(page, evidenceViewSchemaId);
   const party = await createViewRow(page, f.incident, partiesViewSchemaId, {
@@ -2032,7 +2032,7 @@ test("Existing reference drafts survive same-account recovery while staged late 
     .click();
   await expect.poll(() => lookupStarted).toBe(true);
   await revokeAllSessions(
-    workerAdminRequest,
+    testActorRequest,
     original.user_id,
     "Reference read suspension",
   );
@@ -2051,7 +2051,7 @@ test("Existing reference drafts survive same-account recovery while staged late 
     page.getByRole("dialog", { name: "Choose source party" }),
   ).toHaveCount(0);
   await revokeAllSessions(
-    workerAdminRequest,
+    testActorRequest,
     original.user_id,
     "Reference account replacement",
   );
@@ -2067,7 +2067,7 @@ test("Existing reference drafts survive same-account recovery while staged late 
 test("Existing reference closure role changes and access loss separate readable choices from write admission", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const f = await fixture(page, evidenceViewSchemaId);
   const party = await createViewRow(page, f.incident, partiesViewSchemaId, {
@@ -2152,7 +2152,7 @@ test("Existing reference closure role changes and access loss separate readable 
   const membership = `/api/v1/incidents/${f.incident}/memberships/${member.user_id}`;
   expect(
     (
-      await workerAdminRequest.patch(membership, {
+      await testActorRequest.patch(membership, {
         data: { base_membership_version: 1, role: "viewer" },
       })
     ).ok(),
@@ -2170,7 +2170,7 @@ test("Existing reference closure role changes and access loss separate readable 
   expect(writes).toBe(1);
   expect(
     (
-      await workerAdminRequest.delete(membership, {
+      await testActorRequest.delete(membership, {
         data: { base_membership_version: 2 },
       })
     ).status(),

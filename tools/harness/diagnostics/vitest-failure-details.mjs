@@ -7,4 +7,5 @@ export {
   reconcileVitestReport,
   selectedVitestObservations,
   vitestObservationKey,
+  vitestReportProjection,
 } from "./vitest-observations.mjs";

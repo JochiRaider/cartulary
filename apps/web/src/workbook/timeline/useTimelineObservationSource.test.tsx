@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { deferred } from "../../testing/fetchMockTestSupport";
 import { observationSource } from "../../testing/observationTestSupport";
-import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../testing/workbookFixtureData";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { createWorkbookMutationRuntime } from "../runtime/createWorkbookMutationRuntime";
 import { createTimelineEditorDraftRegistry } from "./editing/useTimelineEditorDraftRegistry";

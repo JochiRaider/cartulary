@@ -19,8 +19,8 @@ import (
 func TestBlobCreateIdempotency_Unit(t *testing.T) {
 	harness := newTestStore(t, "evidence_lifecycle-blob-idempotency")
 	store := newTestBlobLifecycleService(t, harness)
-	actorA := authstoretest.SeedLocalUserRecord(t, harness, "evidence_lifecycle-blob-actor-a@example.test", "EvidenceLifecycle Blob Actor A", "EvidenceLifecycleBlobActorA1!", false, false, true)
-	actorB := authstoretest.SeedLocalUserRecord(t, harness, "evidence_lifecycle-blob-actor-b@example.test", "EvidenceLifecycle Blob Actor B", "EvidenceLifecycleBlobActorB1!", false, false, true)
+	actorA := authstoretest.SeedActor(t, harness, authstoretest.ActorAttributes{Email: "evidence_lifecycle-blob-actor-a@example.test", DisplayName: "EvidenceLifecycle Blob Actor A"})
+	actorB := authstoretest.SeedActor(t, harness, authstoretest.ActorAttributes{Email: "evidence_lifecycle-blob-actor-b@example.test", DisplayName: "EvidenceLifecycle Blob Actor B"})
 	seedBlobCreateTestSession(t, harness, actorA.ID)
 	seedBlobCreateTestSession(t, harness, actorB.ID)
 	incidentA := createTestIncident(t, harness, actorA, "txn-evidence_lifecycle-blob-incident-a", "IR-P5-BLOB-A", "Evidence blob incident A")

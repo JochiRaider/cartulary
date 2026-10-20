@@ -93,7 +93,7 @@ import { buildInspectorMentions } from "../workbook/timeline/models/workbookMent
 import {
   fullWorkbookViewRow,
   workbookCollectionValue,
-} from "./timelineWorkbookTestSupport";
+} from "./workbookFixtureData";
 export function mentionWorkbookRow(review = mentionReview()) {
   const s = review.subject;
   return rowFromApi(

@@ -746,7 +746,7 @@ func TestRunnerWorkerCapacityAndMixedKindFairness_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	testJobCompositions.Store(manager, testJobComposition{
-		catalog: catalog, transactions: transactions, pool: pool, now: func() time.Time { return clock },
+		catalog: catalog, transactions: transactions, db: pool, now: func() time.Time { return clock },
 	})
 	t.Cleanup(func() { testJobCompositions.Delete(manager) })
 	graphJobIDs := make([]uuid.UUID, 0, policy.RecoveryBatch+1)
@@ -901,7 +901,7 @@ func newSupervisedJobsHarness(
 		t.Fatal(err)
 	}
 	testJobCompositions.Store(manager, testJobComposition{
-		catalog: catalog, transactions: transactions, pool: pool,
+		catalog: catalog, transactions: transactions, db: pool,
 		now: func() time.Time { return time.Now().UTC() },
 	})
 	t.Cleanup(func() { testJobCompositions.Delete(manager) })

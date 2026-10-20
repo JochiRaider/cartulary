@@ -65,6 +65,12 @@ export function DraftRowCreateButton({
           event.preventDefault();
           event.stopPropagation();
         }}
+        onMouseUp={(event) => {
+          if (event.button === 0) return;
+          // Native middle-release paste targets the authoring control kept focused.
+          event.preventDefault();
+          event.stopPropagation();
+        }}
       >
         +
       </button>

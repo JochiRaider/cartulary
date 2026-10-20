@@ -15,6 +15,7 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/internal/actorfixture"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -172,13 +173,38 @@ func SeedLocalUserRecord(
 		t.Fatalf("hash password: %v", err)
 	}
 
+	return seedUserRecord(t, db, uuid.New(), email, displayName, hash, mfaRequired, isDeploymentAdmin, isActive)
+}
+
+// ActorAttributes describes a test actor without supplying a credential.
+type ActorAttributes = actorfixture.Attributes
+
+// SeedActor creates an independent user for non-authentication assertions. The
+// returned actor omits credential material; authentication tests use SeedLocalUserRecord.
+func SeedActor(t testing.TB, db *sql.DB, attributes ActorAttributes) authn.UserRecord {
+	t.Helper()
+	hash, err := actorfixture.Credential()
+	if err != nil {
+		t.Fatal("prepare actor fixture credential")
+	}
+	id := attributes.ID
+	if id == uuid.Nil {
+		id = uuid.New()
+	}
+	actor := seedUserRecord(t, db, id, attributes.Email, attributes.DisplayName, hash, attributes.MFARequired, attributes.DeploymentAdmin, !attributes.Disabled)
+	actor.PasswordHash = ""
+	return actor
+}
+
+func seedUserRecord(t testing.TB, db *sql.DB, id uuid.UUID, email, displayName, hash string, mfaRequired, isDeploymentAdmin, isActive bool) authn.UserRecord {
+	t.Helper()
 	var record authn.UserRecord
 	if err := db.QueryRowContext(context.Background(), `
-INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO users (id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
+VALUES ($7, $1, $2, $3, $4, $5, $6)
 RETURNING id, email, display_name, password_hash, password_changed_at, mfa_required, is_active, is_deployment_admin,
           created_at, updated_at, updated_by_user_id, last_login_at, user_version, totp_enrolled_at, totp_secret_envelope
-`, email, displayName, hash, mfaRequired, isActive, isDeploymentAdmin).Scan(
+`, email, displayName, hash, mfaRequired, isActive, isDeploymentAdmin, id).Scan(
 		&record.ID,
 		&record.Email,
 		&record.DisplayName,

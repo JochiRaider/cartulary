@@ -36,15 +36,15 @@ remains independent of query read status.
 
 ## Tests
 
-`WorkbookColumnLayoutController.test.ts` covers portable bounds, sparse
+`WorkbookColumnLayoutController.node.test.ts` covers portable bounds, sparse
 restoration, numeric validation and obsolete measurement rejection.
 
 | File | Responsibility |
 | --- | --- |
 | [useWorkbookResponsiveLayout.test.tsx](useWorkbookResponsiveLayout.test.tsx) | Tests viewport fallbacks and effective root width under zoom. |
-| [workbookDensity.test.ts](workbookDensity.test.ts) | Tests for effective Workbook density. |
-| [workbookLayoutPolicy.test.ts](workbookLayoutPolicy.test.ts) | Architecture checks prohibiting viewport-subtraction, row-count geometry, synthetic rows, and surface-private minimum-height workarounds. |
-| [workbookResponsiveLayout.test.ts](workbookResponsiveLayout.test.ts) | Tests for responsive classification and query-control capacity. |
+| [workbookDensity.node.test.ts](workbookDensity.node.test.ts) | Tests for effective Workbook density. |
+| [workbookLayoutPolicy.node.test.ts](workbookLayoutPolicy.node.test.ts) | Architecture checks prohibiting viewport-subtraction, row-count geometry, synthetic rows, and surface-private minimum-height workarounds. |
+| [workbookResponsiveLayout.node.test.ts](workbookResponsiveLayout.node.test.ts) | Tests for responsive classification and query-control capacity. |
 
 A new Workbook surface builds all semantic columns with its declared defaults,
 marks committed presentation eligibility, and calls `useWorkbookColumnSizingBinding`

@@ -292,7 +292,7 @@ func TestLatestSuccessfulRetainedBackupRequiresTwentyFourHourFloor_Unit(t *testi
 
 func TestDurableCatalogSkipsMetadataWithMissingArtifacts_Unit(t *testing.T) {
 	ctx := context.Background()
-	fixture := newRestoreProjectionContractFixture(t, ctx, "backup_restore-u-10-01-durable-catalog", uuid.MustParse("00000000-0000-0000-0000-000000100111"))
+	fixture := newCapturedBackupContractFixture(t, ctx, pgtest.Start(t), "backup_restore-u-10-01-durable-catalog", uuid.MustParse("00000000-0000-0000-0000-000000100111"))
 	asOf := fixture.AsOf.Add(time.Hour)
 	older := fixture.BackupSet
 	captured, err := fixture.Capture.Capture(ctx, recovery.VNextCaptureParams{

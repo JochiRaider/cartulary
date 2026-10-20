@@ -17,7 +17,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import { createContextualCreateTransport } from "../../adapters/createContextualCreateTransport";
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";
 import { useInspectorCreateRelatedWorkflow } from "../../inspector/useInspectorCreateRelatedWorkflow";

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "package.ui",
   "rows": [
     {
@@ -12,11 +12,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/design-tokens.test.ts",
+        "file": "packages/ui-contracts/src/design-tokens.node.test.ts",
         "titles": [
           "Cartulary design token exports exposes explicit font role tokens without changing the default UI or mono stacks"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -25,7 +25,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.ui.boundary_support.design_tokens_exposes_the_adopted_default_theme_4f6994fbc4",
@@ -37,11 +38,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/design-tokens.test.ts",
+        "file": "packages/ui-contracts/src/design-tokens.node.test.ts",
         "titles": [
           "Cartulary design token exports exposes the adopted default theme as generated presentation tokens"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -50,7 +51,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.ui.boundary_support.design_tokens_renders_css_variables_without_unre_7aba7b88a9",
@@ -62,11 +64,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/design-tokens.test.ts",
+        "file": "packages/ui-contracts/src/design-tokens.node.test.ts",
         "titles": [
           "Cartulary design token exports renders CSS variables without unresolved object values"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -75,7 +77,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.ui.boundary_support.source_design_tokens_test_ts_f46aeb7346",
@@ -87,8 +90,8 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/design-tokens.test.ts",
-        "project_id": "browser-unit",
+        "file": "packages/ui-contracts/src/design-tokens.node.test.ts",
+        "project_id": "node-unit",
         "titles": [
           "Cartulary design token exports builds typed references to authored design-token variables"
         ]
@@ -100,7 +103,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.ui.frontend_unit.application_selector_contracts_675995f2ab",
@@ -112,14 +116,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/application-selectors.test.ts",
+        "file": "packages/ui-contracts/src/application-selectors.node.test.ts",
         "titles": [
           "@cartulary/ui-contracts application selectors keeps authentication selector identity on semantic state and stable field identifiers",
           "@cartulary/ui-contracts application selectors provides shared builders for app shell and incident membership selectors",
           "@cartulary/ui-contracts application selectors provides stable authentication bootstrap, landing, session, admin, and error selectors",
           "@cartulary/ui-contracts application selectors rejects invalid authentication selector vocabularies"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -128,7 +132,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.ui.frontend_unit.design_presentation_projection_8e15b85b40",
@@ -140,14 +145,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/design-presentation.test.ts",
+        "file": "packages/ui-contracts/src/design-presentation.node.test.ts",
         "titles": [
           "design presentation projection contains every closed error family exactly once",
           "design presentation projection contains every closed grid data state exactly once",
           "design presentation projection exports the adopted loading and transient timing rules",
           "design presentation projection projects interaction state independently with one composition rule"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -156,7 +161,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.ui.frontend_unit.network_flow_selector_contracts_b95d925bdf",
@@ -168,14 +174,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/network-flow-selectors.test.ts",
+        "file": "packages/ui-contracts/src/network-flow-selectors.node.test.ts",
         "titles": [
           "@cartulary/ui-contracts Network Flow selectors builds ordered column actions and mapping-column identities",
           "@cartulary/ui-contracts Network Flow selectors encodes stable Network Flow table, graph, row, and diagnostic identities",
           "@cartulary/ui-contracts Network Flow selectors fails closed for malformed Network Flow identity and ordinal inputs",
           "@cartulary/ui-contracts Network Flow selectors preserves every closed Network Analysis selector in exact order"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -184,7 +190,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.ui.frontend_unit.selector_core_contracts_375732dc80",
@@ -214,7 +221,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.ui.frontend_unit.source_workbook_shell_grid_selectors_test_ts_577f5e45a4",
@@ -226,8 +234,8 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/workbook-shell-grid-selectors.test.ts",
-        "project_id": "browser-unit",
+        "file": "packages/ui-contracts/src/workbook-shell-grid-selectors.node.test.ts",
+        "project_id": "node-unit",
         "titles": [
           "@cartulary/ui-contracts workbook shell and grid selectors parses fixed and viewport-relative layout metrics from generated tokens"
         ]
@@ -239,7 +247,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.ui.frontend_unit.workbook_interaction_contracts_dcad48388a",
@@ -251,7 +260,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/workbook-interaction-selectors.test.ts",
+        "file": "packages/ui-contracts/src/workbook-interaction-selectors.node.test.ts",
         "titles": [
           "@cartulary/ui-contracts workbook interaction selectors builds exact history-open selectors from stable record identity",
           "@cartulary/ui-contracts workbook interaction selectors characterizes draft and paste-conflict selectors",
@@ -262,7 +271,7 @@
           "@cartulary/ui-contracts workbook interaction selectors provides shared builders for workbook action families",
           "@cartulary/ui-contracts workbook interaction selectors validates closed-vocabulary-derived selector tokens"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -271,7 +280,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.ui.frontend_unit.workbook_shell_grid_contracts_07bd0aad94",
@@ -283,7 +293,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/ui-contracts/src/workbook-shell-grid-selectors.test.ts",
+        "file": "packages/ui-contracts/src/workbook-shell-grid-selectors.node.test.ts",
         "titles": [
           "@cartulary/ui-contracts workbook shell and grid selectors builds exact filter selectors and rejects invalid filter identity",
           "@cartulary/ui-contracts workbook shell and grid selectors builds owner-backed group row selectors for both expansion states",
@@ -298,7 +308,7 @@
           "@cartulary/ui-contracts workbook shell and grid selectors preserves closed shell and system-view order with exact accessibility labels",
           "@cartulary/ui-contracts workbook shell and grid selectors targets saved and draft workbook rows when scoped through the grid shell"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -307,7 +317,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { readBootClock } from "../runtime/boot-clock.mjs";
 import { createHash } from "node:crypto";
 import {
@@ -281,22 +282,21 @@ function writeServiceAdmission() {
   ) {
     throw new Error("test-services scope does not identify the active suite");
   }
-  const serviceLease = path.join(
-    path.resolve(requiredEnv("CARTULARY_HARNESS_SUITE_RUNTIME_ROOT")),
-    "test-services",
-    "service-lease.json",
-  );
-  requireOwnerOnlyRegular(serviceLease, "private test-services lease");
-  const serviceLeaseBytes = readFileSync(serviceLease);
-  const activeLease = JSON.parse(serviceLeaseBytes);
+  const privateRoot = path.resolve(requiredEnv("CARTULARY_HARNESS_SUITE_RUNTIME_ROOT"));
+  const serviceLease = process.env.CARTULARY_TEST_SERVICES_BINDING_LEASE || path.join(privateRoot,"test-services",identityEnv("CARTULARY_TEST_SUITE_ID"),"service-lease.json");
+  const relative=path.relative(privateRoot,serviceLease);
+  if (!path.isAbsolute(serviceLease) || relative.startsWith("..") || !relative) throw new Error("service binding escapes native owner");
+  const activeLease = JSON.parse(readLocalFile(serviceLease, {maximum:1048576}));
   if (
-    activeLease.schema_id !== "cartulary.test_services.lease.v2" ||
+    activeLease.schema_id !== "cartulary.test_services.lease.v3" ||
     activeLease.suite_id !== scope.suite_id ||
     activeLease.run_id !== scope.run_id ||
     activeLease.cleanup_state !== "not_started"
   ) {
     throw new Error("private test-services lease does not identify an active suite");
   }
+  validateSchemaSync("cartulary.test_services.postgres_provisioning.v2",activeLease.postgres_provisioning);
+  if (activeLease.postgres_provisioning.postgres_isolation!=="exclusive") throw new Error("browser requires an exclusive PostgreSQL generation");
   const requiredServices = ["object_store", "postgres"];
   const containerProof = requiredServices.map((service) => {
     const resource = activeLease.resources.find(
@@ -314,7 +314,7 @@ function writeServiceAdmission() {
   requireRegularNoSymlink(runManifestFile, "current run manifest");
   const runManifest = JSON.parse(readFileSync(runManifestFile, "utf8"));
   const payload = {
-    schema_id: "cartulary.test_services.browser_admission.v1",
+    schema_id: "cartulary.test_services.browser_admission.v2",
     suite_id: scope.suite_id,
     browser_session_id: identityEnv("CARTULARY_BROWSER_SESSION_GROUP"),
     readiness_generation: normalizeDigest(
@@ -322,6 +322,7 @@ function writeServiceAdmission() {
       "service readiness generation",
     ),
     required_services: requiredServices,
+    postgres_provisioning: activeLease.postgres_provisioning,
     container_proof: containerProof,
     source_digest: normalizeDigest(runManifest.source_digest, "run source digest"),
     scope_digest: sha256Bytes(scopeBytes),
@@ -789,13 +790,15 @@ export function attachmentAssignments(stackPath) {
   );
   validateSchemaSync(serviceAdmission.schema_id, serviceAdmission);
   if (
-    serviceAdmission.schema_id !== "cartulary.test_services.browser_admission.v1" ||
+    serviceAdmission.schema_id !== "cartulary.test_services.browser_admission.v2" ||
     serviceAdmission.suite_id !== stack.suite_id ||
     serviceAdmission.browser_session_id !== stack.browser_session_id ||
     serviceAdmission.required_services.join("\0") !== "object_store\0postgres"
   ) {
     throw new Error("browser v8 attachment service-admission identity mismatch");
   }
+  const provisioning=serviceAdmission.postgres_provisioning;
+  if (provisioning.postgres_isolation!=="exclusive" || provisioning.postgres_isolation!==requiredEnv("CARTULARY_PGTEST_ISOLATION") || provisioning.allocation_ref!==requiredEnv("CARTULARY_PGTEST_ALLOCATION_REF") || provisioning.generation!==requiredEnv("CARTULARY_PGTEST_GENERATION") || provisioning.policy_digest!==requiredEnv("CARTULARY_PGTEST_PROVISIONING_DIGEST") || provisioning.template_digest!==requiredEnv("CARTULARY_PGTEST_TEMPLATE_DIGEST")) throw new Error("browser cluster binding mismatch");
   const diagnostic = JSON.parse(
     readFileSync(resolveRunArtifact(stack.startup_diagnostics_ref), "utf8"),
   );

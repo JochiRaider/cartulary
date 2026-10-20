@@ -16,8 +16,8 @@ test.afterEach(async ({ page }) => {
 test("preserves unsaved local work after socket revocation and re-authentication", async ({
   page,
   sessionTracker,
-  workerAdmin,
-  workerAdminRequest,
+  testActor,
+  testActorRequest,
 }) => {
   await test.step("deployment-admin revoke-all preserves and replays local work", async () => {
     await exerciseRevokedPendingReplay({
@@ -28,13 +28,13 @@ test("preserves unsaved local work after socket revocation and re-authentication
       sessionTracker,
       triggerRevocation: async ({ member }) => {
         await revokeAllSessions(
-          workerAdminRequest,
+          testActorRequest,
           member.user_id,
           "Collaboration collaboration-recovery browser revoke-all",
         );
       },
     });
-    await applyStorageState(page, workerAdmin.storageState);
+    await applyStorageState(page, testActor.storageState);
   });
 
   await test.step("current-session logout preserves and replays local work", async () => {
@@ -55,7 +55,7 @@ test("preserves unsaved local work after socket revocation and re-authentication
         expect(response.ok()).toBeTruthy();
       },
     });
-    await applyStorageState(page, workerAdmin.storageState);
+    await applyStorageState(page, testActor.storageState);
   });
 
   await test.step("idle expiry preserves and replays local work after re-authentication", async () => {
@@ -71,6 +71,6 @@ test("preserves unsaved local work after socket revocation and re-authentication
         await testClock.setAfter(currentSession.session_expires_at);
       },
     });
-    await applyStorageState(page, workerAdmin.storageState);
+    await applyStorageState(page, testActor.storageState);
   });
 });

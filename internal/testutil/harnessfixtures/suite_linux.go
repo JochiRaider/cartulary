@@ -9,7 +9,6 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -24,19 +23,22 @@ import (
 )
 
 type Suite struct {
-	Environment map[string]string
-	LeaseFile   string
-	ResourceRef string
-	ScopeRef    string
-	Close       func(context.Context) error
+	Environment  map[string]string
+	LeaseFile    string
+	ResourceRef  string
+	ResourceRefs []string
+	ScopeRef     string
+	Close        func(context.Context) error
 }
 
-// SuiteOwner serializes the one run-owned physical suite. Fixture providers
+// SuiteOwner serializes one physical service generation. Fixture providers
 // borrow its bindings; it closes only after all dependent allocations drain.
 type SuiteOwner struct {
 	mu                sync.Mutex
 	Acquire           func(context.Context) (*Suite, error)
+	ReleaseResidency  func(context.Context) error
 	suite             *Suite
+	binding           *Suite
 	err               error
 	attempted, closed bool
 	closeOnce         sync.Once
@@ -63,21 +65,26 @@ func (s *SuiteOwner) Close(ctx context.Context) error {
 		if s.suite != nil && s.suite.Close != nil {
 			s.closeErr = s.suite.Close(ctx)
 		}
+		if s.closeErr == nil && s.ReleaseResidency != nil {
+			s.closeErr = s.ReleaseResidency(ctx)
+		}
 	})
 	return s.closeErr
 }
 
 type ProductionOptions struct {
-	BrowserLaneLimit      int
-	residency             *residency
-	Root, RunRoot, Target string
-	Runtime               *harnesssession.Runtime
-	Environment           map[string]string
-	Run                   Command
-	ContainerProof        func(map[string]any)
-	Dependencies          []string
-	ReportCleanup         func(CleanupOutcome)
-	RecoveryOutput        bool
+	ServiceKey, ServiceID, PostgresIsolation, PostgresAllocation string
+	ServiceDependencies                                          []string
+	BrowserLaneLimit                                             int
+	residency                                                    *residency
+	Root, RunRoot, Target                                        string
+	Runtime                                                      *harnesssession.Runtime
+	Environment                                                  map[string]string
+	Run                                                          Command
+	ContainerProof                                               func(context.Context, map[string]any, bool)
+	Dependencies                                                 []string
+	ReportCleanup                                                func(CleanupOutcome)
+	RecoveryOutput                                               bool
 }
 
 func resourceDependencies(references []string) string {
@@ -128,12 +135,12 @@ func (p ProductionOptions) serviceBinary() string {
 	}
 	return ""
 }
-func (p ProductionOptions) containerProof(value map[string]any) {
+func (p ProductionOptions) containerProof(ctx context.Context, value map[string]any, retiring bool) {
 	if p.ContainerProof == nil {
 		return
 	}
 	defer func() { _ = recover() }()
-	p.ContainerProof(value)
+	p.ContainerProof(ctx, value, retiring)
 }
 func readObject(name, schema string, maximum int64) (map[string]any, error) {
 	data, err := harnesslocal.ReadFile(name, maximum, false)
@@ -167,9 +174,17 @@ func (p ProductionOptions) stopSuite(ctx context.Context, lease string, environm
 	return p.closeResource(ctx, "managed_suite", lease, func(step context.Context) error { return p.stopSuitePhysical(step, lease, environment) })
 }
 func (p ProductionOptions) stopSuitePhysical(ctx context.Context, lease string, environment map[string]string) error {
-	return p.Runtime.AttemptCleanup(ctx, "managed_suite", lease, func(step context.Context) error { return p.stopSuiteAttempt(step, lease, environment) })
+	return p.Runtime.AttemptCleanup(ctx, "managed_suite", lease, func(step context.Context) error {
+		// The dependency evaluator may release the physical suite before the
+		// logical Suite.Close handle. Capture while the owned container is live.
+		if proof, err := readObject(lease, "cartulary.test_services.lease.v3", 1048576); err == nil {
+			p.containerProof(step, map[string]any{"lease": proof, "ownership": "owned", "borrower_file": "", "borrower_id": ""}, true)
+		}
+		return p.stopSuiteAttempt(step, lease, environment)
+	})
 }
-func (p ProductionOptions) stopSuiteAttempt(ctx context.Context, lease string, environment map[string]string) error {
+func (p ProductionOptions) stopSuiteAttempt(ctx context.Context, lease string, environment map[string]string) (result error) {
+	defer func() { result = harnesssession.AtCleanupStage("managed_service_settlement", result) }()
 	reference, err := p.Runtime.ResourceReference("managed_suite", lease)
 	if err != nil {
 		return err
@@ -197,12 +212,16 @@ func (p ProductionOptions) stopSuiteAttempt(ctx context.Context, lease string, e
 		return CleanupFailure(errors.Join(stopErr, cleanupErr))
 	}
 	if err := p.Runtime.RecordResource("managed_suite", lease, "released"); err != nil {
-		return artifactFailure(err)
+		return artifactFailure(harnesssession.AtCleanupStage("resource_release", err))
 	}
 	return errors.Join(removePrivate(lease), removePrivate(filepath.Join(filepath.Dir(lease), "suite-environment.json")))
 }
 func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result error) {
-	root, err := p.Runtime.RecoveryPath("test-services")
+	serviceID := p.ServiceID
+	if serviceID == "" {
+		serviceID = "suite-" + identifier()
+	}
+	root, err := p.Runtime.RecoveryPath("service-owners", serviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +231,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	}
 	directory.Close()
 	environmentFile, leaseFile := filepath.Join(root, "suite-environment.json"), filepath.Join(root, "suite-lease.json")
-	resultFile, err := p.Runtime.PrivatePath("suite-start-result.json")
+	resultFile, err := p.Runtime.PrivatePath("suite-start-" + serviceID + ".json")
 	if err != nil {
 		return nil, err
 	}
@@ -221,10 +240,16 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 		return nil, err
 	}
 	p.Dependencies = []string{resourceRef}
-	environment := p.environment()
-	environment["CARTULARY_TEST_SUITE_ID"] = regexp.MustCompile(`[^A-Za-z0-9_.-]+`).ReplaceAllString("work-graph-"+p.Target, "-")
+	environment := serviceEnvironment(p.environment(), nil)
+	environment["CARTULARY_TEST_SUITE_ID"] = strings.ReplaceAll(identifier(), "-", "")[:24]
 	delete(environment, "CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT")
-	dependencies := append([]string{}, p.residency.reference("services")...)
+	if p.ServiceDependencies != nil {
+		environment["CARTULARY_HARNESS_SERVICE_DEPENDENCIES"] = strings.Join(p.ServiceDependencies, ",")
+	}
+	environment[suiteservices.PGIsolationEnv] = p.PostgresIsolation
+	environment[suiteservices.PGAllocationRefEnv] = p.PostgresAllocation
+	dependencies := append([]string{}, p.residency.reference(p.ServiceKey)...)
+
 	if err := p.Runtime.RecordDependentResource("managed_suite", leaseFile, "pending", dependencies, environmentFile); err != nil {
 		return nil, artifactFailure(err)
 	}
@@ -236,13 +261,22 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 		if result == nil {
 			return
 		}
+		var settlement error
 		if _, err := harnesslocal.ReadFile(leaseFile, 1048576, false); err == nil {
 			cleanupCtx, done := context.WithTimeout(context.Background(), 2*time.Minute)
-			cleanup := p.stopSuite(cleanupCtx, leaseFile, environment)
+			settlement = p.stopSuite(cleanupCtx, leaseFile, environment)
 			done()
-			result = errors.Join(result, cleanup)
 		} else if !startup.Started && !settled {
-			result = errors.Join(result, p.Runtime.RecordResource("managed_suite", leaseFile, "released"))
+			settlement = p.Runtime.RecordResource("managed_suite", leaseFile, "released")
+		} else if !settled {
+			settlement = harnesssession.ErrUnresolved
+		}
+		if settlement != nil {
+			// Acquisition already spent its one cleanup attempt. Carry the
+			// unresolved ownership into SuiteOwner so closing the generation
+			// cannot release resident capacity or retry physical cleanup.
+			suite = &Suite{Close: func(context.Context) error { return settlement }}
+			result = errors.Join(result, CleanupFailure(settlement))
 		}
 	}()
 	start, err := readObject(resultFile, "cartulary.test_services.start_result.v2", 1048576)
@@ -261,7 +295,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	}
 	ref, _ := start["service_scope_ref"].(string)
 	suiteID, _ := start["suite_id"].(string)
-	if !component.MatchString(suiteID) || ref != "_shared/test-services/"+suiteID+"/service-scope.json" {
+	if suiteID != environment["CARTULARY_TEST_SUITE_ID"] || !component.MatchString(suiteID) || ref != "_shared/test-services/"+suiteID+"/service-scope.json" {
 		return nil, artifactFailure(errors.New("scope reference mismatch"))
 	}
 	scope, err := readObject(filepath.Join(p.RunRoot, ref), "cartulary.test_services.scope.v2", 1048576)
@@ -330,21 +364,25 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 			return nil, artifactFailure(err)
 		}
 	}
-	proof, err := readObject(leaseFile, "cartulary.test_services.lease.v2", 1048576)
+	proof, err := readObject(leaseFile, "cartulary.test_services.lease.v3", 1048576)
 	if err != nil {
 		return nil, artifactFailure(err)
+	}
+	if postgres, ok := proof["postgres_provisioning"].(map[string]any); ok && (postgres["postgres_isolation"] != p.PostgresIsolation || postgres["allocation_ref"] != p.PostgresAllocation) {
+		return nil, artifactFailure(errors.New("PostgreSQL binding does not match requested ownership"))
 	}
 	if err := validatePostgresProvisioning(proof, admitted); err != nil {
 		return nil, artifactFailure(err)
 	}
-	p.containerProof(map[string]any{"lease": proof, "ownership": "owned", "borrower_file": "", "borrower_id": ""})
+	p.containerProof(ctx, map[string]any{"lease": proof, "ownership": "owned", "borrower_file": "", "borrower_id": ""}, false)
 	var once sync.Once
 	var closeErr error
 	admitted["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
-	suite = &Suite{Environment: admitted, LeaseFile: leaseFile, ResourceRef: resourceRef, ScopeRef: ref, Close: func(ctx context.Context) error {
-		once.Do(func() { p.containerProof(nil); closeErr = p.stopSuite(ctx, leaseFile, environment) })
+	suite = &Suite{Environment: admitted, LeaseFile: leaseFile, ResourceRef: resourceRef, ResourceRefs: []string{resourceRef}, ScopeRef: ref, Close: func(ctx context.Context) error {
+		once.Do(func() { closeErr = p.stopSuite(ctx, leaseFile, environment) })
 		return closeErr
 	}}
+
 	return suite, nil
 }
 
@@ -365,6 +403,7 @@ func validatePostgresProvisioning(lease map[string]any, env map[string]string) e
 	}
 	proof, ok := lease["postgres_provisioning"].(map[string]any)
 	if !ok || proof["generation"] != env[suiteservices.PGGenerationEnv] || env[suiteservices.PGGenerationEnv] == "" ||
+		proof["postgres_isolation"] != env[suiteservices.PGIsolationEnv] || proof["allocation_ref"] != env[suiteservices.PGAllocationRefEnv] ||
 		proof["policy_digest"] != pgtest.ProvisioningDigest() || proof["policy_digest"] != env[suiteservices.PGProvisioningDigestEnv] ||
 		proof["template_digest"] != pgtest.TemplateDigest(pgschema.MustHash()) || proof["template_digest"] != env[suiteservices.PGTemplateDigestEnv] {
 		return errors.New("incompatible PostgreSQL provisioning capability")

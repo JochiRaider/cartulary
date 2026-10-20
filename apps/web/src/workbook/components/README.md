@@ -66,7 +66,7 @@ confirmation remain in their existing controllers.
 
 | File | Responsibility |
 | --- | --- |
-| [GenericMutationControl.test.tsx](GenericMutationControl.test.tsx) | Tests field-control descriptors, variants, options, sizing, and form/grid presentation. |
+| [GenericMutationControl.node.test.ts](GenericMutationControl.node.test.ts) | Tests field-control descriptors, variants, options, sizing, and form/grid presentation. |
 | [GenericMutationControl.tsx](GenericMutationControl.tsx) | Renders descriptor-driven field editors for generic form and grid mutation surfaces. |
 | [genericMutationControlModel.ts](genericMutationControlModel.ts) | Pure field-control descriptors for generic form and grid mutation editors. |
 | [WorkbookAuthoringReferenceControl.tsx](WorkbookAuthoringReferenceControl.tsx) | Shared staged/paged reference picker, with compact grid popover geometry and keyboard exit; selection identities belong to the authoring owner. |

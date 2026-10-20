@@ -53,7 +53,7 @@ test.describe.configure({ mode: "serial", timeout: 10 * 60 * 1000 });
 test("traces anchored Timeline edits through large-grid refresh and live updates within AC-047", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   const view = contract.view_schema_id;
@@ -65,7 +65,7 @@ test("traces anchored Timeline edits through large-grid refresh and live updates
   let finalVersion: number | null = null;
   try {
     expect(info.retry).toBe(0);
-    const snapshot = await prepareAc043Snapshot(page, workerAdmin);
+    const snapshot = await prepareAc043Snapshot(page, testActor);
     const firstPage = [...snapshot.timelineRows]
       .sort((a, b) =>
         a.record_id < b.record_id ? -1 : a.record_id > b.record_id ? 1 : 0,

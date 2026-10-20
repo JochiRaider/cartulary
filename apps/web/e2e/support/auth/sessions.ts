@@ -59,6 +59,11 @@ import {
   writeWorkerAdminManifest,
 } from "./workerAdmin";
 
+export type FixtureActorCredentials = Pick<
+  WorkerAdminEntry,
+  "user_id" | "email" | "password"
+>;
+
 export type WorkerAdmin = WorkerAdminEntry & {
   storageState: StorageState;
 };
@@ -216,7 +221,9 @@ export async function loginBootstrapControlPlaneContext() {
   }
 }
 
-export async function loginWorkerAdminContext(entry: WorkerAdminEntry) {
+export async function loginFixtureActorContext<
+  T extends FixtureActorCredentials,
+>(entry: T) {
   const anonymousRequests = await request.newContext({ baseURL: apiBase });
   try {
     await waitForAPIReady(anonymousRequests);
@@ -226,7 +233,7 @@ export async function loginWorkerAdminContext(entry: WorkerAdminEntry) {
     });
     if (!loginResponse.ok) {
       throw new Error(
-        `worker admin login failed with HTTP ${loginResponse.status}`,
+        `fixture actor login failed with HTTP ${loginResponse.status}`,
       );
     }
     const storageState = storageStateFromCookieValues(
@@ -236,7 +243,7 @@ export async function loginWorkerAdminContext(entry: WorkerAdminEntry) {
     return {
       ...entry,
       storageState,
-    } satisfies WorkerAdmin;
+    } satisfies T & { storageState: StorageState };
   } finally {
     await anonymousRequests.dispose();
   }

@@ -28,7 +28,7 @@ func TestExplicitEntityMerge_Unit(t *testing.T) {
 	t.Run("host merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-06-host")
 		store := newEntityTestStore(t, harness.DB)
-		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u406@example.test", "U406", "U406EntityLinkingPass1!", false, false, true)
+		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u406@example.test", DisplayName: "U406"})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-incident", "IR-U406", "Record relationships entity-storage")
 
 		entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
@@ -140,7 +140,7 @@ SELECT COUNT(*)
 	t.Run("identity merge preserves raw mentions, loser lineage, and survivor reuse", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-06-identity")
 		store := newEntityTestStore(t, harness.DB)
-		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u406-identity@example.test", "U406 Identity", "U406IdentityEntityLinkingPass1!", false, false, true)
+		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u406-identity@example.test", DisplayName: "U406 Identity"})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-incident", "IR-U406-I", "Record relationships entity-storage identity")
 
 		entitytest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, entitytest.CanonicalIdentityRecordID, "Alex Analyst", "alex.survivor@example.test", "alex.survivor@example.test", "ALEXSURV")
@@ -219,7 +219,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 	t.Run("host merge exposes carried secondary reusable identifiers", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-06-host-reusable-row")
 		store := newEntityTestStore(t, harness.DB)
-		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u406-host-reusable@example.test", "U406 Host Reusable", "U406HostReusableEntityLinkingPass1!", false, false, true)
+		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u406-host-reusable@example.test", DisplayName: "U406 Host Reusable"})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-host-reusable-incident", "IR-U406-HR", "Record relationships entity-storage host reusable rows")
 		survivorID := uuid.New()
 		loserID := uuid.New()
@@ -263,7 +263,7 @@ SELECT identity_state, merged_into_record_id::text, row_version
 	t.Run("identity merge exposes carried secondary reusable identifiers", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-06-identity-reusable-row")
 		store := newEntityTestStore(t, harness.DB)
-		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u406-identity-reusable@example.test", "U406 Identity Reusable", "U406IdentityReusableEntityLinkingPass1!", false, false, true)
+		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u406-identity-reusable@example.test", DisplayName: "U406 Identity Reusable"})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-06-identity-reusable-incident", "IR-U406-IR", "Record relationships entity-storage identity reusable rows")
 		survivorID := uuid.New()
 		loserID := uuid.New()
@@ -323,7 +323,7 @@ func assertEntityMergeScalarOrdering(t *testing.T) {
 	for _, entityType := range []string{"host", "identity"} {
 		t.Run(entityType, func(t *testing.T) {
 			harness := appsupport.StartStore(t, "entity-merge-unicode-order-"+entityType)
-			actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "merge-order@example.test", "Merge Order", "MergeOrderFixture1!", false, false, true)
+			actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "merge-order@example.test", DisplayName: "Merge Order"})
 			incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-order-incident", "IR-ORDER", "Merge ordering")
 			survivorID, loserID := uuid.New(), uuid.New()
 			identifierClass := "hostname"

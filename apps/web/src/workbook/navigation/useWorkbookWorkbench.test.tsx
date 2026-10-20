@@ -4,7 +4,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { observeAsyncOperation } from "../../services/asyncObservation";
 import { deferred } from "../../testing/fetchMockTestSupport";
-import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../testing/workbookFixtureData";
 import { savedViewTestResource } from "../../testing/workbookSavedViewTestSupport";
 import {
   buildSavedViewLayoutJson,

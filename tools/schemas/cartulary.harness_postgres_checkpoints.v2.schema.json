@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_postgres_checkpoints.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "source_digest",
+    "graph_digest",
+    "policy_digest",
+    "clock",
+    "status",
+    "records",
+    "services",
+    "unavailable",
+    "truncated",
+    "unavailable_causes",
+    "service_results"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_postgres_checkpoints.v2"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "graph_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "clock": {
+      "const": "owned_service_start"
+    },
+    "status": {
+      "enum": [
+        "not_observed",
+        "observed",
+        "unavailable",
+        "truncated"
+      ]
+    },
+    "services": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 256
+    },
+    "unavailable": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4096
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "service_ordinal",
+          "elapsed_ms",
+          "write_ms",
+          "sync_ms",
+          "files",
+          "longest_sync_ms",
+          "average_sync_ms"
+        ],
+        "properties": {
+          "service_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400000
+          },
+          "write_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400000
+          },
+          "sync_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400000
+          },
+          "files": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400000
+          },
+          "longest_sync_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400000
+          },
+          "average_sync_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400000
+          }
+        }
+      }
+    },
+    "unavailable_causes": {
+      "type": "array",
+      "maxItems": 13,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "client_unavailable",
+          "inspection_failed",
+          "ownership_unavailable",
+          "clock_unavailable",
+          "log_request_failed",
+          "settlement_unavailable",
+          "deadline_exceeded",
+          "cancelled",
+          "incomplete_stream",
+          "invalid_framing",
+          "line_limit",
+          "unsupported_format",
+          "measurement_quiet"
+        ]
+      }
+    },
+    "service_results": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "service_ordinal",
+          "service_scope_ref",
+          "generation",
+          "identity_digest",
+          "status",
+          "unavailable_causes",
+          "truncated"
+        ],
+        "properties": {
+          "service_ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256
+          },
+          "service_scope_ref": {
+            "type": "string",
+            "pattern": "^_shared/test-services/[A-Za-z0-9][A-Za-z0-9._-]*/service-scope\\.json$"
+          },
+          "generation": {
+            "type": "string",
+            "pattern": "^([1-9][0-9]{0,19})?$"
+          },
+          "identity_digest": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "status": {
+            "enum": [
+              "not_observed",
+              "observed",
+              "unavailable",
+              "truncated"
+            ]
+          },
+          "unavailable_causes": {
+            "type": "array",
+            "maxItems": 13,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "client_unavailable",
+                "inspection_failed",
+                "ownership_unavailable",
+                "clock_unavailable",
+                "log_request_failed",
+                "settlement_unavailable",
+                "deadline_exceeded",
+                "cancelled",
+                "incomplete_stream",
+                "invalid_framing",
+                "line_limit",
+                "unsupported_format",
+                "measurement_quiet"
+              ]
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

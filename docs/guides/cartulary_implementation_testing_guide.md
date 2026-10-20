@@ -240,16 +240,17 @@ The restore browser test owns its child in a Playwright fixture that yields
 ownership before a dependent fixture waits for readiness. Startup failure and
 test-body timeout therefore still receive an independent teardown lifetime.
 Its inline `cartulary-browser-fixture-lifecycle` attachment
-contains `cartulary.browser_fixture_lifecycle.v1`: attempt identity, ordered
+contains `cartulary.browser_fixture_lifecycle.v2`: attempt identity, ordered
 resource acquisition and cleanup events, elapsed times, local stage deadlines,
-redacted stderr, process closure, and every test/cleanup failure. A zero stage
-deadline means that stage uses the outer process cleanup deadline. Read this
+redacted stderr, process closure, and every test/cleanup failure. Cleanup stages
+report their effective remaining owner deadline; zero during cleanup means the
+allowance has expired. Acquisition and terminal events have no stage deadline. Read this
 attachment before rerunning a failed restore. Startup stdout contains private
 credentials and must never be copied into retained diagnostics. Cleanup-only
 failure is `harness/cleanup_error`; an accompanying product failure keeps its
 primary classification while the cleanup observation remains in the report and
-failure dossiers. Current row results use `cartulary.harness_row_result.v4` and
-browser-group results use `cartulary.browser_group_result.v9`; prior versions are
+failure dossiers. Current row results use `cartulary.harness_row_result.v5` and
+browser-group results use `cartulary.browser_group_result.v10`; prior versions are
 archival inputs, not active-run fallbacks. Forced termination or missing terminal
 evidence cannot pass.
 
@@ -308,23 +309,42 @@ scratch databases with `NewDatabaseT`, current-head clones with
 `PrepareIsolatedDatabaseT`, and migration-history scratch databases with the
 migration capability; each helper registers deletion before callers register
 their runtime, job, pool, and handle finalizers, so those borrowers close first.
-Cleanup attempts an ordinary exact-owner drop and uses one bounded PostgreSQL
-`DROP DATABASE ... WITH (FORCE)` only after ownership proof when that attempt
-reports active connections or exhausts its separate bounded budget while parent
-cleanup is still active. Parent cancellation prevents fallback. Keeping forced
-termination and deletion in one database operation prevents catalog pressure
-from exhausting a shared terminate-then-drop budget. Every harness-owned create,
-clone, template-state mutation, ordinary exact-owner drop, and forced drop first
-holds a target-specific PostgreSQL session-advisory lock. Same-target mutations
-cannot overlap, while a slow target cannot stop unrelated catalog work.
-Admission uses PostgreSQL's lock queue without polling and releases through a
-fresh bounded context. Normal and forced operations keep independent budgets,
-and fallback reacquires admission only after the ordinary attempt has released
-it. Exact owner proof and target exclusion make service-global quiescence
-unnecessary. Global catalog concurrency is bounded only by typed scheduler
-PostgreSQL claims; hash stripes are not a second, collision-prone admission
-layer. A fixture that deliberately overlaps targets must reserve the matching
-PostgreSQL capacity.
+After exact ownership proof and owner shutdown, cleanup issues one atomic
+`DROP DATABASE IF EXISTS ... WITH (FORCE)` through
+`postgrescleanup.DropOwnedDatabase`. There is no ordinary preflight, timeout
+retry, or split terminate-then-drop path. Force retires remaining connections;
+it does not bypass PostgreSQL checkpoint synchronization or erase an earlier
+owner-close failure. The common owner caps admission at 15 seconds and the drop
+at 20 seconds. A caller without a deadline receives a bounded lifetime derived
+from those caps; an existing cleanup deadline clamps both phases and the existing
+2-second lock-release allowance. A timeout retains uncertain ownership.
+
+Every harness-owned create, clone, template-state mutation and drop acquires a
+target-specific session-advisory lock on the same physical connection as the
+mutation. A retired connection releases server-side exclusion only when its
+backend settles. Same-target mutations cannot overlap; different targets remain
+independent. PostgreSQL's lock queue supplies admission without polling, hash
+stripes or service-global quiescence. Global catalog concurrency belongs to typed
+scheduler PostgreSQL claims. A fixture that overlaps targets reserves matching
+capacity.
+
+The Recovery browser fixture has one explicit cleanup lifetime. Its parent passes
+30 seconds of child work within the existing 35-second graceful allowance,
+reserving 5 seconds for settlement/reporting. Both HTTP/runtime chains and pools
+close before at most two independent database drops run concurrently; remaining
+storage closes afterward. Partial acquisition enters the same phase ordering.
+Synchronous owners are never abandoned and reported as clean; process-stop
+backstops preserve missing-terminal or uncertain-settlement failure.
+
+Go and browser failure evidence share the bounded PostgreSQL observation
+contract: effective budgets, phase durations, admission/outcome, exact-backend
+wait samples and reset-aware checkpoint write/sync counters. Basic diagnostics
+may retain numeric checkpoint completion records before physical owned-service
+teardown, under the existing measurement fence and bounded collector. Unknown
+formats and incomplete reads are explicit; no raw log, PID, database name, SQL
+or credential is retained. Service-wide checkpoint facts do not attribute a
+physical storage cause or a particular completion to an individual drop.
+
 Service-backed Go work also reserves PostgreSQL capacity honestly: its
 `GOMAXPROCS`, CPU claim, and PostgreSQL claim use the same captured-capacity-
 and topology-claim-bounded value. The ordinary service minimum declares one

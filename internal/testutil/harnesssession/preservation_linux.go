@@ -48,7 +48,7 @@ func (r *Runtime) PreserveRecovery() error {
 		return errors.Join(err, purgeErr)
 	}
 	if purgeErr != nil {
-		return atCleanupStage("recovery_purge", purgeErr)
+		return AtCleanupStage("recovery_purge", purgeErr)
 	}
 	if len(resources) == 0 {
 		// Review terminal transactions may retain scanner authority after resources
@@ -70,7 +70,7 @@ func (r *Runtime) PreserveRecovery() error {
 		// Validate the entire secure path without accepting a directory or link as
 		// proof. Invalid authority remains unresolved; independent detail is purged.
 		if _, err := harnesslocal.ReadFile(file, 1048576, false); err != nil {
-			validationErrors = append(validationErrors, atCleanupStage("recovery_proof", err))
+			validationErrors = append(validationErrors, AtCleanupStage("recovery_proof", err))
 		}
 	}
 	var purge func(string) error
@@ -124,11 +124,11 @@ func (r *Runtime) PreserveRecovery() error {
 		}
 		return errors.Join(failures...)
 	}
-	return errors.Join(append(validationErrors, atCleanupStage("recovery_purge", purge(r.Root)))...)
+	return errors.Join(append(validationErrors, AtCleanupStage("recovery_purge", purge(r.Root)))...)
 }
 
 // CleanupStaleRoots is bounded and conservative. Age alone is never deletion
-// authority: live/unknown process proof and any recovery marker retain a root.
+// authority: live/unknown process proof and unresolved resources retain a root.
 func CleanupStaleRoots(base string, now time.Time) (int, error) {
 	dir, err := harnesslocal.OpenDirectory(base, true)
 	if errors.Is(err, os.ErrNotExist) {
@@ -146,16 +146,15 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 		return 0, harnesslocal.ErrUnsafe
 	}
 	slices.Sort(names)
-	scanned, removed := 0, 0
+	removed := 0
 	for _, name := range names {
 		staging := strings.HasPrefix(name, ".creating-suite-")
 		if !staging && !strings.HasPrefix(name, "suite-") {
 			continue
 		}
-		if scanned >= 64 {
+		if removed >= 64 {
 			break
 		}
-		scanned++
 		path := filepath.Join(base, name)
 		d, err := harnesslocal.OpenDirectory(path, true)
 		if errors.Is(err, os.ErrNotExist) {
@@ -236,21 +235,36 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 			if alive {
 				return nil
 			}
-			var recovery unix.Stat_t
-			err = unix.Fstatat(int(d.Fd()), "recovery", &recovery, unix.AT_SYMLINK_NOFOLLOW)
-			if err == nil {
-				return nil
-			}
-			if err != unix.ENOENT {
-				return err
-			}
 			// A dead owner does not prove that its admitted detail writers or
 			// marked descendants stopped. Use the same fenced native boundary.
 			runtime := &Runtime{Root: path, RunID: owner["run_id"].(string), LeaseID: owner["lease_id"].(string), Directory: d, owned: true}
+			resources, err := runtime.resources(4096)
+			if err != nil {
+				return err
+			}
+			if len(resources) != 0 {
+				return nil
+			}
+			// Resource settlement does not settle terminal publication or a
+			// retained scan. PreserveRecovery deliberately keeps sealed roots
+			// even with an empty journal so exact recovery retains that authority.
+			sealed, err := harnesslocal.ReadFileAt(d, "finalizing", 16, false)
+			if err == nil {
+				if string(sealed) != "sealed\n" {
+					return harnesslocal.ErrUnsafe
+				}
+				return nil
+			}
+			if !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+			if err := runtime.settleRecoveryDetails(false); err != nil {
+				return err
+			}
 			if err := runtime.fenceDetails(); err != nil {
 				return err
 			}
-			if err := errors.Join(runtime.purgeDetail("ordinary"), runtime.purgeRecoveryDetails()); err != nil {
+			if err := runtime.purgeDetail("ordinary"); err != nil {
 				return err
 			}
 			if err = RemoveOwnedTree(d, path); err == nil {
@@ -258,11 +272,14 @@ func CleanupStaleRoots(base string, now time.Time) (int, error) {
 			}
 			return err
 		}
-		if err = unix.Flock(int(d.Fd()), unix.LOCK_EX); err == nil {
+		if err = unix.Flock(int(d.Fd()), unix.LOCK_EX|unix.LOCK_NB); err == nil {
 			err = inspect()
 			_ = unix.Flock(int(d.Fd()), unix.LOCK_UN)
 		}
 		d.Close()
+		if errors.Is(err, unix.EWOULDBLOCK) || errors.Is(err, ErrUnresolved) {
+			continue
+		}
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return removed, err
 		}

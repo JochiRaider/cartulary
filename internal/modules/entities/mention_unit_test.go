@@ -20,7 +20,7 @@ func TestCreateFromMention_Unit(t *testing.T) {
 	t.Run("explicit host resolve links the selected mention to the canonical record", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-03-host-reuse")
 		mentionStore := newEntityTestTimelineBundle(t, harness.DB).EntityMentionStore
-		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u403-host@example.test", "U403 Host", "U403HostEntityLinkingPass1!", false, false, true)
+		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u403-host@example.test", DisplayName: "U403 Host"})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-host-incident", "IR-U403-H", "Record relationships entity-storage host")
 
 		entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")
@@ -84,7 +84,7 @@ SELECT display_name, hostname, host_state
 	t.Run("identity resolve without an explicit target is rejected without creating a stub", func(t *testing.T) {
 		harness := appsupport.StartStore(t, "entity_linking-u-4-03-identity-create")
 		mentionStore := newEntityTestTimelineBundle(t, harness.DB).EntityMentionStore
-		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u403-identity@example.test", "U403 Identity", "U403IdentityEntityLinkingPass1!", false, false, true)
+		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u403-identity@example.test", DisplayName: "U403 Identity"})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-03-identity-incident", "IR-U403-I", "Record relationships entity-storage identity")
 
 		timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelinetest.MixedRecordID)
@@ -119,7 +119,7 @@ func TestDismissRestoreMentionLifecycle_Unit(t *testing.T) {
 	mentionStore := timelineBundle.EntityMentionStore
 	timelineFacade := timelineBundle.Facade
 	timelineProjectionStore := projections.RestoreProbeQuery()
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u404@example.test", "U404", "U404EntityLinkingPass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u404@example.test", DisplayName: "U404"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-04-incident", "IR-U404", "Record relationships entity-storage")
 
 	entitytest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, entitytest.CanonicalHostRecordID, "WS-023", "WS-023", "", "")

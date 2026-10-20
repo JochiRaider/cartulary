@@ -39,6 +39,7 @@ type collector struct {
 	adapter                                       *linuxAdapter
 	store                                         *resourceStore
 	containers                                    *containerAdapter
+	checkpoints                                   *checkpointEvidence
 	admissionRoot                                 string
 	capacities                                    harnessadmission.Quantities
 	owner                                         harnessadmission.Proof
@@ -387,6 +388,8 @@ func (c *collector) finish(omitted int) error {
 	for key, value := range c.identity {
 		facts[key] = value
 	}
+	// Optional diagnostic publication cannot change the owning test outcome.
+	_ = c.publishCheckpoints()
 	return c.store.finish(facts, start)
 }
 
@@ -669,6 +672,20 @@ func Main(input io.Reader, output io.Writer) int {
 				if c.send(object{"type": "registered", "request": message["request"]}) != nil {
 					return fail()
 				}
+			case "checkpoints":
+				if c.checkpoints == nil {
+					c.checkpoints = &checkpointEvidence{}
+				}
+				if desired.Load() == 0 {
+					if observe(func(ctx context.Context) (bool, error) { return c.fenced(ctx, c.captureCheckpoints) }) {
+						return fail()
+					}
+				} else {
+					_ = c.captureCheckpointServices(context.Background(), "measurement_quiet")
+				}
+				if c.send(object{"type": "checkpoints", "request": message["request"]}) != nil {
+					return fail()
+				}
 			case "pause", "stop":
 				timer.Stop()
 				flush.Stop()
@@ -743,9 +760,10 @@ func Main(input io.Reader, output io.Writer) int {
 
 func validControl(message object) bool {
 	keys := map[string][]string{
-		"register": {"type", "request", "proof", "unit_id", "allocation_ref", "invocation_id"},
-		"pause":    {"type", "request", "omitted_registrations"},
-		"stop":     {"type", "request", "omitted_registrations"}, "resume": {"type"},
+		"register":    {"type", "request", "proof", "unit_id", "allocation_ref", "invocation_id"},
+		"pause":       {"type", "request", "omitted_registrations"},
+		"checkpoints": {"type", "request", "omitted_registrations"},
+		"stop":        {"type", "request", "omitted_registrations"}, "resume": {"type"},
 	}
 	kind, _ := message["type"].(string)
 	expected, ok := keys[kind]
@@ -757,7 +775,7 @@ func validControl(message object) bool {
 			return false
 		}
 	}
-	if kind == "register" || kind == "pause" {
+	if kind == "register" || kind == "pause" || kind == "checkpoints" {
 		n, ok := message["request"].(float64)
 		if !ok || n < 1 || n != float64(int64(n)) {
 			return false
@@ -766,7 +784,7 @@ func validControl(message object) bool {
 	if kind == "stop" && message["request"] != "stop" {
 		return false
 	}
-	if kind == "stop" || kind == "pause" {
+	if kind == "stop" || kind == "pause" || kind == "checkpoints" {
 		n, ok := message["omitted_registrations"].(float64)
 		if !ok || n < 0 || n != float64(int64(n)) {
 			return false

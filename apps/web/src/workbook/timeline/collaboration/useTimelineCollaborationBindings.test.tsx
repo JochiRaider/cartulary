@@ -1,7 +1,7 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../../testing/workbookQueryTestSupport";
 import { emptyWorkbookPresence } from "../../collaboration/workbookPresencePresentation";
 import type { WorkbookActiveSurfacePort } from "../../collaboration/workbookSurfacePort";

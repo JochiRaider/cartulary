@@ -21,10 +21,7 @@ import (
 func TestPartyIdempotencyAdapterPreservesSemanticResultsAndReplayOrder_Integration(t *testing.T) {
 	ctx := context.Background()
 	db := pgtest.Start(t).BeginRollbackDBT(t, "parties-idempotency-adapter")
-	actor := authstoretest.SeedLocalUserRecord(
-		t, db, "parties-idempotency@example.test",
-		"Parties Idempotency", "PartiesIdempotency1!", false, false, true,
-	)
+	actor := authstoretest.SeedActor(t, db, authstoretest.ActorAttributes{Email: "parties-idempotency@example.test", DisplayName: "Parties Idempotency"})
 	incidentID := uuid.New()
 	recordID := uuid.New()
 	changeSetID := uuid.New()

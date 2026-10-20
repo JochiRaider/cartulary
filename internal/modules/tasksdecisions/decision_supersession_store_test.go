@@ -31,7 +31,7 @@ func TestDecisionLifecycleSupersessionAndConsistency_Unit(t *testing.T) {
 	codec := conflicttest.NewCodec("workbook")
 	store := appsupport.NewWorkbookCatalog(harness.DB, codec)
 	owner := appsupport.NewTaskDecisionOwner(harness.DB, codec)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-decision@example.test", "TaskDecision Decision", "TaskDecisionDecision1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "task-decision-decision@example.test", DisplayName: "TaskDecision Decision"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-incident", "IR-TASK-DECISION-DECISION", "Workbook inspector task and decision workflow decisions")
 
 	beforeRecords := countRecords(t, harness.DB, incident.ID)
@@ -354,7 +354,7 @@ func TestSupersedeDecisionRejectsInconsistentSourceOrTarget_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-task-decision-decision-supersede-inconsistent")
 	codec := conflicttest.NewCodec("workbook")
 	owner := appsupport.NewTaskDecisionOwner(harness.DB, codec)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-decision-supersede-inconsistent@example.test", "TaskDecision Decision Supersede Inconsistent", "TaskDecisionDecisionSupersede1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "task-decision-decision-supersede-inconsistent@example.test", DisplayName: "TaskDecision Decision Supersede Inconsistent"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-supersede-inconsistent-incident", "IR-TASK-DECISION-DECISION-SUPERSEDE-INCONSISTENT", "Workbook inspector task and decision workflow decision supersede inconsistent")
 
 	inconsistentSource := mustCreateDecision(t, owner, actor, incident.ID, "txn-workbook_interaction-task-decision-decision-inconsistent-source", "proposed", "Inconsistent source")

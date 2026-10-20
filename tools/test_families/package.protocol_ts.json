@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "package.protocol_ts",
   "rows": [
     {
@@ -23,7 +23,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.protocol_ts.boundary_support.index_anchors_evidence_protocol_facade_types_to_c902d238a7",
@@ -35,11 +36,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/protocol-ts/src/index.test.ts",
+        "file": "packages/protocol-ts/src/index.node.test.ts",
         "titles": [
           "@cartulary/protocol-ts family conformance checks evidence protocol values through generated types"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -48,7 +49,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.protocol_ts.boundary_support.index_decodes_exact_network_flow_contracts_witho_8fee657f09",
@@ -60,14 +62,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/protocol-ts/src/index.test.ts",
+        "file": "packages/protocol-ts/src/index.node.test.ts",
         "titles": [
           "@cartulary/protocol-ts family conformance decodes every server WebSocket family with its complete envelope",
           "@cartulary/protocol-ts family conformance decodes exact Network Flow contracts without exposing payload data on failure",
           "@cartulary/protocol-ts family conformance projects replayable messages to fresh known members at every additive boundary",
           "@cartulary/protocol-ts family conformance rejects incomplete envelopes, invalid payloads, and non-server families"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -76,7 +78,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.protocol_ts.boundary_support.index_decodes_the_core_extension_discovery_envel_395cae3896",
@@ -88,11 +91,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/protocol-ts/src/index.test.ts",
+        "file": "packages/protocol-ts/src/index.node.test.ts",
         "titles": [
           "@cartulary/protocol-ts family conformance implements extension discovery tolerance through the HTTP owner policy"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -101,7 +104,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.protocol_ts.frontend_unit.family_registries_and_account_types_i2",
@@ -113,7 +117,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/protocol-ts/src/index.test.ts",
+        "file": "packages/protocol-ts/src/index.node.test.ts",
         "titles": [
           "@cartulary/protocol-ts family conformance checks account preference values through generated types",
           "@cartulary/protocol-ts family conformance emits owner-selected registries as deeply readonly stable values",
@@ -121,7 +125,7 @@
           "@cartulary/protocol-ts family conformance exposes the typed error and reason-code registry",
           "@cartulary/protocol-ts family conformance exposes typed extension registry profiles"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -130,7 +134,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.protocol_ts.frontend_unit.generated_http_operation_bindings",
@@ -142,12 +147,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/protocol-ts/src/index.test.ts",
+        "file": "packages/protocol-ts/src/index.node.test.ts",
         "titles": [
           "@cartulary/protocol-ts family conformance exposes deterministic generated HTTP operation bindings without payload leakage",
           "@cartulary/protocol-ts family conformance requires complete incident paging and consistent continuation metadata"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -156,7 +161,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "package.protocol_ts.frontend_unit.source_entrypoints_test_ts_50c3a02e28",
@@ -168,8 +174,8 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/protocol-ts/src/entrypoints/entrypoints.test.ts",
-        "project_id": "browser-unit",
+        "file": "packages/protocol-ts/src/entrypoints/entrypoints.node.test.ts",
+        "project_id": "node-unit",
         "titles": [
           "Protocol-TS authored family entrypoints exposes only view-schema-specific registry access",
           "Protocol-TS authored family entrypoints exposes stable typed registry singletons by owner",
@@ -185,7 +191,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

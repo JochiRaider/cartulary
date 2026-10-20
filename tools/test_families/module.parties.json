@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.parties",
   "rows": [
     {
@@ -50,7 +50,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.parties.browser.the_browser_workbook_surface_keeps_ordinary_evid_687c58e86e",
@@ -85,7 +87,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.parties.claims.party_active_claims_are_migration_safe_concurren_9ad2db3764",
@@ -118,7 +122,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.parties.composition.party_mutation_and_import_composition_exposes_on_8a69574087",
@@ -150,7 +155,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.parties.idempotency.party_replay_storage_preserves_semantic_results_478b92a552",
@@ -179,7 +185,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.parties.portability.party_portable_apply_preserves_exact_state_claim_7a428a3abd",
@@ -209,7 +216,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.parties.portability.party_portable_preparation_enforces_strict_shape_fdfc4a86c9",
@@ -235,7 +243,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.parties.portability.party_portable_public_failures_are_closed_and_at_cc2b089315",
@@ -264,7 +273,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.parties.references.party_reference_targets_must_be_active_parties_i_6ca84ebe53",
@@ -293,7 +303,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.parties.rollback.party_rollback_source_preserves_field_presence_a_cb156a5868",
@@ -320,7 +331,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.parties.store.party_create_reuses_exactly_one_active_same_inci_f7f18f1c5c",
@@ -346,7 +358,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.parties.unit.new_contribution_requires_source_7a663ababe",
@@ -372,7 +385,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.parties.unit.normalization_corpus_c9b7db05c6",
@@ -396,7 +410,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.parties.unit.party_create_admission_defaults_are_shared_unit_fdc0b6d64d",
@@ -421,7 +436,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.parties.unit.party_mutation_admission_and_replay_hashing_are_o_7e9a31d4c2",
@@ -447,7 +463,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.parties.unit.party_mutation_admission_public_identity_unit_27b3ca8c40",
@@ -473,7 +490,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.parties.unit.party_mutation_hash_normalization_equivalence_un_c73a730e10",
@@ -498,7 +516,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.parties.unit.party_rollback_every_present_field_uses_generate_d66e34fcd3",
@@ -522,7 +541,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.parties.unit.row_version_consumption_requires_exact_int64_uni_2f197503f1",
@@ -546,7 +566,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

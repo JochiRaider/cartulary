@@ -44,7 +44,7 @@ func TestSavedViewCreateDefaults_Unit(t *testing.T) {
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u802-viewer@example.test", "SavedViewQuery U802 Viewer", "SavedViewQueryU802Viewer1!", false, false, true)
 	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u802-viewer@example.test", "SavedViewQueryU802Viewer1!", nil)
-	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u802-other@example.test", "SavedViewQuery U802 Other", "SavedViewQueryU802Other1!", false, false, true)
+	otherID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "saved_view_query-u802-other@example.test", DisplayName: "SavedViewQuery U802 Other"}).ID.String()
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-saved_view_query-u-8-02-viewer-membership",
 		"user_id":       viewerID,
@@ -553,14 +553,14 @@ func TestSavedViewScopeVocabulary_Unit(t *testing.T) {
 
 func TestSavedViewPatchContract_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "saved_view_query-savedviews-u-8-04")
-	admin := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-u804-admin@example.test", "SavedViewQuery U804 Admin", "SavedViewQueryU804Admin1!", false, false, true)
+	admin := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "saved_view_query-u804-admin@example.test", DisplayName: "SavedViewQuery U804 Admin"})
 	incident := storetest.CreateIncidentInStore(
 		t, harness.Incidents, admin,
 		"txn-saved_view_query-u-8-04-incident", "IR-U804", "Workbook query saved-view patch",
 	)
 
 	incidentID := incident.Incident.ID
-	owner := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-u804-owner@example.test", "SavedViewQuery U804 Owner", "SavedViewQueryU804Owner1!", false, false, true)
+	owner := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "saved_view_query-u804-owner@example.test", DisplayName: "SavedViewQuery U804 Owner"})
 	storetest.CreateMembershipInStore(
 		t, harness.DB, admin, incidentID, owner,
 		"txn-saved_view_query-u-8-04-owner-membership", "viewer",

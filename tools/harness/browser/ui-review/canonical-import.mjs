@@ -72,7 +72,7 @@ export async function importCanonical(request) {
     const root = inputPath(request.run_root);
     const manifest = readJSON(containedFile(root, "run-manifest.json"), "cartulary.harness_run_manifest.v3").value;
     if (manifest.run_id !== path.basename(root)) throw new ReviewFailure("invalid_artifact");
-    const target = readJSON(containedFile(root, "browser-e2e-visual/browser-target-result.json"), "cartulary.browser_target_result.v7").value;
+    const target = readJSON(containedFile(root, "browser-e2e-visual/browser-target-result.json"), "cartulary.browser_target_result.v8").value;
     if (target.target_id !== "browser-e2e-visual") throw new ReviewFailure("invalid_artifact");
     const reference = one((target.artifacts ?? []).filter((entry) => entry.kind === "frontend_visual_reconciliation_v3"));
     const reconciliation = readJSON(containedFile(root, reference.ref), "cartulary.frontend_visual_reconciliation.v3", reference.sha256);
@@ -98,7 +98,7 @@ export async function importCanonical(request) {
     if (fixture && !fixture.capture_profiles[capture.expected_golden_path]) throw new ReviewFailure("invalid_artifact");
     if (fixture) for (const [key, value] of Object.entries(fixture.capture_profiles[capture.expected_golden_path] ?? {})) if (capture.capture_profile[key] !== value) throw new ReviewFailure("invalid_artifact");
     const groups = target.group_results.map((ref) => {
-      const group = readJSON(containedFile(root, ref.ref), "cartulary.browser_group_result.v9", ref.sha256).value;
+      const group = readJSON(containedFile(root, ref.ref), "cartulary.browser_group_result.v11", ref.sha256).value;
       readRendererEvidence(root, group, manifest.run_id);
       if (group.target_id !== target.target_id || group.group_id !== ref.group_id || group.browser_session_id !== ref.browser_session_id || group.stage_id !== "visual") throw new ReviewFailure("invalid_artifact");
       return group;

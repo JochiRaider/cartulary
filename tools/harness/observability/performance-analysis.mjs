@@ -18,7 +18,9 @@ export function analyzePerformance(run, target, { comparison, resources, envelop
     .sort((a, b) => (b.queue_ms + b.execution_ms) - (a.queue_ms + a.execution_ms) || a.unit_id.localeCompare(b.unit_id));
   const covered = intervalUnion(phases.filter((phase) => phase.end_ms !== null).map((phase) => ({ start: phase.start_ms, end: phase.end_ms })));
   return {
-    comparison, schema_id: "cartulary.harness_performance_explanation.v4", run_id: run.manifest.run_id,
+    comparison, schema_id: "cartulary.harness_performance_explanation.v5", run_id: run.manifest.run_id,
+    not_launched_units: (run.notLaunched ?? []).slice(0, 20), not_launched_units_omitted: Math.max(0, (run.notLaunched ?? []).length - 20),
+    evidence_absences: (run.evidenceAbsences ?? []).slice(0, 20), evidence_absences_omitted: Math.max(0, (run.evidenceAbsences ?? []).length - 20),
     execution: analyzeExecution(execution), terminal_receipt: terminalReceipt,
     target: summary.target, status: summary.status, canonical_wall_ms: run.summary.wall_duration_ms,
     inclusive_wall_ms: summary.inclusive_wall_ms, exclusive_wall_ms: summary.exclusive_wall_ms,

@@ -137,7 +137,7 @@ async function main() {
   );
   let group;
   try {
-    group = readArtifact(base, groupResultRelative, "cartulary.browser_group_result.v9");
+    group = readArtifact(base, groupResultRelative, "cartulary.browser_group_result.v11");
   } catch (error) {
     if (error.code === "ENOENT" && schedulerEvidence.dependency_skipped) return;
     throw error;

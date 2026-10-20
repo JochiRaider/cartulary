@@ -278,8 +278,8 @@ func TestMembershipListContinuationUsesLiveRows(t *testing.T) {
 	})
 	incidentID := incident["incident_id"].(string)
 
-	memberOneID := flowtest.SeedLocalUserFlags(t, harness.DB, "membership-one@example.test", "Membership One", "MembershipOne1!", false, false, true)
-	memberTwoID := flowtest.SeedLocalUserFlags(t, harness.DB, "membership-two@example.test", "Membership Two", "MembershipTwo1!", false, false, true)
+	memberOneID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "membership-one@example.test", DisplayName: "Membership One"}).ID.String()
+	memberTwoID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "membership-two@example.test", DisplayName: "Membership Two"}).ID.String()
 
 	createMembership(t, harness, adminLogin, incidentID, "txn-support-incident_membership-membership-one", memberOneID, "viewer")
 	memberTwo := createMembership(t, harness, adminLogin, incidentID, "txn-support-incident_membership-membership-two", memberTwoID, "viewer")

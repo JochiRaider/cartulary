@@ -18,7 +18,7 @@ func TestDecisionTerminalTransitionMatrix_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-task-decision-decision-terminal-matrix")
 	codec := conflicttest.NewCodec("workbook")
 	owner := appsupport.NewTaskDecisionOwner(harness.DB, codec)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "task-decision-decision-terminal@example.test", "TaskDecision Decision Terminal", "TaskDecisionDecisionTerminal1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "task-decision-decision-terminal@example.test", DisplayName: "TaskDecision Decision Terminal"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-task-decision-decision-terminal-incident", "IR-TASK-DECISION-DECISION-TERMINAL", "Workbook inspector task and decision workflow decision terminal matrix")
 
 	for _, from := range []string{"rejected", "executed", "superseded"} {

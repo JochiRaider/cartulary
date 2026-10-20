@@ -7,10 +7,8 @@ import {
   lifecycleReceipt,
   lifecycleRow,
 } from "../../../testing/indicatorLifecycleTestSupport";
-import {
-  acceptedQueryMetadata,
-  renderHookWithWorkbookQueryBrowsing as renderHook,
-} from "../../../testing/workbookQueryTestSupport";
+import { acceptedQueryMetadata } from "../../../testing/workbookFixtureData";
+import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../../testing/workbookQueryTestSupport";
 import { createIndicatorLifecycleAdapter } from "../../adapters/createIndicatorLifecycleAdapter";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";

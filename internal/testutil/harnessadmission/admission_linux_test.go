@@ -41,6 +41,128 @@ func apply(t *testing.T, r Request, expected bool) {
 	}
 }
 func TestAdmissionWeightedTree(t *testing.T) {
+	t.Run("independent_retirement_invalidates_broad_snapshot_not_scoped_cleanup", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		initial := request(t, root, "a", 1, 2)
+		initial.Capacities["memory_mb"] = 512
+		first := Resident{Token: strings.Repeat("b", 32), Reference: filepath.Join(root, "first.json"), Claims: testQuantities(0), Capacities: initial.Capacities}
+		first.Claims["memory_mb"] = 80
+		second := first
+		second.Token, second.Reference = strings.Repeat("c", 32), filepath.Join(root, "second.json")
+		initial.Residents = []Resident{first, second}
+		apply(t, initial, true)
+		apply(t, Request{Root: root, Operation: "release", Token: initial.Token}, false)
+		// Capture both exact identities, then settle an independent allocation before
+		// cleanup admission. This is the interleaving a whole-invocation scan admits.
+		stale := request(t, root, "d", 1, 2)
+		stale.Capacities, stale.Mode, stale.Residents = initial.Capacities, "drain", []Resident{first, second}
+		if err := ReleaseResident(t.Context(), root, second); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Transact(t.Context(), stale); !errors.Is(err, ErrConflict) {
+			t.Fatal("vanished identity accepted", err)
+		}
+		scoped := stale
+		scoped.Token, scoped.Residents = strings.Repeat("e", 32), []Resident{first}
+		apply(t, scoped, true)
+		if err := ReleaseResident(t.Context(), root, first); err != nil {
+			t.Fatal(err)
+		}
+		apply(t, Request{Root: root, Operation: "release", Token: scoped.Token}, false)
+	})
+
+	t.Run("prepared_waiter_keeps_priority_and_refreshes_only_pending_residents", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		holder := request(t, root, "a", 2, 4)
+		holder.Capacities["memory_mb"] = 512
+		apply(t, holder, true)
+		later := request(t, root, "b", 1, 4)
+		later.Capacities = holder.Capacities
+		old := Resident{Token: strings.Repeat("c", 32), Reference: filepath.Join(root, "old.json"), Claims: testQuantities(0), Capacities: holder.Capacities}
+		old.Claims["memory_mb"] = 80
+		fresh := old
+		fresh.Token, fresh.Reference = strings.Repeat("d", 32), filepath.Join(root, "fresh.json")
+		preparations, misses := 0, 0
+		var pendingToken string
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+		defer cancel()
+		lease, err := AcquireWithPreparedResidents(ctx, root, testQuantities(3), holder.Capacities, nil, false, func(context.Context) ([]Resident, error) {
+			preparations++
+			if preparations == 1 {
+				return []Resident{old}, nil
+			}
+			return []Resident{fresh}, nil
+		}, func(_ context.Context, pending *Lease) error {
+			misses++
+			pendingToken = pending.Token
+			apply(t, later, false) // A fitting new arrival cannot overtake us.
+			apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
+			apply(t, later, false) // The same priority survives before reacquisition.
+			return nil
+		})
+		if err != nil || lease == nil || lease.Token != pendingToken || preparations != 2 || misses != 1 {
+			t.Fatal("pending preparation lost identity or failed to refresh", lease, preparations, misses, err)
+		}
+		apply(t, Request{Root: root, Operation: "resident_granted", Token: old.Token, Reference: old.Reference}, false)
+		apply(t, Request{Root: root, Operation: "resident_granted", Token: fresh.Token, Reference: fresh.Reference}, true)
+		changed := request(t, root, "e", 3, 4)
+		changed.Token, changed.Capacities, changed.Residents = lease.Token, holder.Capacities, []Resident{old}
+		if _, err := Transact(t.Context(), changed); !errors.Is(err, ErrConflict) {
+			t.Fatal("granted resident identity changed", err)
+		}
+		apply(t, later, true) // Only the granted request consumes active capacity.
+		if err := errors.Join(lease.Release(t.Context()), ReleaseResident(t.Context(), root, fresh)); err != nil {
+			t.Fatal(err)
+		}
+		apply(t, Request{Root: root, Operation: "release", Token: later.Token}, false)
+	})
+	t.Run("impossible_startup_rejects_instead_of_waiting_on_parent", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		parent := request(t, root, "a", 1, 4)
+		parent.Capacities["memory_mb"] = 1024
+		parent.Claims["memory_mb"] = 800
+		apply(t, parent, true)
+		child := request(t, root, "b", 1, 4)
+		child.Parent = &parent.Token
+		child.Capacities = parent.Capacities
+		resident := Resident{Token: strings.Repeat("c", 32), Reference: filepath.Join(root, "resident.json"), Claims: testQuantities(0), Capacities: child.Capacities}
+		resident.Claims["memory_mb"] = 256
+		child.Residents = []Resident{resident}
+		if _, err := Transact(t.Context(), child); !errors.Is(err, ErrConflict) {
+			t.Fatal("startup waited on enclosing reservation", err)
+		}
+		child.Parent = nil
+		child.Claims["memory_mb"] = 800
+		if _, err := Transact(t.Context(), child); !errors.Is(err, ErrConflict) {
+			t.Fatal("impossible startup and residency accepted", err)
+		}
+	})
+
+	t.Run("multiple_clusters_retain_volume_capability_and_add_memory", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		first := request(t, root, "a", 1, 4)
+		first.Capacities["memory_mb"], first.Capacities["volume"] = 1024, 1
+		for _, token := range []string{"b", "c"} {
+			resident := Resident{Token: strings.Repeat(token, 32), Reference: filepath.Join(root, token+".json"), Claims: testQuantities(0), Capacities: first.Capacities}
+			resident.Claims["memory_mb"], resident.Claims["volume"] = 256, 1
+			first.Residents = append(first.Residents, resident)
+		}
+		apply(t, first, true)
+		work := request(t, root, "d", 1, 4)
+		work.Capacities = first.Capacities
+		work.Claims["memory_mb"], work.Claims["volume"] = 600, 1
+		apply(t, work, false)
+		if err := ReleaseResident(t.Context(), root, first.Residents[0]); err != nil {
+			t.Fatal(err)
+		}
+		apply(t, work, true)
+		unavailable := request(t, filepath.Join(t.TempDir(), "admission"), "e", 1, 4)
+		unavailable.Claims["volume"] = 1
+		if _, err := Transact(t.Context(), unavailable); !errors.Is(err, ErrConflict) {
+			t.Fatal("unproven volume admitted", err)
+		}
+	})
+
 	for _, nested := range []bool{false, true} {
 		t.Run("transient_pressure_preserves_waiter_priority_"+strconv.FormatBool(nested), func(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "admission")
@@ -133,13 +255,14 @@ func TestAdmissionWeightedTree(t *testing.T) {
 		apply(t, Request{Root: root, Operation: "release", Token: owner.Token}, false)
 		probe := testQuantities(1)
 		probe["port_lane"] = 3
-		if lease, err := TryAcquireWithResidents(t.Context(), root, probe, owner.Capacities, nil, nil, nil); err != nil || lease != nil {
-			t.Fatal("capacity miss retained an active lease", lease, err)
+		interrupted := errors.New("preparation interrupted")
+		if lease, err := AcquireWithResidents(t.Context(), root, probe, owner.Capacities, nil, false, nil, func(context.Context, *Lease) error { return interrupted }); !errors.Is(err, interrupted) || lease != nil {
+			t.Fatal("interrupted queue retained an active lease", lease, err)
 		}
 		probeQuiet := request(t, root, "9", 1, 2)
 		probeQuiet.Capacities = owner.Capacities
 		probeQuiet.Mode = "exclusive"
-		apply(t, probeQuiet, true) // A failed try left no queued reservation.
+		apply(t, probeQuiet, true) // Interrupted preparation left no queued reservation.
 		apply(t, Request{Root: root, Operation: "release", Token: probeQuiet.Token}, false)
 		large := request(t, root, "c", 1, 2)
 		large.Capacities = owner.Capacities

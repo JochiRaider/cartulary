@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { packInvocationCohorts } from "../scheduler/work-graph/cohorts.mjs";
 import { operationExecutionDigest } from "../scheduler/work-graph/operations.mjs";
 import { selectionFor } from "../scheduler/work-graph/preparation.mjs";
+import { semanticJSONDigest } from "../contract/index.mjs";
+import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
+import { readUnitSelection } from "../execution/runners/unit-selection.mjs";
 
 import {
   WorkGraphCompiler,
@@ -145,7 +149,9 @@ function assertGraphCutover() {
     assert.equal(consumer.resource_claims.postgres, undefined);
     if (row.evidence_class === "integration") {
       assert.equal(consumer.resource_claims.browser_stack, 1);
-      assert.equal(consumer.command.environment.CARTULARY_TEST_ROWS, row.row_id);
+      assert.deepEqual(consumer.row_bindings, [{ row_id: row.row_id, runner: "vitest" }]);
+      assert.equal(consumer.command.args[1], "--unit-rows");
+      assert.equal(consumer.command.environment.CARTULARY_TEST_ROWS, undefined);
     }
   }
   const frontendRows = compiler.catalog.rows.filter((row) => row.runner === "vitest");
@@ -187,7 +193,8 @@ function assertGraphCutover() {
   const sharedGraph = compiler.compileRows(ids), shared = consumers(sharedGraph);
   assert.equal(shared.length, 1, "compatible file rows must share one fresh process");
   assert.equal(shared[0].command.environment.VITEST_MAX_WORKERS, "1");
-  assert.equal(shared[0].resource_claims.cpu, 1);
+  assert.equal(shared[0].resource_claims.cpu, 2);
+  assert.equal(shared[0].resource_claims.process, 4);
   assertCanonicalCurrentRunOutputs(shared[0], ids, "Vitest file group");
   assert.deepEqual(compiler.compileRows([...ids].reverse()), sharedGraph);
   assert.deepEqual(compiler.compileOwner(pair[0].owner_id, ids), sharedGraph);
@@ -205,6 +212,39 @@ function assertGraphCutover() {
     try { assert.equal(consumers(compiler.compileRows(ids)).length, 2, JSON.stringify(mutation)); }
     finally { compiler.catalog.rowByID.set(prior.row_id, prior); }
   }
+  const contractRows = frontendRows.filter((row) => row.owner_id === "package.view_contracts" && row.selector.project_id === "node-unit");
+  const contractGraph = compiler.compileRows(contractRows.map((row) => row.row_id));
+  const contractUnits = contractGraph.units.filter((unit) => unit.unit_id.startsWith("vitest_cohort:"));
+  assert.ok(contractUnits.length < new Set(contractRows.map((row) => row.selector.file)).size, "compatible files amortize coordinator startup");
+  assert.deepEqual(compiler.compileRows(contractRows.map((row) => row.row_id).reverse()), contractGraph);
+  const selectionRoot = mkdtempSync(path.join(os.tmpdir(), "vitest-unit-selection-"));
+  try {
+    const runRoot = path.resolve(root, process.env.CARTULARY_TEST_RESULTS_DIR, process.env.CARTULARY_TEST_RUN_ID);
+    const manifest = JSON.parse(readFileSync(path.join(runRoot, "run-manifest.json"), "utf8"));
+    const context = JSON.parse(readFileSync(path.join(runRoot, "execution-context.json"), "utf8"));
+    manifest.graph_digest = contractGraph.graph_digest;
+    context.graph = structuredClone(contractGraph); context.manifest_digest = semanticJSONDigest(manifest);
+    const save = (name, value) => atomicLocalFile(path.join(selectionRoot, name), JSON.stringify(value), { replace: true, maximumReplacementBytes: 64 * 1024 * 1024 });
+    save("run-manifest.json", manifest); save("execution-context.json", context);
+    const unit = contractUnits[0];
+    assert.deepEqual(readUnitSelection(selectionRoot, manifest.run_id, unit.unit_id), unit.row_bindings.map((row) => row.row_id));
+    assert.throws(() => readUnitSelection(selectionRoot, "foreign-run", unit.unit_id), /bind/u);
+    assert.throws(() => readUnitSelection(selectionRoot, manifest.run_id, "absent-unit"), /published work unit/u);
+    const nonVitestUnit = contractGraph.units.find((value) => !value.row_bindings.some((row) => row.runner === "vitest"));
+    assert.ok(nonVitestUnit, "fixture includes a published non-Vitest preparation unit");
+    assert.throws(() => readUnitSelection(selectionRoot, manifest.run_id, nonVitestUnit.unit_id), /exact Vitest/u);
+    context.graph.units.find((value) => value.unit_id === unit.unit_id).row_bindings.pop();
+    save("execution-context.json", context);
+    assert.throws(() => readUnitSelection(selectionRoot, manifest.run_id, unit.unit_id));
+    rmSync(path.join(selectionRoot, "run-manifest.json"));
+    symlinkSync(path.join(runRoot, "run-manifest.json"), path.join(selectionRoot, "run-manifest.json"));
+    assert.throws(() => readUnitSelection(selectionRoot, manifest.run_id, unit.unit_id));
+  } finally { rmSync(selectionRoot, { recursive: true, force: true }); }
+  const policy = { startup_ms: 10, cleanup_ms: 5 };
+  const packed = packInvocationCohorts([{ id: "c", cost: 25 }, { id: "a", cost: 50 }, { id: "b", cost: 50 }], policy, 90);
+  assert.deepEqual(packed.map((cohort) => [cohort.cost, cohort.items.map((item) => item.id)]), [[90, ["a", "c"]], [65, ["b"]]]);
+  assert.deepEqual(packInvocationCohorts([{ id: "oversized", cost: 100 }], policy, 90).map((cohort) => cohort.cost), [115]);
+  assert.deepEqual(packInvocationCohorts([], policy, 90), []);
   const topology = JSON.parse(
     readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"),
   );
@@ -305,17 +345,23 @@ function assertGraphCutover() {
     "module.extensions.integration.bc011_deadline_precedence_ef23af86ac",
     "module.extensions.integration.bc015_browser_availability_e0a71bee5d",
   ];
-  const managedProcessGraph = compiler.compile({
-    kind: "rows",
-    row_ids: managedProcessRows,
-  });
-  const managedProcessUnits = managedProcessGraph.units.filter((entry) =>
-    managedProcessRows.some((rowID) =>
-      entry.current_run_evidence_outputs.includes(`rows/${rowID}.json`),
-    ),
-  );
-  assert.equal(managedProcessUnits.length, 2, "managed-process rows must remain process-isolated");
-  assert.ok(managedProcessUnits.every((entry) => entry.fixture_lease === "managed_process"));
+  const ordinaryProcessRows = managedProcessRows.map((rowID) => compiler.catalog.rowByID.get(rowID));
+  try {
+    // These production selections are now pure tests. Exercise the managed
+    // capability explicitly without restoring their unnecessary infrastructure.
+    for (const row of ordinaryProcessRows) compiler.catalog.rowByID.set(row.row_id, {
+      ...row, fixture_capability: "managed_process", runtime_profile_id: "default",
+      resource_profile_id: "managed_process", service_dependencies: ["object_store", "postgres"], postgres_isolation: "exclusive",
+    });
+    const managedProcessGraph = compiler.compile({ kind: "rows", row_ids: managedProcessRows });
+    const managedProcessUnits = managedProcessGraph.units.filter((entry) =>
+      managedProcessRows.some((rowID) => entry.current_run_evidence_outputs.includes(`rows/${rowID}.json`)),
+    );
+    assert.equal(managedProcessUnits.length, 2, "managed-process rows must remain process-isolated");
+    assert.ok(managedProcessUnits.every((entry) => entry.fixture_lease === "managed_process"));
+  } finally {
+    for (const row of ordinaryProcessRows) compiler.catalog.rowByID.set(row.row_id, row);
+  }
 
   const catalogPostgresUnit = compiler
     .compile({ kind: "target", target: "harness.suite_backend_integration" })

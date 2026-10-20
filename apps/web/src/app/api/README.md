@@ -30,11 +30,11 @@ lifetimes, review, and recovery; clients own request/response boundaries.
 
 | File | Responsibility |
 | --- | --- |
-| [administrativeAuditClient.test.ts](administrativeAuditClient.test.ts) | Tests exact deployment audit requests and safe, complete response-page validation. |
-| [incidentDirectoryClient.test.ts](incidentDirectoryClient.test.ts) | Tests exact directory queries, opaque cursors, response validation, and cancellation. |
+| [administrativeAuditClient.node.test.ts](administrativeAuditClient.node.test.ts) | Tests exact deployment audit requests and safe, complete response-page validation. |
+| [incidentDirectoryClient.node.test.ts](incidentDirectoryClient.node.test.ts) | Tests exact directory queries, opaque cursors, response validation, and cancellation. |
 | [incidentImportClient.test.ts](incidentImportClient.test.ts) | Tests exact multipart replay, import admission validation, terminal jobs, and cancellation identity. |
-| [incidentLifecycleClient.test.ts](incidentLifecycleClient.test.ts) | Tests captured lifecycle requests, correlated responses, and safe typed failure distinctions. |
-| [incidentMembershipAuditClient.test.ts](incidentMembershipAuditClient.test.ts) | Tests exact incident audit requests, additive read vocabulary, redaction, and page correlation. |
-| [incidentMembershipManagementClient.test.ts](incidentMembershipManagementClient.test.ts) | Tests membership page validation and exact versioned create, patch, and delete requests. |
-| [incidentMetadataClient.test.ts](incidentMetadataClient.test.ts) | Tests sparse metadata patches, null preservation, no-op acknowledgements, and response correlation. |
+| [incidentLifecycleClient.node.test.ts](incidentLifecycleClient.node.test.ts) | Tests captured lifecycle requests, correlated responses, and safe typed failure distinctions. |
+| [incidentMembershipAuditClient.node.test.ts](incidentMembershipAuditClient.node.test.ts) | Tests exact incident audit requests, additive read vocabulary, redaction, and page correlation. |
+| [incidentMembershipManagementClient.node.test.ts](incidentMembershipManagementClient.node.test.ts) | Tests membership page validation and exact versioned create, patch, and delete requests. |
+| [incidentMetadataClient.node.test.ts](incidentMetadataClient.node.test.ts) | Tests sparse metadata patches, null preservation, no-op acknowledgements, and response correlation. |
 | [shellHttpClients.routeBoundary.test.ts](shellHttpClients.routeBoundary.test.ts) | Route-boundary tests for app-shell client helpers. |

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.revisions",
   "rows": [
     {
@@ -36,7 +36,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_browsing_4173a20e4a50",
@@ -72,7 +74,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_browsing_6bf6f16ba2f4",
@@ -108,7 +112,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_browsing_d48d33829537",
@@ -144,7 +150,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_initial_retry_focus_b4fe61baa8",
@@ -180,7 +188,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_recovery_074ea859ee8b",
@@ -216,7 +226,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_recovery_2f1e64594ac3",
@@ -252,7 +264,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_recovery_4ce1b29fca56",
@@ -288,7 +302,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_recovery_7daa846195aa",
@@ -324,7 +340,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_recovery_9eb7b152cf68",
@@ -360,7 +378,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_recovery_ac26758a459a",
@@ -396,7 +416,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_recovery_ed12d3c33549",
@@ -432,7 +454,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.history_recovery_fdfce91b2066",
@@ -468,7 +492,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.invokes_a_server_supplied_change_set_action_from_a29cde1d94",
@@ -503,7 +529,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.invokes_a_server_supplied_row_restore_action_fro_99dd1b9c66",
@@ -538,7 +566,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.opens_row_history_from_the_selected_timeline_wor_c86aac9897",
@@ -573,7 +603,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.soft_deletes_and_restores_a_timeline_row_from_wo_e482d20c32",
@@ -608,7 +640,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.source_history_spec_ts_45f9ef2541",
@@ -643,7 +677,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.uses_a_server_supplied_history_entry_ref_from_ro_109056553a",
@@ -678,7 +714,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser.verify_history_and_rollback_preview_action_use_p_4201ff80a8",
@@ -713,7 +751,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.browser_stateful.verify_inspector_details_relationships_evidence_e32cd188c5",
@@ -748,7 +788,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.conflicts.text_merge",
@@ -773,10 +815,11 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
-      "row_id": "module.revisions.delete_restore.source_adapter_matrix",
+      "row_id": "module.revisions.delete_restore.managed_service_assertions_for_source_adapter_70c51a4a80",
       "owner_id": "module.revisions",
       "family_id": "module.revisions.delete_restore",
       "collaborator_ids": [
@@ -797,7 +840,6 @@
       "selector": {
         "package": "./internal/modules/revisions",
         "tests": [
-          "TestDeleteRestoreAdapterMatrix_Unit",
           "TestDeleteRestoreConcreteSourceAdapterMatrix_Integration"
         ]
       },
@@ -811,7 +853,43 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.revisions.delete_restore.service_free_contract_assertions_for_source_adap_a647a96f3a",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.delete_restore",
+      "collaborator_ids": [
+        "module.artifacts",
+        "module.assessments",
+        "module.entities",
+        "module.evidence",
+        "module.indicators",
+        "module.parties",
+        "module.records",
+        "module.tasksdecisions",
+        "module.timeline"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.delete_restore_source_adapter_matrix"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestDeleteRestoreAdapterMatrix_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.delete_restore.source_port_catalog",
@@ -835,7 +913,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.facade.construction_guards",
@@ -860,7 +939,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.frontend.history_paint_qualification",
@@ -888,7 +968,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.integration.covers_delete_restore_single_entry_rollback_dire_b348439e6d",
@@ -915,7 +996,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.integration.covers_stale_restore_plus_stale_or_non_reversibl_637111e642",
@@ -942,7 +1024,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.integration.history_logical_page_boundaries",
@@ -969,7 +1052,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.integration.history_pagination_remains_bound_to_record_id_re_a92fcdb263",
@@ -996,7 +1080,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.integration.history_source_family_paging",
@@ -1023,7 +1108,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.integration.indicator_observation_create_and_resolution_targ_6249c556e2",
@@ -1050,7 +1136,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.integration.merge_aware_change_set_rollback_restores_survivo_130bd55b07",
@@ -1077,7 +1164,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.integration.migration_61_admits_fresh_schema_and_rejects_leg_20baec4d72",
@@ -1101,11 +1189,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.revisions.integration.projection_dependencies",
@@ -1132,7 +1221,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.integration.retained_history_evidence_for_an_extant_record_r_b590f9c4b1",
@@ -1159,7 +1249,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.integration.source_boundary_v1_selection_and_repeatable_read_92b1e375a4",
@@ -1187,7 +1278,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.measurement.change_set",
@@ -1224,7 +1316,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.measurement.history_entry",
@@ -1261,7 +1355,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.measurement.row_restore",
@@ -1298,40 +1394,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
-    },
-    {
-      "row_id": "module.revisions.portability.allocator",
-      "owner_id": "module.revisions",
-      "family_id": "module.revisions.portability",
-      "collaborator_ids": [
-        "module.incidentbundles",
-        "platform.postgres"
       ],
-      "verification_ids": [
-        "module.revisions.verification.portability_allocator"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/revisions",
-        "tests": [
-          "TestRevisionsIncidentBundleNextIDsDoNotCollide",
-          "TestRevisionsIncidentBundleSequenceFunctionsAreHardened",
-          "TestRevisionsIncidentBundleSequenceLockExcludesConcurrentWriter",
-          "TestRevisionsIncidentBundleSequenceRepairRollsBackOnLaterFailure",
-          "TestRevisionsIncidentBundleSequenceRepairRunsAfterValidation"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ]
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.portability.atomicity",
@@ -1356,11 +1421,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.revisions.portability.attribution_boundary",
@@ -1384,7 +1450,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.portability.contract_and_attribution",
@@ -1411,11 +1478,73 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.revisions.portability.managed_service_assertions_for_allocator_1e7086ab36",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.portability_allocator"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsIncidentBundleNextIDsDoNotCollide",
+          "TestRevisionsIncidentBundleSequenceFunctionsAreHardened",
+          "TestRevisionsIncidentBundleSequenceLockExcludesConcurrentWriter",
+          "TestRevisionsIncidentBundleSequenceRepairRollsBackOnLaterFailure"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
       "fixture_capability": "postgres_dedicated",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.revisions.portability.service_free_contract_assertions_for_allocator_b4f5c965d4",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.portability",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.revisions.verification.portability_allocator"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRevisionsIncidentBundleSequenceRepairRunsAfterValidation"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.providers.catalog_guards",
@@ -1447,7 +1576,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.rollback.changed_field_completeness",
@@ -1471,7 +1601,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.rollback.decomposition_8c5e3f2a10",
@@ -1497,7 +1628,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.rollback.transaction_failure_injection_8c5e3f2a11",
@@ -1524,7 +1656,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.store.covers_rollback_route_admission_derived_rollback_c6c889199c",
@@ -1551,7 +1684,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.store.covers_shared_destructive_operation_lock_precede_02f3fc18c4",
@@ -1578,7 +1712,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.store.covers_the_first_class_record_soft_delete_route_30cb39b83e",
@@ -1605,7 +1740,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.store.covers_the_restore_route_contract_reviewer_admin_a2df5bc94d",
@@ -1632,35 +1768,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
-    },
-    {
-      "row_id": "module.revisions.store.get_api_v1_records_record_id_history_returns_the_6962b381cc",
-      "owner_id": "module.revisions",
-      "family_id": "module.revisions.store",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "module.revisions.verification.behavior_contract"
       ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/revisions",
-        "tests": [
-          "TestRecordHistoryEnvelope_Unit",
-          "TestRecordHistoryOpenAPIContract_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.store.history_bounded_projection",
@@ -1686,7 +1795,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.store.history_entry_ref_is_present_only_for_a_logical_5f0060122a",
@@ -1713,7 +1823,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.store.history_query_repository_mapping_7b4d2e9c11",
@@ -1735,11 +1846,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.revisions.store.http_security_precedence_4e7a9c2d13",
@@ -1769,7 +1881,36 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.revisions.store.managed_service_assertions_for_get_api_v1_record_049278bce8",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRecordHistoryEnvelope_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.store.retained_history_invariants_for_extant_records_r_b40fb75124",
@@ -1796,7 +1937,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.revisions.store.revision_window_utc_ordering_51f2a6b3c5",
@@ -1818,11 +1960,37 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.revisions.store.service_free_contract_assertions_for_get_api_v1_a2f18fa208",
+      "owner_id": "module.revisions",
+      "family_id": "module.revisions.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.revisions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/revisions",
+        "tests": [
+          "TestRecordHistoryOpenAPIContract_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.support_unit.catalog_record_view_and_shared_runtime_c1d2e3f4a5",
@@ -1855,7 +2023,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.support_unit.conflict_capability_consolidation_9d6e4f3a12",
@@ -1879,7 +2048,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.support_unit.conflict_field_catalog_guards_51f2a6b3c4",
@@ -1907,7 +2077,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.support_unit.conflict_token_codec_round_trips_and_rejects_tam_b42338f5fa",
@@ -1936,7 +2107,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.support_unit.history_keyset_continuation",
@@ -1963,7 +2135,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.support_unit.history_materialization_attribution_and_page_7b4d2e9c10",
@@ -1989,7 +2162,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.support_unit.http_application_boundary_4e7a9c2d12",
@@ -2013,7 +2187,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.support_unit.semantic_history_source_projectors",
@@ -2042,7 +2217,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.support_unit.test_support_production_import_guard_6a4b2c1d9e",
@@ -2066,7 +2242,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.unit.decode_stored_target_requires_exact_positive_int_ce58cbde3a",
@@ -2090,7 +2267,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.unit.projection_scope",
@@ -2114,7 +2292,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.unit.revisions_runtime_builds_capabilities_from_one_c_92b9dea0f1",
@@ -2138,7 +2317,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.revisions.unit.source_boundary_v1_bytes_hash_and_invalid_inputs_4a71df3ac8",
@@ -2163,7 +2343,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

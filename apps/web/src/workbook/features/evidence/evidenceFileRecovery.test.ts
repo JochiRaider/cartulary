@@ -8,7 +8,7 @@ import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CommonJobResource } from "../../../services/commonJobContract";
 import { deferred } from "../../../testing/fetchMockTestSupport";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import { createEvidenceFileTransport } from "../../adapters/createEvidenceFileTransport";
 import { createTimelineFileLinkTransport } from "../../adapters/createTimelineFileLinkTransport";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";

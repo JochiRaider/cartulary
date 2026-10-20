@@ -3,7 +3,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../testing/workbookFixtureData";
 import { initialWorkbookRecordHistoryState } from "../inspector/workbookRecordHistoryModel";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { createTimelineEditorDraftRegistry } from "./editing/useTimelineEditorDraftRegistry";

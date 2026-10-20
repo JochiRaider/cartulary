@@ -190,10 +190,10 @@ async function expectCollectionCueContrast(cue: Locator) {
 
 test("Timeline saved tag removal preserves capture and exact collection identity at supported viewports", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   test.setTimeout(240_000);
-  const preferences = await installVisualPreferences(page, workerAdmin.user_id);
+  const preferences = await installVisualPreferences(page, testActor.user_id);
   for (const viewport of [
     { width: 1440, height: 900 },
     { width: 1024, height: 720 },
@@ -1745,7 +1745,7 @@ test("Timeline collection authoring follows first-input record promotion without
 test("Timeline collection drafts survive detachment and retire with authority", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   test.setTimeout(180_000);
   const contrastObservations: {
@@ -1988,7 +1988,7 @@ test("Timeline collection drafts survive detachment and retire with authority", 
     await expect.poll(() => committed).toBe(true);
     await host.fill(text("hosts"));
     await revokeAllSessions(
-      workerAdminRequest,
+      testActorRequest,
       original.user_id,
       "Collection suspension",
     );
@@ -2004,7 +2004,7 @@ test("Timeline collection drafts survive detachment and retire with authority", 
       await refresh.focus();
     }
     await revokeAllSessions(
-      workerAdminRequest,
+      testActorRequest,
       original.user_id,
       "Collection account replacement",
     );
@@ -2035,7 +2035,7 @@ test("Timeline collection drafts survive detachment and retire with authority", 
       "/api/v1/incidents/" + incident + "/memberships/" + replacement.user_id;
     expect(
       (
-        await workerAdminRequest.patch(membership, {
+        await testActorRequest.patch(membership, {
           data: { base_membership_version: 1, role: "viewer" },
         })
       ).ok(),
@@ -2083,7 +2083,7 @@ test("Timeline collection drafts survive detachment and retire with authority", 
     });
     expect(
       (
-        await workerAdminRequest.delete(membership, {
+        await testActorRequest.delete(membership, {
           data: { base_membership_version: 2 },
         })
       ).status(),

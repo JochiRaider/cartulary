@@ -8,7 +8,7 @@ import {
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
 import type { Locator, Page, TestInfo } from "@playwright/test";
-import type { WorkerAdminEntry } from "../support/auth/workerAdmin";
+import type { FixtureActorCredentials } from "../support/auth/sessions";
 import {
   type Ac043Snapshot,
   type Ac043TrafficDriver,
@@ -41,9 +41,9 @@ type PreparedMeasurement = {
 
 async function prepareMeasurement(
   page: Page,
-  workerAdmin: WorkerAdminEntry,
+  testActor: FixtureActorCredentials,
 ): Promise<PreparedMeasurement> {
-  const snapshot = await prepareAc043Snapshot(page, workerAdmin);
+  const snapshot = await prepareAc043Snapshot(page, testActor);
   const incidentId = snapshot.incidentId;
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
@@ -123,7 +123,7 @@ test("measures paint-qualified Timeline summary ArrowDown selection within AC-04
   browser,
   page,
   sessionTracker,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
   const samples: MeasurementSample[] = [];
   const fixtureDigest = ac043FixtureDigest();
@@ -132,7 +132,7 @@ test("measures paint-qualified Timeline summary ArrowDown selection within AC-04
   try {
     const prepared =
       await test.step("validate the sealed supported-envelope snapshot", () =>
-        prepareMeasurement(page, workerAdmin));
+        prepareMeasurement(page, testActor));
     const [fromRecordId, toRecordId] = prepared.visibleRecordIds;
     const excluded = new Set(prepared.visibleRecordIds);
     traffic =
@@ -208,7 +208,7 @@ test("measures paint-qualified Timeline summary pointer focus within AC-043", as
   browser,
   page,
   sessionTracker,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
   const samples: MeasurementSample[] = [];
   const fixtureDigest = ac043FixtureDigest();
@@ -217,7 +217,7 @@ test("measures paint-qualified Timeline summary pointer focus within AC-043", as
   try {
     const prepared =
       await test.step("validate the sealed supported-envelope snapshot", () =>
-        prepareMeasurement(page, workerAdmin));
+        prepareMeasurement(page, testActor));
     const recordId = prepared.visibleRecordIds[0];
     const excluded = new Set(prepared.visibleRecordIds);
     traffic =
@@ -285,7 +285,7 @@ test("measures paint-qualified committed Timeline summary typing acknowledgment 
   browser,
   page,
   sessionTracker,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
   const samples: MeasurementSample[] = [];
   const fixtureDigest = ac043FixtureDigest();
@@ -294,7 +294,7 @@ test("measures paint-qualified committed Timeline summary typing acknowledgment 
   try {
     const prepared =
       await test.step("validate the sealed supported-envelope snapshot", () =>
-        prepareMeasurement(page, workerAdmin));
+        prepareMeasurement(page, testActor));
     const recordId = prepared.visibleRecordIds[0];
     const excluded = new Set(prepared.visibleRecordIds);
     traffic =
@@ -355,7 +355,7 @@ test("measures paint-qualified Timeline blank-row creation within AC-043", async
   browser,
   page,
   sessionTracker,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
   const samples: MeasurementSample[] = [];
   const fixtureDigest = ac043FixtureDigest();
@@ -364,7 +364,7 @@ test("measures paint-qualified Timeline blank-row creation within AC-043", async
   try {
     const prepared =
       await test.step("validate the sealed supported-envelope snapshot", () =>
-        prepareMeasurement(page, workerAdmin));
+        prepareMeasurement(page, testActor));
     const excluded = new Set(prepared.visibleRecordIds);
     traffic =
       await test.step("establish and qualify 25-session background traffic", () =>

@@ -39,7 +39,7 @@ import { editGenericCell } from "./support/workbook/rowMutations";
 
 test("creates and edits required workbook mutation surfaces through typed generic controls", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -368,7 +368,7 @@ test("creates and edits required workbook mutation surfaces through typed generi
   await setGenericCreateField(
     page,
     "handoff.incoming_owner_user_id",
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   await waitForReferenceCandidate(
     page,

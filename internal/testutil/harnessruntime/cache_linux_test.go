@@ -53,8 +53,8 @@ func nativeCacheFixture(t *testing.T, mode string) (*nativeCache, unit) {
 	if err := os.Chmod(filepath.Join(run, "bundle"), 0750); err != nil {
 		t.Fatal(err)
 	}
-	payload := map[string]any{"schema_id": "cartulary.harness_row_result.v4", "row_id": row, "terminal_state": "passed", "duration_ms": 19, "exit_code": 0, "failure_class": nil, "failure_reason": nil, "failure_diagnostic": nil, "runner": "shell", "started_at": "2026-10-11T00:00:00.000Z", "finished_at": "2026-10-11T00:00:00.019Z", "wall_duration_ms": 19}
-	bytes, err := documentBytes("cartulary.harness_row_result.v4", payload)
+	payload := map[string]any{"schema_id": "cartulary.harness_row_result.v6", "row_id": row, "terminal_state": "passed", "duration_ms": 19, "exit_code": 0, "failure_class": nil, "failure_reason": nil, "failure_diagnostic": nil, "runner": "shell", "started_at": "2026-10-11T00:00:00.000Z", "finished_at": "2026-10-11T00:00:00.019Z", "wall_duration_ms": 19}
+	bytes, err := documentBytes("cartulary.harness_row_result.v6", payload)
 	if err != nil {
 		t.Fatal(err)
 	}

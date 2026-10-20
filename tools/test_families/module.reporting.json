@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.reporting",
   "rows": [
     {
@@ -27,7 +27,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.frontend.retained_jobs",
@@ -42,7 +43,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/reporting/ReportingController.test.ts",
+        "file": "apps/web/src/reporting/ReportingController.node.test.ts",
         "titles": [
           "bounds reporting observation without retrying the product action or blocking cancellation behind a read",
           "cancels the exact reporting job and replays an uncertain cancellation unchanged",
@@ -51,7 +52,7 @@
           "renders only the verified same-incident snapshot with the exact internal default template",
           "retains exact uncertain reporting commands and prevents duplicate admission"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -60,7 +61,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.frontend.workflow_authority",
@@ -89,39 +91,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "module.reporting.integration.evidence_provider_redaction_4b6d27e1e9",
-      "owner_id": "module.reporting",
-      "family_id": "module.reporting.integration",
-      "collaborator_ids": [
-        "module.evidence",
-        "module.links"
-      ],
-      "verification_ids": [
-        "module.reporting.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/reporting",
-        "tests": [
-          "TestReportingEvidenceLogicalSupportIdentity",
-          "TestReportingEvidenceProviderMalformedContributionPublishesNoPartialOutput",
-          "TestReportingEvidenceProviderRedaction_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2",
@@ -150,7 +121,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.reporting.integration.execution_payload_boundary",
@@ -178,7 +150,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reporting.integration.external_releases_require_distinct_reviewer_and_0df12b0a47",
@@ -205,7 +178,39 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.reporting.integration.managed_service_assertions_for_evidence_provider_0b8acd1609",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.links"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingEvidenceProviderRedaction_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reporting.integration.renderer_browser_policy",
@@ -231,7 +236,8 @@
       "fixture_capability": "none",
       "aggregate_placement": "standard",
       "service_dependencies": [],
-      "process_isolation": "exclusive"
+      "process_isolation": "exclusive",
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.integration.renderer_installed_sandbox",
@@ -259,7 +265,8 @@
       "process_isolation": "exclusive",
       "preparation_operations": [
         "harness.build_report_renderer"
-      ]
+      ],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.integration.renderer_mermaid",
@@ -286,7 +293,8 @@
       "fixture_capability": "none",
       "aggregate_placement": "standard",
       "service_dependencies": [],
-      "process_isolation": "exclusive"
+      "process_isolation": "exclusive",
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.integration.renderer_process",
@@ -314,7 +322,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.integration.renderer_slidev",
@@ -346,7 +355,8 @@
       "process_isolation": "exclusive",
       "preparation_operations": [
         "harness.build_report_renderer"
-      ]
+      ],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.integration.renderer_stage_boundary",
@@ -376,7 +386,8 @@
       "preparation_operations": [
         "harness.frontend_install",
         "harness.playwright_install"
-      ]
+      ],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.integration.renderer_stage_execution",
@@ -402,7 +413,37 @@
       "fixture_capability": "none",
       "aggregate_placement": "standard",
       "service_dependencies": [],
-      "process_isolation": "exclusive"
+      "process_isolation": "exclusive",
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.reporting.integration.service_free_contract_assertions_for_evidence_pr_80ebcf69f9",
+      "owner_id": "module.reporting",
+      "family_id": "module.reporting.integration",
+      "collaborator_ids": [
+        "module.evidence",
+        "module.links"
+      ],
+      "verification_ids": [
+        "module.reporting.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/reporting",
+        "tests": [
+          "TestReportingEvidenceLogicalSupportIdentity",
+          "TestReportingEvidenceProviderMalformedContributionPublishesNoPartialOutput"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.integration.snapshot_creation_resolves_and_persists_an_immut_afe792169c",
@@ -434,7 +475,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reporting.integration.snapshot_reporting_route_idempotency_treats_an_o_1d2451a56f",
@@ -461,7 +503,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reporting.integration.snapshot_reporting_singleton_reads_and_release_a_943c339eea",
@@ -488,7 +531,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reporting.measurement.render_progress",
@@ -525,7 +569,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reporting.measurement.snapshot_progress",
@@ -562,7 +608,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reporting.unit.admitted_render_export_participant_c0da40986c",
@@ -592,7 +640,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.build_export_model_uses_reporting_owned_metadata_bdda4b2393",
@@ -631,7 +680,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.frozen_output_options",
@@ -655,7 +705,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.frozen_release_payload",
@@ -679,7 +730,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.frozen_snapshot_payload",
@@ -704,7 +756,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.graph_v2_exact_selection_and_rendering_f54d8b1a62",
@@ -735,7 +788,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.logical_support_target_provider_composition_62b6d3190a",
@@ -764,7 +818,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.owner_boundaries",
@@ -792,7 +847,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.provider_output_validate_and_fields_1d0b913cab",
@@ -817,7 +873,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.renderer_browser_policy",
@@ -843,7 +900,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.renderer_mermaid_admission",
@@ -868,7 +926,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.renderer_module_assets",
@@ -893,7 +952,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.renderer_pdf",
@@ -920,7 +980,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.renderer_stage_admission",
@@ -945,7 +1006,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.renderer_stage_result_admission",
@@ -972,7 +1034,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.reporting_job_worker_cancels_before_work_68d5024f75",
@@ -1002,7 +1065,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.snapshot_record_materialization",
@@ -1026,7 +1090,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_open_api_uses_reusable_closed_0d1a4531ba",
@@ -1051,7 +1116,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_post_redaction_validation_fai_9df5c768cd",
@@ -1075,7 +1141,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_recipient_redaction_profiles_75c820718c",
@@ -1099,7 +1166,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_redaction_applies_determinist_7f142ce89d",
@@ -1123,7 +1191,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_rejects_duplicate_same_preced_7daa9a6a07",
@@ -1147,7 +1216,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.snapshot_reporting_route_decoders_reject_legacy_9d9f64130f",
@@ -1175,7 +1245,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reporting.unit.source_owner_orchestration",
@@ -1200,7 +1271,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

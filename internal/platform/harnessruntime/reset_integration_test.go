@@ -12,11 +12,14 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -165,14 +168,39 @@ func TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata(t *testing.
 	}
 	beforeGooseVersions := requireSQLCount(t, db, `SELECT COUNT(*) FROM goose_db_version`)
 	beforeLineage := requireSQLCount(t, db, `SELECT COUNT(*) FROM schema_migration_lineage`)
+	catalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := DatabaseResetPlan{Catalog: catalog, ResolveRebuild: recovery.PostgresDerivedRebuild, RestoreBootstrap: func(ctx context.Context, tx pgx.Tx) error { return bootstrap.PreflightTx(ctx, bootstrapSettings, tx) }}
+	storageSnapshot := func() string {
+		t.Helper()
+		var snapshot string
+		err := db.QueryRowContext(ctx, `SELECT jsonb_agg(jsonb_build_array(c.oid, pg_relation_filenode(c.oid)) ORDER BY c.oid)::text
+FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname IN ('public','pg_toast') AND c.relkind IN ('r','i','t','S')`).Scan(&snapshot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return snapshot
+	}
+	beforeStorage := storageSnapshot()
+	if _, err := db.ExecContext(ctx, `SELECT setval('record_revisions_revision_id_seq', 12345, true)`); err != nil {
+		t.Fatal(err)
+	}
 	seedTestRuntimeResetRows(t, db)
-	result, err := ResetDatabase(ctx, recoveryPool.Pool(), func(ctx context.Context, tx pgx.Tx) error {
-		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
-	})
+	// Deliberately stale claims still belong to the owner rebuild algorithm.
+	if _, err := db.ExecContext(ctx, `INSERT INTO entity_active_identifier_claims (incident_id,entity_type,identifier_type,normalized_value,record_id)
+SELECT incident_id,'host','hostname','stale-reset-claim',record_id FROM records;
+INSERT INTO party_active_key_claims (incident_id,key_kind,normalized_value,party_record_id)
+SELECT incident_id,'external_ref','stale-reset-claim',record_id FROM records;`); err != nil {
+		t.Fatal(err)
+	}
+	result, err := ResetDatabase(ctx, recoveryPool.Pool(), plan)
 	if err != nil {
 		t.Fatalf("reset database: %v", err)
 	}
-	if !result.MigrationMetadataPreserved || !result.BootstrapAdminRestored || result.MutableTableCount != len(result.TablesReset) {
+	if result.TransactionSettlement != "committed" || !result.MigrationMetadataPreserved || !result.BootstrapAdminRestored || result.MutableTableCount != len(result.TablesReset) {
 		t.Fatalf("unexpected reset proof: %#v", result)
 	}
 	if !sortStringsAreStrict(result.TablesReset) {
@@ -203,9 +231,7 @@ func TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata(t *testing.
 	if _, err := db.ExecContext(ctx, `INSERT INTO application_crypto_format(singleton, format_id) VALUES (true, 'cartulary.application_crypto_format.v1')`); err != nil {
 		t.Fatal(err)
 	}
-	result, err = ResetDatabase(ctx, recoveryPool.Pool(), func(ctx context.Context, tx pgx.Tx) error {
-		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
-	})
+	result, err = ResetDatabase(ctx, recoveryPool.Pool(), plan)
 	if err != nil || !result.MigrationMetadataPreserved {
 		t.Fatalf("reset changed admitted identity: %v", err)
 	}
@@ -216,6 +242,81 @@ func TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata(t *testing.
 	var canWrite bool
 	if err := recoveryPool.Pool().QueryRow(ctx, `SELECT has_table_privilege(current_user, 'application_crypto_format', 'INSERT,UPDATE,DELETE,TRUNCATE')`).Scan(&canWrite); err != nil || canWrite {
 		t.Fatalf("recovery acquired identity write permission: %t %v", canWrite, err)
+	}
+
+	if got := storageSnapshot(); got != beforeStorage {
+		t.Fatal("reset replaced relation storage")
+	}
+	requireSQLCountEqual(t, db, `SELECT nextval('record_revisions_revision_id_seq')`, 12346)
+	requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM entity_active_identifier_claims`, 0)
+	requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM party_active_key_claims`, 0)
+	for _, table := range []string{"entity_active_identifier_claims", "party_active_key_claims"} {
+		var allowed bool
+		if err := recoveryPool.Pool().QueryRow(ctx, `SELECT has_table_privilege(current_user,$1,'DELETE')`, table).Scan(&allowed); err != nil || allowed {
+			t.Fatalf("derived delete privilege widened: %s %v", table, err)
+		}
+	}
+	seedTestRuntimeResetRows(t, db)
+	failReset := func(name, stage string, resetPlan DatabaseResetPlan, resetCtx context.Context, settlement string) {
+		t.Helper()
+		t.Run(name, func(t *testing.T) {
+			result, err := ResetDatabase(resetCtx, recoveryPool.Pool(), resetPlan)
+			var failure *DatabaseResetFailure
+			if !errors.As(err, &failure) || failure.Stage() != stage || result.TransactionSettlement != settlement {
+				t.Fatalf("reset failure: stage=%v settlement=%s", err, result.TransactionSettlement)
+			}
+			requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM incidents`, 1)
+			requireSQLCountEqual(t, db, `SELECT COUNT(*) FROM user_sessions`, 1)
+			var role string
+			if err := recoveryPool.Pool().QueryRow(ctx, `SHOW session_replication_role`).Scan(&role); err != nil || role != "origin" {
+				t.Fatalf("transaction setting leaked: %s %v", role, err)
+			}
+		})
+	}
+	brokenBootstrap := plan
+	brokenBootstrap.RestoreBootstrap = func(context.Context, pgx.Tx) error { return errors.New("injected bootstrap failure") }
+	failReset("bootstrap rollback", "recovery_reset_bootstrap_failed", brokenBootstrap, ctx, "rolled_back")
+	extraBootstrap := plan
+	extraBootstrap.RestoreBootstrap = func(ctx context.Context, tx pgx.Tx) error {
+		if err := plan.RestoreBootstrap(ctx, tx); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO incidents (incident_key,incident_key_canonical,title,status,created_by_user_id,updated_by_user_id)
+SELECT 'UNEXPECTED','unexpected','Unexpected bootstrap residue','active',id,id FROM users LIMIT 1`)
+		return err
+	}
+	failReset("bootstrap residue rollback", "recovery_reset_bootstrap_verification_failed", extraBootstrap, ctx, "rolled_back")
+	unknownAlgorithm := plan
+	unknownAlgorithm.ResolveRebuild = func(string) (func(context.Context, pgx.Tx) error, error) {
+		return nil, recovery.ErrUnsupportedPostgresRebuild
+	}
+	failReset("unknown derived algorithm", "recovery_reset_inventory_failed", unknownAlgorithm, ctx, "rolled_back")
+	if _, err := db.ExecContext(ctx, `CREATE TABLE reset_unknown_state (id integer)`); err != nil {
+		t.Fatal(err)
+	}
+	failReset("unknown table", "recovery_reset_inventory_failed", plan, ctx, "rolled_back")
+	if _, err := db.ExecContext(ctx, `DROP TABLE reset_unknown_state`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `ALTER TABLE incidents ENABLE ROW LEVEL SECURITY`); err != nil {
+		t.Fatal(err)
+	}
+	failReset("unexpected row security", "recovery_reset_clear_failed", plan, ctx, "rolled_back")
+	if _, err := db.ExecContext(ctx, `ALTER TABLE incidents DISABLE ROW LEVEL SECURITY`); err != nil {
+		t.Fatal(err)
+	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	failReset("canceled before admission", "recovery_reset_target_admission_failed", plan, canceled, "not_started")
+	canceledWork, cancelWork := context.WithCancel(ctx)
+	duringBootstrap := plan
+	duringBootstrap.RestoreBootstrap = func(context.Context, pgx.Tx) error { cancelWork(); return canceledWork.Err() }
+	failReset("canceled during transaction", "recovery_reset_bootstrap_failed", duringBootstrap, canceledWork, "rolled_back")
+	if result, err := ResetDatabase(ctx, recoveryPool.Pool(), plan); err != nil || result.TransactionSettlement != "committed" {
+		t.Fatalf("reset after rollbacks: %v", err)
+	}
+	if got := storageSnapshot(); got != beforeStorage {
+		t.Fatal("failed reset replaced relation storage")
 	}
 
 	recoveryPool.Close()
@@ -240,22 +341,39 @@ func TestResetDatabaseRestoresBootstrapAndPreservesMigrationMetadata(t *testing.
 	if _, err := lockTransaction.ExecContext(ctx, `LOCK TABLE incidents IN ACCESS SHARE MODE`); err != nil {
 		t.Fatalf("hold reset-conflicting table lock: %v", err)
 	}
-	_, err = ResetDatabase(ctx, contentionRecovery.Pool(), func(ctx context.Context, tx pgx.Tx) error {
-		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
-	})
+	started := time.Now()
+	result, err = ResetDatabase(ctx, contentionRecovery.Pool(), plan)
+	if result.TransactionSettlement != "rolled_back" || time.Since(started) > 5*time.Second {
+		t.Fatalf("contention did not settle within budget: %#v", result)
+	}
 	var contentionFailure *DatabaseResetFailure
 	if !errors.As(err, &contentionFailure) {
 		t.Fatalf("contention reset must return a typed failure: %v", err)
 	}
-	if contentionFailure.Stage() != "recovery_reset_truncate_failed" || contentionFailure.SQLState() != "55P03" {
+	if contentionFailure.Stage() != "recovery_reset_lock_failed" || contentionFailure.SQLState() != "55P03" {
 		t.Fatalf("unexpected contention diagnostic: stage=%q sqlstate=%q", contentionFailure.Stage(), contentionFailure.SQLState())
+	}
+	if err := lockTransaction.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	// A connection lost while COMMIT is in flight cannot publish reusable state.
+	if _, err := db.ExecContext(ctx, `CREATE FUNCTION reset_interrupt_commit() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN PERFORM pg_terminate_backend(pg_backend_pid()); RETURN NEW; END $$;
+CREATE CONSTRAINT TRIGGER reset_interrupt_commit AFTER INSERT ON deployment_bootstrap_state
+DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION reset_interrupt_commit();`); err != nil {
+		t.Fatal(err)
+	}
+	result, err = ResetDatabase(ctx, contentionRecovery.Pool(), plan)
+	var commitFailure *DatabaseResetFailure
+	if !errors.As(err, &commitFailure) || commitFailure.Stage() != "recovery_reset_commit_failed" || result.TransactionSettlement != "unknown" {
+		t.Fatalf("lost commit settlement was admitted: %v %#v", err, result)
 	}
 }
 
 func TestDatabaseResetFailurePreservesCauseAndExposesOnlyStageAndSQLState(t *testing.T) {
 	cause := &pgconn.PgError{Code: "55P03", Message: "relation secret_table contains secret-row"}
-	failure := NewDatabaseResetFailure("recovery_reset_truncate_failed", cause)
-	if failure.Error() != "recovery_reset_truncate_failed" || failure.Stage() != "recovery_reset_truncate_failed" {
+	failure := NewDatabaseResetFailure("recovery_reset_lock_failed", cause)
+	if failure.Error() != "recovery_reset_lock_failed" || failure.Stage() != "recovery_reset_lock_failed" {
 		t.Fatalf("unexpected public reset failure: %q", failure.Error())
 	}
 	if failure.SQLState() != "55P03" {

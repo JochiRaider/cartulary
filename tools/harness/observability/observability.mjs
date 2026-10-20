@@ -73,6 +73,41 @@ function readEnvelope(runDir, run) {
 }
 
 
+function readPostgresCheckpoints(runDir, run) {
+  let value;
+  try {
+    value = parseStrictJSON(readLocalFile(path.join(runDir, "diagnostics/postgres-checkpoints.json"), { maximum: 2 * 1024 * 1024 }).toString("utf8"), "PostgreSQL checkpoint diagnostics");
+  } catch (error) { if (error.code === "ENOENT") return null; throw error; }
+  validateSchemaSync("cartulary.harness_postgres_checkpoints.v2", value);
+  if (run.manifest.instrumentation.mode !== "basic") throw new Error("checkpoint diagnostics require basic mode");
+  for (const key of ["run_id", "source_digest", "graph_digest"]) if (value[key] !== run.manifest[key]) throw new Error("checkpoint diagnostic identity mismatch");
+  if (value.policy_digest !== run.manifest.instrumentation.policy_digest) throw new Error("checkpoint diagnostic policy mismatch");
+  if (value.services !== value.service_results.length) throw new Error("checkpoint service roster mismatch");
+  const seen = new Set();
+  for (const [index, service] of value.service_results.entries()) {
+    if (service.service_ordinal !== index + 1 || seen.has(service.service_scope_ref)) throw new Error("checkpoint service identity mismatch");
+    seen.add(service.service_scope_ref);
+    if (service.status !== "unavailable" && (!service.generation || !service.identity_digest)) throw new Error("checkpoint service lacks generation proof");
+  }
+  const elapsed = new Map();
+  for (const record of value.records) {
+    if (record.service_ordinal > value.services || record.elapsed_ms < (elapsed.get(record.service_ordinal) ?? 0)) throw new Error("checkpoint diagnostic ordering mismatch");
+    elapsed.set(record.service_ordinal, record.elapsed_ms);
+  }
+  const causes = new Set();
+  let unavailable = 0;
+  for (const service of value.service_results) {
+    const expected = service.truncated ? "truncated" : service.unavailable_causes.length ? "unavailable" : elapsed.has(service.service_ordinal) ? "observed" : "not_observed";
+    if (service.status !== expected) throw new Error("checkpoint service completeness mismatch");
+    if (service.unavailable_causes.length) unavailable++;
+    for (const cause of service.unavailable_causes) causes.add(cause);
+    if (service.truncated && !value.truncated) throw new Error("checkpoint truncation concealed");
+  }
+  const expected = value.truncated ? "truncated" : unavailable ? "unavailable" : value.records.length ? "observed" : "not_observed";
+  if (value.status !== expected || value.unavailable !== unavailable || JSON.stringify([...causes].sort()) !== JSON.stringify([...value.unavailable_causes].sort())) throw new Error("checkpoint aggregate completeness mismatch");
+  return value;
+}
+
 export async function loadRetainedObservability(runDir, { canonical } = {}) {
   const run = canonical ?? await validateCanonicalRun(runDir);
   const execution = readExecutionIndex(runDir, run);
@@ -84,7 +119,7 @@ export async function loadRetainedObservability(runDir, { canonical } = {}) {
   const sourceDigests = [run.manifest.source_digest, run.manifest.toolchain_digest,
     run.manifest.system_digest, run.manifest.graph_digest];
   return immutableFacts({
-    run, execution, envelope, resources, resourceIndex, terminalReceipt,
+    run, execution, envelope, resources, resourceIndex, terminalReceipt, postgresCheckpoints: readPostgresCheckpoints(runDir, run),
     index: {
       schema_id: "cartulary.harness_canonical_observability.v1", status: "complete",
       invocations: [{ target: run.manifest.target, run_id: run.manifest.run_id, source_digests: sourceDigests }],

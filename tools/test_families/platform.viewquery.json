@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "platform.viewquery",
   "rows": [
     {
@@ -35,7 +35,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "platform.viewquery.browser.browser_timeline_sort_filter_and_group_reaches_a_165ffa9afd",
@@ -70,7 +72,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "platform.viewquery.browser.timestamp_drafts_correct_locally_and_fractional_349e7ec0a3",
@@ -105,7 +109,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "platform.viewquery.frontend.grid_sort_filter_and_group_controls_send_only_st_63c9867421",
@@ -134,7 +140,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.viewquery.frontend_unit.compile_sort_filter_group_layout_and_active_chip_b59bab4f62",
@@ -165,7 +172,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.viewquery.unit.decode_defaults_to_schema_meta_0c64ab2f71",
@@ -194,7 +202,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.viewquery.unit.list_query_duplicate_precedence_and_normalization_c36fa08271",
@@ -223,7 +232,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.viewquery.unit.locator_predecessor_nulls",
@@ -247,7 +257,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.viewquery.unit.normalize_alias_text_v1_122b8c996b",
@@ -271,7 +282,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.viewquery.unit.sort_and_filter_ceilings_canonical_normalization_4ca84c1e10",
@@ -295,7 +307,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.viewquery.unit.timeline_grouping_whitelist_rejects_non_contract_cc76ac6675",
@@ -319,7 +332,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.viewquery.unit.timestamp_query_operands_normalize_and_ranges_co_0b505c0d19",
@@ -343,7 +357,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.viewquery.unit.view_query_filters_sort_and_group_by_accept_stab_0032c0a062",
@@ -367,7 +382,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

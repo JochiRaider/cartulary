@@ -70,7 +70,7 @@ export class CachePlan {
   }
 
   dependencyClosure(profile, unit) {
-    const selector = unit.command.environment.CARTULARY_TEST_ROWS ?? unit.unit_id;
+    const selector = JSON.stringify(unit.row_bindings);
     const key = `${profile.profile_id}:${selector}`;
     if (!this.dependencyClosures.has(key)) {
       this.dependencyClosures.set(

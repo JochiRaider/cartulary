@@ -48,11 +48,6 @@ import (
 const readySchemaID = "cartulary.restore.browser_restore_target.v1"
 const restoreBrowserRecoveryMasterKey = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
 
-const (
-	databaseNormalDropTimeout = 5 * time.Second
-	databaseForcedDropTimeout = 15 * time.Second
-)
-
 type readyPayload struct {
 	SchemaID            string                            `json:"schema_id"`
 	Origin              string                            `json:"origin"`
@@ -77,6 +72,9 @@ type seededSource struct {
 // Run serves a freshly restored deployment until cancellation or input closure.
 // It closes borrowed handles and retires every database it creates before returning.
 func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Writer, lifecycle *Lifecycle) (retErr error) {
+	if lifecycle == nil || lifecycle.cleanupBudget <= 0 {
+		return errors.New("fixture cleanup allowance is required")
+	}
 	lifecycle.event("fixture", "startup", "started", 90*time.Second, nil)
 	defer func() {
 		outcome := "succeeded"
@@ -84,6 +82,14 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 			outcome = "failed"
 		}
 		lifecycle.event("fixture", "terminal", outcome, 0, retErr)
+	}()
+	cleanup := fixtureCleanup{lifecycle: lifecycle}
+	defer func() {
+		// Setup cancellation does not cancel retirement. This is the single
+		// cleanup lifetime granted by the browser process owner.
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), lifecycle.cleanupBudget)
+		defer cancel()
+		retErr = errors.Join(retErr, cleanup.close(cleanupCtx))
 	}()
 	runtimeRoot = strings.TrimSpace(runtimeRoot)
 	if runtimeRoot == "" {
@@ -129,20 +135,20 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return err
 	}
 	sourceName := "cartulary_restore_browser_source_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
-	sourceDSN, err := createFromTemplateDB(ctx, baseDSN, sourceName, templateDatabase)
+	sourceDSN, sourceCreated, err := createFromTemplateDB(ctx, baseDSN, sourceName, templateDatabase)
+	if sourceCreated {
+		cleanup.source.database = func(ctx context.Context) error { return dropDatabase(ctx, baseDSN, sourceName) }
+		lifecycle.event("source.database", "acquisition", "succeeded", 0, nil)
+	}
 	if err != nil {
 		return err
 	}
-	lifecycle.event("source.database", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("source.database", 0, func() error {
-		return dropDatabase(context.Background(), baseDSN, sourceName)
-	}, &retErr)
 	sourceRecovery, err := admitPostgres(ctx, sourceDSN, postgres.PurposeRecovery)
 	if err != nil {
 		return fmt.Errorf("open source postgres: %w", err)
 	}
 	lifecycle.event("source.recovery", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("source.recovery", 0, closeWithoutError(sourceRecovery.Close), &retErr)
+	cleanup.source.recovery = closeWithoutError(sourceRecovery.Close)
 	sourcePool := sourceRecovery.Pool()
 
 	sourceObjectStore, err := objectstore.NewFilesystemStore(filepath.Join(sourceRoot, "object-storage"))
@@ -150,7 +156,7 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return fmt.Errorf("open source object store: %w", err)
 	}
 	lifecycle.event("source.objects", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("source.objects", 0, sourceObjectStore.Close, &retErr)
+	cleanup.source.objects = closeResult(sourceObjectStore.Close)
 
 	const sourceAdminEmail = "restore-browser-admin@example.test"
 	const sourceAdminPassword = "RestoreBrowserAdmin1!"
@@ -168,12 +174,12 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return fmt.Errorf("admit source postgres: %w", err)
 	}
 	lifecycle.event("source.runtime_pool", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("source.runtime_pool", 0, closeWithoutError(sourceAdmission.Close), &retErr)
+	cleanup.source.runtimePool = closeWithoutError(sourceAdmission.Close)
 	sourceListener, err := tls.Listen("tcp", "127.0.0.1:0", serverTLS.Clone())
 	if err != nil {
 		return err
 	}
-	defer sourceListener.Close()
+	cleanup.source.listener = closeResult(sourceListener.Close)
 	sourceOrigin := "https://" + sourceListener.Addr().String()
 	sourceConfig, err := targetConfig(sourceRoot, sourceOrigin, sourceTokenEnv)
 	if err != nil {
@@ -188,13 +194,13 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return fmt.Errorf("start source runtime: %w", err)
 	}
 	lifecycle.event("source.runtime", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("source.runtime", 0, closeWithoutError(sourceRuntime.Close), &retErr)
+	cleanup.source.runtime = closeWithoutError(sourceRuntime.Close)
 	sourceServer, sourceServerErr, err := startRuntimeServer(ctx, sourceListener, sourceRuntime.HTTPHandler(), sourceRuntime.ActivatePublication)
 	if err != nil {
 		return fmt.Errorf("start source server: %w", err)
 	}
 	lifecycle.event("source.http", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("source.http", 5*time.Second, sourceServer.Close, &retErr)
+	cleanup.source.http = sourceServer.Close
 	seed, err := seedSourceDeployment(ctx, sourceOrigin, clientTLS, sourceAdminEmail, sourceAdminPassword)
 	if err != nil {
 		return err
@@ -209,7 +215,7 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return fmt.Errorf("open encrypted backup storage: %w", err)
 	}
 	lifecycle.event("backup.storage", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("backup.storage", 0, func() error { return recovery.CloseBackupStorage(backupStorage) }, &retErr)
+	cleanup.backup = closeResult(func() error { return recovery.CloseBackupStorage(backupStorage) })
 	extensionBackups, err := extensionassembly.GeneratedRecoveryCatalog()
 	if err != nil {
 		return fmt.Errorf("construct extension recovery catalog: %w", err)
@@ -226,7 +232,7 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return err
 	}
 	lifecycle.event("source.reference_packs", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("source.reference_packs", 0, closeWithoutError(sourcePacks.Close), &retErr)
+	cleanup.source.referencePacks = closeWithoutError(sourcePacks.Close)
 	inventories, err := recoveryassembly.CurrentVNextObjectInventoryCatalog(recoveryassembly.NewVNextObjectSource(sourceObjectStore), sourcePacks, nil)
 	if err != nil {
 		return err
@@ -263,28 +269,28 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return err
 	}
 	targetName := "cartulary_restore_browser_" + safeSuffix(time.Now().UTC().Format("20060102150405.000000000"))
-	targetDSN, err := createFromTemplateDB(ctx, baseDSN, targetName, templateDatabase)
+	targetDSN, targetCreated, err := createFromTemplateDB(ctx, baseDSN, targetName, templateDatabase)
+	if targetCreated {
+		cleanup.target.database = func(ctx context.Context) error { return dropDatabase(ctx, baseDSN, targetName) }
+		lifecycle.event("target.database", "acquisition", "succeeded", 0, nil)
+	}
 	if err != nil {
 		return err
 	}
-	lifecycle.event("target.database", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("target.database", 0, func() error {
-		return dropDatabase(context.Background(), baseDSN, targetName)
-	}, &retErr)
 
 	targetRecovery, err := admitPostgres(ctx, targetDSN, postgres.PurposeRecovery)
 	if err != nil {
 		return fmt.Errorf("open target postgres: %w", err)
 	}
 	lifecycle.event("target.recovery", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("target.recovery", 0, closeWithoutError(targetRecovery.Close), &retErr)
+	cleanup.target.recovery = closeWithoutError(targetRecovery.Close)
 	targetPool := targetRecovery.Pool()
 	targetObjectStore, err := objectstore.NewFilesystemStore(filepath.Join(targetRoot, "object-storage"))
 	if err != nil {
 		return fmt.Errorf("open target object store: %w", err)
 	}
 	lifecycle.event("target.objects", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("target.objects", 0, targetObjectStore.Close, &retErr)
+	cleanup.target.objects = closeResult(targetObjectStore.Close)
 
 	projectionRebuilder, workbookProbe, err := projectionassembly.NewRecoveryServices(targetPool)
 	if err != nil {
@@ -295,7 +301,7 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return err
 	}
 	lifecycle.event("target.reference_packs", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("target.reference_packs", 0, closeWithoutError(targetPacks.Close), &retErr)
+	cleanup.target.referencePacks = closeWithoutError(targetPacks.Close)
 	graph, err := recoveryassembly.NewGraphProjectionRestoreParticipant(targetPool)
 	if err != nil {
 		return err
@@ -321,7 +327,7 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
+	cleanup.target.listener = closeResult(listener.Close)
 	origin := "https://" + listener.Addr().String()
 	cfg, err := targetConfig(targetRoot, origin, targetTokenEnv)
 	if err != nil {
@@ -337,7 +343,7 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return fmt.Errorf("admit target postgres: %w", err)
 	}
 	lifecycle.event("target.runtime_pool", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("target.runtime_pool", 0, closeWithoutError(targetAdmission.Close), &retErr)
+	cleanup.target.runtimePool = closeWithoutError(targetAdmission.Close)
 	runtime, err := server.NewRuntime(ctx, cfg, server.Options{
 		Postgres:    targetAdmission,
 		ObjectStore: targetObjectStore,
@@ -347,14 +353,14 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 		return fmt.Errorf("start target runtime: %w", err)
 	}
 	lifecycle.event("target.runtime", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("target.runtime", 0, closeWithoutError(runtime.Close), &retErr)
+	cleanup.target.runtime = closeWithoutError(runtime.Close)
 
 	server, serverErr, err := startRuntimeServer(ctx, listener, runtime.HTTPHandler(), runtime.ActivatePublication)
 	if err != nil {
 		return err
 	}
 	lifecycle.event("target.http", "acquisition", "succeeded", 0, nil)
-	defer lifecycle.cleanup("target.http", 5*time.Second, server.Close, &retErr)
+	cleanup.target.http = server.Close
 
 	incidentIDs, err := restoredIncidentIDs(ctx, targetPool)
 	if err != nil {
@@ -385,6 +391,7 @@ func Run(ctx context.Context, runtimeRoot string, input io.Reader, output io.Wri
 
 	select {
 	case <-ctx.Done():
+		return ctx.Err()
 	case <-stdinDone:
 	case err := <-sourceServerErr:
 		return err
@@ -427,7 +434,7 @@ func (server *runtimeServer) connectionStates() string {
 	return fmt.Sprintf("new=%d active=%d idle=%d", counts[http.StateNew], counts[http.StateActive], counts[http.StateIdle])
 }
 
-func (server *runtimeServer) Close() error {
+func (server *runtimeServer) Close(parent context.Context) error {
 	server.closeOnce.Do(func() {
 		// A preconnected browser socket has no HTTP request to drain. Stop
 		// admitting that lifetime before Shutdown, whose StateNew grace period
@@ -448,7 +455,7 @@ func (server *runtimeServer) Close() error {
 		// Shutdown does not cancel active handlers or hijacked WebSockets. Retire
 		// their request lifetime before draining and releasing borrowed databases.
 		server.cancel()
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 		defer cancel()
 		before := server.connectionStates()
 		shutdownErr := server.http.Shutdown(ctx)
@@ -711,32 +718,26 @@ func prepareConflictTokenHarness(root string, tlsDirectory string) (map[string]s
 	}, nil
 }
 
-func createFromTemplateDB(ctx context.Context, baseDSN string, databaseName string, templateDatabase string) (string, error) {
+func createFromTemplateDB(ctx context.Context, baseDSN string, databaseName string, templateDatabase string) (string, bool, error) {
 	adminDSN, err := databaseDSN(baseDSN, "postgres")
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	dsn, err := databaseDSN(baseDSN, databaseName)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	if err := createDatabase(ctx, adminDSN, databaseName, templateDatabase); err != nil {
-		return "", err
-	}
-	return dsn, nil
+	created, err := createDatabase(ctx, adminDSN, databaseName, templateDatabase)
+	// Successful CREATE grants cleanup ownership even if finalization failed.
+	// The fixture's one cleanup lifetime handles that partial acquisition.
+	return dsn, created, err
 }
 
-func createDatabase(ctx context.Context, adminDSN string, name string, templateDatabase string) error {
+func createDatabase(ctx context.Context, adminDSN string, name string, templateDatabase string) (bool, error) {
 	if _, err := pgIdentifier(templateDatabase); err != nil {
-		return err
+		return false, err
 	}
-	created, err := pgtest.CloneDatabase(ctx, adminDSN, name, templateDatabase)
-	if err != nil && created {
-		_, cleanupErr := postgrescleanup.DropOwnedDatabase(context.Background(), adminDSN, name,
-			databaseNormalDropTimeout, databaseForcedDropTimeout)
-		return errors.Join(err, cleanupErr)
-	}
-	return err
+	return pgtest.CloneDatabase(ctx, adminDSN, name, templateDatabase)
 }
 
 func dropDatabase(ctx context.Context, sourceDSN string, name string) error {
@@ -745,10 +746,8 @@ func dropDatabase(ctx context.Context, sourceDSN string, name string) error {
 		return err
 	}
 	// Successful CREATE is the ownership proof at both call sites. Use the same
-	// independently admitted, separately bounded attempts as ordinary pgtest
-	// finalizers; an aggregate deadline must not truncate a fallback's budget.
-	_, err = postgrescleanup.DropOwnedDatabase(ctx, adminDSN, name,
-		databaseNormalDropTimeout, databaseForcedDropTimeout)
+	// single admitted operation as pgtest, bounded by the owner deadline.
+	err = postgrescleanup.DropOwnedDatabase(ctx, adminDSN, name)
 	return err
 }
 

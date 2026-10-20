@@ -3,6 +3,7 @@ package merge_test
 import (
 	"context"
 	"errors"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"slices"
 	"strings"
 	"testing"
@@ -221,30 +222,7 @@ func (composedMergeTimelineEffects) RefreshTimelineProjectionRowsTx(context.Cont
 
 func seedComposedMergeUser(t testing.TB, db postgres.DB) authn.UserRecord {
 	t.Helper()
-	hash, err := authn.HashPassword(context.Background(), "MergeProtectedPass1!")
-	if err != nil {
-		t.Fatalf("hash merge protected-set password: %v", err)
-	}
-	var record authn.UserRecord
-	if err := db.QueryRow(context.Background(), `
-INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
-VALUES ('merge-protected-composition@example.test', 'Merge Protected', $1, false, true, true)
-RETURNING id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin, created_at, updated_at, user_version
-`, hash).Scan(
-		&record.ID,
-		&record.Email,
-		&record.DisplayName,
-		&record.PasswordHash,
-		&record.MFARequired,
-		&record.IsActive,
-		&record.IsDeploymentAdmin,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&record.UserVersion,
-	); err != nil {
-		t.Fatalf("seed merge protected-set user: %v", err)
-	}
-	return record
+	return authstoretest.SeedActor(t, db, authstoretest.ActorAttributes{Email: "merge-protected-composition@example.test", DisplayName: "Merge Protected", DeploymentAdmin: true})
 }
 
 func createComposedMergeIncident(t testing.TB, db postgres.DB, actor authn.UserRecord) incidents.IncidentRecord {

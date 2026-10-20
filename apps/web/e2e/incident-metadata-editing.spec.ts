@@ -20,7 +20,7 @@ import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import { holdBrowserRequest } from "./support/transport/requestInterception";
 
 test("metadata edits each live field sparsely clears normalizes and reviews a real version conflict", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -180,7 +180,7 @@ test("metadata edits each live field sparsely clears normalizes and reviews a re
 });
 
 test("metadata retains newer input and distinguishes confirmed failed reads from uncertain observation", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installMetadataPresentation(page);
   const panel = await openMetadata(page);
@@ -236,7 +236,7 @@ test("metadata retains newer input and distinguishes confirmed failed reads from
 });
 
 test("metadata and membership retained work receive sequential departure review including Stay and history", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const membership = await installMembershipManagementPresentation(page);
   const fixture = await installMetadataPresentation(
@@ -297,7 +297,7 @@ test("metadata and membership retained work receive sequential departure review 
 });
 
 test("metadata uses current roles distinguishes closure and clears protected state after session or incident loss", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installMetadataPresentation(page);
   const panel = await openMetadata(page);
@@ -366,7 +366,7 @@ test("metadata uses current roles distinguishes closure and clears protected sta
 });
 
 test("metadata pending transport survives drawer return and cannot publish after deliberate incident departure", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installMetadataPresentation(page);
   const panel = await openMetadata(page);

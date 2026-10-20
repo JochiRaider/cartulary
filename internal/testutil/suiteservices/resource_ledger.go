@@ -54,7 +54,7 @@ func resourceLedgerFromEvents(env map[string]string, events []Event) ResourceLed
 			}
 		case EventPostgresDBDropped:
 			delete(databases, event.Name)
-		case EventS3BucketCreated:
+		case EventS3BucketReserved, EventS3BucketCreated:
 			if event.Name != "" {
 				buckets[event.Name] = struct{}{}
 			}
@@ -71,7 +71,7 @@ func resourceLedgerFromEvents(env map[string]string, events []Event) ResourceLed
 		delete(retired, key)
 	}
 	return ResourceLedger{
-		SchemaID:        "cartulary.test_services.resource_ledger.v1",
+		SchemaID:        "cartulary.test_services.resource_ledger.v2",
 		SuiteID:         SuiteID(env),
 		RunID:           ResolveRunID(env),
 		Databases:       sortedKeys(databases),
@@ -137,7 +137,7 @@ func ReadResourceLedgerFile(path string) (ResourceLedger, bool, error) {
 	if err := json.Unmarshal(raw, &ledger); err != nil {
 		return ResourceLedger{}, true, fmt.Errorf("decode suite-service resource ledger: %w", err)
 	}
-	if ledger.SchemaID != "cartulary.test_services.resource_ledger.v1" || ledger.SuiteID == "" || ledger.RunID == "" {
+	if ledger.SchemaID != "cartulary.test_services.resource_ledger.v2" || ledger.SuiteID == "" || ledger.RunID == "" {
 		return ResourceLedger{}, true, fmt.Errorf("suite-service resource ledger identity is invalid")
 	}
 	sort.Strings(ledger.Databases)

@@ -5,7 +5,7 @@ import path from "node:path";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
 import { executionRecordsDigest } from "../../runtime/execution-observations.mjs";
 const digest = `sha256:${"a".repeat(64)}`;
-const unit = (id) => ({ unit_id: id, owner_id: "harness.evidence_accounting", kind: "runner", command: { executable: "true", args: [], environment: {} }, needs: [], resource_claims: { cpu: 1, process: 1 }, fixture_lease: "none", renderer_requirement: "none", physical_allocations: {}, service_dependencies: [], cache_policy: "none", timeout_ms: 1000, row_bindings: [], current_run_evidence_outputs: [], failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" }, estimated_work_ms: 10 });
+const unit = (id) => ({ unit_id: id, owner_id: "harness.evidence_accounting", kind: "runner", command: { executable: "true", args: [], environment: {} }, needs: [], resource_claims: { cpu: 1, process: 1 }, fixture_lease: "none", postgres_isolation: "none", renderer_requirement: "none", physical_allocations: {}, service_dependencies: [], cache_policy: "none", timeout_ms: 1000, row_bindings: [], current_run_evidence_outputs: [], failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" }, estimated_work_ms: 10 });
 export function writeCanonicalFixture(dir) {
   const graph = { units: [unit("a")] };
   const wait = { wait_reason: "rank", blocking_resources: [], blocking_unit_ids: [] };
@@ -65,7 +65,7 @@ export function writeCompleteFixture(dir) {
   ];
   const selected = { ...unit("a"), shared_locks: [], exclusive_locks: [], reusable_artifact_outputs: [] };
   selected.semantic_digest = hash(selected);
-  const graph = { schema_id: "cartulary.harness_work_graph.v7", selector: "fixture", units: [selected], graph_digest: hash({ units: [selected] }) };
+  const graph = { schema_id: "cartulary.harness_work_graph.v8", selector: "fixture", units: [selected], graph_digest: hash({ units: [selected] }) };
   delete manifest.capability_snapshot.snapshot_digest;
   manifest.capability_snapshot.snapshot_digest = hash(manifest.capability_snapshot);
   Object.assign(manifest, { declared_inputs: { OWNER: "harness.evidence_accounting", SCOPE: "all" },
@@ -77,8 +77,8 @@ export function writeCompleteFixture(dir) {
     host_profile: { platform: "linux", architecture: "x64", kernel_release: "fixture", cpu_models: ["fixture"] }, instrumentation_policy_bytes: policyBytes };
   summary.artifact_refs.push("execution-context.json", "cleanup-results.json", "unit-results/a.json", "retained-secret-scan.json");
   write("run-manifest.json", manifest); write("run-summary.json", summary); write("execution-context.json", context);
-  write("cleanup-results.json", { schema_id: "cartulary.harness_cleanup_results.v1", run_id: manifest.run_id,
-    results: [{ sequence: 1, operation: "host_release", unit_id: "a", fixture_lease_id: null, outcome: "completed", failure_class: null, failure_reason: null, failures: [], artifact_refs: [] }] });
+  write("cleanup-results.json", { schema_id: "cartulary.harness_cleanup_results.v2", run_id: manifest.run_id,
+    results: [{ sequence: 1, operation: "host_release", unit_id: "a", fixture_lease_id: null, outcome: "completed", failure_class: null, failure_reason: null, failures: [], artifact_refs: [], diagnostic: null }] });
   write("unit-results/a.json", { schema_id: "cartulary.harness_unit_result.v1", unit_id: "a", semantic_digest: selected.semantic_digest,
     status: "passed", exit_code: 0, signal: null, failure_class: null, failure_reason: null, evidence_outputs: [], missing_outputs: [] });
   write("retained-secret-scan.json", { schema_id: "cartulary.harness_retained_secret_scan.v1", status: "pass", scanned_files: 12, policy_digest: bytesHash("fixture scan") });

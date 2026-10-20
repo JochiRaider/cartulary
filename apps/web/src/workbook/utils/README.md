@@ -26,11 +26,11 @@ serve workbook consumers without owning a feature workflow.
 | File | Responsibility |
 | --- | --- |
 | [GridAdapter.anchor.test.ts](GridAdapter.anchor.test.ts) | Workbook interaction grid-adapter anchor behavior tests. |
-| [workbookClipboard.test.ts](workbookClipboard.test.ts) | Tests explicit representation dispatch, scalar comma/quote preservation, deterministic rejection and row bounds. |
+| [workbookClipboard.node.test.ts](workbookClipboard.node.test.ts) | Tests explicit representation dispatch, scalar comma/quote preservation, deterministic rejection and row bounds. |
 | [workbookPresence.test.tsx](workbookPresence.test.tsx) | Tests unique-user presence counts and activity-first display ordering. |
-| [workbookRowReconciliation.test.ts](workbookRowReconciliation.test.ts) | Tests for sparse row replacement, removal, drafts, and row-version reference reuse. |
-| [workbookStatusSecondary.test.ts](workbookStatusSecondary.test.ts) | Tests generated secondary-status priority and exclusion of inactive-surface candidates. |
-| [workbookValueFormat.test.ts](workbookValueFormat.test.ts) | Tests grid value formatting preserves primitive display strings. |
+| [workbookRowReconciliation.node.test.ts](workbookRowReconciliation.node.test.ts) | Tests for sparse row replacement, removal, drafts, and row-version reference reuse. |
+| [workbookStatusSecondary.node.test.ts](workbookStatusSecondary.node.test.ts) | Tests generated secondary-status priority and exclusion of inactive-surface candidates. |
+| [workbookValueFormat.node.test.ts](workbookValueFormat.node.test.ts) | Tests grid value formatting preserves primitive display strings. |
 
 retainWorkbookReferenceLabels prunes presentation using exact feature-supplied
 identities. It knows neither reference eligibility nor parent workflow semantics.

@@ -5,7 +5,7 @@ func runtimeCommandID(target string) string { switch target { case "test-fast": 
 case "check": return "cartulary.harness.command.check.v4"
 case "ci": return "cartulary.harness.command.ci.v5"
 case "release-check": return "cartulary.harness.command.release_check.v4"
-case "test-slice": return "cartulary.harness.command.test_slice.v4"
+case "test-slice": return "cartulary.harness.command.test_slice.v5"
 case "browser-e2e": return "cartulary.harness.command.browser_e2e.v4"
 case "browser-e2e-visual-update": return "cartulary.harness.command.browser_e2e_visual_update.v3"
 case "harness-contract": return "cartulary.harness.command.harness_contract.v4"

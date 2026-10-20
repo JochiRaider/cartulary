@@ -49,10 +49,12 @@ func RecoverRun(ctx context.Context, repository string, environment map[string]s
 		},
 	}
 	if err := p.Recover(ctx); err != nil {
+		fmt.Fprintln(out, harnesssession.DescribeCleanupFailure(err))
 		fmt.Fprintln(out, "failure_class=harness failure_reason=cleanup_error recovery incomplete: exact ownership proof retained")
 		return 12
 	}
 	if err := runtime.Close(); err != nil {
+		fmt.Fprintln(out, harnesssession.DescribeCleanupFailure(err))
 		fmt.Fprintln(out, "failure_class=harness failure_reason=cleanup_error recovery incomplete: runtime settlement not established")
 		return 12
 	}

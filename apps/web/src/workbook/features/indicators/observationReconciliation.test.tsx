@@ -9,11 +9,11 @@ import {
   observationTargetRow,
   testObservationReceipt,
 } from "../../../testing/observationTestSupport";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import {
   acceptedQueryMetadata,
-  renderHookWithWorkbookQueryBrowsing as renderHook,
-} from "../../../testing/workbookQueryTestSupport";
+  fullWorkbookViewRow,
+} from "../../../testing/workbookFixtureData";
+import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../../testing/workbookQueryTestSupport";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";
 import { useGenericSurfaceQuery } from "../../query/useGenericSurfaceQuery";

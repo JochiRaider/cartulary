@@ -32,7 +32,7 @@ const TimelineView = "cartulary.view.timeline.v2"
 
 func TestTypedLinksAndTags_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "saved_view_query-u-8-01-links-tags")
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-u801@example.test", "Workbook query U801", "SavedViewQueryU801Pass1!", false, true, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "saved_view_query-u801@example.test", DisplayName: "Workbook query U801", DeploymentAdmin: true})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-u-8-01-incident", "IR-P8-U801", "Workbook query typed links and tags")
 	incidentID := incident.ID
 	revisionComposition := revisionsupport.MustComposition(t)

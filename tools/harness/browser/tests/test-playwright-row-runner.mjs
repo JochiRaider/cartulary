@@ -2,7 +2,7 @@ import { publishRendererFixture } from "./renderer-evidence-fixture.mjs";
 import assert from "node:assert/strict";
 import process from "node:process";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -17,6 +17,7 @@ import {
   adaptPlaywrightReport,
   playwrightTestList,
   playwrightGroupExitCode,
+  playwrightReportMaximumBytes,
 } from "../../execution/runners/playwright.mjs";
 
 const file = "apps/web/e2e/keyboard.spec.ts";
@@ -67,7 +68,7 @@ test("Playwright row adapter distinguishes primary asset failure from secondary 
   const assetResult = adapt(row("harness.browser.boundary_support.asset_probe", "assets"), report(broken));
   assert.equal(assetResult.failure_class, "artifact");
   const group = {
-    schema_id: "cartulary.browser_group_result.v9", renderer_borrow: { unit_id:"fixture:group", borrow_id:"11111111-1111-4111-8111-111111111111", allocation_id:"22222222-2222-4222-8222-222222222222", generation:"33333333-3333-4333-8333-333333333333", attestation_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/renderer-profile-attestation.json", trust_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/tls-trust-attestation.json" }, target_id: "browser-e2e-visual",
+    schema_id: "cartulary.browser_group_result.v11", renderer_borrow: { unit_id:"fixture:group", borrow_id:"11111111-1111-4111-8111-111111111111", allocation_id:"22222222-2222-4222-8222-222222222222", generation:"33333333-3333-4333-8333-333333333333", attestation_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/renderer-profile-attestation.json", trust_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/tls-trust-attestation.json" }, target_id: "browser-e2e-visual",
     stage_id: "visual", group_id: "asset-probe", browser_session_id: "session",
     runtime_profile_id: "default", service_requirement: "test-services",
     fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
@@ -224,19 +225,21 @@ test("browser fixture process retains redacted late diagnostics and preserves cl
     command: process.execPath,
     args: ["-e", `
       const attempt = process.argv.at(-1);
-      process.stdout.write(JSON.stringify({ user_password: 'private-fixture-value' }) + '\\n');
+      const cleanupBudget = Number(process.argv[process.argv.indexOf('--cleanup-budget-ms')+1]);
+      process.stdout.write(JSON.stringify({ cleanup_budget_ms: cleanupBudget, user_password: 'private-fixture-value' }) + '\\n');
       process.stdin.resume();
       process.stdin.on('end', () => {
         process.stderr.write('late private-fixture-');
         process.stderr.write('value postgres://user:secret@localhost/db\\n');
-        process.stderr.write(JSON.stringify({ schema_id: 'cartulary.browser_fixture_event.v1', attempt_id: attempt,
+        process.stderr.write(JSON.stringify({ schema_id: 'cartulary.browser_fixture_event.v3', attempt_id: attempt,
           stage: 'target.database', phase: 'cleanup', outcome: 'failed', elapsed_ms: 1, deadline_ms: 100,
+          postgres: { duration_ms: 100, admission_ms: 1, service_generation: null, admission_budget_ms: 100, operation_ms: 99, operation_budget_ms: 99, admission: 'acquired', outcome: 'deadline_exceeded', wait: { status: 'not_observed', first: null, last: null } },
           message: 'private-fixture-value: catalog retirement failed' }) + '\\n');
         process.exitCode = 1;
       });
     `, "--"],
   });
-  await fixture.ready;
+  assert.equal((await fixture.ready).cleanup_budget_ms, 30_000);
   const stopped = fixture.stop();
   assert.equal(fixture.stop(), stopped);
   let cleanup;
@@ -253,6 +256,7 @@ test("browser fixture process retains redacted late diagnostics and preserves cl
   assert.equal(rowResult.failure_reason, "cleanup_error");
   assert.equal(rowResult.exit_code, 12);
   assert.equal(rowResult.failure_diagnostic.process.closed, true);
+  assert.equal(rowResult.failure_diagnostic.events[0].postgres.operation_budget_ms, 99);
   failures.unshift({ phase: "body", failure_class: "product", failure_reason: "test_assertion_failure", error: new Error("original assertion") });
   broken.tests[0].results[0].attachments = [attach()];
   rowResult = adapt(row("harness.browser.unit.fixture_cleanup", "cleanup"), report(broken), 1);
@@ -291,7 +295,7 @@ test("browser fixture stderr truncation cannot expose a multiline credential suf
       process.stdout.write('{}\\n'); process.stdin.resume();
       process.stdin.on('end', () => {
         process.stderr.write(process.env.FIXTURE_PASSWORD + '\\n' + 'safe'.repeat(7000) + '\\n');
-        process.stderr.write(JSON.stringify({ schema_id: 'cartulary.browser_fixture_event.v1', attempt_id: process.argv.at(-1),
+        process.stderr.write(JSON.stringify({ schema_id: 'cartulary.browser_fixture_event.v3', attempt_id: process.argv.at(-1),
           stage: 'fixture', phase: 'terminal', outcome: 'succeeded', elapsed_ms: 1, deadline_ms: 0, message: '' }) + '\\n');
       });
     `, "--"],
@@ -366,7 +370,7 @@ test("browser target finalization preserves typed row failures and cleanup prece
         const directory = path.join(scratch, id, target, "browser-groups", groupID);
         mkdirSync(directory, { recursive: true, mode: 0o700 });
         const group = {
-          schema_id: "cartulary.browser_group_result.v9", renderer_borrow: { unit_id:"fixture:group", borrow_id:"11111111-1111-4111-8111-111111111111", allocation_id:"22222222-2222-4222-8222-222222222222", generation:"33333333-3333-4333-8333-333333333333", attestation_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/renderer-profile-attestation.json", trust_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/tls-trust-attestation.json" }, target_id: target,
+          schema_id: "cartulary.browser_group_result.v11", renderer_borrow: { unit_id:"fixture:group", borrow_id:"11111111-1111-4111-8111-111111111111", allocation_id:"22222222-2222-4222-8222-222222222222", generation:"33333333-3333-4333-8333-333333333333", attestation_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/renderer-profile-attestation.json", trust_ref:"_shared/renderers/22222222-2222-4222-8222-222222222222/tls-trust-attestation.json" }, target_id: target,
           stage_id: "webserver-backed", group_id: groupID, browser_session_id: `session-${index}`,
           runtime_profile_id: "default", service_requirement: "test-services",
           fixture_capabilities: ["browser_stack"], service_dependencies: ["postgres"],
@@ -387,10 +391,13 @@ test("browser target finalization preserves typed row failures and cleanup prece
         writeFileSync(path.join(directory, "browser-group-result.json"), JSON.stringify(group), { mode: 0o600 });
         return groupID;
       });
+      const finalizerEnv = { ...process.env, CARTULARY_TEST_RESULTS_DIR: scratch, CARTULARY_TEST_RUN_ID: id };
+      delete finalizerEnv.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+      delete finalizerEnv.CARTULARY_HARNESS_UNIT_EVENT_PREFIX;
       const result = spawnSync(process.execPath, [path.join(root, "tools/harness/browser/browser-target-finalizer-cli.mjs"),
         "--target", target, "--groups", groups.join(","), "--group-targets", groups.map(group => `${group}=${target}`).join(","),
         "--reset-prefix", `browser_reset:${target}:`], {
-        cwd: root, encoding: "utf8", env: { ...process.env, CARTULARY_TEST_RESULTS_DIR: scratch, CARTULARY_TEST_RUN_ID: id },
+        cwd: root, encoding: "utf8", env: finalizerEnv,
       });
       assert.equal(result.status, expected, `${id}: ${result.stderr}`);
     }
@@ -446,4 +453,196 @@ test("pinned Playwright test-list executes only an exact nested tagged identity"
     assert.equal(result.stats.unexpected, 0);
     assert.equal(adaptPlaywrightReport([selected], result, child.status, child.signal, selection)[0].terminal_state, "passed");
   } finally { rmSync(scratch, { recursive: true, force: true }); }
+});
+
+test("cohort accounting preserves settled siblings through interruption and invocation cleanup failure", () => {
+  const rows = [row("harness.browser.unit.first", "first"), row("harness.browser.unit.second", "second")];
+  const selection = rows.map((row) => ({ row_id: row.row_id, file, project_id: "chromium", title_path: row.selector.titles }));
+  const partial = report(spec("first", "passed"));
+  assert.deepEqual(adaptPlaywrightReport(rows, partial, null, "SIGTERM", selection).map((row) => row.terminal_state), ["passed", "cancelled"]);
+  const failed = report(spec("first", "failed"), spec("second", "skipped"));
+  assert.deepEqual(adaptPlaywrightReport(rows, failed, 1, null, selection).map((row) => row.terminal_state), ["failed", "skipped_dependency"]);
+  const globalFailure = { ...report(spec("first", "passed"), spec("second", "passed")), errors: [{ message: "worker teardown failed" }] };
+  const settled = adaptPlaywrightReport(rows, globalFailure, 1, null, selection);
+  assert.ok(settled.every((row) => row.terminal_state === "passed"));
+  assert.equal(playwrightGroupExitCode(settled, { status: 1 }, globalFailure), 1);
+});
+
+test("public Playwright reporter replaces large checkpoints after cross-file test cleanup", async () => {
+  const { readFileSync } = await import("node:fs");
+  const scratch = mkdtempSync(path.join(os.tmpdir(), "cartulary-playwright-cohort-"));
+  try {
+    const root = path.resolve(import.meta.dirname, "../../../..");
+    const packages = resolvePlaywrightPackages(root);
+    const testModule = pathToFileURL(path.join(packages.playwrightPath, "test.mjs")).href;
+    const testDir = path.join(scratch, "apps/web/e2e"); mkdirSync(testDir, { recursive: true });
+    const rows = ["a", "b"].map((name) => ({ row_id: `harness.browser.unit.${name}`, selector: {
+      file: `apps/web/e2e/${name}.spec.mjs`, project_id: "chromium", titles: ["outer nested same"] } }));
+    const selection = rows.map((row) => ({ row_id: row.row_id, file: row.selector.file, project_id: "chromium", title_path: ["outer", "nested", "same"] }));
+    const checkpointFile = path.join(scratch, "checkpoint.json");
+    const reporterFile = path.join(scratch, "reporter.mjs");
+    writeFileSync(reporterFile, `import { PlaywrightCohortCollector } from ${JSON.stringify(pathToFileURL(path.join(root, "tools/harness/browser/playwright-cohort-reporter.mjs")).href)};
+      import { existsSync } from 'node:fs';
+      export default class extends PlaywrightCohortCollector {
+        constructor() { super(${JSON.stringify({ rows, selection, runRoot: scratch, checkpointFile })}); }
+        onTestEnd(test, result) {
+          if (!existsSync(test.location.file + '.settled')) throw new Error('test teardown did not settle');
+          super.onTestEnd(test, result);
+        }
+      }`);
+    for (const name of ["a", "b"]) writeFileSync(path.join(testDir, `${name}.spec.mjs`), `
+      import { test as base } from ${JSON.stringify(testModule)};
+      import { writeFileSync } from 'node:fs';
+      const test = base.extend({ owned: async ({}, use, info) => {
+        await use({ id: info.testId });
+        await info.attach('large-diagnostic', { body: Buffer.alloc(1100 * 1024, 1), contentType: 'application/octet-stream' });
+        writeFileSync(info.file + '.settled', 'yes');
+      } });
+      test('same', () => { throw new Error('excluded root'); });
+      test.describe('outer', () => test.describe('nested', () => {
+        test('same', async ({ owned }) => { if (!owned.id) throw new Error('missing owned fixture'); });
+        test('other', () => { throw new Error('excluded sibling'); });
+      }));
+    `);
+    writeFileSync(path.join(scratch, "config.mjs"), `export default ${JSON.stringify({ testDir, projects: [{ name: "chromium" }, { name: "excluded" }], retries: 0, workers: 1, maxFailures: 1 })};`);
+    const selectionFile = path.join(scratch, "selection.txt"); writeFileSync(selectionFile, playwrightTestList(selection));
+    const child = spawnSync(process.execPath, [path.join(packages.playwrightPath, "cli.js"), "test", "--config", path.join(scratch, "config.mjs"), "--test-list", selectionFile, `--reporter=json,${reporterFile}`], { cwd: scratch, encoding: "utf8", timeout: 30000, maxBuffer: playwrightReportMaximumBytes });
+    assert.equal(child.status, 0, child.stderr);
+    assert.equal(JSON.parse(child.stdout).stats.expected, 2);
+    const checkpointBytes = readFileSync(checkpointFile);
+    assert.ok(checkpointBytes.length > 1024 * 1024);
+    assert.ok(checkpointBytes.length < playwrightReportMaximumBytes);
+    const checkpoint = JSON.parse(checkpointBytes.toString("utf8"));
+    assert.deepEqual(checkpoint.errors, []);
+    assert.deepEqual(adaptPlaywrightReport(rows, checkpoint, 0, null, selection).map((row) => row.terminal_state), ["passed", "passed"]);
+    for (const row of rows) assert.equal(JSON.parse(readFileSync(path.join(scratch, "rows", `${row.row_id}.json`), "utf8")).terminal_state, "passed");
+  } finally { rmSync(scratch, { recursive: true, force: true }); }
+});
+
+test("public Playwright checkpoints survive interruption and worker/global teardown failures", async () => {
+  const { existsSync, readFileSync } = await import("node:fs");
+  const { spawn } = await import("node:child_process");
+  const { once } = await import("node:events");
+  const root = path.resolve(import.meta.dirname, "../../../..");
+  const packages = resolvePlaywrightPackages(root);
+  const testModule = pathToFileURL(path.join(packages.playwrightPath, "test.mjs")).href;
+  for (const mode of ["SIGTERM", "SIGKILL", "test_cleanup", "worker_cleanup", "global_cleanup"]) {
+    const scratch = mkdtempSync(path.join(os.tmpdir(), "cartulary-playwright-settlement-"));
+    let child;
+    try {
+      const testDir = path.join(scratch, "apps/web/e2e"); mkdirSync(testDir, { recursive: true });
+      const rows = ["first", "second"].map((title) => ({ row_id: `harness.browser.unit.${title}`, selector: {
+        file: "apps/web/e2e/settlement.spec.mjs", project_id: "chromium", titles: [title] } }));
+      const selection = rows.map((row) => ({ row_id: row.row_id, file: row.selector.file, project_id: "chromium", title_path: row.selector.titles }));
+      const checkpointFile = path.join(scratch, "checkpoint.json"), marker = path.join(scratch, "second-started");
+      const reporterFile = path.join(scratch, "reporter.mjs");
+      writeFileSync(reporterFile, `import { PlaywrightCohortCollector } from ${JSON.stringify(pathToFileURL(path.join(root, "tools/harness/browser/playwright-cohort-reporter.mjs")).href)};
+        export default class extends PlaywrightCohortCollector { constructor() { super(${JSON.stringify({ rows, selection, runRoot: scratch, checkpointFile })}); } }`);
+      writeFileSync(path.join(testDir, "settlement.spec.mjs"), `import { test as base } from ${JSON.stringify(testModule)};
+        import { writeFileSync } from 'node:fs';
+        const test = base.extend({
+          owned: async ({}, use, info) => { await use(true); if (${JSON.stringify(mode)} === 'test_cleanup' && info.title === 'second') throw new Error('test cleanup failed'); },
+          provisioner: [async ({}, use) => { await use(true); if (${JSON.stringify(mode)} === 'worker_cleanup') throw new Error('worker cleanup failed'); }, { scope: 'worker' }],
+        });
+        test('first', async ({ owned, provisioner }) => {});
+        test('second', async ({ owned, provisioner }) => { writeFileSync(${JSON.stringify(marker)}, 'started');
+          if (${JSON.stringify(mode)}.startsWith('SIG')) await new Promise(resolve => setTimeout(resolve, 20000)); });`);
+      const teardown = path.join(scratch, "teardown.mjs");
+      writeFileSync(teardown, `export default () => { if (${JSON.stringify(mode)} === 'global_cleanup') throw new Error('global cleanup failed'); };`);
+      const config = path.join(scratch, "config.mjs");
+      writeFileSync(config, `export default ${JSON.stringify({ testDir, projects: [{ name: "chromium" }], retries: 0, workers: 1, maxFailures: 1, globalTeardown: teardown, reporter: [[reporterFile]] })};`);
+      child = spawn(process.execPath, [path.join(packages.playwrightPath, "cli.js"), "test", "--config", config], { cwd: scratch, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+      let output = ""; child.stdout.on("data", (data) => { output += data; }); child.stderr.on("data", (data) => { output += data; });
+      const finished = once(child, "close");
+      if (mode.startsWith("SIG")) {
+        const deadline = Date.now() + 15000;
+        while ((!existsSync(marker) || !existsSync(path.join(scratch, "rows", `${rows[0].row_id}.json`))) && child.exitCode === null && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 25));
+        assert.ok(existsSync(marker) && existsSync(path.join(scratch, "rows", `${rows[0].row_id}.json`)), output);
+        // Both coordinator and worker are test-owned members of this group.
+        process.kill(-child.pid, mode);
+      }
+      const timer = setTimeout(() => { try { process.kill(-child.pid, "SIGKILL"); } catch {} }, 20000);
+      const [status, signal] = await finished; clearTimeout(timer);
+      const report = JSON.parse(readFileSync(checkpointFile, "utf8"));
+      const results = adaptPlaywrightReport(rows, report, status, signal, selection);
+      if (mode.startsWith("SIG")) {
+        assert.equal(JSON.parse(readFileSync(path.join(scratch, "rows", `${rows[0].row_id}.json`))).terminal_state, "passed", output);
+        assert.equal(results[0].terminal_state, "passed", output);
+        assert.equal(results[1].terminal_state, "cancelled", output);
+      } else if (mode === "test_cleanup") {
+        assert.deepEqual(results.map((row) => row.terminal_state), ["passed", "failed"], output);
+      } else {
+        assert.ok(results.every((row) => row.terminal_state === "passed"), output);
+        assert.equal(playwrightGroupExitCode(results, { status, signal }, report), 1);
+        assert.equal(JSON.parse(readFileSync(path.join(scratch, "rows", `${rows[0].row_id}.json`))).terminal_state, "passed");
+      }
+    } finally {
+      if (child?.pid) { try { process.kill(-child.pid, "SIGKILL"); } catch {} }
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }
+});
+
+
+test("browser target distinguishes canonical non-launch from missing required runner output", async (t) => {
+  const { writeCanonicalFixture } = await import("../../observability/tests/retained-fixture.mjs");
+  const scratch = mkdtempSync(path.join(os.tmpdir(), "browser-prelaunch-"));
+  t.after(() => rmSync(scratch, { recursive: true, force: true }));
+  const root = path.resolve(import.meta.dirname, "../../../..");
+  for (const target of ["browser-e2e-stateful", "browser-e2e-visual-update", "browser-e2e-measurement"]) {
+    for (const mode of ["admission", "fixture", "cancelled", "skipped", "launched", "missing_unit", "malformed_unit", "contradictory_unit", "duplicate_terminal", "unproved"]) {
+      const id = `${target}-${mode}`, directory = path.join(scratch, id), group = "cohort-probe", unit = `browser_group:probe:${group}`;
+      mkdirSync(directory, { mode: 0o700 });
+      const fixture = writeCanonicalFixture(directory);
+      const events = structuredClone(fixture.events).map(event => ({ ...event, unit_id: event.unit_id === "a" ? unit : event.unit_id }));
+      const terminal = events.find(event => event.event === "completed");
+      const failure = mode === "cancelled" ? { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" } :
+        { failure_class: "infra", failure_reason: "resource_conflict" };
+      Object.assign(terminal, { event: mode === "cancelled" ? "cancelled" : "failed", status: mode === "cancelled" ? "cancelled" : "failed", ...failure });
+      const phase = { ...events.find(event => event.event === "started"), event: "phase_started", interval_id: "phase:1",
+        phase: mode === "launched" ? "runner" : mode === "fixture" ? "fixture_acquire" : "host_admission" };
+      if (!["unproved", "skipped"].includes(mode)) events.splice(7, 0, phase, { ...phase, event: "phase_finished", monotonic_ms: 8, phase_outcome: mode === "cancelled" ? "cancelled" : "failed" });
+      if (mode === "skipped") {
+        for (let i = events.length-1; i>=0; i--) if (["admitted","started"].includes(events[i].event)) events.splice(i,1);
+        Object.assign(terminal,{ event:"skipped",status:"skipped",monotonic_ms:2,failure_reason:"dependency_failure" });
+        delete terminal.failure_class;
+        for (const event of events) if(event.unit_id===unit) event.needs=["setup"];
+        const ancestor = structuredClone(fixture.events).filter(event=>event.unit_id==="a").map(event=>({ ...event,unit_id:"setup",monotonic_ms:event.monotonic_ms ? 1 : 0 }));
+        Object.assign(ancestor.at(-1),{event:"failed",status:"failed",...failure});
+        events.push(...ancestor);events.sort((a,b)=>a.monotonic_ms-b.monotonic_ms);
+      }
+      if (mode === "duplicate_terminal") events.splice(events.indexOf(terminal)+1, 0, { ...terminal });
+      writeFileSync(path.join(directory, "unit-events.ndjson"), events.map((event, index) => JSON.stringify({ ...event, seq: index+1 })).join("\n")+"\n", { mode: 0o600 });
+      mkdirSync(path.join(directory, "unit-results"), { mode: 0o700 });
+      const result = { schema_id: "cartulary.harness_unit_result.v1", unit_id: unit, semantic_digest: `sha256:${"a".repeat(64)}`,
+        status: terminal.status, exit_code: null, signal: null, ...(mode === "skipped" ? { failure_class:null,failure_reason:null } : failure),
+        evidence_outputs: [`${target}/browser-groups/${group}/browser-group-result.json`], missing_outputs: [] };
+      if (mode === "malformed_unit") result.unknown = true;
+      if (mode === "contradictory_unit") result.failure_reason = "service_start_error";
+      if (mode !== "missing_unit") writeFileSync(path.join(directory, "unit-results", `${unit.replaceAll(/[^A-Za-z0-9_.+-]+/gu,"-")}.json`), JSON.stringify(result), { mode: 0o600 });
+      if (!["duplicate_terminal", "unproved", "launched"].includes(mode)) {
+        const { reduceCanonicalUnitIntervals, notLaunchedUnitIDs } = await import("../../evidence-accounting/index.mjs");
+        const facts = await reduceCanonicalUnitIntervals(path.join(directory,"unit-events.ndjson"), {unitIDs:mode === "skipped" ? [unit,"setup"] : [unit]});
+        assert.equal(notLaunchedUnitIDs(facts).has(unit),true,"fixture must prove canonical non-launch");
+      }
+      if (!["malformed_unit"].includes(mode)) validateSchemaSync(result.schema_id,result);
+      if (["admission","fixture","cancelled","skipped"].includes(mode)) {
+        const { readUnlaunchedBrowserFailures } = await import("../browser-target-outcomes.mjs");
+        const causes = await readUnlaunchedBrowserFailures(directory,{resetPrefix:"browser_reset:probe:",groups:[group],groupTargets:new Map([[group,target]])},[],{file:path.join(directory,"unit-events.ndjson")});
+        assert.equal(causes.some(cause=>cause.failure_reason===failure.failure_reason),true);
+        const { finalizeBrowserTarget } = await import("../browser-target-finalizer-cli.mjs");
+        await assert.rejects(finalizeBrowserTarget({target,resetPrefix:"browser_reset:probe:",groups:[group],groupTargets:new Map([[group,target]])},directory,{file:path.join(directory,"unit-events.ndjson")}),error=>{
+          assert.equal(error.failure_reason,failure.failure_reason,error.stack);return true;
+        });
+      }
+      const env = { ...process.env, CARTULARY_TEST_RESULTS_DIR: scratch, CARTULARY_TEST_RUN_ID: id };
+      delete env.CARTULARY_HARNESS_UNIT_EVENT_PREFIX;
+      delete env.CARTULARY_HARNESS_COMMAND_FAILURE_CONTEXT;
+      const child = spawnSync(process.execPath, [path.join(root,"tools/harness/browser/browser-target-finalizer-cli.mjs"),
+        "--target",target,"--groups",group,"--group-targets",`${group}=${target}`,"--reset-prefix","browser_reset:probe:"], { cwd:root,encoding:"utf8",env });
+      const expected = mode === "cancelled" ? 15 : ["admission","fixture","skipped"].includes(mode) ? 4 : 11;
+      assert.equal(child.status, expected, `${id}: ${child.stderr}`);
+      assert.equal(existsSync(path.join(directory,target)),false,"unlaunched target published aggregate, reconciliation or promotion");
+    }
+  }
 });

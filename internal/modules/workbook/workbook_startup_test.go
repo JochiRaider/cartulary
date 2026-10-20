@@ -37,7 +37,7 @@ func TestWorkbookPreferencePointers_Unit(t *testing.T) {
 	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u805-viewer@example.test", "SavedViewQueryU805Viewer1!", nil)
 	secondAdminID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u805-admin2@example.test", "SavedViewQuery U805 Admin2", "SavedViewQueryU805Admin21!", false, false, true)
 	secondAdminSession, secondAdminCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-u805-admin2@example.test", "SavedViewQueryU805Admin21!", nil)
-	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-u805-other@example.test", "SavedViewQuery U805 Other", "SavedViewQueryU805Other1!", false, false, true)
+	otherID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "saved_view_query-u805-other@example.test", DisplayName: "SavedViewQuery U805 Other"}).ID.String()
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-u-8-05-viewer-membership", "user_id": viewerID, "role": "viewer"})
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-u-8-05-admin2-membership", "user_id": secondAdminID, "role": "admin"})
 
@@ -180,7 +180,7 @@ func TestWorkbookStartupFallback_Integration(t *testing.T) {
 
 	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i802-viewer@example.test", "SavedViewQuery I802 Viewer", "SavedViewQueryI802Viewer1!", false, false, true)
 	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, "saved_view_query-i802-viewer@example.test", "SavedViewQueryI802Viewer1!", nil)
-	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "saved_view_query-i802-other@example.test", "SavedViewQuery I802 Other", "SavedViewQueryI802Other1!", false, false, true)
+	otherID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "saved_view_query-i802-other@example.test", DisplayName: "SavedViewQuery I802 Other"}).ID.String()
 	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-saved_view_query-i-8-02-viewer-membership", "user_id": viewerID, "role": "viewer"})
 
 	homeSavedViewID := "00000000-0000-0000-0000-000000008601"

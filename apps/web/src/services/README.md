@@ -32,11 +32,11 @@ availability live in [extensions](../extensions/README.md).
 | File | Responsibility |
 | --- | --- |
 | [browserApi.test.ts](browserApi.test.ts) | Tests for browser API base/path helpers. |
-| [clientTransactionId.test.ts](clientTransactionId.test.ts) | Tests for platform UUID use, secure-random fallback formatting, prefixes, and unavailable-crypto failure. |
+| [clientTransactionId.node.test.ts](clientTransactionId.node.test.ts) | Tests for platform UUID use, secure-random fallback formatting, prefixes, and unavailable-crypto failure. |
 | [clientTransactionIdPolicy.test.ts](clientTransactionIdPolicy.test.ts) | Static policy test excluding counters, clocks, and insecure randomness from browser mutation IDs. |
 | [importClient.test.ts](importClient.test.ts) | Tests exact workbook upload replay, acceptance/resource separation, and selection receipts. |
-| [importTargetContractAdapter.test.ts](importTargetContractAdapter.test.ts) | Tests for strict Import target contract decoding and generated-protocol alignment. |
-| [networkFlowContractAdapter.test.ts](networkFlowContractAdapter.test.ts) | Network Flow claimed-profile and compiled-contract-major admission tests. |
+| [importTargetContractAdapter.node.test.ts](importTargetContractAdapter.node.test.ts) | Tests for strict Import target contract decoding and generated-protocol alignment. |
+| [networkFlowContractAdapter.node.test.ts](networkFlowContractAdapter.node.test.ts) | Network Flow claimed-profile and compiled-contract-major admission tests. |
 | [referencePacks.test.ts](referencePacks.test.ts) | Tests Reference Pack inline/asynchronous outcomes and exact selected-scope replay. |
 | [workbookEvidence.test.ts](workbookEvidence.test.ts) | Tests for evidence client helpers and error mapping. |
 

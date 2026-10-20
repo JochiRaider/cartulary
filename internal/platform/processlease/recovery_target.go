@@ -82,6 +82,7 @@ func (a *RecoveryTargetAdmission) Release(ctx context.Context) error {
 		if a.lease.State() == StateHeld {
 			a.releaseErr = a.lease.Release(ctx)
 		} else {
+			a.releaseErr = ErrRecoveryTargetLeaseLost
 			a.lease.Close()
 		}
 		a.cancel(context.Canceled)

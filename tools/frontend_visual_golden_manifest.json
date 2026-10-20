@@ -16,7 +16,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-deployment-root-linux.png",
-      "sha256": "456a3497dda17774ae39a25d899e06850783a817a5c7abeda9da788e2abb89be"
+      "sha256": "96a16c269d514545ebfba70c99d2b61148c2ae1745278d80ec014a0632999c8e"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/account-menu-directory-root-linux.png",
@@ -720,7 +720,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/ordinary-reference-authoring-linux.png",
-      "sha256": "cc674266d464a74a76bbd51ee2d32408ce48924757201fc4d0f2a0b6042dc78a"
+      "sha256": "ee4ff60d75906394d8a67a84b0cb60a4cd1951df29cd4dc2fec2ded21126da11"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/record-relationships-evidence-access-linux.png",
@@ -896,7 +896,7 @@
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-narrow-technical-details-linux.png",
-      "sha256": "657f4c191ba24b90eca65aadc7c566ca2cb17a8480d8e8e74b1f2abbe060fbe8"
+      "sha256": "2024dd29fc12eb63a05ba3884e23116227798608a9619ca9aac79f8b0d33b91b"
     },
     {
       "path": "apps/web/e2e/workbook.visual.spec.ts-snapshots/workbook-inspector-public-error-linux.png",

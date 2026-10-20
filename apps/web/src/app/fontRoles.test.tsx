@@ -9,9 +9,8 @@ import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRunti
 import {
   cleanupTimelineWorkbookTestGlobals,
   installTimelineWorkbookTestGlobals,
-  successEnvelope,
-  timelineRow,
 } from "../testing/timelineWorkbookTestSupport";
+import { successEnvelope, timelineRow } from "../testing/workbookFixtureData";
 import { timelineViewSchemaId } from "../workbook/models/workbookSurfaceRegistry";
 import { App } from "./App";
 

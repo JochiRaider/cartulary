@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.collaboration",
   "rows": [
     {
@@ -36,7 +36,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab",
@@ -71,7 +73,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.browser.live_updates_never_retarget_pending_local_edits_11699e9b2d",
@@ -106,7 +110,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac",
@@ -141,7 +147,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.browser.verify_conflict_resolver_actions_submit_public_m_0c77fae932",
@@ -176,7 +184,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054",
@@ -211,7 +221,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.browser_stateful.deterministic_route_owned_browser_revocation_sou_a134c3e26b",
@@ -246,7 +258,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1",
@@ -282,7 +296,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.frontend.presence_paint_qualification",
@@ -310,7 +326,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.frontend.save_state_labels_use_only_syncing_saved_and_con_b9c4789169",
@@ -341,7 +358,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.frontend.the_resolver_keeps_the_grid_visible_leaves_confl_41a75525b7",
@@ -368,7 +386,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.frontend_unit.verify_same_field_conflict_anchors_conflict_queu_2fb0a37e0b",
@@ -382,12 +401,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.test.ts",
+        "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.node.test.ts",
         "titles": [
           "derives save-state conflict anchors from record_id field_key and base_row_version",
           "keeps same-field conflict queue identity separate from pending replay and visible order"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -396,7 +415,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.frontend_unit.verify_same_field_conflict_anchors_conflict_queu_8bcc6e7d75",
@@ -425,7 +445,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.frontend_unit.verify_same_field_conflict_anchors_conflict_queu_e44b13cfa1",
@@ -452,7 +473,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_39079d3c85",
@@ -482,7 +504,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.frontend_unit.verify_web_socket_collaboration_message_helpers_41074df88b",
@@ -496,14 +519,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/collaboration/workbookCollaborationMessages.test.ts",
+        "file": "apps/web/src/workbook/collaboration/workbookCollaborationMessages.node.test.ts",
         "titles": [
           "builds default timeline presence payloads for WebSocket session establishment",
           "builds presence_update messages without changing event names",
           "includes field_key only for editing presence payloads",
           "transmits extension workspace presence without record or field anchors"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -512,7 +535,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.integration.closed_incident_socket_terminates_before_writabl_8057ea1833",
@@ -539,7 +563,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.integration.cookie_authenticated_browser_socket_upgrades_rej_73faec66da",
@@ -566,7 +591,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.integration.durable_incident_stream_commits_intents_atomically_s_80128fe153",
@@ -599,7 +625,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.integration.entity_candidate_discovery_does_not_publish",
@@ -629,7 +656,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.integration.resume_with_a_valid_replay_token_replays_replaya_1826b38095",
@@ -656,7 +684,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.integration.two_real_clients_connect_to_the_same_incident_so_257bcc588c",
@@ -683,7 +712,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.measurement.presence_cell",
@@ -720,7 +750,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.measurement.presence_row",
@@ -757,7 +789,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.measurement.presence_surface",
@@ -794,7 +828,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.store.presence_payloads_are_incident_scoped_and_epheme_185de72cf2",
@@ -822,7 +858,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.store.strict_frame_and_failure_contract_a3b4c5d6e7",
@@ -851,7 +888,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.store.the_first_application_message_on_the_incident_so_11b91f6bd8",
@@ -878,7 +916,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.support_integration.incident_socket_revocation_sources_00f908473e",
@@ -905,7 +944,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.support_unit.lifecycle_telemetry_vocabulary_b1c2d3e4f5",
@@ -932,7 +972,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.support_unit.semantic_hub_and_payload_ownership_d1e2f3a4b5",
@@ -966,7 +1007,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.support_unit.semantic_telemetry_ownership_e1f2a3b4c5",
@@ -994,7 +1036,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.support_unit.shared_harness_socket_event_inventory_coverage_77fb9a325e",
@@ -1018,7 +1061,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.support_unit.terminal_incident_effects_run_only_after_fresh_c_15414f1007",
@@ -1047,7 +1091,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.unit.additive_extension_invalidation",
@@ -1072,7 +1117,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.unit.event_intent_exports_no_mutable_fields_unit_1d9b83aca1",
@@ -1096,7 +1142,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.unit.postgres_stream_and_dispatcher_reject_incomplete_ebc5bcb855",
@@ -1121,7 +1168,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.unit.publication_catalog_rejects_incomplete_and_ambig_858f5dab4f",
@@ -1148,7 +1196,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.unit.replayable_intent_validation_admits_owner_additi_39345aa09a",
@@ -1172,7 +1221,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.unit.runtime_construction_rejects_every_missing_depen_eb9cd9aca2",
@@ -1198,7 +1248,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.collaboration.visual.capture_presence_markers_same_field_conflict_res_f0a62c52a1",
@@ -1241,7 +1292,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.visual.the_visual_harness_asserts_deterministic_timelin_22b64f5dec",
@@ -1278,7 +1331,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.visual.the_visual_harness_asserts_same_field_conflict_m_c472bd3f9c",
@@ -1315,7 +1370,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
@@ -1352,7 +1409,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     }
   ]
 }

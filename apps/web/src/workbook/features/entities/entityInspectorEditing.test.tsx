@@ -15,7 +15,7 @@ import {
 import { useMemo, useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { taskAuthority } from "../../../testing/taskWorkbookTestSupport";
-import { acceptedQueryMetadata } from "../../../testing/workbookQueryTestSupport";
+import { acceptedQueryMetadata } from "../../../testing/workbookFixtureData";
 import type { RecordPatchTransport } from "../../adapters/workbookRecordPatchTransport";
 import { WorkbookHistoryContext } from "../../history/WorkbookHistoryContext";
 import { entityRowFromApi } from "../../models/entityWorkbookModel";

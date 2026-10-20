@@ -1,29 +1,10 @@
+import { assertPostgresIsolation } from "./service-dependencies.mjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 
-const schemaID = "cartulary.postgres_fixture_policy_registry.v3";
-const capabilityContract = Object.freeze([
-  {
-    capability: "postgres_dedicated",
-    isolation_scope: "database",
-    rationale: "committed_or_unproven_work_requires_unique_database",
-    shared_scope: false,
-  },
-  {
-    capability: "postgres_migration",
-    isolation_scope: "migration_database",
-    rationale: "schema_lifecycle_requires_fresh_database",
-    shared_scope: false,
-  },
-  {
-    capability: "postgres_transaction",
-    isolation_scope: "transaction",
-    rationale: "single_connection_rollback_proven",
-    shared_scope: true,
-  },
-]);
+const schemaID = "cartulary.postgres_fixture_policy_registry.v5";
 
 function compareASCII(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -43,11 +24,24 @@ export function validatePostgresFixturePolicy(root, rows, options = {}) {
   );
   const registry = parseStrictJSON(readFileSync(policyPath, "utf8"), policyPath);
   validateSchemaSync(schemaID, registry);
-  if (JSON.stringify(registry.capability_policies) !== JSON.stringify(capabilityContract)) {
-    throw new Error(`${policyPath}.capability_policies diverges from the adopted isolation contract`);
-  }
+  assertSortedUnique(registry.capability_policies.map(({ capability }) => capability),
+    `${policyPath}.capability_policies`);
+  const policies = new Map(registry.capability_policies.map((policy) => {
+    assertSortedUnique(policy.cluster_scopes, `${policyPath}.${policy.capability}.cluster_scopes`);
+    return [policy.capability, policy];
+  }));
 
   const activeRows = rows.filter((row) => row.status === "active");
+  for (const row of activeRows) {
+    assertPostgresIsolation(row.postgres_isolation, row.service_dependencies, row.row_id);
+    const policy = policies.get(row.fixture_capability);
+    if (policy && !policy.cluster_scopes.includes(row.postgres_isolation)) {
+      throw new Error(`${row.row_id} requires ${policy.cluster_scopes.join(" or ")} cluster isolation`);
+    }
+    if (row.fixture_capability === "browser_stack" && row.postgres_isolation !== "exclusive") {
+      throw new Error(`${row.row_id} requires exclusive cluster isolation`);
+    }
+  }
   const postgresRows = activeRows.filter((row) => row.fixture_capability.startsWith("postgres_"));
   for (const row of postgresRows) {
     if (!row.service_dependencies.includes("postgres")) {
@@ -67,7 +61,7 @@ export function validatePostgresFixturePolicy(root, rows, options = {}) {
   }
 
   const counts = Object.fromEntries(
-    capabilityContract.map(({ capability }) => [
+    registry.capability_policies.map(({ capability }) => [
       capability,
       postgresRows.filter((row) => row.fixture_capability === capability).length,
     ]),

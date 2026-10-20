@@ -163,9 +163,13 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 			}()
 			capability := "browser_stack"
 			if variant == "borrowed" {
-				capability = "postgres_dedicated"
+				capability = "postgres_transaction"
 			}
-			lease, err := owner.Broker.Acquire(ctx, harnessfixtures.Request{Capability: capability, UnitID: "boundary", Affinity: "native-physical", BrowserStage: "webserver-backed", RuntimeProfile: "default"})
+			isolation := "exclusive"
+			if variant == "borrowed" {
+				isolation = "shared"
+			}
+			lease, err := owner.Broker.Acquire(ctx, harnessfixtures.Request{PostgresIsolation: isolation, Services: []string{"object_store", "postgres"}, Capability: capability, UnitID: "boundary", Affinity: "native-physical", BrowserStage: "webserver-backed", RuntimeProfile: "default"})
 			if err != nil {
 				t.Fatal("acquire", err)
 			}
@@ -198,7 +202,7 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 				}
 				works := []harnessfixtures.WorkRequirement{}
 				for _, unit := range []string{"suite-a:one", "suite-b:two", "suite-c:interrupted"} {
-					works = append(works, harnessfixtures.WorkRequirement{Request: harnessfixtures.Request{UnitID: unit, Capability: "none", RuntimeProfile: "default"}, Renderer: "pooled", Physical: map[string]map[string]int64{"renderer": {"browser_stack": 1, "memory_mb": 512, "process": 2, "port_lane": 1}}, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}})
+					works = append(works, harnessfixtures.WorkRequirement{Request: harnessfixtures.Request{PostgresIsolation: "none", UnitID: unit, Capability: "none", RuntimeProfile: "default"}, Renderer: "pooled", Physical: map[string]map[string]int64{"renderer": {"browser_stack": 1, "memory_mb": 512, "process": 2, "port_lane": 1}}, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}})
 				}
 				owner.ConfigureAdmission("", parent, capacities, works)
 				generation := ""
@@ -260,6 +264,18 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 				if blocked == "" {
 					t.Fatal("no browser proof")
 				}
+				// Force the initial collision that used to delete a declared
+				// recovery file. The foreign reservation survives preservation
+				// and recovery of this browser's unrelated owned resources.
+				foreignPort := t.TempDir()
+				foreignMarker := filepath.Join(foreignPort, "acquisition.json")
+				foreignBytes := []byte(`{"attempt_id":"foreign"}`)
+				if err := os.WriteFile(foreignMarker, foreignBytes, 0600); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := invoke(`import assert from 'node:assert/strict';import {reserveAcquisitionPort} from './tools/harness/browser/browser-acquisition.mjs';assert.equal(reserveAcquisitionPort(process.argv[1],process.argv[2],process.pid),false);`, blocked, foreignPort); err != nil {
+					t.Fatal("foreign port collision", err)
+				}
 				if err := os.Chmod(blocked, 0644); err != nil {
 					t.Fatal(err)
 				}
@@ -306,7 +322,7 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 				// Minimum administrator TLS proof must still authorize a fresh
 				// connection after purge; ordinary runtime keys must be gone.
 				var cleanupEnvironment map[string]string
-				readSelectedBoundaryJSON(t, filepath.Join(r.Root, "test-services", "suite-environment.json"), &cleanupEnvironment)
+				readSelectedBoundaryJSON(t, filepath.Join(filepath.Dir(filepath.Dir(blocked)), "stack-environment.json"), &cleanupEnvironment)
 				adminDSN := cleanupEnvironment["CARTULARY_PGTEST_ADMIN_DSN"]
 				parsed, err := url.Parse(adminDSN)
 				if err != nil || parsed.Query().Get("sslmode") != "verify-full" {
@@ -373,6 +389,9 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 				}
 				if !reflect.DeepEqual(original, snapshot()) {
 					t.Fatal("physical recovery changed original evidence")
+				}
+				if actual, err := os.ReadFile(foreignMarker); err != nil || string(actual) != string(foreignBytes) {
+					t.Fatal("foreign port changed during recovery", err)
 				}
 			} else {
 				if err := owner.Close(ctx); err != nil {

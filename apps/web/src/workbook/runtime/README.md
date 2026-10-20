@@ -3,7 +3,7 @@
 The runtime also owns ordinary committed-cell drafts through `gridDrafts`.
 Presentation detachment does not retire them. Current authority controls access;
 account/incident retirement clears them. Managed queue and accepted-row tests in
-`WorkbookGridAutosave.test.ts` cover revision settlement and first-dispatch bases.
+`WorkbookGridAutosave.node.test.ts` cover revision settlement and first-dispatch bases.
 
 Managed enqueue returns an admission ticket whose completion represents server
 acknowledgement. The driver retains each field's contributed draft revision;
@@ -96,12 +96,12 @@ queued microtasks and mounted surface registrations.
 
 | File | Responsibility |
 | --- | --- |
-| [workbookConflictModel.test.ts](workbookConflictModel.test.ts) | Tests for conflict parsing, queue entries, resolution payloads, and collection actions. |
-| [WorkbookEntityMergeAdmission.test.ts](WorkbookEntityMergeAdmission.test.ts) | Tests merge coordination with queued/direct writes and overlapping participant reservation. |
-| [WorkbookExplicitPatchOwner.test.ts](WorkbookExplicitPatchOwner.test.ts) | Tests explicit Task patch reservation, guarded-field review, and exact uncertain replay. |
-| [WorkbookMutationRuntime.test.ts](WorkbookMutationRuntime.test.ts) | Tests for shell-lifetime queue retention, autosave, refresh debt, conflicts, and mutation coordination. |
-| [WorkbookGridAutosave.test.ts](WorkbookGridAutosave.test.ts) | Admission versus acknowledgement, coalesced contributors, successive revisions, guarded preparation, immutable replay, refusal, discard and read recovery. |
-| [WorkbookRuntimeResponsibilities.test.ts](WorkbookRuntimeResponsibilities.test.ts) | Deterministic tests for responsibility boundaries, injected time/scheduling, registration cleanup, conflict drafts, transaction settlement, and disposal. |
+| [workbookConflictModel.node.test.ts](workbookConflictModel.node.test.ts) | Tests for conflict parsing, queue entries, resolution payloads, and collection actions. |
+| [WorkbookEntityMergeAdmission.node.test.ts](WorkbookEntityMergeAdmission.node.test.ts) | Tests merge coordination with queued/direct writes and overlapping participant reservation. |
+| [WorkbookExplicitPatchOwner.node.test.ts](WorkbookExplicitPatchOwner.node.test.ts) | Tests explicit Task patch reservation, guarded-field review, and exact uncertain replay. |
+| [WorkbookMutationRuntime.node.test.ts](WorkbookMutationRuntime.node.test.ts) | Tests for shell-lifetime queue retention, autosave, refresh debt, conflicts, and mutation coordination. |
+| [WorkbookGridAutosave.node.test.ts](WorkbookGridAutosave.node.test.ts) | Admission versus acknowledgement, coalesced contributors, successive revisions, guarded preparation, immutable replay, refusal, discard and read recovery. |
+| [WorkbookRuntimeResponsibilities.node.test.ts](WorkbookRuntimeResponsibilities.node.test.ts) | Deterministic tests for responsibility boundaries, injected time/scheduling, registration cleanup, conflict drafts, transaction settlement, and disposal. |
 
 ## Retained workbook batches
 
@@ -109,8 +109,8 @@ queued microtasks and mounted surface registrations.
 | --- | --- |
 | [workbookBatchOperation.ts](workbookBatchOperation.ts) | Gesture admission, prepared plan, immutable attempt, complete receipt and presentation-independent lifecycle contracts. |
 | [WorkbookBatchOperationOwner.ts](WorkbookBatchOperationOwner.ts) | Incident/account retention, delivery deduplication, record/type reservations, prerequisite autosaves, explicit exact retry and reads-only acknowledged recovery. |
-| [WorkbookBatchOperationOwner.test.ts](WorkbookBatchOperationOwner.test.ts) | Exact capture/replay, overlap, conflicts-only acceptance, read debt, role/closure/session changes and obsolete callbacks. |
-| [WorkbookSurfaceRegistry.test.ts](WorkbookSurfaceRegistry.test.ts) | Registration, authorization and debt generation fencing plus failed-read/remount recovery. |
+| [WorkbookBatchOperationOwner.node.test.ts](WorkbookBatchOperationOwner.node.test.ts) | Exact capture/replay, overlap, conflicts-only acceptance, read debt, role/closure/session changes and obsolete callbacks. |
+| [WorkbookSurfaceRegistry.node.test.ts](WorkbookSurfaceRegistry.node.test.ts) | Registration, authorization and debt generation fencing plus failed-read/remount recovery. |
 
 The owner serves Timeline paste, selected-cell clear, Hosts/Identities paste, fill
 and collection tagging.

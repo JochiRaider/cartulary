@@ -109,7 +109,7 @@ async function enterDesktopSurfaceSelector(page: Page) {
 }
 
 test("operates account application menus with keyboard focus and viewport containment", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   const incidentId = await createIncident(
     page,
@@ -827,6 +827,19 @@ test("Verify desktop built-in selector manual keyboard navigation, retained auth
   await expect(
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
+  // The shell mounts before its initial queries. Observe settled data before
+  // counting requests caused by the keyboard journey.
+  await expect(
+    page.getByRole("checkbox", {
+      name: "Select Timeline record: Saved selector fixture",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByTestId(gridShellTestId(timelineViewSchemaId))
+      .locator('[role="grid"], [role="treegrid"]'),
+  ).toHaveAttribute("aria-busy", "false");
   const selector = page.getByRole("tablist", {
     name: "Built-in workbook surfaces",
   });
@@ -1794,7 +1807,7 @@ function waitForViewQuery(
 }
 
 test("account settings retain edits through real version conflicts and exact committed replay", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const originalResponse = await page.request.get(
     `${apiBase}/api/v1/account/profile`,
@@ -1903,7 +1916,7 @@ test("account settings retain edits through real version conflicts and exact com
 });
 
 test("account settings keyboard density recovery and constrained presentation", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   const fixture = await installAccountEditingFixture(page);
   await page.goto("/");

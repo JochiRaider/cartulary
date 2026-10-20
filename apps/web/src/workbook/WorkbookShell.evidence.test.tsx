@@ -9,12 +9,14 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
-  buildRecordChangedPayload,
   emitRecordChanged,
-  successEnvelope,
-  timelineRow,
   visibleGridRows,
 } from "../testing/timelineWorkbookTestSupport";
+import {
+  buildRecordChangedPayload,
+  successEnvelope,
+  timelineRow,
+} from "../testing/workbookFixtureData";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 
 vi.mock(

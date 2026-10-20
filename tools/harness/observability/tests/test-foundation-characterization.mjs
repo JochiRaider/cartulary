@@ -179,7 +179,7 @@ test("explicit export validates endpoints, private headers and transport failure
 
 test("generated definitions preserve acceptance and admit isolated ordinary extensions", async () => {
   const catalog = JSON.parse(readFileSync(new URL("../../../harness_instrumentation_definitions.json", import.meta.url), "utf8"));
-  const lease = JSON.parse(readFileSync(new URL("../../../schemas/cartulary.harness_fixture_lease.v4.schema.json", import.meta.url), "utf8"));
+  const lease = JSON.parse(readFileSync(new URL("../../../schemas/cartulary.harness_fixture_lease.v5.schema.json", import.meta.url), "utf8"));
   const ajv = new Ajv2020({ strict: false, validateFormats: false });
   ajv.addSchema(lease);
   const original = renderInstrumentationDefinitions(catalog);

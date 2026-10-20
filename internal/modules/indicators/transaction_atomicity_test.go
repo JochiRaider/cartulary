@@ -57,7 +57,7 @@ func TestIndicatorWorkflowRollsBackRepositoryWritesOnRevisionFailure_Integration
 	if err != nil {
 		t.Fatalf("compose Indicators owner: %v", err)
 	}
-	actor := authstoretest.SeedLocalUserRecord(t, db, "indicator-atomicity@example.test", "Indicator Atomicity", "IndicatorAtomicity1!", false, false, true)
+	actor := authstoretest.SeedActor(t, db, authstoretest.ActorAttributes{Email: "indicator-atomicity@example.test", DisplayName: "Indicator Atomicity"})
 	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            db,
 		PreferenceBootstrap: workbookstartuppostgres.NewWriter(),

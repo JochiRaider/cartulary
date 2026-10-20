@@ -20,11 +20,9 @@ import (
 )
 
 const (
-	performanceFixtureNormalDropLimit = 5 * time.Second
-	performanceFixtureForcedDropLimit = 15 * time.Second
-	performanceFixtureCatalogLimit    = 15 * time.Second
-	performanceFixtureDrainLimit      = 5 * time.Second
-	performanceFixtureDrainPoll       = 25 * time.Millisecond
+	performanceFixtureCatalogLimit = 15 * time.Second
+	performanceFixtureDrainLimit   = 5 * time.Second
+	performanceFixtureDrainPoll    = 25 * time.Millisecond
 )
 
 func replaceDatabaseInDSN(adminDSN string, database string) (string, error) {
@@ -194,13 +192,10 @@ func dropDatabase(ctx context.Context, adminDSN string, name string) error {
 }
 
 func dropProvenDatabase(ctx context.Context, adminDSN string, name string) error {
-	if _, err := postgrescleanup.DropOwnedDatabase(
+	if err := postgrescleanup.DropOwnedDatabase(
 		ctx,
 		adminDSN,
-		name,
-		performanceFixtureNormalDropLimit,
-		performanceFixtureForcedDropLimit,
-	); err != nil {
+		name); err != nil {
 		return fmt.Errorf("drop performance fixture database: %w", err)
 	}
 	return nil

@@ -868,17 +868,16 @@ test("Timeline auto-resolution feedback undo late acceptance stays detached afte
 
 test("Timeline auto-resolution feedback production characterization compact", async ({
   page,
-  workerAdmin,
-}, testInfo) => characterize(page, testInfo, workerAdmin.user_id, "compact"));
+  testActor,
+}, testInfo) => characterize(page, testInfo, testActor.user_id, "compact"));
 test("Timeline auto-resolution feedback production characterization default", async ({
   page,
-  workerAdmin,
-}, testInfo) => characterize(page, testInfo, workerAdmin.user_id, "default"));
+  testActor,
+}, testInfo) => characterize(page, testInfo, testActor.user_id, "default"));
 test("Timeline auto-resolution feedback production characterization comfortable", async ({
   page,
-  workerAdmin,
-}, testInfo) =>
-  characterize(page, testInfo, workerAdmin.user_id, "comfortable"));
+  testActor,
+}, testInfo) => characterize(page, testInfo, testActor.user_id, "comfortable"));
 
 async function characterize(
   page: Page,
@@ -1541,7 +1540,7 @@ test("Timeline disclosure arrival preserves scalar collection and native composi
 test("Timeline disclosures follow read-only session recovery account replacement and access loss", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }, testInfo) => {
   test.setTimeout(180_000);
   const incident = await createIncident(
@@ -1605,7 +1604,7 @@ test("Timeline disclosures follow read-only session recovery account replacement
   await add();
   const noticeIdentity = await notices.first().getAttribute("data-testid");
   await revokeAllSessions(
-    workerAdminRequest,
+    testActorRequest,
     original.user_id,
     "Disclosure same-account recovery",
   );
@@ -1619,7 +1618,7 @@ test("Timeline disclosures follow read-only session recovery account replacement
     noticeIdentity ?? "",
   );
   await revokeAllSessions(
-    workerAdminRequest,
+    testActorRequest,
     original.user_id,
     "Disclosure account replacement",
   );
@@ -1635,7 +1634,7 @@ test("Timeline disclosures follow read-only session recovery account replacement
     "/api/v1/incidents/" + incident + "/memberships/" + replacement.user_id;
   expect(
     (
-      await workerAdminRequest.patch(membership, {
+      await testActorRequest.patch(membership, {
         data: { base_membership_version: 1, role: "viewer" },
       })
     ).ok(),
@@ -1663,7 +1662,7 @@ test("Timeline disclosures follow read-only session recovery account replacement
   });
   expect(
     (
-      await workerAdminRequest.delete(membership, {
+      await testActorRequest.delete(membership, {
         data: { base_membership_version: 2 },
       })
     ).status(),

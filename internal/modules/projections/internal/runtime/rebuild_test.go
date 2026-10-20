@@ -47,7 +47,7 @@ func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *test
 func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "projection-timeline-source-paging")
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-page@example.test", "Projection Page", "ProjectionPage1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "projection-page@example.test", DisplayName: "Projection Page"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-page-incident", "IR-PROJECTION-PAGE", "Projection paging")
 	recordIDs := []uuid.UUID{
 		uuid.MustParse("10000000-0000-4000-8000-000000000003"),
@@ -87,16 +87,7 @@ func TestTimelineProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *tes
 func TestPartyProjectionSourceEnumerationIsDeterministicCompleteAndActiveOnly(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "projection-party-source-paging")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"party-projection-page@example.test",
-		"Party Projection Page",
-		"PartyProjectionPage1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "party-projection-page@example.test", DisplayName: "Party Projection Page"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,
@@ -228,16 +219,7 @@ VALUES ($1, $2, 'Foreign Party', 'team')
 func TestAssessmentProjectionSourceEnumerationIsDeterministicAndKeysetPaged(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "projection-assessment-source-paging")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"assessment-projection-page@example.test",
-		"Assessment Projection Page",
-		"AssessmentProjectionPage1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "assessment-projection-page@example.test", DisplayName: "Assessment Projection Page"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,
@@ -357,7 +339,7 @@ func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "projection-restore-rebuild-result")
 	rebuilder := projectiontestsupport.MustBuild(t, harness.DB).RecoveryPorts().Rebuilder
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-restore@example.test", "Projection Restore", "ProjectionRestore1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "projection-restore@example.test", DisplayName: "Projection Restore"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-restore-incident", "IR-PROJECTION-RESTORE", "Projection restore")
 	timelineRecordID := uuid.New()
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelineRecordID)
@@ -442,7 +424,7 @@ func TestMaintenanceRebuildReplacesStaleRowsAcrossCompleteCatalog(t *testing.T) 
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "projection-maintenance-rebuild-result")
 	maintenance := projectiontestsupport.MustBuild(t, harness.DB).MaintenanceRebuilder()
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "projection-maintenance@example.test", "Projection Maintenance", "ProjectionMaintenance1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "projection-maintenance@example.test", DisplayName: "Projection Maintenance"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-maintenance-incident", "IR-PROJECTION-MAINTENANCE", "Projection maintenance")
 	timelineRecordID := uuid.New()
 	timelinetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelineRecordID)

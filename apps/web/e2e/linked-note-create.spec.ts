@@ -37,7 +37,7 @@ import {
 test("Incident revocation conceals retained Note authoring and late atomic acceptance without ending the account session", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   let memberId = "";
   const f = await openNoteFixture(page, evidenceViewSchemaId, async (url) => {
@@ -87,7 +87,7 @@ test("Incident revocation conceals retained Note authoring and late atomic accep
     .getByRole("button", { name: "Create Note", exact: true })
     .click();
   await expect.poll(() => committed).toBe(true);
-  const memberships = await workerAdminRequest.get(
+  const memberships = await testActorRequest.get(
     `/api/v1/incidents/${f.incident}/memberships`,
   );
   expect(memberships.ok()).toBe(true);
@@ -98,7 +98,7 @@ test("Incident revocation conceals retained Note authoring and late atomic accep
     (entry) => entry.user_id === memberId,
   );
   if (!membership) throw new Error("Missing Note author membership");
-  const revoked = await workerAdminRequest.delete(
+  const revoked = await testActorRequest.delete(
     `/api/v1/incidents/${f.incident}/memberships/${memberId}`,
     {
       data: { base_membership_version: membership.membership_version },

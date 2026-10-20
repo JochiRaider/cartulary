@@ -4,16 +4,15 @@ import (
 	"context"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestRevisionsHistoryAssociationsHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.OpenIsolatedDatabaseT(t, "revisions-history-associations-head", postgres.PurposeRuntime)
+	db := harness.BeginRollbackDBT(t, "revisions-history-associations-head")
 
 	var columns int
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT count(*)
   FROM information_schema.columns
  WHERE table_schema = 'public'
@@ -23,7 +22,7 @@ SELECT count(*)
 		t.Fatalf("history association columns = %d, err = %v", columns, err)
 	}
 	var indexMethod string
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT access_method.amname
   FROM pg_index index_row
   JOIN pg_class index_relation ON index_relation.oid = index_row.indexrelid
@@ -34,7 +33,7 @@ SELECT access_method.amname
 	}
 
 	var canonical, duplicate, unsorted, zero bool
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT
     change_set_mutations_history_ids_are_canonical(
         ARRAY['10000000-0000-4000-8000-000000000001'::uuid, '20000000-0000-4000-8000-000000000002'::uuid]
@@ -55,7 +54,7 @@ SELECT
 		t.Fatalf("history array invariant results = canonical:%v duplicate:%v unsorted:%v zero:%v", canonical, duplicate, unsorted, zero)
 	}
 	var conflictTable bool
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT to_regclass('public.record_revision_conflict_facts') IS NOT NULL
 `).Scan(&conflictTable); err != nil || !conflictTable {
 		t.Fatalf("record revision conflict facts table present = %v, err = %v", conflictTable, err)

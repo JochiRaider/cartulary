@@ -9,10 +9,8 @@ import {
   decisionRow,
   decisionTargetId,
 } from "../../../testing/decisionSupersessionTestSupport";
-import {
-  acceptedQueryMetadata,
-  renderHookWithWorkbookQueryBrowsing as renderHook,
-} from "../../../testing/workbookQueryTestSupport";
+import { acceptedQueryMetadata } from "../../../testing/workbookFixtureData";
+import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../../testing/workbookQueryTestSupport";
 import { createWorkbookDecisionSupersessionAdapter } from "../../adapters/createWorkbookDecisionSupersessionAdapter";
 import { WorkbookRecordHistoryOwner } from "../../history/WorkbookRecordHistoryOwner";
 import { emptyWorkbookQueryState } from "../../models/workbookQuery";

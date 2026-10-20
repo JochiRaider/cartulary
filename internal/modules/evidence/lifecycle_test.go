@@ -19,7 +19,7 @@ import (
 func TestEvidenceLifecycleSeparateFromBlob_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-evidence-lifecycle")
 	evidenceOwner := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "evidence_lifecycle-lifecycle@example.test", "EvidenceLifecycle Lifecycle", "EvidenceLifecycleLifecycle1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "evidence_lifecycle-lifecycle@example.test", DisplayName: "EvidenceLifecycle Lifecycle"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-lifecycle-incident", "IR-P5-LIFECYCLE", "Evidence lifecycle")
 
 	requested := createEvidenceViaOwner(t, evidenceOwner, actor, incident.ID, `{

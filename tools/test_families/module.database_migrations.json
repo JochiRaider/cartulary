@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.database_migrations",
   "rows": [
     {
@@ -33,7 +33,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.database_migrations.integration.cryptographic_state_admission",
@@ -66,7 +67,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.database_migrations.integration.migration_evidence_database_semantics",
@@ -95,7 +97,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.database_migrations.integration.production_ddl_v2_recurrence",
@@ -128,7 +131,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.database_migrations.integration.production_preflight_state_matrix",
@@ -162,7 +166,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.database_migrations.integration.schema_bootstrap",
@@ -193,7 +198,8 @@
       "preparation_operations": [
         "harness.build_migrate",
         "harness.goose_toolchain"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.database_migrations.integration.schema_readiness_matrix",
@@ -229,7 +235,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.database_migrations.unit.fail_closed_source_and_remediation_contract",
@@ -262,7 +269,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.database_migrations.unit.migration_evidence_projection_semantics",
@@ -289,7 +297,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.database_migrations.unit.migration_evidence_source_audit",
@@ -317,7 +326,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.database_migrations.unit.owner_private_provider_policy",
@@ -342,7 +352,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.database_migrations.unit.production_ddl_v2_recurrence",
@@ -369,7 +380,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.database_migrations.unit.provider_source_and_safe_error_isolation",
@@ -400,7 +412,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.database_migrations.unit.public_surface_and_reader_capability",
@@ -429,7 +442,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.database_migrations.unit.schema_bootstrap_guard",
@@ -453,7 +467,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.database_migrations.unit.test_harness_targeted_operation_validation",
@@ -468,9 +483,9 @@
       "selector": {
         "package": "./internal/testutil/pgtest",
         "tests": [
-          "TestDatabaseCleanupDoesNotForceNonConnectionFailure",
-          "TestDatabaseCleanupUsesBoundedForcedFallbackOnlyForOwnedActiveDatabase",
-          "TestDatabaseCleanupUsesFreshForcedFallbackAfterBoundedNormalTimeout",
+          "TestDatabaseCleanupPassesOwnerContext",
+          "TestDatabaseCleanupRetainsFailedRecoveryAuthority",
+          "TestDatabaseCleanupUsesSingleDropOnlyForOwnedDatabase",
           "TestMigrationDatabaseTCleanupDropsAttachedSuiteScratchDatabase",
           "TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase",
           "TestMigrationDatabaseTargetedOperationValidation",
@@ -485,7 +500,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

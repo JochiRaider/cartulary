@@ -1,0 +1,769 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_work_graph_owner.v8",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "capacity_override_input",
+    "tier_order",
+    "aggregate_tiers",
+    "aggregate_policy_inherits",
+    "aggregate_policy_roots",
+    "target_members",
+    "policy_units",
+    "evidence_estimates_ms",
+    "default_timeout_ms",
+    "aging_quantum_ms",
+    "operations",
+    "invocation_policies",
+    "lifecycle_estimates_ms"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_work_graph_owner.v8"
+    },
+    "capacity_override_input": {
+      "const": "CARTULARY_HARNESS_CAPACITY_OVERRIDE"
+    },
+    "tier_order": {
+      "const": [
+        "fast",
+        "standard",
+        "full",
+        "release"
+      ]
+    },
+    "aggregate_tiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test-fast",
+        "check",
+        "ci",
+        "release-check"
+      ],
+      "properties": {
+        "test-fast": {
+          "const": "fast"
+        },
+        "check": {
+          "const": "standard"
+        },
+        "ci": {
+          "const": "full"
+        },
+        "release-check": {
+          "const": "release"
+        }
+      }
+    },
+    "aggregate_policy_inherits": {
+      "$ref": "#/$defs/aggregate_target_lists"
+    },
+    "aggregate_policy_roots": {
+      "$ref": "#/$defs/aggregate_operation_lists"
+    },
+    "target_members": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^harness\\.[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^harness\\.[a-z][a-z0-9_]*$"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "row_id"
+              ],
+              "properties": {
+                "row_id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "operation_id"
+              ],
+              "properties": {
+                "operation_id": {
+                  "type": "string",
+                  "pattern": "^harness\\.[a-z][a-z0-9_]*$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "catalog"
+              ],
+              "properties": {
+                "catalog": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "runner"
+                  ],
+                  "properties": {
+                    "runner": {
+                      "enum": [
+                        "go",
+                        "vitest",
+                        "playwright"
+                      ]
+                    },
+                    "go_suite": {
+                      "enum": [
+                        "unit",
+                        "store",
+                        "integration",
+                        "process"
+                      ]
+                    },
+                    "stages": {
+                      "type": "array",
+                      "minItems": 1,
+                      "uniqueItems": true,
+                      "items": {
+                        "enum": [
+                          "webserver_backed",
+                          "stateful",
+                          "measurement",
+                          "accessibility",
+                          "visual",
+                          "support"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "policy_units": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/operation_id"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "needs",
+          "resource_profile_id",
+          "service_dependencies",
+          "cache_policy",
+          "estimated_work_ms",
+          "postgres_isolation"
+        ],
+        "properties": {
+          "needs": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/operation_id"
+            }
+          },
+          "fixture_lease": {
+            "enum": [
+              "none",
+              "postgres_transaction",
+              "postgres_dedicated",
+              "postgres_migration",
+              "object_store_namespace",
+              "managed_process",
+              "browser_stack"
+            ]
+          },
+          "service_dependencies": {
+            "$ref": "cartulary.test_catalog_defs.v1#/$defs/service_dependencies"
+          },
+          "resource_profile_id": {
+            "enum": [
+              "backend_capacity_isolated",
+              "browser_functional",
+              "browser_isolated",
+              "browser_measurement_quiet",
+              "harness_contract",
+              "harness_installed_browser",
+              "io_heavy",
+              "managed_process",
+              "package_qualification",
+              "performance_fixture_builder",
+              "postgres_catalog_isolated",
+              "renderer_browser",
+              "standard",
+              "ui_review_browser",
+              "ui_review_browser_pair",
+              "ui_review_parallel",
+              "ui_review_raster",
+              "ui_review_report",
+              "ui_review_diagnostic"
+            ]
+          },
+          "cache_policy": {
+            "enum": [
+              "none",
+              "same_run",
+              "content_addressed"
+            ]
+          },
+          "reusable_artifact_outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/reusable_artifact_output"
+            }
+          },
+          "estimated_work_ms": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "required_rows": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "row_id",
+                "rationale"
+              ],
+              "properties": {
+                "row_id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_.]*$"
+                },
+                "rationale": {
+                  "type": "string",
+                  "minLength": 10
+                }
+              }
+            }
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600000
+          },
+          "postgres_isolation": {
+            "enum": [
+              "none",
+              "shared",
+              "exclusive"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "service_dependencies": {
+                  "enum": [
+                    [
+                      "postgres"
+                    ],
+                    [
+                      "object_store",
+                      "postgres"
+                    ]
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "postgres_isolation": {
+                  "enum": [
+                    "shared",
+                    "exclusive"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "postgres_isolation": {
+                  "const": "none"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "evidence_estimates_ms": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "default_timeout_ms": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 3600000
+    },
+    "aging_quantum_ms": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60000
+    },
+    "operations": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^harness\\.[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "report_key",
+          "execution",
+          "kind"
+        ],
+        "properties": {
+          "report_key": {
+            "$ref": "#/$defs/target"
+          },
+          "execution": {
+            "type": "object",
+            "required": [
+              "type",
+              "prerequisites"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "artifact_binding",
+                  "node_tool",
+                  "owner_command",
+                  "step_command",
+                  "installation"
+                ]
+              },
+              "prerequisites": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "mode": {
+                "enum": [
+                  "command",
+                  "run_step",
+                  "node"
+                ]
+              },
+              "test_target": {
+                "const": "self"
+              },
+              "command": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "backing_scripts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "step_label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "failure_note": {
+                "type": "string",
+                "minLength": 1
+              },
+              "script": {
+                "type": "string",
+                "minLength": 1
+              },
+              "env": {
+                "type": "object",
+                "propertyNames": {
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "exports": {
+                "type": "object",
+                "propertyNames": {
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "graph_entry": {
+                "type": "boolean"
+              },
+              "success_summary": {
+                "type": "boolean"
+              },
+              "graph_child_skips_prerequisites": {
+                "type": "boolean"
+              },
+              "runtime_readiness": {
+                "const": "installed_only"
+              },
+              "tool_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]*$"
+              }
+            },
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "const": "step_command"
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "mode"
+                  ],
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "mode": {
+                            "const": "node"
+                          }
+                        }
+                      },
+                      "then": {
+                        "required": [
+                          "script"
+                        ]
+                      },
+                      "else": {
+                        "required": [
+                          "command"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "enum": [
+                        "node_tool",
+                        "owner_command"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "tool_id"
+                  ]
+                }
+              }
+            ]
+          },
+          "kind": {
+            "enum": [
+              "artifact",
+              "policy"
+            ]
+          }
+        }
+      }
+    },
+    "row_execution_contexts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cpu_tokens",
+          "cache_policy"
+        ],
+        "properties": {
+          "cpu_tokens": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "cache_policy": {
+            "enum": [
+              "none",
+              "content_addressed"
+            ]
+          },
+          "go_race": {
+            "const": true
+          }
+        }
+      }
+    },
+    "invocation_policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vitest",
+        "go"
+      ],
+      "properties": {
+        "vitest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "startup_ms",
+            "cleanup_ms",
+            "coordinator_claims"
+          ],
+          "properties": {
+            "startup_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cleanup_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "coordinator_claims": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "cpu",
+                "memory_mb",
+                "process"
+              ],
+              "properties": {
+                "cpu": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "memory_mb": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "process": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        },
+        "go": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "startup_ms",
+            "cleanup_ms"
+          ],
+          "properties": {
+            "startup_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cleanup_ms": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "lifecycle_estimates_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser_reset",
+        "browser_target_finalize",
+        "measurement_finalize",
+        "performance_fixture_prepare",
+        "browser_allocation_acquire",
+        "browser_allocation_release"
+      ],
+      "properties": {
+        "browser_reset": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "browser_target_finalize": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "measurement_finalize": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "performance_fixture_prepare": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "browser_allocation_acquire": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "browser_allocation_release": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "target": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "reusable_artifact_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_type",
+        "relative_path",
+        "destination_class",
+        "mode",
+        "producer_identity"
+      ],
+      "properties": {
+        "artifact_type": {
+          "enum": [
+            "file",
+            "directory"
+          ]
+        },
+        "relative_path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._@+/-]+$"
+        },
+        "destination_class": {
+          "enum": [
+            "run_root",
+            "repository_artifact"
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "pattern": "^0[0-7]{3}$"
+        },
+        "producer_identity": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      }
+    },
+    "aggregate_target_lists": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test-fast",
+        "check",
+        "ci",
+        "release-check"
+      ],
+      "properties": {
+        "test-fast": {
+          "$ref": "#/$defs/target_list"
+        },
+        "check": {
+          "$ref": "#/$defs/target_list"
+        },
+        "ci": {
+          "$ref": "#/$defs/target_list"
+        },
+        "release-check": {
+          "$ref": "#/$defs/target_list"
+        }
+      }
+    },
+    "target_list": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/target"
+      }
+    },
+    "operation_id": {
+      "type": "string",
+      "pattern": "^harness\\.[a-z][a-z0-9_]*$"
+    },
+    "aggregate_operation_lists": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "test-fast",
+        "check",
+        "ci",
+        "release-check"
+      ],
+      "properties": {
+        "test-fast": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/operation_id"
+          }
+        },
+        "check": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/operation_id"
+          }
+        },
+        "ci": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/operation_id"
+          }
+        },
+        "release-check": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/operation_id"
+          }
+        }
+      }
+    }
+  }
+}

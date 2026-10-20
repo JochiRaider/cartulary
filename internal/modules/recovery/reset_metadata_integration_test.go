@@ -2,6 +2,7 @@ package recovery_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
@@ -27,6 +28,22 @@ func TestVerificationResetPreservesMigrationIdentity_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
+	if err := recovery.RebuildPostgresDerivedState(ctx, nil, "unknown.algorithm"); !errors.Is(err, recovery.ErrUnsupportedPostgresRebuild) {
+		t.Fatalf("unknown rebuild reached database: %v", err)
+	}
+	rebuildTx, err := pool.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, algorithm := range []string{"entities.restore_active_identifier_claims.v1", "parties.restore_active_key_claims.v1"} {
+		if err := recovery.RebuildPostgresDerivedState(ctx, rebuildTx, algorithm); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := rebuildTx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+
 	objects, err := objectstore.NewFilesystemStore(t.TempDir())
 	if err != nil {
 		t.Fatal(err)

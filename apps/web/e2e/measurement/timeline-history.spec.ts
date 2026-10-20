@@ -12,8 +12,8 @@ import {
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { Browser, Page, TestInfo } from "@playwright/test";
+import type { FixtureActorCredentials } from "../support/auth/sessions";
 import { readCurrentSession } from "../support/auth/sessions";
-import type { WorkerAdminEntry } from "../support/auth/workerAdmin";
 import {
   type Ac043TrafficDriver,
   prepareAc043Snapshot,
@@ -44,7 +44,7 @@ test.describe.configure({ mode: "serial", timeout: 10 * 60 * 1_000 });
 async function runHistoryMeasurement(
   browser: Browser,
   page: Page,
-  workerAdmin: WorkerAdminEntry,
+  testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
   info: TestInfo,
   kind: HistoryKind,
@@ -61,7 +61,7 @@ async function runHistoryMeasurement(
   let attached = false;
   try {
     expect(info.retry).toBe(0);
-    const snapshot = await prepareAc043Snapshot(page, workerAdmin, {
+    const snapshot = await prepareAc043Snapshot(page, testActor, {
       foregroundRole: contract.workload.foreground_role,
     });
     const actor = await readCurrentSession(page);
@@ -256,13 +256,13 @@ async function runHistoryMeasurement(
 test("measures Timeline single-entry rollback through visible row and history within AC-011", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runHistoryMeasurement(
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
     "history_entry",
@@ -271,13 +271,13 @@ test("measures Timeline single-entry rollback through visible row and history wi
 test("measures Timeline change-set rollback through visible row and history within AC-011", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runHistoryMeasurement(
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
     "change_set",
@@ -286,13 +286,13 @@ test("measures Timeline change-set rollback through visible row and history with
 test("measures Timeline whole-row restore through visible row and history within AC-011", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runHistoryMeasurement(
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
     "row_restore",

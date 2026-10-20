@@ -55,16 +55,7 @@ func TestWorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construct startup store: %v", err)
 	}
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"workbook-startup-prefs@example.test",
-		"Workbook Startup Prefs",
-		"WorkbookStartupPrefs1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "workbook-startup-prefs@example.test", DisplayName: "Workbook Startup Prefs"})
 
 	result := storetest.CreateIncidentInStore(
 		t, harness.Incidents, actor,
@@ -87,16 +78,7 @@ func TestWorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T) {
 		t.Fatalf("unexpected user workbook preferences: %#v", userPrefs)
 	}
 
-	secondActor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"workbook-startup-prefs-second@example.test",
-		"Workbook Startup Prefs Second",
-		"WorkbookStartupPrefsSecond1!",
-		false,
-		false,
-		true,
-	)
+	secondActor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "workbook-startup-prefs-second@example.test", DisplayName: "Workbook Startup Prefs Second"})
 
 	ctx := context.Background()
 	timelineRef := []byte(`{"kind":"view_schema","id":"cartulary.view.timeline.v2"}`)
@@ -177,16 +159,7 @@ DELETE FROM incident_workbook_preferences
 
 func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 	harness := storetest.StartStore(t, "workbook-startup-extension-workspace")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"workbook-startup-extension@example.test",
-		"Workbook Startup Extension",
-		"WorkbookStartupExtension1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "workbook-startup-extension@example.test", DisplayName: "Workbook Startup Extension"})
 	result := storetest.CreateIncidentInStore(
 		t, harness.Incidents, actor,
 		"txn-workbook-startup-extension-create", "IR-WORKBOOK-EXTENSION", "Workbook startup extension workspace",
@@ -258,16 +231,7 @@ func TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
 		t.Fatalf("claim-loss clear did not persist: %s", persisted.HomeSheetRef)
 	}
 
-	caller := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"workbook-startup-extension-caller@example.test",
-		"Workbook Startup Extension Caller",
-		"WorkbookStartupExtensionCaller1!",
-		false,
-		false,
-		true,
-	)
+	caller := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "workbook-startup-extension-caller@example.test", DisplayName: "Workbook Startup Extension Caller"})
 	defaultSetAt := now.Add(3 * time.Minute)
 	if _, err := claimedStore.PutDefaultPreferences(context.Background(), result.Incident.ID, actor.ID, extensionRef, defaultSetAt); err != nil {
 		t.Fatalf("persist extension workspace default pointer: %v", err)

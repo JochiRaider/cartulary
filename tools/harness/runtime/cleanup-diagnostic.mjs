@@ -1,6 +1,6 @@
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 
-const schema = "cartulary.harness_cleanup_diagnostic.v1";
+const schema = "cartulary.harness_cleanup_diagnostic.v3";
 
 export function parseCleanupDiagnostic(data) {
   if (!data || data.length > 4096) return null;
@@ -33,7 +33,16 @@ export function withCleanupDiagnostic(error, stage) {
   const existing = findCleanupDiagnostic(error);
   let diagnostic = existing;
   if (!diagnostic) {
-    const rejection = error?.privateDiagnostic;
+    const pending = [error], seen = new Set();
+    let rejection;
+    for (let visited = 0; pending.length && visited < 16; visited++) {
+      const current = pending.shift();
+      if (!current || seen.has(current)) continue;
+      seen.add(current);
+      if (current.privateDiagnostic) { rejection = current.privateDiagnostic; break; }
+      if (current.cause) pending.push(current.cause);
+      if (Array.isArray(current.errors)) pending.push(...current.errors.slice(0, 16));
+    }
     const candidate = { schema_id: schema, stage, cause: rejection?.reason ?? "internal", errno: rejection?.errno ?? 0 };
     try { validateSchemaSync(schema, candidate); diagnostic = candidate; }
     catch { diagnostic = { schema_id: schema, stage, cause: "internal", errno: 0 }; validateSchemaSync(schema, diagnostic); }

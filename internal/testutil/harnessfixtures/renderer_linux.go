@@ -74,6 +74,17 @@ func (r *rendererOwner) reserve(ctx context.Context, unit, profile, policy strin
 				return slot, nil
 			}
 		}
+		// Before acquisition there is no physical profile or trust identity to
+		// retire. Keep the bounded slot and its immutable residency proof while
+		// an unstarted consumer changes. ensure validates the exact claims.
+		for _, slot := range r.slots {
+			if slot.borrower == "" && slot.state == "unallocated" && slot.file == "" && slot.physical == nil {
+				slot.profile, slot.policy, slot.diagnostics = profile, policy, diagnostics
+				slot.borrower, slot.state = unit, "reserved"
+				r.mu.Unlock()
+				return slot, nil
+			}
+		}
 		available := 0
 		for id := 1; id <= r.options.BrowserLaneLimit; id++ {
 			if !slices.ContainsFunc(r.slots, func(s *rendererSlot) bool { return s.id == id }) {
@@ -131,16 +142,11 @@ func (r *rendererOwner) borrow(ctx context.Context, slot *rendererSlot, environm
 	if slot.resident != nil {
 		dependencies = append(dependencies, p.residency.reference("renderer:"+slot.allocation)...)
 	}
-	// Renderers depend on the suite's immutable public roots, never on a stack.
-	suiteResources, err := p.Runtime.Resources(4096)
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, resource := range suiteResources {
-		if resource.Kind == "managed_suite" || resource.Kind == "borrowed_suite" {
-			dependencies = append(dependencies, resource.Reference())
-		}
-	}
+	// Acquisition copies the admitted public trust bytes into the renderer.
+	// The caller holds its stack through acquisition; the physical renderer then
+	// owns that immutable copy and its residency independently of service lifetimes.
+	// Depending on live services would let one cluster's retirement stop renderers
+	// and clients belonging to unrelated allocations.
 	p.Dependencies = dependencies
 	env := p.environment()
 	maps.Copy(env, environment)
@@ -285,7 +291,10 @@ func (r *rendererOwner) retire(ctx context.Context, slot *rendererSlot) error {
 			err = openErr
 		}
 	}
-	if err = errors.Join(err, r.evidence(slot, "retired", slot.borrower, "")); err != nil {
+	if slot.file != "" || slot.physical != nil {
+		err = errors.Join(err, r.evidence(slot, "retired", slot.borrower, ""))
+	}
+	if err != nil {
 		return err
 	}
 	r.mu.Lock()

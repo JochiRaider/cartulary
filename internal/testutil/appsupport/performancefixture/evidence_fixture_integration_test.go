@@ -32,7 +32,7 @@ func TestEvidenceFixtureUsesRealObjectsAndOwnerMutations_Integration(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "fixture-evidence@example.test", "Evidence fixture", "EvidenceFixture1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "fixture-evidence@example.test", DisplayName: "Evidence fixture"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, uuid.NewString(), "IR-EVIDENCE-FIXTURE", "Evidence fixture")
 	for _, size := range []int{255, (2 << 20) + 1} {
 		if _, err := evidencefixture.ImagePayload(size); err == nil {

@@ -30,7 +30,7 @@ func TestPartyReferenceTargetsRequireSameIncidentActiveParties_Integration(t *te
 	store := appsupport.NewWorkbookCatalog(harness.DB, conflicttest.NewCodec("workbook"))
 	evidenceOwner := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook"))
 	partyOwner := appsupport.NewPartyOwner(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u911@example.test", "U911 Party Refs", "U911PartyRefs1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u911@example.test", DisplayName: "U911 Party Refs"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-11-incident", "IR-U911", "Workbook inspector party-storage")
 	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-11-other-incident", "IR-U911B", "Workbook inspector party-storage Other")
 

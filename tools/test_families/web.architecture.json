@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "web.architecture",
   "rows": [
     {
@@ -12,11 +12,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+        "file": "apps/web/src/testing/selectorContractPolicy.node.test.ts",
         "titles": [
           "selector contract policy distinguishes direct heading focus assertions from readiness and ambiguous uses"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -25,7 +25,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.boundary_support.selectorcontractpolicy_classifies__cross_boundar_db0c1cde0b",
@@ -37,11 +38,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+        "file": "apps/web/src/testing/selectorContractPolicy.node.test.ts",
         "titles": [
           "selector contract policy classifies authentication cross-boundary selector families as shared-builder owned"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -50,7 +51,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_cross_boundary_sele_61868c7039",
@@ -62,11 +64,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+        "file": "apps/web/src/testing/selectorContractPolicy.node.test.ts",
         "titles": [
           "selector contract policy keeps cross-boundary selector templates behind shared builders"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -75,7 +77,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.boundary_support.selectorcontractpolicy_keeps_delivery_shaped_selecto_a659d356ed",
@@ -87,11 +90,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+        "file": "apps/web/src/testing/selectorContractPolicy.node.test.ts",
         "titles": [
           "selector contract policy keeps delivery-shaped selector helpers out of production modules"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -100,7 +103,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.boundary_support.selectorcontractpolicy_rejects_raw__selector_lit_e8f92512d1",
@@ -112,11 +116,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/testing/selectorContractPolicy.test.ts",
+        "file": "apps/web/src/testing/selectorContractPolicy.node.test.ts",
         "titles": [
           "selector contract policy rejects raw authentication selector literals at helper-level selector sinks"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -125,7 +129,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.boundary_support.source_ownership_policy_suite_80cf87ef19",
@@ -137,14 +142,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/testing/sourceOwnershipPolicy.test.ts",
+        "file": "apps/web/src/testing/sourceOwnershipPolicy.node.test.ts",
         "titles": [
           "frontend source ownership policy accounts for every live TypeScript path exactly once without Markdown input",
           "frontend source ownership policy centralizes transaction identity and confines wire intents to owner-local command modules",
           "frontend source ownership policy keeps authorization recovery and collaboration transport dependencies below Workbook reconciliation",
           "frontend source ownership policy reports missing duplicate stale and unsafe paths explicitly"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -153,7 +158,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_replaces_controlled_77b04cd969",
@@ -178,7 +184,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.boundary_support.timelineworkbooktestsupport_waits_for_delayed_wo_8de9145b31",
@@ -203,7 +210,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.boundary_support.transportboundarypolicy_suite_aab5aaaedb",
@@ -215,11 +223,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/testing/transportBoundaryPolicy.test.ts",
+        "file": "apps/web/src/testing/transportBoundaryPolicy.node.test.ts",
         "titles": [
           "frontend transport boundary policy confines raw transport references to the service adapter owner"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -228,7 +236,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.boundary_support.workbook_geometry_contract",
@@ -242,12 +251,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/layout/workbookLayoutPolicy.test.ts",
+        "file": "apps/web/src/workbook/layout/workbookLayoutPolicy.node.test.ts",
         "titles": [
           "workbook layout policy keeps surface geometry in the shared layout owner",
           "workbook layout policy preserves exactly the supplied record population without layout filler"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -256,7 +265,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.boundary_support.workbookinspectortestsupport_suite_b85a10b67a",
@@ -284,7 +294,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.architecture.support.enforce_frontend_import_boundaries_apps_web_must_cc56151788",
@@ -305,7 +316,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

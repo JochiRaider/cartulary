@@ -21,8 +21,8 @@ Identity, draft, attempt, receipt, and refresh state remain explicit. The
 
 | File | Responsibility |
 | --- | --- |
-| [WorkbookSavedViewController.test.ts](WorkbookSavedViewController.test.ts) | Tests exact saved-view write capture, synchronous admission, and receipts after presentation detaches. |
-| [savedViewReads.test.ts](savedViewReads.test.ts) | Tests observation identity, successor-safe cancellation, typed failures, authority fencing and cross-consumer retention. |
+| [WorkbookSavedViewController.node.test.ts](WorkbookSavedViewController.node.test.ts) | Tests exact saved-view write capture, synchronous admission, and receipts after presentation detaches. |
+| [savedViewReads.node.test.ts](savedViewReads.node.test.ts) | Tests observation identity, successor-safe cancellation, typed failures, authority fencing and cross-consumer retention. |
 
 Opening the browser revalidates its retained page. Previous refetches a retained
 checkpoint; First and Refresh start a fresh chain only after acceptance. Dismissal

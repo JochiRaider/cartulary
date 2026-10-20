@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "harness.evidence_accounting",
   "rows": [
     {
@@ -23,7 +23,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.evidence_accounting.behavior.local_migration_activities",
@@ -52,7 +53,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.evidence_accounting.behavior.native_collection",
@@ -66,6 +68,7 @@
       "selector": {
         "package": "./internal/testutil/harnesscollect",
         "tests": [
+          "TestCheckpointLogsAreBoundedAndNumeric",
           "TestCollectorLocalCounters",
           "TestCollectorQuietAndCancellation",
           "TestCollectorRelationshipsAndBounds",
@@ -85,7 +88,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.evidence_accounting.behavior.native_observation",
@@ -115,7 +119,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.evidence_accounting.behavior.native_schema",
@@ -140,7 +145,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.evidence_accounting.behavior.native_session",
@@ -167,7 +173,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.evidence_accounting.behavior.observation_admission",
@@ -193,7 +200,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.evidence_accounting.unit.string_uses_shared_harness_rules_7f2757c83f",
@@ -220,7 +228,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.evidence_accounting.unit.suiteservices_helper_contract",
@@ -234,6 +243,7 @@
       "selector": {
         "package": "./internal/testutil/suiteservices",
         "tests": [
+          "TestBucketReservationRetainsUncertainCreateWithoutCountingSuccess",
           "TestCheckServiceDependenciesAllowsExplicitDirectInvocation",
           "TestCheckServiceDependenciesRejectsMalformedAssignment",
           "TestCheckServiceDependenciesRejectsOmittedService",
@@ -259,7 +269,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "harness.evidence_accounting.unit.testfailure_helper_contract",
@@ -284,7 +295,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

@@ -15,7 +15,7 @@ participants; Task lifecycle uses explicit record-patch ownership in the
 | --- | --- |
 | [contextualCreateAuthoring.test.tsx](contextualCreateAuthoring.test.tsx) | Tests declared contextual entry points and draft identity across detachment and source changes. |
 | [ContextualCreateContext.ts](ContextualCreateContext.ts) | React context exposing contextual Task/Decision creation ownership. |
-| [contextualCreateDiscovery.test.ts](contextualCreateDiscovery.test.ts) | Tests contextual route/capability validation and paged target-reference discovery. |
+| [contextualCreateDiscovery.node.test.ts](contextualCreateDiscovery.node.test.ts) | Tests contextual route/capability validation and paged target-reference discovery. |
 | [ContextualCreateForm.tsx](ContextualCreateForm.tsx) | Contextual Task/Decision authoring form with source context and reviewed submission. |
 | [contextualCreateModel.ts](contextualCreateModel.ts) | Contextual Task/Decision feature identities, source-bound drafts, and reference requirements. |
 | [contextualCreateOperation.ts](contextualCreateOperation.ts) | Contextual creation reviews, immutable attempts, receipts, outcomes, and owner entries. |
@@ -56,7 +56,7 @@ participants; Task lifecycle uses explicit record-patch ownership in the
 | [decisionSupersessionRuntime.test.ts](decisionSupersessionRuntime.test.ts) | Tests supersession coordination with queued writes and accepted History versions. |
 | [reconcileDecisionReceipt.ts](reconcileDecisionReceipt.ts) | Reconciles supersession receipts against both Decision records and their histories. |
 | [useDecisionCandidates.ts](useDecisionCandidates.ts) | Paged eligible Decision candidate discovery with explicit read-state feedback. |
-| [WorkbookDecisionSupersessionOwner.test.ts](WorkbookDecisionSupersessionOwner.test.ts) | Tests participant reservation, write coordination, exact replay, and current-authority admission. |
+| [WorkbookDecisionSupersessionOwner.node.test.ts](WorkbookDecisionSupersessionOwner.node.test.ts) | Tests participant reservation, write coordination, exact replay, and current-authority admission. |
 | [WorkbookDecisionSupersessionOwner.ts](WorkbookDecisionSupersessionOwner.ts) | Decision supersession admission, participant coordination, retained attempts, and reconciliation. |
 | [WorkbookDecisionSupersessionRecovery.tsx](WorkbookDecisionSupersessionRecovery.tsx) | Decision supersession replay, receipt completion, and reconciliation recovery controls. |
 

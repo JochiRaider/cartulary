@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 const maxDiagnosticCounter int64 = 9007199254740991
@@ -19,6 +20,9 @@ const maxDiagnosticCounter int64 = 9007199254740991
 // DropWaitSnapshot contains structural observations only, never SQL, process
 // identifiers, database names, connection strings or extension-provided text.
 type DropWaitSnapshot struct {
+	WriteMS              float64 `json:"write_ms"`
+	SyncMS               float64 `json:"sync_ms"`
+	statsReset           time.Time
 	Barrier              *BarrierWaitSnapshot `json:"barrier,omitempty"`
 	Type                 string               `json:"type"`
 	Event                string               `json:"event"`
@@ -111,9 +115,11 @@ func barrierNoticePID(notice *pgconn.Notice) int64 {
 }
 
 type DropObservation struct {
-	Status string            `json:"status"`
-	First  *DropWaitSnapshot `json:"first"`
-	Last   *DropWaitSnapshot `json:"last"`
+	ServiceGeneration *string             `json:"-"`
+	Checkpoint        *CheckpointInterval `json:"checkpoint,omitempty"`
+	Status            string              `json:"status"`
+	First             *DropWaitSnapshot   `json:"first"`
+	Last              *DropWaitSnapshot   `json:"last"`
 }
 
 func validWaitType(value string) bool {
@@ -125,12 +131,15 @@ func validWaitEvent(value string) bool {
 }
 
 func (s DropWaitSnapshot) valid() bool {
-	return s.Barrier.valid() && validWaitType(s.Type) && validWaitEvent(s.Event) && validWaitType(s.CheckpointerType) && validWaitEvent(s.CheckpointerEvent) &&
+	return validMilliseconds(s.WriteMS) && validMilliseconds(s.SyncMS) && s.Barrier.valid() && validWaitType(s.Type) && validWaitEvent(s.Event) && validWaitType(s.CheckpointerType) && validWaitEvent(s.CheckpointerEvent) &&
 		s.Blockers >= 0 && s.Blockers <= 100000 && s.CheckpointerBlockers >= 0 && s.CheckpointerBlockers <= 100000 &&
 		s.Requested >= 0 && s.Requested <= maxDiagnosticCounter && s.Done >= 0 && s.Done <= maxDiagnosticCounter && s.Buffers >= 0 && s.Buffers <= maxDiagnosticCounter
 }
 
 func (o DropObservation) Validate() error {
+	if o.Checkpoint != nil && !o.Checkpoint.valid() {
+		return errors.New("invalid checkpoint interval")
+	}
 	if o.Status == "sampled" && o.First != nil && o.Last != nil && o.First.valid() && o.Last.valid() {
 		return nil
 	}
@@ -170,14 +179,22 @@ type observedDropError struct {
 func (e *observedDropError) Error() string {
 	return fmt.Sprintf("%v (drop wait: %s)", e.err, e.observation.String())
 }
-func (e *observedDropError) Unwrap() error                { return e.err }
-func (e *observedDropError) CleanupWait() DropObservation { return e.observation }
+func (e *observedDropError) Unwrap() error { return e.err }
 
-func executeObservedDatabaseDrop(ctx context.Context, admin *sql.Conn, dsn, name string, force bool, participant func() int64) error {
+func executeObservedDatabaseDrop(ctx context.Context, admin *sql.Conn, dsn, name string, participant func() int64) error {
+	var backend int64
+	// Read the already-admitted physical connection identity without issuing SQL.
+	// It is transient and never included in error text or retained diagnostics.
+	_ = admin.Raw(func(driver any) error {
+		if connection, ok := driver.(*stdlib.Conn); ok {
+			backend = int64(connection.Conn().PgConn().PID())
+		}
+		return nil
+	})
 	observationCtx, stop := context.WithCancel(ctx)
 	observed := make(chan DropObservation, 1)
-	go func() { observed <- observeDatabaseDrop(observationCtx, dsn, name, force, participant) }()
-	err := executeDatabaseDrop(ctx, admin, name, force)
+	go func() { observed <- observeDatabaseDrop(observationCtx, dsn, name, backend, participant) }()
+	err := executeDatabaseDrop(ctx, admin, name)
 	stop()
 	observation := <-observed
 	if err != nil {
@@ -186,21 +203,10 @@ func executeObservedDatabaseDrop(ctx context.Context, admin *sql.Conn, dsn, name
 	return nil
 }
 
-// ObserveDatabaseDrop samples only the exact authored command. The first probe
-// is delayed so ordinary fast cleanup opens no diagnostic connection. Every
-// probe and the observer lifetime are bounded by the operation context.
-func ObserveDatabaseDrop(ctx context.Context, dsn, name string, force bool) DropObservation {
-	return observeDatabaseDrop(ctx, dsn, name, force, nil)
-}
-
-func observeDatabaseDrop(ctx context.Context, dsn, name string, force bool, participant func() int64) DropObservation {
+func observeDatabaseDrop(ctx context.Context, dsn, name string, backend int64, participant func() int64) DropObservation {
 	result := DropObservation{Status: "not_observed"}
-	if validateDatabaseIdentifier(name) != nil {
+	if validateDatabaseIdentifier(name) != nil || backend <= 0 {
 		return DropObservation{Status: "unavailable"}
-	}
-	query := fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, name)
-	if force {
-		query += " WITH (FORCE)"
 	}
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -226,20 +232,25 @@ func observeDatabaseDrop(ctx context.Context, dsn, name string, force bool, part
 		}
 		probe, cancel := context.WithTimeout(ctx, time.Second)
 		var snapshot DropWaitSnapshot
+		var generation string
 		err := db.QueryRowContext(probe, `
 SELECT COALESCE(d.wait_event_type, ''), COALESCE(d.wait_event, ''), cardinality(pg_blocking_pids(d.pid)),
        COALESCE(c.wait_event_type, ''), COALESCE(c.wait_event, ''), cardinality(pg_blocking_pids(c.pid)),
-       s.num_requested, s.num_done, s.buffers_written
+       s.num_requested, s.num_done, s.buffers_written, s.write_time, s.sync_time, s.stats_reset, (SELECT system_identifier::text FROM pg_catalog.pg_control_system())
 FROM pg_catalog.pg_stat_activity d
 CROSS JOIN pg_catalog.pg_stat_checkpointer s
 CROSS JOIN LATERAL (SELECT pid, wait_event_type, wait_event FROM pg_catalog.pg_stat_activity WHERE backend_type = 'checkpointer' LIMIT 1) c
-WHERE d.pid <> pg_backend_pid() AND d.state = 'active' AND d.query = $1
-LIMIT 1`, query).Scan(&snapshot.Type, &snapshot.Event, &snapshot.Blockers, &snapshot.CheckpointerType, &snapshot.CheckpointerEvent, &snapshot.CheckpointerBlockers, &snapshot.Requested, &snapshot.Done, &snapshot.Buffers)
+WHERE d.pid = $1 AND d.pid <> pg_backend_pid() AND d.state = 'active'
+LIMIT 1`, backend).Scan(&snapshot.Type, &snapshot.Event, &snapshot.Blockers, &snapshot.CheckpointerType, &snapshot.CheckpointerEvent, &snapshot.CheckpointerBlockers, &snapshot.Requested, &snapshot.Done, &snapshot.Buffers, &snapshot.WriteMS, &snapshot.SyncMS, &snapshot.statsReset, &generation)
 		if err == nil {
 			snapshot.Barrier = sampleBarrierParticipant(probe, db, name, participant)
 		}
 		cancel()
 		if err == nil {
+			if !serviceGenerationPattern.MatchString(generation) || result.ServiceGeneration != nil && *result.ServiceGeneration != generation {
+				return DropObservation{Status: "unavailable"}
+			}
+			result.ServiceGeneration = &generation
 			if !validWaitType(snapshot.Type) {
 				snapshot.Type = "unknown"
 			}
@@ -259,6 +270,8 @@ LIMIT 1`, query).Scan(&snapshot.Type, &snapshot.Event, &snapshot.Blockers, &snap
 				}
 				result.Last = &snapshot
 				result.Status = "sampled"
+				interval := checkpointInterval(result.First, result.Last)
+				result.Checkpoint = &interval
 			} else if result.First == nil {
 				result.Status = "unavailable"
 			}

@@ -2,7 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { taskAuthority } from "../../../testing/taskWorkbookTestSupport";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import {
   createPartyCreationTransport,
   type PartyCreationReceipt,

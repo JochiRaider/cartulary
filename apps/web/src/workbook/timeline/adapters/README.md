@@ -33,5 +33,5 @@ tracking.
 | File | Responsibility |
 | --- | --- |
 | [createTimelineActionAdapters.test.ts](createTimelineActionAdapters.test.ts) | Characterizes history, record action, mention, and Evidence attachment protocol boundaries. |
-| [timelineCaptureTransport.test.ts](timelineCaptureTransport.test.ts) | Tests bounded candidate pages and capture receipt identity, version, reason, and replacement correlation. |
-| [timelineMentionProtocol.test.ts](timelineMentionProtocol.test.ts) | Tests complete mention receipts, raw text, opaque selectors, required nulls, and uncertain malformed success. |
+| [timelineCaptureTransport.node.test.ts](timelineCaptureTransport.node.test.ts) | Tests bounded candidate pages and capture receipt identity, version, reason, and replacement correlation. |
+| [timelineMentionProtocol.node.test.ts](timelineMentionProtocol.node.test.ts) | Tests complete mention receipts, raw text, opaque selectors, required nulls, and uncertain malformed success. |

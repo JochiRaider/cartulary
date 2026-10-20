@@ -172,7 +172,7 @@ async function capture(page: Page, info: TestInfo, label: string) {
 
 test("Timeline attachment feedback keeps completed history bounded and presentation independent", async ({
   page,
-  workerAdmin,
+  testActor,
 }, info) => {
   await page.setViewportSize({ width: 1280, height: 720 });
   await observe(page);
@@ -189,7 +189,7 @@ test("Timeline attachment feedback keeps completed history bounded and presentat
         "timeline.activity_synopsis_text": `Attachment source ${i}`,
       }),
     );
-  const preferences = await installVisualPreferences(page, workerAdmin.user_id);
+  const preferences = await installVisualPreferences(page, testActor.user_id);
   const writes: string[] = [];
   page.on("request", (request) => {
     if (

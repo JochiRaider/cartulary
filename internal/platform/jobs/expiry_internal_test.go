@@ -22,7 +22,7 @@ func TestCompactExpiredJobs_Integration(t *testing.T) {
 	}
 	t.Cleanup(pool.Close)
 	cutoff := time.Date(2026, 8, 8, 17, 0, 0, 0, time.UTC)
-	manager := &Manager{pool: pool, now: func() time.Time { return cutoff }, policy: ProductionRuntimePolicy()}
+	manager := &Manager{db: pool, now: func() time.Time { return cutoff }, policy: ProductionRuntimePolicy()}
 	actorID := uuid.New()
 	incidentID := uuid.New()
 	if _, err := pool.Exec(ctx, `
@@ -187,7 +187,7 @@ SELECT job_kind, progress_unit_id, handler_name, extension_owner_profile_id, sta
 		t.Fatalf("compaction changed proof/event rows: proof=%d event=%d", proofCount, eventCount)
 	}
 
-	restarted := &Manager{pool: pool, now: func() time.Time { return cutoff }, policy: ProductionRuntimePolicy()}
+	restarted := &Manager{db: pool, now: func() time.Time { return cutoff }, policy: ProductionRuntimePolicy()}
 	compacted, err = restarted.compactExpiredJobs(ctx, 1000)
 	if err != nil || compacted != 1 {
 		t.Fatalf("restart compaction = %d, %v; want 1", compacted, err)

@@ -18,7 +18,7 @@ function ordered(values, label) {
 // current checkout to fill in missing source, policy, or execution identities.
 export function validateExecutionContext(context, canonical, cleanup) {
   validateSchemaSync("cartulary.harness_execution_context.v3", context);
-  validateSchemaSync("cartulary.harness_cleanup_results.v1", cleanup);
+  validateSchemaSync("cartulary.harness_cleanup_results.v2", cleanup);
   const { manifest, summary, registrations, targetSummaries } = canonical;
   same(context.manifest_digest, digest(manifest), "manifest");
   same(cleanup.run_id, manifest.run_id, "cleanup run");

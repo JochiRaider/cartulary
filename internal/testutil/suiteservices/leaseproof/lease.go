@@ -14,10 +14,12 @@ const (
 )
 
 type PostgresProvisioning struct {
-	SchemaID       string `json:"schema_id"`
-	Generation     string `json:"generation"`
-	PolicyDigest   string `json:"policy_digest"`
-	TemplateDigest string `json:"template_digest"`
+	PostgresIsolation string `json:"postgres_isolation"`
+	AllocationRef     string `json:"allocation_ref"`
+	SchemaID          string `json:"schema_id"`
+	Generation        string `json:"generation"`
+	PolicyDigest      string `json:"policy_digest"`
+	TemplateDigest    string `json:"template_digest"`
 }
 
 type Lease struct {

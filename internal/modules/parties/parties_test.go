@@ -54,7 +54,7 @@ func TestPartyExactMatchReuseAndRawTextPreservation_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-u-9-05-parties")
 	evidenceOwner := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook"))
 	partyOwner := appsupport.NewPartyOwner(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u905@example.test", "U905 Parties", "U905PartiesPass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u905@example.test", DisplayName: "U905 Parties"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-incident", "IR-U905", "Workbook inspector party-storage")
 	otherIncident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-05-other-incident", "IR-U905B", "Workbook inspector party-storage Other")
 

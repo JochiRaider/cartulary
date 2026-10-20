@@ -2,11 +2,11 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { act, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../../testing/fetchMockTestSupport";
-import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import {
   acceptedQueryMetadata,
-  renderHookWithWorkbookQueryBrowsing as renderHook,
-} from "../../testing/workbookQueryTestSupport";
+  fullWorkbookViewRow,
+} from "../../testing/workbookFixtureData";
+import { renderHookWithWorkbookQueryBrowsing as renderHook } from "../../testing/workbookQueryTestSupport";
 import { ordinaryCreateContributions } from "../features/ordinary/ordinaryCreateContributions";
 import { WorkbookOrdinaryCreateOwner } from "../features/ordinary/WorkbookOrdinaryCreateOwner";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";

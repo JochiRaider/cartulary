@@ -117,7 +117,6 @@ const optionalPathVariables = Object.freeze([
   "TEST_SERVICES_BIN",
   "CARTULARY_TEST_SERVICES_BIN",
   "CARTULARY_HARNESS_REPO_ROOT",
-  "CARTULARY_HARNESS_SCRATCH_ROOT",
   "TMPDIR",
   "CARTULARY_COMPOSE_FILE",
   "CARTULARY_SERVER_HARNESS_BIN",
@@ -644,17 +643,6 @@ function validateOptionalPaths(env) {
       continue;
     }
     const normalized = validatePathToken(name, env[name]);
-    if (name === "CARTULARY_HARNESS_SCRATCH_ROOT") {
-      const scratchRoot = path.resolve(repoRoot, normalized);
-      const relative = path.relative(repoRoot, scratchRoot);
-      if (relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))) {
-        throw new HarnessConfigError(
-          `CARTULARY_HARNESS_SCRATCH_ROOT must be outside the repository: ${scratchRoot}`,
-        );
-      }
-      resolved[name] = scratchRoot;
-      continue;
-    }
     resolved[name] = normalized;
   }
   for (const [name, value] of Object.entries(env)) {
@@ -713,9 +701,10 @@ export function resolveMachineStatePaths(env = process.env, options = {}) {
   }
   const root = canonicalPotentialPath(path.resolve(rootRaw));
   const definitions = [
-    ["GO_CACHE_DIR", "build"],
-    ["GO_MOD_CACHE_DIR", "mod"],
-    ["GO_TMP_DIR", "tmp"],
+    ["GO_CACHE_DIR", "go/build"],
+    ["GO_MOD_CACHE_DIR", "go/mod"],
+    ["GO_TMP_DIR", "go/tmp"],
+    ["CARTULARY_HARNESS_SCRATCH_ROOT", "harness-scratch"],
   ];
   const values = { CARTULARY_MACHINE_CACHE_DIR: root };
   const sources = {
@@ -728,7 +717,7 @@ export function resolveMachineStatePaths(env = process.env, options = {}) {
   for (const [name, suffix] of definitions) {
     const raw = Object.hasOwn(env, name)
       ? validatePathToken(name, env[name])
-      : path.join(root, "go", suffix);
+      : path.join(root, suffix);
     if (!path.isAbsolute(raw)) {
       throw new HarnessConfigError(`${name} must be absolute`);
     }
@@ -740,10 +729,11 @@ export function resolveMachineStatePaths(env = process.env, options = {}) {
       throw new HarnessConfigError(`${name} must be outside the repository: ${value}`);
     }
   }
-  for (let leftIndex = 0; leftIndex < definitions.length; leftIndex += 1) {
-    for (let rightIndex = leftIndex + 1; rightIndex < definitions.length; rightIndex += 1) {
-      const leftName = definitions[leftIndex][0];
-      const rightName = definitions[rightIndex][0];
+  const independentCaches = definitions.filter(([name]) => name !== "CARTULARY_HARNESS_SCRATCH_ROOT");
+  for (let leftIndex = 0; leftIndex < independentCaches.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < independentCaches.length; rightIndex += 1) {
+      const leftName = independentCaches[leftIndex][0];
+      const rightName = independentCaches[rightIndex][0];
       const left = values[leftName];
       const right = values[rightName];
       if (isUnderPath(left, right) || isUnderPath(right, left)) {
@@ -981,6 +971,7 @@ function validateTargetInputValue(name, value, input, manifest) {
     return value;
   }
   if (input.type === "row_ids") {
+    if (value.length > 4096) throw new HarnessConfigError(`${name} exceeds 4096 characters; split the exact selection into bounded slices`, { reason: input.invalid_reason });
     const rowIDPattern = /^(?:module|platform|app|web|package|harness)\.(?!phase[0-9]+\.|fe_p[0-9]+\.)[a-z][a-z0-9_]{0,62}\.(?!phase[0-9]+\.|fe_p[0-9]+\.)[a-z][a-z0-9_]{0,62}\.(?!phase[0-9]+$|fe_p[0-9]+$)[a-z][a-z0-9_]{0,62}$/u;
     const tokens = value.split(",").map((token) => token.trim());
     if (

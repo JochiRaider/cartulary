@@ -9,6 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 // Design review shares the native session/fixture lifecycle. Its presentation
@@ -82,19 +83,23 @@ func (p *designPublisher) Terminal(locator Locator, receipt Receipt, cleanupFail
 	for i, step := range p.driver.cleanup {
 		outcome := "completed"
 		var class, reason any
+		var diagnostic *harnesssession.CleanupDiagnostic
 		failures := []map[string]any{}
 		if step.err != nil {
 			outcome = "failed"
 			if errors.Is(step.err, harnessfixtures.ErrCleanupBlocked) {
 				outcome = "blocked"
 			}
-			class = "harness"
-			reason = "cleanup_error"
-			failures = append(failures, map[string]any{"failure_class": class, "failure_reason": reason})
+			if outcome == "failed" {
+				diagnostic = harnesssession.DescribeCleanupFailure(harnesssession.AtCleanupStage(step.operation, step.err))
+				class = "harness"
+				reason = "cleanup_error"
+				failures = append(failures, map[string]any{"failure_class": class, "failure_reason": reason})
+			}
 		}
-		cleanup = append(cleanup, map[string]any{"sequence": i + 1, "operation": step.operation, "unit_id": nil, "fixture_lease_id": nil, "outcome": outcome, "failure_class": class, "failure_reason": reason, "failures": failures, "artifact_refs": []string{}})
+		cleanup = append(cleanup, map[string]any{"sequence": i + 1, "operation": step.operation, "unit_id": nil, "fixture_lease_id": nil, "outcome": outcome, "failure_class": class, "failure_reason": reason, "failures": failures, "artifact_refs": []string{}, "diagnostic": diagnostic})
 	}
-	cleanupBytes, err := jsonDocument("cartulary.harness_cleanup_results.v1", map[string]any{"schema_id": "cartulary.harness_cleanup_results.v1", "run_id": p.record.Runtime.RunID, "results": cleanup})
+	cleanupBytes, err := jsonDocument("cartulary.harness_cleanup_results.v2", map[string]any{"schema_id": "cartulary.harness_cleanup_results.v2", "run_id": p.record.Runtime.RunID, "results": cleanup})
 	if err != nil {
 		return nil, err
 	}

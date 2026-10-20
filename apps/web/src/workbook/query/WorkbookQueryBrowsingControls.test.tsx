@@ -17,8 +17,10 @@ import {
 } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { deferred } from "../../testing/fetchMockTestSupport";
-import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
-import { acceptedQueryMetadata } from "../../testing/workbookQueryTestSupport";
+import {
+  acceptedQueryMetadata,
+  fullWorkbookViewRow,
+} from "../../testing/workbookFixtureData";
 import { useWorkbookQueryController } from "../hooks/useWorkbookQueryController";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { notesViewSchemaId } from "../models/workbookSurfaceRegistry";

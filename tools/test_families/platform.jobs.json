@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "platform.jobs",
   "rows": [
     {
@@ -31,7 +31,71 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "platform.jobs.integration.dedicated_database_assertions_for_expiry_and_com_87bcee82e8",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.expiry",
+        "platform.jobs.verification.lifecycle",
+        "platform.jobs.verification.supervision"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestCompactExpiredJobs_Integration",
+          "TestRunnerDelaysFirstExpirySweep_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "platform.jobs.integration.dedicated_database_assertions_for_lifecycle_and_604c8d7b1f",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "module.jobapi"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.lifecycle",
+        "platform.jobs.verification.progress"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestManagerCancellationUsesCanonicalTransitionLockOrder_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "platform.jobs.integration.execution_migration",
@@ -55,44 +119,12 @@
       "resource_profile_id": "io_heavy",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
-    },
-    {
-      "row_id": "platform.jobs.integration.expiry_and_compaction",
-      "owner_id": "platform.jobs",
-      "family_id": "platform.jobs.integration",
-      "collaborator_ids": [
-        "module.collaboration",
-        "module.extensions"
       ],
-      "verification_ids": [
-        "platform.jobs.verification.expiry",
-        "platform.jobs.verification.lifecycle",
-        "platform.jobs.verification.supervision"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/platform/jobs",
-        "tests": [
-          "TestCompactExpiredJobs_Integration",
-          "TestLogicalExpiryMasksReadsAndCancelReplay_Integration",
-          "TestRunnerDelaysFirstExpirySweep_Integration"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ]
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "platform.jobs.integration.expiry_migration",
@@ -117,42 +149,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
-    },
-    {
-      "row_id": "platform.jobs.integration.lifecycle_and_progress",
-      "owner_id": "platform.jobs",
-      "family_id": "platform.jobs.integration",
-      "collaborator_ids": [
-        "module.jobapi"
       ],
-      "verification_ids": [
-        "platform.jobs.verification.lifecycle",
-        "platform.jobs.verification.progress"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/platform/jobs",
-        "tests": [
-          "TestManagerCancellationUsesCanonicalTransitionLockOrder_Integration",
-          "TestManagerCreatesCancelsAndReplaysJobCancel",
-          "TestManagerTerminalSuccessRetainsJobResource"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ]
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "platform.jobs.integration.migration_and_storage_contract",
@@ -177,11 +179,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "platform.jobs.integration.operational_telemetry",
@@ -211,7 +214,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "platform.jobs.integration.runner_and_recovery",
@@ -234,11 +238,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "platform.jobs.integration.runner_failure_security",
@@ -266,7 +271,71 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "platform.jobs.integration.single_connection_rollback_assertions_for_expiry_e332d2eab2",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.extensions"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.expiry",
+        "platform.jobs.verification.lifecycle",
+        "platform.jobs.verification.supervision"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestLogicalExpiryMasksReadsAndCancelReplay_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "platform.jobs.integration.single_connection_rollback_assertions_for_lifecy_54f9ec5538",
+      "owner_id": "platform.jobs",
+      "family_id": "platform.jobs.integration",
+      "collaborator_ids": [
+        "module.jobapi"
+      ],
+      "verification_ids": [
+        "platform.jobs.verification.lifecycle",
+        "platform.jobs.verification.progress"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestManagerCreatesCancelsAndReplaysJobCancel",
+          "TestManagerTerminalSuccessRetainsJobResource"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "platform.jobs.integration.storage_catalog_startup",
@@ -288,11 +357,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "platform.jobs.integration.supervised_runner",
@@ -321,7 +391,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "platform.jobs.integration.transition_progress_contract",
@@ -350,7 +421,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "platform.jobs.unit.architecture_guard",
@@ -375,7 +447,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.jobs.unit.base_and_extension_composition",
@@ -404,7 +477,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.jobs.unit.immutable_composition",
@@ -430,7 +504,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.jobs.unit.telemetry_contract",
@@ -458,7 +533,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.jobs.unit.typed_execution_contract",
@@ -483,7 +559,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

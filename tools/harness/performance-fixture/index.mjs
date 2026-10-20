@@ -11,7 +11,7 @@ import {
 export { validateProfileMeasurementObservation } from "./profile-adapters/index.mjs";
 
 const registrySchemaID = "cartulary.performance_fixture_snapshot_owner.v3";
-const builderPolicySchemaID = "cartulary.performance_fixture_builder_policy.v1";
+const builderPolicySchemaID = "cartulary.performance_fixture_builder_policy.v2";
 const defaultRegistryPath = "tools/performance_fixture_snapshot_owner.json";
 const defaultBuilderPolicyPath = "tools/performance_fixture_builder_policy.json";
 const migrationRunnerIdentity = "cartulary-postgres-migrate/goose/v3.27.0";

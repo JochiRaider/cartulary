@@ -497,7 +497,7 @@ try {
     build_artifact: summary.build_artifact, summary_artifacts: [summaryArtifact.ref], rollups: [{predicate_id: summary.rollup.predicate_id, sample_count: summary.rollup.sample_count, statistics: summary.rollup.statistics, threshold_ms: summary.rollup.threshold_ms, outcome: summary.rollup.outcome}],
   }] };
   const targetEvidence = {
-    schema_id: "cartulary.browser_target_result.v7", target_id: aggregate.target_id, status: "pass", generated_at: "2026-10-14T00:00:00Z",
+    schema_id: "cartulary.browser_target_result.v8", target_id: aggregate.target_id, status: "pass", generated_at: "2026-10-14T00:00:00Z",
     group_results: [{ group_id: "measurement", browser_session_id: "measurement", ref: "group.json", sha256: summaryArtifact.ref.sha256 }],
     sessions: [{ browser_session_id: "measurement", runtime_profile_id: "measurement", service_requirement: "test-services", artifacts: [
       { kind: "stack_v7", ref: "stack.json", sha256: summaryArtifact.ref.sha256 },
@@ -1461,7 +1461,8 @@ const networkFlowStatefulOwner = compiler.compile({
   owner_id: "module.networkflow",
 });
 const selectedNetworkFlowGroup = networkFlowStatefulOwner.units.find((unit) =>
-  unit.unit_id === "browser_group:stateful:stateful-network-flow-claimed-network-flow"
+  unit.unit_id.startsWith("browser_group:stateful:") &&
+  unit.row_bindings.some((binding) => binding.row_id === "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle")
 );
 assert.ok(selectedNetworkFlowGroup, "Network Flow owner selection must contain its stateful group");
 const singleNetworkFlowGroup = compiler.compile({
@@ -1488,23 +1489,20 @@ const claimedStatefulChain = compiler.compile({
     "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
   ],
 });
-const claimedPredecessor = claimedStatefulChain.units.find((unit) =>
-  unit.unit_id === "browser_group:stateful:stateful-network-flow-claimed-extensions-stateful"
-);
-const claimedSuccessor = claimedStatefulChain.units.find((unit) =>
-  unit.unit_id === "browser_group:stateful:stateful-network-flow-claimed-network-flow"
-);
-const claimedResets = claimedStatefulChain.units.filter((unit) =>
-  unit.unit_id.startsWith("browser_reset:stateful:")
-);
-assert.ok(claimedPredecessor && claimedSuccessor);
+const claimedGroups = claimedStatefulChain.units.filter((unit) => unit.unit_id.startsWith("browser_group:stateful:"));
+assert.equal(claimedGroups.length, 2, "compatible Network Flow rows share one owner cohort; Extensions remains separate");
+assert.deepEqual(claimedGroups.flatMap((unit) => unit.row_bindings.map((binding) => binding.row_id)).sort(), [
+  "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
+  "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
+  "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
+]);
+const claimedResets = claimedStatefulChain.units.filter((unit) => unit.unit_id.startsWith("browser_reset:stateful:"));
 assert.equal(claimedResets.length, 1, "one selected affinity predecessor requires one reset");
+const claimedPredecessor = claimedGroups.find((unit) => claimedResets[0].needs.includes(unit.unit_id));
+const claimedSuccessor = claimedGroups.find((unit) => unit.needs.includes(claimedResets[0].unit_id));
+assert.ok(claimedPredecessor && claimedSuccessor && claimedPredecessor !== claimedSuccessor);
 assert.deepEqual(claimedResets[0].needs, [claimedPredecessor.unit_id]);
 assert.deepEqual(claimedSuccessor.needs, [claimedResets[0].unit_id]);
-assert.match(
-  claimedResets[0].unit_id,
-  /extensions-stateful--before-stateful-network-flow-claimed-network-flow/u,
-);
 assertResetTargetMatchesEvidence(claimedStatefulChain, "explicit row selection");
 
 const incompatibleStatefulSelection = compiler.compile({
@@ -1616,9 +1614,14 @@ assert.equal(
 const functionalRows = compiler.catalog.rows.filter((row) =>
   row.runner === "playwright" && row.selector.stage === "webserver_backed",
 );
-assert.equal(functionalGroups.length, new Set(functionalRows.map((row) =>
-  `${row.runtime_profile_id}:${row.selector.file}`,
-)).size);
+assert.ok(functionalGroups.length <= functionalRows.length);
+for (const unit of functionalGroups) {
+  const rows = unit.row_bindings.map((binding) => compiler.catalog.rowByID.get(binding.row_id));
+  assert.ok(rows.length > 0);
+  assert.equal(new Set(rows.map((row) => row.owner_id)).size, 1);
+  assert.equal(new Set(rows.map((row) => row.runtime_profile_id)).size, 1);
+  if (rows.length > 1) assert.ok(rows.every((row) => row.browser_state_scope === "test_owned"));
+}
 assert.deepEqual(
   functionalGroups.flatMap((unit) =>
     unit.current_run_evidence_outputs.filter((output) => output.startsWith("rows/")),
@@ -1648,23 +1651,28 @@ for (const unit of functionalGroups) {
   assert.equal(unit.renderer_requirement, "pooled");
   assert.deepEqual(unit.physical_allocations.renderer, compiler.topology.physical_resource_claims.renderer);
   assert.equal(unit.command.environment.CARTULARY_BROWSER_SESSION_CONTRACT,
-    functionalContracts.get(unit.unit_id.split(":").at(-1)),
+    functionalContracts.get(unit.command.args[unit.command.args.indexOf("--partition") + 1]),
     "lane isolation must preserve the authored attachment contract");
   assert.notEqual(unit.command.environment.CARTULARY_BROWSER_SESSION_CONTRACT,
     unit.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID);
   assert.equal(unit.command.environment.CARTULARY_BROWSER_RESOURCE_PROFILE_ID, "browser_functional");
-  const rowCount = unit.current_run_evidence_outputs.filter((output) =>
-    output.startsWith("rows/"),
-  ).length;
+  const selectedCost = unit.row_bindings.reduce((total, binding) => {
+    const row = compiler.catalog.rowByID.get(binding.row_id);
+    return total + row.selector.titles.length * compiler.owner.evidence_estimates_ms[row.evidence_class];
+  }, 0);
+  const invocation = compiler.topology.browser_e2e_batch.invocation_policy;
   assert.equal(
     unit.estimated_work_ms,
-    rowCount * compiler.owner.evidence_estimates_ms.browser,
-    `${unit.unit_id} cost must sum selected row estimates`,
+    selectedCost + invocation.startup_ms + invocation.cleanup_ms +
+      (unit.command.environment.CARTULARY_BROWSER_GROUP_GENERATION === "1" ? compiler.owner.lifecycle_estimates_ms.browser_allocation_acquire : 0) +
+      (unit.command.environment.CARTULARY_BROWSER_RELEASE_AFFINITY === "1" ? compiler.owner.lifecycle_estimates_ms.browser_allocation_release : 0),
+    `${unit.unit_id} cost must charge selected tests and one invocation overhead`,
   );
   assert.match(unit.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID, /^webserver-backed-/u);
   assert.match(unit.command.environment.CARTULARY_BROWSER_GROUP_GENERATION, /^[1-9][0-9]*$/u);
 }
 for (const reset of functionalResets) {
+  assert.equal(reset.estimated_work_ms, compiler.owner.lifecycle_estimates_ms.browser_reset);
   assert.equal(reset.failure_policy.block_descendants, false);
   assert.equal(reset.failure_policy.aggregate_effect, "required");
   assert.equal(reset.command.args.includes("--renew-generation"), false);
@@ -1676,7 +1684,12 @@ const laneSelection = compiler.compile({ kind: "rows", row_ids: [laneRow.row_id]
 const laneGroup = laneSelection.units.find((unit) => unit.unit_id.startsWith("browser_group:webserver-backed:"));
 assert.match(laneGroup.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID, /^webserver-backed-/u);
 assert.equal(laneGroup.command.environment.CARTULARY_BROWSER_GROUP_GENERATION, "1");
-assert.equal(laneGroup.estimated_work_ms, compiler.owner.evidence_estimates_ms[laneRow.evidence_class]);
+assert.equal(laneGroup.estimated_work_ms,
+  compiler.topology.browser_e2e_batch.invocation_policy.startup_ms +
+  laneRow.selector.titles.length * compiler.owner.evidence_estimates_ms[laneRow.evidence_class] +
+  compiler.topology.browser_e2e_batch.invocation_policy.cleanup_ms +
+  compiler.owner.lifecycle_estimates_ms.browser_allocation_acquire +
+  compiler.owner.lifecycle_estimates_ms.browser_allocation_release);
 const functionalTargetFinalizer = webserverBacked.units.find(
   (unit) => unit.unit_id === "browser_target_summary:browser-e2e-webserver-backed",
 );
@@ -1795,9 +1808,11 @@ for (const summary of measurementSummaries) {
     "the aggregate must wait for every row finalizer",
   );
 }
-for (const firstConsumer of measurement.units.filter((entry) =>
-	entry.unit_id.startsWith("browser_group:measurement:measurement-measurement-timeline-grid-"),
-)) {
+const timelineGridConsumers = measurement.units.filter((entry) =>
+  entry.unit_id.startsWith("browser_group:measurement:") &&
+  entry.row_bindings.some((binding) => compiler.catalog.rowByID.get(binding.row_id).selector.file === "apps/web/e2e/measurement/timeline-grid.spec.ts"));
+assert.equal(timelineGridConsumers.length, 4, "all four Timeline grid measurements retain dedicated consumers");
+for (const firstConsumer of timelineGridConsumers) {
 	assert.ok(
 		firstConsumer.needs.includes(snapshotBuilders[0].unit_id),
 		firstConsumer.unit_id + " must depend on the shared snapshot builder",

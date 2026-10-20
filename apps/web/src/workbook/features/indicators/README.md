@@ -26,9 +26,9 @@ record facade without owning that source decision.
 | [indicatorCreateModel.ts](indicatorCreateModel.ts) | Indicator creation values, drafts, validation, availability, and Observation-derived seeds. |
 | [indicatorCreateOperation.ts](indicatorCreateOperation.ts) | Indicator creation attempts, receipts, outcomes, snapshots, and authority bindings. |
 | [IndicatorCreateOperationStatus.tsx](IndicatorCreateOperationStatus.tsx) | Indicator creation operation status and recovery feedback. |
-| [indicatorCreateReconciliation.test.ts](indicatorCreateReconciliation.test.ts) | Tests paged target refresh, newer History evidence, and retained receipts on unavailable reads. |
+| [indicatorCreateReconciliation.node.test.ts](indicatorCreateReconciliation.node.test.ts) | Tests paged target refresh, newer History evidence, and retained receipts on unavailable reads. |
 | [reconcileIndicatorCreateReceipt.ts](reconcileIndicatorCreateReceipt.ts) | Reconciles accepted Indicator creation with current query and History materialization. |
-| [WorkbookIndicatorCreateOwner.test.ts](WorkbookIndicatorCreateOwner.test.ts) | Tests creation admission, immutable replay, acknowledgement ordering, and refresh-only recovery. |
+| [WorkbookIndicatorCreateOwner.node.test.ts](WorkbookIndicatorCreateOwner.node.test.ts) | Tests creation admission, immutable replay, acknowledgement ordering, and refresh-only recovery. |
 | [WorkbookIndicatorCreateOwner.ts](WorkbookIndicatorCreateOwner.ts) | Canonical Indicator creation admission, captured attempt, acknowledgement, and reconciliation ownership. |
 | [WorkbookIndicatorCreateRecovery.tsx](WorkbookIndicatorCreateRecovery.tsx) | Retained Indicator creation replay and reconciliation recovery controls. |
 
@@ -42,12 +42,12 @@ record facade without owning that source decision.
 | [indicatorObservations.characterization.test.tsx](indicatorObservations.characterization.test.tsx) | Tests Observation capture exposes committed source text for accessible selection. |
 | [observationAuthoring.test.tsx](observationAuthoring.test.tsx) | Tests exact source previews, optional-field omission, paged targets, and isolated transition drafts. |
 | [ObservationCaptureEditor.tsx](ObservationCaptureEditor.tsx) | Observation source-text selection and capture authoring controls. |
-| [ObservationCollection.test.ts](ObservationCollection.test.ts) | Tests identity-based page deduplication, failed-cursor retry, progress checks, and stale-read fencing. |
+| [ObservationCollection.node.test.ts](ObservationCollection.node.test.ts) | Tests identity-based page deduplication, failed-cursor retry, progress checks, and stale-read fencing. |
 | [ObservationCollection.ts](ObservationCollection.ts) | Paged Observation collection state with retained results and request-generation fencing. |
 | [ObservationContext.ts](ObservationContext.ts) | React context exposing Observation operation ownership. |
 | [ObservationDetails.tsx](ObservationDetails.tsx) | Observation provenance, source span, and target detail presentation. |
 | [ObservationDraftStore.ts](ObservationDraftStore.ts) | Retains Observation drafts by source field and operation subject. |
-| [observationModel.test.ts](observationModel.test.ts) | Tests Unicode source spans, capability-based field discovery, and identity-isolated drafts. |
+| [observationModel.node.test.ts](observationModel.node.test.ts) | Tests Unicode source spans, capability-based field discovery, and identity-isolated drafts. |
 | [observationModel.ts](observationModel.ts) | Observation source, selection, target, and draft models with source-span validation. |
 | [observationOperation.ts](observationOperation.ts) | Observation authority, subjects, intents, immutable attempts, pages, and failure classification. |
 | [ObservationOperationStatus.tsx](ObservationOperationStatus.tsx) | Observation operation status and recovery feedback. |
@@ -57,7 +57,7 @@ record facade without owning that source decision.
 | [ObservationTargetPicker.tsx](ObservationTargetPicker.tsx) | Paged Indicator target selection for Observation transitions. |
 | [reconcileObservationReceipt.ts](reconcileObservationReceipt.ts) | Reconciles Observation receipts with source, previous target, and new target materialization. |
 | [useObservationTargetNames.ts](useObservationTargetNames.ts) | Loads display names for Observation targets without changing their stable identities. |
-| [WorkbookObservationOwner.test.ts](WorkbookObservationOwner.test.ts) | Tests Observation admission, shell-recovery retention, exact replay, and account retirement. |
+| [WorkbookObservationOwner.node.test.ts](WorkbookObservationOwner.node.test.ts) | Tests Observation admission, shell-recovery retention, exact replay, and account retirement. |
 | [WorkbookObservationOwner.ts](WorkbookObservationOwner.ts) | Observation capture and transition ownership with source coordination, replay, and reconciliation. |
 | [WorkbookObservationRecovery.tsx](WorkbookObservationRecovery.tsx) | Retained Observation operation replay and reconciliation recovery controls. |
 
@@ -68,18 +68,18 @@ record facade without owning that source decision.
 | [indicatorLifecycle.characterization.test.tsx](indicatorLifecycle.characterization.test.tsx) | Tests Indicator lifecycle content is reachable in the canonical History panel. |
 | [IndicatorLifecycleContext.ts](IndicatorLifecycleContext.ts) | React context exposing Indicator lifecycle operation ownership. |
 | [IndicatorLifecycleDraftStore.ts](IndicatorLifecycleDraftStore.ts) | Retains raw Indicator lifecycle drafts by subject identity. |
-| [indicatorLifecycleModel.test.ts](indicatorLifecycleModel.test.ts) | Tests UTC interval validation, support identity/order, nullable fields, and isolated subject drafts. |
+| [indicatorLifecycleModel.node.test.ts](indicatorLifecycleModel.node.test.ts) | Tests UTC interval validation, support identity/order, nullable fields, and isolated subject drafts. |
 | [indicatorLifecycleModel.ts](indicatorLifecycleModel.ts) | Indicator lifecycle drafts, interval validation, support references, and reviewed values. |
 | [indicatorLifecycleOperation.ts](indicatorLifecycleOperation.ts) | Indicator lifecycle authority, pages, attempts, outcomes, and operation scope. |
 | [IndicatorLifecycleOperationStatus.tsx](IndicatorLifecycleOperationStatus.tsx) | Indicator lifecycle operation status and recovery feedback. |
 | [indicatorLifecyclePaging.ts](indicatorLifecyclePaging.ts) | Paged Indicator lifecycle and support read state with navigation and recovery. |
 | [indicatorLifecycleReconciliation.test.tsx](indicatorLifecycleReconciliation.test.tsx) | Tests affected-identity refresh and monotonic reconciliation against HTTP, socket, and History evidence. |
-| [indicatorLifecycleRuntime.test.ts](indicatorLifecycleRuntime.test.ts) | Tests same-record write coordination, renewed version review, and recovery across shell detachment. |
+| [indicatorLifecycleRuntime.node.test.ts](indicatorLifecycleRuntime.node.test.ts) | Tests same-record write coordination, renewed version review, and recovery across shell detachment. |
 | [IndicatorLifecycleSupportPicker.tsx](IndicatorLifecycleSupportPicker.tsx) | Paged lifecycle support selection with explicit continuation and read feedback. |
 | [IndicatorLifecycleWorkflow.test.tsx](IndicatorLifecycleWorkflow.test.tsx) | Tests interval details, field-local UTC errors, paged support selection, and retained drafts. |
 | [IndicatorLifecycleWorkflow.tsx](IndicatorLifecycleWorkflow.tsx) | Indicator lifecycle interval details, authoring, support selection, and reviewed actions. |
 | [reconcileIndicatorLifecycleReceipt.ts](reconcileIndicatorLifecycleReceipt.ts) | Reconciles accepted lifecycle changes across affected Indicator identities and History. |
-| [WorkbookIndicatorLifecycleOwner.test.ts](WorkbookIndicatorLifecycleOwner.test.ts) | Tests lifecycle reservation, reviewed versions, exact replay, and authority-bound dispatch. |
+| [WorkbookIndicatorLifecycleOwner.node.test.ts](WorkbookIndicatorLifecycleOwner.node.test.ts) | Tests lifecycle reservation, reviewed versions, exact replay, and authority-bound dispatch. |
 | [WorkbookIndicatorLifecycleOwner.ts](WorkbookIndicatorLifecycleOwner.ts) | Indicator lifecycle operation admission, retained attempts, acknowledgements, and reconciliation. |
 | [WorkbookIndicatorLifecycleRecovery.tsx](WorkbookIndicatorLifecycleRecovery.tsx) | Retained Indicator lifecycle replay and reconciliation recovery controls. |
 

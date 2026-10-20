@@ -6,8 +6,8 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { acceptedQueryMetadata } from "../../testing/workbookFixtureData";
 import {
-  acceptedQueryMetadata,
   renderWithWorkbookQueryBrowsing as render,
   renderHookWithWorkbookQueryBrowsing as renderHook,
 } from "../../testing/workbookQueryTestSupport";

@@ -22,7 +22,7 @@ import { publicHttpOperation } from "./support/transport/publicHttpOperationClie
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 
 test("membership management traverses live service pages and adds changes removes with audit visibility", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   test.setTimeout(180_000);
   const incidentId = await createIncident(
@@ -147,7 +147,7 @@ test("membership management traverses live service pages and adds changes remove
 });
 
 test("membership management separates confirmed refresh failure exact create replay and explicit conflict review", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installMembershipManagementPresentation(page);
   const panel = await openMembershipManagement(page);
@@ -258,7 +258,7 @@ test("membership management separates confirmed refresh failure exact create rep
 });
 
 test("membership management retains pending work on close and requires deliberate route departure", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installMembershipManagementPresentation(page);
   const panel = await openMembershipManagement(page);
@@ -310,7 +310,7 @@ test("membership management retains pending work on close and requires deliberat
 });
 
 test("membership management self-demotion and self-removal recover current authority on closed incidents", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const session = await page.request.get(`${apiBase}/api/v1/auth/session`);
   expect(session.ok()).toBe(true);

@@ -22,10 +22,7 @@ import (
 func TestIndicatorPortableFinalStateInvariants_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "indicator-portability-final-state")
-	actor := authstoretest.SeedLocalUserRecord(
-		t, harness.DB, "indicator-portability-invariants@example.test",
-		"Indicator Portability Invariants", "IndicatorPortabilityPass1!", false, false, true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "indicator-portability-invariants@example.test", DisplayName: "Indicator Portability Invariants"})
 	incident := appsupport.CreateIncidentInStore(
 		t, harness.DB, actor, "txn-indicator-portability-invariants", "IR-IND-PORT-INV",
 		"Indicator portability invariants",

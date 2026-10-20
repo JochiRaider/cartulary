@@ -234,6 +234,9 @@ func TestCollectorQuietAndCancellation(t *testing.T) {
 	if quiet, err := c.sweep(context.Background()); err != nil || !quiet {
 		t.Fatal("did not pause for exclusive request", err)
 	}
+	if quiet, err := c.fenced(context.Background(), c.captureCheckpoints); err != nil || !quiet || c.checkpoints != nil {
+		t.Fatal("checkpoint observation escaped quiet interval", err)
+	}
 	if c.sweeps != 0 || c.store.samples != 0 || c.latest["sampled_elapsed_ms"] != nil {
 		t.Fatal("sampled during quiet interval")
 	}
@@ -268,7 +271,7 @@ func containerFixtureAdapter(t *testing.T) (*containerAdapter, *observationFake)
 	t.Helper()
 	proof, fake := observationFixture()
 	file := filepath.Join(t.TempDir(), "proof.json")
-	raw, _ := json.Marshal(proof)
+	raw, _ := json.Marshal(observationRoster(proof))
 	if err := os.WriteFile(file, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +279,7 @@ func containerFixtureAdapter(t *testing.T) (*containerAdapter, *observationFake)
 }
 
 func TestContainerMalformedAndTimeout(t *testing.T) {
-	for _, kind := range []string{"duplicate", "oversize", "timeout", "revoked", "foreign", "missing"} {
+	for _, kind := range []string{"duplicate", "oversize", "timeout", "revoked", "null", "foreign", "missing"} {
 		t.Run(kind, func(t *testing.T) {
 			c, fake := containerFixtureAdapter(t)
 			c.policy["container_batch_deadline_ms"] = 20
@@ -292,6 +295,10 @@ func TestContainerMalformedAndTimeout(t *testing.T) {
 			case "timeout":
 				fake.stats = func(ctx context.Context, _ string) (io.ReadCloser, error) { <-ctx.Done(); return nil, ctx.Err() }
 			case "revoked":
+				if err := os.WriteFile(c.file, []byte(`{"version":2,"run_id":"run","runtime_lease_id":"runtime","services":[],"retiring_service":""}`), 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "null":
 				if err := os.WriteFile(c.file, []byte("null"), 0600); err != nil {
 					t.Fatal(err)
 				}
@@ -316,7 +323,7 @@ func TestContainerMalformedAndTimeout(t *testing.T) {
 			if kind == "timeout" && batch.overruns != 1 {
 				t.Fatal("deadline concealed")
 			}
-			if (kind == "revoked" || kind == "foreign" || kind == "missing") && len(fake.inspected) != 0 {
+			if (kind == "revoked" || kind == "null" || kind == "foreign" || kind == "missing") && len(fake.inspected) != 0 {
 				t.Fatal("unproven container observed")
 			}
 		})

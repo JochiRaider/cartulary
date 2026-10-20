@@ -82,7 +82,7 @@ func (p *diskPublisher) validateIntent() error {
 		}
 		switch extra.Path {
 		case "cleanup-results.json":
-			if harnessschema.Validate("cartulary.harness_cleanup_results.v1", value) != nil {
+			if harnessschema.Validate("cartulary.harness_cleanup_results.v2", value) != nil {
 				return failure("invalid_artifact")
 			}
 		case "review-session.json":

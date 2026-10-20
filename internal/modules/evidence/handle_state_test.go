@@ -14,7 +14,7 @@ import (
 func TestHandleRedemptionRechecksCurrentState_Unit(t *testing.T) {
 	harness := newTestStore(t, "evidence_lifecycle-handle-current-state")
 	store := newTestRouteOperations(t, harness)
-	actor := authstoretest.SeedLocalUserRecord(t, harness, "evidence_lifecycle-handle-current@example.test", "EvidenceLifecycle Handle Current", "EvidenceLifecycleHandleCurrent1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness, authstoretest.ActorAttributes{Email: "evidence_lifecycle-handle-current@example.test", DisplayName: "EvidenceLifecycle Handle Current"})
 	incident := createTestIncident(t, harness, actor, "txn-evidence_lifecycle-handle-current-incident", "IR-P5-HANDLE-CURRENT", "Evidence handle current state")
 
 	unsupportedRecordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "available")

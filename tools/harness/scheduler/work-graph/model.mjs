@@ -1,3 +1,4 @@
+import { assertPostgresIsolation } from "../../test-catalog/index.mjs";
 import { readOperationOwner } from "./operations.mjs";
 
 import {
@@ -6,7 +7,7 @@ import {
   validateSchemaSync,
 } from "../../contract/index.mjs";
 
-const graphSchemaID = "cartulary.harness_work_graph.v7";
+const graphSchemaID = "cartulary.harness_work_graph.v8";
 
 export function loadWorkGraphOwner(root) {
   const owner = readOperationOwner(root);
@@ -68,7 +69,7 @@ export function validateWorkGraph(graph, { capacities } = {}) {
     }
     if ((unit.renderer_requirement === "none") !== !unit.physical_allocations.renderer ||
         (unit.fixture_lease === "browser_stack") !== !!unit.physical_allocations.browser_stack ||
-        ["postgres","object_store"].some(service => unit.service_dependencies.includes(service) !== !!unit.physical_allocations[service])) throw new Error(`${unit.unit_id} physical allocation requirements do not match execution`);
+        ["postgres","object_store"].some(service => (unit.fixture_lease !== "none" && unit.service_dependencies.includes(service)) !== !!unit.physical_allocations[service])) throw new Error(`${unit.unit_id} physical allocation requirements do not match execution`);
     if (Object.values(unit.physical_allocations).some(claims => claims.cpu || claims.io)) throw new Error(`${unit.unit_id} resident allocation contains active claims`);
     assertSortedUnique(unit.needs, `${unit.unit_id}.needs`);
     assertSortedUnique(
@@ -146,7 +147,7 @@ export function validateWorkGraph(graph, { capacities } = {}) {
     }
     if (capacities) {
       const combined = {...unit.resource_claims};
-      for (const claims of Object.values(unit.physical_allocations)) for (const [key,amount] of Object.entries(claims)) combined[key] = (combined[key] ?? 0) + amount;
+      for (const claims of Object.values(unit.physical_allocations)) for (const [key,amount] of Object.entries(claims)) combined[key] = key === "volume" ? Math.max(combined[key] ?? 0, amount) : (combined[key] ?? 0) + amount;
       for (const [resource, amount] of Object.entries(combined)) {
         const limit = capacities.get(resource);
         if (!Number.isInteger(limit) || limit < amount) {
@@ -190,6 +191,8 @@ export function buildWorkGraph(units, topology) {
       rawUnit.service_dependencies,
       `${rawUnit.unit_id}.service_dependencies`,
     );
+    const postgresIsolation = rawUnit.postgres_isolation ?? (rawUnit.service_dependencies.includes("postgres") ? undefined : "none");
+    assertPostgresIsolation(postgresIsolation, rawUnit.service_dependencies, rawUnit.unit_id);
     const safeID = rawUnit.unit_id.replaceAll(/[^A-Za-z0-9_.-]+/gu, "-");
     const unitResult = `unit-results/${safeID}.json`;
     const sharedLocks = [...(rawUnit.shared_locks ?? [])];
@@ -203,9 +206,10 @@ export function buildWorkGraph(units, topology) {
     }
     const unit = finalizeUnit({
       ...rawUnit,
+      postgres_isolation: postgresIsolation,
       renderer_requirement: rawUnit.renderer_requirement ?? "none",
       physical_allocations: rawUnit.physical_allocations ?? (topology ? Object.fromEntries([
-        ...rawUnit.service_dependencies,
+        ...(rawUnit.fixture_lease === "none" ? [] : rawUnit.service_dependencies),
         ...(rawUnit.fixture_lease === "browser_stack" ? ["browser_stack"] : []),
         ...(rawUnit.renderer_requirement && rawUnit.renderer_requirement !== "none" ? ["renderer"] : []),
       ].sort().map(kind => [kind, topology.physical_resource_claims[kind]])) : {}),

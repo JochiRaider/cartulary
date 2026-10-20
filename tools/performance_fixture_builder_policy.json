@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.performance_fixture_builder_policy.v1",
+  "schema_id": "cartulary.performance_fixture_builder_policy.v2",
   "builders": [
     {
       "fixture_profile_id": "evidence_heavy_snapshot_v2",
@@ -8,7 +8,8 @@
       "fixture_capability": "postgres_dedicated",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "fixture_profile_id": "timeline_large_grid_import_snapshot_v1",
@@ -17,7 +18,8 @@
       "fixture_capability": "postgres_dedicated",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "fixture_profile_id": "timeline_large_grid_reporting_snapshot_v1",
@@ -26,7 +28,8 @@
       "fixture_capability": "postgres_dedicated",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "fixture_profile_id": "timeline_large_grid_snapshot_v2",
@@ -35,7 +38,8 @@
       "fixture_capability": "postgres_dedicated",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     }
   ]
 }

@@ -542,7 +542,7 @@
     },
     {
       "name": "test-slice",
-      "command_id": "cartulary.harness.command.test_slice.v4",
+      "command_id": "cartulary.harness.command.test_slice.v5",
       "inputs": {
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
@@ -772,6 +772,23 @@
             "child_forwarding": "runtime_env",
             "min": 1,
             "max": 6
+          },
+          {
+            "name": "GO_SHUFFLE_SEED",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv",
+            "min": 1,
+            "max": 2147483647
           }
         ],
         "constraints": [

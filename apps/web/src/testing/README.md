@@ -45,8 +45,9 @@ Source accounting and policy checks consume machine-readable inputs, not READMEs
 | [timelineWorkbookRenderTestSupport.tsx](timelineWorkbookRenderTestSupport.tsx) | Shared Timeline render helpers used by component characterization tests. |
 | [TimelineWorkbookRuntimeFixture.tsx](TimelineWorkbookRuntimeFixture.tsx) | Timeline runtime fixture using the production query controller and shared view-bar binding, with configurable shell, layout, entity and interaction inputs and the production recovery-focus owner. |
 | [timelineWorkbookTestSupport.test.tsx](timelineWorkbookTestSupport.test.tsx) | Tests for Timeline workbook test-support helpers. |
-| [timelineWorkbookTestSupport.ts](timelineWorkbookTestSupport.ts) | Shared Timeline workbook fixture helpers, route mocks, and row builders for tests. |
+| [timelineWorkbookTestSupport.ts](timelineWorkbookTestSupport.ts) | Timeline DOM interaction, socket and route-mock helpers; pure rows and envelopes live in workbookFixtureData. |
 | [workbookAuthorizationTestSupport.ts](workbookAuthorizationTestSupport.ts) | Deterministic workbook authorization-recovery port fixture. |
+| [workbookFixtureData.ts](workbookFixtureData.ts) | Pure workbook/query/Timeline rows, metadata and response envelopes shared by Node and DOM tests. |
 | [workbookHistoryTestSupport.ts](workbookHistoryTestSupport.ts) | Complete semantic History events and explicitly accepted presentation pages shared by tests; never a production fallback. |
 | [workbookImportTestSupport.ts](workbookImportTestSupport.ts) | Workbook import scopes, mappings, units, approvals, previews, and session fixtures. |
 | [workbookInspectorTestSupport.test.tsx](workbookInspectorTestSupport.test.tsx) | Tests for delayed entity-inspector readiness and safe subject diagnostics. |
@@ -72,11 +73,11 @@ even when DOM input and retained React state temporarily differ.
 
 | File | Responsibility |
 | --- | --- |
-| [selectorContractPolicy.test.ts](selectorContractPolicy.test.ts) | Selector ownership policy test that guards raw `data-testid` literals and shared selector facade usage. |
-| [sourceOwnershipPolicy.test.ts](sourceOwnershipPolicy.test.ts) | Exact non-Markdown frontend source-ownership parity and manifest-shape policy. |
+| [selectorContractPolicy.node.test.ts](selectorContractPolicy.node.test.ts) | Selector ownership policy test that guards raw `data-testid` literals and shared selector facade usage. |
+| [sourceOwnershipPolicy.node.test.ts](sourceOwnershipPolicy.node.test.ts) | Exact non-Markdown frontend source-ownership parity and manifest-shape policy. |
 | [testSetup.dom.ts](testSetup.dom.ts) | DOM-specific Vitest setup. |
 | [testSetup.ts](testSetup.ts) | Common Vitest setup for frontend tests. |
-| [transportBoundaryPolicy.test.ts](transportBoundaryPolicy.test.ts) | Static same-origin transport policy; raw fetch is limited to the shared transport and server-issued Evidence upload target. |
+| [transportBoundaryPolicy.node.test.ts](transportBoundaryPolicy.node.test.ts) | Static same-origin transport policy; raw fetch is limited to the shared transport and server-issued Evidence upload target. |
 
 ## Recovery composition
 

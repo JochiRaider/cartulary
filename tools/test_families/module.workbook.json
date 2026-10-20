@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.workbook",
   "rows": [
     {
@@ -36,7 +36,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.canonical_indicator_authoring_recovery",
@@ -72,7 +74,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.column_sizing",
@@ -108,7 +112,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.contextual_task_decision_creation",
@@ -145,7 +151,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.coordination_create_authoring_recovery",
@@ -181,7 +189,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.decision_supersession_review_recovery",
@@ -218,7 +228,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.frozen_column_correction",
@@ -259,7 +271,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.grid_autosave",
@@ -314,7 +328,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.indicator_lifecycle_authoring_recovery",
@@ -350,7 +366,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.indicator_observations_authoring_recovery",
@@ -386,7 +404,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.inspector_edit_recovery",
@@ -422,7 +442,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.inspector_entity_ordinary_edit_reveal_c435d77f80",
@@ -458,7 +480,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.inspector_evidence_reference_shortcut_reveal_afdc31949c",
@@ -494,7 +518,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.inspector_timeline_ordinary_edit_reveal_f4bd40fdfb",
@@ -530,7 +556,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.note_create_authoring_recovery",
@@ -566,7 +594,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.ordinary_create_authoring_recovery",
@@ -602,7 +632,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.preferences",
@@ -638,7 +670,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.reference_picker",
@@ -674,7 +708,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.source_workbook_inspector_edit_spec_ts_34633fc46b",
@@ -712,7 +748,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.timeline_capture_actions",
@@ -749,7 +787,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.timeline_clear",
@@ -785,7 +825,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.timeline_related_evidence",
@@ -823,7 +865,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.timeline_row_action_menu",
@@ -860,7 +904,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.verify_coordination_surfaces_and_full_keyboard_c_83c0845d3e",
@@ -896,7 +942,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.verify_grid_navigation_edit_entry_exit_paste_fee_3de2b0afac",
@@ -932,7 +980,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.verify_inspector_tabs_relationship_links_evidenc_9ee9fd9ea2",
@@ -968,7 +1018,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.verify_keyboard_open_close_panel_navigation_esc_42b98cf08e",
@@ -1004,7 +1056,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.verify_shell_regions_tabs_switchers_menus_inspec_c481421159",
@@ -1040,7 +1094,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.accessibility.workbench_commands",
@@ -1076,7 +1132,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.assessment_timeline_support_enum_filtering_prese_9700791fe7",
@@ -1111,7 +1169,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.authoring_candidates_assessments",
@@ -1146,7 +1206,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.authoring_candidates_note_source",
@@ -1181,7 +1243,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.authoring_candidates_parties",
@@ -1226,7 +1290,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.boolean_support_filters_stage_typed_queries_and_7785af35c2",
@@ -1261,7 +1327,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01",
@@ -1296,7 +1364,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.built_in_grid_entry_editor_59f8176b4a",
@@ -1331,7 +1401,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.built_in_grid_entry_supersession_5f9a05b19f",
@@ -1366,7 +1438,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.built_in_grid_entry_viewer_c3bbf9714f",
@@ -1401,7 +1475,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.built_in_selector_entry_from_network_analysis_8f5bebcd07",
@@ -1436,7 +1512,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.canonical_create_independent_recovery",
@@ -1473,7 +1551,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.canonical_create_late_closed_replay",
@@ -1510,7 +1590,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.canonical_create_reuse_stale_resolution",
@@ -1547,7 +1629,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.canonical_create_target_authority",
@@ -1584,7 +1668,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.column_sizing_gestures_saved",
@@ -1624,7 +1710,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.column_sizing_surfaces",
@@ -1662,7 +1750,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.column_sizing_viewport",
@@ -1698,7 +1788,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.contextual_task_plain_candidate_clicks_retain_ed_b7902be5cd",
@@ -1733,7 +1825,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.coordination_create_matrix",
@@ -1770,7 +1864,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.coordination_create_refresh_only",
@@ -1807,7 +1903,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.coordination_create_response_loss",
@@ -1844,7 +1942,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.coordination_create_retained_source",
@@ -1881,7 +1981,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.coordination_create_revocation",
@@ -1918,7 +2020,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.desktop_built_in_surface_selector_keyboard_journ_3475c2c6d2",
@@ -1953,7 +2057,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.destination_handoff_1024_963c4de116",
@@ -1988,7 +2094,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.destination_handoff_1440_920aaf64d5",
@@ -2023,7 +2131,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.destination_handoff_768_8f85fa718d",
@@ -2058,7 +2168,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.destination_handoff_hidden_a9564ecda1",
@@ -2093,7 +2205,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.destination_handoff_supersession_62c776e360",
@@ -2128,7 +2242,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.destination_handoff_viewer_64fc8d19e2",
@@ -2163,7 +2279,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_authority_host",
@@ -2199,7 +2317,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_authority_identity",
@@ -2235,7 +2355,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_characterization",
@@ -2271,7 +2393,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_editing",
@@ -2307,7 +2431,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_geometry",
@@ -2343,7 +2469,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_inspector",
@@ -2379,7 +2507,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_literal",
@@ -2415,7 +2545,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_refresh",
@@ -2451,7 +2583,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_scope",
@@ -2487,7 +2621,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_virtualized",
@@ -2523,7 +2659,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.entity_find_window",
@@ -2559,7 +2697,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.existing_task_plain_candidate_clicks_stage_addit_2f405d8a84",
@@ -2594,7 +2734,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.existing_task_reference_queries_stage_typed_time_f92c8c967a",
@@ -2629,7 +2771,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.filter_editor_keyboard_focus",
@@ -2665,7 +2809,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.find_accessible_geometry",
@@ -2701,7 +2847,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.find_authority",
@@ -2737,7 +2885,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.find_edit_departure",
@@ -2773,7 +2923,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.find_full_window",
@@ -2809,7 +2961,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.find_literal",
@@ -2845,7 +2999,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.find_query_creation",
@@ -2881,7 +3037,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.find_scope_lifecycle",
@@ -2917,7 +3075,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.find_source_editors",
@@ -2953,7 +3113,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.find_virtualized",
@@ -2989,7 +3151,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.frozen_columns_layout",
@@ -3025,7 +3189,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.frozen_columns_threshold",
@@ -3061,7 +3227,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.frozen_data_region_paint_ea8329bf5c",
@@ -3096,7 +3264,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.frozen_region_paint_01360d5734",
@@ -3131,7 +3301,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.generic_unsaved_cells_preserve_keyboard_and_exte_f0e6722da1",
@@ -3166,7 +3338,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_availability",
@@ -3201,7 +3375,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_closure",
@@ -3236,7 +3412,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_collaboration",
@@ -3271,7 +3449,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_csrf",
@@ -3306,7 +3486,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_editor_families",
@@ -3341,7 +3523,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_exact_replay",
@@ -3376,7 +3560,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_inspector",
@@ -3411,7 +3597,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_refresh",
@@ -3446,7 +3634,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_role",
@@ -3481,7 +3671,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_session",
@@ -3516,7 +3708,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_successive",
@@ -3551,7 +3745,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_surface_matrix",
@@ -3586,7 +3782,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_timeline_collaboration",
@@ -3621,7 +3819,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.grid_autosave_timestamp_retention",
@@ -3656,7 +3856,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.host_entity_origin_clipboard_paste_uses_the_shar_f22824bf59",
@@ -3691,7 +3893,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.host_paste_recovery",
@@ -3726,7 +3930,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.identity_entity_origin_clipboard_paste_uses_the_1a3110fc8d",
@@ -3761,7 +3967,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.identity_paste_recovery",
@@ -3796,7 +4004,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.indicator_lifecycle_exact_recovery",
@@ -3833,7 +4043,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.indicator_lifecycle_late_closed_replay",
@@ -3870,7 +4082,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.indicator_lifecycle_ordered_paging",
@@ -3907,7 +4121,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.indicator_observations_exact_recovery",
@@ -3944,7 +4160,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.indicator_observations_paging_source_edits",
@@ -3981,7 +4199,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.inspector_collection_feedback",
@@ -4016,7 +4236,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.inspector_detached_refresh",
@@ -4051,7 +4273,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.inspector_exact_replay",
@@ -4086,7 +4310,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.inspector_local_feedback",
@@ -4121,7 +4347,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.inspector_persistent_header",
@@ -4156,7 +4384,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.inspector_subject_retention",
@@ -4191,7 +4421,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.literal_assessment_support_membership_d541f44d18",
@@ -4226,7 +4458,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.literal_contextual_candidate_staging_1c1261f5df",
@@ -4261,7 +4495,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.live_workbook_timeline_grid_accepts_a_representa_20a3b81a1a",
@@ -4296,7 +4532,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.live_workbook_timeline_grid_presents_grouped_sam_bf278fe67c",
@@ -4331,7 +4569,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.note_associations",
@@ -4366,7 +4606,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.note_create_recovery",
@@ -4403,7 +4645,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.note_create_revocation",
@@ -4440,7 +4684,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.note_create_source_edit",
@@ -4477,7 +4723,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.note_create_sources",
@@ -4514,7 +4762,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.ordinary_create_closure",
@@ -4549,7 +4799,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.ordinary_create_continuity",
@@ -4584,7 +4836,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.ordinary_create_detached_refresh",
@@ -4619,7 +4873,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.ordinary_create_matrix",
@@ -4654,7 +4910,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.ordinary_create_revocation",
@@ -4689,7 +4947,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.ordinary_create_uncertain_timeline",
@@ -4724,7 +4984,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.ordinary_reference_boolean_filtering_preserves_t_b9997d12f7",
@@ -4759,7 +5021,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.party_timestamp_candidate_filters_stage_explicit_45110487e8",
@@ -4794,7 +5058,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.preferences_1",
@@ -4829,7 +5095,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.preferences_2",
@@ -4864,7 +5132,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.preferences_3",
@@ -4899,7 +5169,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.preferences_4",
@@ -4934,7 +5206,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.public_registry_discovery_exposes_exactly_the_fo_e62f2b8ba8",
@@ -4969,7 +5243,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.reference_admission_lifecycle",
@@ -5004,7 +5280,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.reference_grid_commit",
@@ -5039,7 +5317,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.reference_selection_recovery",
@@ -5076,7 +5356,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.reference_session_recovery",
@@ -5111,7 +5393,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.reference_target_eligibility",
@@ -5146,7 +5430,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.requested_filters_stay_editable_through_held_and_598bebf8f3",
@@ -5184,7 +5470,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.required_keyboard_shortcuts_operate_on_the_live_3ff4a5c6a9",
@@ -5219,7 +5507,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.sort_editor_keyboard_focus",
@@ -5255,7 +5545,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.source_sentinel_spec_ts_38af00ea72",
@@ -5290,7 +5582,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.the_browser_visible_view_schema_registry_and_wor_f9e3b8c070",
@@ -5325,7 +5619,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.the_browser_workbook_exercises_parties_notes_tas_8ca985fff2",
@@ -5360,7 +5656,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.the_browser_workbook_opens_communications_log_ha_e14517982d",
@@ -5395,7 +5693,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2",
@@ -5430,7 +5730,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.verify_browser_command_helpers_for_sort_filter_g_8f8dc4efe2",
@@ -5465,7 +5767,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
@@ -5500,7 +5804,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
@@ -5535,7 +5841,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.verify_task_requests_decisions_parties_communica_ea39a44f80",
@@ -5570,7 +5878,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.verify_timeline_query_response_rows_render_full_bffd82f340",
@@ -5605,7 +5915,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.work_pin_readability_removal_1024_b97af532c7",
@@ -5640,7 +5952,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.work_pin_readability_removal_1440_9594ec3857",
@@ -5675,7 +5989,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.work_pin_readability_removal_768_741d03e297",
@@ -5710,7 +6026,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser.work_pin_viewer_removal_9f4c8a0b9c",
@@ -5745,7 +6063,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.boolean_filters_preserve_typed_saved_and_accepte_221721fc9a",
@@ -5780,7 +6100,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.date_filter_drafts_remain_locally_correctable_be_15ce5a6e7c",
@@ -5817,7 +6139,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.enum_equality_choices_remain_explicit_and_preser_28bc32bc06",
@@ -5852,7 +6176,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.exact_literal_tag_set_membership_fcb35d55a3",
@@ -5887,7 +6213,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.group_requested_replacement",
@@ -5926,7 +6254,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.literal_organization_equality_membership_b30b827b5d",
@@ -5961,7 +6291,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.preferences_extension",
@@ -5996,7 +6328,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_assessments",
@@ -6031,7 +6365,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_authority",
@@ -6066,7 +6402,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_canonical",
@@ -6101,7 +6439,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_comm_log",
@@ -6136,7 +6476,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_decisions",
@@ -6171,7 +6513,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_evidence",
@@ -6206,7 +6550,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_findings",
@@ -6241,7 +6587,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_forensic_keywords",
@@ -6276,7 +6624,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_handoff",
@@ -6311,7 +6661,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_history",
@@ -6346,7 +6698,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_hosts",
@@ -6381,7 +6735,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_identities",
@@ -6416,7 +6772,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_indicators",
@@ -6451,7 +6809,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_investigative_queries",
@@ -6486,7 +6846,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_lesson",
@@ -6521,7 +6883,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_live_recovery",
@@ -6556,7 +6920,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_notes",
@@ -6591,7 +6957,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_parties",
@@ -6626,7 +6994,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_session",
@@ -6661,7 +7031,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_status_review",
@@ -6696,7 +7068,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_task_requests",
@@ -6731,7 +7105,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_continuation_timeline",
@@ -6766,7 +7142,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.query_recovery_focus",
@@ -6803,7 +7181,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.verify_coordination_rows_can_be_queried_and_edit_77783541c2",
@@ -6838,7 +7218,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.verify_default_closed_inspector_state_no_row_sta_897d604d9e",
@@ -6873,7 +7255,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.verify_timeline_inspector_workflow_create_relate_7fc4833af4",
@@ -6908,7 +7292,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5",
@@ -6945,7 +7331,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_stateful.workbook_save_status_preserves_authoritative_tra_0fa8b0b16c",
@@ -6984,7 +7372,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_support.pending_navigation_preserves_interaction",
@@ -7019,7 +7409,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4",
@@ -7054,7 +7446,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.catalog.collection_review_fields_use_collection_value_v1_4efe5fcdae",
@@ -7081,10 +7475,11 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.workbook.catalog.communications_log_handoff_status_review_and_les_63b0f44db8",
+      "row_id": "module.workbook.catalog.dedicated_database_assertions_for_managed_servic_7d059c99ab",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.catalog",
       "collaborator_ids": [],
@@ -7095,15 +7490,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestCoordinationArtifactSurfacesUseContractFilters",
-          "TestCoordinationCollectionItemShapes_Unit",
-          "TestCoordinationCollectionsAndValidation_Unit",
-          "TestCoordinationDeclaredQueryFieldsAreMapped_Unit",
-          "TestCoordinationDuplicateCoalescing_Unit",
-          "TestCoordinationMinimumDefaultsAndRejection_Unit",
-          "TestCoordinationProjectionSortFilterGroup_Unit",
           "TestCoordinationSavedViewsRemainAdditive_Unit",
-          "TestCoordinationSemanticFilters_Unit",
           "TestRejectedCoordinationCreateEmitsNoRecordChanged_Unit"
         ]
       },
@@ -7117,7 +7504,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.catalog.every_grid_write_is_anchored_to_the_route_bound_3926ec3df4",
@@ -7144,7 +7532,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.catalog.findings_investigative_queries_and_forensic_keyw_1ca6136d7c",
@@ -7172,7 +7561,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.workbook.catalog.keep_saved_clears_the_conflict_without_creating_c65a9c3099",
@@ -7202,7 +7592,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.catalog.linked_notes_create_contextual_artifact_links_9a09b2f951",
@@ -7228,7 +7619,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.workbook.catalog.locator_consistent_read_c33982976c",
@@ -7255,7 +7647,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.catalog.locator_public_contract",
@@ -7282,7 +7675,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.catalog.locator_validation",
@@ -7306,7 +7700,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.catalog.same_field_conflict_transport_uses_409_error_cod_4447ac22bf",
@@ -7333,7 +7728,67 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.workbook.catalog.service_free_contract_assertions_for_communicati_53927f649e",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestCoordinationArtifactSurfacesUseContractFilters"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.workbook.catalog.single_connection_rollback_assertions_for_manage_3c34c59fa8",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.catalog",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestCoordinationCollectionItemShapes_Unit",
+          "TestCoordinationCollectionsAndValidation_Unit",
+          "TestCoordinationDeclaredQueryFieldsAreMapped_Unit",
+          "TestCoordinationDuplicateCoalescing_Unit",
+          "TestCoordinationMinimumDefaultsAndRejection_Unit",
+          "TestCoordinationProjectionSortFilterGroup_Unit",
+          "TestCoordinationSemanticFilters_Unit"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.workbook.catalog.text_compare_merge_treats_the_field_as_plain_tex_977f9eb56f",
@@ -7360,7 +7815,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.catalog.workbook_preference_routes_keep_home_sheet_ref_a_72ab108a31",
@@ -7387,7 +7843,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.frontend.sorted_and_filtered_paste_translation_uses_stabl_d4950d24ba",
@@ -7420,7 +7877,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend.supplemental_jsdom_coverage_keeps_grouped_paste_a9ba2dc938",
@@ -7447,7 +7905,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend.the_generic_workbook_mutation_builder_emits_crea_ae1bd25e13",
@@ -7474,7 +7933,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend.the_generic_workbook_mutation_builder_maps_direc_d71c7bf2bf",
@@ -7501,7 +7961,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend.the_grid_adapter_translates_vendor_row_column_se_6371e0be4e",
@@ -7531,7 +7992,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend.workbook_application_shortcuts_are_explicit_capa_39a6d43e21",
@@ -7545,14 +8007,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/policies/workbookApplicationShortcuts.test.ts",
+        "file": "apps/web/src/workbook/policies/workbookApplicationShortcuts.node.test.ts",
         "titles": [
           "does not claim Grid Adapter or native paste and navigation keys",
           "does not consume an unavailable command",
           "owns Find only for enabled grid navigation and Find controls",
           "returns explicit commands and consumption decisions"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7561,7 +8023,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_integration.timeline_query_row_identity_through_create_patch_76a0163691",
@@ -7588,7 +8051,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_integration.verify_sparse_patches_preserve_unchanged_row_obj_eff6a3a987",
@@ -7602,11 +8066,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/utils/workbookRowReconciliation.test.ts",
+        "file": "apps/web/src/workbook/utils/workbookRowReconciliation.node.test.ts",
         "titles": [
           "Verify sparse patches preserve unchanged row object references and intentionally replace changed rows by record_id."
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7615,7 +8079,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.select_active_surface_status_secondary_messages_ba1b98d22d",
@@ -7629,12 +8094,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/utils/workbookStatusSecondary.test.ts",
+        "file": "apps/web/src/workbook/utils/workbookStatusSecondary.node.test.ts",
         "titles": [
           "workbook status secondary selection rejects every inactive-surface candidate",
           "workbook status secondary selection uses the generated exhaustive priority independent of input order"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7643,7 +8108,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_active_view_schema_id_selects_inspector_c_82f9499272",
@@ -7673,7 +8139,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_active_view_schema_id_selects_inspector_c_9c4dd5ce7c",
@@ -7687,7 +8154,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/models/workbookInspectorModel.test.ts",
+        "file": "apps/web/src/workbook/models/workbookInspectorModel.node.test.ts",
         "titles": [
           "Verify active view_schema_id selects inspector_config_v1, saved views inherit immutable view_schema_id config, no-row state is no_row_selected, and stale row-bound inspector state invalidates across row, row-version, authorization, incident-lifecycle, delete, merge, hard refresh, and surface changes.",
           "filters panels and feature groups by declared semantic config",
@@ -7698,7 +8165,7 @@
           "selects immutable schema configuration, starts closed, and exposes the declared no-row state",
           "separates review replacement from attachment departure and never revives old attachments"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7707,7 +8174,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_active_view_schema_id_selects_inspector_c_fed994e037",
@@ -7735,7 +8203,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_built_in_tabs_and_required_system_view_gr_62b3572a99",
@@ -7749,11 +8218,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/layout/workbookDensity.test.ts",
+        "file": "apps/web/src/workbook/layout/workbookDensity.node.test.ts",
         "titles": [
           "keeps Core null defaults while letting explicit account density override every workbook surface"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7762,7 +8231,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_built_in_tabs_and_required_system_view_gr_ff22a35e97",
@@ -7776,13 +8246,13 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.test.ts",
+        "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.node.test.ts",
         "titles": [
           "groups System views by stable group tokens and registry-backed IDs",
           "keeps optional standardized surfaces additive after required surfaces",
           "registers built-in and system workbook surfaces by stable IDs"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7791,7 +8261,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_coordination_and_review_system_view_regis_7d8ea6d2af",
@@ -7805,11 +8276,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.test.ts",
+        "file": "apps/web/src/workbook/models/workbookSurfaceRegistry.node.test.ts",
         "titles": [
           "Verify coordination and review system-view registrations, field mappings, and closed vocabulary options use stable IDs and contract metadata."
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7818,7 +8289,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_inspector_panels_and_feature_groups_rende_6ca9a85a43",
@@ -7832,11 +8304,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "packages/view-contracts/src/contracts.test.ts",
+        "file": "packages/view-contracts/src/contracts.node.test.ts",
         "titles": [
           "uses generated Inspector panels and feature groups validated before browser initialization"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7845,7 +8317,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_inspector_panels_and_feature_groups_rende_b947f0007c",
@@ -7873,7 +8346,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_inspector_selection_tab_state_details_rel_d2dc82a4bb",
@@ -7900,7 +8374,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_save_state_presentation_derives_one_prima_36510f67fb",
@@ -7914,13 +8389,13 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.test.ts",
+        "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.node.test.ts",
         "titles": [
           "derives exactly one primary save-state label for every Table C input condition",
           "keeps failure, overflow, validation, and replay details as same-surface secondary status messages",
           "preserves same-field conflict anchors by record_id, field_key, and base_row_version"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7929,7 +8404,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_save_state_presentation_derives_one_prima_cad2a59be9",
@@ -7956,7 +8432,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_startup_surface_resolution_order_explicit_3db34a3795",
@@ -7970,7 +8447,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/models/workbookStartup.test.ts",
+        "file": "apps/web/src/workbook/models/workbookStartup.node.test.ts",
         "titles": [
           "applies selected saved-view identity without collapsing base view_schema_id",
           "preserves extension workspace identity with no base schema or saved view",
@@ -7981,7 +8458,7 @@
           "skips or clears invalid startup pointers without failing workbook open",
           "treats deleted saved-view pointers as unavailable saved views"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -7990,7 +8467,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_16d9b2afa3",
@@ -8004,14 +8482,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/services/clientTransactionId.test.ts",
+        "file": "apps/web/src/services/clientTransactionId.node.test.ts",
         "titles": [
           "fails locally when Web Crypto is unavailable",
           "keeps the browser mutation facade bound to secure entropy and fails closed without it",
           "retains the prefix and uses the platform UUID generator",
           "uses RFC 4122 v4 formatting with secure random bytes as fallback"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8020,7 +8498,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_8992eb8931",
@@ -8051,7 +8530,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_8c99e88779",
@@ -8065,7 +8545,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.test.ts",
+        "file": "apps/web/src/workbook/runtime/pending/workbookPendingQueue.node.test.ts",
         "titles": [
           "admits row-create, row-patch, and paste-derived replay units with semantic mutation identity",
           "applies successful replay without retargeting by visible row order or labels",
@@ -8086,7 +8566,7 @@
           "retires verified unchanged work only at an authorized never-dispatched FIFO head",
           "transfers late closure conflicts without stranding removed replay units"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8095,7 +8575,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.verify_sync_engine_pending_queue_orders_creates_999bdc7b60",
@@ -8126,7 +8607,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.frontend_unit.workbook_request_boundaries_fail_closed_a120000001",
@@ -8141,13 +8623,13 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/models/workbookRequestDecoders.test.ts",
+        "file": "apps/web/src/workbook/models/workbookRequestDecoders.node.test.ts",
         "titles": [
           "constructs exact create, linked-note, collection, and patch requests",
           "fails closed on malformed and future create or collection members",
           "rejects empty, ambiguous, and malformed patch changes"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -8156,7 +8638,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.integration.communications_log_handoff_status_review_and_les_94a6f7d0c2",
@@ -8183,7 +8666,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.concurrent_edits_to_different_fields_succeed_wit_c3f74ce361",
@@ -8210,7 +8694,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.coordination_collection_fields_round_trip_typed_9c30c3f538",
@@ -8237,7 +8722,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.cursor_pagination_re_derives_live_authorization_2d2231384b",
@@ -8269,7 +8755,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.evidence_row_create_and_patch_through_workbook_p_d074e288e1",
@@ -8298,7 +8785,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.full_row_and_sparse_patch_wire_families_preserve_32a4ab3be1",
@@ -8326,7 +8814,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.generic_record_patch_collection_fields_use_stabl_92304f55b9",
@@ -8353,7 +8842,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.note_associations_public_contract",
@@ -8381,7 +8871,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.notes_task_requests_and_decisions_mutations_thro_c325a978ef",
@@ -8411,7 +8902,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.parties_and_coordination_system_views_query_rout_e0808abf39",
@@ -8439,7 +8931,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.party_link_helper_field_writes_update_hidden_sam_014303b350",
@@ -8466,7 +8959,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.registry_derived_query_and_create_surface_coverage_7bd7f5a120",
@@ -8497,7 +8991,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.required_surface_persistence_queries_through_wor_fc52555181",
@@ -8526,7 +9021,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.workbook.integration.shared_ingest_workbook_clipboard_paste_persists_5ae6dc0770",
@@ -8558,7 +9054,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.startup_selection_fallback_behaves_correctly_acr_081544c048",
@@ -8586,7 +9083,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.the_parties_system_view_is_discoverable_as_a_bas_7c96f60552",
@@ -8613,7 +9111,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.integration.timeline_clear_cells",
@@ -8643,7 +9142,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.support_integration.integration_notes_full_text_exact_search_ac185_ed48fdeae3",
@@ -8671,10 +9171,11 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.workbook.support_integration.shared_harness_workbook_route_inventory_coverage_3ec58ba4dc",
+      "row_id": "module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.support_integration",
       "collaborator_ids": [],
@@ -8685,8 +9186,7 @@
       "selector": {
         "package": "./internal/modules/workbook",
         "tests": [
-          "TestWorkbookRouteConformance",
-          "TestWorkbookRouteInventoryCoverage"
+          "TestWorkbookRouteConformance"
         ]
       },
       "evidence_class": "integration",
@@ -8699,10 +9199,11 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.workbook.support_integration.workbook_startup_preferences_bootstrap_and_upser_6ac935eac8",
+      "row_id": "module.workbook.support_integration.managed_service_assertions_for_workbook_startup_86c190a4c2",
       "owner_id": "module.workbook",
       "family_id": "module.workbook.support_integration",
       "collaborator_ids": [
@@ -8716,7 +9217,6 @@
         "package": "./internal/modules/workbook/startup",
         "tests": [
           "TestExtensionWorkspaceStartupRoundTripAndClaimLossFallback",
-          "TestWorkbookStartupCompareAndClearRestartsAfterConcurrentReplacement_Integration",
           "TestWorkbookStartupPreferencesBootstrapAndUpsert"
         ]
       },
@@ -8729,7 +9229,60 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.workbook.support_integration.service_free_contract_assertions_for_shared_harn_151e937dca",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook",
+        "tests": [
+          "TestWorkbookRouteInventoryCoverage"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.workbook.support_integration.service_free_contract_assertions_for_workbook_st_13a8706c8f",
+      "owner_id": "module.workbook",
+      "family_id": "module.workbook.support_integration",
+      "collaborator_ids": [
+        "module.incidents"
+      ],
+      "verification_ids": [
+        "module.workbook.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/workbook/startup",
+        "tests": [
+          "TestWorkbookStartupCompareAndClearRestartsAfterConcurrentReplacement_Integration"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.support_unit.preference_response_projection",
@@ -8755,7 +9308,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.support_unit.workbook_preferences_put_decoders_canonicalize_s_d015eb1407",
@@ -8780,7 +9334,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.support_unit.workbook_startup_admission_preserves_explicit_sh_c63a5015f6",
@@ -8805,7 +9360,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.entity_semantic_failure_translation_4f73a8d120",
@@ -8831,7 +9387,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.indicator_semantic_failure_translation",
@@ -8857,7 +9414,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.note_association_query_admission",
@@ -8881,7 +9439,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.openapi_record_mutation_contract_12a2ffaaf6",
@@ -8907,7 +9466,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.registry_derived_writable_conflict_capabilities_c0614db52a",
@@ -8937,7 +9497,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.restore_probe_registry_validates_and_executes_owner_d9e4a5f582",
@@ -8964,7 +9525,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.the_owner_mutation_admission_enforces_closed_co_572104489b",
@@ -8996,7 +9558,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.the_owner_mutation_admission_enforces_direct_re_b3fec12cf8",
@@ -9027,7 +9590,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.timeline_grouping_permits_only_the_declared_whit_6db1021961",
@@ -9051,7 +9615,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.timestamp_instant_v1_accepts_rfc_3339_json_strin_ba11c9c407",
@@ -9075,7 +9640,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.unit.workbook_telemetry_remains_bounded_content_safe_b88c7be5d3",
@@ -9103,7 +9669,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.workbook.visual.capture_default_timeline_workbook_shell_with_vie_c06bbcbee0",
@@ -9140,7 +9707,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.capture_inspector_details_relationships_evidence_a56cae74ea",
@@ -9177,7 +9746,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.capture_save_state_pending_replay_transaction_re_70f3e80a67",
@@ -9214,7 +9785,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.capture_task_requests_or_decisions_parties_link_558c8596cc",
@@ -9251,7 +9824,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.contextual_task_decision_creation",
@@ -9289,7 +9864,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.coordination_create_authoring_recovery",
@@ -9325,7 +9902,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.decision_supersession_review_recovery",
@@ -9363,7 +9942,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.indicator_lifecycle_authoring",
@@ -9399,7 +9980,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.indicator_observations_authoring",
@@ -9435,7 +10018,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.note_create_authoring_recovery",
@@ -9471,7 +10056,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.ordinary_create_authoring_recovery",
@@ -9507,7 +10094,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.preferences",
@@ -9544,7 +10133,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.timeline_capture_actions",
@@ -9582,7 +10173,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.workbook.visual.timeline_related_evidence",
@@ -9621,7 +10214,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     }
   ]
 }

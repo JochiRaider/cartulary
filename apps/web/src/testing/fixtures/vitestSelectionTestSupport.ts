@@ -4,6 +4,7 @@
 import { describe, expect, test } from "vitest";
 
 let count = 0;
+(globalThis as { cohortSentinel?: string }).cohortSentinel = "file-owned";
 describe("scope", () => {
   test("one", () => expect(count++).toBe(0));
   test("two", () => expect(count++).toBe(1));

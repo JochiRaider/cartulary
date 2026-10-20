@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5"
 )
 
 const expirySweepLockKey int64 = 49006060
@@ -10,7 +12,7 @@ const expirySweepLockKey int64 = 49006060
 // terminal jobs into private tombstones. Durable owner outputs, proofs,
 // identity, provenance, lifecycle timestamps, and progress remain untouched.
 func (m *Manager) compactExpiredJobs(ctx context.Context, limit int) (int64, error) {
-	if m == nil || m.pool == nil || m.now == nil {
+	if m == nil || m.db == nil || m.now == nil {
 		return 0, ErrNotConfigured
 	}
 	if limit <= 0 || limit > m.policy.ExpiryBatch {
@@ -23,7 +25,7 @@ func (m *Manager) compactExpiredJobs(ctx context.Context, limit int) (int64, err
 	if cutoff.IsZero() {
 		return 0, ErrNotConfigured
 	}
-	tx, err := m.pool.Begin(ctx)
+	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return 0, err
 	}

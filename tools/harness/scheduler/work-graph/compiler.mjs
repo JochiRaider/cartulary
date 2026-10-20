@@ -4,8 +4,10 @@ import { semanticJSONDigest, resolveCommandInputs } from "../../contract/index.m
 
 import {
   loadTestCatalog,
+  resolveVitestTitles,
   targetForCatalogRow,
 } from "../../test-catalog/index.mjs";
+import { packInvocationCohorts } from "./cohorts.mjs";
 import { planGoLPTShards } from "../../backend/go-lpt-shards.mjs";
 import { buildWorkGraph, loadWorkGraphOwner } from "./model.mjs";
 import { operationDefinition, operationExecutionDigest } from "./operations.mjs";
@@ -157,6 +159,7 @@ function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
     needs,
     resource_claims: resourceClaims(row, topology),
     fixture_lease: fixtureCapability(row),
+    postgres_isolation: row.postgres_isolation,
     service_dependencies: row.service_dependencies,
     cache_policy: rowCachePolicy(row),
     timeout_ms: owner.default_timeout_ms,
@@ -209,6 +212,7 @@ function goShardUnit(
     needs,
     resource_claims: claims,
     fixture_lease: fixtureCapability(first),
+    postgres_isolation: first.postgres_isolation,
     service_dependencies: first.service_dependencies,
     cache_policy: rows.every((row) => rowCachePolicy(row) === "content_addressed")
       ? "content_addressed"
@@ -223,7 +227,10 @@ function goShardUnit(
       continue_independent: true,
       aggregate_effect: "required",
     },
-    estimated_work_ms: shard.estimated_work_ms,
+    // Package transactions and buckets can serialize even with multiple CPU tokens.
+    // Sum selected work; charge process startup/settlement only once.
+    estimated_work_ms: owner.invocation_policies.go.startup_ms + shard.estimated_work_ms +
+      owner.invocation_policies.go.cleanup_ms,
   };
 }
 
@@ -283,7 +290,7 @@ export class WorkGraphCompiler {
     return this._rowTargets;
   }
 
-  compileRows(rowIDs, stack = [], { browserMode = "validation" } = {}) {
+  compileRows(rowIDs, stack = [], { browserMode = "validation", goShuffleSeed } = {}) {
     const sortedRowIDs = assertSortedUniqueInput(rowIDs, "row selection");
     const rows = sortedRowIDs.map((rowID) => {
       const row = this.catalog.rowByID.get(rowID);
@@ -367,11 +374,12 @@ export class WorkGraphCompiler {
       (row) => row.runner !== "go" && row.runner !== "playwright" && row.runner !== "vitest",
     );
     const vitestGroups = new Map();
+    const exactVitestTitles = resolveVitestTitles(this.root, rows.filter((row) => row.runner === "vitest"));
     for (const row of rows.filter((row) => row.runner === "vitest")) {
       const base = rowUnit(row, this.rowTargets.get(row.row_id), this.owner, this.topology, needsForRow(row), runtimeEnvironmentForRow(row));
       const { CARTULARY_TEST_ROWS: _selection, ...environment } = base.command.environment;
       const { unit_id: _id, command: _command, current_run_evidence_outputs: _outputs, row_bindings: _rows, estimated_work_ms: _estimate, ...contract } = base;
-      const key = semanticJSONDigest({ contract, environment, file: row.selector.file, project: row.selector.project_id,
+      const key = semanticJSONDigest({ contract, environment, project: row.selector.project_id,
         evidence_class: row.evidence_class, runtime_profile_id: row.runtime_profile_id, resource_profile_id: row.resource_profile_id,
         fixture_profile_id: row.fixture_profile_id ?? null,
         isolation: row.process_isolation === "exclusive" || row.fixture_capability === "managed_process" ? row.row_id : null });
@@ -379,14 +387,31 @@ export class WorkGraphCompiler {
       group.rows.push(row);
       vitestGroups.set(key, group);
     }
-    const vitestUnits = [...vitestGroups.values()].map(({ key, base, rows: selected }) => {
-      const ids = selected.map((row) => row.row_id).sort(compareASCII);
-      return { ...base, unit_id: `vitest_file:${semanticJSONDigest({ key, rows: ids }).slice("sha256:".length)}`,
-        command: { ...base.command, args: ["tools/harness/execution/runners/row-runner-cli.mjs", "--row-ids", ids.join(",")],
-          environment: { ...base.command.environment, CARTULARY_TEST_ROWS: ids.join(","), VITEST_MAX_WORKERS: "1" } },
-        current_run_evidence_outputs: ids.map((id) => `rows/${id}.json`),
-        row_bindings: selected.map(({ row_id, runner }) => ({ row_id, runner })),
-        estimated_work_ms: selected.reduce((sum, row) => sum + this.owner.evidence_estimates_ms[row.evidence_class], 0) };
+    const vitestPolicy = this.owner.invocation_policies.vitest;
+    const vitestUnits = [...vitestGroups.values()].flatMap(({ key, base, rows: selected }) => {
+      const files = new Map();
+      for (const row of selected) {
+        const item = files.get(row.selector.file) ?? { id: row.selector.file, cost: 0, rows: [] };
+        item.cost += this.owner.evidence_estimates_ms[row.evidence_class];
+        item.rows.push(row);
+        files.set(item.id, item);
+      }
+      return packInvocationCohorts([...files.values()], vitestPolicy, base.timeout_ms).map((cohort) => {
+        const selectedRows = cohort.items.flatMap((item) => item.rows).sort((a, b) => compareASCII(a.row_id, b.row_id));
+        const ids = selectedRows.map((row) => row.row_id);
+        const selections = selectedRows.map((row) => ({ row_id: row.row_id, project: row.selector.project_id,
+          file: row.selector.file, titles: exactVitestTitles.get(row.row_id) }));
+        const claims = { ...base.resource_claims };
+        const { CARTULARY_TEST_ROWS: _selection, ...environment } = base.command.environment;
+        for (const [resource, amount] of Object.entries(vitestPolicy.coordinator_claims)) claims[resource] = (claims[resource] ?? 0) + amount;
+        return { ...base, unit_id: `vitest_cohort:${semanticJSONDigest({ key, selections, policy: vitestPolicy, workers: 1, isolate: true, settlement: "public_fork_stop" }).slice("sha256:".length)}`,
+          command: { ...base.command, args: ["tools/harness/execution/runners/row-runner-cli.mjs", "--unit-rows"],
+            environment: { ...environment, VITEST_MAX_WORKERS: "1" } },
+          resource_claims: Object.fromEntries(Object.entries(claims).sort(([a], [b]) => compareASCII(a, b))),
+          current_run_evidence_outputs: ids.map((id) => `rows/${id}.json`),
+          row_bindings: selectedRows.map(({ row_id, runner }) => ({ row_id, runner })),
+          estimated_work_ms: cohort.cost };
+      });
     });
     const goUnits = [];
     const goSelections = [goRows.filter((row) => !explicitContexts[row.row_id]),
@@ -408,6 +433,7 @@ export class WorkGraphCompiler {
             runtime_profile_id: row.runtime_profile_id,
             resource_profile_id: row.resource_profile_id,
             fixture_capability: row.fixture_capability,
+            postgres_isolation: row.postgres_isolation,
             fixture_profile_id: row.fixture_profile_id ?? null,
             process_isolation: goRowProcessIsolation(row),
             service_dependencies: row.service_dependencies,
@@ -433,9 +459,10 @@ export class WorkGraphCompiler {
           this.owner,
           this.topology,
           needsForRow(shardRows[0]),
-          { ...runtimeEnvironmentForRow(shardRows[0]), CARTULARY_GO_RACE: context?.go_race ? "1" : "0" },
+          { ...runtimeEnvironmentForRow(shardRows[0]), CARTULARY_GO_RACE: context?.go_race ? "1" : "0", CARTULARY_GO_SHUFFLE_SEED: goShuffleSeed === undefined ? "" : String(goShuffleSeed) },
           this.availablePostgresLanes,
         );
+        if (goShuffleSeed !== undefined) unit.unit_id += `:order-${goShuffleSeed}`;
         goUnits.push(context ? { ...unit, cache_policy: context.cache_policy } : unit);
       }
     }
@@ -528,7 +555,7 @@ export class WorkGraphCompiler {
   compileResolvedCommand(target, selection) {
     this.resolveBrowserLaneLimit(selection.inputs.BROWSER_LANES);
     const binding = this.taskSurface.targets.find((entry) => entry.name === target).selection_binding;
-    const units = selection.rows.length ? this.compileRows(selection.rows, [], { browserMode: binding.browser_mode ?? "validation" }).units : [];
+    const units = selection.rows.length ? this.compileRows(selection.rows, [], { browserMode: binding.browser_mode ?? "validation", goShuffleSeed: selection.inputs.GO_SHUFFLE_SEED }).units : [];
     const entry = this.taskSurface.targets.find((value) => value.name === target);
     const forwardedInputs = this.forwardedInputs(entry, selection.inputs);
     for (const id of selection.operations) units.push(...this.compilePolicyTarget(id, [], forwardedInputs).units);
@@ -536,7 +563,7 @@ export class WorkGraphCompiler {
   }
 
   forwardedInputs(entry, inputs) {
-    const controls = new Set(["CHECK", "COMPONENT", "SUITE", "OWNER", "ROWS", "SCOPE", "JSON", "DETAIL", "BROWSER_LANES"]);
+    const controls = new Set(["CHECK", "COMPONENT", "SUITE", "OWNER", "ROWS", "SCOPE", "JSON", "DETAIL", "BROWSER_LANES", "GO_SHUFFLE_SEED"]);
     // Owner is executable input for the evidence audit, but a selection control
     // for owner slices. Only the declared private action consumes it.
     if (!entry.selection_binding) controls.delete("OWNER");
@@ -583,6 +610,7 @@ export class WorkGraphCompiler {
         needs: [],
         resource_claims: resourceClaims,
         fixture_lease: fixtureLease,
+        postgres_isolation: policy?.postgres_isolation ?? "none",
         service_dependencies: serviceDependencies,
         cache_policy: policy?.cache_policy ?? "none",
         timeout_ms: Object.hasOwn(policy ?? {}, "timeout_ms")

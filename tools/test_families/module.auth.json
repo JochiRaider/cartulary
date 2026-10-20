@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.auth",
   "rows": [
     {
@@ -52,7 +52,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.a_reviewer_visible_incident_edit_control_fails_w_b6248bf4c8",
@@ -87,7 +89,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.administrative_audit_read_recovery",
@@ -123,7 +127,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.administrative_audit_real_browsing",
@@ -159,7 +165,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.an_enterprise_authenticated_browser_landing_on_s_fed22b45ad",
@@ -194,7 +202,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229",
@@ -229,7 +239,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.deployment_admin_revoke_all_invalidates_a_target_a09ed5d06f",
@@ -264,7 +276,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.invalid_credentials_leave_no_session_cookie_and_47a0f6a4d2",
@@ -299,7 +313,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.the_browser_anonymous_shell_renders_discovered_e_9c637d5924",
@@ -334,7 +350,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.the_ordinary_account_security_ui_requires_exact_642c3c4437",
@@ -369,7 +387,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.the_ordinary_login_ui_proves_first_time_bootstra_4c727c12c3",
@@ -404,7 +424,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.the_ordinary_login_ui_rejects_missing_and_wrong_f6009192d8",
@@ -439,7 +461,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.the_ordinary_shell_keeps_deployment_user_adminis_8a57567508",
@@ -474,7 +498,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser.verify_ordinary_login_incident_directory_entry_o_d66ea23dc1",
@@ -509,7 +535,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86",
@@ -544,7 +572,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser_stateful.idle_expiry_fails_closed_after_the_shared_clock_6525f19d9d",
@@ -579,7 +609,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957",
@@ -614,7 +646,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.frontend.the_anonymous_login_surface_renders_enabled_ente_c6ef40ae5a",
@@ -641,7 +675,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.frontend.the_ordinary_account_security_panel_issues_totp_c01d03e02c",
@@ -668,7 +703,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.frontend.the_ordinary_deployment_admin_panel_sends_create_615ead62f4",
@@ -695,7 +731,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.frontend.the_ordinary_login_shell_consumes_mfa_setup_requ_c161bc9e87",
@@ -722,7 +759,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.frontend.the_ordinary_shell_starts_anonymous_sends_the_lo_4713643923",
@@ -750,7 +788,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.frontend_integration.account_support_lifecycle_7afc31b882",
@@ -782,7 +821,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_7388943255",
@@ -809,7 +849,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_752a6fcc0e",
@@ -843,7 +884,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.frontend_integration.verify_api_client_requests_stay_under_api_v1_pre_e3b9506c1e",
@@ -872,7 +914,35 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.auth.integration.actor_fixtures_share_preparation_while_owning_in_64d66bfd0d",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth/testsupport/flowtest",
+        "tests": [
+          "TestActorFixturesSharePreparationButOwnIndependentUsers"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.admin_password_reset_totp_reset_and_revoke_all_r_eaa09b4d6c",
@@ -902,7 +972,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.bootstrap_tokens_work_only_on_totp_begin_and_tot_36751ad438",
@@ -929,7 +1000,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.credential_state_transitions_prove_first_enrollm_850d3dd9cb",
@@ -959,7 +1031,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.deployment_admin_binding_create_replay_divergent_85cb20830a",
@@ -986,7 +1059,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.deployment_audit_route_is_scope_safe_and_keyset_4f8db0c261",
@@ -1016,7 +1090,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.enterprise_provider_discovery_proves_sorted_exac_059973abc3",
@@ -1043,7 +1118,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.real_login_creates_one_durable_session_row_sessi_fffac0a9af",
@@ -1070,7 +1146,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.real_sockets_on_canonical_ws_v1_incidents_incide_8e29eb6263",
@@ -1097,7 +1174,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.route_idempotency_actor_scoped_uniqueness_afb930c9c4",
@@ -1123,7 +1201,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.saml_sp_initiated_begin_acs_verifies_determinist_3b5547023b",
@@ -1150,7 +1229,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.secret_envelope_substitution",
@@ -1178,7 +1258,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.slide_session_does_not_regress_persisted_timing_0a4df22db3",
@@ -1204,7 +1285,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.auth.integration.start_store_uses_rollback_dbfor_seeds_assertions_29c8a92930",
@@ -1230,7 +1312,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.auth.integration.user_create_applies_defaults_stores_argon2id_pas_8af88020c6",
@@ -1259,7 +1342,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.integration.user_list_search_tokenizes_identifiers_and_binds_45c3e062a8",
@@ -1286,7 +1370,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.store.one_route_matrix_proves_logout_password_change_t_728b4fb4df",
@@ -1312,7 +1397,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.auth.store.the_real_login_handler_creates_the_sixth_session_b3a9603ee1",
@@ -1338,7 +1424,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.auth.store.the_real_patch_route_rejects_missing_base_user_v_e16c180611",
@@ -1364,7 +1451,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.auth.support_integration.user_list_continuation_uses_live_rows_7ed03d0063",
@@ -1400,7 +1488,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.auth.support_unit.session_inspection_helpers_da94c8032f",
@@ -1430,7 +1519,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.support_unit.session_socket_trusted_tls",
@@ -1454,7 +1544,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.admin_list_queries_use_core_list_query_errors_ee8aae9fd6",
@@ -1479,7 +1570,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.administrative_audit_openapi_is_complete_and_exact_7281a6f4d2",
@@ -1506,7 +1598,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.an_inventory_driven_loop_covers_every_cookie_aut_0b6e53ff68",
@@ -1530,7 +1623,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.auth_openapi_responses_and_security_match_runtime_7f0e6a2c91",
@@ -1556,7 +1650,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.bound_secret_envelopes",
@@ -1581,7 +1676,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.bounded_password_and_sha256_totp",
@@ -1608,7 +1704,33 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.auth.unit.concurrent_actor_fixture_preparation_shares_one_ee7fc2ea5a",
+      "owner_id": "module.auth",
+      "family_id": "module.auth.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.auth.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/auth/testsupport/internal/actorfixture",
+        "tests": [
+          "TestConcurrentActorPreparationSharesOneImmutableInput"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.credential_capacity_public_boundary",
@@ -1632,7 +1754,9 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "process_isolation": "exclusive",
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.deployment_admin_only_credential_routes_fail_clo_5cfa2f8dce",
@@ -1656,7 +1780,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.enterprise_auth_error_registries_closed_8f9cca353a",
@@ -1682,7 +1807,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.enterprise_provider_cryptographic_policy",
@@ -1719,7 +1845,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.enterprise_provider_manifest_admission_1cf94ffa8c",
@@ -1752,7 +1879,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.enterprise_route_registration_requires_exact_adm_1f99782c9f",
@@ -1777,7 +1905,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.login_normalization_and_password_exactness_0e7111e226",
@@ -1803,7 +1932,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.login_request_shape_validation_rejects_unknown_t_3a3eb47266",
@@ -1827,7 +1957,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.the_password_change_route_proves_exact_current_p_338ff542a2",
@@ -1851,7 +1982,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.the_real_credential_state_route_returns_the_safe_db26b28985",
@@ -1875,7 +2007,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.the_real_get_auth_session_route_rejects_paginati_14b12305f4",
@@ -1899,7 +2032,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.the_real_login_handler_creates_exactly_one_sessi_3b913a16a6",
@@ -1923,7 +2057,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.the_real_login_handler_trims_and_case_folds_the_9ed31374cf",
@@ -1947,7 +2082,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.the_totp_begin_and_complete_handlers_enforce_exa_59570a1bac",
@@ -1971,7 +2107,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.unit.user_create_rejects_undeclared_is_active_rejects_839f6b57c5",
@@ -1995,7 +2132,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.auth.visual.capture_the_anonymous_auth_gateway_across_initia_755030aa99",
@@ -2032,7 +2170,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     }
   ]
 }

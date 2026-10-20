@@ -25,8 +25,8 @@ and the [Import Assistant](../workbook/features/README.md) supplies presentation
 | File | Responsibility |
 | --- | --- |
 | [importCoordinator.test.ts](importCoordinator.test.ts) | Characterization for opaque cursor traversal, exact envelopes, preview/approval separation, stale fingerprints, CSRF, and public errors. |
-| [importJobObservation.test.ts](importJobObservation.test.ts) | Tests bounded import job reads, explicit observation recovery, aborts, and regression rejection. |
-| [WorkbookImportController.test.ts](WorkbookImportController.test.ts) | Tests import-stage authority fencing, advisory mapping suggestions, and duplicate destination errors. |
+| [importJobObservation.node.test.ts](importJobObservation.node.test.ts) | Tests bounded import job reads, explicit observation recovery, aborts, and regression rejection. |
+| [WorkbookImportController.node.test.ts](WorkbookImportController.node.test.ts) | Tests import-stage authority fencing, advisory mapping suggestions, and duplicate destination errors. |
 
 Presentation closure pauses observation. Temporary readiness loss pauses and
 conceals same-lifetime work. Rebinding restores

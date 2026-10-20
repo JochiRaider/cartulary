@@ -97,7 +97,7 @@ func withMutation(
 
 	defer func() {
 		resultErr = errors.Join(resultErr, releaseCatalogLock(
-			connection,
+			ctx, connection,
 			resource,
 			"target",
 			`SELECT pg_catalog.pg_advisory_unlock(pg_catalog.hashtext($1), pg_catalog.hashtext($2))`,
@@ -117,13 +117,19 @@ func retiredConnection(err error) bool {
 }
 
 func releaseCatalogLock(
+	parent context.Context,
 	connection *sql.Conn,
 	resource string,
 	kind string,
 	statement string,
 	arguments ...any,
 ) error {
-	unlockCtx, cancelUnlock := context.WithTimeout(context.Background(), catalogMutationUnlockLimit)
+	// Cancellation may retire the session, but never extend the owner's deadline.
+	deadline := time.Now().Add(catalogMutationUnlockLimit)
+	if ownerDeadline, ok := parent.Deadline(); ok && ownerDeadline.Before(deadline) {
+		deadline = ownerDeadline
+	}
+	unlockCtx, cancelUnlock := context.WithDeadline(context.WithoutCancel(parent), deadline)
 	defer cancelUnlock()
 	var unlocked bool
 	if err := connection.QueryRowContext(unlockCtx, statement, arguments...).Scan(&unlocked); err != nil {

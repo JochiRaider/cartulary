@@ -148,3 +148,15 @@ test("build input discovery excludes human material and rejects incomplete or un
     maxBuffer: 8192,
   });
 });
+
+
+test("planning and execution reject oversized exact row inputs before selection", async () => {
+  const { resolveCommandInputs, resolveDeclaredTargetInputs } = await import("../contract/index.mjs");
+  const root = path.resolve(import.meta.dirname, "../../..");
+  const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
+  const rows = Array.from({ length: 150 }, (_, index) => `harness.browser.unit.synthetic_selection_${index}`).join(",");
+  assert.ok(rows.length > 4096);
+  assert.throws(() => resolveCommandInputs("test-slice", { OWNER: "harness.browser", ROWS: rows }, manifest), /exceeds 4096/u);
+  assert.throws(() => resolveDeclaredTargetInputs("test-slice", manifest.targets.find((entry) => entry.name === "test-slice"), manifest,
+    { OWNER: "harness.browser", ROWS: rows, CARTULARY_MAKE_INPUT_SOURCES: "OWNER=cli ROWS=cli" }), /exceeds 4096/u);
+});

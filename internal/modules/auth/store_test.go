@@ -119,16 +119,7 @@ func TestSlideSessionDoesNotRegressPersistedTiming(t *testing.T) {
 	now := time.Date(2026, time.April, 17, 12, 24, 0, 0, time.UTC)
 	fixture := newStoreFixture(t, "authentication-slide-session-non-regression", now)
 
-	user := storetest.SeedLocalUserRecord(
-		t,
-		fixture.harness.DB,
-		"slide-session@example.test",
-		"Slide Session",
-		"AuthenticationSlideSessionPass!",
-		false,
-		false,
-		true,
-	)
+	user := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "slide-session@example.test", DisplayName: "Slide Session"})
 	session := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "authentication-slide-session", now.Add(-time.Hour), now)
 
 	future := authn.SessionTiming{
@@ -183,16 +174,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 		{
 			name: "logout revokes only the current session",
 			run: func(t *testing.T, fixture *StoreFixture) {
-				user := storetest.SeedLocalUserRecord(
-					t,
-					fixture.harness.DB,
-					"logout@example.test",
-					"Logout",
-					"AuthenticationLogoutPass!",
-					false,
-					false,
-					true,
-				)
+				user := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "logout@example.test", DisplayName: "Logout"})
 				current := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "authentication-u-1-06-logout-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
 				other := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "authentication-u-1-06-logout-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
 
@@ -320,26 +302,8 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 		{
 			name: "account disablement revokes every active session and clears the current cookie when needed",
 			run: func(t *testing.T, fixture *StoreFixture) {
-				admin := storetest.SeedLocalUserRecord(
-					t,
-					fixture.harness.DB,
-					"disablement-admin@example.test",
-					"Disablement Admin",
-					"AuthenticationDisablementPass!",
-					false,
-					true,
-					true,
-				)
-				storetest.SeedLocalUserRecord(
-					t,
-					fixture.harness.DB,
-					"disablement-second-admin@example.test",
-					"Disablement Second Admin",
-					"AuthenticationDisablementSecondPass!",
-					false,
-					true,
-					true,
-				)
+				admin := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "disablement-admin@example.test", DisplayName: "Disablement Admin", DeploymentAdmin: true})
+				storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "disablement-second-admin@example.test", DisplayName: "Disablement Second Admin", DeploymentAdmin: true})
 				current := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "authentication-u-1-06-disable-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
 				other := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "authentication-u-1-06-disable-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
 
@@ -370,16 +334,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 		{
 			name: "admin password reset revokes every target session and leaves the actor cookie alone",
 			run: func(t *testing.T, fixture *StoreFixture) {
-				admin := storetest.SeedLocalUserRecord(
-					t,
-					fixture.harness.DB,
-					"reset-admin@example.test",
-					"Reset Admin",
-					"AuthenticationResetAdminPass!",
-					false,
-					true,
-					true,
-				)
+				admin := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "reset-admin@example.test", DisplayName: "Reset Admin", DeploymentAdmin: true})
 				target := storetest.SeedLocalUserRecord(
 					t,
 					fixture.harness.DB,
@@ -422,16 +377,7 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 		{
 			name: "admin totp reset revokes every target session and leaves the actor cookie alone",
 			run: func(t *testing.T, fixture *StoreFixture) {
-				admin := storetest.SeedLocalUserRecord(
-					t,
-					fixture.harness.DB,
-					"totp-reset-admin@example.test",
-					"TOTP Reset Admin",
-					"AuthenticationTOTPResetAdminPass!",
-					false,
-					true,
-					true,
-				)
+				admin := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "totp-reset-admin@example.test", DisplayName: "TOTP Reset Admin", DeploymentAdmin: true})
 				targetSecretBase32 := authn.EncodeSecretBase32([]byte("jihgfedcba0123456789012345678901"))
 				target := storetest.SeedLocalUserWithActiveTOTPRecord(
 					t,
@@ -474,26 +420,8 @@ func TestRouteRevocationConsequences_Unit(t *testing.T) {
 		{
 			name: "explicit revoke all revokes every target session and leaves the actor cookie alone",
 			run: func(t *testing.T, fixture *StoreFixture) {
-				admin := storetest.SeedLocalUserRecord(
-					t,
-					fixture.harness.DB,
-					"revoke-all-admin@example.test",
-					"Revoke All Admin",
-					"AuthenticationRevokeAllAdminPass!",
-					false,
-					true,
-					true,
-				)
-				target := storetest.SeedLocalUserRecord(
-					t,
-					fixture.harness.DB,
-					"revoke-all-target@example.test",
-					"Revoke All Target",
-					"AuthenticationRevokeAllTargetPass!",
-					false,
-					false,
-					true,
-				)
+				admin := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "revoke-all-admin@example.test", DisplayName: "Revoke All Admin", DeploymentAdmin: true})
+				target := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "revoke-all-target@example.test", DisplayName: "Revoke All Target"})
 				actorSession := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "authentication-u-1-06-revoke-all-admin", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
 				targetCurrent := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "authentication-u-1-06-revoke-all-target-current", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
 				targetOther := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "authentication-u-1-06-revoke-all-target-other", fixture.now.Add(-45*time.Minute), fixture.now.Add(-3*time.Minute))
@@ -534,26 +462,8 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 
 	t.Run("rejects missing base_user_version before store mutation", func(t *testing.T) {
 		fixture := newStoreFixture(t, "authentication-u-1-08-missing-version", now)
-		admin := storetest.SeedLocalUserRecord(
-			t,
-			fixture.harness.DB,
-			"patch-admin@example.test",
-			"Patch Admin",
-			"AuthenticationPatchAdminPass!",
-			false,
-			true,
-			true,
-		)
-		target := storetest.SeedLocalUserRecord(
-			t,
-			fixture.harness.DB,
-			"patch-target@example.test",
-			"Patch Target",
-			"AuthenticationPatchTargetPass!",
-			false,
-			false,
-			true,
-		)
+		admin := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "patch-admin@example.test", DisplayName: "Patch Admin", DeploymentAdmin: true})
+		target := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "patch-target@example.test", DisplayName: "Patch Target"})
 		storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "authentication-u-1-08-missing-version-admin", now.Add(-time.Hour), now.Add(-5*time.Minute))
 
 		recorder := httptest.NewRecorder()
@@ -575,26 +485,8 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 
 	t.Run("normalizes writable strings and allows demotion when another active deployment admin remains", func(t *testing.T) {
 		fixture := newStoreFixture(t, "authentication-u-1-08-normalized-success", now)
-		admin := storetest.SeedLocalUserRecord(
-			t,
-			fixture.harness.DB,
-			"patch-actor@example.test",
-			"Patch Actor",
-			"AuthenticationPatchActorPass!",
-			false,
-			true,
-			true,
-		)
-		target := storetest.SeedLocalUserRecord(
-			t,
-			fixture.harness.DB,
-			"patch-demote@example.test",
-			"Patch Demote",
-			"AuthenticationPatchDemotePass!",
-			false,
-			true,
-			true,
-		)
+		admin := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "patch-actor@example.test", DisplayName: "Patch Actor", DeploymentAdmin: true})
+		target := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "patch-demote@example.test", DisplayName: "Patch Demote", DeploymentAdmin: true})
 		storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "authentication-u-1-08-normalized-admin", now.Add(-time.Hour), now.Add(-5*time.Minute))
 
 		recorder := httptest.NewRecorder()
@@ -628,26 +520,8 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 
 	t.Run("translates stale version conflicts to user_version_conflict without durable mutation", func(t *testing.T) {
 		fixture := newStoreFixture(t, "authentication-u-1-08-stale-version", now)
-		admin := storetest.SeedLocalUserRecord(
-			t,
-			fixture.harness.DB,
-			"patch-stale-admin@example.test",
-			"Patch Stale Admin",
-			"AuthenticationPatchStaleAdminPass!",
-			false,
-			true,
-			true,
-		)
-		target := storetest.SeedLocalUserRecord(
-			t,
-			fixture.harness.DB,
-			"patch-stale-target@example.test",
-			"Patch Stale Target",
-			"AuthenticationPatchStaleTargetPass!",
-			false,
-			false,
-			true,
-		)
+		admin := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "patch-stale-admin@example.test", DisplayName: "Patch Stale Admin", DeploymentAdmin: true})
+		target := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "patch-stale-target@example.test", DisplayName: "Patch Stale Target"})
 		storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "authentication-u-1-08-stale-admin", now.Add(-time.Hour), now.Add(-5*time.Minute))
 
 		recorder := httptest.NewRecorder()
@@ -671,26 +545,8 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 
 	t.Run("rejects demotion of the last active deployment admin without durable mutation", func(t *testing.T) {
 		fixture := newStoreFixture(t, "authentication-u-1-08-last-admin-demotion", now)
-		admin := storetest.SeedLocalUserRecord(
-			t,
-			fixture.harness.DB,
-			"patch-last-admin@example.test",
-			"Patch Last Admin",
-			"AuthenticationPatchLastAdminPass!",
-			false,
-			true,
-			true,
-		)
-		storetest.SeedLocalUserRecord(
-			t,
-			fixture.harness.DB,
-			"patch-last-admin-inactive@example.test",
-			"Patch Last Admin Inactive",
-			"AuthenticationPatchLastAdminInactivePass!",
-			false,
-			true,
-			false,
-		)
+		admin := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "patch-last-admin@example.test", DisplayName: "Patch Last Admin", DeploymentAdmin: true})
+		storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "patch-last-admin-inactive@example.test", DisplayName: "Patch Last Admin Inactive", DeploymentAdmin: true, Disabled: true})
 		storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "authentication-u-1-08-last-admin-demotion", now.Add(-time.Hour), now.Add(-5*time.Minute))
 
 		recorder := httptest.NewRecorder()
@@ -713,26 +569,8 @@ func TestUserPatchAndLastAdminGuard_Unit(t *testing.T) {
 
 	t.Run("rejects deactivation of the last active deployment admin without durable mutation", func(t *testing.T) {
 		fixture := newStoreFixture(t, "authentication-u-1-08-last-admin-disable", now)
-		admin := storetest.SeedLocalUserRecord(
-			t,
-			fixture.harness.DB,
-			"patch-last-disable@example.test",
-			"Patch Last Disable",
-			"AuthenticationPatchLastDisablePass!",
-			false,
-			true,
-			true,
-		)
-		storetest.SeedLocalUserRecord(
-			t,
-			fixture.harness.DB,
-			"patch-last-disable-inactive@example.test",
-			"Patch Last Disable Inactive",
-			"AuthenticationPatchLastDisableInactivePass!",
-			false,
-			true,
-			false,
-		)
+		admin := storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "patch-last-disable@example.test", DisplayName: "Patch Last Disable", DeploymentAdmin: true})
+		storetest.SeedActor(t, fixture.harness.DB, storetest.ActorAttributes{Email: "patch-last-disable-inactive@example.test", DisplayName: "Patch Last Disable Inactive", DeploymentAdmin: true, Disabled: true})
 		storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "authentication-u-1-08-last-admin-disable", now.Add(-time.Hour), now.Add(-5*time.Minute))
 
 		recorder := httptest.NewRecorder()

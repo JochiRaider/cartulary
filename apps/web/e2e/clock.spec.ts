@@ -20,12 +20,12 @@ test.afterEach(async ({ page }) => {
 test("advances the shared clock past idle expiry and requires a fresh login afterwards", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const testClock = new TestClock(page);
   const email = uniqueEmail("authentication-e104");
   const password = "AuthenticationE104Pass!";
-  const user = await createDeploymentUser(workerAdminRequest, {
+  const user = await createDeploymentUser(testActorRequest, {
     email,
     display_name: "Authentication E104",
     initial_password: password,

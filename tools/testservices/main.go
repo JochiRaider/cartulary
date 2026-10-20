@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/exec"
@@ -26,10 +27,13 @@ import (
 	dockerclient "github.com/moby/moby/client"
 
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
+	"github.com/JochiRaider/cartulary/internal/app/recoveryassembly"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -44,21 +48,20 @@ import (
 )
 
 const (
-	postgresStartupTimeout         = 3 * time.Minute
-	suitePreflightTimeout          = 3 * time.Second
-	suitePostgresAttemptLimit      = 35 * time.Second
-	suiteObjectStoreAttemptLimit   = 2 * time.Minute
-	staleSuiteContainerRecheck     = 2 * time.Second
-	templateStartupTimeout         = 2 * time.Minute
-	postgresCatalogAdmissionLimit  = 15 * time.Second
-	postgresDatabaseCleanupTimeout = 15 * time.Second
-	cleanupTimeout                 = 2 * time.Minute
-	webE2ELeakCheckTimeout         = 5 * time.Second
-	signalWaitTimeout              = 15 * time.Second
-	webE2ECleanupWorkers           = 4
-	webE2ECleanupMaxWorkers        = 16
-	staleFixtureMaxCandidates      = 32
-	staleFixtureJanitorTimeout     = 10 * time.Second
+	postgresStartupTimeout        = 3 * time.Minute
+	suitePreflightTimeout         = 3 * time.Second
+	suitePostgresAttemptLimit     = 35 * time.Second
+	suiteObjectStoreAttemptLimit  = 2 * time.Minute
+	staleSuiteContainerRecheck    = 2 * time.Second
+	templateStartupTimeout        = 2 * time.Minute
+	postgresCatalogAdmissionLimit = 15 * time.Second
+	cleanupTimeout                = 2 * time.Minute
+	webE2ELeakCheckTimeout        = 5 * time.Second
+	signalWaitTimeout             = 15 * time.Second
+	webE2ECleanupWorkers          = 4
+	webE2ECleanupMaxWorkers       = 16
+	staleFixtureMaxCandidates     = 32
+	staleFixtureJanitorTimeout    = 10 * time.Second
 
 	webE2ECleanupWorkersEnv = "CARTULARY_TEST_SERVICES_WEB_E2E_CLEANUP_WORKERS"
 
@@ -558,15 +561,18 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 func selectedSuiteServices(env map[string]string) ([]string, error) {
 	value, selected := env[suiteservices.HarnessServiceDependenciesEnv]
 	if !selected {
-		return []string{suiteservices.ServiceObjectStore, suiteservices.ServicePostgres}, nil
-	}
-	if err := suiteservices.CheckServiceDependencies(env); err != nil {
+		value = "object_store,postgres"
+	} else if err := suiteservices.CheckServiceDependencies(env); err != nil {
 		return nil, err
 	}
-	if value == "" {
-		return []string{}, nil
+	services := []string{}
+	if value != "" {
+		services = strings.Split(value, ",")
 	}
-	return strings.Split(value, ","), nil
+	if slices.Contains(services, suiteservices.ServicePostgres) && (!slices.Contains([]string{"shared", "exclusive"}, env[suiteservices.PGIsolationEnv]) || env[suiteservices.PGAllocationRefEnv] == "") {
+		return nil, errors.New("PostgreSQL isolation and allocation required before provisioning")
+	}
+	return services, nil
 }
 
 func runStartSuite(args []string, env map[string]string, deps dependencies) (exitCode int) {
@@ -966,22 +972,30 @@ func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) i
 		return 2
 	}
 	if !suiteservices.SuiteAuthorized(env) {
-		fmt.Fprintln(os.Stderr, "cleanup-web-e2e requires authenticated suite runtime proof")
+		writeBrowserCleanupFailure(os.Stderr, "recovery_proof", harnesslocal.ErrUnsafe)
 		return 1
 	}
 
 	metadata, err := readWebE2EMetadata(metadataFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "read browser e2e metadata: %v\n", err)
+		writeBrowserCleanupFailure(os.Stderr, "browser_metadata", err)
 		return 1
 	}
 
 	retireStart := time.Now().UTC()
 	recordWebE2EFixtureEvent(deps, env, suiteservices.EventWebE2EFixtureRetired, metadata)
 	recordTimingSpan(deps, env, bucketTeardown, "test-services retire browser e2e fixture", retireStart, time.Now().UTC(), "pass")
+	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+	defer cancel()
+	if metadata.FixtureProfileID == "" {
+		if err := deps.cleanupWebE2EBucket(cleanupCtx, metadata, env); err != nil {
+			writeBrowserCleanupFailure(os.Stderr, "browser_namespace", err)
+			return 1
+		}
+	}
 	if metadata.FixtureProfileID != "" {
-		if err := cleanupPerformanceFixtureLease(context.Background(), deps, env, metadata); err != nil {
-			fmt.Fprintf(os.Stderr, "cleanup performance fixture clone: %v\n", err)
+		if err := cleanupPerformanceFixtureLease(cleanupCtx, deps, env, metadata); err != nil {
+			writeBrowserCleanupFailure(os.Stderr, "browser_clone", err)
 			deps.refreshSummary(env)
 			return 1
 		}
@@ -989,6 +1003,24 @@ func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) i
 	}
 	deps.refreshSummary(env)
 	return 0
+}
+
+// The physical adapter accepts only this closed projection. Provider errors may
+// contain namespace identities or connection details and stay within this process.
+func writeBrowserCleanupFailure(out io.Writer, stage string, err error) {
+	cause, number := "internal", 0
+	var errno syscall.Errno
+	switch {
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+		cause = "deadline"
+	case errors.Is(err, harnesslocal.ErrUnsafe):
+		cause = "unsafe"
+	case errors.As(err, &errno):
+		cause, number = "io", int(errno)
+	}
+	_ = json.NewEncoder(out).Encode(map[string]any{
+		"schema_id": "cartulary.harness_cleanup_diagnostic.v3", "stage": stage, "cause": cause, "errno": number,
+	})
 }
 
 func runTerminateSuite(args []string, env map[string]string, deps dependencies) int {
@@ -1040,10 +1072,10 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 		status = 1
 		printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle start", err))
 	}
+	cleanupCtx, cancelCleanup := context.WithTimeout(context.Background(), cleanupTimeout)
+	defer cancelCleanup()
 	performanceFixtureCleanupStart := time.Now().UTC()
-	performanceFixtureCleanupCtx, cancelPerformanceFixtureCleanup := context.WithTimeout(context.Background(), cleanupTimeout)
-	performanceFixtureCleanupErr := cleanupPerformanceFixtureSuite(performanceFixtureCleanupCtx, leaseEnv)
-	cancelPerformanceFixtureCleanup()
+	performanceFixtureCleanupErr := cleanupPerformanceFixtureSuite(cleanupCtx, leaseEnv)
 	recordTimingSpanStatusAt(
 		deps,
 		leaseEnv,
@@ -1066,7 +1098,8 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 			),
 		)
 	}
-	for _, result := range terminateSuiteServices(context.Background(), lease) {
+
+	for _, result := range terminateSuiteServices(cleanupCtx, lease) {
 		recordTimingSpanStatusAt(deps, leaseEnv, bucketTeardown, result.label, result.start, result.end, result.err, true)
 		if result.err != nil {
 			status = 1
@@ -1435,22 +1468,31 @@ func suiteServiceLabels(env map[string]string, service string) map[string]string
 }
 
 func startSuiteIdentity(env map[string]string, deps dependencies) (string, error) {
-	if strings.TrimSpace(suiteservices.LookupEnvValue(env, testServicesPersistentSessionEnv)) != "1" {
+	suiteID := suiteservices.SuiteID(env)
+	persistent := strings.TrimSpace(suiteservices.LookupEnvValue(env, testServicesPersistentSessionEnv)) == "1"
+	if suiteID == "" && !persistent {
 		return deps.suiteID()
 	}
-	suiteID := suiteservices.SuiteID(env)
+	if !persistent {
+		if !safeArtifactComponent(suiteID) {
+			return "", errors.New("invalid suite identity")
+		}
+		return suiteID, nil
+	}
 	if len(suiteID) != 24 {
-		return "", errors.New("persistent session suite id must be 24 lowercase hexadecimal characters")
+		return "", errors.New("suite id must be 24 lowercase hexadecimal characters")
 	}
 	for _, char := range suiteID {
 		if (char < '0' || char > '9') && (char < 'a' || char > 'f') {
-			return "", errors.New("persistent session suite id must be 24 lowercase hexadecimal characters")
+			return "", errors.New("suite id must be 24 lowercase hexadecimal characters")
 		}
 	}
-	expiresAt := strings.TrimSpace(suiteservices.LookupEnvValue(env, testServicesSessionExpiresAtEnv))
-	expires, err := time.Parse(time.RFC3339Nano, expiresAt)
-	if err != nil || !expires.After(time.Now().UTC()) {
-		return "", errors.New("persistent session expiry must be a future RFC3339 timestamp")
+	if persistent {
+		expiresAt := strings.TrimSpace(suiteservices.LookupEnvValue(env, testServicesSessionExpiresAtEnv))
+		expires, err := time.Parse(time.RFC3339Nano, expiresAt)
+		if err != nil || !expires.After(time.Now().UTC()) {
+			return "", errors.New("persistent session expiry must be a future RFC3339 timestamp")
+		}
 	}
 	return suiteID, nil
 }
@@ -1481,7 +1523,7 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 	delete(proofLabels, leaseproof.LabelService)
 	now := time.Now().UTC()
 	lease := leaseproof.Lease{
-		SchemaID:      "cartulary.test_services.lease.v2",
+		SchemaID:      "cartulary.test_services.lease.v3",
 		LeaseID:       leaseID,
 		SuiteID:       suiteservices.SuiteID(env),
 		RunID:         runID,
@@ -1523,7 +1565,10 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 		return "", err
 	}
 	if postgresSvc.generation != "" {
-		lease.PostgresProvisioning = &leaseproof.PostgresProvisioning{SchemaID: "cartulary.test_services.postgres_provisioning.v1", Generation: postgresSvc.generation, PolicyDigest: pgtest.ProvisioningDigest(), TemplateDigest: pgtest.TemplateDigest(pgschema.MustHash())}
+		if !slices.Contains([]string{"shared", "exclusive"}, env[suiteservices.PGIsolationEnv]) || env[suiteservices.PGAllocationRefEnv] == "" {
+			return "", errors.New("PostgreSQL isolation and allocation binding required")
+		}
+		lease.PostgresProvisioning = &leaseproof.PostgresProvisioning{SchemaID: "cartulary.test_services.postgres_provisioning.v2", Generation: postgresSvc.generation, PostgresIsolation: env[suiteservices.PGIsolationEnv], AllocationRef: env[suiteservices.PGAllocationRefEnv], PolicyDigest: pgtest.ProvisioningDigest(), TemplateDigest: pgtest.TemplateDigest(pgschema.MustHash())}
 	}
 	lease.Resources = slices.DeleteFunc(lease.Resources, func(resource leaseproof.LeaseResource) bool {
 		return !slices.Contains(services, resource.Service)
@@ -1543,7 +1588,7 @@ func writeServiceLease(env map[string]string, postgresSvc postgresService, objec
 }
 
 func readServiceLease(path string) (leaseproof.Lease, error) {
-	raw, err := os.ReadFile(path) // #nosec G304 -- lease paths are produced by ResolveSuiteArtifactDir or explicit terminate-suite CLI input.
+	raw, err := harnesslocal.ReadFile(path, 1048576, false)
 	if err != nil {
 		return leaseproof.Lease{}, err
 	}
@@ -1551,7 +1596,7 @@ func readServiceLease(path string) (leaseproof.Lease, error) {
 	if err := json.Unmarshal(raw, &lease); err != nil {
 		return leaseproof.Lease{}, err
 	}
-	if lease.SchemaID != "cartulary.test_services.lease.v2" {
+	if lease.SchemaID != "cartulary.test_services.lease.v3" {
 		return leaseproof.Lease{}, fmt.Errorf("unsupported suite service lease schema %q", lease.SchemaID)
 	}
 	if strings.TrimSpace(lease.SuiteID) == "" {
@@ -1559,9 +1604,6 @@ func readServiceLease(path string) (leaseproof.Lease, error) {
 	}
 	if strings.TrimSpace(lease.LeaseID) == "" {
 		return leaseproof.Lease{}, errors.New("suite service lease missing lease_id")
-	}
-	if strings.TrimSpace(lease.OwnershipMode) == "" {
-		lease.OwnershipMode = lease.Mode
 	}
 	if strings.TrimSpace(lease.OwnershipMode) == "" {
 		return leaseproof.Lease{}, errors.New("suite service lease missing ownership_mode")
@@ -1581,6 +1623,13 @@ func validateActiveServiceLease(env map[string]string) error {
 		return errors.New("active service lease requires a private suite runtime root")
 	}
 	leasePath := filepath.Join(runtimeRoot, "service-lease.json")
+	if binding := env["CARTULARY_TEST_SERVICES_BINDING_LEASE"]; binding != "" {
+		relative, err := filepath.Rel(env[suiteservices.SuiteRuntimeRootEnv], binding)
+		if err != nil || !filepath.IsAbs(binding) || relative == "." || strings.HasPrefix(relative, "..") {
+			return errors.New("invalid service binding path")
+		}
+		leasePath = binding
+	}
 	info, err := os.Lstat(leasePath)
 	if err != nil {
 		return err
@@ -1889,13 +1938,10 @@ func dropDatabase(ctx context.Context, adminDSN string, name string) error {
 	if !generatedWebE2EDatabaseName(name) {
 		return fmt.Errorf("refuse to drop browser fixture database %q without generated ownership identity", name)
 	}
-	if _, err := postgrescleanup.DropOwnedDatabase(
+	if err := postgrescleanup.DropOwnedDatabase(
 		ctx,
 		adminDSN,
-		name,
-		5*time.Second,
-		postgresDatabaseCleanupTimeout,
-	); err != nil {
+		name); err != nil {
 		return fmt.Errorf("drop browser fixture database %s: %w", name, err)
 	}
 	return nil
@@ -1978,9 +2024,13 @@ func resetWebE2EDatabase(ctx context.Context, credentialRoot string, bootstrapMa
 	defer pool.Close()
 
 	bootstrapSettings := bootstrap.Settings{ManifestPath: bootstrapManifest}
-	return harnessruntime.ResetDatabase(ctx, pool.Pool(), func(ctx context.Context, tx pgx.Tx) error {
+	catalog, err := recoveryassembly.CurrentRecoveryStateCatalog()
+	if err != nil {
+		return harnessruntime.DatabaseResetResult{}, harnessruntime.NewDatabaseResetFailure("recovery_reset_inventory_failed", err)
+	}
+	return harnessruntime.ResetDatabase(ctx, pool.Pool(), harnessruntime.DatabaseResetPlan{Catalog: catalog, ResolveRebuild: recovery.PostgresDerivedRebuild, RestoreBootstrap: func(ctx context.Context, tx pgx.Tx) error {
 		return bootstrap.PreflightTx(ctx, bootstrapSettings, tx)
-	})
+	}})
 }
 
 func resetWebE2EBucket(ctx context.Context, metadata webE2EMetadata, _ map[string]string) error {
@@ -2430,50 +2480,23 @@ func cleanupStaleWebE2EFixtures(ctx context.Context, deps dependencies, env map[
 }
 
 func staleWebE2EFixtures(env map[string]string) ([]webE2EMetadata, error) {
-	servicesRoot, err := resolveTestServicesRoot(env)
-	if err != nil {
+	// A run may contain several independently owned PostgreSQL generations.
+	// Only this suite's ledger can be interpreted through these bindings;
+	// abandoned sibling allocations are settled by their exact recovery owner.
+	ledger, ok, err := suiteservices.CurrentResourceLedger(env)
+	if err != nil || !ok {
 		return nil, err
 	}
 	retired := make(map[string]webE2EMetadata)
-	err = filepath.WalkDir(servicesRoot, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	for _, fixture := range ledger.BrowserFixtures {
+		metadata := webE2EMetadata{
+			DatabaseName: fixture.DatabaseName,
+			Bucket:       fixture.Bucket,
+			Target:       fixture.Target,
 		}
-		if entry.IsDir() || entry.Name() != "resource-ledger.json" {
-			return nil
+		if generatedWebE2EFixture(metadata) {
+			retired[webE2EFixtureKey(metadata)] = metadata
 		}
-		if !pathWithinRoot(servicesRoot, path) {
-			return fmt.Errorf("resource ledger path %s escapes %s", path, servicesRoot)
-		}
-		ledger, ok, err := suiteservices.ReadResourceLedgerFile(path)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return nil
-		}
-		if ledger.SuiteID != filepath.Base(filepath.Dir(path)) || ledger.RunID != suiteservices.ResolveRunID(env) {
-			return fmt.Errorf("resource ledger %s does not match its owned suite/run path", path)
-		}
-		for _, fixture := range ledger.BrowserFixtures {
-			metadata := webE2EMetadata{
-				DatabaseName: fixture.DatabaseName,
-				Bucket:       fixture.Bucket,
-				Target:       fixture.Target,
-			}
-			key := webE2EFixtureKey(metadata)
-			if key == "" || !generatedWebE2EFixture(metadata) {
-				continue
-			}
-			retired[key] = metadata
-		}
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, err
 	}
 
 	fixtures := make([]webE2EMetadata, 0, len(retired))
@@ -2487,28 +2510,6 @@ func staleWebE2EFixtures(env map[string]string) ([]webE2EMetadata, error) {
 		fixtures = fixtures[:staleFixtureMaxCandidates]
 	}
 	return fixtures, nil
-}
-
-func resolveTestServicesRoot(env map[string]string) (string, error) {
-	resultsRoot, err := suiteservices.ResolveResultsRoot(env)
-	if err != nil {
-		return "", err
-	}
-	servicesRoot := filepath.Join(resultsRoot, suiteservices.ResolveRunID(env), "_shared", "test-services")
-	if !pathWithinRoot(resultsRoot, servicesRoot) {
-		return "", fmt.Errorf("test services root %s escapes results root %s", servicesRoot, resultsRoot)
-	}
-	return servicesRoot, nil
-}
-
-func pathWithinRoot(root string, target string) bool {
-	cleanRoot := filepath.Clean(root)
-	cleanTarget := filepath.Clean(target)
-	relative, err := filepath.Rel(cleanRoot, cleanTarget)
-	if err != nil {
-		return false
-	}
-	return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func generatedWebE2EFixture(metadata webE2EMetadata) bool {
@@ -2752,13 +2753,13 @@ func terminateSuiteServices(parent context.Context, lease leaseproof.Lease) []se
 }
 
 // Physical services are independent after fixture retirement. Each receives its
-// existing budget, concurrently, even if acquisition or a sibling has expired.
+// existing cap concurrently, within the cleanup lifetime established by the owner.
 func terminateIndependentServices(parent context.Context, lease leaseproof.Lease, terminate func(context.Context, leaseproof.LeaseResource) error) []serviceCleanupResult {
 	results := make([]serviceCleanupResult, len(lease.Resources))
 	var workers sync.WaitGroup
 	for i, service := range lease.Resources {
 		workers.Go(func() {
-			ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), cleanupTimeout)
+			ctx, cancel := context.WithTimeout(parent, cleanupTimeout)
 			defer cancel()
 			start := time.Now().UTC()
 			err := terminate(ctx, service)

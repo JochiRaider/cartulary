@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type IntentRecord struct {
@@ -49,10 +51,10 @@ SELECT count(*)
 	return count
 }
 
-func LoadBySourceIdentity(t testing.TB, pool *pgxpool.Pool, sourceIdentity string) IntentRecord {
+func LoadBySourceIdentity(t testing.TB, db postgres.DB, sourceIdentity string) IntentRecord {
 	t.Helper()
 	var record IntentRecord
-	if err := pool.QueryRow(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT intent_key, event_family, source_identity, canonical_payload
   FROM collaboration_event_intents
  WHERE source_identity = $1

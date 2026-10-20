@@ -19,10 +19,7 @@ import (
 func TestTaskDecisionIdempotencyAdapterBoundary_Integration(t *testing.T) {
 	ctx := context.Background()
 	db := pgtest.Start(t).BeginRollbackDBT(t, "tasks-decisions-idempotency-adapter")
-	actor := authstoretest.SeedLocalUserRecord(
-		t, db, "tasks-decisions-idempotency@example.test",
-		"Tasks Decisions Idempotency", "TasksDecisionsIdempotency1!", false, false, true,
-	)
+	actor := authstoretest.SeedActor(t, db, authstoretest.ActorAttributes{Email: "tasks-decisions-idempotency@example.test", DisplayName: "Tasks Decisions Idempotency"})
 	adapter := taskDecisionIdempotency{store: authn.NewStore(db)}
 	key := tasksdecisions.IdempotencyKey{
 		RouteKey:    "workbook.rows.create",

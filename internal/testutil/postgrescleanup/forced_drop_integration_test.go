@@ -17,7 +17,29 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
+
+func TestOwnedDatabaseCleanupIsIdempotent(t *testing.T) {
+	harness := pgtest.Start(t)
+	database := harness.NewDatabaseT(t, "single_drop")
+	handle, err := sql.Open("pgx", database.DSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := handle.PingContext(context.Background()); err != nil {
+		_ = handle.Close()
+		t.Fatal(err)
+	}
+	if err := handle.Close(); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := postgrescleanup.DropOwnedDatabase(context.Background(), harness.AdminDSN(), database.Name); err != nil {
+			t.Fatalf("single owned drop: %v", err)
+		}
+	}
+}
 
 func TestConcurrentActiveDatabaseCleanupUsesTargetScopedForcedAdmission(t *testing.T) {
 	harness := pgtest.Start(t)
@@ -51,19 +73,13 @@ func TestConcurrentActiveDatabaseCleanupUsesTargetScopedForcedAdmission(t *testi
 		go func(database *pgtest.TestDatabase) {
 			defer wait.Done()
 			<-start
-			forced, err := postgrescleanup.DropOwnedDatabase(
+			err := postgrescleanup.DropOwnedDatabase(
 				context.Background(),
 				harness.AdminDSN(),
-				database.Name,
-				5*time.Second,
-				15*time.Second,
-			)
+				database.Name)
 			if err != nil {
 				errorsByDatabase <- fmt.Errorf("drop %s: %w", database.Name, err)
 				return
-			}
-			if !forced {
-				errorsByDatabase <- fmt.Errorf("drop %s did not use forced fallback", database.Name)
 			}
 		}(database)
 	}
@@ -108,8 +124,8 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 		operationCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		_, cancelledOperation = admin.ExecContext(operationCtx, `SELECT pg_sleep(60)`)
-		// DropOwnedDatabase keeps the operation outcome separate from admission
-		// so that only its declared bounded fallback can follow cancellation.
+		// This probe separates the cancelled operation from lock settlement.
+		// Server-side exclusion must remain authoritative after client retirement.
 		return nil
 	}); err != nil {
 		t.Fatalf("cancelled operation changed admission outcome: %v", err)
@@ -199,16 +215,18 @@ func TestCatalogMutationSerializesOneTargetWithoutBlockingAnotherTarget(t *testi
 		t.Fatal("same-target database creation never acquired catalog admission")
 	}
 
-	if err := postgrescleanup.ForceDropDatabase(context.Background(), harness.AdminDSN(), databaseName); err != nil {
+	if err := postgrescleanup.DropOwnedDatabase(context.Background(), harness.AdminDSN(), databaseName); err != nil {
 		t.Fatalf("clean coordinated database: %v", err)
 	}
-	if err := postgrescleanup.ForceDropDatabase(context.Background(), harness.AdminDSN(), differentDatabaseName); err != nil {
+	if err := postgrescleanup.DropOwnedDatabase(context.Background(), harness.AdminDSN(), differentDatabaseName); err != nil {
 		t.Fatalf("clean different-target database: %v", err)
 	}
-	t.Run("delayed_barrier_participant_is_redacted", characterizeBarrierParticipant)
 }
 
-func characterizeBarrierParticipant(t *testing.T) {
+func TestOwnedDelayedBarrierParticipantIsRedacted(t *testing.T) {
+	if suiteservices.LookupEnvValue(nil, suiteservices.PGAdminDSNEnv) != "" {
+		t.Fatal("self-owned lifecycle selection acquired an unused broker cluster")
+	}
 	// The entire cluster belongs to this fixture; never stop a participant in
 	// a borrowed suite service. The peer connection remains owned until resumed.
 	harness, err := pgtest.StartOwned(t.Context())
@@ -278,19 +296,23 @@ func characterizeBarrierParticipant(t *testing.T) {
 		t.Fatal("could not stop exact owned fixture backend")
 	}
 	drop, cancelDrop := context.WithTimeout(t.Context(), 7*time.Second)
-	failure := postgrescleanup.ForceDropDatabase(drop, harness.AdminDSN(), database.Name)
+	failure := postgrescleanup.DropOwnedDatabase(drop, harness.AdminDSN(), database.Name)
 	cancelDrop()
 	resume()
 	if !errors.Is(failure, context.DeadlineExceeded) {
 		t.Fatalf("owned paused backend did not delay barrier: %v", failure)
 	}
 	var observed interface {
-		CleanupWait() postgrescleanup.DropObservation
+		PostgresCleanup() postgrescleanup.DropAttempt
 	}
 	if !errors.As(failure, &observed) {
 		t.Fatal("drop lost structural observation")
 	}
-	value := observed.CleanupWait()
+	attempt := observed.PostgresCleanup()
+	if attempt.ServiceGeneration == nil || *attempt.ServiceGeneration != harness.ProvisioningGeneration() {
+		t.Fatal("drop observation belongs to another PostgreSQL generation")
+	}
+	value := attempt.Wait
 	if value.Status != "sampled" || value.Last.Type != "IPC" || value.Last.Event != "ProcSignalBarrier" {
 		t.Fatalf("different wait observed: %s", value.String())
 	}

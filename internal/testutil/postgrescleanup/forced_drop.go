@@ -18,22 +18,21 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescatalog"
 )
 
-const databaseDropAdmissionLimit = 15 * time.Second
+const (
+	databaseDropAdmissionLimit = 15 * time.Second
+	databaseDropOperationLimit = 20 * time.Second
+)
 
-type databaseDropExecutor func(context.Context, string, bool) error
-type databaseDropLock func(context.Context, string, string, func(databaseDropExecutor)) error
+type databaseDropExecutor func(context.Context, string) error
+type databaseDropLock func(context.Context, string, string, func(databaseDropExecutor) error) error
 
 type dropOperations struct {
-	withNormalAdmission databaseDropLock
-	withForcedAdmission databaseDropLock
+	withAdmission databaseDropLock
 }
 
-var productionDropOperations = dropOperations{
-	withNormalAdmission: withDropAdmission,
-	withForcedAdmission: withDropAdmission,
-}
+var productionDropOperations = dropOperations{withAdmission: withDropAdmission}
 
-func withDropAdmission(ctx context.Context, adminDSN, name string, operation func(databaseDropExecutor)) error {
+func withDropAdmission(ctx context.Context, adminDSN, name string, operation func(databaseDropExecutor) error) error {
 	config, err := pgx.ParseConfig(adminDSN)
 	if err != nil {
 		return &postgrescatalog.MutationError{Stage: "catalog_open", Err: err}
@@ -50,102 +49,87 @@ func withDropAdmission(ctx context.Context, adminDSN, name string, operation fun
 	registered := stdlib.RegisterConnConfig(config)
 	defer stdlib.UnregisterConnConfig(registered)
 	return postgrescatalog.WithMutation(ctx, registered, name, databaseDropAdmissionLimit, func(admin *sql.Conn) error {
-		operation(func(operationCtx context.Context, database string, force bool) error {
-			return executeObservedDatabaseDrop(operationCtx, admin, adminDSN, database, force, participant.Load)
+		return operation(func(operationCtx context.Context, database string) error {
+			return executeObservedDatabaseDrop(operationCtx, admin, adminDSN, database, participant.Load)
 		})
-		return nil
 	})
 }
 
-// DropOwnedDatabase attempts an ordinary drop with its own budget and uses one
-// separately bounded atomic forced drop only for an active database or an
-// expired ordinary operation. Each attempt independently acquires target
-// admission. The caller must prove exact ownership first.
-func DropOwnedDatabase(
-	ctx context.Context,
-	adminDSN string,
-	name string,
-	normalLimit time.Duration,
-	forcedLimit time.Duration,
-) (bool, error) {
-	return dropOwnedDatabase(ctx, adminDSN, name, normalLimit, forcedLimit, productionDropOperations)
+// DropOwnedDatabase performs one bounded atomic forced drop after target
+// admission. The caller must prove exact ownership and stop its runtime, jobs,
+// pools and handles first. A shorter parent deadline clamps both phase caps.
+// A timeout is uncertain settlement, never authority to retry or release proof.
+func DropOwnedDatabase(ctx context.Context, adminDSN, name string) error {
+	return dropOwnedDatabase(ctx, adminDSN, name, productionDropOperations)
 }
 
-func dropOwnedDatabase(
-	ctx context.Context,
-	adminDSN string,
-	name string,
-	normalLimit time.Duration,
-	forcedLimit time.Duration,
-	operations dropOperations,
-) (forced bool, resultErr error) {
-	if err := validateDatabaseIdentifier(name); err != nil {
-		return false, err
+func dropOwnedDatabase(ctx context.Context, adminDSN, name string, operations dropOperations) (resultErr error) {
+	if ctx == nil {
+		return errors.New("database drop requires a parent context")
 	}
-	if adminDSN == "" {
-		return false, errors.New("database drop requires an administrator DSN")
-	}
-	if normalLimit <= 0 || forcedLimit <= 0 {
-		return false, errors.New("database drop requires positive normal and forced limits")
-	}
-
-	var normalErr error
-	normalAdmissionErr := operations.withNormalAdmission(ctx, adminDSN, name, func(drop databaseDropExecutor) {
-		normalCtx, cancelNormal := context.WithTimeout(ctx, normalLimit)
-		normalErr = drop(normalCtx, name, false)
-		cancelNormal()
-	})
-	if normalAdmissionErr != nil {
-		return false, errors.Join(normalErr, normalAdmissionErr)
-	}
-	if normalErr == nil {
-		return false, nil
-	}
-	if ctx.Err() != nil {
-		return false, normalErr
-	}
-	var pgErr *pgconn.PgError
-	normalTimedOut := errors.Is(normalErr, context.DeadlineExceeded)
-	if (!errors.As(normalErr, &pgErr) || pgErr.Code != "55006") && !normalTimedOut {
-		return false, normalErr
-	}
-
-	forced = true
-	var forcedErr error
-	forcedAdmissionErr := operations.withForcedAdmission(ctx, adminDSN, name, func(drop databaseDropExecutor) {
-		forcedCtx, cancelForced := context.WithTimeout(ctx, forcedLimit)
-		defer cancelForced()
-		forcedErr = drop(forcedCtx, name, true)
-	})
-	return forced, errors.Join(forcedErr, forcedAdmissionErr)
-}
-
-// ForceDropDatabase coordinates one atomic forced drop. It exists for
-// explicitly owned fixture paths whose lifecycle has no ordinary borrower
-// phase; per-test database finalizers use DropOwnedDatabase instead.
-func ForceDropDatabase(ctx context.Context, adminDSN string, name string) error {
 	if err := validateDatabaseIdentifier(name); err != nil {
 		return err
 	}
 	if adminDSN == "" {
 		return errors.New("database drop requires an administrator DSN")
 	}
-	var dropErr error
-	lockErr := productionDropOperations.withForcedAdmission(ctx, adminDSN, name, func(drop databaseDropExecutor) {
-		dropErr = drop(ctx, name, true)
+	// Callers without an enclosing cleanup deadline still receive one bounded
+	// lifetime. Existing owner deadlines remain authoritative across both phases.
+	if _, bounded := ctx.Deadline(); !bounded {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, databaseDropAdmissionLimit+databaseDropOperationLimit)
+		defer cancel()
+	}
+	started := time.Now()
+	observation := DropAttempt{Admission: "not_attempted", AdmissionBudgetMS: effectiveBudget(ctx, databaseDropAdmissionLimit).Milliseconds(), Wait: DropObservation{Status: "not_observed"}}
+	defer func() {
+		observation.DurationMS = time.Since(started).Milliseconds()
+		observation.Outcome = "completed"
+		if resultErr == nil {
+			return
+		}
+		observation.Outcome = "failed"
+		if errors.Is(resultErr, context.DeadlineExceeded) {
+			observation.Outcome = "deadline_exceeded"
+		} else if errors.Is(resultErr, context.Canceled) {
+			observation.Outcome = "cancelled"
+		}
+		resultErr = &attemptError{err: resultErr, observation: observation}
+	}()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	observation.Admission = "rejected"
+	defer func() {
+		if observation.Admission != "acquired" {
+			observation.AdmissionMS = time.Since(started).Milliseconds()
+		}
+	}()
+	return operations.withAdmission(ctx, adminDSN, name, func(drop databaseDropExecutor) error {
+		observation.Admission = "acquired"
+		observation.AdmissionMS = time.Since(started).Milliseconds()
+		operationStarted := time.Now()
+		defer func() { observation.OperationMS = time.Since(operationStarted).Milliseconds() }()
+		operationCtx, cancel := context.WithTimeout(ctx, databaseDropOperationLimit)
+		defer cancel()
+		observation.OperationBudgetMS = effectiveBudget(operationCtx, databaseDropOperationLimit).Milliseconds()
+		if err := operationCtx.Err(); err != nil {
+			return err
+		}
+		err := drop(operationCtx, name)
+		var observed *observedDropError
+		if errors.As(err, &observed) {
+			observation.Wait = observed.observation
+			observation.ServiceGeneration = observed.observation.ServiceGeneration
+		}
+		return err
 	})
-	return errors.Join(dropErr, lockErr)
 }
 
-func executeDatabaseDrop(ctx context.Context, admin *sql.Conn, name string, force bool) error {
-	statement := fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, name)
-	stage := "normal_drop"
-	if force {
-		statement += " WITH (FORCE)"
-		stage = "forced_drop"
-	}
+func executeDatabaseDrop(ctx context.Context, admin *sql.Conn, name string) error {
+	statement := fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, name)
 	if _, err := admin.ExecContext(ctx, statement); err != nil {
-		return &postgrescatalog.MutationError{Stage: stage, Err: err}
+		return &postgrescatalog.MutationError{Stage: "forced_drop", Err: err}
 	}
 	return nil
 }

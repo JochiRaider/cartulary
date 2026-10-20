@@ -27,9 +27,9 @@ import {
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 
 test("membership audit browses 105 real exact role changes with accepted query pagination and instant boundaries", async ({
-  workerAdminPage: page,
-  workerAdmin,
-  workerAdminRequest,
+  testActorPage: page,
+  testActor,
+  testActorRequest,
   browser,
   sessionTracker,
 }, testInfo) => {
@@ -49,7 +49,7 @@ test("membership audit browses 105 real exact role changes with accepted query p
   });
   let version = 1;
   for (let index = 0; index < 105; index++) {
-    const result = await workerAdminRequest.patch(
+    const result = await testActorRequest.patch(
       `/api/v1/incidents/${incidentId}/memberships/${member.user_id}`,
       {
         data: {
@@ -64,7 +64,7 @@ test("membership audit browses 105 real exact role changes with accepted query p
     ).data.membership_version;
   }
   const query = {
-    actor_user_id: workerAdmin.user_id,
+    actor_user_id: testActor.user_id,
     action_code: "membership_role_changed",
     target_kind: "incident_membership",
     target_id: member.user_id,
@@ -73,7 +73,7 @@ test("membership audit browses 105 real exact role changes with accepted query p
   const read = (extra: Record<string, string> = {}) =>
     publicHttpOperation({
       operationID: "listIncidentMembershipAuditEvents",
-      request: workerAdminRequest,
+      request: testActorRequest,
       pathParameters: { incident_id: incidentId },
       query: { ...query, ...extra },
     });
@@ -198,7 +198,7 @@ test("membership audit browses 105 real exact role changes with accepted query p
 });
 
 test("membership audit fences delayed reads across query drawer section and visibility with explicit cursor recovery", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installMembershipAuditPresentation(page);
   const event = membershipBrowserEvent(fixture.incidentId);
@@ -299,7 +299,7 @@ test("membership audit fences delayed reads across query drawer section and visi
 });
 
 test("membership audit distinguishes temporary observation failure role downgrade hidden incident and session loss", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installMembershipAuditPresentation(page);
   const panel = await openMembershipAudit(page);
@@ -342,7 +342,7 @@ test("membership audit distinguishes temporary observation failure role downgrad
 });
 
 test("membership audit rejects malformed scope and preserves additive inert JSON inspection", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installMembershipAuditPresentation(page);
   const panel = await openMembershipAudit(page);

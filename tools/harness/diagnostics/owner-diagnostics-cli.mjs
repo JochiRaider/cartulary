@@ -31,7 +31,7 @@ function parseArgs(argv) {
 }
 
 function humanTaskGuide(summary, detail) {
-  if (detail === "rows") return `${summary.rows.map((row) => `${row.row_id} runner=${row.runner} evidence=${row.evidence_class} placement=${row.aggregate_placement} fixture=${row.fixture_capability}\n  ${row.command}`).join("\n")}\n`;
+  if (detail === "rows") return `${summary.rows.map((row) => `${row.row_id} runner=${row.runner} evidence=${row.evidence_class} placement=${row.aggregate_placement} fixture=${row.fixture_capability} postgres=${row.postgres_isolation}\n  ${row.command}`).join("\n")}\n`;
   if (detail === "coverage") return `${JSON.stringify(summary.coverage, null, 2)}\n${summary.focused_commands.join("\n")}\n`;
   return `${[
     `owner ${summary.owner_id}`,

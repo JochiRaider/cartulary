@@ -18,12 +18,12 @@ import { patchUser } from "./support/auth/sessions";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 
 test("administrative audit browses more than one hundred real exact matching events and timestamp boundaries", async ({
-  workerAdminPage: page,
-  workerAdmin,
-  workerAdminRequest,
+  testActorPage: page,
+  testActor,
+  testActorRequest,
 }, testInfo) => {
   test.setTimeout(120_000);
-  let target = await createDeploymentUser(workerAdminRequest, {
+  let target = await createDeploymentUser(testActorRequest, {
     email: `audit-${randomUUID()}@example.test`,
     display_name: "Audit pagination fixture",
     initial_password: "AuditPaginationFixture!2026",
@@ -32,12 +32,12 @@ test("administrative audit browses more than one hundred real exact matching eve
   });
   try {
     for (let index = 0; index < 105; index++)
-      target = await patchUser(workerAdminRequest, target.user_id, {
+      target = await patchUser(testActorRequest, target.user_id, {
         base_user_version: target.user_version,
         display_name: `Audit pagination event ${index}`,
       });
     const query = {
-      actor_user_id: workerAdmin.user_id,
+      actor_user_id: testActor.user_id,
       action_code: "user_profile_updated",
       target_kind: "user",
       target_id: target.user_id,
@@ -45,7 +45,7 @@ test("administrative audit browses more than one hundred real exact matching eve
     };
     const first = await publicHttpOperation({
       operationID: "listAdministrativeAuditEvents",
-      request: workerAdminRequest,
+      request: testActorRequest,
       query,
     });
     if (!first.ok) throw new Error(`Audit first page failed: ${first.status}`);
@@ -54,7 +54,7 @@ test("administrative audit browses more than one hundred real exact matching eve
     expect(cursor).toBeTruthy();
     const second = await publicHttpOperation({
       operationID: "listAdministrativeAuditEvents",
-      request: workerAdminRequest,
+      request: testActorRequest,
       query: { ...query, cursor_token: cursor },
     });
     if (!second.ok)
@@ -69,12 +69,12 @@ test("administrative audit browses more than one hundred real exact matching eve
     if (!newest) throw new Error("Missing generated event");
     const inclusive = await publicHttpOperation({
       operationID: "listAdministrativeAuditEvents",
-      request: workerAdminRequest,
+      request: testActorRequest,
       query: { ...query, occurred_at_gte: newest.occurred_at },
     });
     const exclusive = await publicHttpOperation({
       operationID: "listAdministrativeAuditEvents",
-      request: workerAdminRequest,
+      request: testActorRequest,
       query: { ...query, occurred_at_lt: newest.occurred_at },
     });
     if (!inclusive.ok || !exclusive.ok)
@@ -87,7 +87,7 @@ test("administrative audit browses more than one hundred real exact matching eve
     ).not.toContain(newest.audit_event_id);
     const mismatch = await publicHttpOperation({
       operationID: "listAdministrativeAuditEvents",
-      request: workerAdminRequest,
+      request: testActorRequest,
       query: { ...query, cursor_token: cursor, limit: 99 },
     });
     expect(mismatch.ok).toBe(false);
@@ -102,7 +102,7 @@ test("administrative audit browses more than one hundred real exact matching eve
     await expect(panel.getByRole("status")).toContainText("Page 1:");
     await panel
       .getByLabel("Actor user ID", { exact: true })
-      .fill(workerAdmin.user_id);
+      .fill(testActor.user_id);
     await panel
       .getByLabel("Action code", { exact: true })
       .selectOption(query.action_code);
@@ -170,7 +170,7 @@ test("administrative audit browses more than one hundred real exact matching eve
       contentType: "application/json",
     });
   } finally {
-    await patchUser(workerAdminRequest, target.user_id, {
+    await patchUser(testActorRequest, target.user_id, {
       base_user_version: target.user_version,
       is_active: false,
     });
@@ -178,7 +178,7 @@ test("administrative audit browses more than one hundred real exact matching eve
 });
 
 test("administrative audit fences delayed pages and errors with keyboard filter recovery and focus continuity", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const fixture = await installAuditPresentation(page);
   fixture.setPage([auditBrowserEvent()], "opaque-page-two");

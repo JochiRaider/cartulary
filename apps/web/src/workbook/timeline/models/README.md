@@ -21,10 +21,10 @@ Settlement uses that capture to preserve newer authoring.
 | [timelineAcceptedMutationEffects.ts](timelineAcceptedMutationEffects.ts) | Pure post-acceptance selection, notice, created-row, and continuity effect planning. |
 | [timelineConflictState.ts](timelineConflictState.ts) | Timeline-local same-field and grouped-paste conflict state types. |
 | [TimelineCaptureLifecycle.ts](TimelineCaptureLifecycle.ts) | Runtime draft allocation, accepted identity aliases and revision-preserving promotion over the retained draft store. |
-| [timelineMutationDriverPlans.test.ts](timelineMutationDriverPlans.test.ts) | Tests exact owner-unit replay admission, committed versions, and mutation settlement plans. |
+| [timelineMutationDriverPlans.node.test.ts](timelineMutationDriverPlans.node.test.ts) | Tests exact owner-unit replay admission, committed versions, and mutation settlement plans. |
 | [timelineMutationDriverPlans.ts](timelineMutationDriverPlans.ts) | Pure Timeline replay admission, settlement, discard, and accepted-projection decisions. |
 | [timelineMutationIntents.ts](timelineMutationIntents.ts) | Exact scalar, collection-action, and draft-create mutation intent construction. |
-| [timelineMutationModels.test.ts](timelineMutationModels.test.ts) | Pure intent, deduplication, acceptance, version-ledger, and discriminated-collection evidence. |
+| [timelineMutationModels.node.test.ts](timelineMutationModels.node.test.ts) | Pure intent, deduplication, acceptance, version-ledger, and discriminated-collection evidence. |
 | [timelineMutationQueueAdmission.ts](timelineMutationQueueAdmission.ts) | Pure scalar/collection no-op, conflict, duplicate, and exact queue-admission decisions. |
 | [timelinePendingSaves.ts](timelinePendingSaves.ts) | Timeline-local pending signature, replay-order, and serial-save references. |
 
@@ -34,42 +34,42 @@ Settlement uses that capture to preserve newer authoring.
 | --- | --- |
 | [timelineAcceptedProjection.ts](timelineAcceptedProjection.ts) | Pure accepted-row replacement, insertion, and bottom-draft projection. |
 | [timelineCommittedVersionLedger.ts](timelineCommittedVersionLedger.ts) | Monotonic committed row/version high-water ledger with reference-preserving acceptance. |
-| [timelineLoadMachine.test.ts](timelineLoadMachine.test.ts) | Exhaustive load-subject, lifecycle, mutation-race, retry-bound, failure, access-loss, and obligation-join transition evidence. |
+| [timelineLoadMachine.node.test.ts](timelineLoadMachine.node.test.ts) | Exhaustive load-subject, lifecycle, mutation-race, retry-bound, failure, access-loss, and obligation-join transition evidence. |
 | [timelineLoadMachine.ts](timelineLoadMachine.ts) | Pure incident/surface/query/generation/mutation-epoch/source-obligation transitions with explicit load effects. |
 | [timelineRowModel.ts](timelineRowModel.ts) | Timeline row envelope decoding, normalization, materialization, and sparse-patch application. |
-| [timelineRowsModel.test.ts](timelineRowsModel.test.ts) | Tests for Timeline grid-row materialization. |
+| [timelineRowsModel.node.test.ts](timelineRowsModel.node.test.ts) | Tests for Timeline grid-row materialization. |
 | [timelineRowsModel.ts](timelineRowsModel.ts) | Timeline row collection helpers, stable grid identities, and readable bulk-selection context derived from committed synopsis/time. |
-| [timelineWorkbookRuntime.test.ts](timelineWorkbookRuntime.test.ts) | Deterministic lifecycle transition traces for load, refresh, save, conflict, and recovery state. |
+| [timelineWorkbookRuntime.node.test.ts](timelineWorkbookRuntime.node.test.ts) | Deterministic lifecycle transition traces for load, refresh, save, conflict, and recovery state. |
 | [timelineWorkbookSurfaceRuntime.ts](timelineWorkbookSurfaceRuntime.ts) | Required shell-owned Timeline composition contract for incident, query, entity, layout, and access-loss services. |
-| [workbookRecordFreshness.test.ts](workbookRecordFreshness.test.ts) | Tests for comparable and non-comparable row-version freshness decisions. |
+| [workbookRecordFreshness.node.test.ts](workbookRecordFreshness.node.test.ts) | Tests for comparable and non-comparable row-version freshness decisions. |
 | [workbookRecordFreshness.ts](workbookRecordFreshness.ts) | Pure durable-identity and row-version freshness comparison leaf. |
 
 ## Interaction and presentation
 
 | File | Responsibility |
 | --- | --- |
-| [timelineBulkTagPlan.test.ts](timelineBulkTagPlan.test.ts) | Tests authorization, capability, ordered selected records, versions and invalid/partial target rejection. |
+| [timelineBulkTagPlan.node.test.ts](timelineBulkTagPlan.node.test.ts) | Tests authorization, capability, ordered selected records, versions and invalid/partial target rejection. |
 | [timelineBulkTagPlan.ts](timelineBulkTagPlan.ts) | Pure current-page stable-target validation and submitted tag-value normalization; completion belongs to the retained runtime. |
 | [timelineClipboardPastePlan.test.ts](timelineClipboardPastePlan.test.ts) | Tests exact editable paste batches, target identity, and fail-closed authority/shape validation. |
 | [timelineClipboardPastePlan.ts](timelineClipboardPastePlan.ts) | Timeline table admission and exact schema-header mapping through the shared clipboard decoder; captures stable semantic targets. |
 | [timelineCollectionPresentation.ts](timelineCollectionPresentation.ts) | Discriminated relationship/tag collection items, overflow identity, and accessible hidden labels. |
 | [timelineControllerPorts.ts](timelineControllerPorts.ts) | Neutral capability-port, row-store, committed-record-idle, context-menu-position, and replay contracts shared by isolated Timeline controllers. |
 | [timelineFieldRegistry.ts](timelineFieldRegistry.ts) | Exhaustive Timeline scalar, collection, readonly, inspector, and focus binding registry. |
-| [timelineKeyboardIntentModel.test.ts](timelineKeyboardIntentModel.test.ts) | Tests scalar and collection keyboard intent mapping independently of focus or save effects. |
+| [timelineKeyboardIntentModel.node.test.ts](timelineKeyboardIntentModel.node.test.ts) | Tests scalar and collection keyboard intent mapping independently of focus or save effects. |
 | [timelineKeyboardIntentModel.ts](timelineKeyboardIntentModel.ts) | Pure mapping of editor and work-area key events to semantic Timeline intents. |
 | [timelineLayoutPolicy.ts](timelineLayoutPolicy.ts) | Pure Timeline grouping labels and base/expanded column-width policy. |
-| [timelineModelBoundaries.test.ts](timelineModelBoundaries.test.ts) | Tests for Timeline row, payload, binding, normalization, and display helpers. |
-| [timelineViewportContinuityModel.test.ts](timelineViewportContinuityModel.test.ts) | Tests for viewport continuity and refresh barrier helpers. |
+| [timelineModelBoundaries.node.test.ts](timelineModelBoundaries.node.test.ts) | Tests for Timeline row, payload, binding, normalization, and display helpers. |
+| [timelineViewportContinuityModel.node.test.ts](timelineViewportContinuityModel.node.test.ts) | Tests for viewport continuity and refresh barrier helpers. |
 | [timelineViewportContinuityModel.ts](timelineViewportContinuityModel.ts) | Timeline viewport continuity and entity-refresh barrier helpers. |
 
 ## Owner action models
 
 | File | Responsibility |
 | --- | --- |
-| [timelineEvidenceAttachmentPlan.test.ts](timelineEvidenceAttachmentPlan.test.ts) | Covers explicit record/draft source capture, accepted draft aliases, missing/unavailable/ambiguous rejection, and pending-creation ownership. |
+| [timelineEvidenceAttachmentPlan.node.test.ts](timelineEvidenceAttachmentPlan.node.test.ts) | Covers explicit record/draft source capture, accepted draft aliases, missing/unavailable/ambiguous rejection, and pending-creation ownership. |
 | [timelineEvidenceAttachmentPlan.ts](timelineEvidenceAttachmentPlan.ts) | Pure file-gesture target resolution and source snapshots; never takes Inspector selection or visual row coordinates. |
 | [timelineEvidenceLinks.ts](timelineEvidenceLinks.ts) | Validates current linked Evidence identities and keys link observations for review fences. |
 | [timelineHistoryModel.ts](timelineHistoryModel.ts) | Selects the canonical live/deleted Timeline History subject across selection, deletion, and restore. |
-| [timelineMentionActionPlan.test.ts](timelineMentionActionPlan.test.ts) | Covers Mention source/version refresh, typed target validation, access loss, surface changes, and entity-create admission. |
+| [timelineMentionActionPlan.node.test.ts](timelineMentionActionPlan.node.test.ts) | Covers Mention source/version refresh, typed target validation, access loss, surface changes, and entity-create admission. |
 | [timelineMentionActionPlan.ts](timelineMentionActionPlan.ts) | Builds an exact mention-action subject from a committed Timeline row and public mention identity. |
 | [workbookMentionChips.ts](workbookMentionChips.ts) | Mention chip state, relationship-field keys, and mention display helpers. |

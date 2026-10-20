@@ -163,7 +163,7 @@ test("physical cleanup diagnostics remain bounded and cannot authorize success",
   const { findCleanupDiagnostic, withCleanupDiagnostic } = await import("../runtime/cleanup-diagnostic.mjs");
   const scratch = mkdtempSync(path.join(os.tmpdir(), "cleanup-diagnostic-"));
   t.after(() => rmSync(scratch, {recursive:true,force:true}));
-  const valid = {schema_id:"cartulary.harness_cleanup_diagnostic.v1",stage:"process_signal",cause:"io",errno:13};
+  const valid = {schema_id:"cartulary.harness_cleanup_diagnostic.v3",stage:"process_signal",cause:"io",errno:13};
   const cases = [
     [JSON.stringify(valid), "process_signal"],
     [JSON.stringify({...valid,process_id:123}), "process_protocol"],
@@ -185,4 +185,45 @@ test("physical cleanup diagnostics remain bounded and cannot authorize success",
   Object.defineProperty(privateFailure,"privateDiagnostic",{value:{reason:"unsafe",errno:null,process_id:123,proof_file:"environ"}});
   const projected=findCleanupDiagnostic(withCleanupDiagnostic(privateFailure,"browser_acknowledgement"));
   assert.deepEqual(projected,{schema_id:valid.schema_id,stage:"browser_acknowledgement",cause:"unsafe",errno:0});
+  const wrapped = new AggregateError([new Error("private wrapper", {cause:privateFailure})], "private outer");
+  assert.deepEqual(findCleanupDiagnostic(withCleanupDiagnostic(wrapped,"recovery_proof")), projected);
+  const unprojected = new Error("private-path-sentinel");
+  Object.defineProperty(unprojected,"privateDiagnostic",{value:privateFailure.privateDiagnostic});
+  const nested = new AggregateError([new Error("private wrapper", {cause:unprojected})], "private outer");
+  assert.deepEqual(findCleanupDiagnostic(withCleanupDiagnostic(nested,"recovery_proof")),
+    {schema_id:valid.schema_id,stage:"recovery_proof",cause:"unsafe",errno:0});
+});
+
+
+test("cleanup evidence retains each failure without leaking private errors", async (t) => {
+  const { CleanupResults } = await import("../runtime/cleanup-results.mjs");
+  const { withCleanupDiagnostic } = await import("../runtime/cleanup-diagnostic.mjs");
+  const root = mkdtempSync(path.join(os.tmpdir(), "cleanup-results-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const results = new CleanupResults();
+  const cause = new Error("credential-sentinel");
+  Object.defineProperty(cause, "privateDiagnostic", { value: { reason: "io", errno: 13, proof_file: "credential-sentinel" } });
+  results.record("fixture_release", { error: withCleanupDiagnostic(cause, "browser_namespace") });
+  results.record("host_release", { error: new Error("another-private-path") });
+  results.record("services_close", { blocked: true });
+  results.record("runtime_close");
+  results.publish(root, "cleanup-evidence");
+  const bytes = readFileSync(path.join(root, "cleanup-results.json"), "utf8");
+  assert.equal(bytes.includes("sentinel"), false);
+  assert.equal(bytes.includes("private-path"), false);
+  const record = JSON.parse(bytes);
+  validateSchemaSync("cartulary.harness_cleanup_results.v2", record);
+  assert.deepEqual(record.results.map(x => x.diagnostic?.stage ?? null), ["browser_namespace", "host_release", null, null]);
+  assert.equal(record.results[0].diagnostic.errno, 13);
+  for (const mutate of [
+    r => { r.schema_id = "cartulary.harness_cleanup_results.v1"; },
+    r => { r.results[0].diagnostic = null; },
+    r => { r.results[0].diagnostic.schema_id = "cartulary.harness_cleanup_diagnostic.v2"; },
+    r => { r.results[0].diagnostic.secret = "credential-sentinel"; },
+    r => { r.results[0].diagnostic.stage = "arbitrary-private-path"; },
+    r => { r.results[3].diagnostic = r.results[0].diagnostic; },
+  ]) {
+    const candidate = structuredClone(record); mutate(candidate);
+    assert.throws(() => validateSchemaSync("cartulary.harness_cleanup_results.v2", candidate));
+  }
 });

@@ -18,7 +18,7 @@ export function validateRetainedGraph(run, plan) {
 }
 
 export function validateRetainedCleanup(run, cleanup) {
-  validateSchemaSync("cartulary.harness_cleanup_results.v1", cleanup);
+  validateSchemaSync("cartulary.harness_cleanup_results.v2", cleanup);
   if (cleanup.run_id !== run.manifest.run_id || cleanup.results.some((result) => result.outcome !== "completed")) throw new Error("retained cleanup did not complete");
   if (cleanup.results.some((result, index) => result.sequence !== index + 1 || (result.unit_id !== null && !run.registrations.has(result.unit_id)))) throw new Error("retained cleanup roster is inconsistent");
   for (const id of run.started.keys()) {
@@ -51,7 +51,7 @@ export function validateRetainedSelection(runRoot, run, units, projection, catal
       const row = byRow?.get(rowID);
       if (byRow && !row) throw new Error("selected row is absent from the current catalog");
       const result = read(runRoot, `rows/${rowID}.json`);
-      validateSchemaSync("cartulary.harness_row_result.v4", result);
+      validateSchemaSync("cartulary.harness_row_result.v6", result);
       if (result.row_id !== rowID || result.runner !== bindings.get(rowID) || (row && result.runner !== row.runner) || result.terminal_state !== "passed" ||
           result.exit_code !== 0 || result.failure_class !== null || result.failure_reason !== null) throw new Error("required row has no compatible successful terminal result");
     }

@@ -43,7 +43,7 @@ func TestAttachBlobValidation_Unit(t *testing.T) {
 
 	harness := newTestStore(t, "evidence_lifecycle-attach-validation")
 	store := newTestBlobLifecycleService(t, harness)
-	actor := authstoretest.SeedLocalUserRecord(t, harness, "evidence_lifecycle-attach@example.test", "EvidenceLifecycle Attach", "EvidenceLifecycleAttach1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness, authstoretest.ActorAttributes{Email: "evidence_lifecycle-attach@example.test", DisplayName: "EvidenceLifecycle Attach"})
 	incident := createTestIncident(t, harness, actor, "txn-evidence_lifecycle-attach-incident", "IR-P5-ATTACH", "Evidence attach")
 	otherIncident := createTestIncident(t, harness, actor, "txn-evidence_lifecycle-attach-other", "IR-P5-ATTACH-OTHER", "Evidence attach other")
 
@@ -386,7 +386,7 @@ SELECT COUNT(*)
 func TestBlobAssociation_RejectsReuseWithConcealment(t *testing.T) {
 	harness := newTestStore(t, "evidence-blob-association-contract")
 	store := newTestBlobLifecycleService(t, harness)
-	actor := authstoretest.SeedLocalUserRecord(t, harness, "evidence-association@example.test", "Evidence Association", "EvidenceAssociation1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness, authstoretest.ActorAttributes{Email: "evidence-association@example.test", DisplayName: "Evidence Association"})
 	incident := createTestIncident(t, harness, actor, "txn-evidence-association-incident", "IR-EVIDENCE-ASSOCIATION", "Evidence association")
 	firstRecordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
 	secondRecordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received")
@@ -434,7 +434,7 @@ func TestBlobAssociation_ConcurrentRaceHasOneWinner(t *testing.T) {
 	t.Cleanup(pool.Close)
 	var harness postgres.DB = pool
 	store := newTestBlobLifecycleService(t, harness)
-	actor := authstoretest.SeedLocalUserRecord(t, harness, "evidence-association-race@example.test", "Evidence Association Race", "EvidenceAssociationRace1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness, authstoretest.ActorAttributes{Email: "evidence-association-race@example.test", DisplayName: "Evidence Association Race"})
 	incident := createTestIncident(t, harness, actor, "txn-evidence-association-race-incident", "IR-EVIDENCE-ASSOCIATION-RACE", "Evidence association race")
 	recordIDs := []uuid.UUID{
 		seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "received"),

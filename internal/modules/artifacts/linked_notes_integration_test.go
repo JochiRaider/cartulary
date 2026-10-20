@@ -25,16 +25,7 @@ import (
 func TestArtifactLinkedNoteAtomicity(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "artifacts-linked-note-atomicity")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"artifact-linked-note-owner@example.test",
-		"Artifact Linked Note Owner",
-		"ArtifactLinkedNoteOwner1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "artifact-linked-note-owner@example.test", DisplayName: "Artifact Linked Note Owner"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,

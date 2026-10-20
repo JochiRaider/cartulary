@@ -660,7 +660,7 @@ func waitForLeaseState(t *testing.T, lease *processlease.Lease, want processleas
 func TestExtensionBehaviorRouting_Static(t *testing.T) {
 	root := extensionsRepoRoot(t)
 	manifest := readExtensionsFamilyManifest(t, root)
-	if manifest.SchemaID != "cartulary.test_family_manifest.v10" || manifest.OwnerID != "module.extensions" {
+	if manifest.SchemaID != "cartulary.test_family_manifest.v12" || manifest.OwnerID != "module.extensions" {
 		t.Fatalf("unexpected Extensions family identity %q/%q", manifest.SchemaID, manifest.OwnerID)
 	}
 
@@ -730,9 +730,10 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 		requireExactStrings(t, row.Selector.Tests, testNames, rowID+" selector.tests")
 	}
 	characterizationRows := map[string]int{
-		"module.extensions.integration.network_flow_state_v4":             3,
-		"module.extensions.integration.state_admission_matrix_7f6ad80724": 19,
-		"module.extensions.integration.state_concurrent_admission":        1,
+		"module.extensions.integration.network_flow_state_v4":                                       3,
+		"module.extensions.integration.managed_service_assertions_for_state_admission_m_55b90ea265": 18,
+		"module.extensions.integration.service_free_contract_assertions_for_state_admis_e2f242ee26": 1,
+		"module.extensions.integration.state_concurrent_admission":                                  1,
 	}
 	for rowID, selectorCount := range characterizationRows {
 		row, exists := rows[rowID]
@@ -782,16 +783,23 @@ func TestExtensionBehaviorRouting_Static(t *testing.T) {
 		requireExactStrings(t, row.VerificationIDs, []string{extensionsBehaviorVerification}, rowID+" verification_ids")
 		requireExactStrings(t, row.Selector.Tests, testNames, rowID+" selector.tests")
 	}
-	namedPortabilityJobs, exists := rows["module.extensions.integration.named_portability_job_recovery_f7c496c10b"]
-	if !exists {
-		t.Fatal("named Incident Portability Jobs row is missing")
+	namedPortabilityRows := map[string][]string{
+		"module.extensions.integration.jobs_runner_composition_rejects_invalid_and_dupl_5be27f087d": {
+			"TestRunnerNamedCompositionRejectsInvalidAndDuplicateRegistration",
+		},
+		"module.extensions.integration.jobs_runner_dispatch_and_recovery_preserve_durab_f126232e74": {
+			"TestRunnerDispatchesDurableHandlerAndCompletesJob",
+			"TestRunnerRecoversQueuedDurableHandlerJob",
+		},
 	}
-	requireExactStrings(t, namedPortabilityJobs.VerificationIDs, []string{extensionsPortabilityJobs}, "named portability Jobs verification_ids")
-	requireExactStrings(t, namedPortabilityJobs.Selector.Tests, []string{
-		"TestRunnerDispatchesDurableHandlerAndCompletesJob",
-		"TestRunnerNamedCompositionRejectsInvalidAndDuplicateRegistration",
-		"TestRunnerRecoversQueuedDurableHandlerJob",
-	}, "named portability Jobs selector.tests")
+	for rowID, testNames := range namedPortabilityRows {
+		row, exists := rows[rowID]
+		if !exists {
+			t.Fatalf("named Incident Portability Jobs row %s is missing", rowID)
+		}
+		requireExactStrings(t, row.VerificationIDs, []string{extensionsPortabilityJobs}, rowID+" verification_ids")
+		requireExactStrings(t, row.Selector.Tests, testNames, rowID+" selector.tests")
+	}
 	browserAvailability, exists := rows["module.extensions.browser_stateful.bc015_availability_continuity_d538000c38"]
 	if !exists {
 		t.Fatal("Extensions browser availability continuity row is missing")

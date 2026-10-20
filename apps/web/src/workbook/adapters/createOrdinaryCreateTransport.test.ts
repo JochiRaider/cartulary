@@ -1,6 +1,6 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../testing/workbookFixtureData";
 import { publicWorkbookSchema } from "../../testing/workbookSchemaTestSupport";
 import { ordinaryCreateContributions } from "../features/ordinary/ordinaryCreateContributions";
 import { createOrdinaryCreateTransport } from "./createOrdinaryCreateTransport";

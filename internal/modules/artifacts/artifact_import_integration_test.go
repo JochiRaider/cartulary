@@ -22,16 +22,7 @@ import (
 func TestArtifactImportCreateFacadeContract(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "artifacts-import-create-contract")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"artifact-import-owner@example.test",
-		"Artifact Import Owner",
-		"ArtifactImportOwner1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "artifact-import-owner@example.test", DisplayName: "Artifact Import Owner"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,
@@ -151,16 +142,7 @@ func TestArtifactImportCreateFacadeContract(t *testing.T) {
 	}
 
 	t.Run("inactive user is rejected before source insertion", func(t *testing.T) {
-		inactive := authstoretest.SeedLocalUserRecord(
-			t,
-			harness.DB,
-			"artifact-import-inactive@example.test",
-			"Artifact Import Inactive",
-			"ArtifactImportInactive1!",
-			false,
-			false,
-			false,
-		)
+		inactive := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "artifact-import-inactive@example.test", DisplayName: "Artifact Import Inactive", Disabled: true})
 		target := artifactTargets[artifacts.HandoffViewSchemaID]
 		facade, err := artifacts.NewImportContribution(
 			artifacts.HandoffViewSchemaID,

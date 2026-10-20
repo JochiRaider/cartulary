@@ -21,11 +21,11 @@ printf '{"schema_id":"cartulary.test_services.scope.v2","target":"browser-e2e","
   "$suite_id" "$run_id" "$suite_root" "$(printf '4%.0s' {1..64})" >"$suite_root/service-scope.json"
 printf '{"schema_id":"cartulary.harness_run_manifest.v3","toolchain_digest":"sha256:2222222222222222222222222222222222222222222222222222222222222222","source_digest":"sha256:%s"}\n' \
   "$(printf '3%.0s' {1..64})" >"$run_root/run-manifest.json"
-mkdir -p "$private_suite_root/test-services"
-chmod 700 "$private_suite_root/test-services"
-printf '{"schema_id":"cartulary.test_services.lease.v2","lease_id":"00000000-0000-4000-8000-000000000001","suite_id":"%s","run_id":"%s","cleanup_state":"not_started","resources":[{"kind":"container","service":"postgres","container_id":"postgres-container-proof"},{"kind":"container","service":"object_store","container_id":"object-store-container-proof"}]}\n' \
-  "$suite_id" "$run_id" >"$private_suite_root/test-services/service-lease.json"
-chmod 600 "$private_suite_root/test-services/service-lease.json"
+mkdir -p "$private_suite_root/test-services/$suite_id"
+chmod 700 "$private_suite_root/test-services/$suite_id"
+printf '{"schema_id":"cartulary.test_services.lease.v3","lease_id":"00000000-0000-4000-8000-000000000001","suite_id":"%s","run_id":"%s","cleanup_state":"not_started","postgres_provisioning":{"schema_id":"cartulary.test_services.postgres_provisioning.v2","generation":"12345","postgres_isolation":"exclusive","allocation_ref":"artifact-fixture","policy_digest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","template_digest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"resources":[{"kind":"container","service":"postgres","container_id":"postgres-container-proof"},{"kind":"container","service":"object_store","container_id":"object-store-container-proof"}]}\n' \
+  "$suite_id" "$run_id" >"$private_suite_root/test-services/$suite_id/service-lease.json"
+chmod 600 "$private_suite_root/test-services/$suite_id/service-lease.json"
 printf '{"database_name":"ct_web_test","bucket":"ct-web-test"}\n' >"$runtime_root/test-services-web-e2e.json"
 printf 'backend\n' >"$private_session_root/logs/server.log"
 printf 'frontend\n' >"$private_session_root/logs/web.log"
@@ -68,6 +68,11 @@ export CARTULARY_WEB_E2E_TEST_SERVICES_METADATA_FILE="$runtime_root/test-service
 # Independent parent fixture; the earlier subshell does not supply its template.
 # shellcheck disable=SC2031
 export CARTULARY_PGTEST_TEMPLATE_DB=ct_suite_template
+export CARTULARY_PGTEST_GENERATION=12345
+export CARTULARY_PGTEST_ISOLATION=exclusive
+export CARTULARY_PGTEST_ALLOCATION_REF=artifact-fixture
+export CARTULARY_PGTEST_PROVISIONING_DIGEST=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+export CARTULARY_PGTEST_TEMPLATE_DIGEST=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 CARTULARY_PGTEST_SCHEMA_HASH="sha256:$(printf '2%.0s' {1..64})"
 export CARTULARY_PGTEST_SCHEMA_HASH
 export CARTULARY_S3TEST_ENDPOINT=127.0.0.1:39000

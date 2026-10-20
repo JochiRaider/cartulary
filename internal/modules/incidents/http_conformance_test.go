@@ -410,7 +410,7 @@ func TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTP
 		t.Fatalf("membership create must not auto-create a missing user, got %d rows", got)
 	}
 
-	flowtest.SeedLocalUserFlags(t, harness.DB, "inactive@example.test", "Inactive User", "InactiveUser1!", false, false, false)
+	flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "inactive@example.test", DisplayName: "Inactive User", Disabled: true})
 	contracttest.RequireErrorContract(t, "user_inactive", http.StatusConflict)
 	inactiveUser := httptestx.DoJSON(
 		t,
@@ -438,7 +438,7 @@ func TestMembershipPatchAndDeleteEnforceBaseVersionAndLastAdminGuardHTTPConforma
 		"title":         "Membership Versioning",
 	})
 	incidentID := incident["incident_id"].(string)
-	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-u207@example.test", "IncidentMembership U207", "IncidentMembershipU207Pass!", false, false, true)
+	targetUserID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "incident_membership-u207@example.test", DisplayName: "IncidentMembership U207"}).ID.String()
 
 	// Membership administration remains available after incident closure.
 	closeResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",

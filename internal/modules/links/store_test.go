@@ -18,7 +18,7 @@ import (
 
 func TestActiveLinksAndTagsViewsV1Contract(t *testing.T) {
 	harness := appsupport.StartStore(t, "saved_view_query-active-links-tags-v1")
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-views@example.test", "Workbook query Views", "SavedViewQueryViewsPass1!", false, true, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "saved_view_query-views@example.test", DisplayName: "Workbook query Views", DeploymentAdmin: true})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-active-views-incident", "IR-P8-VIEWS", "Workbook query active view contracts")
 	incidentID := incident.ID
 
@@ -139,7 +139,7 @@ VALUES
 
 func TestRecordLinkOwnerValidation(t *testing.T) {
 	harness := appsupport.StartStore(t, "saved_view_query-link-owner-validation")
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "saved_view_query-validation@example.test", "Workbook query Validation", "SavedViewQueryValidationPass1!", false, true, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "saved_view_query-validation@example.test", DisplayName: "Workbook query Validation", DeploymentAdmin: true})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-saved_view_query-link-validation-incident", "IR-P8-VALIDATE", "Workbook query link validation")
 	src := uuid.New()
 	dst := uuid.New()
@@ -261,7 +261,7 @@ func TestRecordLinkOwnerValidation(t *testing.T) {
 
 func TestFieldAwareLinkIdentityAndMergeCharacterization(t *testing.T) {
 	harness := appsupport.StartStore(t, "links-field-aware-characterization")
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "links-field-aware@example.test", "Links Field Aware", "LinksFieldAwarePass1!", false, true, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "links-field-aware@example.test", DisplayName: "Links Field Aware", DeploymentAdmin: true})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-links-field-aware-incident", "IR-LINK-FIELD", "Links field identity")
 	ctx := context.Background()
 	now := time.Date(2026, time.August, 21, 18, 40, 0, 0, time.UTC)

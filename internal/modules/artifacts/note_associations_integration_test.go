@@ -81,7 +81,7 @@ func (tx *associationObservedTx) Rollback(ctx context.Context) error {
 func TestNoteAssociationResource(t *testing.T) {
 	ctx := context.Background()
 	h := appsupport.StartStore(t, "note-association-resource")
-	actor := authstoretest.SeedLocalUserRecord(t, h.DB, "note-association@example.test", "Notes owner", "NoteAssociationOwner1!", false, false, true)
+	actor := authstoretest.SeedActor(t, h.DB, authstoretest.ActorAttributes{Email: "note-association@example.test", DisplayName: "Notes owner"})
 	incident := appsupport.CreateIncidentInStore(t, h.DB, actor, "association-incident", "IR-NOTE-ASSOCIATION", "Associations")
 	observedDB := &associationConnectionObserver{DB: h.DB}
 	t.Cleanup(func() {

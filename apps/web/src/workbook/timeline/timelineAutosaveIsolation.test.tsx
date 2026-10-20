@@ -18,9 +18,11 @@ import { renderTimelineWorkbook } from "../../testing/timelineWorkbookRenderTest
 import {
   cleanupTimelineWorkbookTestGlobals,
   installTimelineWorkbookTestGlobals,
+} from "../../testing/timelineWorkbookTestSupport";
+import {
   successEnvelope,
   timelineRow,
-} from "../../testing/timelineWorkbookTestSupport";
+} from "../../testing/workbookFixtureData";
 import { defaultWorkbookLayoutState } from "../layout/workbookColumnLayout";
 import type { WorkbookMutationRuntime } from "../runtime/WorkbookMutationRuntime";
 import type { TimelineCollectionCell } from "./components/TimelineCollectionCell";

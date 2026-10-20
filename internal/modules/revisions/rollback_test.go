@@ -1120,7 +1120,7 @@ VALUES ($1, $2, $3, $4, 'references_record', 'manual', $5, $5, $6, $6, $7, $5)
 func seedRollbackRecordLinkPatch(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, changeSetID uuid.UUID) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) {
 	t.Helper()
 	src, dst := seedRollbackHostPair(t, db, incidentID, actorID, "Patched Link Src", "Patched Link Dst")
-	creator := authflowtest.SeedLocalUserRecord(t, db, "history_revision-link-creator-"+uuid.NewString()+"@example.test", "History Link Creator", "HistoryLinkCreatorPass1!", false, false, true)
+	creator := authflowtest.SeedActor(t, db, authflowtest.ActorAttributes{Email: "history_revision-link-creator-" + uuid.NewString() + "@example.test", DisplayName: "History Link Creator"})
 	linkID := uuid.New()
 	createdAt := time.Date(2026, 5, 10, 12, 3, 0, 0, time.UTC)
 	decidedAt := createdAt.Add(30 * time.Second)

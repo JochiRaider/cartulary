@@ -158,7 +158,7 @@ func TestTransitionAndProgressCorrection_Integration(t *testing.T) {
 }
 
 func TestStorageCatalogStartupValidation_Integration(t *testing.T) {
-	manager, actorID, incidentID, pool := newJobsHarnessWithPool(
+	manager, actorID, incidentID, pool := newJobsStoreHarness(
 		t,
 		"jobs-storage-catalog-validation",
 		func() time.Time { return time.Now().UTC() },

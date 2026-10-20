@@ -29,7 +29,7 @@ func TestLinksIncidentBundleRejectsUnknownLinkMembersBeforeMutation(t *testing.T
 		t.Fatalf("Links source descriptor omits link-tuple invariant: %#v", descriptor.InvariantIDs)
 	}
 	harness := appsupport.StartStore(t, "links-bundle-unknown-member-characterization")
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "links-bundle-shape@example.test", "Links Bundle Shape", "LinksBundleShapePass1!", false, true, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "links-bundle-shape@example.test", DisplayName: "Links Bundle Shape", DeploymentAdmin: true})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-links-bundle-shape-incident", "IR-LINK-BUNDLE", "Links bundle shape")
 	src := uuid.New()
 	dst := uuid.New()

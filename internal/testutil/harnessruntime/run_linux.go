@@ -161,13 +161,13 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	cleanup := []cleanupRecord{}
 	recordCleanup := func(r cleanupRecord) { cleanupMu.Lock(); defer cleanupMu.Unlock(); cleanup = append(cleanup, r) }
 	production := harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{BrowserLaneLimit: plan.facts.BrowserLaneLimit, Root: root, RunRoot: runRoot, Target: target, Runtime: runtime, Environment: fixtureEnv, ContainerProof: diagnostics.collector.containers}, harnessfixtures.Options{Observe: diagnostics.execution.fixture, Cleanup: func(r harnessfixtures.CleanupRecord) {
-		v := cleanupRecord{Operation: r.Operation, UnitID: r.UnitID, LeaseID: r.LeaseID, Outcome: "completed"}
+		v := cleanupRecord{Operation: r.Operation, UnitID: r.UnitID, LeaseID: r.LeaseID, Outcome: "completed", Cause: r.Err}
 		if r.Err != nil {
 			v.Outcome = "failed"
 			v.Failure = cleanupFailureOf(r.Err)
 			cleanupMu.Lock()
 			if fixtureCleanupDiagnostic == nil {
-				fixtureCleanupDiagnostic = harnesssession.DescribeCleanupFailure(r.Err)
+				fixtureCleanupDiagnostic = harnesssession.DescribeCleanupFailure(harnesssession.AtCleanupStage(r.Operation, r.Err))
 			}
 			cleanupMu.Unlock()
 		}

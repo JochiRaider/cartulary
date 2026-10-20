@@ -55,6 +55,9 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 			env["CARTULARY_TEST_RESULTS_DIR"] = results
 			env["CARTULARY_TEST_RUN_ID"] = selection.id
 			env["HARNESS_DIAGNOSTICS"] = "off"
+			if selection.id == "mixed" {
+				env["HARNESS_DIAGNOSTICS"] = "basic"
+			}
 			env["CARTULARY_HARNESS_CACHE_MODE"] = "off"
 			// Keep CARTULARY_HOST_ADMISSION_LEASE: the native weighted tree
 			// accounts for child work under its real parent reservation.
@@ -131,17 +134,65 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 				}
 				return
 			}
-			if len(files) != 1 {
-				t.Fatalf("selected consumers must share one service owner; scopes=%d", len(files))
+			expected := len(selection.services)
+			if selection.id == "mixed" {
+				expected++
+			} // shared and exclusive PostgreSQL generations
+			if len(files) != expected {
+				t.Fatalf("physical service owners=%d; expected=%d", len(files), expected)
 			}
 			var scope suiteservices.ServiceScope
-			readSelectedBoundaryJSON(t, files[0], &scope)
-			if scope.RunID != selection.id || scope.Wrapper.OwnedCount != 1 || scope.Failure != nil || scope.Cleanup.Status != "succeeded" {
-				t.Fatal("service ownership, identity or cleanup did not settle successfully")
+			started := map[string]int{}
+			for _, file := range files {
+				var part suiteservices.ServiceScope
+				readSelectedBoundaryJSON(t, file, &part)
+				if part.RunID != selection.id || part.Wrapper.OwnedCount != 1 || part.Failure != nil || part.Cleanup.Status != "succeeded" {
+					t.Fatal("physical service identity or cleanup did not settle")
+				}
+				if len(part.StartedNames.Names) != 1 {
+					t.Fatal("physical owner mixed independent services")
+				}
+				started[part.StartedNames.Names[0]]++
+				scope.Fixture.ByStrategy = append(scope.Fixture.ByStrategy, part.Fixture.ByStrategy...)
+				scope.Postgres.CreatedDatabaseCount += part.Postgres.CreatedDatabaseCount
+				scope.Postgres.DatabasePreparations = append(scope.Postgres.DatabasePreparations, part.Postgres.DatabasePreparations...)
+				scope.ObjectStore.BucketCreateCount += part.ObjectStore.BucketCreateCount
+				scope.ObjectStore.BucketCleanupCount += part.ObjectStore.BucketCleanupCount
 			}
-			if !slices.Equal(scope.StartedNames.Names, selection.services) {
-				t.Fatalf("started services=%v; selected=%v", scope.StartedNames.Names, selection.services)
+			names := []string{}
+			for service := range started {
+				names = append(names, service)
 			}
+			slices.Sort(names)
+			if !slices.Equal(names, selection.services) {
+				t.Fatalf("services=%v; expected=%v", names, selection.services)
+			}
+			if selection.id == "mixed" && started["postgres"] != 2 {
+				t.Fatal("exclusive and shared database consumers shared a cluster")
+			}
+			if selection.id == "mixed" {
+				var checkpoints struct {
+					Services int `json:"services"`
+					Results  []struct {
+						Scope      string  `json:"service_scope_ref"`
+						Generation string  `json:"generation"`
+						Identity   *string `json:"identity_digest"`
+						Status     string  `json:"status"`
+					} `json:"service_results"`
+				}
+				readSelectedBoundaryJSON(t, filepath.Join(run, "diagnostics", "postgres-checkpoints.json"), &checkpoints)
+				if checkpoints.Services != 2 || len(checkpoints.Results) != 2 {
+					t.Fatal("checkpoint collection omitted an owned PostgreSQL generation")
+				}
+				generations, identities := map[string]bool{}, map[string]bool{}
+				for _, result := range checkpoints.Results {
+					if result.Status != "observed" || result.Generation == "" || result.Identity == nil || generations[result.Generation] || identities[*result.Identity] || !slices.Contains(files, filepath.Join(run, result.Scope)) {
+						t.Fatalf("checkpoint service proof is incomplete or duplicated: %+v", result)
+					}
+					generations[result.Generation], identities[*result.Identity] = true, true
+				}
+			}
+
 			operations := map[string]int{}
 			for _, activity := range scope.Fixture.ByStrategy {
 				operations[activity.Operation] += activity.Count

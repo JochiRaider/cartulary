@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "platform.telemetry",
   "rows": [
     {
@@ -31,7 +31,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.telemetry.unit.bootstrap_activation_and_containment",
@@ -58,7 +59,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "release",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.telemetry.unit.configuration_defaults_closed_namespace",
@@ -84,7 +86,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.telemetry.unit.configuration_environment_binding",
@@ -110,7 +113,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.telemetry.unit.configuration_secret_references",
@@ -136,7 +140,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "release",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.telemetry.unit.configuration_validation",
@@ -162,7 +167,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.telemetry.unit.exporter_failure_invariance",
@@ -202,7 +208,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "release",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.telemetry.unit.log_mapping_and_queue_behavior",
@@ -232,7 +239,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "release",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.telemetry.unit.privacy_and_redaction",
@@ -262,7 +270,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "release",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.telemetry.unit.qualified_transports",
@@ -288,7 +297,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "release",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "platform.telemetry.unit.resource_identity",
@@ -319,7 +329,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "release",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

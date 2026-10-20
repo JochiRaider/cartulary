@@ -18,7 +18,7 @@ import {
   mentionReview,
   mentionWorkbookRow,
 } from "../../../testing/timelineMentionTestSupport";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import type {
   RecordPatchOutcome,
   RecordPatchTransport,

@@ -16,7 +16,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkbookRecoveryBoundary } from "../../../shared/WorkbookRecoveryBoundary";
 import { WorkbookRecoveryNavigation } from "../../../shared/workbookRecoveryNavigation";
 import { deferred } from "../../../testing/fetchMockTestSupport";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import { createContextualCreateTransport } from "../../adapters/createContextualCreateTransport";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";
 import { ContextualCreateForm } from "./ContextualCreateForm";

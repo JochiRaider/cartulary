@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.graphprojection",
   "rows": [
     {
@@ -39,7 +39,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.graphprojection.engine.v2_maximum_semantic_bounds",
@@ -65,7 +66,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.graphprojection.engine.v2_pure_determinism",
@@ -98,7 +100,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.graphprojection.engine.v2_semantic_matrix",
@@ -130,7 +133,37 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.storage",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection/postgresresult",
+        "tests": [
+          "TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.graphprojection.storage.migration_reset",
@@ -163,7 +196,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.graphprojection.storage.restore_publication",
@@ -197,36 +231,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
-    },
-    {
-      "row_id": "module.graphprojection.storage.result_v2_atomicity_and_queries",
-      "owner_id": "module.graphprojection",
-      "family_id": "module.graphprojection.storage",
-      "collaborator_ids": [
-        "platform.postgres"
       ],
-      "verification_ids": [
-        "module.graphprojection.verification.engine_and_storage"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/graphprojection/postgresresult",
-        "tests": [
-          "TestResultV2PublicationReadTraversalLeaseAndCleanup_Integration",
-          "TestStorageMaintenanceProjectionMatchesRuntime_Unit"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_transaction",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ]
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.graphprojection.storage.result_v2_cleanup_locking",
@@ -255,7 +261,35 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.graphprojection.storage.service_free_contract_assertions_for_result_v2_a_4661600b77",
+      "owner_id": "module.graphprojection",
+      "family_id": "module.graphprojection.storage",
+      "collaborator_ids": [
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.graphprojection.verification.engine_and_storage"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/graphprojection/postgresresult",
+        "tests": [
+          "TestStorageMaintenanceProjectionMatchesRuntime_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.graphprojection.storage.v2_contract_projection",
@@ -281,7 +315,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

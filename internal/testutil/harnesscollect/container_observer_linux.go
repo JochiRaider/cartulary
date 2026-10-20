@@ -28,13 +28,17 @@ type containerObservationClient interface {
 	ContainerStats(context.Context, string, dockerclient.ContainerStatsOptions) (dockerclient.ContainerStatsResult, error)
 }
 type containerObservationProof struct {
-	Version        int              `json:"version"`
-	RunID          string           `json:"run_id"`
-	RuntimeLeaseID string           `json:"runtime_lease_id"`
-	Ownership      string           `json:"ownership"`
-	BorrowerFile   string           `json:"borrower_file"`
-	BorrowerID     string           `json:"borrower_id"`
-	Lease          leaseproof.Lease `json:"lease"`
+	Ownership    string           `json:"ownership"`
+	BorrowerFile string           `json:"borrower_file"`
+	BorrowerID   string           `json:"borrower_id"`
+	Lease        leaseproof.Lease `json:"lease"`
+}
+type containerObservationRoster struct {
+	Version         int                         `json:"version"`
+	RunID           string                      `json:"run_id"`
+	RuntimeLeaseID  string                      `json:"runtime_lease_id"`
+	Services        []containerObservationProof `json:"services"`
+	RetiringService string                      `json:"retiring_service"`
 }
 type containerMetric struct {
 	Value        *float64 `json:"value"`
@@ -79,24 +83,44 @@ func privateObservationJSON(file string, value any) error {
 
 var errContainerProofRevoked = errors.New("container proof revoked")
 
-func readContainerObservationProof(file, runID, leaseID string) (containerObservationProof, error) {
-	var published *containerObservationProof
-	if err := privateObservationJSON(file, &published); err != nil {
-		return containerObservationProof{}, err
+func readContainerObservationProofs(file, runID, leaseID string) (containerObservationRoster, error) {
+	var roster containerObservationRoster
+	if err := privateObservationJSON(file, &roster); err != nil {
+		return roster, err
 	}
-	if published == nil {
-		return containerObservationProof{}, errContainerProofRevoked
+	if roster.Version != 2 || roster.RunID != runID || runID == "" || roster.RuntimeLeaseID != leaseID || leaseID == "" || roster.Services == nil || len(roster.Services) > 256 {
+		return roster, errors.New("foreign observation roster")
 	}
-	proof := *published
+	seen, containers := map[string]bool{}, map[string]bool{}
+	for _, proof := range roster.Services {
+		if seen[proof.Lease.LeaseID] || validateContainerObservationProof(proof, runID) != nil {
+			return roster, errors.New("invalid service proof")
+		}
+		seen[proof.Lease.LeaseID] = true
+		for _, resource := range proof.Lease.Resources {
+			if containers[resource.ContainerID] {
+				return roster, errors.New("duplicate physical service proof")
+			}
+			containers[resource.ContainerID] = true
+		}
+	}
+	if roster.RetiringService != "" && !seen[roster.RetiringService] {
+		return roster, errors.New("unknown retiring service")
+	}
+	if len(roster.Services) == 0 {
+		return roster, errContainerProofRevoked
+	}
+	return roster, nil
+}
+func validateContainerObservationProof(proof containerObservationProof, runID string) error {
 	lease := proof.Lease
-	if proof.Version != 1 || proof.RunID != runID || runID == "" || proof.RuntimeLeaseID != leaseID || leaseID == "" ||
-		lease.SchemaID != "cartulary.test_services.lease.v2" || lease.SuiteID == "" || lease.LeaseID == "" || lease.RunID == "" || lease.CleanupState != "not_started" || len(lease.Resources) > 256 {
-		return proof, errors.New("foreign or inactive observation proof")
+	if lease.SchemaID != "cartulary.test_services.lease.v3" || lease.SuiteID == "" || lease.LeaseID == "" || lease.RunID == "" || lease.CleanupState != "not_started" || len(lease.Resources) > 256 {
+		return errors.New("foreign or inactive observation proof")
 	}
 	switch proof.Ownership {
 	case "owned":
 		if lease.RunID != runID || lease.OwnershipMode != "owned" || proof.BorrowerFile != "" || proof.BorrowerID != "" {
-			return proof, errors.New("foreign owned lease")
+			return errors.New("foreign owned lease")
 		}
 	case "borrowed":
 		var borrower struct {
@@ -109,22 +133,22 @@ func readContainerObservationProof(file, runID, leaseID string) (containerObserv
 			CreatedAt  string `json:"created_at"`
 		}
 		if proof.BorrowerFile == "" || privateObservationJSON(proof.BorrowerFile, &borrower) != nil || borrower.SchemaID != "cartulary.test_services.local_session_borrower.v1" || borrower.RunID != runID || borrower.SessionID != lease.SuiteID || borrower.BorrowerID != proof.BorrowerID || borrower.BorrowerID == "" {
-			return proof, errors.New("unproved borrower")
+			return errors.New("unproved borrower")
 		}
 	default:
-		return proof, errors.New("unknown observation ownership")
+		return errors.New("unknown observation ownership")
 	}
 	seen := map[string]bool{}
 	for _, resource := range lease.Resources {
 		if resource.Kind != "container" || resource.ContainerID == "" || seen[resource.ContainerID] {
-			return proof, errors.New("invalid exact container roster")
+			return errors.New("invalid exact container roster")
 		}
 		seen[resource.ContainerID] = true
 		if resource.Labels[leaseproof.LabelRunID] != lease.RunID || resource.Labels[leaseproof.LabelSuiteID] != lease.SuiteID || resource.Labels[leaseproof.LabelManaged] != leaseproof.ManagedValue {
-			return proof, errors.New("foreign resource proof")
+			return errors.New("foreign resource proof")
 		}
 	}
-	return proof, nil
+	return nil
 }
 func containerStartProof(value dockercontainer.InspectResponse, lease leaseproof.Lease, resource leaseproof.LeaseResource) (string, error) {
 	if value.ID != resource.ContainerID || value.Config == nil || value.State == nil || !value.State.Running || value.State.StartedAt == "" {
@@ -228,9 +252,18 @@ func observeContainer(ctx context.Context, client containerObservationClient, pr
 	result.Availability = "available"
 	return result, nil
 }
-func collectContainerBatch(ctx context.Context, client containerObservationClient, proof containerObservationProof) containerObservationBatch {
+func collectContainerBatch(ctx context.Context, client containerObservationClient, proofs []containerObservationProof) containerObservationBatch {
 	result := containerObservationBatch{Availability: "available", Observations: []containerObservation{}}
-	resources := proof.Lease.Resources
+	type item struct {
+		proof    containerObservationProof
+		resource leaseproof.LeaseResource
+	}
+	resources := []item{}
+	for _, proof := range proofs {
+		for _, resource := range proof.Lease.Resources {
+			resources = append(resources, item{proof, resource})
+		}
+	}
 	if len(resources) > 32 {
 		result.Omitted = len(resources) - 32
 		resources = resources[:32]
@@ -240,10 +273,10 @@ func collectContainerBatch(ctx context.Context, client containerObservationClien
 	var group sync.WaitGroup
 	for i, resource := range resources {
 		group.Add(1)
-		go func(i int, resource leaseproof.LeaseResource) {
+		go func(i int, resource item) {
 			defer group.Done()
 			var err error
-			observations[i], err = observeContainer(ctx, client, proof, resource)
+			observations[i], err = observeContainer(ctx, client, resource.proof, resource.resource)
 			failures[i] = err != nil
 			if err != nil && observations[i].Identity != "" {
 				observations[i].Availability = "collector_failed"

@@ -20,7 +20,7 @@ import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v10";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v12";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v3";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
@@ -129,7 +129,7 @@ function assertExactIDs(entries, expected, label) {
 function loadTopologyProfiles(root) {
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
   const topology = readStrictJSON(topologyPath);
-  validateSchemaSync("cartulary.execution_topology.v14", topology);
+  validateSchemaSync("cartulary.execution_topology.v15", topology);
   for (const [key, ids] of Object.entries(expectedProfiles)) {
     if (!Array.isArray(topology[key])) {
       throw new Error(`${topologyPath}.${key} must be an array`);
@@ -356,6 +356,11 @@ function validateRowSemantics({
     !runtimeProfile.managed_service_ids.includes("postgres")
   ) {
     throw new Error(`${label}.fixture_capability requires a postgres runtime profile`);
+  }
+  if (row.runner === "playwright" &&
+      (!new Set(["test_owned", "isolated", "measurement"]).has(row.browser_state_scope) ||
+       (row.browser_state_scope === "measurement") !== (row.selector.stage === "measurement"))) {
+    throw new Error(`${label} has an invalid browser state scope`);
   }
   if (row.runner === "playwright" && row.fixture_capability !== "browser_stack") {
     throw new Error(`${label}.fixture_capability must be browser_stack for Playwright`);

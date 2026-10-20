@@ -88,7 +88,22 @@ func newRuntime(repository, runRoot, runID, scratch string, ownerProcess harness
 		return nil, harnesslocal.ErrUnsafe
 	}
 	if scratch == "" {
-		scratch = filepath.Join(os.TempDir(), "cartulary-harness-scratch")
+		if configured, ok := os.LookupEnv("CARTULARY_HARNESS_SCRATCH_ROOT"); ok {
+			scratch = configured
+		} else {
+			cache, configured := os.LookupEnv("CARTULARY_MACHINE_CACHE_DIR")
+			if !configured {
+				if xdg := os.Getenv("XDG_CACHE_HOME"); filepath.IsAbs(xdg) {
+					cache = filepath.Join(xdg, "cartulary")
+				} else if home := os.Getenv("HOME"); filepath.IsAbs(home) {
+					cache = filepath.Join(home, ".cache", "cartulary")
+				}
+			}
+			if !canonicalPath(cache) {
+				return nil, harnesslocal.ErrUnsafe
+			}
+			scratch = filepath.Join(cache, "harness-scratch")
+		}
 	}
 	for _, name := range []string{repository, runRoot, scratch} {
 		if !canonicalPath(name) {

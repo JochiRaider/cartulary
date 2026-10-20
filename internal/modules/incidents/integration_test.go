@@ -580,7 +580,7 @@ func TestMembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact_Integr
 	harness := runtime.StartDefaultServer(t, "incident_membership-i-2-07")
 
 	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
-	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "incident_membership-i207-target@example.test", "Incident administration I207 Target", "IncidentMembershipI207TargetPass!", false, false, true)
+	targetUserID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: "incident_membership-i207-target@example.test", DisplayName: "Incident administration I207 Target"}).ID.String()
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-2-07-create",
 		"incident_key":  "IR-I207",

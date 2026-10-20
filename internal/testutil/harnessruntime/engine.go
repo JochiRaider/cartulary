@@ -62,6 +62,8 @@ type graphCache interface {
 	Store(context.Context, unit) error
 }
 type fixtureRequest struct {
+	PostgresIsolation                   string
+	Services                            []string
 	UnitID, Owner, Capability, Affinity string
 	Environment                         map[string]string
 }
@@ -86,6 +88,7 @@ type executionRequest struct {
 	Host        *hostLease
 }
 type cleanupRecord struct {
+	Cause     error `json:"-"`
 	Operation string
 	UnitID    string
 	LeaseID   string
@@ -397,7 +400,11 @@ func (e *graphEngine) blocking(u unit, barriers map[string][]string) waitDetails
 	w := waitDetails{"rank", []string{}, []string{}}
 	locks := []string{}
 	for r, n := range u.Claims {
-		if e.claims[r]+n > e.plan.facts.Capacities[r] {
+		requested := e.claims[r] + n
+		if r == "volume" {
+			requested = max(e.claims[r], n)
+		}
+		if requested > e.plan.facts.Capacities[r] {
 			w.resources = append(w.resources, r)
 		}
 	}
@@ -524,6 +531,13 @@ func (e *graphEngine) closeWait(id string, at int64) {
 }
 func (e *graphEngine) reserve(u unit, direction int64) {
 	for k, v := range u.Claims {
+		if k == "volume" {
+			e.claims[k] = 0
+			for id := range e.running {
+				e.claims[k] = max(e.claims[k], e.byID[id].Claims[k])
+			}
+			continue
+		}
 		e.claims[k] += direction * v
 	}
 	for _, l := range u.SharedLocks {
@@ -755,7 +769,7 @@ func (e *graphEngine) finish() {
 	finalizationFailures := []*failure{}
 	attempt := func(operation string, fn func() error) {
 		err := fn()
-		r := cleanupRecord{Operation: operation, Outcome: "completed"}
+		r := cleanupRecord{Operation: operation, Outcome: "completed", Cause: err}
 		if err != nil {
 			r.Outcome = "failed"
 			r.Failure = cleanupFailureOf(err)

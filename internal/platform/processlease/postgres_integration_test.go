@@ -105,6 +105,17 @@ func TestPostgresServingLeaseSharedExclusive_Integration(t *testing.T) {
 	if err := exclusive.Release(context.Background()); err != nil {
 		t.Fatalf("release exclusive restore lease: %v", err)
 	}
+	admission, err := AcquireRecoveryTarget(context.Background(), pool, 5*time.Second, 40*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	admission.lease.transition(StateHeld, StateLost, "injected_owner_loss")
+	admission.lease.Close()
+	bounded, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := admission.Release(bounded); !errors.Is(err, ErrInvalidTransition) && !errors.Is(err, ErrRecoveryTargetLeaseLost) {
+		t.Fatalf("lost admission release reported success: %v", err)
+	}
 }
 
 func warmPostgresLeaseSessions(ctx context.Context, pool *pgxpool.Pool, count int) error {

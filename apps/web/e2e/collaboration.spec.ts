@@ -347,7 +347,7 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
   browser,
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -614,7 +614,7 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
     sessionTracker,
     triggerRevocation: async ({ member }) => {
       await revokeAllSessions(
-        workerAdminRequest,
+        testActorRequest,
         member.user_id,
         "end-to-end.collaboration.row-01 browser revoke-all",
       );
@@ -626,7 +626,7 @@ test("shows two analysts each other's workbook presence within the expected inte
   browser,
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }, testInfo) => {
   test.setTimeout(180_000);
   const incidentId = await createIncident(
@@ -1001,7 +1001,7 @@ test("shows two analysts each other's workbook presence within the expected inte
     }
     const revocationStart = remoteSession.socketMonitor.messageCount();
     await revokeAllSessions(
-      workerAdminRequest,
+      testActorRequest,
       remote.user_id,
       "Presence lifecycle browser revocation",
     );
@@ -1465,8 +1465,8 @@ test("keeps live updates conflict markers and presence markers anchored to recor
 test("replays queued unsent writes after re-authentication without silent reload restore", async ({
   page,
   sessionTracker,
-  workerAdmin,
-  workerAdminRequest,
+  testActor,
+  testActorRequest,
 }) => {
   await test.step("replays transient browser request failures in FIFO order after transport recovery", async () => {
     const incidentId = await createIncident(
@@ -1680,7 +1680,7 @@ test("replays queued unsent writes after re-authentication without silent reload
       });
     } finally {
       await patchController.dispose();
-      await applyStorageState(page, workerAdmin.storageState);
+      await applyStorageState(page, testActor.storageState);
     }
   });
 
@@ -1902,7 +1902,7 @@ test("replays queued unsent writes after re-authentication without silent reload
       sessionTracker,
       triggerRevocation: async ({ member }) => {
         await revokeAllSessions(
-          workerAdminRequest,
+          testActorRequest,
           member.user_id,
           "Collaboration collaboration-conflict browser revoke-all",
         );

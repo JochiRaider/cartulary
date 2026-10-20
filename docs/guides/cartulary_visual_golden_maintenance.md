@@ -85,8 +85,8 @@ may repair a mismatch after anchoring.
 
 Capture intent v2 records the surface, declared and observed presentation, and
 viewport. Registry v6 contains a profile for each exact golden path, including
-variant viewport, zoom, and density. Reconciliation v3, browser group result v7,
-and browser target result v4 reject old or mismatched current evidence. Null
+variant viewport, zoom, and density. Reconciliation v3, browser group result v10,
+and browser target result v8 reject old or mismatched current evidence. Null
 density means an application shell without workbook density; missing observations
 and empty strings fail.
 

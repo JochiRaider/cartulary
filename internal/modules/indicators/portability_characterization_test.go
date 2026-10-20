@@ -22,7 +22,7 @@ import (
 func TestIndicatorPortableRowsCharacterization_Integration(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "indicator-portable-rows-characterization")
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "indicator-portability@example.test", "Indicator Portability", "IndicatorPortabilityPass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "indicator-portability@example.test", DisplayName: "Indicator Portability"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-indicator-portability-incident", "IR-IND-PORT", "Indicator portability characterization")
 	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
 

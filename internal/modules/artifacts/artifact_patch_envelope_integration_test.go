@@ -19,16 +19,7 @@ import (
 func TestArtifactPatchEnvelopeOutcomes(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "artifacts-patch-envelope-outcomes")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"artifact-envelope-owner@example.test",
-		"Artifact Envelope Owner",
-		"ArtifactEnvelopeOwner1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "artifact-envelope-owner@example.test", DisplayName: "Artifact Envelope Owner"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,

@@ -3,12 +3,16 @@ package pgtest
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
+	"github.com/JochiRaider/cartulary/internal/testutil/testfailure"
 )
 
 func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
@@ -38,6 +43,8 @@ func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
 	t.Setenv(suiteservices.PGProvisioningDigestEnv, ProvisioningDigest())
 	t.Setenv(suiteservices.PGTemplateDigestEnv, TemplateDigest(pgschema.MustHash()))
 	t.Setenv(suiteservices.PGGenerationEnv, "12345")
+	t.Setenv(suiteservices.PGIsolationEnv, "shared")
+	t.Setenv(suiteservices.PGAllocationRefEnv, "pgtest-fixture")
 	inspectClusterGenerationFn = func(context.Context, string) (string, error) { return "12345", nil }
 
 	var pingDSN string
@@ -478,9 +485,9 @@ func TestPrepareIsolatedDatabaseTUsesFreshTemplateClones(t *testing.T) {
 		return nil
 	}
 	var drops []string
-	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
 		drops = append(drops, name)
-		return false, nil
+		return nil
 	}
 	harness := &Harness{
 		adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
@@ -531,9 +538,9 @@ func TestPrepareIsolatedDatabaseTCleanupDropsStandaloneDatabase(t *testing.T) {
 	createDatabaseFn = func(ctx context.Context, adminDSN string, name string, templateDB string) error {
 		return nil
 	}
-	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
 		dropped = append(dropped, name)
-		return false, nil
+		return nil
 	}
 
 	harness := &Harness{
@@ -554,7 +561,7 @@ func TestPrepareIsolatedDatabaseTCleanupDropsStandaloneDatabase(t *testing.T) {
 	}
 }
 
-func TestDatabaseCleanupUsesBoundedForcedFallbackOnlyForOwnedActiveDatabase(t *testing.T) {
+func TestDatabaseCleanupUsesSingleDropOnlyForOwnedDatabase(t *testing.T) {
 	oldDrop := dropOwnedDatabaseFn
 	t.Cleanup(func() {
 		dropOwnedDatabaseFn = oldDrop
@@ -567,15 +574,12 @@ func TestDatabaseCleanupUsesBoundedForcedFallbackOnlyForOwnedActiveDatabase(t *t
 		},
 	}
 	dropCalls := 0
-	dropOwnedDatabaseFn = func(ctx context.Context, _ string, _ string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
+	dropOwnedDatabaseFn = func(ctx context.Context, _ string, _ string) error {
 		dropCalls++
 		if ctx.Err() != nil {
 			t.Fatalf("cleanup delegate received canceled parent: %v", ctx.Err())
 		}
-		if normalLimit != postgresDatabaseNormalDropTimeout || forcedLimit != postgresDatabaseForcedDropTimeout {
-			t.Fatalf("cleanup limits = (%s, %s), want (%s, %s)", normalLimit, forcedLimit, postgresDatabaseNormalDropTimeout, postgresDatabaseForcedDropTimeout)
-		}
-		return true, nil
+		return nil
 	}
 
 	if err := harness.dropDatabase(context.Background(), "ct_deadbeef_cafe0001_000001_owned", suiteservices.FixtureReusePerTest, fixtureAttribution{}); err != nil {
@@ -593,7 +597,7 @@ func TestDatabaseCleanupUsesBoundedForcedFallbackOnlyForOwnedActiveDatabase(t *t
 	}
 }
 
-func TestDatabaseCleanupUsesFreshForcedFallbackAfterBoundedNormalTimeout(t *testing.T) {
+func TestDatabaseCleanupPassesOwnerContext(t *testing.T) {
 	oldDrop := dropOwnedDatabaseFn
 	t.Cleanup(func() {
 		dropOwnedDatabaseFn = oldDrop
@@ -606,50 +610,58 @@ func TestDatabaseCleanupUsesFreshForcedFallbackAfterBoundedNormalTimeout(t *test
 			databaseName: {},
 		},
 	}
+	parent, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	dropCalls := 0
-	dropOwnedDatabaseFn = func(ctx context.Context, _ string, _ string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
+	dropOwnedDatabaseFn = func(ctx context.Context, _ string, _ string) error {
 		dropCalls++
-		if ctx.Err() != nil {
+		if ctx != parent || ctx.Err() != nil {
 			t.Fatalf("coordinated cleanup inherited an expired child context: %v", ctx.Err())
 		}
-		if normalLimit != postgresDatabaseNormalDropTimeout || forcedLimit != postgresDatabaseForcedDropTimeout {
-			t.Fatalf("coordinated cleanup limits = (%s, %s)", normalLimit, forcedLimit)
-		}
-		return true, nil
+		return nil
 	}
 
-	if err := harness.dropDatabase(context.Background(), databaseName, suiteservices.FixtureReusePerTest, fixtureAttribution{}); err != nil {
-		t.Fatalf("drop owned database after normal timeout: %v", err)
+	if err := harness.dropDatabase(parent, databaseName, suiteservices.FixtureReusePerTest, fixtureAttribution{}); err != nil {
+		t.Fatalf("drop owned database: %v", err)
 	}
 	if dropCalls != 1 {
 		t.Fatalf("coordinated cleanup calls = %d, want 1", dropCalls)
 	}
 }
 
-func TestDatabaseCleanupDoesNotForceNonConnectionFailure(t *testing.T) {
+func TestDatabaseCleanupRetainsFailedRecoveryAuthority(t *testing.T) {
 	authorizePGSuite(t)
+	resetSharedHarness(t)
 	t.Setenv(suiteservices.SuiteIDEnv, "suite-cleanup-failure")
 	t.Setenv(suiteservices.TargetEnv, "backend-integration")
 	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
 	t.Setenv("CARTULARY_TEST_RUN_ID", "cleanup-failure")
 
 	oldDrop := dropOwnedDatabaseFn
+	oldCreate := createDatabaseFn
 	t.Cleanup(func() {
 		dropOwnedDatabaseFn = oldDrop
+		createDatabaseFn = oldCreate
 	})
+	var createCalls atomic.Int32
+	createDatabaseFn = func(context.Context, string, string, string) error {
+		createCalls.Add(1)
+		return nil
+	}
 
 	const databaseName = "ct_deadbeef_cafe0001_000001_owned"
-	harness := &Harness{ownedDatabases: map[string]struct{}{databaseName: {}}}
+	harness := &Harness{attached: true, templateDB: "suite_template", ownedDatabases: map[string]struct{}{databaseName: {}}}
+	sharedHarness = harness
 	if err := suiteservices.RecordEvent(nil, suiteservices.Event{Type: suiteservices.EventPostgresDBCreated, Name: databaseName, Kind: "template-clone"}); err != nil {
 		t.Fatalf("record owned database: %v", err)
 	}
 	dropCalls := 0
-	dropOwnedDatabaseFn = func(context.Context, string, string, time.Duration, time.Duration) (bool, error) {
+	dropOwnedDatabaseFn = func(context.Context, string, string) error {
 		dropCalls++
-		return false, errors.New("permission denied")
+		return errors.New("permission denied")
 	}
 	if err := harness.dropDatabase(context.Background(), databaseName, suiteservices.FixtureReusePerTest, fixtureAttribution{}); err == nil {
-		t.Fatal("expected ordinary cleanup failure")
+		t.Fatal("expected cleanup failure")
 	}
 	if dropCalls != 1 {
 		t.Fatalf("non-connection failure delegated %d times", dropCalls)
@@ -662,15 +674,136 @@ func TestDatabaseCleanupDoesNotForceNonConnectionFailure(t *testing.T) {
 		t.Fatalf("failed cleanup lost recovery authority: %#v", ledger.Databases)
 	}
 
-	dropOwnedDatabaseFn = func(context.Context, string, string, time.Duration, time.Duration) (bool, error) {
+	dropOwnedDatabaseFn = func(context.Context, string, string) error {
 		dropCalls++
-		return false, context.Canceled
+		return context.Canceled
 	}
 	if err := harness.dropDatabase(context.Background(), databaseName, suiteservices.FixtureReusePerTest, fixtureAttribution{}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("interrupted cleanup error = %v, want context cancellation", err)
 	}
 	if dropCalls != 2 {
 		t.Fatalf("interrupted cleanup delegated %d total times", dropCalls)
+	}
+
+	var preparations sync.WaitGroup
+	errorsSeen := make(chan error, 16)
+	for range 16 {
+		preparations.Go(func() {
+			_, err := harness.PrepareDatabase(t.Context(), "after_failed_cleanup")
+			errorsSeen <- err
+		})
+	}
+	preparations.Wait()
+	close(errorsSeen)
+	for err := range errorsSeen {
+		if !errors.Is(err, errGenerationQuarantined) {
+			t.Fatalf("preparation after failed cleanup = %v", err)
+		}
+	}
+	if createCalls.Load() != 0 {
+		t.Fatalf("quarantined generation performed %d creates", createCalls.Load())
+	}
+
+	// A logical detach cannot stand in for physical settlement by the owner.
+	if err := StopShared(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if acquired, err := StartShared(t.Context()); acquired != nil || !errors.Is(err, errGenerationQuarantined) {
+		t.Fatalf("reacquired quarantined attachment: %v, %v", acquired, err)
+	}
+	for _, entry := range []struct {
+		name, policy string
+		run          func(testing.TB)
+	}{
+		{"shared", "", func(tb testing.TB) { Start(tb) }},
+		{"fresh", "", func(tb testing.TB) { harness.NewDatabaseT(tb, "rejected") }},
+		{"clone", postgresFixturePolicyTemplateClone, func(tb testing.TB) { harness.PrepareIsolatedDatabaseT(tb, "rejected") }},
+		{"open_clone", postgresFixturePolicyTemplateClone, func(tb testing.TB) { harness.OpenIsolatedDatabaseT(tb, "rejected", postgres.PurposeRuntime) }},
+		{"migration", "", func(tb testing.TB) { harness.MigrationDatabaseT(tb) }},
+		{"migration_through", "", func(tb testing.TB) { harness.MigrationDatabaseThroughT(tb, 1) }},
+		{"rollback", postgresFixturePolicyTransaction, func(tb testing.TB) { harness.BeginRollbackDBT(tb, "rejected") }},
+	} {
+		t.Run(entry.name, func(t *testing.T) {
+			t.Setenv(postgresFixturePolicyDefaultEnv, entry.policy)
+			expectQuarantinedPreparation(t, entry.run)
+		})
+	}
+	if createCalls.Load() != 0 {
+		t.Fatalf("testing entry point prepared a quarantined generation: %d", createCalls.Load())
+	}
+
+	// Existing owned resources may finish cleanup, but success cannot restore
+	// this generation's eligibility or erase its prior failed row outcome.
+	dropOwnedDatabaseFn = func(context.Context, string, string) error {
+		dropCalls++
+		return nil
+	}
+	if err := harness.DropDatabase(t.Context(), databaseName); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := harness.PrepareDatabase(t.Context(), "after_late_settlement"); !errors.Is(err, errGenerationQuarantined) {
+		t.Fatalf("late settlement readmitted generation: %v", err)
+	}
+	independent := &Harness{attached: true, templateDB: "independent_template"}
+	db, err := independent.PrepareDatabase(t.Context(), "independent_generation")
+	if err != nil || db == nil || createCalls.Load() != 1 {
+		t.Fatalf("unrelated generation failed: %v, %v, creates=%d", db, err, createCalls.Load())
+	}
+	if err := independent.DropDatabase(t.Context(), db.Name); err != nil {
+		t.Fatal(err)
+	}
+
+	// Partial provisioning may also report failed cleanup after a committed
+	// CREATE. Preserve that failure and reject subsequent preparation.
+	partialFailure := errors.Join(errors.New("clone finalization failed"), context.DeadlineExceeded)
+	createDatabaseFn = func(context.Context, string, string, string) error {
+		createCalls.Add(1)
+		return partialFailure
+	}
+	partial := &Harness{attached: true, templateDB: "partial_template"}
+	if _, err := partial.PrepareDatabase(t.Context(), "partial"); !errors.Is(err, partialFailure) {
+		t.Fatalf("partial preparation lost primary failure: %v", err)
+	}
+	if _, err := partial.PrepareDatabase(t.Context(), "after_partial"); !errors.Is(err, errGenerationQuarantined) || createCalls.Load() != 2 {
+		t.Fatalf("partial preparation retried: %v, creates=%d", err, createCalls.Load())
+	}
+}
+
+type preparationFailureProbe struct{ testing.TB }
+type capturedPreparationFailure struct{ message string }
+
+func (p preparationFailureProbe) Fatal(args ...any) {
+	panic(capturedPreparationFailure{message: fmt.Sprint(args...)})
+}
+
+func (p preparationFailureProbe) Fatalf(format string, args ...any) {
+	panic(capturedPreparationFailure{message: fmt.Sprintf(format, args...)})
+}
+
+func expectQuarantinedPreparation(t *testing.T, run func(testing.TB)) {
+	t.Helper()
+	var captured *capturedPreparationFailure
+	func() {
+		defer func() {
+			if value := recover(); value != nil {
+				failure, ok := value.(capturedPreparationFailure)
+				if !ok {
+					panic(value)
+				}
+				captured = &failure
+			}
+		}()
+		run(preparationFailureProbe{TB: t})
+	}()
+	if captured == nil || !strings.HasPrefix(captured.message, testfailure.Marker) {
+		t.Fatalf("preparation did not publish typed fixture failure: %#v", captured)
+	}
+	var envelope testfailure.Envelope
+	if err := json.Unmarshal([]byte(strings.TrimPrefix(captured.message, testfailure.Marker)), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if err := envelope.Validate(); err != nil || envelope.Phase != "setup" || envelope.FailureClass != "harness" || envelope.FailureReason != "fixture_error" || envelope.ReadinessStage != "capability" || envelope.AttemptCount != 0 {
+		t.Fatalf("quarantine setup classification: %#v, %v", envelope, err)
 	}
 }
 
@@ -693,9 +826,9 @@ func TestPrepareIsolatedDatabaseTCleanupDropsAttachedSuiteTemplateClone(t *testi
 		return nil
 	}
 	dropCalls := 0
-	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
 		dropCalls++
-		return false, nil
+		return nil
 	}
 
 	harness := &Harness{
@@ -746,9 +879,9 @@ func TestMigrationDatabaseTCleanupDropsStandaloneScratchDatabase(t *testing.T) {
 		scratchName = name
 		return nil
 	}
-	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
 		dropped = append(dropped, name)
-		return false, nil
+		return nil
 	}
 	migrateDatabaseFn = func(ctx context.Context, db *sql.DB, source *database_migrations.Source) error {
 		return nil
@@ -798,9 +931,9 @@ func TestMigrationDatabaseTCleanupDropsAttachedSuiteScratchDatabase(t *testing.T
 		scratchName = name
 		return nil
 	}
-	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string, normalLimit time.Duration, forcedLimit time.Duration) (bool, error) {
+	dropOwnedDatabaseFn = func(ctx context.Context, adminDSN string, name string) error {
 		dropCalls++
-		return false, nil
+		return nil
 	}
 	applyMigrationsThrough = func(ctx context.Context, db *sql.DB, version int64) error {
 		return nil

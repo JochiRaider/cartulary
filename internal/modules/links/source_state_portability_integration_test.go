@@ -25,9 +25,7 @@ func TestLinksSourceStateStrictRoundTripAndAtomicFailure_Integration(t *testing.
 		t.Fatalf("construct Links source port: %v", err)
 	}
 	harness := appsupport.StartStore(t, "links-source-state-round-trip")
-	actor := authstoretest.SeedLocalUserRecord(
-		t, harness.DB, "links-source-state@example.test", "Links Source State", "LinksSourceStatePass1!", false, true, true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "links-source-state@example.test", DisplayName: "Links Source State", DeploymentAdmin: true})
 	incident := appsupport.CreateIncidentInStore(
 		t, harness.DB, actor, "txn-links-source-state-incident", "IR-LINK-SOURCE-STATE", "Links source-state round trip",
 	)

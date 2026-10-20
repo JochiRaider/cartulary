@@ -42,7 +42,7 @@ func (c *containerAdapter) sample(ctx context.Context) (containerBatch, error) {
 	}
 	batchContext, cancel := context.WithTimeout(ctx, c.policy.duration("container_batch_deadline_ms"))
 	defer cancel()
-	proof, err := readContainerObservationProof(c.file, c.runID, c.leaseID)
+	proof, err := readContainerObservationProofs(c.file, c.runID, c.leaseID)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) && !errors.Is(err, errContainerProofRevoked) {
 			empty.omitted = 1
@@ -59,7 +59,7 @@ func (c *containerAdapter) sample(ctx context.Context) (containerBatch, error) {
 	}
 	// collectContainerBatch joins every request before returning, including on
 	// cancellation. The control loop cannot acknowledge pause/stop before drain.
-	batch := collectContainerBatch(batchContext, c.client, proof)
+	batch := collectContainerBatch(batchContext, c.client, proof.Services)
 	result := containerBatch{availability: batch.Availability, omitted: batch.Omitted, overruns: batch.Overruns, observations: []object{}}
 	for _, observation := range batch.Observations {
 		metrics := object{}

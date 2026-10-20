@@ -6,7 +6,7 @@ import type {
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import type { TimelineFillMutationPort } from "../../mutations/workbookMutationCommandPorts";
 import {

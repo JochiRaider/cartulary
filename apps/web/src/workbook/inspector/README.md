@@ -20,7 +20,7 @@ Source-specific composition belongs in [features](../features/README.md) and
 | File | Responsibility |
 | --- | --- |
 | [canonicalInspectorAdmission.ts](canonicalInspectorAdmission.ts) | Admits exact canonical inspector features and derives stable feature identity. |
-| [inspectorCapabilityResolver.test.ts](inspectorCapabilityResolver.test.ts) | Tests exact canonical schema/feature tuples and contextual or History action classification. |
+| [inspectorCapabilityResolver.node.test.ts](inspectorCapabilityResolver.node.test.ts) | Tests exact canonical schema/feature tuples and contextual or History action classification. |
 | [inspectorCapabilityResolver.ts](inspectorCapabilityResolver.ts) | Resolves canonical inspector capabilities and supported record History actions. |
 | [useWorkbookInspectorCoordinator.test.tsx](useWorkbookInspectorCoordinator.test.tsx) | Direct tests for retargeting, lifecycle invalidation, action completion, idempotent close, and focus restoration. |
 | [useWorkbookInspectorCoordinator.ts](useWorkbookInspectorCoordinator.ts) | Schema-bound inspector lifecycle coordinator for explicit open/close, stable row subjects, ordered feature invalidation, action completion, and focus restoration ports. |
@@ -34,7 +34,7 @@ Source-specific composition belongs in [features](../features/README.md) and
 | File | Responsibility |
 | --- | --- |
 | [InspectorCreateRelatedWorkflow.tsx](InspectorCreateRelatedWorkflow.tsx) | Inspector related-record authoring presentation over declared feature commands. |
-| [inspectorRelatedRecordModel.test.ts](inspectorRelatedRecordModel.test.ts) | Tests related-record field and input seeds. |
+| [inspectorRelatedRecordModel.node.test.ts](inspectorRelatedRecordModel.node.test.ts) | Tests related-record field and input seeds. |
 | [inspectorRelatedRecordModel.ts](inspectorRelatedRecordModel.ts) | Shared draft seed builder and retained-owner presentation types. |
 | [useInspectorCreateRelatedWorkflow.test.tsx](useInspectorCreateRelatedWorkflow.test.tsx) | Checks every authored creation feature has exactly one retained owner and unbound actions cannot dispatch. |
 | [useInspectorCreateRelatedWorkflow.ts](useInspectorCreateRelatedWorkflow.ts) | Presentation attachments to retained contextual Task/Decision, coordination and Note owners. |
@@ -45,12 +45,12 @@ Source-specific composition belongs in [features](../features/README.md) and
 | --- | --- |
 | [useWorkbookRecordHistoryController.ts](useWorkbookRecordHistoryController.ts) | Binds shared History reads/actions to the canonical Inspector subject or an explicit Recovery read locator and the existing History owner. |
 | [useWorkbookRecordHistoryFocus.ts](useWorkbookRecordHistoryFocus.ts) | History action focus coordination using stable action and rollback identities. |
-| [workbookHistoryPresentationModel.test.ts](workbookHistoryPresentationModel.test.ts) | Tests consistent History technical-field ordering and rollback/pending labels. |
+| [workbookHistoryPresentationModel.node.test.ts](workbookHistoryPresentationModel.node.test.ts) | Tests consistent History technical-field ordering and rollback/pending labels. |
 | [workbookHistoryPresentationModel.ts](workbookHistoryPresentationModel.ts) | Builds History event, rollback-label, and pending-operation presentation. |
 | [workbookHistoryRecovery.characterization.test.tsx](workbookHistoryRecovery.characterization.test.tsx) | Tests acknowledgement before refresh completion and selection-lifetime fencing of admitted effects. |
 | [WorkbookInspectorRecordHistory.test.tsx](WorkbookInspectorRecordHistory.test.tsx) | Tests advertised History loading, stable rollback selectors, and exact tombstone restore versions. |
 | [WorkbookInspectorRecordHistory.tsx](WorkbookInspectorRecordHistory.tsx) | Record History inspector composition and browsing controls. |
-| [workbookRecordHistoryModel.test.ts](workbookRecordHistoryModel.test.ts) | Tests stable subject references and rejection of events from obsolete phases or identities. |
+| [workbookRecordHistoryModel.node.test.ts](workbookRecordHistoryModel.node.test.ts) | Tests stable subject references and rejection of events from obsolete phases or identities. |
 | [workbookRecordHistoryModel.ts](workbookRecordHistoryModel.ts) | Subject attachment and unsubmitted review over the sole accepted History browsing representation; display phases are derived. |
 | [useWorkbookRecordHistoryState.ts](useWorkbookRecordHistoryState.ts) | Allocates one presentation state instance shared with the controller and, for Timeline, subject composition. |
 | [workbookRecordHistoryOperation.ts](workbookRecordHistoryOperation.ts) | Builds inspector feedback for completed record History operations. |
@@ -61,7 +61,7 @@ Source-specific composition belongs in [features](../features/README.md) and
 
 | File | Responsibility |
 | --- | --- |
-| [workbookInspectorErrorModel.test.ts](workbookInspectorErrorModel.test.ts) | Tests safe primary messages, decoded version-conflict identity, and sanitized details. |
+| [workbookInspectorErrorModel.node.test.ts](workbookInspectorErrorModel.node.test.ts) | Tests safe primary messages, decoded version-conflict identity, and sanitized details. |
 | [workbookInspectorErrorModel.ts](workbookInspectorErrorModel.ts) | Shared inspector error and operation-feedback presentation models. |
 | [workbookInspectorSubject.ts](workbookInspectorSubject.ts) | Constructs and compares canonical live/deleted inspector subjects and row bindings. |
 
@@ -75,7 +75,7 @@ Source-specific composition belongs in [features](../features/README.md) and
 | [WorkbookInspectorDraftFeedback.tsx](WorkbookInspectorDraftFeedback.tsx) | Local Resume/Discard and changed saved-value review. |
 | [prepareWorkbookInspectorChange.ts](prepareWorkbookInspectorChange.ts) | Patch capability and scalar/action serialization; creation remains separately admitted. |
 | [workbookInspectorOrdinaryAttention.ts](workbookInspectorOrdinaryAttention.ts) | Immutable draft/PATCH attention projection; preserves distinct newer authoring and captured operations. |
-| [WorkbookInspectorDraftStore.test.ts](WorkbookInspectorDraftStore.test.ts) | Draft, capability, review, security and captured-revision regressions. |
+| [WorkbookInspectorDraftStore.node.test.ts](WorkbookInspectorDraftStore.node.test.ts) | Draft, capability, review, security and captured-revision regressions. |
 | [useWorkbookInspectorEditDraft.test.tsx](useWorkbookInspectorEditDraft.test.tsx) | Frozen field/action binding through refresh, detachment, no-row and explicit return. |
 
 [WorkbookExplicitPatchRecovery.tsx](WorkbookExplicitPatchRecovery.tsx) keeps

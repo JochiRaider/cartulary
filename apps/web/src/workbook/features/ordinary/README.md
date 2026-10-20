@@ -18,8 +18,8 @@ Assessments and contextual workflows retain their specialized owners.
 | [prepareOrdinaryCreateFields.ts](prepareOrdinaryCreateFields.ts) | Neutral declared-field serialization with explicit omission/null intent. |
 | [useOrdinaryCreateDraft.ts](useOrdinaryCreateDraft.ts) | React subscription and presentation attachment; no component draft owner. |
 | [OrdinaryCreateControl.tsx](OrdinaryCreateControl.tsx) | Scalar authoring and retained paged reference controls. |
-| [WorkbookOrdinaryCreateOwner.test.ts](WorkbookOrdinaryCreateOwner.test.ts) | Minimum/normalization matrix, lifetime and authority evidence. |
-| [ordinaryCreateSubmission.test.ts](ordinaryCreateSubmission.test.ts) | Duplicate admission, exact replay, closure, authority, late receipts and Entity coordination. |
+| [WorkbookOrdinaryCreateOwner.node.test.ts](WorkbookOrdinaryCreateOwner.node.test.ts) | Minimum/normalization matrix, lifetime and authority evidence. |
+| [ordinaryCreateSubmission.node.test.ts](ordinaryCreateSubmission.node.test.ts) | Duplicate admission, exact replay, closure, authority, late receipts and Entity coordination. |
 | [ordinaryCreateControls.test.tsx](ordinaryCreateControls.test.tsx) | Staged paging, focus and concealment evidence. |
 
 Verification routing is authored under `tools/test_families/web.workbook.json`;

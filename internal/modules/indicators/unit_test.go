@@ -22,7 +22,7 @@ import (
 func TestIndicatorObservationSeparation_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "entity_linking-u-4-07-indicators")
 	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u407@example.test", "U407", "U407EntityLinkingPass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u407@example.test", DisplayName: "U407"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-07-incident", "IR-U407", "Record relationships indicators")
 	legacyRecordID := uuid.MustParse("00000000-0000-4000-8000-000000000407")
 	legacyHash, err := hex.DecodeString("49dd4b43356f985be78b671d6b57cfe912dcfc2782573acc9fb6c2cda8b5e6a6")

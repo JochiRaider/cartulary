@@ -1,12 +1,9 @@
 package entities_test
 
 import (
-	"database/sql"
 	"net/http"
 	"slices"
 	"testing"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/incidentwstest"
@@ -195,14 +192,7 @@ func socketChangeIncludesView(socketChange incidentwstest.RecordChangeSocketPayl
 }
 
 func TestRecordEnvelopeHeadSchema(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "entity_linking-records-head")
-
-	db, err := sql.Open("pgx", testDB.DSN)
-	if err != nil {
-		t.Fatalf("open head schema database: %v", err)
-	}
-	defer db.Close()
+	db := pgtest.Start(t).BeginRollbackDBT(t, "entity_linking-records-head")
 
 	requireColumns(t, db, "records", "record_id", "incident_id", "record_type", "created_by_user_id", "created_at", "updated_by_user_id", "updated_at", "row_version", "deleted_at", "deleted_by_user_id")
 	requireNoColumns(t, db, "record_id", "users", "user_sessions", "bootstrap_tokens", "pending_totp_enrollments", "incident_memberships", "deployment_bootstrap_state")

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.artifacts",
   "rows": [
     {
@@ -28,11 +28,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.artifacts.collection_semantics.artifact_risk_references_use_canonical_parent_sc_b69b618649",
@@ -57,7 +58,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.artifacts.conflict_revalidation.artifact_conflict_resolution_revalidates_source_07b695d48b",
@@ -84,11 +86,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.artifacts.import_facade.artifact_import_facade_preserves_registered_targ_a54c97551b",
@@ -116,11 +119,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.artifacts.linked_notes.artifact_linked_note_creation_is_atomic_across_f_bce1ac123b",
@@ -149,11 +153,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.artifacts.linked_notes.note_association_resource",
@@ -186,7 +191,8 @@
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.artifacts.rollback_provider.artifact_rollback_maps_all_scalar_artifact_varia_4126aafbba",
@@ -213,7 +219,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.artifacts.rollback_provider.artifact_rollback_service_executes_all_eight_sour_0dcd05ed0a",
@@ -237,11 +244,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.artifacts.source_mutations.application_idempotency_adapter_preserves_stored_payloads",
@@ -267,7 +275,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.artifacts.source_mutations.artifact_admission_and_replay_hashing_are_owner_local",
@@ -293,42 +302,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
-    },
-    {
-      "row_id": "module.artifacts.source_mutations.artifact_source_create_and_patch_preserve_all_ei_c8d63cf5cd",
-      "owner_id": "module.artifacts",
-      "family_id": "module.artifacts.source_mutations",
-      "collaborator_ids": [
-        "module.collaboration",
-        "module.projections",
-        "module.records",
-        "module.revisions",
-        "module.workbook"
-      ],
-      "verification_ids": [
-        "module.artifacts.verification.source_mutations"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/artifacts",
-        "tests": [
-          "TestArtifactCurrentEnvelopeUsesRecordsCallerTransactionCapability",
-          "TestArtifactMutationContributionRejectsMissingDependencies",
-          "TestArtifactPatchEnvelopeOutcomes",
-          "TestArtifactWorkbookMutationContractMatrix"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "full",
-      "service_dependencies": [
-        "postgres"
-      ]
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.artifacts.source_mutations.coordination_source_atomic_creation",
@@ -360,7 +335,42 @@
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.artifacts.source_mutations.managed_service_assertions_for_artifact_source_c_a67a87fbf9",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.source_mutations",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.source_mutations"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactPatchEnvelopeOutcomes",
+          "TestArtifactWorkbookMutationContractMatrix"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.artifacts.source_mutations.note_association_admission",
@@ -386,7 +396,40 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.artifacts.source_mutations.service_free_contract_assertions_for_artifact_so_0c20f86ece",
+      "owner_id": "module.artifacts",
+      "family_id": "module.artifacts.source_mutations",
+      "collaborator_ids": [
+        "module.collaboration",
+        "module.projections",
+        "module.records",
+        "module.revisions",
+        "module.workbook"
+      ],
+      "verification_ids": [
+        "module.artifacts.verification.source_mutations"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/artifacts",
+        "tests": [
+          "TestArtifactCurrentEnvelopeUsesRecordsCallerTransactionCapability",
+          "TestArtifactMutationContributionRejectsMissingDependencies"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.artifacts.surface.iteration3_exported_surface_reachability",
@@ -410,7 +453,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.artifacts.surface_contracts.artifact_projection_provider_matches_canonical_a_6e485ff11b",
@@ -436,7 +480,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.artifacts.surface_contracts.artifact_surface_registry_recognizes_all_eight_c_778e06f594",
@@ -467,7 +512,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.artifacts.unit.artifact_import_contribution_rejects_missing_dep_312e585529",
@@ -491,7 +537,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.artifacts.unit.artifact_mutation_outcome_compatibility_82334fa0da",
@@ -515,7 +562,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.artifacts.unit.catalog_rejects_generated_owner_fact_drift_b3fa4d91e0",
@@ -540,7 +588,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

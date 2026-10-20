@@ -25,14 +25,14 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WorkbookImportController } from "../imports/WorkbookImportController";
 import { sessionResource } from "../testing/appShellTestSupport";
+import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
 import {
   fullWorkbookViewRow,
   successEnvelope,
   viewRowsEnvelopeForView,
   type WorkbookViewApiRow,
   workbookCollectionValue,
-} from "../testing/timelineWorkbookTestSupport";
-import { workbookAuthorizationRecovery } from "../testing/workbookAuthorizationTestSupport";
+} from "../testing/workbookFixtureData";
 import { useWorkbookMutationRuntimeTestRegistry } from "../testing/workbookMutationRuntimeTestSupport";
 import { useSavedViewTestApplication } from "../testing/workbookSavedViewTestSupport";
 import { publicWorkbookSchema } from "../testing/workbookSchemaTestSupport";

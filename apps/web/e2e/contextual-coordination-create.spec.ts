@@ -282,7 +282,7 @@ test("Accepted coordination refresh recovery sends reads only and keeps the sour
 test("Incident revocation conceals coordination drafts and late acceptance while preserving the account session", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   let memberId = "";
   const f = await openCoordinationFixture(
@@ -333,7 +333,7 @@ test("Incident revocation conceals coordination drafts and late acceptance while
     .getByTestId(genericCreateSubmitTestId(f.target.viewSchemaId))
     .click();
   await expect.poll(() => committed).toBe(true);
-  const response = await workerAdminRequest.get(
+  const response = await testActorRequest.get(
     `/api/v1/incidents/${f.incident}/memberships`,
   );
   const members = (await response.json()) as {
@@ -343,7 +343,7 @@ test("Incident revocation conceals coordination drafts and late acceptance while
     (item) => item.user_id === memberId,
   );
   if (!member) throw new Error("Missing membership");
-  const revoked = await workerAdminRequest.delete(
+  const revoked = await testActorRequest.delete(
     `/api/v1/incidents/${f.incident}/memberships/${memberId}`,
     { data: { base_membership_version: member.membership_version } },
   );

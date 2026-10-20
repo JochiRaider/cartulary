@@ -44,8 +44,8 @@ Shared semantic fixtures live in [application test support](../../testing/workbo
 | File | Responsibility |
 | --- | --- |
 | [WorkbookBatchHistoryReview.test.tsx](WorkbookBatchHistoryReview.test.tsx) | Explicit off-window review, pruning lifetime, current action gates and existing reversal ownership. |
-| [HistoryActionLookup.test.ts](HistoryActionLookup.test.ts) | Tests bounded History action lookup, explicit continuation, and failed-page retry. |
+| [HistoryActionLookup.node.test.ts](HistoryActionLookup.node.test.ts) | Tests bounded History action lookup, explicit continuation, and failed-page retry. |
 | [workbookHistoryBrowsing.characterization.test.tsx](workbookHistoryBrowsing.characterization.test.tsx) | Tests server-owned continuation and retained accepted History after refresh failure. |
-| [workbookHistoryBrowsing.test.ts](workbookHistoryBrowsing.test.ts) | Tests short/empty page continuation, stable server ordering, deduplication, and eligibility refresh. |
+| [workbookHistoryBrowsing.node.test.ts](workbookHistoryBrowsing.node.test.ts) | Tests short/empty page continuation, stable server ordering, deduplication, and eligibility refresh. |
 | [WorkbookHistoryRecovery.test.tsx](WorkbookHistoryRecovery.test.tsx) | Tests retained acknowledgements, read-only refresh retry, and session-bound recovery visibility. |
-| [WorkbookRecordHistoryOwner.test.ts](WorkbookRecordHistoryOwner.test.ts) | Tests History authority lifetime, retained operations after detachment, and late effects. |
+| [WorkbookRecordHistoryOwner.node.test.ts](WorkbookRecordHistoryOwner.node.test.ts) | Tests History authority lifetime, retained operations after detachment, and late effects. |

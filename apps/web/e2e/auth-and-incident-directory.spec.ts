@@ -76,11 +76,11 @@ async function expectLandingAccountSession(page: Page) {
 test("signs in as a local user and inspects the ordinary session surface", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const email = uniqueEmail("authentication-e101");
   const password = "AuthenticationE101Pass!";
-  const user = await createDeploymentUser(workerAdminRequest, {
+  const user = await createDeploymentUser(testActorRequest, {
     email,
     display_name: "Authentication E101",
     initial_password: password,
@@ -170,11 +170,11 @@ test("signs in as a local user and inspects the ordinary session surface", async
 test("requires MFA on the ordinary login surface, rejects wrong codes, and accepts a valid TOTP code", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const email = uniqueEmail("authentication-e102");
   const password = "AuthenticationE102Pass!";
-  const user = await createDeploymentUser(workerAdminRequest, {
+  const user = await createDeploymentUser(testActorRequest, {
     email,
     display_name: "Authentication E102",
     initial_password: password,
@@ -241,10 +241,10 @@ test("requires MFA on the ordinary login surface, rejects wrong codes, and accep
 
 test("rejects invalid credentials without issuing a session cookie", async ({
   page,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const email = uniqueEmail("authentication-e103");
-  await createDeploymentUser(workerAdminRequest, {
+  await createDeploymentUser(testActorRequest, {
     email,
     display_name: "Authentication E103",
     initial_password: "AuthenticationE103Pass!",
@@ -269,7 +269,7 @@ test("rejects invalid credentials without issuing a session cookie", async ({
 
 test("lets deployment admins create and patch users, rejects stale versions, and shows the last-admin guard on the ordinary shell", async ({
   page,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   await new AuthGateway(page).goto();
   const createEmail = uniqueEmail("authentication-e105");
@@ -302,7 +302,7 @@ test("lets deployment admins create and patch users, rejects stale versions, and
     page.getByTestId(deploymentAdminTestId("target-user-version")),
   ).toHaveText("2");
 
-  await patchUser(workerAdminRequest, createdUserID, {
+  await patchUser(testActorRequest, createdUserID, {
     base_user_version: 2,
     display_name: "Authentication E105 Concurrent",
   });
@@ -374,7 +374,7 @@ test("lets deployment admins create and patch users, rejects stale versions, and
     throw new Error("missing current admin user id");
   }
   await withOnlyActiveDeploymentAdmin(
-    deploymentAdminMutationClient(workerAdminRequest),
+    deploymentAdminMutationClient(testActorRequest),
     currentAdminID,
     async () => {
       await new DeploymentAdministration(page).loadTargetUser(currentAdminID);
@@ -419,11 +419,11 @@ test("lets deployment admins create and patch users, rejects stale versions, and
 test("follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const email = uniqueEmail("authentication-e106");
   const password = "AuthenticationE106Pass!";
-  const user = await createDeploymentUser(workerAdminRequest, {
+  const user = await createDeploymentUser(testActorRequest, {
     email,
     display_name: "Authentication E106",
     initial_password: password,
@@ -476,9 +476,9 @@ test("follows the bootstrap-token enrollment sequence on the ordinary login shel
     userId: user.user_id,
   });
 
-  const loadedUser = await loadUser(workerAdminRequest, user.user_id);
+  const loadedUser = await loadUser(testActorRequest, user.user_id);
   await resetUserTotp(
-    workerAdminRequest,
+    testActorRequest,
     user.user_id,
     loadedUser.user_version,
     "authentication e106 admin totp reset",
@@ -533,11 +533,11 @@ test("follows the bootstrap-token enrollment sequence on the ordinary login shel
 test("requires the current password and current TOTP code, revokes the session immediately, and requires re-login with the new password", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const email = uniqueEmail("authentication-e107");
   const password = "AuthenticationE107Pass!";
-  const user = await createDeploymentUser(workerAdminRequest, {
+  const user = await createDeploymentUser(testActorRequest, {
     email,
     display_name: "Authentication E107",
     initial_password: password,
@@ -629,12 +629,12 @@ test("requires the current password and current TOTP code, revokes the session i
 test("keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell", async ({
   page,
   sessionTracker,
-  workerAdmin,
-  workerAdminRequest,
+  testActor,
+  testActorRequest,
 }) => {
   const targetEmail = uniqueEmail("authentication-e108-target");
   const targetPassword = "AuthenticationE108Pass!";
-  const targetUser = await createDeploymentUser(workerAdminRequest, {
+  const targetUser = await createDeploymentUser(testActorRequest, {
     email: targetEmail,
     display_name: "Authentication E108 Target",
     initial_password: targetPassword,
@@ -645,7 +645,7 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
 
   const incidentAdminEmail = uniqueEmail("authentication-e108-incident-admin");
   const incidentAdminPassword = "AuthenticationE108Incident!";
-  const incidentAdminUser = await createDeploymentUser(workerAdminRequest, {
+  const incidentAdminUser = await createDeploymentUser(testActorRequest, {
     email: incidentAdminEmail,
     display_name: "Authentication E108 Incident Admin",
     initial_password: incidentAdminPassword,
@@ -680,7 +680,7 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   ).toHaveCount(0);
 
   const targetUserVersion = (
-    await loadUser(workerAdminRequest, targetUser.user_id)
+    await loadUser(testActorRequest, targetUser.user_id)
   ).user_version;
   const incidentAdminRequests = await request.newContext({
     baseURL: apiBase,
@@ -720,7 +720,7 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
     await incidentAdminRequests.dispose();
   }
 
-  await restoreTrackedStorageState(page, workerAdmin.storageState);
+  await restoreTrackedStorageState(page, testActor.storageState);
   await new AuthGateway(page).goto();
   await new DeploymentAdministration(page).loadTargetUser(targetUser.user_id);
   await expect(
@@ -1066,7 +1066,7 @@ test("retains a confirmed creation when account navigation precedes its delayed 
 test("clears a stale selected incident after membership removal while preserving the account session", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const selectedIncidentId = await createIncident(
     page,
@@ -1080,7 +1080,7 @@ test("clears a stale selected incident after membership removal while preserving
   );
   const targetEmail = uniqueEmail("authentication-e110-target");
   const targetPassword = "AuthenticationE110Pass!";
-  const targetUser = await createDeploymentUser(workerAdminRequest, {
+  const targetUser = await createDeploymentUser(testActorRequest, {
     email: targetEmail,
     display_name: "Authentication E110 Target",
     initial_password: targetPassword,
@@ -1137,12 +1137,12 @@ test("clears a stale selected incident after membership removal while preserving
   ).toBeVisible();
 
   const selectedMembership = await loadIncidentMembership(
-    workerAdminRequest,
+    testActorRequest,
     selectedIncidentId,
     targetUser.user_id,
   );
   await deleteIncidentMembership(
-    workerAdminRequest,
+    testActorRequest,
     selectedIncidentId,
     targetUser.user_id,
     selectedMembership.membership_version,
@@ -1164,7 +1164,7 @@ test("clears a stale selected incident after membership removal while preserving
 test("observes current-role authorization on a stale reviewer edit through the public incident error envelope", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -1173,7 +1173,7 @@ test("observes current-role authorization on a stale reviewer edit through the p
   );
   const targetEmail = uniqueEmail("authentication-e111-reviewer");
   const targetPassword = "AuthenticationE111Pass!";
-  const targetUser = await createDeploymentUser(workerAdminRequest, {
+  const targetUser = await createDeploymentUser(testActorRequest, {
     email: targetEmail,
     display_name: "Authentication E111 Reviewer",
     initial_password: targetPassword,
@@ -1206,11 +1206,11 @@ test("observes current-role authorization on a stale reviewer edit through the p
   ).toBeVisible();
 
   const reviewerMembership = await loadIncidentMembership(
-    workerAdminRequest,
+    testActorRequest,
     incidentId,
     targetUser.user_id,
   );
-  await patchIncidentMembership(workerAdminRequest, incidentId, {
+  await patchIncidentMembership(testActorRequest, incidentId, {
     baseMembershipVersion: reviewerMembership.membership_version,
     role: "editor",
     userId: targetUser.user_id,
@@ -1265,7 +1265,7 @@ test("observes current-role authorization on a stale reviewer edit through the p
 test("returns a revoked target browser to login and allows re-authentication with unchanged incident membership", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -1279,7 +1279,7 @@ test("returns a revoked target browser to login and allows re-authentication wit
   );
   const targetEmail = uniqueEmail("authentication-e112-target");
   const targetPassword = "AuthenticationE112Pass!";
-  const targetUser = await createDeploymentUser(workerAdminRequest, {
+  const targetUser = await createDeploymentUser(testActorRequest, {
     email: targetEmail,
     display_name: "Authentication E112 Target",
     initial_password: targetPassword,
@@ -1309,7 +1309,7 @@ test("returns a revoked target browser to login and allows re-authentication wit
   });
 
   await revokeAllSessions(
-    workerAdminRequest,
+    testActorRequest,
     targetUser.user_id,
     "authentication e112 explicit revoke-all",
   );
@@ -1351,11 +1351,11 @@ test("returns a revoked target browser to login and allows re-authentication wit
 test("Verify ordinary login, incident entry, and current-role refresh stay on public browser routes.", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const email = uniqueEmail("authentication-auth-session");
   const password = "AuthenticationAUTHSESSIONPass!";
-  const user = await createDeploymentUser(workerAdminRequest, {
+  const user = await createDeploymentUser(testActorRequest, {
     email,
     display_name: "Authentication end-to-end.incident-selection.row-01",
     initial_password: password,
@@ -1400,11 +1400,11 @@ test("Verify ordinary login, incident entry, and current-role refresh stay on pu
   ).toHaveText(incidentKey);
 
   const membership = await loadIncidentMembership(
-    workerAdminRequest,
+    testActorRequest,
     incidentId,
     user.user_id,
   );
-  await patchIncidentMembership(workerAdminRequest, incidentId, {
+  await patchIncidentMembership(testActorRequest, incidentId, {
     baseMembershipVersion: membership.membership_version,
     role: "viewer",
     userId: user.user_id,

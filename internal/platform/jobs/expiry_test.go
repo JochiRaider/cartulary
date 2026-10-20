@@ -14,7 +14,7 @@ import (
 func TestLogicalExpiryMasksReadsAndCancelReplay_Integration(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 8, 8, 16, 0, 0, 0, time.UTC)
-	manager, actorID, incidentID := newJobsHarnessWithClock(t, "jobs-logical-expiry", func() time.Time { return now })
+	manager, actorID, incidentID, _ := newJobsStoreHarness(t, "jobs-logical-expiry", func() time.Time { return now })
 	resource, err := enqueueTestJob(t, manager, jobs.EnqueueParams{
 		JobKind:           testJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},

@@ -14,6 +14,29 @@ import { policyDependencyRowIDs } from "../scheduler/work-graph/policy-rows.mjs"
 import { commandInputContext, selectionFor } from "../scheduler/work-graph/preparation.mjs";
 import { buildWorkGraph, unitSemanticDigest } from "../scheduler/work-graph/model.mjs";
 
+test("invocation overhead is paid once without discounting serialized selected work", () => {
+  const compiler = new WorkGraphCompiler(new URL("../../../", import.meta.url).pathname);
+  const ids = [
+    "module.revisions.store.history_query_repository_mapping_7b4d2e9c11",
+    "module.revisions.store.revision_window_utc_ordering_51f2a6b3c5",
+  ];
+  const runners = () => compiler.compileRows(ids).units.filter((unit) => unit.kind === "runner");
+  const [before] = runners();
+  assert.equal(runners().length, 1);
+  assert.equal(before.row_bindings.length, 2);
+  assert.equal(before.estimated_work_ms, compiler.owner.invocation_policies.go.startup_ms +
+    compiler.owner.invocation_policies.go.cleanup_ms + ids.reduce((total, id) =>
+      total + compiler.owner.evidence_estimates_ms[compiler.catalog.rowByID.get(id).evidence_class], 0));
+  compiler.owner.invocation_policies.go.startup_ms += 317;
+  const [after] = runners();
+  assert.equal(after.estimated_work_ms - before.estimated_work_ms, 317);
+  assert.notEqual(after.semantic_digest, before.semantic_digest);
+  assert.deepEqual(after.row_bindings, before.row_bindings);
+  assert.equal(after.timeout_ms, before.timeout_ms);
+  assert.deepEqual(after.resource_claims, before.resource_claims);
+  assert.deepEqual(compiler.compileRows(ids), compiler.compileRows([...ids].reverse()));
+});
+
 test("installed browser lifecycle parents reserve their dedicated footprint without unused outer services", () => {
   const compiler = new WorkGraphCompiler(new URL("../../../", import.meta.url).pathname);
   const topology = JSON.parse(fs.readFileSync(new URL("../../execution_topology_manifest.json", import.meta.url)));
@@ -208,8 +231,8 @@ test("aggregate browser selection preserves tier rows without stage expansion or
   const graph = compiler.compileAggregate("ci");
   assert.deepEqual(selectedRows(graph).filter((id) => measurement.some((row) => row.row_id === id)), full);
   for (const unit of graph.units) {
-    const filter = unit.command.environment.CARTULARY_BROWSER_SELECTED_ROW_IDS;
-    if (filter) assert.ok(filter.split(",").every((id) => !release.includes(id)), "runner receives the exact admitted rows");
+    const filter = (unit.row_bindings ?? []).filter((row) => row.runner === "playwright");
+    assert.ok(filter.every(({ row_id }) => !release.includes(row_id)), "runner receives the exact admitted rows");
   }
   assert.throws(() => compiler.compileRows([release[0]]), /unknown harness operation forbidden-excluded-producer/u,
     "negative preparation fixture reaches its boundary when explicitly selected");

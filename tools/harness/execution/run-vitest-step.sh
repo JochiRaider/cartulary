@@ -5,11 +5,11 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/tools/harness/execution/step-runtime.sh"
 
 usage() {
-  echo "usage: run-vitest-step.sh \"<label>\" -- <vitest run command...>" >&2
+  echo "usage: run-vitest-step.sh \"<label>\" -- <exact invocation request.json>" >&2
   exit 2
 }
 
-if [[ "$#" -lt 3 ]]; then
+if [[ "$#" -ne 3 ]]; then
   usage
 fi
 
@@ -21,11 +21,11 @@ if [[ "$1" != "--" ]]; then
 fi
 shift
 
-if [[ "$#" -eq 0 ]]; then
+if [[ "$#" -ne 1 ]]; then
   usage
 fi
 
-command=("$@")
+request_file="$1"
 output_mode="$(resolve_output_mode)"
 step_dir="$(prepare_step_artifact_dir "$step_label")"
 run_report="${step_dir}/runner.json"
@@ -37,10 +37,7 @@ if [[ "$output_mode" != "quiet" && "${RUN_STEP_SHOW_BANNER:-1}" == "1" ]]; then
 fi
 
 failure_details="${step_dir}/vitest-failure-details.json"
-run_command=("${NODE_BIN:-node}" "${RUN_STEP_REPO_ROOT}/tools/harness/execution/vitest-invocation-cli.mjs" "$run_report" "$failure_details" -- "${command[@]}")
-if [[ "$output_mode" != "quiet" ]]; then
-  run_command+=(--reporter=dot)
-fi
+run_command=("${NODE_BIN:-node}" "${RUN_STEP_REPO_ROOT}/tools/harness/execution/vitest-invocation-cli.mjs" "$run_report" "$failure_details" "$request_file")
 
 command_text="$(render_command "${run_command[@]}")"
 step_capture_start STEP

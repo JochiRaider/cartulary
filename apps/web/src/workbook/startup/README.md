@@ -21,4 +21,4 @@ through injected capabilities.
 | File | Responsibility |
 | --- | --- |
 | [useWorkbookStartupAdmission.test.tsx](useWorkbookStartupAdmission.test.tsx) | Startup admission characterization for precedence, overlap, extension availability, fallbacks, teardown, and late work. |
-| [workbookStartupAdmissionMachine.test.ts](workbookStartupAdmissionMachine.test.ts) | Tests startup identity and exact base, saved-view, extension, and availability commit plans. |
+| [workbookStartupAdmissionMachine.node.test.ts](workbookStartupAdmissionMachine.node.test.ts) | Tests startup identity and exact base, saved-view, extension, and availability commit plans. |

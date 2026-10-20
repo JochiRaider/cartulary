@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/processlease"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
 const (
@@ -28,7 +30,16 @@ const (
 	recoveryLeaseLossDetection  = 5 * time.Second
 )
 
+// DatabaseResetPlan supplies owner-composed state semantics, never another table registry.
+type DatabaseResetPlan struct {
+	Catalog          *recoverystate.Catalog
+	ResolveRebuild   func(string) (func(context.Context, pgx.Tx) error, error)
+	RestoreBootstrap func(context.Context, pgx.Tx) error
+}
+
 type DatabaseResetResult struct {
+	SettlementFailures         []*DatabaseResetFailure
+	TransactionSettlement      string
 	TablesReset                []string
 	TableCounts                []DatabaseResetTableCount
 	MutableTableCount          int
@@ -91,39 +102,34 @@ func handleTestRuntimeIdentity(w http.ResponseWriter, r *http.Request, guard htt
 // supplies this capability; browser and service fixtures invoke it out of
 // process. Backend replacement clears all runtime-local state before the
 // replacement process reacquires ordinary serving admission.
-func ResetDatabase(ctx context.Context, recovery *pgxpool.Pool, restoreBootstrap func(context.Context, pgx.Tx) error) (DatabaseResetResult, error) {
-	if recovery == nil || restoreBootstrap == nil {
-		return DatabaseResetResult{}, newResetFailure("recovery_reset_dependencies_invalid", errors.New("recovery reset dependencies are required"))
+func ResetDatabase(ctx context.Context, recovery *pgxpool.Pool, plan DatabaseResetPlan) (result DatabaseResetResult, resultErr error) {
+	result.TransactionSettlement = "not_started"
+	if ctx == nil || recovery == nil || plan.Catalog == nil || plan.ResolveRebuild == nil || plan.RestoreBootstrap == nil {
+		return result, newResetFailure("recovery_reset_dependencies_invalid", errors.New("recovery reset dependencies are required"))
 	}
-	admission, err := processlease.AcquireRecoveryTarget(
-		ctx,
-		recovery,
-		testRuntimeResetTimeout,
-		recoveryLeaseLossDetection,
-	)
+	totalDeadline := time.Now().Add(testRuntimeResetTimeout)
+	if deadline, ok := ctx.Deadline(); ok && deadline.Before(totalDeadline) {
+		totalDeadline = deadline
+	}
+	work, cancelWork := context.WithDeadline(ctx, totalDeadline.Add(-recoveryLeaseLossDetection))
+	defer cancelWork()
+	admission, err := processlease.AcquireRecoveryTarget(work, recovery, testRuntimeResetTimeout, recoveryLeaseLossDetection)
 	if err != nil {
-		return DatabaseResetResult{}, newResetFailure("recovery_reset_target_admission_failed", err)
+		return result, newResetFailure("recovery_reset_target_admission_failed", err)
 	}
-	result, resetErr := resetAdmittedDatabase(admission.Context(), recovery, restoreBootstrap, admission.AssertHeld)
-	releaseCtx, cancelRelease := context.WithTimeout(context.Background(), recoveryLeaseLossDetection)
-	releaseErr := admission.Release(releaseCtx)
-	cancelRelease()
-	if resetErr != nil {
-		return result, resetErr
+	result, resultErr = resetAdmittedDatabase(admission.Context(), recovery, plan, admission.AssertHeld, totalDeadline)
+	release, cancelRelease := context.WithDeadline(context.WithoutCancel(ctx), totalDeadline)
+	defer cancelRelease()
+	if err := admission.Release(release); err != nil {
+		failure := NewDatabaseResetFailure("recovery_reset_target_release_failed", err)
+		result.SettlementFailures = append(result.SettlementFailures, failure)
+		resultErr = errors.Join(resultErr, failure)
 	}
-	if releaseErr != nil {
-		return result, newResetFailure("recovery_reset_target_release_failed", releaseErr)
-	}
-	return result, nil
+	return result, resultErr
 }
 
-func resetAdmittedDatabase(
-	ctx context.Context,
-	recovery *pgxpool.Pool,
-	restoreBootstrap func(context.Context, pgx.Tx) error,
-	assertAdmission func() error,
-) (DatabaseResetResult, error) {
-	var result DatabaseResetResult
+func resetAdmittedDatabase(ctx context.Context, recovery *pgxpool.Pool, plan DatabaseResetPlan, assertAdmission func() error, deadline time.Time) (result DatabaseResetResult, resultErr error) {
+	result.TransactionSettlement = "not_started"
 	if err := assertAdmission(); err != nil {
 		return result, newResetFailure("recovery_reset_target_admission_failed", err)
 	}
@@ -131,76 +137,179 @@ func resetAdmittedDatabase(
 	if err != nil {
 		return result, newResetFailure("recovery_reset_begin_failed", err)
 	}
+	result.TransactionSettlement = "unknown"
+	commitAttempted := false
 	defer func() {
-		_ = tx.Rollback(context.Background())
+		if result.TransactionSettlement == "committed" {
+			return
+		}
+		settle, cancel := context.WithDeadline(context.WithoutCancel(ctx), deadline)
+		defer cancel()
+		err := tx.Rollback(settle)
+		if err == nil && !commitAttempted {
+			result.TransactionSettlement = "rolled_back"
+		}
+		if err != nil && !errors.Is(err, pgx.ErrTxClosed) {
+			failure := NewDatabaseResetFailure("recovery_reset_rollback_failed", err)
+			result.SettlementFailures = append(result.SettlementFailures, failure)
+			resultErr = errors.Join(resultErr, failure)
+		}
 	}()
-	beforeGooseVersions, err := countTableRows(ctx, tx, "goose_db_version")
-	if err != nil {
-		return result, newResetFailure("recovery_reset_metadata_inventory_failed", err)
-	}
-	beforeLineageRows, err := countTableRows(ctx, tx, "schema_migration_lineage")
-	if err != nil {
-		return result, newResetFailure("recovery_reset_metadata_inventory_failed", err)
-	}
-	beforeCryptoFormat, err := cryptoFormatSnapshot(ctx, tx)
-	if err != nil {
-		return result, newResetFailure("recovery_reset_metadata_inventory_failed", err)
-	}
-	tables, err := listMutablePublicTables(ctx, tx)
+	tables, writable, rebuilds, err := inventoryResetTables(ctx, tx, plan)
 	if err != nil {
 		return result, newResetFailure("recovery_reset_inventory_failed", err)
 	}
-	result.TablesReset = append([]string(nil), tables...)
-	result.MutableTableCount = len(tables)
-	if err := truncateTables(ctx, tx, tables); err != nil {
-		return result, newResetFailure("recovery_reset_truncate_failed", err)
+	result.TablesReset, result.MutableTableCount = tables, len(tables)
+	before, err := resetMetadataSnapshot(ctx, tx)
+	if err != nil {
+		return result, newResetFailure("recovery_reset_metadata_inventory_failed", err)
 	}
-	if err := resetTableSequences(ctx, tx, tables); err != nil {
-		return result, newResetFailure("recovery_reset_sequence_failed", err)
+	identifiers := make([]string, len(tables))
+	for i, table := range tables {
+		identifiers[i] = pgx.Identifier{"public", table}.Sanitize()
 	}
-	if err := restoreBootstrap(ctx, tx); err != nil {
+	if len(identifiers) > 0 {
+		if _, err := tx.Exec(ctx, "LOCK TABLE "+strings.Join(identifiers, ", ")+" IN ACCESS EXCLUSIVE MODE"); err != nil {
+			return result, newResetFailure("recovery_reset_lock_failed", err)
+		}
+	}
+	if _, err := tx.Exec(ctx, `SET LOCAL row_security = off; SET LOCAL session_replication_role = replica`); err != nil {
+		return result, newResetFailure("recovery_reset_clear_failed", err)
+	}
+	for _, table := range writable {
+		if _, err := tx.Exec(ctx, "DELETE FROM "+pgx.Identifier{"public", table}.Sanitize()); err != nil {
+			return result, newResetFailure("recovery_reset_clear_failed", err)
+		}
+	}
+	for _, rebuild := range rebuilds {
+		if err := rebuild(ctx, tx); err != nil {
+			return result, newResetFailure("recovery_reset_rebuild_failed", err)
+		}
+	}
+	empty, err := readMutableTableCounts(ctx, tx, tables)
+	if err != nil {
+		return result, newResetFailure("recovery_reset_state_verification_failed", err)
+	}
+	for _, table := range empty {
+		if table.Rows != 0 {
+			return result, newResetFailure("recovery_reset_state_verification_failed", errors.New("mutable state remains before bootstrap"))
+		}
+	}
+	if _, err := tx.Exec(ctx, `SET LOCAL session_replication_role = origin`); err != nil {
 		return result, newResetFailure("recovery_reset_bootstrap_failed", err)
 	}
-	afterGooseVersions, err := countTableRows(ctx, tx, "goose_db_version")
+	if err := plan.RestoreBootstrap(ctx, tx); err != nil {
+		return result, newResetFailure("recovery_reset_bootstrap_failed", err)
+	}
+	after, err := resetMetadataSnapshot(ctx, tx)
 	if err != nil {
 		return result, newResetFailure("recovery_reset_metadata_verification_failed", err)
 	}
-	afterLineageRows, err := countTableRows(ctx, tx, "schema_migration_lineage")
-	if err != nil {
-		return result, newResetFailure("recovery_reset_metadata_verification_failed", err)
-	}
-	afterCryptoFormat, err := cryptoFormatSnapshot(ctx, tx)
-	if err != nil {
-		return result, newResetFailure("recovery_reset_metadata_verification_failed", err)
-	}
-	counts, err := readDatabaseResetCounts(ctx, tx)
-	if err != nil {
-		return result, newResetFailure("recovery_reset_state_verification_failed", err)
-	}
-	tableCounts, err := readMutableTableCounts(ctx, tx, tables)
-	if err != nil {
-		return result, newResetFailure("recovery_reset_state_verification_failed", err)
-	}
-	result.TableCounts = tableCounts
-	result.MigrationMetadataPreserved = beforeCryptoFormat == afterCryptoFormat && beforeGooseVersions == afterGooseVersions && afterGooseVersions > 0 && beforeLineageRows == afterLineageRows && afterLineageRows == 1
-	result.BootstrapAdminRestored = counts.ActiveDeploymentAdmins == 1 && counts.BootstrapMarkers == 1
-	result.PostResetCounts = counts
+	result.MigrationMetadataPreserved = before == after
 	if !result.MigrationMetadataPreserved {
-		return result, newResetFailure("recovery_reset_metadata_verification_failed", errors.New("migration metadata was not preserved"))
+		return result, newResetFailure("recovery_reset_metadata_verification_failed", errors.New("protected metadata changed"))
 	}
+	result.TableCounts, err = readMutableTableCounts(ctx, tx, tables)
+	if err != nil {
+		return result, newResetFailure("recovery_reset_state_verification_failed", err)
+	}
+	for _, table := range result.TableCounts {
+		want := 0
+		switch table.Table {
+		case "users", "deployment_bootstrap_state", "deployment_admin_audit_events", "administrative_audit_projections":
+			want = 1
+		}
+		if table.Rows != want {
+			return result, newResetFailure("recovery_reset_bootstrap_verification_failed", errors.New("unexpected bootstrap state"))
+		}
+	}
+	result.PostResetCounts, err = readDatabaseResetCounts(ctx, tx)
+	if err != nil {
+		return result, newResetFailure("recovery_reset_state_verification_failed", err)
+	}
+	result.BootstrapAdminRestored = result.PostResetCounts.ActiveDeploymentAdmins == 1 && result.PostResetCounts.BootstrapMarkers == 1
 	if !result.BootstrapAdminRestored {
-		return result, newResetFailure("recovery_reset_bootstrap_verification_failed", errors.New("bootstrap state was not restored"))
-	}
-	if counts.RouteIdempotency != 0 {
-		return result, newResetFailure("recovery_reset_state_verification_failed", errors.New("route idempotency state was not cleared"))
+		return result, newResetFailure("recovery_reset_bootstrap_verification_failed", errors.New("bootstrap admin not restored"))
 	}
 	if err := assertAdmission(); err != nil {
 		return result, newResetFailure("recovery_reset_target_admission_lost", err)
 	}
+	commitAttempted = true
 	if err := tx.Commit(ctx); err != nil {
 		return result, newResetFailure("recovery_reset_commit_failed", err)
 	}
+	result.TransactionSettlement = "committed"
 	return result, nil
+}
+
+func inventoryResetTables(ctx context.Context, tx pgx.Tx, plan DatabaseResetPlan) ([]string, []string, []func(context.Context, pgx.Tx) error, error) {
+	rows, err := tx.Query(ctx, `SELECT c.relname, has_table_privilege(current_user,c.oid,'DELETE')
+FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+WHERE n.nspname='public' AND c.relkind IN ('r','p','f') ORDER BY c.relname COLLATE "C"`)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	names := []string{}
+	deletable := map[string]bool{}
+	for rows.Next() {
+		var name string
+		var allowed bool
+		if err := rows.Scan(&name, &allowed); err != nil {
+			rows.Close()
+			return nil, nil, nil, err
+		}
+		names = append(names, name)
+		deletable[name] = allowed
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if err := plan.Catalog.ValidateDatabaseTableNames(names); err != nil {
+		return nil, nil, nil, err
+	}
+	tables, writable := []string{}, []string{}
+	algorithms := map[string]func(context.Context, pgx.Tx) error{}
+	for _, table := range plan.Catalog.Document().Tables {
+		if table.StateClass == recoverystate.StateMigration {
+			continue
+		}
+		tables = append(tables, table.TableName)
+		if deletable[table.TableName] {
+			writable = append(writable, table.TableName)
+			continue
+		}
+		if table.StateClass != recoverystate.StateDerived || table.RestoreAction != recoverystate.RebuildState || table.AlgorithmID == nil {
+			return nil, nil, nil, errors.New("mutable table lacks clearing authority")
+		}
+		rebuild, err := plan.ResolveRebuild(*table.AlgorithmID)
+		if err != nil || rebuild == nil {
+			return nil, nil, nil, errors.Join(errors.New("unsupported derived clearing algorithm"), err)
+		}
+		algorithms[*table.AlgorithmID] = rebuild
+	}
+	sort.Strings(tables)
+	sort.Strings(writable)
+	ids := []string{}
+	for id := range algorithms {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	rebuilds := []func(context.Context, pgx.Tx) error{}
+	for _, id := range ids {
+		rebuilds = append(rebuilds, algorithms[id])
+	}
+	return tables, writable, rebuilds, nil
+}
+
+func resetMetadataSnapshot(ctx context.Context, db resetDB) (string, error) {
+	var snapshot string
+	err := db.QueryRow(ctx, `SELECT jsonb_build_array(
+ (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text COLLATE "C"),'[]'::jsonb) FROM public.goose_db_version t),
+ (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text COLLATE "C"),'[]'::jsonb) FROM public.schema_migration_lineage t),
+ (SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text COLLATE "C"),'[]'::jsonb) FROM public.application_crypto_format t))::text`).Scan(&snapshot)
+	return snapshot, err
 }
 
 type resetDB interface {
@@ -262,94 +371,6 @@ func newResetFailure(reason string, cause error) error {
 
 func NewDatabaseResetFailure(stage string, cause error) *DatabaseResetFailure {
 	return &DatabaseResetFailure{reason: stage, cause: cause}
-}
-
-func listMutablePublicTables(ctx context.Context, db resetDB) ([]string, error) {
-	rows, err := db.Query(ctx, `
-		SELECT table_name
-		FROM information_schema.tables
-		WHERE table_schema = 'public'
-		  AND table_type = 'BASE TABLE'
-		  AND table_name NOT IN ('goose_db_version', 'schema_migration_lineage', 'application_crypto_format')
-		ORDER BY table_name
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var tables []string
-	for rows.Next() {
-		var table string
-		if err := rows.Scan(&table); err != nil {
-			return nil, err
-		}
-		tables = append(tables, table)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return tables, nil
-}
-
-func truncateTables(ctx context.Context, db resetDB, tables []string) error {
-	if len(tables) == 0 {
-		return nil
-	}
-
-	identifiers := make([]string, 0, len(tables))
-	for _, table := range tables {
-		identifiers = append(identifiers, pgx.Identifier{"public", table}.Sanitize())
-	}
-	_, err := db.Exec(ctx, "TRUNCATE TABLE "+strings.Join(identifiers, ", ")+" CASCADE")
-	return err
-}
-
-func resetTableSequences(ctx context.Context, db resetDB, tables []string) error {
-	for _, table := range tables {
-		rows, err := db.Query(ctx, `
-SELECT column_name
-FROM information_schema.columns
-WHERE table_schema = 'public'
-  AND table_name = $1
-  AND column_default LIKE 'nextval(%'
-ORDER BY ordinal_position`, table)
-		if err != nil {
-			return err
-		}
-		columns := make([]string, 0)
-		for rows.Next() {
-			var column string
-			if err := rows.Scan(&column); err != nil {
-				rows.Close()
-				return err
-			}
-			columns = append(columns, column)
-		}
-		if err := rows.Err(); err != nil {
-			rows.Close()
-			return err
-		}
-		rows.Close()
-		for _, column := range columns {
-			var sequence string
-			if err := db.QueryRow(ctx, `SELECT pg_get_serial_sequence($1, $2)`, "public."+table, column).Scan(&sequence); err != nil {
-				return err
-			}
-			if _, err := db.Exec(ctx, `SELECT setval($1, 1, false)`, sequence); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// Reset preserves the exact marker, including absence; only admitted migration
-// initialization owns creation of cryptographic-format identity.
-func cryptoFormatSnapshot(ctx context.Context, db resetDB) (string, error) {
-	var value string
-	err := db.QueryRow(ctx, `SELECT COALESCE(jsonb_agg(to_jsonb(identity) ORDER BY singleton), '[]'::jsonb)::text FROM public.application_crypto_format AS identity`).Scan(&value)
-	return value, err
 }
 
 func countTableRows(ctx context.Context, db resetDB, table string) (int, error) {

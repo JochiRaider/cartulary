@@ -414,7 +414,7 @@ func TestBootstrapTokenRouteBoundaries_Integration(t *testing.T) {
 
 	seedLocalUser(t, db, "bootstrap-boundary@example.test", "Bootstrap Boundary", "BootstrapRoute123!", true)
 	bootstrapToken := requireBootstrapLogin(t, server, "bootstrap-boundary@example.test", "BootstrapRoute123!")
-	targetUserID := seedLocalUser(t, db, "bootstrap-ws-target@example.test", "Bootstrap WS Target", "BootstrapTarget123!", false)
+	targetUserID := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "bootstrap-ws-target@example.test", DisplayName: "Bootstrap WS Target"}).ID.String()
 	incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetUserID, "authentication-i-1-06-bootstrap")
 
 	begin := beginTOTPEnrollment(t, server, bootstrapToken, map[string]any{

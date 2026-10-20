@@ -24,6 +24,7 @@ import (
 )
 
 func TestStartSharedUsesAttachEnvWithoutStartingOwnedHarness(t *testing.T) {
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "object_store")
 	resetSharedHarness(t)
 
 	t.Setenv(suiteservices.S3EndpointEnv, "127.0.0.1:9000")
@@ -831,6 +832,8 @@ func observedObjectStoreRetry(events []testcontainersx.StartEvent) bool {
 
 func stubOwnedObjectStoreStartup(t testing.TB) {
 	t.Helper()
+	// The test supplies a simulated service declaration and fake transport.
+	t.Setenv(suiteservices.HarnessServiceDependenciesEnv, "object_store")
 
 	oldStartContainer := startContainerFn
 	oldWaitReady := waitReadyFn

@@ -25,5 +25,5 @@ They remain pure and perform neither transport nor authorization.
 
 | File | Responsibility |
 | --- | --- |
-| [workbookApplicationShortcuts.test.ts](workbookApplicationShortcuts.test.ts) | Exhaustive application-shortcut admission and event-consumption tests. |
-| [workbookSurfaceOwnershipPolicy.test.ts](workbookSurfaceOwnershipPolicy.test.ts) | Static policy-purity, owner-completeness, and common-surface boundary checks. |
+| [workbookApplicationShortcuts.node.test.ts](workbookApplicationShortcuts.node.test.ts) | Exhaustive application-shortcut admission and event-consumption tests. |
+| [workbookSurfaceOwnershipPolicy.node.test.ts](workbookSurfaceOwnershipPolicy.node.test.ts) | Static policy-purity, owner-completeness, and common-surface boundary checks. |

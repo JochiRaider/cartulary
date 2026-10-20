@@ -9,7 +9,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { validatedPublicErrorReason } from "../../../services/publicErrorIdentity";
 import { deferred } from "../../../testing/fetchMockTestSupport";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import { createNoteAssociationTransport } from "../../adapters/createNoteAssociationTransport";
 import {
   inspectorPanel,

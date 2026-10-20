@@ -1190,10 +1190,10 @@ test("Timeline tag assignment replays the captured attempt and recovers accepted
 
 test("Timeline bulk tag controls fit density Inspector zoom and text spacing without losing authoring", async ({
   page,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
   test.setTimeout(240_000);
-  const preferences = await installVisualPreferences(page, workerAdmin.user_id);
+  const preferences = await installVisualPreferences(page, testActor.user_id);
   const raw = "long raw Ω 東京 tag ".repeat(32);
   for (const density of ["compact", "default", "comfortable"] as const) {
     preferences.select(density);

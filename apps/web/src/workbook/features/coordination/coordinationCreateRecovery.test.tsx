@@ -9,8 +9,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
 import { WorkbookRecoveryFixture } from "../../../testing/WorkbookRecoveryFixture";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import { createCoordinationCreateTransport } from "../../adapters/createCoordinationCreateTransport";
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";
 import type { WorkbookMutationAuthority } from "../../mutations/workbookMutationAuthority";

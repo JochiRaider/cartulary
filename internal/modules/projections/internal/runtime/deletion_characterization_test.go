@@ -17,16 +17,7 @@ import (
 func TestTypedEntityProjectionDeletionUsesCallerTransaction(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "projection-typed-entity-deletion")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"projection-delete@example.test",
-		"Projection Delete",
-		"ProjectionDelete1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "projection-delete@example.test", DisplayName: "Projection Delete"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,

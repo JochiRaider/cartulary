@@ -11,6 +11,7 @@
     "docs/spec/**/*.md",
     "docs/guides/**/*.md",
     "docs/handoffs/cartulary-test-harness-instrumentation.md",
+    "docs/handoffs/testing-harness-remediation-01.md",
     "docs/handoffs/workbook-inspector-ui-ux-audit.md",
     "docs/handoffs/workbook-inspector-presentation-redesign-plan.md",
     "docs/handoffs/workbook-indicator-create-from-observation-refactor-handoff.md",

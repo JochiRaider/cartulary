@@ -9,12 +9,12 @@ import { validateSchemaSync } from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v14";
+export const executionTopologySchemaID = "cartulary.execution_topology.v15";
 import { projectOperationBindings, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v4";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v16";
 const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
-const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v12";
+const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v14";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
@@ -253,78 +253,48 @@ export function renderBrowserBatchManifest(topology) {
         )
         .sort((left, right) => compareASCII(left.row_id, right.row_id));
       if (rows.length === 0) throw new Error(`browser group ${policyGroup.name} selects no catalog rows`);
-      const byFile = new Map();
+      const partitions = new Map();
       for (const row of rows) {
-        const fileRows = byFile.get(row.selector.file) ?? [];
-        fileRows.push(row);
-        byFile.set(row.selector.file, fileRows);
+        const key = JSON.stringify([
+          row.owner_id, row.selector.project_id, row.runtime_profile_id,
+          row.resource_profile_id, row.fixture_capability, row.postgres_isolation, row.fixture_profile_id ?? null,
+          row.service_dependencies, row.preparation_operations ?? [], row.browser_state_scope,
+          row.browser_state_scope === "test_owned" ? null : row.row_id,
+        ]);
+        const partition = partitions.get(key) ?? [];
+        partition.push(row);
+        partitions.set(key, partition);
       }
-      return [...byFile.entries()]
-        .sort(([left], [right]) => compareASCII(left, right))
-        .flatMap(([file, fileRows], fileIndex) => {
-          const resourceProfileIDs = new Set(fileRows.map((row) => row.resource_profile_id));
-          if (resourceProfileIDs.size !== 1) {
-            throw new Error(`browser selector file ${file} mixes resource profiles`);
-          }
-          const resourceProfileID = [...resourceProfileIDs][0];
-          const serviceDependencySets = new Set(
-            fileRows.map((row) => JSON.stringify(row.service_dependencies)),
-          );
-          if (serviceDependencySets.size !== 1) {
-            throw new Error(`browser selector file ${file} mixes service dependencies`);
-          }
-          const serviceDependencies = [...fileRows[0].service_dependencies];
-          const fileIdentity = file
-            .replace(/^apps\/web\/e2e\//u, "")
-            .replace(/\.spec\.ts$/u, "")
-            .replaceAll(/[^a-zA-Z0-9]+/gu, "-")
-            .replaceAll(/^-|-$/gu, "")
-            .toLowerCase();
-          const rowPartitions = resourceProfileID === "browser_measurement_quiet" || policyGroup.kind === "visual"
-            ? fileRows.map((row) => [row])
-            : [fileRows];
-          return rowPartitions.map((partition) => {
-            const fixtureProfileIDs = new Set(
-              partition.map((row) => row.fixture_profile_id ?? null),
-            );
-            if (fixtureProfileIDs.size !== 1) {
-              throw new Error(`browser selector file ${file} mixes fixture profiles`);
-            }
-            const fixtureProfileID = [...fixtureProfileIDs][0];
-            const quietIdentity = resourceProfileID === "browser_measurement_quiet"
-              ? partition[0].row_id
-              : "";
-            // Group names are private storage components; full claim identities
-            // remain in selected_row_ids and every result. Keep reset pairs bounded.
-            const visualStorageIdentity = policyGroup.kind === "visual"
-              ? createHash("sha256").update(partition[0].row_id).digest("hex")
-              : null;
-            const group = {
-              ...clone(policyGroup),
-              name: visualStorageIdentity
-                ? `${policyGroup.name}-${visualStorageIdentity}`
-                : [policyGroup.name, fileIdentity, quietIdentity].filter(Boolean).join("-"),
-              selected_row_ids: partition.map((row) => row.row_id),
-              specs: [file],
-              runtime_profile_id: runtimeProfileID,
-              resource_profile_id: resourceProfileID,
-              service_requirement: runtimeProfile.serviceRequirement,
-              service_dependencies: serviceDependencies,
-              browser_session_group: [
-                policyGroup.browser_session_group ?? `${stage.target}-${runtimeProfileID}`,
-                quietIdentity,
-              ].filter(Boolean).join("-"),
-            };
-            if (fixtureProfileID) {
-              group.fixture_profile_id = fixtureProfileID;
-            }
-            return group;
-          });
-        });
+      return [...partitions.entries()].sort(([a], [b]) => compareASCII(a, b)).map(([key, partition]) => {
+        const first = partition[0];
+        const identity = createHash("sha256").update(key).digest("hex");
+        return {
+          ...clone(policyGroup),
+          name: `${policyGroup.name}-${identity}`,
+          owner_id: first.owner_id,
+          state_scope: first.browser_state_scope,
+          project: first.selector.project_id,
+          config: "playwright.config.ts",
+          selected_row_ids: partition.map((row) => row.row_id),
+          specs: [...new Set(partition.map((row) => row.selector.file))].sort(compareASCII),
+          runtime_profile_id: runtimeProfileID,
+          resource_profile_id: first.resource_profile_id,
+          service_requirement: runtimeProfile.serviceRequirement,
+          service_dependencies: [...first.service_dependencies],
+          postgres_isolation: first.postgres_isolation,
+          preparation_operations: [...(first.preparation_operations ?? [])],
+          browser_session_group: [
+            policyGroup.browser_session_group ?? `${stage.target}-${runtimeProfileID}`,
+            first.browser_state_scope === "measurement" ? identity : "",
+          ].filter(Boolean).join("-"),
+          ...(first.fixture_profile_id ? { fixture_profile_id: first.fixture_profile_id } : {}),
+        };
+      });
     }),
   }));
   return {
     schema_id: browserBatchManifestSchemaID,
+    invocation_policy: clone(topology.browserBatch.invocation_policy),
     runtime_profiles: topology.browserBatch.runtime_profiles.map((profile) => ({
       ...clone(profile),
       service_requirement: globalRuntimeProfiles.get(profile.id).serviceRequirement,

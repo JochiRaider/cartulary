@@ -250,16 +250,7 @@ func TestIncidentBundleTasksDecisionsDiagnosticsAreSafe(t *testing.T) {
 func newTasksDecisionsPortabilityHarness(t testing.TB, suffix string) tasksDecisionsPortabilityHarness {
 	t.Helper()
 	storeHarness := appsupport.StartStore(t, "tasks-decisions-portability-"+suffix)
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		storeHarness.DB,
-		"tasks-decisions-portability-"+uuid.NewString()+"@example.test",
-		"Tasks Decisions Portability",
-		"TasksDecisionsPortability1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, storeHarness.DB, authstoretest.ActorAttributes{Email: "tasks-decisions-portability-" + uuid.NewString() + "@example.test", DisplayName: "Tasks Decisions Portability"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		storeHarness.DB,

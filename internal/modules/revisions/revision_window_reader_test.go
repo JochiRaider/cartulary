@@ -16,16 +16,7 @@ import (
 
 func TestRevisionWindowReaderOrdersRowsAndNormalizesUTC_Integration(t *testing.T) {
 	harness := appsupport.StartStore(t, "revisions-window-reader")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"revision-window@example.test",
-		"Revision Window",
-		"RevisionWindowPass1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "revision-window@example.test", DisplayName: "Revision Window"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,

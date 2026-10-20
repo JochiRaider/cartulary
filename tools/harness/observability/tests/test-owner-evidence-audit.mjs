@@ -34,12 +34,12 @@ function fixture(t, target = "test-slice") {
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const rows = ["first", "second"].map((name) => ({ row_id: `${owner}.unit.${name}`, owner_id: owner, runner: "go", evidence_class: "unit", runtime_profile_id: "none" }));
   const units = rows.map((row, i) => ({ unit_id: `u${i}`, kind: "runner", needs: [], resource_claims: { cpu: 1 }, service_dependencies: [], semantic_digest: digest, row_bindings: [{ row_id: row.row_id, runner: row.runner }], current_run_evidence_outputs: [`rows/${row.row_id}.json`, `unit-results/u${i}.json`] }));
-  const rowResult = (row) => ({ schema_id: "cartulary.harness_row_result.v4", row_id: row.row_id, runner: "go", terminal_state: "passed", duration_ms: 1, exit_code: 0,
+  const rowResult = (row) => ({ schema_id: "cartulary.harness_row_result.v6", row_id: row.row_id, runner: "go", terminal_state: "passed", duration_ms: 1, exit_code: 0,
     failure_class: null, failure_reason: null, failure_diagnostic: null, started_at: "2026-10-13T00:00:00.000Z", finished_at: "2026-10-13T00:00:00.001Z", wall_duration_ms: 1 });
   const unitResult = (unit) => ({ schema_id: "cartulary.harness_unit_result.v1", unit_id: unit.unit_id, semantic_digest: digest, status: "passed", exit_code: 0, signal: null,
     failure_class: null, failure_reason: null, missing_outputs: [], evidence_outputs: unit.current_run_evidence_outputs });
-  const cleanup = { schema_id: "cartulary.harness_cleanup_results.v1", run_id: "synthetic", results: units.map((unit, i) => ({ sequence: i + 1, operation: "host_release", unit_id: unit.unit_id,
-    fixture_lease_id: null, outcome: "completed", failure_class: null, failure_reason: null, failures: [], artifact_refs: [] })) };
+  const cleanup = { schema_id: "cartulary.harness_cleanup_results.v2", run_id: "synthetic", results: units.map((unit, i) => ({ sequence: i + 1, operation: "host_release", unit_id: unit.unit_id,
+    fixture_lease_id: null, outcome: "completed", failure_class: null, failure_reason: null, failures: [], artifact_refs: [], diagnostic: null })) };
   const save = (relative, value) => atomicLocalFile(path.join(root, "run", relative), JSON.stringify(value), { replace: true });
   rows.forEach((row) => save(`rows/${row.row_id}.json`, rowResult(row)));
   units.forEach((unit) => save(`unit-results/${unit.unit_id}.json`, unitResult(unit)));

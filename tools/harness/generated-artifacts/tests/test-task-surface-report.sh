@@ -123,7 +123,7 @@ const {
 assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v16", "task surface schema must be v16");
 assert.deepEqual(
   manifest.global_inputs.map((input) => input.name),
-  ["CARTULARY_MACHINE_CACHE_DIR", "GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR"],
+  ["CARTULARY_MACHINE_CACHE_DIR", "GO_CACHE_DIR", "GO_MOD_CACHE_DIR", "GO_TMP_DIR", "CARTULARY_HARNESS_SCRATCH_ROOT"],
   "machine-state overrides must be declared once as global task-surface inputs",
 );
 for (const target of manifest.targets.filter((entry) => entry.target_class === "public")) {
@@ -197,7 +197,7 @@ assert.match(
 );
 assert.match(
   renderedRuntime,
-  /TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="\$\(CARTULARY_MACHINE_CACHE_DIR\)" GO_CACHE_DIR="\$\(GO_CACHE_DIR\)" GO_MOD_CACHE_DIR="\$\(GO_MOD_CACHE_DIR\)" GO_TMP_DIR="\$\(GO_TMP_DIR\)"/,
+  /TASK_SURFACE_MACHINE_STATE_ENV = CARTULARY_MACHINE_CACHE_DIR="\$\(CARTULARY_MACHINE_CACHE_DIR\)" GO_CACHE_DIR="\$\(GO_CACHE_DIR\)" GO_MOD_CACHE_DIR="\$\(GO_MOD_CACHE_DIR\)" GO_TMP_DIR="\$\(GO_TMP_DIR\)" CARTULARY_HARNESS_SCRATCH_ROOT="\$\(CARTULARY_HARNESS_SCRATCH_ROOT\)"/,
   "generated runtime must forward the resolved machine-state configuration after stripping public inputs",
 );
 assert.match(

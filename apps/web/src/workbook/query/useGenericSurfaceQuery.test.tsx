@@ -13,12 +13,14 @@ import {
   jsonResponse,
 } from "../../testing/fetchMockTestSupport";
 import { taskAuthority, taskRow } from "../../testing/taskWorkbookTestSupport";
-import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import {
   acceptedQueryMetadata,
+  fullWorkbookViewRow,
+  workbookQueryMeta,
+} from "../../testing/workbookFixtureData";
+import {
   renderWithWorkbookQueryBrowsing as render,
   renderHookWithWorkbookQueryBrowsing as renderHook,
-  workbookQueryMeta,
 } from "../../testing/workbookQueryTestSupport";
 import { createWorkbookViewQueryAdapter } from "../adapters/createWorkbookViewQueryAdapter";
 import { taskViewId } from "../features/coordination/taskLifecycleModel";

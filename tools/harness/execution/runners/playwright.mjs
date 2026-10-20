@@ -3,8 +3,9 @@ import { browserFixtureDiagnostic } from "../../contract/index.mjs";
 import {
   primaryPublicFailure,
   publicExitCodeForFailure,
-  publicExitCodeForFailures,
 } from "../../contract/failure-taxonomy.mjs";
+
+export const playwrightReportMaximumBytes = 32 * 1024 * 1024;
 
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -161,16 +162,24 @@ export function adaptPlaywrightReport(
   const unexpected = specs.some(spec => !selection.some(entry =>
     spec.normalizedFile === normalizeFile(entry.file) && JSON.stringify(spec.titlePath) === JSON.stringify(entry.title_path) &&
     spec.tests?.length === 1 && spec.tests[0].projectName === entry.project_id));
-  const childFailure = unexpected ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" } : selected.every(({ observations }) =>
-    observations.every((observation) => observation.status === "passed")
-  )
-    ? processFailure(processStatus, processSignal)
-    : null;
+  const observedFailure = primaryPublicFailure(selected.flatMap(({ observations }) => observations.flatMap((entry) => entry.failures ?? (["failed", "timed_out", "artifact_failed", "fixture_failed"].includes(entry.status) ? [observationFailure(entry)] : [])).filter(Boolean)));
+  const invocationErrors = runnerErrors(report, observedFailure !== null);
+  const invocationFailure = invocationErrors.length ? { failure_class: "harness", failure_reason: "tool_diagnostic_failure" } : null;
+  const childFailure = unexpected ? { failure_class: "harness", failure_reason: "scheduler_accounting_error" }
+    : !invocationFailure && selected.every(({ observations }) => observations.every((entry) => entry.status === "passed"))
+      ? (processSignal ? null : processFailure(processStatus, processSignal)) : null;
   return selected.map(({ observations, row }) => {
-      const failures = observations.flatMap((entry) => entry.failures ?? [observationFailure(entry)]).filter(Boolean);
+      const unexecuted = observations.some((entry) => ["missing", "skipped"].includes(entry.status));
+      const predecessorFailure = observedFailure ?? invocationFailure;
+      const failures = observations.flatMap((entry) => entry.failures ??
+        (["missing", "skipped"].includes(entry.status) && (processSignal || predecessorFailure)
+          ? [processSignal ? processFailure(processStatus, processSignal) : predecessorFailure]
+          : [observationFailure(entry)])).filter(Boolean);
       if (childFailure) failures.push(childFailure);
       const primaryFailure = primaryPublicFailure(failures);
-      const terminalState = terminalStateForFailure(primaryFailure);
+      const terminalState = unexecuted && predecessorFailure && !processSignal &&
+        !observations.some((entry) => ["failed", "timed_out", "artifact_failed", "fixture_failed", "ambiguous"].includes(entry.status))
+        ? "skipped_dependency" : terminalStateForFailure(primaryFailure);
       return {
         row_id: row.row_id,
         terminal_state: terminalState,
@@ -188,19 +197,34 @@ export function adaptPlaywrightReport(
     });
 }
 
-export function playwrightGroupExitCode(rowResults, child = {}) {
+function runnerErrors(report, observedFailure) {
+  // The pinned public failure-limit notice describes an already-observed test
+  // failure. Real runner/worker/global errors remain cohort failures.
+  return (report?.errors ?? []).filter((error) => !(
+    observedFailure && Object.keys(error).length === 1 && typeof error.message === "string" &&
+    error.message.replace(/\u001b\[[0-9;]*m/gu, "") === "Testing stopped early after 1 maximum allowed failures."
+  ));
+}
+
+export function playwrightGroupFailure(rowResults, child = {}, report = null) {
   const failures = rowResults
     .filter((row) => row.terminal_state !== "passed")
     .map((row) => ({
       failure_class: row.failure_class,
       failure_reason: row.failure_reason,
     }));
+  if (runnerErrors(report, rowResults.some((row) =>
+    ["test_assertion_failure", "fixture_error", "artifact_error"].includes(row.failure_reason))).length) {
+    failures.push({ failure_class: "harness", failure_reason: "tool_diagnostic_failure" });
+  }
   const childFailure = processFailure(child.status, child.signal);
   if (childFailure && failures.length === 0) {
     failures.push(childFailure);
   }
-  return publicExitCodeForFailures(
-    failures,
-    exitContext(child.status, child.signal),
-  );
+  return primaryPublicFailure(failures);
+}
+
+export function playwrightGroupExitCode(rowResults, child = {}, report = null) {
+  const failure = playwrightGroupFailure(rowResults, child, report);
+  return failure ? publicExitCodeForFailure(failure, exitContext(child.status, child.signal)) : 0;
 }

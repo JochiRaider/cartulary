@@ -446,16 +446,7 @@ func TestNetworkFlow_StoreLifecycleAndLimitAccounting_Integration(t *testing.T) 
 func startNetworkFlowStoreTest(t testing.TB, prefix string) (*storetest.StoreHarness, authn.UserRecord, uuid.UUID) {
 	t.Helper()
 	harness := storetest.StartStore(t, prefix)
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		prefix+"@example.test",
-		"Network Flow Tester",
-		"NetworkFlowPass!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: prefix + "@example.test", DisplayName: "Network Flow Tester"})
 	result := storetest.CreateIncidentInStore(
 		t, harness.Incidents, actor,
 		"txn-"+prefix,

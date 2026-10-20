@@ -39,7 +39,7 @@ import { queryViewRows, waitForViewRowByCell } from "./support/workbook/query";
 
 test("Ordinary creation admits the fourteen-schema minimum matrix through production controls", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   const { incident } = await openOrdinaryFixture(page);
   const minima = {
@@ -69,7 +69,7 @@ test("Ordinary creation admits the fourteen-schema minimum matrix through produc
       "comm_log.summary": "Ordinary communication",
     },
     [handoffViewSchemaId]: {
-      "handoff.incoming_owner_user_id": workerAdmin.user_id,
+      "handoff.incoming_owner_user_id": testActor.user_id,
       "handoff.current_state_summary": "Ordinary handoff",
     },
     [statusReviewViewSchemaId]: {

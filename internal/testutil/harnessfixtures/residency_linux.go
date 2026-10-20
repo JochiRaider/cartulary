@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 type activityKey struct{}
@@ -49,6 +50,9 @@ func (r *residency) ensure(key string, claims map[string]int64) (*residentRecord
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if prior := r.allocations[key]; prior != nil {
+		if !maps.Equal(prior.Allocation.Claims, quantities(claims)) {
+			return nil, errors.New("resident allocation claims changed")
+		}
 		return prior, nil
 	}
 	token := strings.ReplaceAll(identifier(), "-", "")
@@ -109,7 +113,8 @@ func readResident(file string) (*residentRecord, error) {
 	}
 	return record, nil
 }
-func releaseResident(ctx context.Context, file string) error {
+func releaseResident(ctx context.Context, file string) (result error) {
+	defer func() { result = harnesssession.AtCleanupStage("resident_release", result) }()
 	record, err := readResident(file)
 	if err != nil {
 		return err

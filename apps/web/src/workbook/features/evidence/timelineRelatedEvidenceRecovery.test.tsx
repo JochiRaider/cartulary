@@ -6,7 +6,7 @@ import {
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import { createTimelineRelatedEvidenceTransport } from "../../adapters/createTimelineRelatedEvidenceTransport";
 import { readWorkbookAuthoringRecord } from "../../adapters/readWorkbookAuthoringRecord";
 import type { RecordChangedMessage } from "../../collaboration/workbookCollaborationMessages";

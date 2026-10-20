@@ -5,6 +5,9 @@ package harnessruntime
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"maps"
 	"os"
 	"os/exec"
@@ -12,6 +15,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -19,9 +23,11 @@ import (
 func canonicalFixture(t *testing.T) (*Plan, []map[string]any) {
 	t.Helper()
 	a, b := engineUnit("a", 10), engineUnit("b", 10)
+	a.Claims["volume"], b.Claims["volume"] = 1, 1
 	b.Kind = "readiness"
 	p := enginePlan(a, b)
 	p.facts.Capacities["cpu"] = 2
+	p.facts.Capacities["volume"] = 1
 	events := []map[string]any{}
 	emit := func(at int64, name, id, status string, extra map[string]any) {
 		u := a
@@ -90,6 +96,9 @@ func TestRuntimeCanonicalAccounting(t *testing.T) {
 	pressure := f.pressure()
 	if pressure["peak_use"].(map[string]int64)["cpu"] != 2 || pressure["saturation_ms"].(map[string]int64)["cpu"] != 10 {
 		t.Fatal(pressure)
+	}
+	if pressure["peak_use"].(map[string]int64)["volume"] != 1 || pressure["saturation_ms"].(map[string]int64)["volume"] != 30 {
+		t.Fatal("writable-root capability did not span all owners", pressure)
 	}
 	for _, kind := range []string{"duplicate", "reversal", "missing_wait", "forged_identity", "missing_terminal", "old_schema", "wait_gap", "wait_overlap", "wait_mismatch", "foreign_holder"} {
 		t.Run(kind, func(t *testing.T) {
@@ -189,6 +198,166 @@ func TestRuntimeCanonicalNodeParity(t *testing.T) {
 	}
 }
 func TestRuntimeRequiredPublication(t *testing.T) {
+	for _, stage := range []string{"admission", "acquisition", "cancelled"} {
+		t.Run("prelaunch unit is readable by dependent finalizer "+stage, func(t *testing.T) {
+			fixture := planFixture(t)
+			graph := fixture["graph"].(map[string]any)
+			a := graph["units"].([]any)[0].(map[string]any)
+			b := maps.Clone(a)
+			b["unit_id"], b["needs"] = "unit:b", []any{"unit:a"}
+			b["current_run_evidence_outputs"] = []any{"unit-results/unit-b.json"}
+			a["failure_policy"] = map[string]any{"block_descendants": false, "continue_independent": true, "aggregate_effect": "required"}
+			if stage == "acquisition" {
+				a["fixture_lease"], a["postgres_isolation"] = "postgres_dedicated", "exclusive"
+				a["service_dependencies"] = []any{"postgres"}
+				a["physical_allocations"] = map[string]any{"postgres": map[string]any{"memory_mb": 1, "process": 1, "postgres": 1, "port_lane": 1, "volume": 1}}
+			}
+			graph["units"] = []any{a, b}
+			fixture["projections"].(map[string]any)["test-slice"].(map[string]any)["unit_ids"] = []any{"unit:a", "unit:b"}
+			cache := maps.Clone(fixture["cache"].([]any)[0].(map[string]any))
+			cache["unit_id"] = "unit:b"
+			fixture["cache"] = append(fixture["cache"].([]any), cache)
+			rehashPlan(t, fixture)
+			p, err := decodePlan(planBytes(t, fixture))
+			if err != nil {
+				t.Fatal(err)
+			}
+			root := t.TempDir()
+			if err := os.Chmod(root, 0700); err != nil {
+				t.Fatal(err)
+			}
+			publisher, err := newGraphPublication(p, root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer publisher.Abort()
+			observed := false
+			primary := failed("infra", "service_readiness_timeout")
+			if stage == "cancelled" {
+				primary = failed("interrupted", "cancelled_or_interrupted")
+			}
+			result, err := executeGraph(t.Context(), p, enginePorts{Event: publisher.Event, Terminal: publisher.Terminal,
+				Admit: func(_ context.Context, u unit) (*hostLease, error) {
+					if u.ID == "unit:a" && stage != "acquisition" {
+						return nil, primary
+					}
+					return nil, nil
+				}, Fixtures: &testFixtures{acquire: func(context.Context, fixtureRequest) (*fixtureLease, error) { return nil, primary }},
+				Execute: func(_ context.Context, req executionRequest) unitResult {
+					if req.Unit.ID != "unit:b" {
+						t.Error("prelaunch failure executed runner")
+					}
+					data, err := os.ReadFile(filepath.Join(root, "unit-results/unit-a.json"))
+					var unit map[string]any
+					if err != nil || json.Unmarshal(data, &unit) != nil || unit["failure_reason"] != primary.Reason || unit["failure_class"] != primary.Class {
+						t.Error("dependent finalizer lacks primary unit evidence", err, unit)
+					}
+					observed = true
+					return unitResult{Status: "passed"}
+				}})
+			if err != nil || !observed || result.States["unit:b"] != "passed" {
+				t.Fatal("dependent finalizer did not complete", err, result.States)
+			}
+			if _, err := publisher.Finish(result); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	t.Run("cleanup failures retain separate safe causes after terminal publication", func(t *testing.T) {
+		p, err := decodePlan(planBytes(t, planFixture(t)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		root := t.TempDir()
+		if err := os.Chmod(root, 0700); err != nil {
+			t.Fatal(err)
+		}
+		publisher, err := newGraphPublication(p, root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer publisher.Abort()
+		private := &os.PathError{Op: "open", Path: "/private/credential-sentinel", Err: syscall.EACCES}
+		imported := &harnesssession.CleanupDiagnostic{Schema: "cartulary.harness_cleanup_diagnostic.v3", Stage: "browser_namespace", Cause: "deadline"}
+		result, err := executeGraph(context.Background(), p, enginePorts{
+			Event: publisher.Event, Terminal: publisher.Terminal,
+			Execute: func(context.Context, executionRequest) unitResult {
+				return unitResult{Status: "failed", ExitCode: 10, Failure: failed("product", "test_assertion_failure")}
+			},
+			Fixtures:        &testFixtures{close: func(context.Context) error { return nil }},
+			CleanupServices: func(context.Context) error { return harnesssession.AtCleanupStage("resource_release", private) },
+			Finalize: func(context.Context, bool, []cleanupRecord) error {
+				return harnesssession.AtCleanupStage("runtime_close", errors.Join(errors.New("credential-sentinel"), imported))
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(result.Cleanup) != 3 || !errors.Is(result.Cleanup[1].Cause, syscall.EACCES) {
+			t.Fatal("native cause discarded")
+		}
+		memoryBytes, err := json.Marshal(result.Cleanup)
+		if err != nil || strings.Contains(string(memoryBytes), "credential-sentinel") {
+			t.Fatal("raw cause serialized", err)
+		}
+		summary, err := publisher.Finish(result)
+		if err != nil || summary["failure_class"] != "product" {
+			t.Fatal("cleanup replaced primary failure", err)
+		}
+		data, err := os.ReadFile(filepath.Join(root, "cleanup-results.json"))
+		if err != nil || strings.Contains(string(data), "credential-sentinel") {
+			t.Fatal("unsafe cleanup evidence", err)
+		}
+		value, err := harnessschema.Decode(data)
+		if err != nil || harnessschema.Validate("cartulary.harness_cleanup_results.v2", value) != nil {
+			t.Fatal("invalid cleanup publication", err)
+		}
+		records := value.(map[string]any)["results"].([]any)
+		if records[0].(map[string]any)["diagnostic"] != nil {
+			t.Fatal("successful cleanup has diagnostic")
+		}
+		for i, stage := range []string{"resource_release", "browser_namespace"} {
+			d := records[i+1].(map[string]any)["diagnostic"].(map[string]any)
+			if d["stage"] != stage {
+				t.Fatal("lost distinct boundary", d)
+			}
+		}
+		first := records[1].(map[string]any)["diagnostic"].(map[string]any)
+		if first["errno"] != float64(syscall.EACCES) || first["cause"] != "io" {
+			t.Fatal("lost safe errno/cause", first)
+		}
+	})
+
+	for _, runner := range []string{"vitest", "playwright"} {
+		t.Run(runner+" cohort interruption preserves settled outcomes", func(t *testing.T) {
+			u := engineUnit("unit:a", 1)
+			completed := rowBinding{ID: "package.view_contracts.frontend_unit.references", Runner: runner}
+			unfinished := rowBinding{ID: "package.view_contracts.frontend_unit.surfaces", Runner: runner}
+			u.Rows = []rowBinding{completed, unfinished}
+			p := enginePlan(u)
+			root := t.TempDir()
+			publisher := &graphPublication{plan: p, root: root, facts: newCanonicalFacts(p)}
+			publisher.facts.starts[u.ID] = 0
+			items, err := semanticEvidence(unit{ID: u.ID, Digest: "sha256:" + strings.Repeat("a", 64), Evidence: []string{"rows/" + completed.ID + ".json", "unit-results/a.json"}, Rows: []rowBinding{completed}}, semanticRows{Status: "passed", Rows: []cachedRow{{ID: completed.ID, Runner: runner}}}, time.Now())
+			if err != nil {
+				t.Fatal(err)
+			}
+			file := filepath.Join(root, "rows", completed.ID+".json")
+			writeFixtureFile(t, file, items[0].Bytes, 0600)
+			if err := publisher.publishRows(u, canonicalTerminal{status: "cancelled", failure: failed("interrupted", "cancelled_or_interrupted")}); err != nil {
+				t.Fatal(err)
+			}
+			got, err := os.ReadFile(file)
+			if err != nil || string(got) != string(items[0].Bytes) {
+				t.Fatal("settled file result was replaced", err)
+			}
+			data, err := os.ReadFile(filepath.Join(root, "rows", unfinished.ID+".json"))
+			var result map[string]any
+			if err != nil || json.Unmarshal(data, &result) != nil || result["terminal_state"] != "cancelled" || result["runner"] != runner {
+				t.Fatal(result, err)
+			}
+		})
+	}
 	t.Run("dependency rows publish before consumers without replacing root failure", func(t *testing.T) {
 		fixture := planFixture(t)
 		graph := fixture["graph"].(map[string]any)
@@ -223,8 +392,13 @@ func TestRuntimeRequiredPublication(t *testing.T) {
 				return err
 			}
 			if e["event"] == "skipped" {
+				data, err := os.ReadFile(filepath.Join(root, "unit-results/unit-b.json"))
+				var unit map[string]any
+				if err != nil || json.Unmarshal(data, &unit) != nil || unit["status"] != "skipped" || unit["exit_code"] != nil {
+					t.Fatal("dependency unit was not published before consumers", err, unit)
+				}
 				var row map[string]any
-				data, err := os.ReadFile(filepath.Join(root, "rows", rowID+".json"))
+				data, err = os.ReadFile(filepath.Join(root, "rows", rowID+".json"))
 				if err != nil {
 					t.Fatal(err)
 				}

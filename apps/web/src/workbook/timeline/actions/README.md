@@ -71,11 +71,11 @@ alone enters the retained mutation and exact-replay lifetime.
 
 | File | Responsibility |
 | --- | --- |
-| [reconcileTimelineMentionReceipt.test.ts](reconcileTimelineMentionReceipt.test.ts) | Tests mention reconciliation against newer corrections, stale sources, and detached reads. |
+| [reconcileTimelineMentionReceipt.node.test.ts](reconcileTimelineMentionReceipt.node.test.ts) | Tests mention reconciliation against newer corrections, stale sources, and detached reads. |
 | [timelineMentionCandidates.test.tsx](timelineMentionCandidates.test.tsx) | Tests selected Entity identity, exact retry/restart, stale eligibility, focus continuity, authority and independently paged targets. |
 | [TimelineSupersessionEditor.test.tsx](TimelineSupersessionEditor.test.tsx) | Tests capture-action eligibility, authored reasons, frozen review, and optional replacement. |
-| [WorkbookTimelineCaptureActionOwner.test.ts](WorkbookTimelineCaptureActionOwner.test.ts) | Tests synchronous capture reservation, preparation ordering, and renewed review for changed versions. |
-| [WorkbookTimelineMentionOperationOwner.test.ts](WorkbookTimelineMentionOperationOwner.test.ts) | Tests retained entity-creation receipts and independent mention-link recovery without duplicate creation. |
+| [WorkbookTimelineCaptureActionOwner.node.test.ts](WorkbookTimelineCaptureActionOwner.node.test.ts) | Tests synchronous capture reservation, preparation ordering, and renewed review for changed versions. |
+| [WorkbookTimelineMentionOperationOwner.node.test.ts](WorkbookTimelineMentionOperationOwner.node.test.ts) | Tests retained entity-creation receipts and independent mention-link recovery without duplicate creation. |
 
 Mention presentation refresh carries the exact accepted receipt and its required
 source version. The presentation binding lends a continuity token only to that

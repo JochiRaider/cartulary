@@ -4,15 +4,14 @@ import (
 	"context"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestJobsExecutionHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.OpenIsolatedDatabaseT(t, "jobs-execution-head-contract", postgres.PurposeRuntime)
+	db := harness.BeginRollbackDBT(t, "jobs-execution-head-contract")
 	var columns int
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT count(*)
   FROM information_schema.columns
  WHERE table_schema = 'public'

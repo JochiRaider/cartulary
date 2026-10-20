@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { loadBrowserBatchStages } from "../adapters/browser.mjs";
+import { loadBrowserBatchStages, packBrowserCohorts } from "../adapters/browser.mjs";
 import {
   activePerformanceFixtureProfile,
   loadPerformanceFixtureBuilderPolicy,
@@ -168,6 +168,7 @@ function snapshotBuilderUnit(root, group, fixture, owner) {
     snapshot_key: fixture.snapshotKey,
     fixture_lease: policy.fixture_capability,
     service_dependencies: policy.service_dependencies,
+    postgres_isolation: policy.postgres_isolation,
     cache_policy: "none",
     timeout_ms: owner.default_timeout_ms,
     current_run_evidence_outputs: [
@@ -175,7 +176,7 @@ function snapshotBuilderUnit(root, group, fixture, owner) {
       "performance-fixtures/" + fixture.snapshotKey + "/snapshot-build.json",
     ],
     failure_policy: requiredFailurePolicy(),
-    estimated_work_ms: 120000,
+    estimated_work_ms: owner.lifecycle_estimates_ms.performance_fixture_prepare,
   };
 }
 
@@ -205,7 +206,7 @@ function resetPolicy(root) {
   return policy;
 }
 
-function resetUnit(root, stage, group, dependencies, fixture, resetLabel) {
+function resetUnit(root, stage, group, dependencies, fixture, resetLabel, owner) {
   const key = safeID(lifecycleKey(stage, group));
   const locks = hostLocks(group);
   const policy = resetPolicy(root);
@@ -258,6 +259,7 @@ function resetUnit(root, stage, group, dependencies, fixture, resetLabel) {
       : {}),
     fixture_lease: "browser_stack",
     service_dependencies: group.serviceDependencies,
+    postgres_isolation: group.postgresIsolation,
     cache_policy: "none",
     timeout_ms:
       policy.backend_drain_timeout_ms +
@@ -267,8 +269,8 @@ function resetUnit(root, stage, group, dependencies, fixture, resetLabel) {
     current_run_evidence_outputs: [
       `${group.target}/reset-boundary/${safeID(resetLabel)}.attempt.json`,
     ],
-    failure_policy: group.functionalLaneID ? finalizableFailurePolicy() : requiredFailurePolicy(),
-    estimated_work_ms: 1000,
+    failure_policy: finalizableFailurePolicy(),
+    estimated_work_ms: owner.lifecycle_estimates_ms.browser_reset,
   };
 }
 
@@ -306,6 +308,8 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
         manifestRelativePath,
         "--stage",
         stage.name,
+        "--partition",
+        group.partitionName,
         "--group",
         group.name,
       ],
@@ -314,7 +318,6 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
         CARTULARY_BROWSER_STAGE: stage.name,
         CARTULARY_BROWSER_RUNTIME_PROFILE_ID: group.runtimeProfileID,
         CARTULARY_BROWSER_RESOURCE_PROFILE_ID: group.resourceProfileID,
-        CARTULARY_BROWSER_SELECTED_ROW_IDS: group.selectedRowIDs.join(","),
         ...(group.functionalLaneID
           ? {
               CARTULARY_BROWSER_FUNCTIONAL_LANE_ID: group.functionalLaneID,
@@ -355,6 +358,7 @@ function groupUnit(root, stage, group, dependencies, owner, mode, fixture) {
       : {}),
     fixture_lease: "browser_stack",
     service_dependencies: group.serviceDependencies,
+    postgres_isolation: group.postgresIsolation,
     cache_policy: "none",
     timeout_ms:
       resourceProfile(root, group).runner_timeout_ms ?? owner.default_timeout_ms,
@@ -411,7 +415,7 @@ function measurementSummaryUnit(root, stage, group, runner, owner, fixture, mode
       `${target}/browser-groups/${safeID(group.name)}/frontend-measurement-summary.${fixture.profile.artifact_policy.summary_schema_id.split(".").at(-1)}.json`,
     ],
     failure_policy: requiredFailurePolicy(),
-    estimated_work_ms: 500,
+    estimated_work_ms: owner.lifecycle_estimates_ms.measurement_finalize,
   };
 }
 
@@ -433,8 +437,7 @@ function targetFinalizer(root, stage, target, groupUnits, resetUnits, needs, own
         "tools/harness/browser/browser-target-finalizer-cli.mjs",
         "--target",
         target,
-        "--groups",
-        stage.groups.map((group) => group.name).sort(compareASCII).join(","),
+        ...stage.groups.map((group) => group.name).sort(compareASCII).flatMap((name) => ["--groups", name]),
         // The finalizer accumulates repeated mappings. Keep each argument
         // bounded as the selected browser group inventory grows.
         ...groupTargets.flatMap((entry) => ["--group-targets", entry]),
@@ -468,7 +471,7 @@ function targetFinalizer(root, stage, target, groupUnits, resetUnits, needs, own
         : []),
     ],
     failure_policy: requiredFailurePolicy(),
-    estimated_work_ms: 500,
+    estimated_work_ms: owner.lifecycle_estimates_ms.browser_target_finalize,
   };
 }
 
@@ -494,6 +497,8 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
   const groupUnits = [];
   const resetUnits = [];
   const measurementSummaryUnits = [];
+  stage = { ...stage, groups: packBrowserCohorts(stage.groups, getCatalog(), stage.invocationPolicy, owner,
+    (group) => resourceProfile(root, group).runner_timeout_ms ?? owner.default_timeout_ms) };
   let scheduledGroups = stage.groups;
   if (stage.groups.every(
     (group) =>
@@ -504,21 +509,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
     const lanes = planBrowserFunctionalLanes(stage.groups, {
       lanePrefix: stage.name,
       maxLanes,
-      estimateGroup(group) {
-        return group.selectedRowIDs.reduce((total, rowID) => {
-          const row = catalog.rowByID.get(rowID);
-          if (!row) {
-            throw new Error(`browser functional group ${group.name} references unknown row ${rowID}`);
-          }
-          const estimate = owner.evidence_estimates_ms[row.evidence_class];
-          if (!Number.isSafeInteger(estimate) || estimate < 1) {
-            throw new Error(
-              `browser functional row ${rowID} has no positive evidence estimate`,
-            );
-          }
-          return total + estimate;
-        }, 0);
-      },
+      estimateGroup(group) { return group.estimatedWorkMs; },
     });
     scheduledGroups = lanes.flatMap((lane) =>
       lane.groups.map((item) => ({
@@ -557,6 +548,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
         resetDependencies,
         fixture,
         resetLabel,
+        owner,
       );
       units.push(reset);
       resetUnits.push(reset);
@@ -564,6 +556,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
       dependencies = [reset.unit_id];
     }
     const runner = groupUnit(root, stage, group, dependencies, owner, mode, fixture);
+    if (!previousID) runner.estimated_work_ms += owner.lifecycle_estimates_ms.browser_allocation_acquire;
     units.push(runner);
     groupUnits.push(runner);
     if (fixture) {
@@ -586,6 +579,7 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
   for (const terminalUnitID of previousByLifecycle.values()) {
     const terminalUnit = units.find((unit) => unit.unit_id === terminalUnitID);
     terminalUnit.command.environment.CARTULARY_BROWSER_RELEASE_AFFINITY = "1";
+    terminalUnit.estimated_work_ms += owner.lifecycle_estimates_ms.browser_allocation_release;
   }
 
   const target = mode === "snapshot_update" ? "browser-e2e-visual-update" : stage.target;

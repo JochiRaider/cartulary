@@ -42,19 +42,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
   cleanupTimelineWorkbookTestGlobals,
-  errorEnvelope,
   extractTimelineJSONBody,
   findWorkbookCell,
-  fullWorkbookViewRow,
   installTimelineWorkbookTestGlobals,
-  successEnvelope,
   type TimelineWorkbookFetchMock,
-  timelineMutationEnvelope,
   timelineRecordActionCalls,
-  timelineRow,
-  timelineRowsEnvelope,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import {
+  errorEnvelope,
+  fullWorkbookViewRow,
+  successEnvelope,
+  timelineMutationEnvelope,
+  timelineRow,
+  timelineRowsEnvelope,
+} from "../testing/workbookFixtureData";
 import { historyDiffFixture } from "../testing/workbookHistoryTestSupport";
 import { createContextualCreateTransport } from "./adapters/createContextualCreateTransport";
 import { createTimelineRelatedEvidenceTransport } from "./adapters/createTimelineRelatedEvidenceTransport";

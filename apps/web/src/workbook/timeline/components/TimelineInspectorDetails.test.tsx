@@ -14,7 +14,7 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { deferred } from "../../../testing/fetchMockTestSupport";
 import { taskAuthority } from "../../../testing/taskWorkbookTestSupport";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import type {
   RecordPatchOutcome,
   RecordPatchTransport,

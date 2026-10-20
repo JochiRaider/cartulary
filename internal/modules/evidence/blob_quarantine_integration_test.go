@@ -15,7 +15,7 @@ import (
 func TestQuarantineLifecycleService_Integration(t *testing.T) {
 	harness := newTestStore(t, "evidence-quarantine-lifecycle")
 	service := newTestBlobLifecycleService(t, harness)
-	actor := authstoretest.SeedLocalUserRecord(t, harness, "evidence-quarantine@example.test", "Evidence Quarantine", "EvidenceQuarantine1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness, authstoretest.ActorAttributes{Email: "evidence-quarantine@example.test", DisplayName: "Evidence Quarantine"})
 	incident := createTestIncident(t, harness, actor, "txn-evidence-quarantine-incident", "IR-EVIDENCE-QUARANTINE", "Evidence quarantine")
 
 	recordID := seedEvidenceAttachmentRecord(t, harness, incident.ID, actor.ID, "available")

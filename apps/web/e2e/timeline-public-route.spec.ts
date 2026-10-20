@@ -295,7 +295,7 @@ async function submitTimelineSummary(
 
 test(
   exactScenarioTitle,
-  async ({ browser, page, sessionTracker, workerAdminRequest }) => {
+  async ({ browser, page, sessionTracker, testActorRequest }) => {
     test.setTimeout(300_000);
 
     const incidentId = await createIncident(
@@ -1246,7 +1246,7 @@ test(
         sessionTracker,
         triggerRevocation: async ({ member }) => {
           await revokeAllSessions(
-            workerAdminRequest,
+            testActorRequest,
             member.user_id,
             "end-to-end.mutation-lifecycle.row-01 browser revoke-all",
           );

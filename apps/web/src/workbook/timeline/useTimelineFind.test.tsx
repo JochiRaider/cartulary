@@ -6,7 +6,7 @@ import type {
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../testing/workbookFixtureData";
 import { emptyWorkbookQueryState } from "../models/workbookQuery";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";
 import { WorkbookQueryBrowser } from "../query/WorkbookQueryBrowser";

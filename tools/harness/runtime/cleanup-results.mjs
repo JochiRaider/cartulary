@@ -1,6 +1,7 @@
 import { primaryPublicFailure, secureWriteFile, validateSchemaSync } from "../contract/index.mjs";
 import { CommandFailure } from "./command-failure.mjs";
 import path from "node:path";
+import { findCleanupDiagnostic, withCleanupDiagnostic } from "./cleanup-diagnostic.mjs";
 
 export function cleanupErrors(error, seen = new Set()) {
   if (seen.has(error)) return [];
@@ -31,7 +32,7 @@ export function aggregateCleanup(errors) {
 export class CleanupResults {
   constructor() { this.results = []; }
   record(operation, { unitID = null, leaseID = null, artifactRefs = [], error, blocked = false } = {}) {
-    const failures = error ? cleanupErrors(error).map(cleanupFailure).map((failure) => ({
+    const failures = error && !blocked ? cleanupErrors(error).map(cleanupFailure).map((failure) => ({
       failure_class: failure.failure_class, failure_reason: failure.failure_reason,
     })) : [];
     const primary = primaryPublicFailure(failures.map((failure, index) => ({
@@ -42,6 +43,7 @@ export class CleanupResults {
       fixture_lease_id: leaseID, outcome: blocked ? "blocked" : error ? "failed" : "completed",
       failure_class: primary?.failure_class ?? null, failure_reason: primary?.failure_reason ?? null,
       failures, artifact_refs: artifactRefs,
+      diagnostic: error && !blocked ? findCleanupDiagnostic(withCleanupDiagnostic(new Error("cleanup failed", { cause: error }), operation)) : null,
     };
     this.results.push(record);
     return record;
@@ -56,7 +58,7 @@ export class CleanupResults {
   }
   publish(runRoot, runID) {
     try {
-      const payload = { schema_id: "cartulary.harness_cleanup_results.v1", run_id: runID, results: this.results };
+      const payload = { schema_id: "cartulary.harness_cleanup_results.v2", run_id: runID, results: this.results };
       validateSchemaSync(payload.schema_id, payload);
       secureWriteFile(path.join(runRoot, "cleanup-results.json"), `${JSON.stringify(payload, null, 2)}\n`, { allowedRoot: runRoot });
     } catch (error) {

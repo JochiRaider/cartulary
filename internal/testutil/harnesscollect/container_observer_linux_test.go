@@ -52,7 +52,7 @@ func (f *observationFake) ContainerStats(ctx context.Context, id string, options
 func observationFixture() (containerObservationProof, *observationFake) {
 	resource := leaseproof.LeaseResource{Kind: "container", Service: "postgres", ContainerID: "exact-container", Labels: map[string]string{
 		leaseproof.LabelManaged: leaseproof.ManagedValue, leaseproof.LabelRunID: "run", leaseproof.LabelSuiteID: "suite", leaseproof.LabelService: "postgres"}}
-	proof := containerObservationProof{Version: 1, RunID: "run", RuntimeLeaseID: "runtime", Ownership: "owned", Lease: leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v2", LeaseID: "lease", SuiteID: "suite", RunID: "run", OwnershipMode: "owned", CleanupState: "not_started", Resources: []leaseproof.LeaseResource{resource}}}
+	proof := containerObservationProof{Ownership: "owned", Lease: leaseproof.Lease{SchemaID: "cartulary.test_services.lease.v3", LeaseID: "lease", PostgresProvisioning: &leaseproof.PostgresProvisioning{Generation: "1"}, SuiteID: "suite", RunID: "run", OwnershipMode: "owned", CleanupState: "not_started", Resources: []leaseproof.LeaseResource{resource}}}
 	fake := &observationFake{inspect: func(id string, _ int) (dockercontainer.InspectResponse, error) {
 		return dockercontainer.InspectResponse{ID: id, State: &dockercontainer.State{Running: true, StartedAt: "start:1"}, Config: &dockercontainer.Config{Labels: resource.Labels}}, nil
 	},
@@ -135,7 +135,7 @@ func TestContainerObserverDeadlineCancellationAndBatchCap(t *testing.T) {
 	fake.stats = func(ctx context.Context, _ string) (io.ReadCloser, error) { <-ctx.Done(); return nil, ctx.Err() }
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
-	result := collectContainerBatch(ctx, fake, proof)
+	result := collectContainerBatch(ctx, fake, []containerObservationProof{proof})
 	if result.Overruns != 1 || result.Omitted != 1 {
 		t.Fatal(result)
 	}
@@ -145,7 +145,7 @@ func TestContainerObserverDeadlineCancellationAndBatchCap(t *testing.T) {
 	for i := range proof.Lease.Resources {
 		proof.Lease.Resources[i] = resource
 	}
-	result = collectContainerBatch(context.Background(), fake, proof)
+	result = collectContainerBatch(context.Background(), fake, []containerObservationProof{proof})
 	if len(result.Observations) != 32 || result.Omitted != 8 || len(fake.sampled) != 32 {
 		t.Fatal("batch cap", result)
 	}
@@ -153,7 +153,7 @@ func TestContainerObserverDeadlineCancellationAndBatchCap(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	cancel()
 	fake.stats = func(ctx context.Context, _ string) (io.ReadCloser, error) { return nil, ctx.Err() }
-	result = collectContainerBatch(ctx, fake, proof)
+	result = collectContainerBatch(ctx, fake, []containerObservationProof{proof})
 	if result.Omitted != 1 || result.Overruns != 0 {
 		t.Fatal("cancellation", result)
 	}
@@ -164,21 +164,21 @@ func TestContainerObserverPrivateOwnershipAndBorrowerProof(t *testing.T) {
 	proof, _ := observationFixture()
 	write := func(value any) {
 		t.Helper()
-		raw, _ := json.Marshal(value)
+		raw, _ := json.Marshal(observationRoster(value.(containerObservationProof)))
 		if err := os.WriteFile(file, raw, 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	write(proof)
-	if _, err := readContainerObservationProof(file, "run", "runtime"); err != nil {
+	if _, err := readContainerObservationProofs(file, "run", "runtime"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readContainerObservationProof(file, "foreign", "runtime"); err == nil {
+	if _, err := readContainerObservationProofs(file, "foreign", "runtime"); err == nil {
 		t.Fatal("foreign run accepted")
 	}
 	proof.Lease.RunID = "foreign"
 	write(proof)
-	if _, err := readContainerObservationProof(file, "run", "runtime"); err == nil {
+	if _, err := readContainerObservationProofs(file, "run", "runtime"); err == nil {
 		t.Fatal("foreign lease accepted")
 	}
 	proof, _ = observationFixture()
@@ -190,13 +190,13 @@ func TestContainerObserverPrivateOwnershipAndBorrowerProof(t *testing.T) {
 		t.Fatal(err)
 	}
 	write(proof)
-	if got, err := readContainerObservationProof(file, "run", "runtime"); err != nil || got.Ownership != "borrowed" {
+	if got, err := readContainerObservationProofs(file, "run", "runtime"); err != nil || got.Services[0].Ownership != "borrowed" {
 		t.Fatal("borrower", err)
 	}
 	if err := os.Remove(proof.BorrowerFile); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readContainerObservationProof(file, "run", "runtime"); err == nil {
+	if _, err := readContainerObservationProofs(file, "run", "runtime"); err == nil {
 		t.Fatal("detached borrower accepted")
 	}
 	raw, _ := os.ReadFile(file)
@@ -204,14 +204,18 @@ func TestContainerObserverPrivateOwnershipAndBorrowerProof(t *testing.T) {
 	if err := os.WriteFile(file, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readContainerObservationProof(file, "run", "runtime"); err == nil {
+	if _, err := readContainerObservationProofs(file, "run", "runtime"); err == nil {
 		t.Fatal("duplicate proof accepted")
 	}
 	write(proof)
 	if err := os.Chmod(file, 0644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readContainerObservationProof(file, "run", "runtime"); err == nil {
+	if _, err := readContainerObservationProofs(file, "run", "runtime"); err == nil {
 		t.Fatal("public proof accepted")
 	}
+}
+
+func observationRoster(proof containerObservationProof) containerObservationRoster {
+	return containerObservationRoster{Version: 2, RunID: "run", RuntimeLeaseID: "runtime", Services: []containerObservationProof{proof}, RetiringService: proof.Lease.LeaseID}
 }

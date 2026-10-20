@@ -1127,6 +1127,20 @@ The supported authored-source formatter command is `make format`. It formats aut
 
 Repo-local `tmp/` is reserved for reproducible tool caches, retained run artifacts, and operator-inspectable local outputs. Disposable harness fixtures, especially repo-shaped scratch trees used by smoke tests, MUST be created through `tools/harness/test-support/harness-scratch.sh` outside the checkout. `CARTULARY_HARNESS_SCRATCH_ROOT` MAY redirect that scratch root, but it MUST resolve outside the repository so parallel linters and future checks cannot index transient harness state as authored source.
 
+Harness scratch defaults to `${CARTULARY_MACHINE_CACHE_DIR}/harness-scratch`,
+using the existing XDG/home machine-cache policy independently of `TMPDIR`.
+Choose an external filesystem with sufficient free space when overriding
+`CARTULARY_HARNESS_SCRATCH_ROOT`; populated measurement fixtures check capacity
+before construction. On successful closure, the native runtime removes its
+owned scratch after resource settlement. Each new runtime also checks up to
+8192 scratch entries and reclaims at most 64 proven-dead, unsealed, settled runtime roots
+older than 24 hours. An empty recovery journal permits reclamation of an unsealed
+root. Live owners, locked roots, unresolved resources and sealed finalization or
+recovery authority remain protected, including authority for a pending retained scan. Exact unresolved cleanup
+uses `make test-run-recover` with the original result directory, runtime root and
+lease identity. Changing the scratch default does not move those ownership
+records or retained test results.
+
 Shell-backed verification wrappers such as frontend lint, migration drift, and similar helper steps SHOULD report as non-test failures rather than as unmapped test inventory when they exit non-zero.
 
 Test accounting reserves `unmapped` for unexpected executed tests with no catalog identity. Intentional non-authoritative coverage must use an explicit catalog row and owner instead: `raw` for declared raw aggregates, `tooling_support` for helper or harness coverage, and `unowned_regression` for deliberate product regression coverage that is not normative conformance evidence. Ownership and selection are declared only by `tools/test_catalog_owner.json` and the owner family manifests under `tools/test_families/`.

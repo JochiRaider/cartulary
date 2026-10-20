@@ -313,3 +313,12 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
     phases,
   };
 }
+
+// Absence is justified only by canonical dispatch and terminal facts. A missing
+// file, nonzero process exit or generic failed unit is not proof of non-launch.
+export function notLaunchedUnitIDs({ phases, terminals, starts }) {
+  const dispatched = new Set([...phases.values()].filter(phase => phase.phase === "runner").map(phase => phase.unit_id));
+  const prelaunchFailures = new Set([...phases.values()].filter(phase => ["host_admission", "fixture_acquire"].includes(phase.phase) && ["failed", "cancelled"].includes(phase.outcome)).map(phase => phase.unit_id));
+  return new Set([...terminals].filter(([id, event]) => !dispatched.has(id) && event.status !== "passed" &&
+    (prelaunchFailures.has(id) || !starts.has(id) && ["skipped", "cancelled"].includes(event.status))).map(([id]) => id));
+}

@@ -268,7 +268,7 @@ func (m *Manager) ValidateStorageCatalog(ctx context.Context) error {
 	if err := m.ensureConfigured(); err != nil {
 		return err
 	}
-	rows, err := m.pool.Query(ctx, `
+	rows, err := m.db.Query(ctx, `
 SELECT job_kind, progress_unit_id, handler_name, status
   FROM jobs
  WHERE status IN ('queued', 'running', 'cancel_requested')

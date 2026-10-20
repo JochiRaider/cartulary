@@ -52,6 +52,7 @@ const expectedGlobalInputs = Object.freeze([
   ["GO_CACHE_DIR", "machine_cache_path", "CARTULARY_MACHINE_CACHE_DIR/go/build"],
   ["GO_MOD_CACHE_DIR", "machine_cache_path", "CARTULARY_MACHINE_CACHE_DIR/go/mod"],
   ["GO_TMP_DIR", "machine_cache_path", "CARTULARY_MACHINE_CACHE_DIR/go/tmp"],
+  ["CARTULARY_HARNESS_SCRATCH_ROOT", "machine_cache_path", "CARTULARY_MACHINE_CACHE_DIR/harness-scratch"],
 ]);
 
 export function validateGlobalInputContract(errors, manifest) {

@@ -73,6 +73,9 @@ func (admission *targetServingAdmission) Release(ctx context.Context) error {
 	}
 	err := admission.admission.Release(ctx)
 	admission.cancel(context.Canceled)
+	if errors.Is(err, processlease.ErrRecoveryTargetLeaseLost) {
+		return application.ErrTargetServingLeaseLost
+	}
 	return err
 }
 

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"sync"
 	"syscall"
@@ -26,6 +27,8 @@ import (
 
 type collectorClient struct {
 	mu                                sync.Mutex
+	proofMu                           sync.Mutex
+	proofs                            map[string]map[string]any
 	cmd                               *exec.Cmd
 	input                             io.WriteCloser
 	queue                             chan []byte
@@ -183,7 +186,7 @@ func (c *collectorClient) read(out io.ReadCloser) {
 			if value, ok := v["value"].(map[string]any); ok && !c.stopped {
 				c.latest = value
 			}
-		case "paused":
+		case "paused", "checkpoints":
 			id := controlID(v["request"])
 			if ch := c.acks[id]; ch != nil {
 				close(ch)
@@ -257,30 +260,57 @@ func (c *collectorClient) register(proof map[string]any, unit, allocation, invoc
 	}
 	c.enqueue(map[string]any{"type": "register", "proof": proof, "unit_id": unit, "allocation_ref": allocation, "invocation_id": invocation}, true)
 }
-func (c *collectorClient) containers(proof map[string]any) {
-	if c == nil {
+
+// Only this callback serializes private proof publication and retirement. It
+// never holds the acknowledgement mutex while waiting for the collector.
+func (c *collectorClient) containers(ctx context.Context, proof map[string]any, retiring bool) {
+	if c == nil || proof == nil {
 		return
 	}
+	lease, ok := proof["lease"].(map[string]any)
+	if !ok {
+		return
+	}
+	key, ok := lease["lease_id"].(string)
+	if !ok || key == "" {
+		return
+	}
+	c.proofMu.Lock()
+	defer c.proofMu.Unlock()
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.failed || c.stopped {
+	inactive := c.failed || c.stopped
+	c.mu.Unlock()
+	if inactive {
 		return
 	}
-	var value any
-	if proof != nil {
-		v := maps.Clone(proof)
-		v["version"] = 1
-		v["run_id"] = c.manifest["run_id"]
-		v["runtime_lease_id"] = c.lease
-		value = v
+	if c.proofs == nil {
+		c.proofs = map[string]map[string]any{}
 	}
-	b, err := json.Marshal(value)
-	if err != nil || len(b) > 1024*1024 {
-		c.dropped++
-		return
+	c.proofs[key] = maps.Clone(proof)
+	publish := func(retiringService string) bool {
+		keys := slices.Sorted(maps.Keys(c.proofs))
+		values := make([]any, 0, len(keys))
+		for _, key := range keys {
+			values = append(values, c.proofs[key])
+		}
+		value := map[string]any{"version": 2, "run_id": c.manifest["run_id"], "runtime_lease_id": c.lease, "services": values, "retiring_service": retiringService}
+		b, err := json.Marshal(value)
+		if err != nil || len(b) > 1024*1024 || len(keys) > 256 || harnesslocal.ReplaceFile(c.proofPath, b) != nil {
+			c.mu.Lock()
+			c.dropped++
+			c.mu.Unlock()
+			return false
+		}
+		return true
 	}
-	if harnesslocal.ReplaceFile(c.proofPath, b) != nil {
-		c.dropped++
+	if retiring {
+		if publish(key) {
+			_ = c.request(ctx, "checkpoints")
+		}
+		delete(c.proofs, key)
+		publish("")
+	} else {
+		publish("")
 	}
 }
 func (c *collectorClient) terminate() error {

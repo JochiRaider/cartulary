@@ -70,10 +70,10 @@ meaningful array order, anchors, entry mode, Inspect and captured Return data.
 After terminal completion a new activation starts a fresh observation. Session
 phase is the pending-feedback source; trail push/pop happens once at admission.
 
-Tests: `WorkbookNavigationPresentation.test.ts` covers commit/focus sequencing,
+Tests: `WorkbookNavigationPresentation.node.test.ts` covers commit/focus sequencing,
 replacement, cancellation and delayed attachment;
 `useWorkbookWorkbench.test.tsx` covers staged admission and presentation;
-`WorkbookSessionNavigation.test.ts` covers pins, trail and cancellation;
+`WorkbookSessionNavigation.node.test.ts` covers pins, trail and cancellation;
 `WorkbookNavigationStatus.test.tsx` covers feedback and keyboard access. Use
 `make task-guide OWNER=web.workbook` for current verification;
 browser evidence is routed through `module.workbook`.

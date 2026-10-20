@@ -149,7 +149,7 @@ func (m *Manager) Get(ctx context.Context, jobID uuid.UUID) (Resource, error) {
 		return Resource{}, err
 	}
 	now := m.now().UTC()
-	stored, err := scanStoredJob(m.pool.QueryRow(ctx, `
+	stored, err := scanStoredJob(m.db.QueryRow(ctx, `
 SELECT job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
        auth_policy,
        submitted_at, updated_at, progress_completed, progress_total, started_at,
@@ -176,7 +176,7 @@ func (m *Manager) UpdateProgress(ctx context.Context, execution Execution, progr
 	if err := m.ensureConfigured(); err != nil {
 		return Resource{}, err
 	}
-	tx, err := m.pool.Begin(ctx)
+	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Resource{}, err
 	}
@@ -265,7 +265,7 @@ func (m *Manager) Cancel(ctx context.Context, params CancelParams) (CancelResult
 		ScopeKey:    params.JobID.String(),
 		ClientTxnID: params.ClientTxnID,
 	}
-	tx, err := m.pool.Begin(ctx)
+	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return CancelResult{}, err
 	}
@@ -344,7 +344,7 @@ func (m *Manager) completeTerminal(ctx context.Context, execution Execution, par
 		return Resource{}, err
 	}
 	now := m.now().UTC()
-	tx, err := m.pool.Begin(ctx)
+	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Resource{}, err
 	}

@@ -27,7 +27,7 @@ func TestSessionProtocol(t *testing.T) {
 	}
 	t.Run("public_cleanup_diagnostic_preserves_classification_without_private_proof", func(t *testing.T) {
 		cause := errors.Join(ErrUnresolved, &os.PathError{Op: "open", Path: "/proc/123/environ", Err: unix.EACCES}, errors.New("credential-sentinel"))
-		err := atCleanupStage("detail_producer", atCleanupStage("process_discovery", cause))
+		err := AtCleanupStage("detail_producer", AtCleanupStage("process_discovery", cause))
 		if !errors.Is(err, ErrUnresolved) || !errors.Is(err, unix.EACCES) {
 			t.Fatal("diagnostic changed the native classification")
 		}
@@ -38,10 +38,10 @@ func TestSessionProtocol(t *testing.T) {
 		if strings.Contains(d.String(), "123") || strings.Contains(d.String(), "environ") || strings.Contains(d.String(), "credential-sentinel") {
 			t.Fatal("public cleanup diagnostic retained private proof")
 		}
-		if DescribeCleanupFailure(nil) != nil || atCleanupStage("detail_remove", nil) != nil {
+		if DescribeCleanupFailure(nil) != nil || AtCleanupStage("detail_remove", nil) != nil {
 			t.Fatal("successful cleanup acquired failure diagnostics")
 		}
-		if d := DescribeCleanupFailure(atCleanupStage("untrusted-stage-sentinel", errors.New("private-path-sentinel"))); d.String() != "[RUNTIME-CLEANUP] stage=runtime_close cause=internal errno=0" {
+		if d := DescribeCleanupFailure(AtCleanupStage("untrusted-stage-sentinel", errors.New("private-path-sentinel"))); d.String() != "[RUNTIME-CLEANUP] stage=runtime_close cause=internal errno=0" {
 			t.Fatal("unrecognized cleanup metadata escaped the closed boundary")
 		}
 	})
@@ -95,9 +95,10 @@ func TestSessionProtocol(t *testing.T) {
 		}
 		for _, input := range [][]byte{
 			bytes.Repeat([]byte(" "), 4097),
-			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v1","stage":"process_identity","cause":"unresolved","errno":0,"pid":123}`),
-			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v1","stage":"process_identity","cause":"credential-sentinel","errno":0}`),
-			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v1","stage":"process_identity","cause":"unresolved","errno":0,"errno":13}`),
+			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v2","stage":"process_identity","cause":"unresolved","errno":0}`),
+			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v3","stage":"process_identity","cause":"unresolved","errno":0,"pid":123}`),
+			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v3","stage":"process_identity","cause":"credential-sentinel","errno":0}`),
+			[]byte(`{"schema_id":"cartulary.harness_cleanup_diagnostic.v3","stage":"process_identity","cause":"unresolved","errno":0,"errno":13}`),
 		} {
 			if DecodeCleanupDiagnostic(input) != nil {
 				t.Fatal("unsafe diagnostic accepted")

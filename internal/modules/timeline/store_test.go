@@ -695,7 +695,7 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 
 	t.Run("rollback removes lifecycle and replacement link together", func(t *testing.T) {
 		harness := storetest.StartStore(t, "timeline_mutation-u-3-10-rollback")
-		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "timeline_mutation-U310R@example.test", "TimelineMutation U310R", "TimelineMutationPass1!", false, false, true)
+		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "timeline_mutation-U310R@example.test", DisplayName: "TimelineMutation U310R"})
 		incident := createIncidentInStore(t, harness, actor, "txn-timeline_mutation-u-3-10-rollback-incident", "IR-U310R", "Timeline U310R")
 
 		rollbackEnabled := false
@@ -849,7 +849,7 @@ func createIncidentInStore(t testing.TB, harness *storetest.StoreHarness, actor 
 func newStoreFixture(t testing.TB, harness *storetest.StoreHarness, suffix string, incidentTxn string) (*eventTimelineCommands, authn.UserRecord, uuid.UUID) {
 	t.Helper()
 
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "timeline_mutation-"+suffix+"@example.test", "TimelineMutation "+suffix, "TimelineMutationPass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "timeline_mutation-" + suffix + "@example.test", DisplayName: "TimelineMutation " + suffix})
 	incident := createIncidentInStore(t, harness, actor, incidentTxn, "IR-"+suffix, "Timeline "+suffix)
 	return newEventTimelineCommands(t, harness.DB), actor, incident.ID
 }

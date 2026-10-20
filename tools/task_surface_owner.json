@@ -56,6 +56,20 @@
       "normalization": "absolute_external_path",
       "invalid_reason": "configuration_error",
       "summary_emission": "source_and_value"
+    },
+    {
+      "name": "CARTULARY_HARNESS_SCRATCH_ROOT",
+      "type": "machine_cache_path",
+      "allowed_sources": [
+        "make_command_line",
+        "environment",
+        "makefile_default"
+      ],
+      "default": "CARTULARY_MACHINE_CACHE_DIR/harness-scratch",
+      "empty_string": "invalid",
+      "normalization": "absolute_external_path",
+      "invalid_reason": "configuration_error",
+      "summary_emission": "source_and_value"
     }
   ],
   "observability_policy": {
@@ -1655,7 +1669,7 @@
         "raw_stream_policy": "never_default",
         "summary_schema": "cartulary.harness_run_summary.v1"
       },
-      "command_id": "cartulary.harness.command.test_slice.v4",
+      "command_id": "cartulary.harness.command.test_slice.v5",
       "semantic_behaviors": [
         {
           "behavior": "scheduler_orchestration",
@@ -1934,6 +1948,23 @@
             "summary_emission": "value",
             "child_forwarding": "runtime_env",
             "min": 1
+          },
+          {
+            "name": "GO_SHUFFLE_SEED",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "type": "positive_integer",
+            "default": null,
+            "empty_string": "invalid",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv",
+            "min": 1,
+            "max": 2147483647
           }
         ],
         "constraints": [
@@ -2393,7 +2424,6 @@
         "tools/harness/evidence-accounting/tests/test-canonical-unit-events.mjs",
         "tools/harness/execution/tests/test-run-vitest-step.sh",
         "tools/harness/execution/tests/test-vitest-diagnostics.mjs",
-        "tools/harness/execution/tests/vitest-diagnostic-fixture.mjs",
         "tools/harness/execution/vitest-invocation-cli.mjs",
         "tools/harness/observability/tests/test-observability.mjs",
         "tools/harness/readiness/cache-artifact.sh",

@@ -1543,14 +1543,14 @@ async function exerciseSurface(page: Page, view: string, actorId: string) {
 
 test("Workbook Group retains requested keyboard choice during delayed replacement", async ({
   page,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
   const incident = await createIncident(
     page,
     uniqueIncidentKey("WQC-GROUP-PENDING"),
     "Workbook pending group choice",
   );
-  await seed(page, incident, timelineViewSchemaId, 2, workerAdmin.user_id);
+  await seed(page, incident, timelineViewSchemaId, 2, testActor.user_id);
   await page.goto(
     `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(timelineViewSchemaId)}`,
   );
@@ -1680,14 +1680,14 @@ test("Workbook Group retains requested keyboard choice during delayed replacemen
 
 test("Workbook Group retains requested keyboard choice after failed replacement", async ({
   page,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
   const incident = await createIncident(
     page,
     uniqueIncidentKey("WQC-GROUP-FAIL"),
     "Workbook failed group choice",
   );
-  await seed(page, incident, timelineViewSchemaId, 2, workerAdmin.user_id);
+  await seed(page, incident, timelineViewSchemaId, 2, testActor.user_id);
   await page.goto(
     `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(timelineViewSchemaId)}`,
   );
@@ -1829,15 +1829,15 @@ test("Workbook Group retains requested keyboard choice after failed replacement"
 
 test("Workbook Group pointer selection stays scoped to Hosts", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   const incident = await createIncident(
     page,
     uniqueIncidentKey("WQC-GROUP-HOST"),
     "Workbook Host group choice",
   );
-  await seed(page, incident, hostsViewSchemaId, 2, workerAdmin.user_id);
-  await seed(page, incident, timelineViewSchemaId, 1, workerAdmin.user_id);
+  await seed(page, incident, hostsViewSchemaId, 2, testActor.user_id);
+  await seed(page, incident, timelineViewSchemaId, 1, testActor.user_id);
   const requests: QueryWorkbookViewRequest[] = [];
   await page.route(
     `**/incidents/${incident}/views/${hostsViewSchemaId}/query`,
@@ -1874,118 +1874,114 @@ test("Workbook Group pointer selection stays scoped to Hosts", async ({
 
 test("Workbook continuation reaches and returns later cartulary.view.timeline.v2 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, timelineViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, timelineViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.hosts.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, hostsViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, hostsViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.identities.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, identitiesViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, identitiesViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.notes.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, notesViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, notesViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.evidence.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, evidenceViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, evidenceViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.indicators.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, indicatorsViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, indicatorsViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.parties.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, partiesViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, partiesViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.task_requests.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, taskRequestsViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, taskRequestsViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.decisions.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, decisionsViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, decisionsViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.comm_log.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, commLogViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, commLogViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.handoff.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, handoffViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, handoffViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.status_review.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, statusReviewViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, statusReviewViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.lesson.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, lessonViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, lessonViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.findings.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, findingsViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, findingsViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.investigative_queries.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   await exerciseSurface(
     page,
     investigativeQueriesViewSchemaId,
-    workerAdmin.user_id,
+    testActor.user_id,
   );
 });
 test("Workbook continuation reaches and returns later cartulary.view.forensic_keywords.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(
-    page,
-    forensicKeywordsViewSchemaId,
-    workerAdmin.user_id,
-  );
+  await exerciseSurface(page, forensicKeywordsViewSchemaId, testActor.user_id);
 });
 test("Workbook continuation reaches and returns later cartulary.view.assessments.v1 records through the real route", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
-  await exerciseSurface(page, assessmentsViewSchemaId, workerAdmin.user_id);
+  await exerciseSurface(page, assessmentsViewSchemaId, testActor.user_id);
 });
 
 test("Workbook browsing retains off-window drafts and sheet anchors through twenty-checkpoint exhaustion", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   test.setTimeout(300_000);
   const view = notesViewSchemaId;
@@ -1994,7 +1990,7 @@ test("Workbook browsing retains off-window drafts and sheet anchors through twen
     uniqueIncidentKey("WQC-LONG"),
     "Long live workbook traversal",
   );
-  await seed(page, incident, view, 2505, workerAdmin.user_id);
+  await seed(page, incident, view, 2505, testActor.user_id);
   const reads = await observeQuery(page, incident, view);
   let writes = 0;
   page.on("request", (request) => {
@@ -2120,7 +2116,7 @@ test("Workbook browsing retains off-window drafts and sheet anchors through twen
 
 test("Workbook canonical filters continue without feedback and saved views retain authored sort intent", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   test.setTimeout(180_000);
   const incident = await createIncident(
@@ -2128,10 +2124,10 @@ test("Workbook canonical filters continue without feedback and saved views retai
     uniqueIncidentKey("WQC-CANON"),
     "Canonical workbook continuation",
   );
-  await seed(page, incident, notesViewSchemaId, 105, workerAdmin.user_id);
-  await seed(page, incident, timelineViewSchemaId, 105, workerAdmin.user_id);
+  await seed(page, incident, notesViewSchemaId, 105, testActor.user_id);
+  await seed(page, incident, timelineViewSchemaId, 105, testActor.user_id);
   const evidenceView = evidenceViewSchemaId;
-  await seed(page, incident, evidenceView, 105, workerAdmin.user_id);
+  await seed(page, incident, evidenceView, 105, testActor.user_id);
   const evidenceReads = await observeQuery(page, incident, evidenceView);
   const notes = await observeQuery(page, incident, notesViewSchemaId);
   const timeline = await observeQuery(page, incident, timelineViewSchemaId);
@@ -2321,7 +2317,7 @@ test("Workbook canonical filters continue without feedback and saved views retai
 
 test("Workbook real-route recovery preserves accepted labels and reconciles live placement without draining pages", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   test.setTimeout(180_000);
   const view = notesViewSchemaId;
@@ -2330,7 +2326,7 @@ test("Workbook real-route recovery preserves accepted labels and reconciles live
     uniqueIncidentKey("WQC-LIVE"),
     "Workbook live continuation recovery",
   );
-  await seed(page, incident, view, 405, workerAdmin.user_id);
+  await seed(page, incident, view, 405, testActor.user_id);
   const reads: {
     request: QueryWorkbookViewRequest;
     response?: QueryWorkbookViewResponse;
@@ -2494,7 +2490,7 @@ test("Workbook real-route recovery preserves accepted labels and reconciles live
 
 test("Workbook query recovery retains keyboard focus through Timeline replacement and continuation", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   test.setTimeout(180_000);
   const incident = await createIncident(
@@ -2502,7 +2498,7 @@ test("Workbook query recovery retains keyboard focus through Timeline replacemen
     uniqueIncidentKey("WQC-FOCUS"),
     "Workbook query recovery focus",
   );
-  await seed(page, incident, timelineViewSchemaId, 105, workerAdmin.user_id);
+  await seed(page, incident, timelineViewSchemaId, 105, testActor.user_id);
   const writes: string[] = [];
   page.on("request", (request) => {
     if (
@@ -2740,8 +2736,8 @@ test("Workbook query recovery keeps keyboard focus with accepted-empty Notes", a
 
 test("Workbook continuation revalidates role and membership and fences a late authorized page", async ({
   page,
-  workerAdmin,
-  workerAdminRequest,
+  testActor,
+  testActorRequest,
   sessionTracker,
 }) => {
   test.setTimeout(180_000);
@@ -2751,7 +2747,7 @@ test("Workbook continuation revalidates role and membership and fences a late au
     uniqueIncidentKey("WQC-AUTH"),
     "Workbook continuation authority",
   );
-  await seed(page, incident, view, 405, workerAdmin.user_id);
+  await seed(page, incident, view, 405, testActor.user_id);
   const member = await createIncidentMemberUser(page, incident, {
     email: uniqueEmail("wqc-authority"),
     display_name: "Workbook paging analyst",
@@ -2781,7 +2777,7 @@ test("Workbook continuation revalidates role and membership and fences a late au
   const membershipPath = `/api/v1/incidents/${incident}/memberships/${member.user_id}`;
   expect(
     (
-      await workerAdminRequest.patch(membershipPath, {
+      await testActorRequest.patch(membershipPath, {
         data: { base_membership_version: 1, role: "viewer" },
       })
     ).ok(),
@@ -2824,7 +2820,7 @@ test("Workbook continuation revalidates role and membership and fences a late au
   await expect.poll(() => held).toBe(true);
   expect(
     (
-      await workerAdminRequest.delete(membershipPath, {
+      await testActorRequest.delete(membershipPath, {
         data: { base_membership_version: 2 },
       })
     ).status(),
@@ -2838,7 +2834,7 @@ test("Workbook continuation revalidates role and membership and fences a late au
 
 test("Workbook expiry clears continuation and account replacement starts a readable closed incident without an old cursor", async ({
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }) => {
   test.setTimeout(180_000);
@@ -2851,7 +2847,7 @@ test("Workbook expiry clears continuation and account replacement starts a reada
       uniqueIncidentKey("WQC-SESSION"),
       "Workbook paging session lifetime",
     );
-    await seed(page, incident, view, 305, workerAdmin.user_id);
+    await seed(page, incident, view, 305, testActor.user_id);
     const members = [];
     for (const label of ["first", "replacement"])
       members.push(

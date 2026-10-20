@@ -30,9 +30,12 @@ const fullTierSelfTests = [
   "harness.browser.boundary_support.timeline_investigation_recipe",
   "harness.browser.boundary_support.timingsupport_dom_suite_6614d14ea5",
   "harness.browser.integration.object_store_fixture_roundtrip",
-  "harness.browser.integration.postgres_cleanup_target_scoped_coordination",
+  "harness.browser.integration.postgre_sql_cleanup_coordinates_real_database_dr_8a5f7f8277",
+  "harness.browser.integration.postgre_sql_cleanup_rejects_invalid_input_before_3f68344cda",
+  "harness.browser.integration.service_free_contract_assertions_for_postgres_cl_83b8534255",
   "harness.browser.unit.fixture_tls",
-  "harness.browser.unit.object_store_fixture_admission",
+  "harness.browser.unit.managed_service_assertions_for_object_store_fixt_7b174abeda",
+  "harness.browser.unit.service_free_contract_assertions_for_object_stor_aac986f098",
   "harness.browser.unit.object_store_secure_origins",
   "harness.browser.unit.performance_fixture_lifecycle",
   "harness.browser.unit.performance_fixture_runtime_and_assembler",
@@ -47,7 +50,8 @@ const fullTierSelfTests = [
 ];
 const retainedRows = [
   "harness.command_surface.unit.embedded_asset_layout",
-  "harness.browser.integration.runtime_reset_recovery_purpose_contract",
+  "harness.browser.integration.managed_service_assertions_for_runtime_reset_rec_79940f98ab",
+  "harness.browser.integration.service_free_contract_assertions_for_runtime_res_04b3f3a218",
   "module.projections.testsupport.projection_capability_caller_matrix_6f21615b92",
   "module.database_migrations.unit.test_harness_targeted_operation_validation",
   "app.server.integration.http_harness_restart_storage",
@@ -116,7 +120,7 @@ export function assertHarnessTierRouting(context) {
   assert.deepEqual(smoke.map((name) => compiler.taskSurface.harness_checks.find((entry) => entry.name === name).gate_smoke_role).sort(), [
     "fixture_broker_semantic", "public_make_wrapper", "work_graph_scheduler_semantic",
   ]);
-  assert.deepEqual(rowIDs(compiler.compileRows(fullTierSelfTests)), fullTierSelfTests);
+  assert.deepEqual(rowIDs(compiler.compileRows(fullTierSelfTests)), [...fullTierSelfTests].sort());
   const owners = new Set(fullTierSelfTests.map((id) => compiler.catalog.rowByID.get(id).owner_id));
   for (const owner of owners) {
     const explicit = rowIDs(compiler.compileOwner(owner));

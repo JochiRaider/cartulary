@@ -2,6 +2,14 @@
   "schema_id": "cartulary.test_catalog_row_migration.v1",
   "migrations": [
     {
+      "retired_row_id": "harness.browser.integration.managed_service_assertions_for_postgres_cleanup_760004b502",
+      "replacement_row_ids": [
+        "harness.browser.integration.postgre_sql_cleanup_coordinates_real_database_dr_8a5f7f8277",
+        "harness.browser.integration.postgre_sql_cleanup_rejects_invalid_input_before_3f68344cda"
+      ],
+      "reason": "Refined transitive runtime proof separates the service-free selector from actual connection and runner lifetimes without losing any original symbol."
+    },
+    {
       "retired_row_id": "harness.browser.integration.performance_fixture_source_owner_assembly",
       "replacement_row_ids": [
         "harness.browser.integration.performance_fixture_snapshot_lifecycle",
@@ -12,9 +20,100 @@
     {
       "retired_row_id": "harness.browser.integration.postgres_cleanup_reader_writer_coordination",
       "replacement_row_ids": [
-        "harness.browser.integration.postgres_cleanup_target_scoped_coordination"
+        "harness.browser.integration.postgre_sql_cleanup_coordinates_real_database_dr_8a5f7f8277",
+        "harness.browser.integration.postgre_sql_cleanup_rejects_invalid_input_before_3f68344cda",
+        "harness.browser.integration.service_free_contract_assertions_for_postgres_cl_83b8534255"
       ],
       "reason": "Exact-target exclusion plus honest graph-level PostgreSQL resource claims replace the service-global reader/writer lock, preserving exact cleanup without a collision-prone second admission layer."
+    },
+    {
+      "retired_row_id": "harness.browser.integration.postgres_cleanup_target_scoped_coordination",
+      "replacement_row_ids": [
+        "harness.browser.integration.postgre_sql_cleanup_coordinates_real_database_dr_8a5f7f8277",
+        "harness.browser.integration.postgre_sql_cleanup_rejects_invalid_input_before_3f68344cda",
+        "harness.browser.integration.service_free_contract_assertions_for_postgres_cl_83b8534255"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "harness.browser.integration.runtime_reset_recovery_purpose_contract",
+      "replacement_row_ids": [
+        "harness.browser.integration.managed_service_assertions_for_runtime_reset_rec_79940f98ab",
+        "harness.browser.integration.service_free_contract_assertions_for_runtime_res_04b3f3a218"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "harness.browser.unit.object_store_fixture_admission",
+      "replacement_row_ids": [
+        "harness.browser.unit.managed_service_assertions_for_object_store_fixt_7b174abeda",
+        "harness.browser.unit.service_free_contract_assertions_for_object_stor_aac986f098"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.artifacts.source_mutations.artifact_source_create_and_patch_preserve_all_ei_c8d63cf5cd",
+      "replacement_row_ids": [
+        "module.artifacts.source_mutations.managed_service_assertions_for_artifact_source_c_a67a87fbf9",
+        "module.artifacts.source_mutations.service_free_contract_assertions_for_artifact_so_0c20f86ece"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.assessments.store.compromise_assessments_append_incident_scoped_ho_f6cf5d55c6",
+      "replacement_row_ids": [
+        "module.assessments.store.managed_service_assertions_for_compromise_assess_98ae87986a",
+        "module.assessments.store.service_free_contract_assertions_for_compromise_d48d9308ef"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.entities.integration.merge_protected_set_uses_shared_revision_appender_6b3d19f2a8",
+      "replacement_row_ids": [
+        "module.entities.integration.managed_service_assertions_for_merge_protected_s_4cdfe9a9e1",
+        "module.entities.integration.service_free_contract_assertions_for_merge_prote_3fc92527ec"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.evidence.integration.when_quarantine_or_scanning_state_is_present_two_2616373ab6",
+      "replacement_row_ids": [
+        "module.evidence.integration.dedicated_database_assertions_for_when_quarantin_f5c765cb0c",
+        "module.evidence.integration.single_connection_rollback_assertions_for_when_q_7d5c25603e"
+      ],
+      "reason": "Separate proven single-connection rollback assertions from dedicated connection, committed-state, server or background lifetimes; preserve the complete original exact-symbol union."
+    },
+    {
+      "retired_row_id": "module.extensions.integration.named_portability_job_recovery_f7c496c10b",
+      "replacement_row_ids": [
+        "module.extensions.integration.jobs_runner_composition_rejects_invalid_and_dupl_5be27f087d",
+        "module.extensions.integration.jobs_runner_dispatch_and_recovery_preserve_durab_f126232e74"
+      ],
+      "reason": "Refined transitive runtime proof separates the service-free selector from actual connection and runner lifetimes without losing any original symbol."
+    },
+    {
+      "retired_row_id": "module.extensions.integration.state_admission_matrix_7f6ad80724",
+      "replacement_row_ids": [
+        "module.extensions.integration.managed_service_assertions_for_state_admission_m_55b90ea265",
+        "module.extensions.integration.service_free_contract_assertions_for_state_admis_e2f242ee26"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.graphprojection.storage.result_v2_atomicity_and_queries",
+      "replacement_row_ids": [
+        "module.graphprojection.storage.managed_service_assertions_for_result_v2_atomici_ff9eae0340",
+        "module.graphprojection.storage.service_free_contract_assertions_for_result_v2_a_4661600b77"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.incidents.store.store_create_incident_commits_the_bootstrap_admi_01ff2d008d",
+      "replacement_row_ids": [
+        "module.incidents.store.managed_service_assertions_for_store_create_inci_a391a222d4",
+        "module.incidents.store.service_free_contract_assertions_for_store_creat_f476b0f36b"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
     },
     {
       "retired_row_id": "module.parties.store.direct_party_and_decision_reference_writes_accep_27ac8d297b",
@@ -24,6 +123,94 @@
         "module.tasksdecisions.unit.task_decision_direct_references_admit_exact_stab_7bf2beff80"
       ],
       "reason": "The predecessor combined Evidence admission, Tasks and Decisions admission, and Party target-integrity assertions while falsely claiming Party portability; the replacements assign each selector to its normative semantic owner and direct Party portability rows now carry the portability verification."
+    },
+    {
+      "retired_row_id": "module.projections.rebuild.atomic_catalog_iteration3",
+      "replacement_row_ids": [
+        "module.projections.rebuild.managed_service_assertions_for_atomic_catalog_a9d64032f0",
+        "module.projections.rebuild.service_free_contract_assertions_for_atomic_cata_73ede45d54"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.projections.rebuild.restore_contract_206379110d",
+      "replacement_row_ids": [
+        "module.projections.rebuild.managed_service_assertions_for_restore_contract_f5f84e9227",
+        "module.projections.rebuild.service_free_contract_assertions_for_restore_con_663c31db5c"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.projections.storage.query_row_parity_157462a15a",
+      "replacement_row_ids": [
+        "module.projections.storage.dedicated_database_assertions_for_query_row_pari_2cb81df082",
+        "module.projections.storage.single_connection_rollback_assertions_for_query_028ff27904"
+      ],
+      "reason": "Separate proven single-connection rollback assertions from dedicated connection, committed-state, server or background lifetimes; preserve the complete original exact-symbol union."
+    },
+    {
+      "retired_row_id": "module.recovery.integration.atomic_typed_terminal_evidence_7a41f0d8c2",
+      "replacement_row_ids": [
+        "module.recovery.integration.managed_service_assertions_for_atomic_typed_term_417dd0514c",
+        "module.recovery.integration.service_free_contract_assertions_for_atomic_type_cad93312fe"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.recovery.store.incident_bearing_backup_capture_requires_an_encr_4c5363373e",
+      "replacement_row_ids": [
+        "module.recovery.store.managed_service_assertions_for_incident_bearing_f5fc1b4643",
+        "module.recovery.store.service_free_contract_assertions_for_incident_be_c37e0a4dad"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.reporting.integration.evidence_provider_redaction_4b6d27e1e9",
+      "replacement_row_ids": [
+        "module.reporting.integration.managed_service_assertions_for_evidence_provider_0b8acd1609",
+        "module.reporting.integration.service_free_contract_assertions_for_evidence_pr_80ebcf69f9"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.revisions.delete_restore.source_adapter_matrix",
+      "replacement_row_ids": [
+        "module.revisions.delete_restore.managed_service_assertions_for_source_adapter_70c51a4a80",
+        "module.revisions.delete_restore.service_free_contract_assertions_for_source_adap_a647a96f3a"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.revisions.portability.allocator",
+      "replacement_row_ids": [
+        "module.revisions.portability.managed_service_assertions_for_allocator_1e7086ab36",
+        "module.revisions.portability.service_free_contract_assertions_for_allocator_b4f5c965d4"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.revisions.store.get_api_v1_records_record_id_history_returns_the_6962b381cc",
+      "replacement_row_ids": [
+        "module.revisions.store.managed_service_assertions_for_get_api_v1_record_049278bce8",
+        "module.revisions.store.service_free_contract_assertions_for_get_api_v1_a2f18fa208"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.savedviews.store.ordinary_saved_view_create_defaults_omitted_scop_c2e245f7d7",
+      "replacement_row_ids": [
+        "module.savedviews.store.managed_service_assertions_for_ordinary_saved_vi_fc464a05e5",
+        "module.savedviews.store.service_free_contract_assertions_for_ordinary_sa_27bac8bf90"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.tasksdecisions.source_workbook.task_requests_and_decisions_persist_as_workbook_887d6b579e",
+      "replacement_row_ids": [
+        "module.tasksdecisions.source_workbook.managed_service_assertions_for_task_requests_and_9063e4f330",
+        "module.tasksdecisions.source_workbook.service_free_contract_assertions_for_task_reques_6b1b390c49"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
     },
     {
       "retired_row_id": "module.timeline.browser_support.verify_full_keyboard_clipboard_contract_one_clic_ec36b90e7b",
@@ -47,6 +234,23 @@
       "reason": "The retired informative row combined two small-fixture surrogates; AC-043 now requires four independent release-tier product predicates."
     },
     {
+      "retired_row_id": "module.workbook.catalog.communications_log_handoff_status_review_and_les_63b0f44db8",
+      "replacement_row_ids": [
+        "module.workbook.catalog.dedicated_database_assertions_for_managed_servic_7d059c99ab",
+        "module.workbook.catalog.service_free_contract_assertions_for_communicati_53927f649e",
+        "module.workbook.catalog.single_connection_rollback_assertions_for_manage_3c34c59fa8"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.workbook.catalog.managed_service_assertions_for_communications_lo_02413493d8",
+      "replacement_row_ids": [
+        "module.workbook.catalog.dedicated_database_assertions_for_managed_servic_7d059c99ab",
+        "module.workbook.catalog.single_connection_rollback_assertions_for_manage_3c34c59fa8"
+      ],
+      "reason": "Separate proven single-connection rollback assertions from dedicated connection, committed-state, server or background lifetimes; preserve the complete original exact-symbol union."
+    },
+    {
       "retired_row_id": "module.workbook.frontend.keyboard_command_mapping_covers_arrow_keys_enter_936238eee1",
       "replacement_row_ids": [
         "module.timeline.frontend.timeline_editor_and_work_area_keyboard_decisions_0b1dcd0588",
@@ -54,6 +258,38 @@
         "web.application.regression.registered_overlay_semantic_focus_navigation_42dc7fdfee"
       ],
       "reason": "The retired mapper mixed Grid Adapter navigation, Timeline editor behavior, Workbook application shortcuts, and focus side effects. Exact Timeline and Workbook policies plus the registered overlay-focus primitive now prove each authority independently."
+    },
+    {
+      "retired_row_id": "module.workbook.support_integration.shared_harness_workbook_route_inventory_coverage_3ec58ba4dc",
+      "replacement_row_ids": [
+        "module.workbook.support_integration.managed_service_assertions_for_shared_harness_wo_ffc6e20715",
+        "module.workbook.support_integration.service_free_contract_assertions_for_shared_harn_151e937dca"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "module.workbook.support_integration.workbook_startup_preferences_bootstrap_and_upser_6ac935eac8",
+      "replacement_row_ids": [
+        "module.workbook.support_integration.managed_service_assertions_for_workbook_startup_86c190a4c2",
+        "module.workbook.support_integration.service_free_contract_assertions_for_workbook_st_13a8706c8f"
+      ],
+      "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
+    },
+    {
+      "retired_row_id": "platform.jobs.integration.expiry_and_compaction",
+      "replacement_row_ids": [
+        "platform.jobs.integration.dedicated_database_assertions_for_expiry_and_com_87bcee82e8",
+        "platform.jobs.integration.single_connection_rollback_assertions_for_expiry_e332d2eab2"
+      ],
+      "reason": "Separate proven single-connection rollback assertions from dedicated connection, committed-state, server or background lifetimes; preserve the complete original exact-symbol union."
+    },
+    {
+      "retired_row_id": "platform.jobs.integration.lifecycle_and_progress",
+      "replacement_row_ids": [
+        "platform.jobs.integration.dedicated_database_assertions_for_lifecycle_and_604c8d7b1f",
+        "platform.jobs.integration.single_connection_rollback_assertions_for_lifecy_54f9ec5538"
+      ],
+      "reason": "Separate proven single-connection rollback assertions from dedicated connection, committed-state, server or background lifetimes; preserve the complete original exact-symbol union."
     },
     {
       "retired_row_id": "web.application.regression.referencepackadminpanel_discards_stale_reference_4aefb31c15",

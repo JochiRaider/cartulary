@@ -21,7 +21,7 @@ against committed-version evidence before presentation observes them.
 
 The retained Timeline mutation owner also exposes the file-draft promotion port.
 Screenshot-only creation and ordinary first input share its existing creation
-identity. [timelineFileDraftRecovery.test.ts](timelineFileDraftRecovery.test.ts)
+identity. [timelineFileDraftRecovery.node.test.ts](timelineFileDraftRecovery.node.test.ts)
 verifies both orderings, detached acceptance and follow-on edits.
 
 `createTimelineMutationDriver` receives accepted clear predecessors through the

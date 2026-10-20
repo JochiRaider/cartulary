@@ -21,7 +21,7 @@ func TestConcurrentIndicatorFindOrCreateConvergesOnOneActiveIdentity_Integration
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "indicators-concurrent-identity")
 	application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "indicator-concurrency@example.test", "Indicator Concurrency", "IndicatorConcurrencyPass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "indicator-concurrency@example.test", DisplayName: "Indicator Concurrency"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-indicator-concurrency-incident", "IR-IND-CONCURRENCY", "Indicator identity convergence")
 
 	firstTx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
@@ -125,7 +125,7 @@ func TestConcurrentIndicatorCreateReceipts_Integration(t *testing.T) {
 			defer cancel()
 			harness := appsupport.StartStore(t, "indicator-create-receipts")
 			application := newIndicatorTestApplication(t, harness.DB, revisionsupport.MustAppender(t))
-			actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "create-race@example.test", "Create race", "CreateRacePass1!", false, false, true)
+			actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "create-race@example.test", DisplayName: "Create race"})
 			incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-create-race-incident", "IR-CREATE-RACE", "Create receipts")
 			// Hold identity ownership with an uncommitted participant. Rolling it back
 			// releases both direct requests onto an identity that does not yet exist.

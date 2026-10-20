@@ -56,19 +56,21 @@ func CleanupFailure(err error) error {
 }
 
 type Request struct {
-	Capability     string `json:"capability"`
-	UnitID         string `json:"unit_id"`
-	Affinity       string `json:"affinity_key,omitempty"`
-	Digest         string `json:"digest,omitempty"`
-	BrowserStage   string `json:"browser_stage,omitempty"`
-	RuntimeProfile string `json:"runtime_profile_id,omitempty"`
-	FixtureProfile string `json:"fixture_profile_id,omitempty"`
-	SnapshotKey    string `json:"snapshot_key,omitempty"`
-	BuilderUnit    string `json:"builder_unit_id,omitempty"`
-	RowID          string `json:"row_id,omitempty"`
-	PredicateID    string `json:"predicate_id,omitempty"`
-	LeaseID        string `json:"-"`
-	AllocationRef  string `json:"-"`
+	PostgresIsolation string   `json:"postgres_isolation"`
+	Services          []string `json:"service_dependencies"`
+	Capability        string   `json:"capability"`
+	UnitID            string   `json:"unit_id"`
+	Affinity          string   `json:"affinity_key,omitempty"`
+	Digest            string   `json:"digest,omitempty"`
+	BrowserStage      string   `json:"browser_stage,omitempty"`
+	RuntimeProfile    string   `json:"runtime_profile_id,omitempty"`
+	FixtureProfile    string   `json:"fixture_profile_id,omitempty"`
+	SnapshotKey       string   `json:"snapshot_key,omitempty"`
+	BuilderUnit       string   `json:"builder_unit_id,omitempty"`
+	RowID             string   `json:"row_id,omitempty"`
+	PredicateID       string   `json:"predicate_id,omitempty"`
+	LeaseID           string   `json:"-"`
+	AllocationRef     string   `json:"-"`
 }
 type Allocation struct {
 	Ownership                                string
@@ -99,20 +101,21 @@ func (p *ProviderFuncs) Close(c context.Context) error {
 }
 
 type LeaseRecord struct {
-	Schema         string   `json:"schema_id"`
-	ID             string   `json:"lease_id"`
-	Capability     string   `json:"capability"`
-	Ownership      string   `json:"ownership"`
-	State          string   `json:"state"`
-	Cleanup        string   `json:"cleanup_outcome"`
-	CleanupReason  *string  `json:"cleanup_failure_reason"`
-	Resources      []string `json:"resource_ids"`
-	Affinity       string   `json:"affinity_key,omitempty"`
-	FixtureProfile string   `json:"fixture_profile_id,omitempty"`
-	SnapshotKey    string   `json:"snapshot_key,omitempty"`
-	BuilderUnit    string   `json:"builder_unit_id,omitempty"`
-	CloneOrdinal   int      `json:"clone_ordinal,omitempty"`
-	Created        string   `json:"created_at"`
+	PostgresIsolation string   `json:"postgres_isolation"`
+	Schema            string   `json:"schema_id"`
+	ID                string   `json:"lease_id"`
+	Capability        string   `json:"capability"`
+	Ownership         string   `json:"ownership"`
+	State             string   `json:"state"`
+	Cleanup           string   `json:"cleanup_outcome"`
+	CleanupReason     *string  `json:"cleanup_failure_reason"`
+	Resources         []string `json:"resource_ids"`
+	Affinity          string   `json:"affinity_key,omitempty"`
+	FixtureProfile    string   `json:"fixture_profile_id,omitempty"`
+	SnapshotKey       string   `json:"snapshot_key,omitempty"`
+	BuilderUnit       string   `json:"builder_unit_id,omitempty"`
+	CloneOrdinal      int      `json:"clone_ordinal,omitempty"`
+	Created           string   `json:"created_at"`
 }
 
 func (r LeaseRecord) Copy() LeaseRecord {
@@ -227,9 +230,22 @@ func New(options Options) *Broker {
 
 func sharedKey(request Request) string {
 	if request.Capability == "browser_stack" {
-		return request.Capability + ":" + request.Affinity + ":" + request.FixtureProfile + ":" + request.SnapshotKey
+		return request.Capability + ":" + request.PostgresIsolation + ":" + request.Affinity + ":" + request.FixtureProfile + ":" + request.SnapshotKey
 	}
 	return ""
+}
+
+// Called with the broker mutex held. A live sibling retains physical ownership
+// but cannot make an invalidated generation eligible for replacement or reuse.
+func (b *Broker) quarantined(key string) bool {
+	if key != "" {
+		for _, prior := range b.allocations {
+			if prior.key == key && prior.tainted && !prior.settled {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Pin the stack identity while admission refers to its resident generation.
@@ -244,6 +260,10 @@ func (b *Broker) reserveStack(ctx context.Context, request Request) (func(), err
 		if b.closed || ctx.Err() != nil {
 			b.mu.Unlock()
 			return nil, context.Canceled
+		}
+		if b.quarantined(key) {
+			b.mu.Unlock()
+			return nil, CleanupFailure(ErrCleanupBlocked)
 		}
 		if pending := b.pending[key]; pending != nil {
 			b.mu.Unlock()
@@ -278,7 +298,7 @@ func validRecord(record LeaseRecord) error {
 	if err != nil {
 		return err
 	}
-	return harnessschema.Validate("cartulary.harness_fixture_lease.v4", v)
+	return harnessschema.Validate("cartulary.harness_fixture_lease.v5", v)
 }
 func (b *Broker) publish(l *Lease) error {
 	b.mu.Lock()
@@ -311,6 +331,9 @@ func (b *Broker) cleanupRecord(r CleanupRecord) {
 	}
 }
 func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, result error) {
+	if err := validateServiceRequest(request); err != nil {
+		return nil, err
+	}
 	b.mu.Lock()
 	if b.closed {
 		b.mu.Unlock()
@@ -328,7 +351,7 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 	if b.options.ID != nil {
 		request.LeaseID = b.options.ID()
 	}
-	probe := LeaseRecord{Schema: "cartulary.harness_fixture_lease.v4", ID: request.LeaseID, Capability: request.Capability, Ownership: "borrowed", State: "leased", Cleanup: "not_required", Resources: []string{}, Affinity: request.Affinity, Created: b.options.Clock().UTC().Format(time.RFC3339Nano)}
+	probe := LeaseRecord{Schema: "cartulary.harness_fixture_lease.v5", ID: request.LeaseID, Capability: request.Capability, PostgresIsolation: request.PostgresIsolation, Ownership: "borrowed", State: "leased", Cleanup: "not_required", Resources: []string{}, Affinity: request.Affinity, Created: b.options.Clock().UTC().Format(time.RFC3339Nano)}
 	if err := validRecord(probe); err != nil {
 		return nil, fixtureFailure(err)
 	}
@@ -355,13 +378,9 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 			continue
 		}
 		e = b.shared[key]
-		if key != "" {
-			for _, prior := range b.allocations {
-				if prior.key == key && prior.tainted && !prior.settled && prior.refs == 0 {
-					b.mu.Unlock()
-					return nil, CleanupFailure(ErrCleanupBlocked)
-				}
-			}
+		if b.quarantined(key) {
+			b.mu.Unlock()
+			return nil, CleanupFailure(ErrCleanupBlocked)
 		}
 		if e == nil {
 			creator = true
@@ -431,7 +450,7 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 		notify("passed", allocation.Ownership)
 	}
 	a := e.allocation
-	record := LeaseRecord{Schema: "cartulary.harness_fixture_lease.v4", ID: request.LeaseID, Capability: request.Capability, Ownership: a.Ownership, State: "leased", Cleanup: "not_required", Resources: slices.Clone(a.ResourceIDs), Affinity: request.Affinity, FixtureProfile: a.FixtureProfile, SnapshotKey: a.SnapshotKey, BuilderUnit: a.BuilderUnit, CloneOrdinal: a.CloneOrdinal, Created: b.options.Clock().UTC().Format("2006-01-02T15:04:05.000Z")}
+	record := LeaseRecord{Schema: "cartulary.harness_fixture_lease.v5", ID: request.LeaseID, Capability: request.Capability, PostgresIsolation: request.PostgresIsolation, Ownership: a.Ownership, State: "leased", Cleanup: "not_required", Resources: slices.Clone(a.ResourceIDs), Affinity: request.Affinity, FixtureProfile: a.FixtureProfile, SnapshotKey: a.SnapshotKey, BuilderUnit: a.BuilderUnit, CloneOrdinal: a.CloneOrdinal, Created: b.options.Clock().UTC().Format("2006-01-02T15:04:05.000Z")}
 	lease = &Lease{broker: b, allocation: e, request: request, record: record}
 	b.mu.Lock()
 	if creator {
@@ -706,4 +725,20 @@ func (b *Broker) Close(ctx context.Context) error {
 		b.closeErr = errors.Join(errs...)
 	})
 	return b.closeErr
+}
+
+func validateServiceRequest(request Request) error {
+	if !slices.Contains([]string{"none", "shared", "exclusive"}, request.PostgresIsolation) ||
+		(request.PostgresIsolation == "none") == slices.Contains(request.Services, "postgres") {
+		return fixtureFailure(errors.New("explicit PostgreSQL isolation does not match services"))
+	}
+	if slices.Contains([]string{"browser_stack", "postgres_dedicated", "postgres_migration"}, request.Capability) && request.PostgresIsolation != "exclusive" {
+		return fixtureFailure(errors.New("fixture requires exclusive PostgreSQL isolation"))
+	}
+	if request.FixtureProfile != "" || request.SnapshotKey != "" || request.BuilderUnit != "" {
+		if request.FixtureProfile == "" || request.SnapshotKey == "" || request.BuilderUnit == "" || request.PostgresIsolation != "exclusive" {
+			return fixtureFailure(errors.New("snapshot requires complete builder identity and exclusive PostgreSQL isolation"))
+		}
+	}
+	return nil
 }

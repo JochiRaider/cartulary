@@ -12,7 +12,7 @@ editor focus and retained work. Design §§8.3A and 14 supply presentation direc
 | --- | --- |
 | [workbookCommandIndex.ts](workbookCommandIndex.ts) | Descriptor/target types and pure deterministic metadata search. |
 | [WorkbookCommands.tsx](WorkbookCommands.tsx) | Shell provider, private registration lifetime, owner contribution hook and Commands control. |
-| [workbookCommandIndex.test.ts](workbookCommandIndex.test.ts) | Normalization, token matching, rank, family and stable identity ordering. |
+| [workbookCommandIndex.node.test.ts](workbookCommandIndex.node.test.ts) | Normalization, token matching, rank, family and stable identity ordering. |
 | [WorkbookCommands.test.tsx](WorkbookCommands.test.tsx) | Captured-target revalidation, twenty-result pages, borrowed focus and concealment. |
 
 `WorkbookCommandsProvider` creates one private index per mounted shell.

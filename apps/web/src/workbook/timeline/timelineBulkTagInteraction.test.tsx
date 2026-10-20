@@ -2,9 +2,11 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
 import {
   acceptedQueryMetadata,
+  fullWorkbookViewRow,
+} from "../../testing/workbookFixtureData";
+import {
   renderWithWorkbookQueryBrowsing as render,
   renderHookWithWorkbookQueryBrowsing as renderHook,
 } from "../../testing/workbookQueryTestSupport";

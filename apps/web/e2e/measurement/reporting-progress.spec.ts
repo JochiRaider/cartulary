@@ -11,7 +11,7 @@ import {
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
 import type { Browser, Page, Request, TestInfo } from "@playwright/test";
-import type { WorkerAdminEntry } from "../support/auth/workerAdmin";
+import type { FixtureActorCredentials } from "../support/auth/sessions";
 import {
   type Ac043TrafficDriver,
   prepareAc043Snapshot,
@@ -37,7 +37,7 @@ async function runReportingProgress(
   purpose: ReportingProgressPurpose,
   browser: Browser,
   page: Page,
-  workerAdmin: WorkerAdminEntry,
+  testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
   info: TestInfo,
 ) {
@@ -65,7 +65,7 @@ async function runReportingProgress(
   };
   try {
     expect(info.retry).toBe(0);
-    const snapshot = await prepareAc043Snapshot(page, workerAdmin, {
+    const snapshot = await prepareAc043Snapshot(page, testActor, {
       fixtureProfileId: contract.fixture_profile_id,
     });
     const firstPage = [...snapshot.timelineRows]
@@ -287,14 +287,14 @@ async function runReportingProgress(
 test("measures snapshot job progress and cancel while Timeline accepts editing", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runReportingProgress(
     "snapshot",
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
   );
@@ -302,14 +302,14 @@ test("measures snapshot job progress and cancel while Timeline accepts editing",
 test("measures report job progress and cancel while Timeline accepts editing", async ({
   browser,
   page,
-  workerAdmin,
+  testActor,
   sessionTracker,
 }, info) => {
   await runReportingProgress(
     "report",
     browser,
     page,
-    workerAdmin,
+    testActor,
     sessionTracker,
     info,
   );

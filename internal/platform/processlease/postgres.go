@@ -235,7 +235,11 @@ func (s *postgresSession) Close() {
 	if s.connection != nil {
 		if s.acquired {
 			connection := s.connection.Hijack()
-			_ = connection.Close(context.Background())
+			// An unreleased session cannot return to the pool. Close its transport
+			// without extending the caller's already bounded settlement budget.
+			closeContext, cancel := context.WithCancel(context.Background())
+			cancel()
+			_ = connection.Close(closeContext)
 		} else {
 			s.connection.Release()
 		}

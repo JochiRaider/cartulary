@@ -38,7 +38,7 @@ import { ensureTimelineGridTargetVisible } from "./support/workbook/rowMutations
 import { createSavedView } from "./support/workbook/savedViews";
 
 test("lifecycle recovers a committed lost Close after another actor reopens without publishing its historical receipt", async ({
-  workerAdminPage: page,
+  testActorPage: page,
   browser,
   sessionTracker,
 }, testInfo) => {
@@ -147,7 +147,7 @@ test("lifecycle recovers a committed lost Close after another actor reopens with
 });
 
 test("lifecycle confirms a real action independently of failed reads and preserves newer input during delayed acknowledgement", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -243,7 +243,7 @@ test("lifecycle confirms a real action independently of failed reads and preserv
 });
 
 test("lifecycle validates normalized reason boundaries and requires fresh review after a real version conflict", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -306,7 +306,7 @@ test("lifecycle validates normalized reason boundaries and requires fresh review
 });
 
 test("lifecycle metadata and membership retained work receive sequential departure review with cancellation and history", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -378,7 +378,7 @@ test("lifecycle metadata and membership retained work receive sequential departu
 });
 
 test("lifecycle closure retains rejected workbook work and allowed configuration while reopening requires fresh source action", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const incidentId = await createIncident(
     page,

@@ -120,7 +120,7 @@ func (d *productionDriver) Prepare(ctx context.Context) (*int, error) {
 		environment["CARTULARY_HOST_ADMISSION_LEASE"] = d.admission.Token
 		d.fixtures = harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{BrowserLaneLimit: 1, Root: d.root, RunRoot: privateRoot, Target: "ui-review", Runtime: d.runtime, Environment: environment}, harnessfixtures.Options{})
 		acquire, cancel := d.producerContext(ctx)
-		request := harnessfixtures.Request{Capability: "browser_stack", UnitID: "ui-review", Affinity: "design-review-" + *d.input.Profile, BrowserStage: "webserver-backed", RuntimeProfile: *d.input.Profile}
+		request := harnessfixtures.Request{PostgresIsolation: "exclusive", Services: []string{"object_store", "postgres"}, Capability: "browser_stack", UnitID: "ui-review", Affinity: "design-review-" + *d.input.Profile, BrowserStage: "webserver-backed", RuntimeProfile: *d.input.Profile}
 		capacities := map[string]int64{}
 		for key, value := range reply.Facts.Capacities {
 			capacities[key] = int64(value)

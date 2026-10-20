@@ -41,7 +41,7 @@ func TestCoordinationMinimumDefaultsAndRejection_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-defaults")
 	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-coordination@example.test", "Collaboration Coordination", "CollaborationCoordination1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-coordination@example.test", DisplayName: "Collaboration Coordination"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-coordination-incident", "IR-COLLABORATION-COORD", "Workbook inspector collaboration workflow coordination defaults")
 
 	for _, tc := range []struct {
@@ -329,7 +329,7 @@ func DefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {
 func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-projections")
 	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-projection@example.test", "Collaboration Projection", "CollaborationProjection1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-projection@example.test", DisplayName: "Collaboration Projection"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-projection-incident", "IR-COLLABORATION-PROJECTION", "Workbook inspector collaboration workflow coordination projections")
 
 	commOneNextReport := time.Date(2026, 5, 20, 9, 0, 0, 0, time.UTC)
@@ -442,7 +442,7 @@ func TestCoordinationProjectionSortFilterGroup_Unit(t *testing.T) {
 func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-query-fields")
 	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-query-fields@example.test", "Collaboration Query Fields", "CollaborationQueryFields1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-query-fields@example.test", DisplayName: "Collaboration Query Fields"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-query-fields-incident", "IR-COLLABORATION-QUERY-FIELDS", "Workbook inspector collaboration workflow declared query fields")
 
 	mustCreateRow(t, store, actor, incident.ID, artifacts.CommLogViewSchemaID, "txn-workbook_interaction-collaboration-query-fields-comm", map[string]workbookroutetest.ValueChange{
@@ -512,8 +512,8 @@ func TestCoordinationDeclaredQueryFieldsAreMapped_Unit(t *testing.T) {
 func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-semantic-filters")
 	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-filters@example.test", "Collaboration Filters", "CollaborationFilters1!", false, false, true)
-	alternate := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-filters-alt@example.test", "Collaboration Filters Alt", "CollaborationFiltersAlt1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-filters@example.test", DisplayName: "Collaboration Filters"})
+	alternate := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-filters-alt@example.test", DisplayName: "Collaboration Filters Alt"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-filters-incident", "IR-COLLABORATION-FILTERS", "Workbook inspector collaboration workflow semantic filters")
 	_, err := workbookroutetest.CreateWorkbookRow(store, context.Background(), actor, incident.ID, workbookroutetest.CreateRequest{
 		ViewSchemaID: artifacts.HandoffViewSchemaID,
@@ -633,7 +633,7 @@ func TestCoordinationSemanticFilters_Unit(t *testing.T) {
 func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-collection-shapes")
 	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-shapes@example.test", "Collaboration Shapes", "CollaborationShapes1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-shapes@example.test", DisplayName: "Collaboration Shapes"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-shapes-incident", "IR-COLLABORATION-SHAPES", "Workbook inspector collaboration workflow collection item shapes")
 
 	partyID := mustCreatePartyFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-shapes-party", "Coordination Shape Party")
@@ -686,7 +686,7 @@ func TestCoordinationCollectionItemShapes_Unit(t *testing.T) {
 func TestCoordinationDuplicateCoalescing_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-duplicate-coalescing")
 	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-duplicates@example.test", "Collaboration Duplicates", "CollaborationDuplicates1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-duplicates@example.test", DisplayName: "Collaboration Duplicates"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-duplicates-incident", "IR-COLLABORATION-DUPLICATES", "Workbook inspector collaboration workflow duplicate coalescing")
 
 	partyID := mustCreatePartyFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-duplicates-party", "Duplicate Party")
@@ -767,7 +767,7 @@ func TestCoordinationCollectionsAndValidation_Unit(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "workbook_interaction-collaboration-coordination-collections")
 	store := appsupport.NewWorkbookCatalog(harness.DB, workbookTestConflictTokens())
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "collaboration-collections@example.test", "Collaboration Collections", "CollaborationCollections1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "collaboration-collections@example.test", DisplayName: "Collaboration Collections"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-collaboration-collections-incident", "IR-COLLABORATION-COLLECTIONS", "Workbook inspector collaboration workflow coordination collections")
 
 	partyID := mustCreatePartyFor(t, harness.DB, actor, incident.ID, "txn-workbook_interaction-collaboration-party", "Coordination Legal")

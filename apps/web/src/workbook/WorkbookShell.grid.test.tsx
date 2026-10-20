@@ -25,11 +25,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deferred, requireFetchCall } from "../testing/fetchMockTestSupport";
 import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRuntimeFixture";
 import {
-  buildRecordChangedPayload,
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
   emitRecordChanged,
-  errorEnvelope,
   extractTimelineJSONBody,
   extractTimelinePatchBody,
   findWorkbookCell,
@@ -37,14 +35,18 @@ import {
   installTimelineWorkbookTestGlobals,
   latestTimelineWebSocket,
   requiredGridRow,
-  successEnvelope,
   type TimelineWorkbookFetchMock,
-  timelineRow,
   visibleGridRows,
   waitForTimelineWorkbookReady,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
-import { withWorkbookQueryFixtureMetadata } from "../testing/workbookQueryTestSupport";
+import {
+  buildRecordChangedPayload,
+  errorEnvelope,
+  successEnvelope,
+  timelineRow,
+  withWorkbookQueryFixtureMetadata,
+} from "../testing/workbookFixtureData";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { decideWorkbookRecordFreshness } from "./timeline/models/workbookRecordFreshness";
 

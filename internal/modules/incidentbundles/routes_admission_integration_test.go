@@ -393,7 +393,7 @@ func TestImportEnvelopeIdempotencyAndImportedIncidentOpen_Integration(t *testing
 	})
 	recordID := row["row"].(map[string]any)["record_id"].(string)
 	seededState := seedIncidentBundlePortableState(t, sourceHarness, incidentID, recordID, sourceAdminID)
-	sourceViewerID := flowtest.SeedLocalUserFlags(t, sourceHarness.DB, "extension_profile-import-source-viewer@example.test", "Enterprise integration Import Source Viewer", "ExtensionProfileImportViewer1!", false, false, true)
+	sourceViewerID := flowtest.SeedActor(t, sourceHarness.DB, flowtest.ActorAttributes{Email: "extension_profile-import-source-viewer@example.test", DisplayName: "Enterprise integration Import Source Viewer"}).ID.String()
 	scenariotest.CreateMembership(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source-viewer",
 		"user_id":       sourceViewerID,

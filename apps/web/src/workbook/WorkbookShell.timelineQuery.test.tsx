@@ -17,11 +17,10 @@ import {
   extractTimelinePatchBody,
   findWorkbookCell,
   installTimelineWorkbookTestGlobals,
-  successEnvelope,
   type TimelineWorkbookFetchMock,
-  timelineRow,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import { successEnvelope, timelineRow } from "../testing/workbookFixtureData";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 
 vi.mock(

@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.timeline",
   "rows": [
     {
@@ -35,7 +35,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07",
@@ -70,7 +72,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.auto_resolution_feedback_characterization",
@@ -128,7 +132,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.autosave_feedback_characterization",
@@ -164,7 +170,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.autosave_feedback_query_overlap",
@@ -200,7 +208,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.batch_history_review_clear",
@@ -235,7 +245,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.batch_history_review_fill",
@@ -270,7 +282,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.batch_history_review_paste",
@@ -305,7 +319,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.batch_history_review_tag",
@@ -340,7 +356,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.bulk_tag_characterization",
@@ -378,7 +396,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.bulk_tag_delivery_entry",
@@ -414,7 +434,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.bulk_tag_layouts",
@@ -450,7 +472,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.bulk_tag_membership",
@@ -486,7 +510,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.bulk_tag_prerequisites",
@@ -522,7 +548,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.bulk_tag_rejection",
@@ -558,7 +586,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.bulk_tag_replay",
@@ -596,7 +626,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.capture_action_exact_recovery",
@@ -633,7 +665,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.clear_conflicts",
@@ -668,7 +702,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.clear_drafts",
@@ -703,7 +739,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.clear_eligibility",
@@ -738,7 +776,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.clear_groups",
@@ -773,7 +813,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.clear_membership",
@@ -808,7 +850,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.clear_predecessor",
@@ -843,7 +887,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.clear_recovery",
@@ -878,7 +924,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.clear_rectangle",
@@ -913,7 +961,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.clipboard_fidelity",
@@ -948,7 +998,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.collection_chips_disclose_exact_members_without_9dfb945466",
@@ -984,7 +1036,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.collection_input_authoring",
@@ -1020,7 +1074,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.collection_input_characterization",
@@ -1056,7 +1112,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.collection_input_equal_native_revision",
@@ -1096,7 +1154,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.collection_input_lifetime",
@@ -1132,7 +1192,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.collection_input_promotion",
@@ -1168,7 +1230,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.conflict_completion_preserves_newer_grouped_draf_caa2cd651a",
@@ -1203,7 +1267,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.deferred_continuity",
@@ -1238,7 +1304,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.draft_create_activation",
@@ -1273,7 +1341,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.draft_create_cancellation",
@@ -1308,7 +1378,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.draft_create_continuity",
@@ -1343,7 +1415,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.draft_create_controls",
@@ -1378,7 +1452,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.draft_create_rejection",
@@ -1413,7 +1489,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.draft_create_uncertainty",
@@ -1448,7 +1526,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.explicit_blank_create",
@@ -1483,7 +1563,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.pending_capture_composition",
@@ -1518,7 +1600,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.pending_capture_detached",
@@ -1553,7 +1637,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.pending_capture_raw",
@@ -1588,7 +1674,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_accessibility",
@@ -1623,7 +1711,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_authority",
@@ -1658,7 +1748,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_cancellation",
@@ -1693,7 +1785,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_departure",
@@ -1728,7 +1822,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_entry_cycles",
@@ -1763,7 +1859,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_entry_lifecycle",
@@ -1798,7 +1896,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_entry_native",
@@ -1833,7 +1933,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_entry_settlement",
@@ -1868,7 +1970,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_gestures",
@@ -1903,7 +2007,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_live_membership",
@@ -1938,7 +2044,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_presentation",
@@ -1973,7 +2081,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_rejection_query",
@@ -2008,7 +2118,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.range_scrolling",
@@ -2049,7 +2161,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.real_browser_replay_preserves_the_original_commi_b246ca8c38",
@@ -2084,7 +2198,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.refreshed_conflict_preserves_newer_grouped_draft_2db53472fd",
@@ -2119,7 +2235,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.related_evidence_link_replay",
@@ -2155,7 +2273,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.related_evidence_original_source",
@@ -2191,7 +2311,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.related_evidence_projection_recovery",
@@ -2227,7 +2349,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.related_evidence_unavailable",
@@ -2263,7 +2387,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.row_action_menu",
@@ -2298,7 +2424,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.saved_timeline_tag_removal_preserves_exact_ident_42963ccf0e",
@@ -2337,7 +2465,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.scalar_clipboard_characterization",
@@ -2373,7 +2503,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.scalar_clipboard_composition",
@@ -2409,7 +2541,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.scalar_clipboard_continuity",
@@ -2445,7 +2579,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.scalar_clipboard_departure",
@@ -2481,7 +2617,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.scalar_clipboard_promotion",
@@ -2517,7 +2655,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.scalar_clipboard_recovery",
@@ -2553,7 +2693,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_batch_bulk_conflicts",
@@ -2588,7 +2730,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_batch_conflicts",
@@ -2623,7 +2767,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_batch_headers",
@@ -2658,7 +2804,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_batch_recovery_intent",
@@ -2693,7 +2841,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_batch_replay",
@@ -2728,7 +2878,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_bulk",
@@ -2763,7 +2915,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_creation",
@@ -2798,7 +2952,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_keyboard",
@@ -2833,7 +2989,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_pointer",
@@ -2868,7 +3026,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_refresh",
@@ -2903,7 +3063,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_rejection",
@@ -2938,7 +3100,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_uncertain_create",
@@ -2973,7 +3137,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.spreadsheet_virtualization",
@@ -3008,7 +3174,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.supersession_review_handoff",
@@ -3043,7 +3211,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.timeline_bulk_selection_exposes_committed_readab_0793a3e62b",
@@ -3079,7 +3249,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.timeline_manage_tags_makes_relationships_current_3cb930689d",
@@ -3114,7 +3286,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.timeline_review_read_preserves_newer_editing_449509d125",
@@ -3154,7 +3328,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser.timeline_unsaved_cells_retain_keyboard_focus_thr_e5c816b7bf",
@@ -3189,7 +3365,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.clipboard_paste_helper_contract",
@@ -3224,7 +3402,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.fill_down_helper_contract",
@@ -3259,7 +3439,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.keeps_a_pending_edit_anchored_to_its_record_unde_b5a6ab2768",
@@ -3294,7 +3476,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.one_click_scalar_edit_anchor",
@@ -3329,7 +3513,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.query_control_helper_contract",
@@ -3364,7 +3550,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.reviewed_edit_demotion_preserves_query_filter_safety_0e2d9a8f10",
@@ -3399,7 +3587,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.timeline_clipboard_paste_maps_an_exact_rectangle_6dadd393a8",
@@ -3434,7 +3624,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.timeline_grid_keyboard_navigation_edit_cancellat_6a838bf56c",
@@ -3469,7 +3661,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.timeline_grid_modified_editor_departure",
@@ -3505,7 +3699,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.timeline_grouping_renders_reviewed_and_unreviewe_9b575f8189",
@@ -3540,7 +3736,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.timeline_keyboard_fill_down_preserves_the_select_66fb142159",
@@ -3575,7 +3773,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.browser_support.timeline_virtualization_reaches_off_screen_rows_51067b8ca7",
@@ -3610,7 +3810,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.frontend.ac003_paint_qualification",
@@ -3638,7 +3840,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.ac043_paint_qualification_rejects_invalid_state_0a20837e7b",
@@ -3666,7 +3869,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.ac043_snapshot_supported_envelope_shape_cbe446f6e6",
@@ -3694,7 +3898,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.ac044_paint_qualification",
@@ -3722,7 +3927,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.ac045_paint_qualification",
@@ -3752,7 +3958,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.ac047_trace_qualification",
@@ -3781,7 +3988,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.clipboard_presentation_admission",
@@ -3809,7 +4017,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.collection_inspection_focuses_only_live_semantic_40e7d15084",
@@ -3843,7 +4052,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.collection_inspection_preserves_draft_text_and_s_f5c8c4c211",
@@ -3885,7 +4095,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.draft_create_activation",
@@ -3912,7 +4123,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.evicted_source_coordination",
@@ -3940,7 +4152,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.source_ac043snapshot_test_ts_f08ef1d7fa",
@@ -3969,7 +4182,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_binds_timeline_colu_539c620379",
@@ -3996,7 +4210,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_keeps_saved_row_ide_9b0e823cea",
@@ -4023,7 +4238,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.the_rdg_backed_workbook_grid_keeps_sorted_and_fi_b16b9731e1",
@@ -4050,7 +4266,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.the_workbook_blank_row_action_submits_exactly_on_ad8dcf13e4",
@@ -4077,7 +4294,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.the_workbook_component_proves_autosave_commits_o_8ef38ab5ed",
@@ -4108,7 +4326,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.the_workbook_create_payload_builder_omits_zero_f_deaef46bf2",
@@ -4135,7 +4354,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_action_ports_73c9f1a40e",
@@ -4166,7 +4386,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_bulk_tag_controller_8a15df23b4",
@@ -4200,7 +4421,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_bulk_tag_plan_a111000001",
@@ -4214,12 +4436,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineBulkTagPlan.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineBulkTagPlan.node.test.ts",
         "titles": [
           "Timeline bulk-tag plan builds one ordered versioned command from the selected records",
           "Timeline bulk-tag plan rejects access loss, missing capability, partial selection, and stale targets"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4228,7 +4450,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_clipboard_paste_plan_a108000003",
@@ -4259,7 +4482,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_editor_and_work_area_keyboard_decisions_0b1dcd0588",
@@ -4273,12 +4497,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineKeyboardIntentModel.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineKeyboardIntentModel.node.test.ts",
         "titles": [
           "maps scalar navigation without performing focus or save effects",
           "maps work-area shortcuts to semantic panel and mention intent"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4287,7 +4511,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_editor_draft_registry_0de7a147c1",
@@ -4329,7 +4554,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_evidence_attachment_plan_a111000002",
@@ -4344,14 +4570,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineEvidenceAttachmentPlan.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineEvidenceAttachmentPlan.node.test.ts",
         "titles": [
           "Timeline file gesture targets captures only the explicit row and current version without selection inputs",
           "Timeline file gesture targets fails closed for missing ambiguous and unavailable targets without substituting a draft",
           "Timeline file gesture targets leaves pending creation and source write coordination to the existing owners",
           "Timeline file gesture targets retains an exact draft and follows only its accepted lifecycle alias"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4360,7 +4586,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_load_machine_a109000001",
@@ -4374,7 +4601,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineLoadMachine.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineLoadMachine.node.test.ts",
         "titles": [
           "Timeline load machine ignores retry and exhaustion effects from a superseded complete subject",
           "Timeline load machine joins a satisfied obligation and otherwise retries exactly twice",
@@ -4384,7 +4611,7 @@
           "Timeline load machine resets a changed subject and preserves state for an equal subject",
           "Timeline load machine tracks accepted mutations and refuses a pre-mutation success"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4393,7 +4620,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_mention_action_plan_a111000003",
@@ -4408,12 +4636,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineMentionActionPlan.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineMentionActionPlan.node.test.ts",
         "titles": [
           "Timeline Mention action plan binds explicit mention identity separately from opaque selector source and target",
           "Timeline Mention action plan refuses missing public identity and source versions without parsing selectors"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4422,7 +4650,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_mutation_models_a110000001",
@@ -4436,7 +4665,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/timeline/models/timelineMutationModels.test.ts",
+        "file": "apps/web/src/workbook/timeline/models/timelineMutationModels.node.test.ts",
         "titles": [
           "Timeline mutation models admits exact scalar and collection intents and deduplicates keyboard blur",
           "Timeline mutation models discriminates relationship and tag presentation without union downcasts",
@@ -4445,7 +4674,7 @@
           "Timeline mutation models projects accepted draft replacement and its deterministic continuation",
           "Timeline mutation models releases evicted query observations while retaining drafts, the inspector source, and mutation version floors"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4454,7 +4683,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_query_port_validation_6d44f87e20",
@@ -4468,14 +4698,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/adapters/createWorkbookViewQueryAdapter.test.ts",
+        "file": "apps/web/src/workbook/adapters/createWorkbookViewQueryAdapter.node.test.ts",
         "titles": [
           "binds accepted query rows to captured authority and rejects late old-session responses",
           "derives and validates Workbook query transport behind the shared semantic port",
           "fails closed on malformed or cross-context query success and contains aborts",
           "preserves route query cursors and projected pagination reasons without trusting unknown reasons"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -4484,7 +4714,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_row_mutation_coordinator_1a7e2c9b44",
@@ -4520,7 +4751,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.frontend.timeline_scalar_editor_e5035bb033",
@@ -4548,7 +4780,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.integration.create_patch_mark_reviewed_supersede_query_and_w_90276912d7",
@@ -4575,7 +4808,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.integration.incident_role_authorization_review_and_supersede_62f3d384f6",
@@ -4604,7 +4838,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.integration.real_http_create_patch_review_supersede_replay_m_37e5c78ca1",
@@ -4632,7 +4867,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.integration.rough_and_uncertain_timeline_capture_preserves_n_a868f4aa14",
@@ -4659,7 +4895,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.integration.same_field_timeline_patch_conflicts_are_transpor_808ccc2585",
@@ -4687,7 +4924,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.integration.the_canonical_incident_web_socket_route_proves_h_aef38ee6e5",
@@ -4715,7 +4953,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.integration.the_query_route_reads_projection_rows_instead_of_2edde6eb1c",
@@ -4744,7 +4983,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.integration.timeline_create_and_patch_routes_persist_manual_ac8c9abb5b",
@@ -4771,7 +5011,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.integration.timeline_patch_and_query_routes_auto_resolve_onl_8ab2448829",
@@ -4798,7 +5039,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.ac044_filter_first_useful_viewport",
@@ -4834,7 +5076,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.ac044_filter_stable_viewport",
@@ -4870,7 +5114,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.ac044_group_first_useful_viewport",
@@ -4906,7 +5152,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.ac044_group_stable_viewport",
@@ -4942,7 +5190,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.ac044_sort_first_useful_viewport",
@@ -4978,7 +5228,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.ac044_sort_stable_viewport",
@@ -5014,7 +5266,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.ac047_anchor_trace",
@@ -5050,7 +5304,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.committed_timeline_summary_typing_acknowledgment_b615aabfe6",
@@ -5086,7 +5342,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.evidence_inspector_v2",
@@ -5123,7 +5381,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.paste_20x5_v2",
@@ -5159,7 +5419,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.timeline_blank_row_creation_satisfies_the_paint_afddd2ce13",
@@ -5195,7 +5457,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.timeline_summary_arrow_down_selection_satisfies_961a4ec1d3",
@@ -5231,7 +5495,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.measurement.timeline_summary_enter_focus_satisfies_the_paint_d03cf54e95",
@@ -5267,7 +5533,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.store.a_committed_timeline_create_initializes_capture_e04b19cb10",
@@ -5293,7 +5561,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.a_material_edit_demotes_reviewed_enriched_legal_29bb8697de",
@@ -5319,7 +5588,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.a_one_value_timeline_create_commits_a_real_row_a_1964bc0936",
@@ -5345,7 +5615,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.closed_incidents_remain_readable_and_permit_exac_1af610054a",
@@ -5371,7 +5642,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.patch_replay_returns_the_original_committed_resu_b93ddcbc77",
@@ -5397,7 +5669,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.repeated_identical_mention_tokens_persist_as_sep_d79faec8e6",
@@ -5423,7 +5696,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.stale_timeline_patches_derive_committed_writable_b89a3c27fa",
@@ -5449,7 +5723,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.successful_timeline_create_and_patch_each_write_686ca358f8",
@@ -5476,7 +5751,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.supersede_with_replacement_rejects_illegal_targe_e4d81b8a06",
@@ -5502,7 +5778,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.the_first_material_patch_transitions_rough_enric_c36dc39675",
@@ -5528,7 +5805,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.timeline_mention_fields_prove_mention_origin_bin_46b2abfeb9",
@@ -5554,7 +5832,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.store.timeline_query_accepts_timeline_evidence_count_a_22cc245694",
@@ -5580,7 +5859,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.timeline.support_integration.integration_authorization_matrix_2699762a78",
@@ -5607,7 +5887,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.support_integration.integration_route_idempotency_is_actor_scoped_ab7992bb7d",
@@ -5635,7 +5916,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.support_unit.clipboard_paste_parsing_mapping_provenance_and_b_43e8f0fd4f",
@@ -5662,7 +5944,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.support_unit.reporting_sort_facts_v2",
@@ -5688,7 +5971,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.support_unit.rollback_provider_mapping_dafe7d4b5c",
@@ -5714,7 +5998,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.support_unit.shared_paste_and_bulk_planning_parses_quoted_csv_5659d1fb01",
@@ -5738,7 +6023,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.support_unit.time_contract_parser_98d70c6b65",
@@ -5762,7 +6048,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.support_unit.timeline_import_normalization_preserves_owner_po_0e92bc5ae9",
@@ -5790,7 +6077,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.support_unit.unit_capture_state_and_payload_helpers_772e7f2e60",
@@ -5819,7 +6107,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.evidence_fact_mapping_is_lossless_and_ordered_6c9e41ad52",
@@ -5848,7 +6137,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.new_contribution_requires_source_f36f970e83",
@@ -5872,7 +6162,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.restore_workbook_probe_matches_canonical_fixture_4fbe5d13e2",
@@ -5898,7 +6189,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.timeline_admission_decoding_and_hashing_46ac663c5c",
@@ -5927,7 +6219,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.timeline_admission_maps_public_errors_c11874aa1a",
@@ -5951,7 +6244,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.timeline_canonical_value_codec_preserves_nullabl_8e157df0fd",
@@ -5976,7 +6270,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.timeline_create_and_patch_decoding_accepts_manua_d80720f76e",
@@ -6000,7 +6295,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.timeline_mutation_policy_is_closed_immutable_and_744c76d583",
@@ -6025,7 +6321,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.timeline_projection_contract_shaping_exposes_the_0a2232ebe0",
@@ -6054,7 +6351,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.timeline_request_decoding_preserves_authoritativ_aa7608a640",
@@ -6078,7 +6376,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.timeline_version_identifiers_encode_the_exact_re_0e9c9c6928",
@@ -6104,7 +6403,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.workbook_projection_contribution_owns_typed_runt_729aeb2b34",
@@ -6128,7 +6428,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.unit.workbook_timeline_capability_is_exact_typed_nil_68fc3f3a6f",
@@ -6155,7 +6456,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.timeline.visual.the_visual_harness_captures_a_deterministic_grou_ac01b2d810",
@@ -6192,7 +6494,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.visual.the_visual_harness_captures_a_deterministic_time_a19d57e206",
@@ -6229,7 +6533,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.timeline.visual.the_visual_harness_drives_the_real_timeline_work_0977c1d4cf",
@@ -6266,7 +6572,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     }
   ]
 }

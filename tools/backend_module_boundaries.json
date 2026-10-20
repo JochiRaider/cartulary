@@ -474,6 +474,7 @@
         "internal/modules/indicators/transaction_atomicity_test.go",
         "internal/modules/indicators/vocabulary_contract_test.go",
         "internal/modules/networkflow/store_test.go",
+        "internal/modules/recovery/backup_capture_fixture_test.go",
         "internal/modules/recovery/backup_metadata_integration_test.go",
         "internal/modules/recovery/operatortest/operator_process_test.go",
         "internal/modules/recovery/operatortest/portable_restore_process_test.go",

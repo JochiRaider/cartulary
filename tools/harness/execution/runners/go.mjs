@@ -16,6 +16,8 @@ function exactAlternation(values) {
 }
 
 export function buildGoInvocations(rows, workers, command, context) {
+  if (context.goShuffleSeed !== undefined && (!/^[1-9][0-9]*$/u.test(String(context.goShuffleSeed)) ||
+    Number(context.goShuffleSeed) > 2147483647)) throw new Error("invalid Go shuffle seed");
   const byPackage = new Map();
   for (const row of rows) {
     const values = byPackage.get(row.selector.package) ?? [];
@@ -32,6 +34,7 @@ export function buildGoInvocations(rows, workers, command, context) {
         "-json",
         "-count=1",
         ...(context.goRace ? ["-race"] : []),
+        ...(context.goShuffleSeed === undefined ? [] : [`-shuffle=${context.goShuffleSeed}`]),
         `-p=${Math.min(workers, 16)}`,
         "-run",
         exactAlternation(
@@ -56,7 +59,7 @@ function goEventObserver() {
     if (!terminated || state.overflow) { malformed(state.test); return; }
     try {
       const envelope = JSON.parse(state.encoded.trim());
-      validateSchemaSync("cartulary.harness_test_failure.v2", envelope);
+      validateSchemaSync("cartulary.harness_test_failure.v4", envelope);
       markers.push({ test: state.test, envelope, malformed: false });
     } catch { malformed(state.test); }
   };
@@ -183,7 +186,7 @@ function markerFailure(selectors, markers, terminal) {
   }
   const envelope = [...setup.values()][0] ?? null;
   const diagnostic = {
-    schema_id: "cartulary.harness_go_failure_diagnostic.v1",
+    schema_id: "cartulary.harness_go_failure_diagnostic.v3",
     setup: envelope, cleanup,
   };
   validateSchemaSync(diagnostic.schema_id, diagnostic);

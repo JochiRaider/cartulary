@@ -294,16 +294,7 @@ func newHistoryRepositoryFixture(t *testing.T) historyRepositoryFixture {
 	} else {
 		database = harness.BeginRollbackDBT(t, "revisions-history-repository")
 	}
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		database,
-		"history-repository@example.test",
-		"History Repository",
-		"HistoryRepositoryPass1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, database, authstoretest.ActorAttributes{Email: "history-repository@example.test", DisplayName: "History Repository"})
 	now := time.Date(2026, 8, 3, 16, 45, 0, 123456000, time.UTC)
 	incidentApplication, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            database,

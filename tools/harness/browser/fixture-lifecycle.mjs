@@ -7,7 +7,7 @@ import { readLocalFile } from "../runtime/secure-local-files.mjs";
 import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
 import { acquireProcess } from "./acquire-process.mjs";
 import { normalizeFailureRecord } from "../contract/index.mjs";
-import { findCleanupDiagnostic } from "../runtime/cleanup-diagnostic.mjs";
+import { findCleanupDiagnostic, withCleanupDiagnostic } from "../runtime/cleanup-diagnostic.mjs";
 import { browserAcquisitionLaunchArguments, recordAcquisitionProcess, createBrowserAcquisition, createAcquisitionLaunch, closeAcquisitionLaunch,
   readBrowserAcquisition, settleBrowserAcquisition } from "./browser-acquisition.mjs";
 
@@ -32,10 +32,10 @@ export async function fixtureLifecycle(operation, args, environment = process.en
     return {};
   }
   if (["settle", "recover", "inspect"].includes(operation)) {
-    if (args.length !== 1) throw new Error("invalid lifecycle arity");
+    if (args.length < 1 || args.length > (operation === "recover" ? 3 : 1)) throw new Error("invalid lifecycle arity");
     const owner = readBrowserAcquisition(args[0], runtime);
     if (operation === "inspect") return { suite_lease: owner.suite_lease };
-    else await settleBrowserAcquisition({ file: args[0], runtime, root, environment, recovery: operation === "recover", recoveryResultsRoot: environment.CARTULARY_BROWSER_RECOVERY_RESULTS_DIR });
+    else await settleBrowserAcquisition({ file: args[0], runtime, root, environment, recovery: operation === "recover", ownedServices: args.slice(1), recoveryResultsRoot: environment.CARTULARY_BROWSER_RECOVERY_RESULTS_DIR });
     return {};
   }
   if (operation === "validate" && args.length === 1) {
@@ -49,7 +49,7 @@ export async function fixtureLifecycle(operation, args, environment = process.en
     const stack = parseStrictJSON(readLocalFile(file, { maximum: 1048576 }).toString());
     validateSchemaSync("cartulary.web_e2e_stack.v8", stack);
     const admission = parseStrictJSON(readLocalFile(path.join(path.dirname(file), "service-admission.json"), { maximum: 1048576 }).toString());
-    validateSchemaSync("cartulary.test_services.browser_admission.v1", admission);
+    validateSchemaSync("cartulary.test_services.browser_admission.v2", admission);
     if ([stack,admission].some((value) => value.suite_id !== suite || value.browser_session_id !== session)) throw new Error("stack identity mismatch");
     // Trust admission is needed by the physical renderer before a group runs
     // the complete application attachment check.
@@ -62,7 +62,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   catch(error) {
     const failure=normalizeFailureRecord({failure_class:error.failure_class??"harness",failure_reason:error.failure_reason??"fixture_error"});
     process.stdout.write(`${JSON.stringify({failure_class:failure.failure_class,failure_reason:failure.failure_reason})}\n`);
-    const diagnostic=findCleanupDiagnostic(error);
+    const operation=process.argv[2];
+    const diagnostic=findCleanupDiagnostic(error) ?? (["settle", "recover", "inspect"].includes(operation)
+      ? findCleanupDiagnostic(withCleanupDiagnostic(error, operation === "inspect" ? "recovery_proof" : "browser_settlement")) : null);
     process.stderr.write(diagnostic ? `${JSON.stringify(diagnostic)}\n` : "fixture lifecycle rejected or failed\n");
     process.exitCode=failure.failure_class==="artifact"?11:12;
   }

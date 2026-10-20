@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_test_failure.v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "failure_class",
+    "failure_reason",
+    "setup_source",
+    "service",
+    "readiness_stage",
+    "attempt_count",
+    "cleanup_outcome",
+    "phase",
+    "prior_failure"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_test_failure.v4"
+    },
+    "failure_class": {
+      "enum": [
+        "harness",
+        "infra",
+        "interrupted"
+      ]
+    },
+    "failure_reason": {
+      "enum": [
+        "cancelled_or_interrupted",
+        "fixture_error",
+        "service_readiness_timeout",
+        "cleanup_error"
+      ]
+    },
+    "setup_source": {
+      "enum": [
+        "appsupport",
+        "pgtest",
+        "s3test"
+      ]
+    },
+    "service": {
+      "enum": [
+        "object_store",
+        "postgres"
+      ]
+    },
+    "readiness_stage": {
+      "enum": [
+        "attach",
+        "capability",
+        "create_bucket",
+        "delete",
+        "dependency_guard",
+        "head",
+        "not_found",
+        "put",
+        "start"
+      ]
+    },
+    "attempt_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000
+    },
+    "cleanup_outcome": {
+      "enum": [
+        "completed",
+        "failed",
+        "not_required"
+      ]
+    },
+    "phase": {
+      "enum": [
+        "setup",
+        "cleanup"
+      ]
+    },
+    "prior_failure": {
+      "type": "boolean"
+    },
+    "cleanup_diagnostics": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "stage",
+          "cause"
+        ],
+        "properties": {
+          "stage": {
+            "enum": [
+              "unknown",
+              "catalog_open",
+              "catalog_connection",
+              "catalog_lock",
+              "catalog_unlock",
+              "catalog_close",
+              "forced_drop"
+            ]
+          },
+          "cause": {
+            "enum": [
+              "unknown",
+              "cancelled",
+              "deadline_exceeded",
+              "connection_closed",
+              "database_in_use",
+              "connection_failure",
+              "lock_unavailable",
+              "query_cancelled",
+              "permission_denied",
+              "server_shutdown",
+              "diagnostic_limit"
+            ]
+          },
+          "postgres": {
+            "$ref": "cartulary.postgres_cleanup_observation.v2"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "phase": {
+            "const": "cleanup"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "failure_class": {
+            "const": "harness"
+          },
+          "failure_reason": {
+            "const": "cleanup_error"
+          },
+          "cleanup_outcome": {
+            "const": "failed"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "prior_failure": {
+            "const": false
+          },
+          "failure_reason": {
+            "enum": [
+              "cancelled_or_interrupted",
+              "fixture_error",
+              "service_readiness_timeout"
+            ]
+          },
+          "cleanup_diagnostics": false
+        }
+      }
+    }
+  ]
+}

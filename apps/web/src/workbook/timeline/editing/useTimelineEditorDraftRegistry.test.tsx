@@ -1,7 +1,7 @@
 import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { fullWorkbookViewRow } from "../../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../../testing/workbookFixtureData";
 import { WorkbookLocalDraftStore } from "../../models/WorkbookLocalDraftStore";
 import { timelineViewSchemaId } from "../../models/workbookSurfaceRegistry";
 import { createWorkbookMutationRuntime } from "../../runtime/createWorkbookMutationRuntime";

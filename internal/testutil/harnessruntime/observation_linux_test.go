@@ -4,7 +4,11 @@ package harnessruntime
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -55,6 +59,75 @@ func observationFixture(t *testing.T) (*Plan, *harnesssession.Runtime, string, m
 	return plan, r, run, policy
 }
 func TestRuntimeObservations(t *testing.T) {
+	t.Run("admission_preserves_typed_owner_failure", func(t *testing.T) {
+		for _, tc := range []struct {
+			err           error
+			class, reason string
+		}{
+			{&harnessfixtures.Failure{Class: "config", Reason: "configuration_error", Cause: errors.New("private credentials")}, "config", "configuration_error"},
+			{&harnessfixtures.Failure{Class: "infra", Reason: "service_start_error"}, "infra", "service_start_error"},
+			{context.DeadlineExceeded, "infra", "resource_conflict"},
+			{harnessadmission.ErrConflict, "infra", "resource_conflict"},
+			{harnessadmission.ErrRelease, "harness", "cleanup_error"},
+		} {
+			got := failureOf(classifyAdmissionFailure(t.Context(), tc.err))
+			if got.Class != tc.class || got.Reason != tc.reason || strings.Contains(got.Error(), "private") {
+				t.Fatal("admission classification lost", got)
+			}
+		}
+	})
+
+	t.Run("container_roster_retirement_preserves_other_services", func(t *testing.T) {
+		c := &collectorClient{proofPath: filepath.Join(t.TempDir(), "proof.json"), manifest: map[string]any{"run_id": "run"}, lease: "runtime", queue: make(chan []byte, 1), acks: map[string]chan struct{}{}, pending: map[string]int{}, policy: map[string]any{"stop_ms": float64(1000)}}
+		if err := os.Chmod(filepath.Dir(c.proofPath), 0700); err != nil {
+			t.Fatal(err)
+		}
+		proof := func(id string) map[string]any {
+			return map[string]any{"lease": map[string]any{"lease_id": id}, "ownership": "owned"}
+		}
+		read := func() map[string]any {
+			t.Helper()
+			b, err := os.ReadFile(c.proofPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var v map[string]any
+			if json.Unmarshal(b, &v) != nil {
+				t.Fatal("bad roster")
+			}
+			return v
+		}
+		c.containers(t.Context(), proof("one"), false)
+		c.containers(t.Context(), proof("two"), false)
+		if len(read()["services"].([]any)) != 2 {
+			t.Fatal("proof overwritten")
+		}
+		observed := make(chan map[string]any, 1)
+		go func() {
+			b := <-c.queue
+			var request map[string]any
+			_ = json.Unmarshal(b, &request)
+			raw, _ := os.ReadFile(c.proofPath)
+			var roster map[string]any
+			_ = json.Unmarshal(raw, &roster)
+			observed <- roster
+			c.mu.Lock()
+			close(c.acks[controlID(request["request"])])
+			delete(c.acks, controlID(request["request"]))
+			c.mu.Unlock()
+		}()
+		c.containers(context.Background(), proof("one"), true)
+		before := <-observed
+		if before["retiring_service"] != "one" || len(before["services"].([]any)) != 2 {
+			t.Fatal("retirement lacks exact live proof")
+		}
+		after := read()
+		services := after["services"].([]any)
+		if after["retiring_service"] != "" || len(services) != 1 || services[0].(map[string]any)["lease"].(map[string]any)["lease_id"] != "two" {
+			t.Fatal("sibling proof revoked")
+		}
+	})
+
 	t.Run("clock_bracket", func(t *testing.T) {
 		c := newGraphClock()
 		before := float64(monotonicNS()) / 1e6

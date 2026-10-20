@@ -34,7 +34,7 @@ func TestEncodeProducesBoundedMarkerWithoutDiagnosticText(t *testing.T) {
 	}
 	for _, prior := range []bool{false, true} {
 		probe := &cleanupProbe{failed: prior}
-		CleanupFailure(probe, "pgtest", "postgres", "delete", &diagnosticError{stage: "normal_drop", cause: context.DeadlineExceeded})
+		CleanupFailure(probe, "pgtest", "postgres", "delete", &diagnosticError{stage: "forced_drop", cause: context.DeadlineExceeded})
 		var diagnostic Envelope
 		if err := json.Unmarshal([]byte(strings.TrimPrefix(probe.output, Marker)), &diagnostic); err != nil {
 			t.Fatal(err)
@@ -48,13 +48,13 @@ func TestEncodeProducesBoundedMarkerWithoutDiagnosticText(t *testing.T) {
 		if !probe.failed {
 			t.Fatal("cleanup did not fail the test")
 		}
-		if !reflect.DeepEqual(diagnostic.CleanupDiagnostics, []CleanupDiagnostic{{Stage: "normal_drop", Cause: "deadline_exceeded"}}) {
+		if !reflect.DeepEqual(diagnostic.CleanupDiagnostics, []CleanupDiagnostic{{Stage: "forced_drop", Cause: "deadline_exceeded"}}) {
 			t.Fatalf("cleanup lost normalized cause: %+v", diagnostic)
 		}
 	}
 	t.Run("drop wait retains exact failure and rejects private values", func(t *testing.T) {
 		sample := &postgrescleanup.DropWaitSnapshot{Barrier: &postgrescleanup.BarrierWaitSnapshot{Status: "sampled", Operation: "select", DatabaseScope: "other", OperationAgeMS: 123, Backend: "client backend", State: "idle", Type: "Client", Event: "ClientRead"}, Type: "IPC", Event: "CheckpointDone", CheckpointerType: "IO", CheckpointerEvent: "DataFileSync", Requested: 7, Done: 6, Buffers: 200}
-		observation := postgrescleanup.DropObservation{Status: "sampled", First: sample, Last: sample}
+		observation := postgrescleanup.DropAttempt{Admission: "acquired", Outcome: "deadline_exceeded", Wait: postgrescleanup.DropObservation{Status: "sampled", First: sample, Last: sample}}
 		failure := &observedDiagnosticError{diagnosticError: &diagnosticError{stage: "forced_drop", cause: context.DeadlineExceeded}, observation: observation}
 		probe := &cleanupProbe{}
 		CleanupFailure(probe, "pgtest", "postgres", "delete", failure)
@@ -63,7 +63,7 @@ func TestEncodeProducesBoundedMarkerWithoutDiagnosticText(t *testing.T) {
 			t.Fatal(err)
 		}
 		diagnostic := envelope["cleanup_diagnostics"].([]any)[0].(map[string]any)
-		wait, ok := diagnostic["wait"].(map[string]any)
+		wait, ok := diagnostic["postgres"].(map[string]any)["wait"].(map[string]any)
 		if !ok || wait["status"] != "sampled" || diagnostic["stage"] != "forced_drop" || diagnostic["cause"] != "deadline_exceeded" {
 			t.Fatal("lost structural wait or original failure")
 		}
@@ -88,11 +88,11 @@ func TestEncodeProducesBoundedMarkerWithoutDiagnosticText(t *testing.T) {
 	})
 	t.Run("joined causes survive without error text", func(t *testing.T) {
 		failure := errors.Join(
-			&diagnosticError{stage: "normal_drop", cause: &sqlStateError{state: "55006"}},
+			&diagnosticError{stage: "forced_drop", cause: &sqlStateError{state: "55006"}},
 			&diagnosticError{stage: "catalog_unlock", cause: context.DeadlineExceeded},
 			&diagnosticError{stage: "catalog_unlock", cause: context.DeadlineExceeded},
 		)
-		want := []CleanupDiagnostic{{Stage: "normal_drop", Cause: "database_in_use"}, {Stage: "catalog_unlock", Cause: "deadline_exceeded"}}
+		want := []CleanupDiagnostic{{Stage: "forced_drop", Cause: "database_in_use"}, {Stage: "catalog_unlock", Cause: "deadline_exceeded"}}
 		if got := describeCleanupFailure(failure); !reflect.DeepEqual(got, want) {
 			t.Fatalf("joined failure diagnostics: got %+v, want %+v", got, want)
 		}
@@ -125,10 +125,10 @@ func (e *diagnosticError) Unwrap() error        { return e.cause }
 
 type observedDiagnosticError struct {
 	*diagnosticError
-	observation postgrescleanup.DropObservation
+	observation postgrescleanup.DropAttempt
 }
 
-func (e *observedDiagnosticError) CleanupWait() postgrescleanup.DropObservation { return e.observation }
+func (e *observedDiagnosticError) PostgresCleanup() postgrescleanup.DropAttempt { return e.observation }
 
 type sqlStateError struct{ state string }
 
@@ -162,9 +162,9 @@ func TestEnvelopeRejectsUnregisteredValues(t *testing.T) {
 		t.Fatal("cleanup accepted product classification")
 	}
 	envelope.FailureClass = "harness"
-	envelope.CleanupDiagnostics = []CleanupDiagnostic{{Stage: "catalog_unlock", Cause: "deadline_exceeded", Wait: &postgrescleanup.DropObservation{Status: "not_observed"}}}
+	envelope.CleanupDiagnostics = []CleanupDiagnostic{{Stage: "catalog_unlock", Cause: "deadline_exceeded", Postgres: &postgrescleanup.DropAttempt{Admission: "unregistered", Wait: postgrescleanup.DropObservation{Status: "not_observed"}}}}
 	if err := envelope.Validate(); err == nil {
-		t.Fatal("drop observation accepted for an unrelated stage")
+		t.Fatal("invalid admission observation accepted")
 	}
 	envelope.CleanupDiagnostics = []CleanupDiagnostic{{Stage: "private-resource", Cause: "unknown"}}
 	if err := envelope.Validate(); err == nil {

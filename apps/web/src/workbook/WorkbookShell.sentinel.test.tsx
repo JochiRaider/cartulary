@@ -34,12 +34,11 @@ import {
   extractTimelinePatchBody,
   gridScalarInput,
   installTimelineWorkbookTestGlobals,
-  successEnvelope,
   type TimelineWorkbookFetchMock,
-  timelineRow,
   waitForTimelineWorkbookReady,
   waitForVisibleGridRowRecordIds,
 } from "../testing/timelineWorkbookTestSupport";
+import { successEnvelope, timelineRow } from "../testing/workbookFixtureData";
 import { timelineViewSchemaId } from "./models/workbookSurfaceRegistry";
 import { decodeWorkbookClipboardInput } from "./utils/workbookClipboard";
 

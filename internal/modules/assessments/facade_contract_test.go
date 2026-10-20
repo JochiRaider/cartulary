@@ -21,16 +21,7 @@ import (
 
 func TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipants(t *testing.T) {
 	harness := appsupport.StartStore(t, "assessments-facade-transaction")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"assessment-facade@example.test",
-		"Assessment Facade",
-		"AssessmentFacadePass1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "assessment-facade@example.test", DisplayName: "Assessment Facade"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,
@@ -126,16 +117,7 @@ func TestAssessmentFacadeParticipantFailuresRollbackAndReplayBypassesParticipant
 
 func TestAssessmentLiveRowVersionBoundary(t *testing.T) {
 	harness := appsupport.StartStore(t, "assessments-live-row-version")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"assessment-row-version@example.test",
-		"Assessment Row Version",
-		"AssessmentRowVersionPass1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "assessment-row-version@example.test", DisplayName: "Assessment Row Version"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,
@@ -206,16 +188,7 @@ func TestAssessmentLiveRowVersionBoundary(t *testing.T) {
 
 func TestAssessmentFacadeCreateParticipantOrder(t *testing.T) {
 	harness := appsupport.StartStore(t, "assessments-facade-order")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"assessment-order@example.test",
-		"Assessment Order",
-		"AssessmentOrderPass1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "assessment-order@example.test", DisplayName: "Assessment Order"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,

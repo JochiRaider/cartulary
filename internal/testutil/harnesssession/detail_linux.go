@@ -272,11 +272,11 @@ func (r *Runtime) purgeDetail(id string) error {
 				continue
 			}
 			if err := StopProcess(ctx, proof, 200*time.Millisecond); err != nil {
-				return atCleanupStage("detail_producer", err)
+				return AtCleanupStage("detail_producer", err)
 			}
 		}
 		if err := settleScope(ctx, v.Scope, detailMarker, excluded); err != nil {
-			return atCleanupStage("detail_descendants", err)
+			return AtCleanupStage("detail_descendants", err)
 		}
 	}
 	root := r.detailRoot(id)
@@ -286,10 +286,10 @@ func (r *Runtime) purgeDetail(id string) error {
 		dir.Close()
 	}
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return atCleanupStage("detail_remove", err)
+		return AtCleanupStage("detail_remove", err)
 	}
 	v.State = "purged"
-	return atCleanupStage("detail_authority", r.writeDetail(v))
+	return AtCleanupStage("detail_authority", r.writeDetail(v))
 }
 
 func (r *Runtime) BeginRecoveryAttempt() (string, error) {
@@ -380,6 +380,12 @@ func (r *Runtime) FinishRecoveryAttempt() error {
 }
 
 func (r *Runtime) purgeRecoveryDetails() error {
+	return r.settleRecoveryDetails(true)
+}
+
+// Ordinary closure may settle its own recovery attempt. Opportunistic stale
+// cleanup cannot claim that authority, even when running in the same process.
+func (r *Runtime) settleRecoveryDetails(allowActor bool) error {
 	dir, err := harnesslocal.OpenDirectory(filepath.Join(r.Root, "recovery-attempts"), true)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -414,7 +420,7 @@ func (r *Runtime) purgeRecoveryDetails() error {
 		if v.State == "purged" {
 			continue
 		}
-		if v.Owner != actor {
+		if !allowActor || v.Owner != actor {
 			alive, err := harnessadmission.Alive(v.Owner)
 			if err != nil || alive {
 				failures = append(failures, ErrUnresolved)

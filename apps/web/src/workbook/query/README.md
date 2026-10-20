@@ -30,13 +30,13 @@ here and are consumed by Timeline as well as other surfaces.
 
 | File | Responsibility |
 | --- | --- |
-| [workbookQueryMetadata.test.ts](workbookQueryMetadata.test.ts) | Canonical query correlation, required paging, authored-sort preservation and continuation mismatch rejection. |
-| [WorkbookQueryBrowser.test.ts](WorkbookQueryBrowser.test.ts) | Window bounds, opaque cursors, checkpoint exhaustion, atomic admission, supersession and recovery. |
+| [workbookQueryMetadata.node.test.ts](workbookQueryMetadata.node.test.ts) | Canonical query correlation, required paging, authored-sort preservation and continuation mismatch rejection. |
+| [WorkbookQueryBrowser.node.test.ts](WorkbookQueryBrowser.node.test.ts) | Window bounds, opaque cursors, checkpoint exhaustion, atomic admission, supersession and recovery. |
 | [ordinaryCreateQuery.test.tsx](ordinaryCreateQuery.test.tsx) | Ordinary accepted-version floors, filtered membership and concealment of obsolete reads. |
 | [useAssessmentSurfaceQuery.test.tsx](useAssessmentSurfaceQuery.test.tsx) | Direct rapid-filter, stale-error, live-patch, access-loss, inactive-surface, and teardown characterization. |
 | [useEntitySurfaceQuery.test.tsx](useEntitySurfaceQuery.test.tsx) | Independent-sheet reads, reference revalidation, stale-result, live-patch, access-loss, cleanup and teardown. |
 | [useGenericSurfaceQuery.test.tsx](useGenericSurfaceQuery.test.tsx) | Direct Notes normalization, schema-switch, mismatched-envelope, stale-row, access-loss, inactive-surface, and teardown characterization. |
-| [workbookLatestRequest.test.ts](workbookLatestRequest.test.ts) | Tests exclusive latest-request ownership and supersession aborts. |
+| [workbookLatestRequest.node.test.ts](workbookLatestRequest.node.test.ts) | Tests exclusive latest-request ownership and supersession aborts. |
 
 ## Browsing lifetime
 

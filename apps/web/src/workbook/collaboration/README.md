@@ -30,9 +30,9 @@ own authentication transport.
 
 | File | Responsibility |
 | --- | --- |
-| [WorkbookCollaborationCoordinator.test.ts](WorkbookCollaborationCoordinator.test.ts) | Tests for presence, reset, cleanup ordering, authorization recovery, role downgrade, access loss, and late-work rejection. |
-| [workbookCollaborationMessages.test.ts](workbookCollaborationMessages.test.ts) | Tests for Base, saved-view, and extension-workspace presence message construction. |
-| [workbookCollaborationTransitionModels.test.ts](workbookCollaborationTransitionModels.test.ts) | Tests closed event routing and ordered reset, authorization, role, closure, and disposal plans. |
+| [WorkbookCollaborationCoordinator.node.test.ts](WorkbookCollaborationCoordinator.node.test.ts) | Tests for presence, reset, cleanup ordering, authorization recovery, role downgrade, access loss, and late-work rejection. |
+| [workbookCollaborationMessages.node.test.ts](workbookCollaborationMessages.node.test.ts) | Tests for Base, saved-view, and extension-workspace presence message construction. |
+| [workbookCollaborationTransitionModels.node.test.ts](workbookCollaborationTransitionModels.node.test.ts) | Tests closed event routing and ordered reset, authorization, role, closure, and disposal plans. |
 
 Record-change delivery advances the retained explicit-patch committed cache before
 active-surface projection or client-transaction suppression. Contiguous validated

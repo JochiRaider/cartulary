@@ -10,7 +10,7 @@ import {
   fullWorkbookViewRow,
   successEnvelope,
   timelineRow,
-} from "../../../testing/timelineWorkbookTestSupport";
+} from "../../../testing/workbookFixtureData";
 import { historyDiffFixture } from "../../../testing/workbookHistoryTestSupport";
 import { createEvidenceFileTransport } from "../../adapters/createEvidenceFileTransport";
 import { createTimelineFileLinkTransport } from "../../adapters/createTimelineFileLinkTransport";

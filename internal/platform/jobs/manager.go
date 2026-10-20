@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 type RuntimePolicy struct {
@@ -58,7 +58,7 @@ func cloneRuntimePolicy(policy RuntimePolicy) RuntimePolicy {
 }
 
 type ManagerOptions struct {
-	Postgres                *pgxpool.Pool
+	Postgres                postgres.DB
 	Transactions            *TransactionService
 	Catalog                 *Catalog
 	Policy                  RuntimePolicy
@@ -69,7 +69,7 @@ type ManagerOptions struct {
 // Manager is the immutable Jobs facade. Persistence and policy remain private
 // package concerns; consumers receive narrower interfaces during assembly.
 type Manager struct {
-	pool                *pgxpool.Pool
+	db                  postgres.DB
 	now                 func() time.Time
 	transactions        *TransactionService
 	serviceVersion      string
@@ -93,7 +93,7 @@ func NewManager(options ManagerOptions) (*Manager, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	manager := &Manager{
-		pool:           options.Postgres,
+		db:             options.Postgres,
 		transactions:   options.Transactions,
 		catalog:        options.Catalog,
 		policy:         cloneRuntimePolicy(options.Policy),
@@ -105,7 +105,7 @@ func NewManager(options ManagerOptions) (*Manager, error) {
 }
 
 func (m *Manager) ensureConfigured() error {
-	if m == nil || m.pool == nil || m.transactions == nil || m.catalog == nil || m.now == nil {
+	if m == nil || m.db == nil || m.transactions == nil || m.catalog == nil || m.now == nil {
 		return ErrNotConfigured
 	}
 	return m.policy.validate()

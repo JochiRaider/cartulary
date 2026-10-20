@@ -2,7 +2,7 @@ import { requireViewContract } from "@cartulary/view-contracts";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { deferred } from "../../testing/fetchMockTestSupport";
-import { fullWorkbookViewRow } from "../../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../../testing/workbookFixtureData";
 import { createTimelineRelatedEvidenceTransport } from "../adapters/createTimelineRelatedEvidenceTransport";
 import { TimelineRelatedEvidenceContext } from "../features/evidence/TimelineRelatedEvidenceContext";
 import type {

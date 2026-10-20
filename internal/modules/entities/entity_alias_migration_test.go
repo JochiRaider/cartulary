@@ -2,14 +2,14 @@ package entities_test
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
-	authflowtest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	entitytest "github.com/JochiRaider/cartulary/internal/modules/entities/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -17,11 +17,11 @@ import (
 
 func TestEntityAliasHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.OpenIsolatedDatabaseT(t, "entity-alias-head-contract", postgres.PurposeRecovery)
+	db := harness.BeginRollbackDBT(t, "entity-alias-head-contract")
 	ctx := context.Background()
 
 	var udtName string
-	if err := db.QueryRowContext(ctx, `
+	if err := db.QueryRow(ctx, `
 SELECT udt_name
   FROM information_schema.columns
  WHERE table_schema = 'public'
@@ -36,14 +36,25 @@ SELECT udt_name
 
 	actorID, incidentID, recordID := seedAliasHeadHost(t, db)
 	insertAliasHeadRow(t, db, uuid.New(), incidentID, recordID, actorID, "Case Alias")
-	if _, err := db.ExecContext(ctx, `
+	t.Run("case equivalent alias", func(t *testing.T) {
+		tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := tx.Rollback(ctx); err != nil {
+				t.Fatalf("roll back rejected alias: %v", err)
+			}
+		}()
+		if _, err := tx.Exec(ctx, `
 INSERT INTO public.entity_aliases (
     entity_alias_id, incident_id, record_id, entity_type, raw_text,
     normalized_text, classification, created_by_user_id, created_at, deleted_at
 ) VALUES ($1, $2, $3, 'host', 'case alias', 'case alias', 'suggestion_only', $4, $5, NULL)
 `, uuid.New(), incidentID, recordID, actorID, time.Now().UTC()); err == nil || !strings.Contains(err.Error(), "entity_aliases_record_unique_idx") {
-		t.Fatalf("case-equivalent active alias error = %v, want entity_aliases_record_unique_idx", err)
-	}
+			t.Fatalf("case-equivalent active alias error = %v, want entity_aliases_record_unique_idx", err)
+		}
+	})
 
 	for name, fixture := range map[string]struct {
 		text       string
@@ -54,7 +65,16 @@ INSERT INTO public.entity_aliases (
 		"long":    {text: strings.Repeat("x", 257), constraint: "entity_aliases_alias_text_length_ck"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := db.ExecContext(ctx, `
+			tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := tx.Rollback(ctx); err != nil {
+					t.Fatalf("roll back rejected alias: %v", err)
+				}
+			}()
+			_, err = tx.Exec(ctx, `
 INSERT INTO public.entity_aliases (
     entity_alias_id, incident_id, record_id, entity_type, raw_text,
     normalized_text, classification, created_by_user_id, created_at, deleted_at
@@ -67,11 +87,11 @@ INSERT INTO public.entity_aliases (
 	}
 }
 
-func seedAliasHeadHost(t *testing.T, db *sql.DB) (uuid.UUID, uuid.UUID, uuid.UUID) {
+func seedAliasHeadHost(t *testing.T, db postgres.DB) (uuid.UUID, uuid.UUID, uuid.UUID) {
 	t.Helper()
-	actor := authflowtest.SeedLocalUserRecord(t, db, "alias-head@example.test", "Alias Head", "AliasHeadPass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, db, authstoretest.ActorAttributes{Email: "alias-head@example.test", DisplayName: "Alias Head"})
 	incidentID := uuid.New()
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO public.incidents (
     id, incident_key, incident_key_canonical, title, status,
     created_by_user_id, updated_by_user_id
@@ -84,9 +104,9 @@ INSERT INTO public.incidents (
 	return actor.ID, incidentID, recordID
 }
 
-func insertAliasHeadRow(t *testing.T, db *sql.DB, aliasID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, text string) {
+func insertAliasHeadRow(t *testing.T, db postgres.DB, aliasID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, text string) {
 	t.Helper()
-	if _, err := db.ExecContext(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO public.entity_aliases (
     entity_alias_id, incident_id, record_id, entity_type, raw_text,
     normalized_text, classification, created_by_user_id, created_at, deleted_at

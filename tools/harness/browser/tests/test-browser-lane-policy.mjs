@@ -44,7 +44,7 @@ test("host-bounded defaults admit six functional lanes plus shared resident serv
       add(claims);
     }
   }
-  assert.deepEqual([required.memory_mb, required.process, required.port_lane, required.postgres, required.object_store], [8960, 52, 20, 13, 7]);
+  assert.deepEqual([required.memory_mb, required.process, required.port_lane, required.postgres, required.object_store], [9728, 70, 20, 13, 7]);
   // Include a cleanup operation as well as all six active groups. Native
   // admission remains responsible for actual occupancy and exclusive waiters.
   add({ memory_mb: 64, process: 1 });
@@ -97,10 +97,12 @@ test("topology resolves four or six lanes and rejects invalid public controls", 
 test("explicit-only rows stay outside aggregates and broad selections", () => {
   const compiler = new WorkGraphCompiler(root);
   const excluded = compiler.catalog.rows.filter((row) => row.aggregate_placement === "explicit_only");
-  assert.equal(excluded.length, 58);
+  const characterization = "harness.browser.integration.reset_checkpoint_characterization";
+  assert.ok(excluded.some((row) => row.row_id === characterization));
+  assert.deepEqual(rowIDs(compiler.compileCommand("test-slice", { OWNER: "harness.browser", ROWS: characterization }).graph), [characterization]);
   const legacy = { ...compiler.catalog.rows[0], minimum_tier: "fast" };
   delete legacy.aggregate_placement;
-  assert.throws(() => validateSchemaSync("cartulary.test_family_manifest.v10", { schema_id: "cartulary.test_family_manifest.v10", owner_id: legacy.owner_id, rows: [legacy] }));
+  assert.throws(() => validateSchemaSync("cartulary.test_family_manifest.v12", { schema_id: "cartulary.test_family_manifest.v12", owner_id: legacy.owner_id, rows: [legacy] }));
   for (const target of ["test-fast", "check", "ci", "release-check"]) {
     const selected = rowIDs(compiler.compileAggregate(target));
     assert.ok(excluded.every((row) => !selected.includes(row.row_id)), target);
@@ -126,4 +128,43 @@ test("explicit-only rows stay outside aggregates and broad selections", () => {
   assert.ok(rowIDs(compiler.compileCommand("test-slice", { OWNER: row.owner_id, ROWS: row.row_id }).graph).includes(row.row_id));
   compiler.owner.policy_units["harness.frontend_install"].required_rows = [{ row_id: row.row_id, rationale: "invalid aggregate dependency" }];
   assert.throws(() => compiler.compileAggregate("ci"), /explicit-only/);
+});
+
+test("browser cohorts bind exact selections, owner/state partitions and once-only lifecycle cost", async () => {
+  const { browserCohort, packBrowserCohorts } = await import("../browser-cohorts.mjs");
+  const rows = ["a", "b", "c"].map((id) => ({ row_id: `fixture.${id}`, owner_id: "fixture.owner",
+    runner: "playwright", browser_state_scope: "test_owned", runtime_profile_id: "default",
+    resource_profile_id: "browser_functional", service_dependencies: ["postgres"], evidence_class: "browser",
+    selector: { file: `apps/web/e2e/${id}.spec.ts`, project_id: "chromium", titles: ["repeated title"] } }));
+  const partition = { name: "fixture", ownerID: "fixture.owner", stateScope: "test_owned",
+    project: "chromium", runtimeProfileID: "default", resourceProfileID: "browser_functional",
+    fixtureProfileID: "", serviceDependencies: ["postgres"], selectedRowIDs: rows.map((row) => row.row_id),
+    specs: rows.map((row) => row.selector.file) };
+  const catalog = { rowByID: new Map(rows.map((row) => [row.row_id, row])) };
+  const policy = { startup_ms: 20, cleanup_ms: 10 }, owner = {
+    evidence_estimates_ms: { browser: 40 },
+    lifecycle_estimates_ms: { browser_allocation_acquire: 15, browser_allocation_release: 5 },
+  };
+  const packed = packBrowserCohorts([partition], catalog, policy, owner, () => 130);
+  assert.deepEqual(packed.map((cohort) => cohort.estimatedWorkMs), [110, 70]);
+  assert.deepEqual(packed.map((cohort) => cohort.selectedRowIDs.length), [2, 1]);
+  assert.deepEqual(packBrowserCohorts([{ ...partition, selectedRowIDs: [...partition.selectedRowIDs].reverse() }], catalog, policy, owner, () => 130), packed);
+  assert.deepEqual(packBrowserCohorts([partition], catalog, policy, owner, () => 110)
+    .map((cohort) => cohort.selectedRowIDs.length), [1, 1, 1], "allocation headroom cannot enlarge the existing envelope");
+  const subset = browserCohort(partition, [rows[1]], policy);
+  for (const key of ["stageName", "browserSessionGroup", "config", "executionDependency"]) {
+    assert.notEqual(subset.name, browserCohort({ ...partition, [key]: "changed" }, [rows[1]], policy).name);
+  }
+  assert.deepEqual(subset.specs, [rows[1].selector.file]);
+  assert.notEqual(subset.name, packed[0].name);
+  assert.notEqual(subset.name, browserCohort(partition, [rows[1]], { ...policy, startup_ms: 21 }).name);
+  for (const changed of [
+    { ...rows[0], preparation_operations: ["harness.frontend_install"] },
+    { ...rows[0], owner_id: "other" }, { ...rows[0], browser_state_scope: "isolated" },
+    { ...rows[0], selector: { ...rows[0].selector, project_id: "other" } },
+    { ...rows[0], service_dependencies: [] }, { ...rows[0], resource_profile_id: "browser_isolated" },
+    { ...rows[0], runtime_profile_id: "network_flow_claimed" },
+  ]) assert.throws(() => browserCohort(partition, [changed], policy), /compatibility/);
+  assert.throws(() => browserCohort({ ...partition, stateScope: "isolated" }, rows, policy), /compatibility/);
+  assert.throws(() => browserCohort(partition, [rows[0], rows[0]], policy), /compatibility/);
 });

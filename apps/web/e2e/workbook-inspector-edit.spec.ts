@@ -1297,7 +1297,7 @@ test("a11y.inspector retained editing and recovery remain named keyboard reachab
 
 test("Existing Task reference queries stage typed Timeline filters and ordering before explicit link update", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   const incident = await createIncident(
     page,
@@ -1308,7 +1308,7 @@ test("Existing Task reference queries stage typed Timeline filters and ordering 
     client_txn_id: uniqueTxn("rtq-task"),
     "task.title": "Link evidence-backed activity",
     "task.task_kind": "question",
-    "task.owner_user_id": workerAdmin.user_id,
+    "task.owner_user_id": testActor.user_id,
   });
   const evidence = await createUploadedEvidenceFixture(page, incident, {
     body: Buffer.from("Synthetic collected source for candidate filtering."),
@@ -1502,7 +1502,7 @@ test("Existing Task reference queries stage typed Timeline filters and ordering 
 
 test("Reference selection reaches later real targets and retains staged choices through source and refresh failures", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   test.setTimeout(180_000);
   const taskView = taskRequestsViewSchemaId,
@@ -1517,7 +1517,7 @@ test("Reference selection reaches later real targets and retains staged choices 
     client_txn_id: uniqueTxn("rsr-task"),
     "task.title": "Reference owner",
     "task.task_kind": "question",
-    "task.owner_user_id": workerAdmin.user_id,
+    "task.owner_user_id": testActor.user_id,
   });
   const notes = [];
   for (let offset = 0; offset < 105; offset += 5) {
@@ -1639,9 +1639,7 @@ test("Reference selection reaches later real targets and retains staged choices 
     .getByRole("button", { name: "Apply candidate query", exact: true })
     .click();
   await expect(popup).toContainText("Page 1: 0 candidates; end of this source");
-  await popup
-    .getByLabel("Linked Records filter value")
-    .fill(workerAdmin.user_id);
+  await popup.getByLabel("Linked Records filter value").fill(testActor.user_id);
   await popup.getByRole("button", { name: "Add filter", exact: true }).click();
   await popup
     .getByRole("button", { name: "Apply candidate query", exact: true })
@@ -1912,8 +1910,8 @@ test("Ordinary reference picker restores focus after keyboard removal of its sol
 
 test("Reference target deletion merge and membership removal preserve exact choices and owner admission", async ({
   page,
-  workerAdmin,
-  workerAdminRequest,
+  testActor,
+  testActorRequest,
 }) => {
   const f = await fixture(page, evidenceViewSchemaId);
   const partyView = partiesViewSchemaId,
@@ -1964,7 +1962,7 @@ test("Reference target deletion merge and membership removal preserve exact choi
     client_txn_id: uniqueTxn("rsr-member-task"),
     "task.title": "Member target",
     "task.task_kind": "question",
-    "task.owner_user_id": workerAdmin.user_id,
+    "task.owner_user_id": testActor.user_id,
   });
   const member = await createIncidentMemberUser(page, f.incident, {
     email: uniqueEmail("rsr-membership"),
@@ -1993,7 +1991,7 @@ test("Reference target deletion merge and membership removal preserve exact choi
   await members.getByRole("button", { name: "Use selection" }).click();
   expect(
     (
-      await workerAdminRequest.delete(
+      await testActorRequest.delete(
         `/api/v1/incidents/${f.incident}/memberships/${member.user_id}`,
         { data: { base_membership_version: 1 } },
       )

@@ -60,7 +60,7 @@ subdirectory. Root tests cover interactions spanning workbook owners.
 
 | File | Responsibility |
 | --- | --- |
-| [workbookInspectorOwnershipArchitecture.test.ts](workbookInspectorOwnershipArchitecture.test.ts) | Tests inspector construction and composition remain in their declared feature owners. |
+| [workbookInspectorOwnershipArchitecture.node.test.ts](workbookInspectorOwnershipArchitecture.node.test.ts) | Tests inspector construction and composition remain in their declared feature owners. |
 | [workbookSaveStatus.test.tsx](workbookSaveStatus.test.tsx) | Tests cross-surface save status, overlapping operations, accessible responsive details and recovery, diagnostic exclusion, and announcement deduplication. |
 | [WorkbookShell.actionSequencing.test.tsx](WorkbookShell.actionSequencing.test.tsx) | Tests Timeline actions use the current row version after earlier workbook mutations. |
 | [WorkbookShell.assessments.test.tsx](WorkbookShell.assessments.test.tsx) | Tests Assessment creation and confidence-band payload behavior on the workbook surface. |
@@ -71,7 +71,7 @@ subdirectory. Root tests cover interactions spanning workbook owners.
 | [WorkbookShell.gridProvenance.test.tsx](WorkbookShell.gridProvenance.test.tsx) | Tests Hosts, Identities, and Notes grids retain contract-backed row provenance. |
 | [WorkbookShell.history.test.tsx](WorkbookShell.history.test.tsx) | Tests row-centric History access and server-owned event metadata in the inspector. |
 | [WorkbookShell.inspector.test.tsx](WorkbookShell.inspector.test.tsx) | Workbook interaction inspector and row-local action tests. |
-| [WorkbookShell.mentionChips.test.ts](WorkbookShell.mentionChips.test.ts) | Mention chip model tests. |
+| [WorkbookShell.mentionChips.node.test.ts](WorkbookShell.mentionChips.node.test.ts) | Mention chip model tests. |
 | [WorkbookShell.payload.test.tsx](WorkbookShell.payload.test.tsx) | Timeline mutation request payload characterization. |
 | [WorkbookShell.query.test.tsx](WorkbookShell.query.test.tsx) | Tests stable schema identities in saved-view, sort, filter, and grouping controls. |
 | [WorkbookShell.saveState.test.tsx](WorkbookShell.saveState.test.tsx) | Tests derived save-state detail in the workbook status strip. |

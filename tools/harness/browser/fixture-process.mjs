@@ -10,9 +10,11 @@ export { fixtureLifecycleAttachment } from "../contract/browser-fixture-diagnost
 // report() and its redacted error messages may cross into retained evidence.
 export function createBrowserFixtureProcess({ command, args, cwd, env = process.env,
   startupMs = 90_000, cleanupMs = 35_000, signalMs = 5_000 }) {
+  if (!Number.isSafeInteger(cleanupMs) || cleanupMs <= 1) throw new Error("Invalid browser fixture cleanup allowance");
+  const cleanupBudgetMs = cleanupMs - Math.min(5_000, cleanupMs - 1);
   const attempt = randomUUID();
   const started = performance.now();
-  const child = spawn(command, [...args, "--attempt-id", attempt], {
+  const child = spawn(command, [...args, "--cleanup-budget-ms", String(cleanupBudgetMs), "--attempt-id", attempt], {
     cwd, env, detached: true, stdio: ["pipe", "pipe", "pipe"],
   });
   let proof, proofError;
@@ -46,7 +48,7 @@ export function createBrowserFixtureProcess({ command, args, cwd, env = process.
     if (value.startsWith('{"schema_id":"cartulary.browser_fixture_event.')) {
       try {
         const event = JSON.parse(value);
-        validateSchemaSync("cartulary.browser_fixture_event.v1", event);
+        validateSchemaSync("cartulary.browser_fixture_event.v3", event);
         if (event.attempt_id !== attempt) throw new Error("fixture attempt mismatch");
         if (events.length >= 256) throw new Error("fixture event limit exceeded");
         events.push(event);
@@ -136,7 +138,7 @@ export function createBrowserFixtureProcess({ command, args, cwd, env = process.
     ready, stop,
     report(failures = []) {
       const report = {
-        schema_id: "cartulary.browser_fixture_lifecycle.v1", attempt_id: attempt,
+        schema_id: "cartulary.browser_fixture_lifecycle.v3", attempt_id: attempt,
         duration_ms: Math.round(performance.now() - started),
         process: { exit_code: exitCode, signal, closed, forced },
         events: events.map((event) => ({ ...event, message: sanitize(event.message).slice(0, 1024) })),

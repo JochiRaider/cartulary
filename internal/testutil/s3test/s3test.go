@@ -82,8 +82,9 @@ type StartOptions struct {
 }
 
 type packageBucket struct {
-	mu     sync.Mutex
-	bucket string
+	mu       sync.Mutex
+	bucket   string
+	unusable error
 }
 
 type fixtureAttribution struct {
@@ -143,7 +144,7 @@ var (
 	startPreflightFn             func(context.Context) (string, error)
 	startSleepFn                 func(context.Context, time.Duration) error
 	preparePackageCreateBucketFn = func(ctx context.Context, h *Harness, name string, attribution fixtureAttribution) error {
-		return h.createBucket(ctx, name, suiteservices.FixtureReuseObjectStorePackage, attribution)
+		return h.createOwnedBucket(ctx, name, suiteservices.FixtureReuseObjectStorePackage, attribution)
 	}
 	preparePackageCleanupFn = func(ctx context.Context, h *Harness, bucket string, attribution fixtureAttribution) error {
 		return h.cleanupPrefixWithDetails(ctx, bucket, "", suiteservices.FixtureReusePrefix, attribution)
@@ -883,7 +884,7 @@ func (h *Harness) BootstrapBucketT(t testing.TB, prefix string) string {
 
 func (h *Harness) bootstrapBucket(ctx context.Context, prefix string, reuseScope string, attribution fixtureAttribution) (string, error) {
 	name := h.nextBucketName(prefix)
-	if err := h.createBucket(ctx, name, reuseScope, attribution); err != nil {
+	if err := h.createOwnedBucket(ctx, name, reuseScope, attribution); err != nil {
 		return "", err
 	}
 	return name, nil
@@ -917,6 +918,23 @@ func (h *Harness) BootstrapProbeBucket(ctx context.Context) (string, error) {
 
 func (h *Harness) CreateBucket(ctx context.Context, name string) error {
 	return h.createBucket(ctx, name, suiteservices.FixtureReusePerTest, fixtureAttribution{})
+}
+
+// createOwnedBucket is only called with a freshly generated, invocation-owned
+// name. Persist its cleanup authority before the provider can create it, including
+// when a transport error leaves the outcome unknown.
+func (h *Harness) createOwnedBucket(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {
+	if err := suiteservices.CheckServiceDependencies(nil, "object_store"); err != nil {
+		return err
+	}
+	if err := suiteservices.RecordEvent(nil, suiteservices.Event{
+		Type:    suiteservices.EventS3BucketReserved,
+		Name:    name,
+		Details: s3FixtureDetails("bucket", reuseScope, attribution, 0),
+	}); err != nil {
+		return fmt.Errorf("reserve object-store bucket cleanup ownership: %w", err)
+	}
+	return h.createBucket(ctx, name, reuseScope, attribution)
 }
 
 func (h *Harness) createBucket(ctx context.Context, name string, reuseScope string, attribution fixtureAttribution) error {
@@ -968,21 +986,30 @@ func (h *Harness) preparePackageBucket(
 	}
 	fixture := h.packageBucket(key)
 	fixture.mu.Lock()
+	if fixture.unusable != nil {
+		fixture.mu.Unlock()
+		return "", nil, fmt.Errorf("package s3 bucket generation is unusable: %w", fixture.unusable)
+	}
+	fail := func(stage string, cause error) (string, func(), error) {
+		fixture.unusable = fmt.Errorf("%s package s3 bucket: %w", stage, cause)
+		fixture.mu.Unlock()
+		return "", nil, fixture.unusable
+	}
+	if err := ctx.Err(); err != nil {
+		fixture.mu.Unlock()
+		return "", nil, err
+	}
 
 	if fixture.bucket == "" {
-		name := h.nextBucketName(prefix)
-		if err := preparePackageCreateBucketFn(ctx, h, name, attribution); err != nil {
-			fixture.mu.Unlock()
-			return "", nil, fmt.Errorf("prepare package s3 bucket: %w", err)
+		fixture.bucket = h.nextBucketName(prefix)
+		if err := preparePackageCreateBucketFn(ctx, h, fixture.bucket, attribution); err != nil {
+			return fail("prepare", err)
 		}
-		fixture.bucket = name
 	} else if err := preparePackageCleanupFn(ctx, h, fixture.bucket, attribution); err != nil {
-		fixture.mu.Unlock()
-		return "", nil, fmt.Errorf("reset package s3 bucket: %w", err)
+		return fail("reset", err)
 	}
 	if err := preparePackageWaitReadyFn(ctx, h, fixture.bucket); err != nil {
-		fixture.mu.Unlock()
-		return "", nil, fmt.Errorf("admit package s3 bucket: %w", err)
+		return fail("admit", err)
 	}
 
 	return fixture.bucket, func() { fixture.mu.Unlock() }, nil
@@ -1101,6 +1128,8 @@ func (h *Harness) CleanupBucket(ctx context.Context, bucket string) error {
 }
 
 func (h *Harness) cleanupBucketWithDetails(ctx context.Context, bucket string, reuseScope string, attribution fixtureAttribution) error {
+	ctx, cancel := context.WithTimeout(ctx, objectStoreFixtureCleanupTimeout)
+	defer cancel()
 	start := time.Now()
 	if err := h.cleanupPrefix(ctx, bucket, ""); err != nil {
 		return err
@@ -1175,28 +1204,13 @@ func (h *Harness) cleanupPrefixWithDetails(ctx context.Context, bucket string, p
 }
 
 func (h *Harness) cleanupPrefix(ctx context.Context, bucket string, prefix string) error {
+	ctx, cancel := context.WithTimeout(ctx, objectStoreFixtureCleanupTimeout)
+	defer cancel()
 	client, err := h.Client(ctx)
 	if err != nil {
 		return err
 	}
-
-	pages := s3.NewListObjectsV2Paginator(client, &s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(prefix)}, func(o *s3.ListObjectsV2PaginatorOptions) { o.StopOnDuplicateToken = true })
-	for pages.HasMorePages() {
-		page, err := pages.NextPage(ctx)
-		if err != nil {
-			if isNoSuchBucketError(err) {
-				return nil
-			}
-			return fmt.Errorf("list bucket: %w", err)
-		}
-		for _, item := range page.Contents {
-			if _, err := client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(bucket), Key: item.Key}); err != nil {
-				return fmt.Errorf("remove object: %w", err)
-			}
-		}
-	}
-
-	return nil
+	return cleanupObjectPrefix(ctx, client, bucket, prefix)
 }
 
 func isNoSuchBucketError(err error) bool {

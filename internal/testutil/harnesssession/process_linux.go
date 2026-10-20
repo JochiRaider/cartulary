@@ -89,7 +89,7 @@ func processMembers(p ProcessProof) ([]processState, error) {
 			return nil, err
 		}
 		if !sameProcess(v.ProcessProof, p) {
-			return nil, atCleanupStage("process_identity", ErrUnresolved)
+			return nil, AtCleanupStage("process_identity", ErrUnresolved)
 		}
 		return []processState{v}, nil
 	}
@@ -115,7 +115,7 @@ func processMembers(p ProcessProof) ([]processState, error) {
 		}
 		if v.PGID == p.PGID {
 			if v.SID != p.SID {
-				return nil, atCleanupStage("process_identity", ErrUnresolved)
+				return nil, AtCleanupStage("process_identity", ErrUnresolved)
 			}
 			members = append(members, v)
 		}
@@ -153,15 +153,15 @@ func signalProcess(m processState, sig unix.Signal) error {
 				return observed
 			}
 		}
-		return atCleanupStage("process_handle", err)
+		return AtCleanupStage("process_handle", err)
 	}
 	defer unix.Close(fd)
 	current, err := readProcess(m.PID)
 	if err != nil {
-		return atCleanupStage("process_identity", err)
+		return AtCleanupStage("process_identity", err)
 	}
 	if !sameProcess(current.ProcessProof, m.ProcessProof) {
-		return atCleanupStage("process_identity", ErrUnresolved)
+		return AtCleanupStage("process_identity", ErrUnresolved)
 	}
 	return unix.PidfdSendSignal(fd, sig, nil, 0)
 }
@@ -172,7 +172,7 @@ func settleProcess(ctx context.Context, p ProcessProof, grace time.Duration, ins
 	for {
 		members, err := inspect(p)
 		if err != nil {
-			return atCleanupStage("process_discovery", err)
+			return AtCleanupStage("process_discovery", err)
 		}
 		if len(members) == 0 {
 			return nil
@@ -185,7 +185,7 @@ func settleProcess(ctx context.Context, p ProcessProof, grace time.Duration, ins
 		}
 		var pending error
 		if !anchored {
-			pending = atCleanupStage("process_group_anchor", ErrUnresolved)
+			pending = AtCleanupStage("process_group_anchor", ErrUnresolved)
 			if _, bounded := ctx.Deadline(); !bounded {
 				return pending
 			}
@@ -207,7 +207,7 @@ func settleProcess(ctx context.Context, p ProcessProof, grace time.Duration, ins
 				}
 				e := signal(m, sig)
 				if e != nil && !processGone(e) {
-					return atCleanupStage("process_signal", e)
+					return AtCleanupStage("process_signal", e)
 				}
 			}
 		}
@@ -261,12 +261,12 @@ func ProcessMain(args []string, input io.Reader, diagnostic io.Writer) int {
 	}
 	members, err := processMembers(q.Proof)
 	if err != nil {
-		failure = atCleanupStage("process_discovery", err)
+		failure = AtCleanupStage("process_discovery", err)
 		return 12
 	}
 	if len(members) == 0 {
 		if err := StopProcess(context.Background(), q.Proof, 0); err != nil {
-			failure = atCleanupStage("process_settlement", err)
+			failure = AtCleanupStage("process_settlement", err)
 			return 12
 		}
 		return 0
@@ -290,13 +290,13 @@ func ProcessMain(args []string, input io.Reader, diagnostic io.Writer) int {
 		authorized = recordedProcess(q.Proof)
 	}
 	if !authorized {
-		failure = atCleanupStage("process_authority", ErrUnresolved)
+		failure = AtCleanupStage("process_authority", ErrUnresolved)
 		return 12
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(q.Grace+q.Kill)*time.Millisecond)
 	defer cancel()
 	if err := StopProcess(ctx, q.Proof, time.Duration(q.Grace)*time.Millisecond); err != nil {
-		failure = atCleanupStage("process_settlement", err)
+		failure = AtCleanupStage("process_settlement", err)
 		return 12
 	}
 	return 0

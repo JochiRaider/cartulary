@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v14",
+  "schema_id": "cartulary.execution_topology.v15",
   "runtime_profiles": [
     {
       "id": "default",
@@ -40,31 +40,31 @@
     {
       "id": "browser_functional",
       "resource_claims": {
-        "cpu": 1,
+        "cpu": 2,
         "io": 1,
-        "memory_mb": 512,
+        "memory_mb": 640,
         "postgres": 2,
-        "process": 1
+        "process": 4
       }
     },
     {
       "id": "browser_isolated",
       "resource_claims": {
-        "cpu": 1,
+        "cpu": 2,
         "io": 1,
-        "memory_mb": 512,
+        "memory_mb": 640,
         "postgres": 2,
-        "process": 1
+        "process": 4
       }
     },
     {
       "id": "browser_measurement_quiet",
       "resource_claims": {
-        "cpu": 1,
+        "cpu": 2,
         "io": 1,
-        "memory_mb": 512,
+        "memory_mb": 640,
         "postgres": 4,
-        "process": 1
+        "process": 4
       },
       "runner_timeout_ms": 3600000
     },
@@ -137,9 +137,11 @@
       "resource_claims": {
         "cpu": 4,
         "io": 1,
-        "memory_mb": 256,
+        "memory_mb": 768,
+        "port_lane": 1,
         "postgres": 4,
-        "process": 1
+        "process": 12,
+        "volume": 1
       }
     },
     {
@@ -806,6 +808,10 @@
         "producer_report_key": "build-web-measurement",
         "producer_operation": "harness.build_web_measurement"
       }
+    },
+    "invocation_policy": {
+      "startup_ms": 4000,
+      "cleanup_ms": 2000
     }
   },
   "task_surface_owner": "tools/task_surface_owner.json",
@@ -814,7 +820,8 @@
       "memory_mb": 256,
       "process": 8,
       "port_lane": 1,
-      "postgres": 1
+      "postgres": 1,
+      "volume": 1
     },
     "object_store": {
       "memory_mb": 256,

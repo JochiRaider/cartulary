@@ -20,7 +20,9 @@ type cleanupError struct {
 func (e *cleanupError) Error() string { return "runtime cleanup failed" }
 func (e *cleanupError) Unwrap() error { return e.err }
 
-func atCleanupStage(stage string, err error) error {
+// AtCleanupStage preserves the innermost native cleanup boundary and cause.
+// Public diagnostics still validate stages against the closed schema.
+func AtCleanupStage(stage string, err error) error {
 	if err == nil {
 		return nil
 	}
@@ -40,7 +42,7 @@ type CleanupDiagnostic struct {
 	Errno  int    `json:"errno"`
 }
 
-const cleanupDiagnosticSchema = "cartulary.harness_cleanup_diagnostic.v1"
+const cleanupDiagnosticSchema = "cartulary.harness_cleanup_diagnostic.v3"
 
 func (d *CleanupDiagnostic) Error() string { return d.String() }
 
@@ -82,7 +84,7 @@ func DescribeCleanupFailure(err error) *CleanupDiagnostic {
 	var staged *cleanupError
 	if errors.As(err, &staged) {
 		switch staged.stage {
-		case "detail_producer", "detail_descendants", "detail_remove", "detail_authority", "process_discovery", "process_identity", "process_group_anchor", "process_handle", "process_signal", "process_authority", "process_settlement", "recovery_proof", "recovery_purge":
+		case "resource_inventory", "resource_graph", "resource_release", "resident_release", "physical_command", "fixture_publication", "managed_service_settlement", "fixture_release", "fixture_detach", "fixture_acquisition_cleanup", "provider_close", "host_release", "services_close", "recovery_preserve", "detail_producer", "detail_descendants", "detail_remove", "detail_authority", "process_discovery", "process_identity", "process_group_anchor", "process_handle", "process_signal", "process_authority", "process_settlement", "recovery_proof", "recovery_purge":
 			d.Stage = staged.stage
 		}
 	}

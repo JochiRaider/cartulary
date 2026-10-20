@@ -2,7 +2,6 @@ package jobs_test
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -11,14 +10,14 @@ import (
 
 func TestJobsDefinitionHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.OpenIsolatedDatabaseT(t, "jobs-definition-head-contract", postgres.PurposeRuntime)
+	db := harness.BeginRollbackDBT(t, "jobs-definition-head-contract")
 	assertJobsDefinitionHeadShape(t, db)
 }
 
-func assertJobsDefinitionHeadShape(t testing.TB, db *sql.DB) {
+func assertJobsDefinitionHeadShape(t testing.TB, db postgres.DB) {
 	t.Helper()
 	var columns int
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT count(*)
   FROM information_schema.columns
  WHERE table_schema = 'public'
@@ -32,7 +31,7 @@ SELECT count(*)
 	}
 
 	var constraints int
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT count(*)
   FROM pg_catalog.pg_constraint
  WHERE connamespace = 'public'::regnamespace

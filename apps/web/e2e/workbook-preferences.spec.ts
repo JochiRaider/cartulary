@@ -74,7 +74,7 @@ async function close(page: Page) {
 }
 
 test("preferences persist exact base and saved identities and explicit clears through subsequent startup fallback", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   const id = await createIncident(
     page,
@@ -200,7 +200,7 @@ test("preferences persist exact base and saved identities and explicit clears th
 });
 
 test("preferences retain uncertain committed writes until explicit observed-value review and separate confirmed refresh failure", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const id = await createIncident(
     page,
@@ -295,7 +295,7 @@ test("preferences retain uncertain committed writes until explicit observed-valu
 });
 
 test("preferences independently publish delayed reads and guard shortcut admission across changed surfaces", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }) => {
   const id = await createIncident(
     page,
@@ -373,7 +373,7 @@ test("preferences independently publish delayed reads and guard shortcut admissi
 });
 
 test("preferences preserve personal isolation and viewer boundaries on a closed incident", async ({
-  workerAdminPage: page,
+  testActorPage: page,
   browser,
   sessionTracker,
 }) => {

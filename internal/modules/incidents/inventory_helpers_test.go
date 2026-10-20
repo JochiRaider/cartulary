@@ -51,26 +51,8 @@ func newRouteFixture(t testing.TB, prefix string) *RouteFixture {
 	harness := runtime.StartDefaultServer(t, slug)
 	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, http.DefaultClient, harness.Server.HTTP.URL)
 
-	candidateID := flowtest.SeedLocalUserFlags(
-		t,
-		harness.DB,
-		slug+"-candidate@example.test",
-		"IncidentMembership Candidate "+slug,
-		"IncidentMembershipCandidate1!",
-		false,
-		false,
-		true,
-	)
-	memberID := flowtest.SeedLocalUserFlags(
-		t,
-		harness.DB,
-		slug+"-member@example.test",
-		"IncidentMembership Member "+slug,
-		"IncidentMembershipMember1!",
-		false,
-		false,
-		true,
-	)
+	candidateID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: slug + "-candidate@example.test", DisplayName: "IncidentMembership Candidate " + slug}).ID.String()
+	memberID := flowtest.SeedActor(t, harness.DB, flowtest.ActorAttributes{Email: slug + "-member@example.test", DisplayName: "IncidentMembership Member " + slug}).ID.String()
 
 	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-" + slug + "-incident",

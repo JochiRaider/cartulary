@@ -28,7 +28,7 @@ func (m *Manager) HandlerPayload(ctx context.Context, execution Execution) (json
 		return nil, ErrExecutionLost
 	}
 	var payload pgtype.Text
-	err := m.pool.QueryRow(ctx, `
+	err := m.db.QueryRow(ctx, `
 SELECT handler_payload_json
   FROM jobs
  WHERE job_id = $1
@@ -52,7 +52,7 @@ func (m *Manager) executionResource(ctx context.Context, execution Execution) (R
 	if !execution.valid() {
 		return Resource{}, ErrExecutionLost
 	}
-	stored, err := scanStoredJob(m.pool.QueryRow(ctx, `
+	stored, err := scanStoredJob(m.db.QueryRow(ctx, `
 SELECT job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
        auth_policy,
        submitted_at, updated_at, progress_completed, progress_total, started_at,
@@ -121,7 +121,7 @@ func (m *Manager) RenewExecution(ctx context.Context, execution Execution) error
 		return ErrExecutionLost
 	}
 	now := m.now().UTC()
-	result, err := m.pool.Exec(ctx, `
+	result, err := m.db.Exec(ctx, `
 UPDATE jobs
    SET handler_lease_expires_at = $3
  WHERE job_id = $1
@@ -145,7 +145,7 @@ func (m *Manager) ReleaseExecution(ctx context.Context, execution Execution) err
 	if !execution.valid() {
 		return ErrExecutionLost
 	}
-	result, err := m.pool.Exec(ctx, `
+	result, err := m.db.Exec(ctx, `
 UPDATE jobs
    SET handler_attempt_id = NULL,
        handler_lease_expires_at = NULL
@@ -205,7 +205,7 @@ func (m *Manager) recoverableCandidatesForSelection(ctx context.Context, limit i
 	if err := m.classifyExpiredAttempts(ctx, limit, jobKinds); err != nil {
 		return nil, err
 	}
-	rows, err := m.pool.Query(ctx, `
+	rows, err := m.db.Query(ctx, `
 SELECT job_id, job_kind
   FROM jobs
  WHERE status IN ('queued', 'running', 'cancel_requested')
@@ -245,7 +245,7 @@ func (m *Manager) runnerCandidateForSelection(ctx context.Context, jobID uuid.UU
 		return runnerCandidate{}, false, ErrNotConfigured
 	}
 	var jobKind string
-	err := m.pool.QueryRow(ctx, `SELECT job_kind FROM jobs WHERE job_id = $1`, jobID).Scan(&jobKind)
+	err := m.db.QueryRow(ctx, `SELECT job_kind FROM jobs WHERE job_id = $1`, jobID).Scan(&jobKind)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return runnerCandidate{}, false, nil
 	}
@@ -270,7 +270,7 @@ func (m *Manager) claimForRunnerSelection(ctx context.Context, jobID uuid.UUID, 
 		return Execution{}, "", "", false, err
 	}
 	var jobKind string
-	err := m.pool.QueryRow(ctx, `SELECT job_kind FROM jobs WHERE job_id = $1`, jobID).Scan(&jobKind)
+	err := m.db.QueryRow(ctx, `SELECT job_kind FROM jobs WHERE job_id = $1`, jobID).Scan(&jobKind)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Execution{}, "", "", false, nil
 	}
@@ -301,7 +301,7 @@ func (m *Manager) claimExecution(ctx context.Context, jobID uuid.UUID, jobKind s
 		return Execution{}, false, ErrInvalidJobDefinition
 	}
 	now := m.now().UTC()
-	tx, err := m.pool.Begin(ctx)
+	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Execution{}, false, err
 	}
@@ -409,7 +409,7 @@ func (m *Manager) RecordExecutionFailure(ctx context.Context, execution Executio
 		return ErrExecutionLost
 	}
 	now := m.now().UTC()
-	tx, err := m.pool.Begin(ctx)
+	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
@@ -485,7 +485,7 @@ UPDATE jobs
 }
 
 func (m *Manager) classifyExpiredAttempts(ctx context.Context, limit int, jobKinds []string) error {
-	rows, err := m.pool.Query(ctx, `
+	rows, err := m.db.Query(ctx, `
 SELECT job_id
   FROM jobs
  WHERE status IN ('running', 'cancel_requested')
@@ -522,7 +522,7 @@ SELECT job_id
 
 func (m *Manager) classifyExpiredAttempt(ctx context.Context, jobID uuid.UUID) error {
 	now := m.now().UTC()
-	tx, err := m.pool.Begin(ctx)
+	tx, err := m.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}

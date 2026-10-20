@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_reset_characterization.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "reset_generation",
+    "peer_generation",
+    "durability_verified",
+    "autovacuum_enabled",
+    "relation_storage_unchanged",
+    "settled_setup_checkpoint_ms",
+    "treatments",
+    "independent_drop_ms",
+    "concurrent_reset_cycles",
+    "concurrent_phase_ms",
+    "drop_completed_during_reset_transaction",
+    "peer_cleanup_completed"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_reset_characterization.v1"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "reset_generation": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "peer_generation": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "durability_verified": {
+      "const": true
+    },
+    "autovacuum_enabled": {
+      "const": true
+    },
+    "relation_storage_unchanged": {
+      "const": true
+    },
+    "settled_setup_checkpoint_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "treatments": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "resets",
+          "inserted_records",
+          "execution_ms",
+          "checkpoint_ms",
+          "wal_bytes",
+          "files_before",
+          "files_pending",
+          "files_settled",
+          "database_bytes_before",
+          "database_bytes_after",
+          "estimated_dead_tuples_before",
+          "estimated_dead_tuples_after",
+          "autovacuum_count_before",
+          "autovacuum_count_after"
+        ],
+        "properties": {
+          "name": {
+            "enum": [
+              "zero",
+              "one",
+              "empty_64",
+              "populated_64"
+            ]
+          },
+          "resets": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "inserted_records": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "execution_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "checkpoint_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "wal_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "files_before": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "files_pending": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "files_settled": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "database_bytes_before": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "database_bytes_after": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "estimated_dead_tuples_before": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "estimated_dead_tuples_after": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "autovacuum_count_before": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "autovacuum_count_after": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      }
+    },
+    "independent_drop_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "concurrent_reset_cycles": {
+      "const": 1
+    },
+    "concurrent_phase_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "drop_completed_during_reset_transaction": {
+      "const": true
+    },
+    "peer_cleanup_completed": {
+      "const": true
+    }
+  }
+}

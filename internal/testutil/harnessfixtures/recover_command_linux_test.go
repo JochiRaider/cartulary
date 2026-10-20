@@ -7,12 +7,57 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 func testRecoveryCommand(t *testing.T) {
+	t.Run("failure_reports_only_bounded_diagnostic", func(t *testing.T) {
+		root, run, scratch := t.TempDir(), filepath.Join(t.TempDir(), "fixture"), t.TempDir()
+		if err := os.Mkdir(run, 0700); err != nil {
+			t.Fatal(err)
+		}
+		r, err := harnesssession.NewRuntime(root, run, "fixture", scratch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := r.Close(); err != nil {
+				t.Error(err)
+			}
+		})
+		proof, err := r.RecoveryPath("resident-allocations", "invalid.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(filepath.Dir(proof), 0700); err != nil {
+			t.Fatal(err)
+		}
+		const privateDetail = "private-proof-payload-must-not-be-reported"
+		if err := os.WriteFile(proof, []byte(privateDetail), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := r.RecordDependentResource("resident_allocation", proof, "acquired", []string{}, proof); err != nil {
+			t.Fatal(err)
+		}
+		// The fixture is synthetic; no physical resource was acquired.
+		defer func() {
+			if err := r.RecordResource("resident_allocation", proof, "released"); err != nil {
+				t.Error(err)
+			}
+		}()
+		var output bytes.Buffer
+		code := RecoverRun(t.Context(), root, map[string]string{"RESULTS_DIR": run, "RUNTIME_ROOT": r.Root, "RUNTIME_LEASE_ID": r.LeaseID}, &output)
+		if code != 12 || !strings.Contains(output.String(), "[RUNTIME-CLEANUP]") ||
+			strings.Contains(output.String(), privateDetail) || strings.Contains(output.String(), proof) {
+			t.Fatal("missing or unsafe cleanup diagnostic", code, output.String())
+		}
+		if data, err := os.ReadFile(proof); err != nil || string(data) != privateDetail {
+			t.Fatal("unresolved proof changed", err)
+		}
+	})
 	t.Run("exact_recovery_command", func(t *testing.T) {
 		root, run, scratch := t.TempDir(), filepath.Join(t.TempDir(), "fixture"), t.TempDir()
 		if err := os.Mkdir(run, 0700); err != nil {

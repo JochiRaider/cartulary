@@ -27,7 +27,7 @@ func TestExactMatchPrecedence_Unit(t *testing.T) {
 
 		harness := appsupport.StartStore(t, "entity_linking-u-4-05-"+suffix)
 		store := newEntityTestStore(t, harness.DB)
-		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u405-"+suffix+"@example.test", "U405 "+suffix, "U405EntityLinkingPass1!", false, false, true)
+		actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u405-" + suffix + "@example.test", DisplayName: "U405 " + suffix})
 		incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-05-"+suffix, "IR-U405-"+suffix, "Record relationships entity-storage "+suffix)
 		return harness, store, actor, incident.ID
 	}

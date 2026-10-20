@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "web.networkflow",
   "rows": [
     {
@@ -12,13 +12,13 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowBoundaryPolicy.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowBoundaryPolicy.node.test.ts",
         "titles": [
           "Network Flow frontend boundary policy checks contract references and browser evidence APIs independently of helper names",
           "Network Flow frontend boundary policy rejects legacy light-theme variable fallbacks in Network Flow source",
           "Network Flow frontend boundary policy uses only authored Cartulary design-token variables in Network Flow source"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "static",
       "runtime_profile_id": "none",
@@ -27,7 +27,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.analytical_import_dispatch",
@@ -42,11 +43,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowImportAdmission.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowImportAdmission.node.test.ts",
         "titles": [
           "Network Flow import dispatch admission rechecks the analytical claim after shared queue admission before transmitting bytes"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -55,7 +56,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.analytical_import_ownership",
@@ -70,7 +72,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/NetworkFlowImportController.test.ts",
+        "file": "apps/web/src/networkFlow/NetworkFlowImportController.node.test.ts",
         "titles": [
           "Network Flow import ownership admits one upload synchronously and keeps preview separate from durable approval",
           "Network Flow import ownership blocks changed profiles and incomplete mappings while keeping preview rejection counts separate",
@@ -79,7 +81,7 @@
           "Network Flow import ownership preserves copyable drafts on write loss and closure and purges replaced authority",
           "Network Flow import ownership retains the immutable submitted candidate and typed definite rejection"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -88,7 +90,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.analytical_import_recovery",
@@ -104,7 +107,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/NetworkFlowImportController.test.ts",
+        "file": "apps/web/src/networkFlow/NetworkFlowImportController.node.test.ts",
         "titles": [
           "Network Flow import recovery accepts a late receipt only for the same unresolved workflow",
           "Network Flow import recovery continues selection after acknowledged approval and exactly replays uncertain apply",
@@ -118,7 +121,7 @@
           "Network Flow import recovery retains terminal job success when a delayed cancellation acknowledgement arrives",
           "Network Flow import recovery revalidates retained intent after authority changes before replaying selection"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -127,7 +130,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.captured_indicator_linking_admission_replay_and_f337b28fac",
@@ -164,7 +168,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.exploration_continuity",
@@ -192,7 +197,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.exploration_focus",
@@ -218,7 +224,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.exploration_focus_withdrawal",
@@ -243,7 +250,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.exploration_navigation",
@@ -255,7 +263,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowExplorationNavigation.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowExplorationNavigation.node.test.ts",
         "titles": [
           "Exploration navigation bounds every presentation synchronously at exact limits and after shrinking replacement",
           "Exploration navigation clears selection and both pages on populated and empty bucket transitions",
@@ -263,7 +271,7 @@
           "Exploration navigation retains exact off-page selection and computes reveal and close focus semantically",
           "Exploration navigation uses complete selectors and stable ordering without inventing link or contributor meaning"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -272,7 +280,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.network_flow_client_transport_boundary_suite_480693e8c8",
@@ -299,7 +308,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.network_flow_control_presentation_seam_suite_25e7be0a31",
@@ -330,7 +340,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.network_flow_query_authoring_preserves_complete_b69b5349e3",
@@ -355,7 +366,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_clears_protected_data_i_eaa7eef8ae",
@@ -380,7 +392,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_clears_table_scoped_sta_4ce4a111f2",
@@ -405,7 +418,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_enforces_the_viewer_edi_3fd452e838",
@@ -430,7 +444,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_keeps_the_import_entry_5fb0310ae5",
@@ -455,7 +470,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_previews_an_ordinal_awa_07f315d42a",
@@ -480,7 +496,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_refreshes_table_metadat_20159fd951",
@@ -505,7 +522,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_removes_mutation_surfac_5007c81f80",
@@ -530,7 +548,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_renames_by_stable_table_860bb787a3",
@@ -555,7 +574,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_renders_rejected_diagno_b512f0748b",
@@ -580,7 +600,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkanalysisworkspace_supports_keyboard_table_054e6e4ff9",
@@ -605,7 +626,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowclient_requires_a_claimed_profile_and_65c861c0d2",
@@ -617,11 +639,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/services/networkFlowContractAdapter.test.ts",
+        "file": "apps/web/src/services/networkFlowContractAdapter.node.test.ts",
         "titles": [
           "networkFlowContractAdapter requires a claimed profile and a supported compiled contract major"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -630,7 +652,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowcollaborationinterpreter_admits_only_5a57dc4e3c",
@@ -642,12 +665,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowCollaborationInterpreter.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowCollaborationInterpreter.node.test.ts",
         "titles": [
           "interpretNetworkFlowCollaborationMessage preserves table and saved graph identities and rejects unrelated resources",
           "preserves normalized authorization scope in every Network Flow owner lifecycle"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -656,7 +679,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowcontroller_clears_all_table_state_whe_f8e4dfa97e",
@@ -668,11 +692,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowController.node.test.ts",
         "titles": [
           "networkFlowControllerReducer clears all table state when authorization is lost"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -681,7 +705,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowcontroller_preserves_selection_on_ref_31d35066ee",
@@ -693,11 +718,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowController.node.test.ts",
         "titles": [
           "networkFlowControllerReducer preserves selection on refresh and advances it on deletion"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -706,7 +731,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowcontroller_preserves_table_identity_o_b7a9b004a8",
@@ -718,11 +744,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowController.node.test.ts",
         "titles": [
           "networkFlowControllerReducer preserves table identity on rename and selects next then previous on deletion"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -731,7 +757,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowerrors_suite_08956c54be",
@@ -743,14 +770,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowErrors.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowErrors.node.test.ts",
         "titles": [
           "Network Flow structured errors classifies lifecycle and hidden-resource failures for fail-closed clearing",
           "Network Flow structured errors falls back to status-safe text when the server message is unsafe",
           "Network Flow structured errors preserves status, code, reason, field, retry action, and a safe message",
           "Network Flow structured errors uses exact structured authorization signals instead of message substrings"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -759,7 +786,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowimportmodel_suite_12249943c5",
@@ -771,14 +799,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowImportModel.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowImportModel.node.test.ts",
         "titles": [
           "Network Flow import mapping model accounts for ignored columns only through an explicit choice or ignore policy",
           "Network Flow import mapping model builds mappings from generated transforms without a compatibility schema_id",
           "Network Flow import mapping model keeps duplicate aliases distinct and blocks preview until every collision is explicit",
           "Network Flow import mapping model requires distinct ordinal-aware NetFlow uptime timestamp inputs"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -787,7 +815,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_accepts_the_active_696bb36228",
@@ -799,11 +828,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.node.test.ts",
         "titles": [
           "networkFlowIndicatorLinkModel accepts the active cell anywhere inside its same-field semantic range"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -812,7 +841,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_compiles_a_same_va_85200de10e",
@@ -824,11 +854,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.node.test.ts",
         "titles": [
           "networkFlowIndicatorLinkModel compiles a same-value IP range to ordered owner row refs"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -837,7 +867,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_compiles_one_activ_a7580fde22",
@@ -849,11 +880,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.node.test.ts",
         "titles": [
           "networkFlowIndicatorLinkModel compiles one active IP cell to its immutable owner row identity"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -862,7 +893,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowindicatorlinkmodel_rejects_mixed_valu_8ebb38270c",
@@ -874,11 +906,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowIndicatorLinkModel.node.test.ts",
         "titles": [
           "networkFlowIndicatorLinkModel rejects mixed values, mixed fields, non-owner anchors, and ranges over the owner limit"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -887,7 +919,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowpresentation_suite_ad52825df6",
@@ -899,7 +932,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowPresentation.test.tsx",
+        "file": "apps/web/src/networkFlow/networkFlowPresentation.node.test.ts",
         "titles": [
           "Network Flow presentation metadata groups contributors by workspace table order without changing server order within a group",
           "Network Flow presentation metadata keeps display formatting separate from canonical clipboard scalars",
@@ -907,7 +940,7 @@
           "Network Flow presentation metadata reuses grid-row wrappers only for unchanged owner objects and derived metadata",
           "Network Flow presentation metadata uses extension resource identities for accepted and diagnostic rows"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -916,7 +949,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowquerymodel_suite_a62cc77196",
@@ -928,7 +962,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowQueryModel.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowQueryModel.node.test.ts",
         "titles": [
           "Network Flow query model compiles only registered diagnostic query members and omits limit",
           "Network Flow query model emits exact continuation bodies without initial query members",
@@ -937,7 +971,7 @@
           "Network Flow query model reconciles rejected diagnostics and contributors at their owner identities",
           "Network Flow query model reuses owner-identified row references only when every contract field is equal"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -946,7 +980,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowsemanticgrid_operational_state_policy_94cf786881",
@@ -975,7 +1010,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowsemanticgrid_restores_semantic_focus_5fbb80e46c",
@@ -1000,7 +1036,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.networkflowsemanticgrid_supports_keyboard_column_9fbd5af078",
@@ -1025,7 +1062,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.page_recovery_boundaries",
@@ -1056,7 +1094,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.pagination_feedback",
@@ -1082,7 +1121,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.pagination_semantic_selection",
@@ -1107,7 +1147,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.query_application_ownership",
@@ -1135,7 +1176,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.query_authoring_compilation",
@@ -1147,7 +1189,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowQueryAuthoring.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowQueryAuthoring.node.test.ts",
         "titles": [
           "Network Flow typed query compilation compiles every offered presentation operator into an owner-valid filter shape",
           "Network Flow typed query compilation preserves diagnostic lists and rejects unknown duplicate empty and reversed inputs",
@@ -1157,7 +1199,7 @@
           "Network Flow typed query compilation validates exact uint64 bounds and rejects numeric coercion",
           "Network Flow typed query compilation validates overlap filters together while keeping graph time range separate"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1166,7 +1208,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_captured_operations",
@@ -1178,7 +1221,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/SavedGraphController.test.ts",
+        "file": "apps/web/src/networkFlow/SavedGraphController.node.test.ts",
         "titles": [
           "Saved graph captured operations admits one same-tick submission and keeps the exact confirmed target after selection changes",
           "Saved graph captured operations enforces exact roles at dispatch and preserves duplicate names in code-point order",
@@ -1190,7 +1233,7 @@
           "Saved graph captured operations resolves the actual uncertain attempt from a late acknowledgement after observation deadline",
           "Saved graph captured operations withdraws only affected source bindings and preserves retirement tombstones across stale reads"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1199,7 +1242,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_local_recovery",
@@ -1229,7 +1273,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_major5_decoder_and_lifecycle",
@@ -1244,11 +1289,11 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/services/networkFlowContractAdapter.test.ts",
+        "file": "apps/web/src/services/networkFlowContractAdapter.node.test.ts",
         "titles": [
           "networkFlowContractAdapter decodes saved graphs only through the generated major-7 contract"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1257,7 +1302,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_observation",
@@ -1269,14 +1315,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/savedGraphObservation.test.ts",
+        "file": "apps/web/src/networkFlow/savedGraphObservation.node.test.ts",
         "titles": [
           "Saved graph bounded observation bounds hung reads without turning expiry or abort into server failure",
           "Saved graph bounded observation expires the observation window and permits explicit resume from retained progress",
           "Saved graph bounded observation observes serially and requires a correctly scoped terminal graph reference",
           "Saved graph bounded observation rejects regressing terminal status and pauses on a missing job without inferring failure"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1285,7 +1331,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_reassessment_operations",
@@ -1297,7 +1344,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/SavedGraphRecovery.test.ts",
+        "file": "apps/web/src/networkFlow/SavedGraphRecovery.node.test.ts",
         "titles": [
           "Saved graph recovery boundaries hides paused session drafts and fences old acknowledgements until current authorization returns",
           "Saved graph recovery boundaries keeps a queued unsent abort definite and requires review instead of replay",
@@ -1308,7 +1355,7 @@
           "Saved graph recovery boundaries retains a copyable write-loss draft but purges it when the profile is withdrawn",
           "Saved graph recovery boundaries withdraws saved exposure for the canonical unclaimed profile response"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1317,7 +1364,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_receipt_transport",
@@ -1329,7 +1377,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/savedGraphTransport.test.ts",
+        "file": "apps/web/src/networkFlow/savedGraphTransport.node.test.ts",
         "titles": [
           "Saved graph transport integrity classifies transaction conflicts and invalid limits without losing malformed acknowledgement uncertainty",
           "Saved graph transport integrity preserves typed rejection and uncertain transport outcomes",
@@ -1337,7 +1385,7 @@
           "Saved graph transport integrity sends identical captured bytes on replay and accepts only the scoped narrow job receipt",
           "Saved graph transport integrity uses NFC and exact whitespace with UTF-8 byte limits and rejects controls before trimming"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1346,7 +1394,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_recovery_boundaries",
@@ -1358,7 +1407,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/SavedGraphRecovery.test.ts",
+        "file": "apps/web/src/networkFlow/SavedGraphRecovery.node.test.ts",
         "titles": [
           "Saved graph recovery boundaries accepts a late original receipt after replay denial without installing the historical binding",
           "Saved graph recovery boundaries fences conflict review after retirement without resurrecting a declaration",
@@ -1375,7 +1424,7 @@
           "Saved graph recovery boundaries withdraws cached exposure on an authoritative list denial and permits explicit current-state recovery",
           "Saved graph recovery boundaries withdraws result and contributors when a contributor request reports lost read authority"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1384,7 +1433,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_render_bounds",
@@ -1412,7 +1462,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_replay_admission",
@@ -1424,14 +1475,14 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/SavedGraphRecovery.test.ts",
+        "file": "apps/web/src/networkFlow/SavedGraphRecovery.node.test.ts",
         "titles": [
           "Saved graph recovery boundaries aborts a queued mutation when its captured authority changes before dispatch",
           "Saved graph recovery boundaries does not replace a materialized declaration with its historical creation receipt",
           "Saved graph recovery boundaries preserves selection made after the original attempt across explicit replay",
           "Saved graph recovery boundaries retains original uncertainty after a denied replay and resolves only the same attempt"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1440,7 +1491,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_role_matrix",
@@ -1468,7 +1520,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_semantic_continuity",
@@ -1480,7 +1533,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/SavedGraphResultNavigation.test.ts",
+        "file": "apps/web/src/networkFlow/SavedGraphResultNavigation.node.test.ts",
         "titles": [
           "Saved graph semantic result continuity distinguishes initial failure from a failed reread and rejects cross-binding result labeling",
           "Saved graph semantic result continuity fences contributors by graph binding selector and request generation and keeps only one page",
@@ -1488,7 +1541,7 @@
           "Saved graph semantic result continuity keeps a prior result during pending refresh and failed reads but clears removed bindings immediately",
           "Saved graph semantic result continuity retains the exact result and contributor context through rename and unchanged declaration polling"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1497,7 +1550,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.saved_graph_workspace_complete_lifecycle",
@@ -1525,7 +1579,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.table_captured_operations",
@@ -1537,7 +1592,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/NetworkFlowTableController.test.ts",
+        "file": "apps/web/src/networkFlow/NetworkFlowTableController.node.test.ts",
         "titles": [
           "Table lifecycle operations admits exact operation roles and synchronously prevents duplicate submission",
           "Table lifecycle operations bounds uncertainty and replays the identical attempt while preserving later metadata",
@@ -1553,7 +1608,7 @@
           "Table lifecycle operations retains a meaningful delete receipt while removing its active resource",
           "Table lifecycle operations validates receipt identity lifecycle immutable fields and normalized no-op"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1562,7 +1617,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.table_catalog_continuity",
@@ -1574,12 +1630,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/networkFlowController.test.ts",
+        "file": "apps/web/src/networkFlow/networkFlowController.node.test.ts",
         "titles": [
           "networkFlowControllerReducer rejects catalog regression and resurrection after terminal removal",
           "networkFlowControllerReducer uses prior next then previous order when a complete list loses the active table"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1588,7 +1644,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.table_consumer_continuity",
@@ -1614,7 +1671,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.table_indicator_continuity",
@@ -1639,7 +1697,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.table_observation_continuity",
@@ -1651,13 +1710,13 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/networkFlow/NetworkFlowTableController.test.ts",
+        "file": "apps/web/src/networkFlow/NetworkFlowTableController.node.test.ts",
         "titles": [
           "Table catalog continuity fences pending lists crossing rename delete and collaboration",
           "Table catalog continuity preserves navigation across a delayed validated import handoff",
           "Table catalog continuity purges resource drafts and context knowledge only at the authorized lifetime boundary"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -1666,7 +1725,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.temporal_graph_controls_bucket_navigation",
@@ -1694,7 +1754,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.usenetworkflowextensionevents_deduplicates_chang_833a3ccd56",
@@ -1719,7 +1780,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.usenetworkflowextensionevents_maps_incident_clos_fd1f06b3ef",
@@ -1744,7 +1806,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.usenetworkflowgridlayout_suite_7c663dc67a",
@@ -1770,7 +1833,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.networkflow.regression.usenetworkflowpagedquery_suite_7dc8b8d06a",
@@ -1807,7 +1871,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

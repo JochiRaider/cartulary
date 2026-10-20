@@ -24,14 +24,14 @@ test("measures 20 new Timeline rows and 100 visible TSV cells within AC-003", as
   browser,
   page,
   sessionTracker,
-  workerAdmin,
+  testActor,
 }, testInfo) => {
   let traffic: Ac043TrafficDriver | null = null;
   let completion: PastePaintCompletion | undefined;
   let attached = false;
   try {
     expect(testInfo.retry).toBe(0);
-    const snapshot = await prepareAc043Snapshot(page, workerAdmin);
+    const snapshot = await prepareAc043Snapshot(page, testActor);
     await page.goto(`/?incident_id=${snapshot.incidentId}`);
     await expect(
       page.getByTestId(timelineMutationSubstrateReadyTestId()),

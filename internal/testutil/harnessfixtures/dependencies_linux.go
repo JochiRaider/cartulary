@@ -73,9 +73,9 @@ func evaluateCleanup(resources []harnesssession.Resource, target string, attempt
 	if len(invalid) > 0 {
 		for _, ref := range refs {
 			if invalid[ref] {
-				finish(ref, "failed", errCleanupUncertain)
+				finish(ref, "failed", harnesssession.AtCleanupStage("resource_graph", errCleanupUncertain))
 			} else if selected[ref] {
-				finish(ref, "blocked", ErrCleanupBlocked)
+				finish(ref, "blocked", harnesssession.AtCleanupStage("resource_graph", ErrCleanupBlocked))
 			}
 		}
 		return errors.Join(failures...)
@@ -113,7 +113,7 @@ func evaluateCleanup(resources []harnesssession.Resource, target string, attempt
 			pending[ref] = false
 			progress = true
 			if blocked[ref] {
-				finish(ref, "blocked", ErrCleanupBlocked)
+				finish(ref, "blocked", harnesssession.AtCleanupStage("resource_graph", ErrCleanupBlocked))
 				continue
 			}
 			err := attempt(nodes[ref])
@@ -143,7 +143,7 @@ func evaluateCleanup(resources []harnesssession.Resource, target string, attempt
 	// dependencies remain pending as well; unrelated acyclic branches progressed.
 	for _, ref := range refs {
 		if pending[ref] {
-			finish(ref, "blocked", ErrCleanupBlocked)
+			finish(ref, "blocked", harnesssession.AtCleanupStage("resource_graph", ErrCleanupBlocked))
 		}
 	}
 	return errors.Join(failures...)
@@ -152,7 +152,7 @@ func evaluateCleanup(resources []harnesssession.Resource, target string, attempt
 func (p ProductionOptions) closeResources(ctx context.Context, target string, override func(context.Context) error) error {
 	resources, err := p.Runtime.Resources(4096)
 	if err != nil {
-		return artifactFailure(err)
+		return artifactFailure(harnesssession.AtCleanupStage("resource_inventory", err))
 	}
 	return CleanupFailure(evaluateCleanup(resources, target, func(resource harnesssession.Resource) error {
 		var err error

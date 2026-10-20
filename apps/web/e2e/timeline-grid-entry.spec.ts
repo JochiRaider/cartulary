@@ -124,7 +124,7 @@ async function clipboard(page: Page, text: string) {
 
 test("Timeline row actions preserve native authoring and dismiss to the semantic destination", async ({
   page,
-  workerAdminRequest,
+  testActorRequest,
   sessionTracker,
 }) => {
   test.setTimeout(180_000);
@@ -420,7 +420,7 @@ test("Timeline row actions preserve native authoring and dismiss to the semantic
   const membershipPath = `/api/v1/incidents/${incidentId}/memberships/${member.user_id}`;
   expect(
     (
-      await workerAdminRequest.patch(membershipPath, {
+      await testActorRequest.patch(membershipPath, {
         data: { base_membership_version: 1, role: "viewer" },
       })
     ).ok(),
@@ -451,7 +451,7 @@ test("Timeline row actions preserve native authoring and dismiss to the semantic
   ).toBeDisabled();
   expect(
     (
-      await workerAdminRequest.delete(membershipPath, {
+      await testActorRequest.delete(membershipPath, {
         data: { base_membership_version: 2 },
       })
     ).status(),

@@ -61,6 +61,8 @@ func TestRuntimeBrowserFailureContinuation(t *testing.T) {
 			reset.Kind = "lifecycle"
 			for _, u := range []*unit{&group, &reset, &next} {
 				u.Fixture = "browser_stack"
+				u.PostgresIsolation = "exclusive"
+				u.Services = []string{"object_store", "postgres"}
 				u.Affinity = "lane"
 				u.FailurePolicy.BlockDescendants = false
 			}

@@ -27,9 +27,7 @@ func TestNetworkFlowGraphCleanupPublicationAndLeaseRaces_Integration(t *testing.
 		t.Fatal(err)
 	}
 	t.Cleanup(pool.Close)
-	actor := authstoretest.SeedLocalUserRecord(
-		t, pool, "network-flow-cleanup-races@example.test", "Cleanup Race Tester", "NetworkFlowPass!", false, false, true,
-	)
+	actor := authstoretest.SeedActor(t, pool, authstoretest.ActorAttributes{Email: "network-flow-cleanup-races@example.test", DisplayName: "Cleanup Race Tester"})
 	incident := appsupport.CreateIncidentInStore(t, pool, actor, "txn-network-flow-cleanup-races", "IR-NFCLEANRACE", "Network Flow cleanup races")
 	store := NewStore(pool, DefaultEffectiveLimits(), WithResourceIntentAppender(networkflowsupport.NewResourceIntentAppender()))
 	now := time.Date(2026, 8, 16, 18, 0, 0, 0, time.UTC)

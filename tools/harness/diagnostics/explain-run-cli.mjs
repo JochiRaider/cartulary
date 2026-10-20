@@ -1072,7 +1072,7 @@ async function main() {
   const cleanupFile = path.join(runDir, "cleanup-results.json");
   if (existsSync(cleanupFile)) {
     const cleanup = JSON.parse(readLocalFile(cleanupFile, { maximum: 1048576 }));
-    validateSchemaSync("cartulary.harness_cleanup_results.v1", cleanup);
+    validateSchemaSync("cartulary.harness_cleanup_results.v2", cleanup);
     if (cleanup.run_id !== path.basename(runDir)) throw new Error("cleanup receipt run identity mismatch");
     const failed = cleanup.results.filter((step) => step.outcome === "failed");
     const blocked = cleanup.results.filter((step) => step.outcome === "blocked");

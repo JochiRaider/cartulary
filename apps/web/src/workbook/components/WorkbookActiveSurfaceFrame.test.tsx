@@ -15,12 +15,12 @@ import {
   WorkbookRecoveryNavigation,
   workbookRecoveryKey,
 } from "../../shared/workbookRecoveryNavigation";
+import { WorkbookRecoveryFixture } from "../../testing/WorkbookRecoveryFixture";
 import {
   errorEnvelope,
   successEnvelope,
   timelineRow,
-} from "../../testing/timelineWorkbookTestSupport";
-import { WorkbookRecoveryFixture } from "../../testing/WorkbookRecoveryFixture";
+} from "../../testing/workbookFixtureData";
 import { renderWithWorkbookQueryBrowsing as render } from "../../testing/workbookQueryTestSupport";
 import { createWorkbookPendingMutationAdapter } from "../adapters/createWorkbookPendingMutationAdapter";
 import { timelineViewSchemaId } from "../models/workbookSurfaceRegistry";

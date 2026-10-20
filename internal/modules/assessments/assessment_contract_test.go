@@ -33,7 +33,7 @@ func TestAssessmentsAppendOnlyStatesAndBands_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "workbook_interaction-assessments-u-9-06")
 	workbookStore := appsupport.NewWorkbookCatalog(harness.DB, conflicttest.NewCodec("workbook"))
 	assessmentOwner := appsupport.NewAssessmentOwner(harness.DB)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-u906@example.test", "Workbook inspector U906", "WorkbookInteractionU906Pass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "workbook_interaction-u906@example.test", DisplayName: "Workbook inspector U906"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-06-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessments")
 
 	hostID := uuid.New()
@@ -245,7 +245,7 @@ func TestRelationshipConfidenceRejectedAndManualLinksRemainNull_Unit(t *testing.
 	assessmentOwner := appsupport.NewAssessmentOwner(harness.DB)
 	partyOwner := appsupport.NewPartyOwner(harness.DB, conflicttest.NewCodec("workbook"))
 	evidenceOwner := appsupport.NewEvidenceMutationOwner(harness.DB, conflicttest.NewCodec("workbook"))
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "workbook_interaction-u912@example.test", "Workbook inspector U912", "WorkbookInteractionU912Pass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "workbook_interaction-u912@example.test", DisplayName: "Workbook inspector U912"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-workbook_interaction-u-9-12-incident", "IR-WORKBOOK-INTERACTION-assessment-storage", "Workbook inspector assessment-storage assessment links")
 	hostID := uuid.New()
 	supportID := uuid.New()

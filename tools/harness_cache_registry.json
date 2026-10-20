@@ -117,7 +117,7 @@
         "tools/release-evidence/validate-license-report.mjs",
         "tools/release-evidence/validate-release-sbom.mjs",
         "tools/schemas/cartulary.harness_cache_record.v2.schema.json",
-        "tools/schemas/cartulary.harness_work_graph.v7.schema.json",
+        "tools/schemas/cartulary.harness_work_graph.v8.schema.json",
         "tools/schemas/cartulary.license_report.v2.schema.json",
         "tools/toolchain_pins.json"
       ],

@@ -9,12 +9,12 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"slices"
 	"sync"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 )
 
 type WorkRequirement struct {
@@ -48,16 +48,9 @@ func (p *Production) ConfigureAdmission(root string, parent *string, capacities 
 	r.root = root
 	r.parent = parent
 	r.capacities = quantities(capacities)
-	p.serviceClaims = map[string]int64{}
-	services := map[string]bool{}
 	for _, work := range requirements {
-		for _, service := range []string{"postgres", "object_store"} {
-			if claims, ok := work.Physical[service]; ok && !services[service] {
-				for key, value := range claims {
-					p.serviceClaims[key] += value
-				}
-				services[service] = true
-			}
+		if key := clusterKey(work.Request); key != "" {
+			p.clusterRemaining[key]++
 		}
 		if work.Renderer != "none" && work.Renderer != "" {
 			p.renderers.remaining[work.Request.RuntimeProfile]++
@@ -66,111 +59,114 @@ func (p *Production) ConfigureAdmission(root string, parent *string, capacities 
 }
 
 func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*harnessadmission.Lease, func(context.Context) error, error) {
+	if err := validateServiceRequest(requirement.Request); err != nil {
+		return nil, nil, err
+	}
 	r := p.Options.residency
 	work := &admittedWork{requirement: requirement}
 	if requirement.Exclusive {
-		if err := p.Options.withResidentActivity(ctx, func(ctx context.Context) error {
-			return errors.Join(p.renderers.evictIdle(ctx, nil), p.Broker.RetireIdle(ctx))
-		}); err != nil {
+		rendererErr := p.renderers.evictIdle(ctx, nil)
+		_, stackErr := p.retireIdleStacks(ctx, 0, nil)
+		if err := errors.Join(rendererErr, stackErr); err != nil {
 			return nil, nil, err
 		}
 	}
-	releaseStack, err := p.Broker.reserveStack(ctx, requirement.Request)
-	if err != nil {
-		return nil, nil, err
-	}
-	if requirement.Renderer != "none" && requirement.Renderer != "" {
-		work.slot, err = p.renderers.reserve(ctx, requirement.Request.UnitID, requirement.Request.RuntimeProfile, requirement.Renderer, requirement.Diagnostics)
-		if err != nil {
-			releaseStack()
-			return nil, nil, err
-		}
-	}
+	releaseStack := func() {}
 	records := []*residentRecord{}
-	add := func(key string, claims map[string]int64) error {
-		record, err := r.ensure(key, claims)
+	residents := []harnessadmission.Resident{}
+	reserve := func() error {
+		var err error
+		// A request waiting for a renderer must not pin an idle stack that
+		// another admitted request needs to retire to make progress.
+		if requirement.Renderer != "none" && requirement.Renderer != "" {
+			work.slot, err = p.renderers.reserve(ctx, requirement.Request.UnitID, requirement.Request.RuntimeProfile, requirement.Renderer, requirement.Diagnostics)
+			if err != nil {
+				return err
+			}
+		}
+		unpin, err := p.Broker.reserveStack(ctx, requirement.Request)
 		if err != nil {
 			return err
 		}
-		records = append(records, record)
-		return nil
-	}
-	// Attached services retain the persistent owner's reservation. Attachment
-	// validates that capability; an invocation never recharges borrowed services.
-	if p.Options.Environment["CARTULARY_TEST_SERVICES_MODE"] != "attach" && (len(requirement.Physical["postgres"]) != 0 || len(requirement.Physical["object_store"]) != 0) {
-		err = add("services", p.serviceClaims)
-	}
-	if err == nil && requirement.Request.Capability == "browser_stack" {
-		err = add(stackKey(requirement.Request), requirement.Physical["browser_stack"])
-	}
-	if err == nil && work.slot != nil {
-		err = add("renderer:"+work.slot.allocation, requirement.Physical["renderer"])
-		if err == nil {
-			work.slot.resident = records[len(records)-1]
+		releaseStack = unpin
+		// Every miss yields logical ownership. An intervening retirement can
+		// replace any generation, so rebuild all resident identities together.
+		records = records[:0]
+		residents = residents[:0]
+		add := func(key string, claims map[string]int64) error {
+			record, err := r.ensure(key, claims)
+			if err != nil {
+				return err
+			}
+			records = append(records, record)
+			residents = append(residents, record.Allocation)
+			return nil
 		}
+		// Attached services retain the persistent owner's reservation.
+		attached := p.Options.Environment["CARTULARY_TEST_SERVICES_MODE"] == "attach"
+		if len(requirement.Physical["object_store"]) != 0 && !attached {
+			err = add("object_store:shared", requirement.Physical["object_store"])
+		}
+		if err == nil && len(requirement.Physical["postgres"]) != 0 && (!attached || requirement.Request.PostgresIsolation == "exclusive") {
+			err = add(clusterKey(requirement.Request), requirement.Physical["postgres"])
+		}
+		if err == nil && requirement.Request.Capability == "browser_stack" {
+			err = add(stackKey(requirement.Request), requirement.Physical["browser_stack"])
+		}
+		if err == nil && work.slot != nil {
+			err = add("renderer:"+work.slot.allocation, requirement.Physical["renderer"])
+			if err == nil {
+				work.slot.resident = records[len(records)-1]
+			}
+		}
+		return err
 	}
-	residents := []harnessadmission.Resident{}
-	for _, record := range records {
-		residents = append(residents, record.Allocation)
+	yieldReservations := func() {
+		if work.slot != nil {
+			p.renderers.unreserve(work.slot)
+			work.slot = nil
+		}
+		releaseStack()
+		releaseStack = func() {}
 	}
 	waiting := func(ctx context.Context, pending *harnessadmission.Lease) error {
+		// Pending priority survives, but logical reservations must not prevent
+		// pressure retirement or another waiter from reacquiring a slot.
+		yieldReservations()
 		retired, err := p.renderers.evictForAdmission(ctx, work.slot, pending)
 		if err != nil || retired > 0 {
 			return err
 		}
 		// Retained stacks occupy ports even when every renderer has retired.
 		// Release only an idle stack whose own claims relieve persistent pressure.
-		_, err = p.Broker.retireIdle(ctx, 1, func(request Request) (bool, error) {
+		_, err = p.retireIdleStacks(ctx, 1, func(request Request) (bool, error) {
 			r.mu.Lock()
 			record := r.allocations[stackKey(request)]
 			r.mu.Unlock()
 			if record == nil {
 				return false, nil
 			}
-			return pending.NeedsRetirement(ctx, record.Allocation.Claims)
-		}, func(ctx context.Context, e *entry) error {
-			return p.Options.withResidentActivity(ctx, func(ctx context.Context) error {
-				return p.Broker.clean(ctx, e)
-			})
+			claims := maps.Clone(record.Allocation.Claims)
+			r.mu.Lock()
+			cluster := r.allocations[clusterKey(request)]
+			r.mu.Unlock()
+			if cluster != nil {
+				for key, value := range cluster.Allocation.Claims {
+					claims[key] += value
+				}
+			}
+			return pending.NeedsRetirement(ctx, claims)
 		})
 		return err
 	}
-	for err == nil {
-		if requirement.Renderer != "pooled" {
-			work.host, err = harnessadmission.AcquireWithResidents(ctx, r.root, quantities(requirement.Active), r.capacities, r.parent, requirement.Exclusive, residents, waiting)
-			break
+	var err error
+	work.host, err = harnessadmission.AcquireWithPreparedResidents(ctx, r.root, quantities(requirement.Active), r.capacities, r.parent, requirement.Exclusive, func(context.Context) ([]harnessadmission.Resident, error) {
+		if err := reserve(); err != nil {
+			return nil, err
 		}
-		work.host, err = harnessadmission.TryAcquireWithResidents(ctx, r.root, quantities(requirement.Active), r.capacities, r.parent, residents, waiting)
-		if err != nil || work.host != nil {
-			break
-		}
-		// The host request is withdrawn before the logical slot is returned.
-		// Another consumer may fit by reusing an already resident stack.
-		p.renderers.unreserve(work.slot)
-		work.slot = nil
-		timer := time.NewTimer(50 * time.Millisecond)
-		select {
-		case <-ctx.Done():
-			err = ctx.Err()
-		case <-timer.C:
-		}
-		timer.Stop()
-		if err != nil {
-			break
-		}
-		work.slot, err = p.renderers.reserve(ctx, requirement.Request.UnitID, requirement.Request.RuntimeProfile, requirement.Renderer, requirement.Diagnostics)
-		if err != nil {
-			break
-		}
-		records = records[:len(records)-1]
-		err = add("renderer:"+work.slot.allocation, requirement.Physical["renderer"])
-		if err != nil {
-			break
-		}
-		work.slot.resident = records[len(records)-1]
-		residents = residents[:len(residents)-1]
-		residents = append(residents, work.slot.resident.Allocation)
-	}
+		return residents, nil
+	}, waiting)
+	clusterFinished := false
 	finish := func(ctx context.Context) error {
 		defer releaseStack()
 		work.mu.Lock()
@@ -185,26 +181,25 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 		if !work.preservedStack && requirement.Request.Capability == "browser_stack" {
 			result = errors.Join(result, r.close(ctx, stackKey(requirement.Request)))
 		}
+		if key := clusterKey(requirement.Request); key != "" && !clusterFinished {
+			clusterFinished = true
+			p.servicesMu.Lock()
+			p.clusterRemaining[key]--
+			last := p.clusterRemaining[key] == 0
+			p.servicesMu.Unlock()
+			if last {
+				result = errors.Join(result, p.retireCluster(ctx, key))
+			}
+		}
 		p.workMu.Lock()
 		delete(p.work, requirement.Request.UnitID)
 		p.workMu.Unlock()
 		return result
 	}
 	if err != nil {
-		releaseStack()
-		// Queue cancellation cannot leave a reserved slot occupied. Unacquired
-		// capacity files remain journal-owned and close with the invocation.
-		if work.slot != nil {
-			p.renderers.mu.Lock()
-			work.slot.borrower = ""
-			if work.slot.physical != nil {
-				work.slot.state = "ready"
-			} else {
-				p.renderers.slots = slices.DeleteFunc(p.renderers.slots, func(slot *rendererSlot) bool { return slot == work.slot })
-			}
-			p.renderers.signal()
-			p.renderers.mu.Unlock()
-		}
+		// The admission owner settles its pending request before return. Keep
+		// unstarted slots reusable; their proofs settle with the existing owner.
+		yieldReservations()
 		return nil, nil, err
 	}
 	for _, record := range records {
@@ -296,7 +291,7 @@ func (p *Production) ConfigureDedicated(parent *string, capacities map[string]in
 		return WorkRequirement{}, err
 	}
 	topology, err := harnessschema.Decode(bytes)
-	if err != nil || harnessschema.Validate("cartulary.execution_topology.v14", topology) != nil {
+	if err != nil || harnessschema.Validate("cartulary.execution_topology.v15", topology) != nil {
 		return WorkRequirement{}, errors.New("invalid physical resource topology")
 	}
 	data, err := json.Marshal(topology.(map[string]any)["physical_resource_claims"])
@@ -310,4 +305,21 @@ func (p *Production) ConfigureDedicated(parent *string, capacities map[string]in
 	work := WorkRequirement{Request: request, Renderer: "dedicated", Diagnostics: diagnostics, Physical: physical, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}}
 	p.ConfigureAdmission("", parent, capacities, []WorkRequirement{work})
 	return work, nil
+}
+
+// retireIdleStacks reserves cleanup activity against the selected stack alone.
+// The broker pins its retirement before this callback, so its resident identity
+// cannot be replaced by another borrower. Other residents stay charged by the
+// admission owner, but independent retirement cannot invalidate this request.
+func (p *Production) retireIdleStacks(ctx context.Context, maximum int, needed func(Request) (bool, error)) (int, error) {
+	return p.Broker.retireIdle(ctx, maximum, needed, func(ctx context.Context, e *entry) error {
+		r := p.Options.residency
+		r.mu.Lock()
+		record := r.allocations[stackKey(e.request)]
+		r.mu.Unlock()
+		if record == nil {
+			return harnesssession.AtCleanupStage("resource_inventory", harnesslocal.ErrUnsafe)
+		}
+		return r.drain(ctx, []*residentRecord{record}, func(ctx context.Context) error { return p.Broker.clean(ctx, e) })
+	})
 }

@@ -350,10 +350,9 @@ export function resolveCacheDependencyClosure({ root, entries, profile, unit, re
     );
   }
   try {
-    const rowIDs = (unit.command.environment.CARTULARY_TEST_ROWS ?? "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
+    const rowIDs = (unit.row_bindings ?? []).map((row) => row.row_id);
+    const legacySelection = unit.command.environment.CARTULARY_TEST_ROWS;
+    if (legacySelection !== undefined && legacySelection !== rowIDs.join(",")) throw new Error("unit selection disagrees with its row bindings");
     if (rowIDs.length === 0 || new Set(rowIDs).size !== rowIDs.length) {
       throw new Error("unit has no exact selected row set");
     }

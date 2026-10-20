@@ -93,7 +93,7 @@ test("Ordinary closure preserves copyable next authoring and requires explicit e
 test("Ordinary role loss retains readable authoring and scoped revocation fences a late accepted receipt", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   let memberId = "";
   const { incident } = await openOrdinaryFixture(
@@ -153,7 +153,7 @@ test("Ordinary role loss retains readable authoring and scoped revocation fences
     "Private next draft",
   );
   const membershipPath = `/api/v1/incidents/${incident}/memberships/${memberId}`;
-  const downgrade = await workerAdminRequest.patch(membershipPath, {
+  const downgrade = await testActorRequest.patch(membershipPath, {
     data: { base_membership_version: 1, role: "viewer" },
   });
   expect(downgrade.ok()).toBe(true);
@@ -194,7 +194,7 @@ test("Ordinary role loss retains readable authoring and scoped revocation fences
   await expect(
     page.getByTestId(genericCreateSubmitTestId(evidence)),
   ).toHaveCount(0);
-  const response = await workerAdminRequest.get(
+  const response = await testActorRequest.get(
     `/api/v1/incidents/${incident}/memberships`,
   );
   const members = (await response.json()) as {
@@ -206,7 +206,7 @@ test("Ordinary role loss retains readable authoring and scoped revocation fences
   if (!member) throw new Error("Missing membership");
   expect(
     (
-      await workerAdminRequest.delete(membershipPath, {
+      await testActorRequest.delete(membershipPath, {
         data: { base_membership_version: member.membership_version },
       })
     ).status(),

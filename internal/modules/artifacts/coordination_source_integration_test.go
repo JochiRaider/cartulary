@@ -24,7 +24,7 @@ import (
 func TestCoordinationSourceAtomicCreation(t *testing.T) {
 	ctx := context.Background()
 	h := appsupport.StartStore(t, "coordination-source-atomic")
-	actor := authstoretest.SeedLocalUserRecord(t, h.DB, "coordination@example.test", "Coordination Author", "CoordinationAuthor1!", false, false, true)
+	actor := authstoretest.SeedActor(t, h.DB, authstoretest.ActorAttributes{Email: "coordination@example.test", DisplayName: "Coordination Author"})
 	incident := appsupport.CreateIncidentInStore(t, h.DB, actor, "coordination-incident", "IR-CCA", "Coordination")
 	facade, err := workbookassembly.NewArtifactMutationContribution(h.DB, conflicttest.NewCodec("coordination"), revisionsupport.MustAppender(t), revisionsupport.MustConflictFieldResolver(t), appsupport.ArtifactProjectionRows(h.DB), collaborationsupport.NewRecordChangedAppender())
 	if err != nil {

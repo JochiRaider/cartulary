@@ -341,8 +341,8 @@ func semanticEvidence(u unit, result semanticRows, now time.Time) ([]publishItem
 	items := []publishItem{}
 	stamp := now.UTC().Format("2006-01-02T15:04:05.000Z")
 	for _, row := range result.Rows {
-		value := map[string]any{"schema_id": "cartulary.harness_row_result.v4", "row_id": row.ID, "runner": row.Runner, "terminal_state": "passed", "duration_ms": 0, "wall_duration_ms": 0, "exit_code": 0, "failure_class": nil, "failure_reason": nil, "failure_diagnostic": nil, "started_at": stamp, "finished_at": stamp}
-		bytes, err := documentBytes("cartulary.harness_row_result.v4", value)
+		value := map[string]any{"schema_id": "cartulary.harness_row_result.v6", "row_id": row.ID, "runner": row.Runner, "terminal_state": "passed", "duration_ms": 0, "wall_duration_ms": 0, "exit_code": 0, "failure_class": nil, "failure_reason": nil, "failure_diagnostic": nil, "started_at": stamp, "finished_at": stamp}
+		bytes, err := documentBytes("cartulary.harness_row_result.v6", value)
 		if err != nil {
 			return nil, err
 		}
@@ -370,7 +370,7 @@ func (c *nativeCache) snapshot(ctx context.Context, u unit, f cacheFact) (cacheR
 			return cacheRecord{}, nil, err
 		}
 		value, err := harnessschema.Decode(bytes)
-		if err != nil || harnessschema.Validate("cartulary.harness_row_result.v4", value) != nil {
+		if err != nil || harnessschema.Validate("cartulary.harness_row_result.v6", value) != nil {
 			return cacheRecord{}, nil, harnesslocal.ErrUnsafe
 		}
 		object := value.(map[string]any)

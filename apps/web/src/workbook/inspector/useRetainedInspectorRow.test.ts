@@ -1,6 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { expect, it } from "vitest";
-import { timelineRow } from "../../testing/timelineWorkbookTestSupport";
+import { timelineRow } from "../../testing/workbookFixtureData";
 import { entityRowFromApi } from "../models/entityWorkbookModel";
 import { acceptWorkbookRowObservation } from "../query/acceptWorkbookRowObservation";
 import type {

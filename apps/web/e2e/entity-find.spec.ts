@@ -829,9 +829,9 @@ test("Entity Find accepted edits retain newer work through failed refresh and re
 
 test("Entity Find supports density viewport zoom text spacing announcements and recovery menu focus on both schemas", async ({
   page,
-  workerAdmin,
+  testActor,
 }, info) => {
-  const preferences = await installVisualPreferences(page, workerAdmin.user_id);
+  const preferences = await installVisualPreferences(page, testActor.user_id);
   for (const schema of surfaces) {
     const f = await seed(page, schema);
     const field = `${f.type}.display_name`;
@@ -907,7 +907,7 @@ test("Entity Find supports density viewport zoom text spacing announcements and 
 type FindMember = { email: string; initial_password: string; user_id: string };
 async function authorityCase(
   page: Page,
-  workerAdminRequest: APIRequestContext,
+  testActorRequest: APIRequestContext,
   schema: EntitySurface,
   authenticate: (member: FindMember, recovery: boolean) => Promise<void>,
 ) {
@@ -935,7 +935,7 @@ async function authorityCase(
   await input(page).fill("Protected absent term");
   await expect(status(page)).toHaveText("No matches in loaded rows.");
   await revokeAllSessions(
-    workerAdminRequest,
+    testActorRequest,
     member.user_id,
     "Entity Find suspension evidence",
   );
@@ -959,7 +959,7 @@ async function authorityCase(
   await input(page).fill("needle");
   await expect(status(page)).toContainText("4 matching cells");
   const revokedStart = sockets.messageCount();
-  const membershipResponse = await workerAdminRequest.get(
+  const membershipResponse = await testActorRequest.get(
     `/api/v1/incidents/${f.incident}/memberships`,
   );
   expect(membershipResponse.ok()).toBe(true);
@@ -967,7 +967,7 @@ async function authorityCase(
     (item: { user_id: string }) => item.user_id === member.user_id,
   );
   expect(membership).toBeDefined();
-  const removed = await workerAdminRequest.delete(
+  const removed = await testActorRequest.delete(
     `/api/v1/incidents/${f.incident}/memberships/${member.user_id}`,
     { data: { base_membership_version: membership.membership_version } },
   );
@@ -986,11 +986,11 @@ async function authorityCase(
 test("Entity Find retires protected host search during session suspension and reauthentication for read-only viewers", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   await authorityCase(
     page,
-    workerAdminRequest,
+    testActorRequest,
     { view: hostsViewSchemaId, type: "host", primary: "hostname" },
     (member, recovery) =>
       sessionTracker.loginTrackedUser(page, {
@@ -1006,11 +1006,11 @@ test("Entity Find retires protected host search during session suspension and re
 test("Entity Find retires protected identity search during session suspension and reauthentication for read-only viewers", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   await authorityCase(
     page,
-    workerAdminRequest,
+    testActorRequest,
     { view: identitiesViewSchemaId, type: "identity", primary: "upn" },
     (member, recovery) =>
       sessionTracker.loginTrackedUser(page, {

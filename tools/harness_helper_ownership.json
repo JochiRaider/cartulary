@@ -88,14 +88,6 @@
       "allowed_consumers": []
     },
     {
-      "key": "frontend_target_execution",
-      "boundary_group": "frontend",
-      "paths": [
-        "tools/harness/execution/run-frontend-unit.sh"
-      ],
-      "allowed_consumers": []
-    },
-    {
       "key": "frontend_toolchain_readiness",
       "boundary_group": "readiness",
       "paths": [

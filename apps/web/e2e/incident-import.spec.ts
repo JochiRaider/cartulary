@@ -17,7 +17,7 @@ import {
 } from "./support/incidents/import";
 
 test("imports real active and closed bundles with exact recovery and explicit workbook launch", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   for (const lifecycle of ["active", "closed"] as const) {
     const bundle = importBundleFixture(lifecycle);
@@ -145,12 +145,12 @@ test("imports real active and closed bundles with exact recovery and explicit wo
 });
 
 test("recovers import observation and cancellation without confusing terminal outcomes", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }) => {
   const fixture = await installImportObservationFixture(
     page,
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   const form = await openImportPresentation(page);
   await form.getByLabel("Incident bundle file").setInputFiles({
@@ -233,12 +233,12 @@ test("recovers import observation and cancellation without confusing terminal ou
 });
 
 test("checks import actions and recovers access explicitly before accepting current profile loss", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }) => {
   const fixture = await installImportObservationFixture(
     page,
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   const form = await openImportPresentation(page);
   await form.getByLabel("Incident bundle file").setInputFiles({

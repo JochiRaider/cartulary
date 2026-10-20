@@ -235,12 +235,33 @@ func TestRuntimeHostAdmission(t *testing.T) {
 	}
 	short := u
 	short.TimeoutMS = 30
-	if _, err := admit(context.Background(), short); err == nil {
-		t.Fatal("unit admission deadline ignored")
-	} else if class, reason := PublicFailure(err); class != "infra" || reason != "resource_conflict" {
-		t.Fatalf("admission timeout classification: %s/%s: %v", class, reason, err)
+	queued, done := context.WithTimeout(t.Context(), 2*time.Second)
+	defer done()
+	type outcome struct {
+		lease *hostLease
+		err   error
+	}
+	result := make(chan outcome, 1)
+	go func() {
+		lease, err := admit(queued, short)
+		result <- outcome{lease, err}
+	}()
+	select {
+	case outcome := <-result:
+		if outcome.lease != nil {
+			_ = outcome.lease.Release(context.Background())
+		}
+		t.Fatalf("capacity waiting consumed the execution watchdog: %v", outcome.err)
+	case <-time.After(3 * time.Duration(short.TimeoutMS) * time.Millisecond):
 	}
 	if err := lease.Release(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	acquired := <-result
+	if acquired.err != nil || acquired.lease == nil {
+		t.Fatal("healthy queued work did not acquire released capacity", acquired.err)
+	}
+	if err := acquired.lease.Release(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if err := lease.Release(context.Background()); err != nil {

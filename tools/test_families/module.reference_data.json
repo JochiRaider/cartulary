@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.reference_data",
   "rows": [
     {
@@ -35,7 +35,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.browser.administration_real_lifecycle",
@@ -70,7 +72,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c",
@@ -105,7 +109,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.frontend.administration_query_ownership",
@@ -119,7 +125,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/referencePackAdminModel.test.ts",
+        "file": "apps/web/src/app/referencePackAdminModel.node.test.ts",
         "titles": [
           "Reference Pack ownership coalesces exact repeated versions without changing server order or key selection",
           "Reference Pack ownership gates catalog success and failure by the newest admitted generation",
@@ -127,7 +133,7 @@
           "Reference Pack ownership normalizes Unicode input while retaining server search semantics",
           "Reference Pack ownership uses server pin and selected-key work projections for action eligibility"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -136,7 +142,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.frontend.administration_recovery",
@@ -150,7 +157,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/app/referencePackAdminController.test.ts",
+        "file": "apps/web/src/app/referencePackAdminController.node.test.ts",
         "titles": [
           "Reference Pack execution accepts a hidden admission without automatic reads and clears every retired continuation",
           "Reference Pack execution bounds ignored-abort admission and observation without treating read failure as job failure",
@@ -170,7 +177,7 @@
           "Reference Pack execution retries bounded diagnostic reads without resubmitting and clears protected details on access loss",
           "Reference Pack execution reviews exact version eligibility without substituting a different mutation"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -179,7 +186,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.frontend.administration_transport",
@@ -211,7 +219,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.frontend.progress_paint",
@@ -241,7 +250,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.frontend.the_deployment_admin_reference_pack_panel_starts_1cf94e4f79",
@@ -284,7 +294,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.frontend.the_landing_surface_reference_pack_admin_panel_i_819d1aade7",
@@ -311,7 +322,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.integration.a_fresh_disconnected_runtime_seeds_exactly_the_t_aa72222238",
@@ -338,7 +350,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.absent_disabled_failed_and_missing_optional_refe_e5bec4b7f9",
@@ -365,7 +378,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.all_profiles_consumer_boundary",
@@ -392,7 +406,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.canonical_persistence",
@@ -432,7 +447,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.disconnected_reference_pack_failure_modes_produc_d1bffa4cca",
@@ -459,7 +475,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.omitted_reference_pack_refresh_selectors_replay_a29a9f95dc",
@@ -486,7 +503,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.reference_pack_activation_prior_active_retention_af4f8ee94a",
@@ -521,7 +539,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.reference_pack_import_admission_returns_a_queued_9940d5be50",
@@ -548,7 +567,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.reference_pack_import_jobs_re_derive_route_famil_dd456a1690",
@@ -575,7 +595,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.reference_pack_import_uses_the_shared_upload_env_95574f69b8",
@@ -603,7 +624,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.reference_pack_storage_reference_cutover_is_reset_dc28423946",
@@ -631,7 +653,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.integration.reference_pack_upload_envelope_failures_create_n_710dd1d70f",
@@ -658,7 +681,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.measurement.import_progress",
@@ -695,7 +719,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.measurement.refresh_progress",
@@ -732,7 +758,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.measurement.reverify_progress",
@@ -769,7 +797,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "measurement",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.reference_data.unit.application_construction",
@@ -796,7 +826,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_consumers",
@@ -824,7 +855,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_fixture_manifests",
@@ -848,7 +880,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_archive_admission",
@@ -882,7 +915,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_diagnostics",
@@ -906,7 +940,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_indicators",
@@ -931,7 +966,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_manifest",
@@ -965,7 +1001,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_profiles",
@@ -993,7 +1030,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_state",
@@ -1020,7 +1058,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.canonical_pack_trust",
@@ -1052,7 +1091,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.generated_open_api_and_error_registry_artifacts_0843af138f",
@@ -1076,7 +1116,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.operation_telemetry",
@@ -1102,7 +1143,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.reference_pack_logical_refs_are_root_free_96bb19c696",
@@ -1126,7 +1168,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.reference_pack_request_decoders_enforce_activati_7074ebbbda",
@@ -1152,7 +1195,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.reference_pack_storage_is_atomic_and_contained_14f3d4892a",
@@ -1180,7 +1224,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.reference_pack_verifier_accepts_disconnected_loc_9a0b2298c2",
@@ -1208,7 +1253,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.reference_pack_verifier_fails_closed_for_extract_ae36003205",
@@ -1232,7 +1278,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.strict_canonical_json_admission_50c576f498",
@@ -1260,7 +1307,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.reference_data.unit.support_reference_pack_list_query_uses_shared_li_ccbac49024",
@@ -1285,7 +1333,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

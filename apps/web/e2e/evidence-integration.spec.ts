@@ -496,7 +496,7 @@ test("Verify evidence attach, preview, download, and blocked preview through sam
 test("Incident membership revocation conceals Evidence and returns to the authenticated directory without ending the account session.", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -572,12 +572,12 @@ test("Incident membership revocation conceals Evidence and returns to the authen
   await expectActiveEvidenceSurface(page, memberWorkbookURL);
 
   const memberMembership = await loadIncidentMembership(
-    workerAdminRequest,
+    testActorRequest,
     incidentId,
     member.user_id,
   );
   await deleteIncidentMembership(
-    workerAdminRequest,
+    testActorRequest,
     incidentId,
     member.user_id,
     memberMembership.membership_version,

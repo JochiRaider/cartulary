@@ -23,7 +23,7 @@ import {
 } from "./support/referencePacks";
 
 test("imports and replays real pack bytes then activates disables reverifies and refreshes exact scope by keyboard", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   const bundle = referencePackBundle();
   const admissions: { id: string; metadata: string; bytes: Buffer }[] = [];
@@ -234,12 +234,12 @@ test("imports and replays real pack bytes then activates disables reverifies and
 });
 
 test("supports asynchronous exact actions and retained selection with independent observation recovery", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }) => {
   const fixture = await installReferencePackPresentation(
     page,
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   const panel = await openReferencePacks(page);
   const rows = panel.getByRole("row");
@@ -290,8 +290,8 @@ test("supports asynchronous exact actions and retained selection with independen
 const jobID = "11111111-1111-4111-8111-111111111111";
 
 test("shows Reference Pack progress and cancel controls without blocking landing interaction", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }) => {
   let jobReads = 0;
   let cancelRequests = 0;
@@ -375,7 +375,7 @@ test("shows Reference Pack progress and cancel controls without blocking landing
       status: 202,
       contentType: "application/json",
       body: JSON.stringify({
-        data: jobResource(jobID, "queued", true, 0, 3, workerAdmin.user_id),
+        data: jobResource(jobID, "queued", true, 0, 3, testActor.user_id),
         meta: { request_id: "request-refresh" },
       }),
     });
@@ -393,7 +393,7 @@ test("shows Reference Pack progress and cancel controls without blocking landing
           !cancelRequests,
           1,
           3,
-          workerAdmin.user_id,
+          testActor.user_id,
         ),
         meta: { request_id: "request-job" },
       }),
@@ -415,7 +415,7 @@ test("shows Reference Pack progress and cancel controls without blocking landing
             false,
             1,
             3,
-            workerAdmin.user_id,
+            testActor.user_id,
           ),
           meta: { request_id: "request-cancel" },
         }),

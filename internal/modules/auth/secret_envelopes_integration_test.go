@@ -69,7 +69,7 @@ func TestEnterprisePKCEEnvelopeSubstitution_Integration(t *testing.T) {
 	runtime := flowtest.StartRuntime(t)
 	server, db := startEnterpriseServer(t, runtime, "enterprise-envelope-substitution")
 	defer db.Close()
-	user := seedLocalUser(t, db, "enterprise-envelope@example.test", "Enterprise", "EnvelopePassword1!", false)
+	user := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "enterprise-envelope@example.test", DisplayName: "Enterprise"}).ID.String()
 	provider := seedEnterpriseProvider(t, db, enterpriseProviderSeed{Key: "sealed-oidc", Type: "oidc", Name: "Sealed OIDC", Enabled: true, Interactive: true})
 	seedEnterpriseBinding(t, db, user, provider, "BoundSubject", user)
 	first := beginEnterpriseAuthWithBody(t, server, "sealed-oidc", map[string]any{"return_to": "/"})

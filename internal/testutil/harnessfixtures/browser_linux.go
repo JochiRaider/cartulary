@@ -6,11 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/browserpki"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
@@ -21,7 +20,8 @@ import (
 func (p ProductionOptions) browserOperation(ctx context.Context, operation string, args []string, environment map[string]string) (map[string]any, error) {
 	return p.physicalOperation(ctx, "fixture-lifecycle.mjs", operation, args, environment)
 }
-func (p ProductionOptions) physicalOperation(ctx context.Context, script, operation string, args []string, environment map[string]string) (map[string]any, error) {
+func (p ProductionOptions) physicalOperation(ctx context.Context, script, operation string, args []string, environment map[string]string) (value map[string]any, resultErr error) {
+	defer func() { resultErr = harnesssession.AtCleanupStage("physical_command", resultErr) }()
 	node := p.Environment["NODE_BIN"]
 	if node == "" {
 		return nil, &Failure{Class: "config", Reason: "configuration_error"}
@@ -45,11 +45,11 @@ func (p ProductionOptions) physicalOperation(ctx context.Context, script, operat
 		}
 		return nil, fixtureFailure(err)
 	}
-	value, err := harnessschema.Decode(result.Stdout)
+	decoded, err := harnessschema.Decode(result.Stdout)
 	if err != nil {
 		return nil, artifactFailure(err)
 	}
-	object, ok := value.(map[string]any)
+	object, ok := decoded.(map[string]any)
 	if !ok {
 		return nil, artifactFailure(harnesslocal.ErrUnsafe)
 	}
@@ -59,7 +59,8 @@ func (p ProductionOptions) physicalOperation(ctx context.Context, script, operat
 type browserProvider struct {
 	trust               browserpki.Owner
 	options             ProductionOptions
-	suite               *SuiteOwner
+	services            func(context.Context, Request) (*Suite, error)
+	releaseServices     func(context.Context, Request) error
 	mu                  sync.Mutex
 	allocations, clones map[string]int
 }
@@ -71,11 +72,31 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	if profiled && (request.FixtureProfile == "" || request.SnapshotKey == "" || request.BuilderUnit == "" || request.RowID == "" || request.PredicateID == "" || request.LeaseID == "") {
 		return nil, fixtureFailure(errors.New("incomplete snapshot identity"))
 	}
-	suite, err := b.suite.Ensure(ctx)
+	// Transfer acquired ownership even on startup failure. The broker must
+	// retain this allocation until its single cleanup attempt settles it,
+	// including a service generation that failed before browser preparation.
+	var closeBrowser func(context.Context) error
+	partial := &Allocation{Ownership: "owned", ResourceIDs: []string{}, Release: func(ctx context.Context, _ bool) error {
+		if closeBrowser != nil {
+			if err := closeBrowser(ctx); err != nil {
+				return err
+			}
+		}
+		if b.releaseServices != nil {
+			return b.releaseServices(ctx, request)
+		}
+		return nil
+	}}
+	defer func() {
+		if result != nil {
+			allocation = partial
+		}
+	}()
+	suite, err := b.services(ctx, request)
 	if err != nil {
 		return nil, err
 	}
-	p.Dependencies = []string{suite.ResourceRef}
+	p.Dependencies = slices.Clone(suite.ResourceRefs)
 	affinity := safeName.ReplaceAllString(request.Affinity, "-")
 	if affinity == "" {
 		affinity = "browser"
@@ -89,7 +110,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	ordinal := b.allocations[affinity]
 	clone := 0
 	if profiled {
-		key := profile + ":" + request.FixtureProfile + ":" + request.SnapshotKey
+		key := clusterKey(request)
 		b.clones[key]++
 		clone = b.clones[key]
 	}
@@ -103,13 +124,10 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if result != nil {
-			directory.Close()
-		}
-	}()
-	environment := p.environment()
-	maps.Copy(environment, suite.Environment)
+	closeBrowser = func(context.Context) error {
+		return errors.Join(harnesssession.RemoveOwnedTree(directory, root), directory.Close())
+	}
+	environment := serviceEnvironment(p.environment(), suite.Environment)
 	for key, value := range map[string]string{"CARTULARY_WORK_UNIT_ID": request.UnitID, "CARTULARY_BROWSER_STAGE": request.BrowserStage, "CARTULARY_BROWSER_RUNTIME_PROFILE_ID": profile, "CARTULARY_BROWSER_SERVICE_REQUIREMENT": "test-services", "CARTULARY_BROWSER_SESSION_GROUP": session, "CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT": root, "CARTULARY_HARNESS_ALLOCATION_REF": request.AllocationRef} {
 		environment[key] = value
 	}
@@ -123,16 +141,17 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	if err != nil {
 		return nil, err
 	}
-	p.Dependencies = []string{suite.ResourceRef, resourceRef}
+	p.Dependencies = append(slices.Clone(suite.ResourceRefs), resourceRef)
 	lease := filepath.Join(root, "stack.lease")
 	envFile := filepath.Join(root, "stack.env")
-	dependencies := append([]string{suite.ResourceRef}, p.residency.reference(stackKey(request))...)
-	if err := p.Runtime.RecordDependentResource("browser_stack", file, "pending", dependencies); err != nil {
-		return nil, artifactFailure(err)
+	dependencies := append(slices.Clone(suite.ResourceRefs), p.residency.reference(stackKey(request))...)
+	recoveryEnvironment := filepath.Join(root, "stack-environment.json")
+	if err := saveRecoveryEnvironment(recoveryEnvironment, environment); err != nil {
+		return nil, err
 	}
 	var once sync.Once
 	var closeErr error
-	close := func(ctx context.Context) error {
+	closeBrowser = func(ctx context.Context) error {
 		once.Do(func() {
 			closeErr = p.closeResource(ctx, "browser_stack", file, func(ctx context.Context) error {
 				if err := p.Runtime.AttemptCleanup(ctx, "browser_stack", file, func(step context.Context) error {
@@ -144,18 +163,17 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 				if err := p.Runtime.RecordResource("browser_stack", file, "released"); err != nil {
 					return artifactFailure(err)
 				}
-				return errors.Join(harnesssession.RemoveOwnedTree(directory, root), directory.Close(), p.residency.close(ctx, stackKey(request)))
+				return errors.Join(harnesssession.RemoveOwnedTree(directory, root), p.residency.close(ctx, stackKey(request)))
 			})
+			// A failed cleanup is terminal for this handle. Disk proof remains
+			// journal-owned for explicit recovery; no descriptor needs to leak.
+			closeErr = errors.Join(closeErr, directory.Close())
 		})
 		return closeErr
 	}
-	defer func() {
-		if result != nil {
-			cleanup, done := context.WithTimeout(context.Background(), 2*time.Minute)
-			defer done()
-			result = errors.Join(result, close(cleanup))
-		}
-	}()
+	if err := p.Runtime.RecordDependentResource("browser_stack", file, "pending", dependencies, suite.LeaseFile, recoveryEnvironment); err != nil {
+		return nil, artifactFailure(err)
+	}
 	prepared, err := p.browserOperation(ctx, "prepare", []string{suite.LeaseFile}, environment)
 	if err != nil {
 		return nil, err
@@ -221,5 +239,7 @@ func (b *browserProvider) Acquire(ctx context.Context, request Request) (allocat
 	if profiled {
 		ids = append(ids, fmt.Sprintf("fixture-clone:%s:%d", request.SnapshotKey, clone))
 	}
-	return &Allocation{Ownership: "owned", ResourceIDs: ids, Environment: attached, FixtureProfile: request.FixtureProfile, SnapshotKey: request.SnapshotKey, BuilderUnit: request.BuilderUnit, CloneOrdinal: clone, Release: func(ctx context.Context, _ bool) error { return close(ctx) }}, nil
+	partial.ResourceIDs, partial.Environment = ids, attached
+	partial.FixtureProfile, partial.SnapshotKey, partial.BuilderUnit, partial.CloneOrdinal = request.FixtureProfile, request.SnapshotKey, request.BuilderUnit, clone
+	return partial, nil
 }

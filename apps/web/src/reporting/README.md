@@ -11,7 +11,7 @@ request recovery. Replacing the account or incident retires protected state.
 | File | Responsibility |
 | --- | --- |
 | [ReportingController.ts](ReportingController.ts) | Immutable request admission, bounded reads, monotonic Job receipts, exact cancellation and snapshot binding. |
-| [ReportingController.test.ts](ReportingController.test.ts) | Uncertain replay, identity rejection, authority retirement, cancellation and bounded observation. |
+| [ReportingController.node.test.ts](ReportingController.node.test.ts) | Uncertain replay, identity rejection, authority retirement, cancellation and bounded observation. |
 | [ReportingPanel.tsx](ReportingPanel.tsx) | Nonmodal snapshot/internal-draft controls and retained Job status. |
 
 Internal drafts are not approvals or publication. This surface does not implement

@@ -41,7 +41,7 @@ func TestBindingMode_Unit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compose Host/Identity store: %v", err)
 	}
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u401@example.test", "U401", "U401EntityLinkingPass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u401@example.test", DisplayName: "U401"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-01-incident", "IR-U401", "Record relationships timeline-storage")
 
 	viewtest.RequireFieldBindingMode(t, "timeline-storage", viewtest.TimelineViewSchemaID, timelinetest.FieldHostRefs, "mention_origin")
@@ -129,7 +129,7 @@ func TestBindingMode_Unit(t *testing.T) {
 func TestDuplicateMentionProvenance_Unit(t *testing.T) {
 	harness := appsupport.StartStore(t, "entity_linking-u-4-02")
 	store := newResolutionTimelineCommands(t, harness.DB)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u402@example.test", "U402", "U402EntityLinkingPass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u402@example.test", DisplayName: "U402"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-entity_linking-u-4-02-incident", "IR-U402", "Record relationships timeline-storage")
 
 	normalizedToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
@@ -202,7 +202,7 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, origin_locator
 func TestAttachedEvidenceCreateAndPatch(t *testing.T) {
 	harness := appsupport.StartStore(t, "evidence_lifecycle-attached-evidence")
 	store := newResolutionTimelineCommands(t, harness.DB)
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "u5attach@example.test", "U5ATTACH", "U5AttachPass1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "u5attach@example.test", DisplayName: "U5ATTACH"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-evidence_lifecycle-attached-incident", "IR-U5ATTACH", "Evidence attached evidence")
 
 	evidenceID := seedTimelineEvidence(t, harness, incident.ID, actor.ID, "Screenshot one", "available")

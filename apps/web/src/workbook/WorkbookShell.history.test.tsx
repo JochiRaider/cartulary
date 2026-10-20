@@ -31,19 +31,21 @@ import { TimelineWorkbookRuntimeFixture } from "../testing/TimelineWorkbookRunti
 import {
   changeInputValue,
   cleanupTimelineWorkbookTestGlobals,
-  errorEnvelope,
   extractTimelineConflictResolutionBody,
   extractTimelineJSONBody,
   findWorkbookCell,
   installTimelineWorkbookTestGlobals,
   latestTimelineWebSocket,
-  successEnvelope,
   type TimelineWorkbookFetchMock,
-  timelineRow,
   visibleGridRowRecordIds,
   waitForVisibleGridRowRecordIds,
   workbookAsyncTimeoutMs,
 } from "../testing/timelineWorkbookTestSupport";
+import {
+  errorEnvelope,
+  successEnvelope,
+  timelineRow,
+} from "../testing/workbookFixtureData";
 import { historyDiffFixture } from "../testing/workbookHistoryTestSupport";
 import type { RecordHistoryItem } from "./adapters/workbookHistoryResponse";
 import { buildRecordRollbackTargetFromHistoryAction } from "./history/workbookHistoryItem";

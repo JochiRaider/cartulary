@@ -252,7 +252,7 @@ func TestEnterpriseAuthProviderOIDC_Integration(t *testing.T) {
 		t.Fatalf("OIDC claims must not create incident memberships, before=%d after=%d", beforeMemberships, got)
 	}
 
-	inactiveUserID := seedLocalUserFlags(t, db, "oidc.inactive@example.test", "Inactive OIDC", "InactiveOIDC1!", false, false, false)
+	inactiveUserID := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "oidc.inactive@example.test", DisplayName: "Inactive OIDC", Disabled: true}).ID.String()
 	seedEnterpriseBinding(t, db, inactiveUserID, otherProviderID, "inactive-subject", userID)
 	inactiveBegin := beginEnterpriseAuth(t, server, "other-oidc")
 	inactiveURL := parseEnterpriseRedirect(t, inactiveBegin.redirectURL)
@@ -266,7 +266,7 @@ func TestEnterpriseSAMLACS_Integration(t *testing.T) {
 	server, db := startEnterpriseServer(t, runtime, "extension_profile-enterprise-saml")
 	defer db.Close()
 
-	userID := seedLocalUser(t, db, "saml.enterprise@example.test", "SAML Enterprise", "EnterpriseSAML1!", false)
+	userID := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "saml.enterprise@example.test", DisplayName: "SAML Enterprise"}).ID.String()
 	providerID := seedEnterpriseProvider(t, db, enterpriseProviderSeed{
 		Key:         "corp-saml",
 		Type:        "saml",
@@ -472,10 +472,10 @@ func TestEnterpriseAuthBindingLifecycle_Integration(t *testing.T) {
 
 	adminID := seedLocalUserFlags(t, db, "enterprise.admin@example.test", "Enterprise Admin", "EnterpriseAdmin1!", false, true, true)
 	targetID := seedLocalUser(t, db, "binding.target@example.test", "Binding Target", "BindingTarget1!", false)
-	otherID := seedLocalUser(t, db, "binding.other@example.test", "Binding Other", "BindingOther1!", false)
-	caseVariantID := seedLocalUser(t, db, "binding.case@example.test", "Binding Case", "BindingCase1!", false)
-	spaceVariantID := seedLocalUser(t, db, "binding.space@example.test", "Binding Space", "BindingSpace1!", false)
-	conflictTargetID := seedLocalUser(t, db, "binding.conflict@example.test", "Binding Conflict", "BindingConflict1!", false)
+	otherID := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "binding.other@example.test", DisplayName: "Binding Other"}).ID.String()
+	caseVariantID := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "binding.case@example.test", DisplayName: "Binding Case"}).ID.String()
+	spaceVariantID := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "binding.space@example.test", DisplayName: "Binding Space"}).ID.String()
+	conflictTargetID := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "binding.conflict@example.test", DisplayName: "Binding Conflict"}).ID.String()
 	incidentAdminID := seedLocalUserFlags(t, db, "enterprise.incident.admin@example.test", "Enterprise Incident Admin", "EnterpriseIncidentAdmin1!", false, false, true)
 	providerID := seedEnterpriseProvider(t, db, enterpriseProviderSeed{
 		Key:         "corp-bind",

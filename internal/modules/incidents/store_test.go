@@ -28,16 +28,7 @@ import (
 
 func TestStoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-u-2-02")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident_membership-u202@example.test",
-		"Incident administration U202",
-		"IncidentMembershipU202Pass!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident_membership-u202@example.test", DisplayName: "Incident administration U202"})
 
 	result := storetest.CreateIncidentInStore(
 		t, harness.Incidents, actor,
@@ -93,14 +84,8 @@ func TestMutationCommandTimeIsSharedAcrossDomainRawAndProjectedAuditRows_Unit(t 
 		return currentTime
 	})
 	ctx := context.Background()
-	admin := authstoretest.SeedLocalUserRecord(
-		t, harness.DB, "incident-command-time-admin@example.test", "Incident command time admin",
-		"IncidentCommandTimeAdmin1!", false, false, true,
-	)
-	member := authstoretest.SeedLocalUserRecord(
-		t, harness.DB, "incident-command-time-member@example.test", "Incident command time member",
-		"IncidentCommandTimeMember1!", false, false, true,
-	)
+	admin := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident-command-time-admin@example.test", DisplayName: "Incident command time admin"})
+	member := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident-command-time-member@example.test", DisplayName: "Incident command time member"})
 	createRequestID := "req-command-time-create"
 	createRequest := admissiontest.IncidentCreate(t, admissiontest.IncidentCreateInput{
 		ClientTxnID: "txn-command-time-create",
@@ -295,16 +280,7 @@ SELECT COUNT(*)
 
 func TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-support-bootstrap-port-rollback")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident_membership-support-bootstrap-port@example.test",
-		"Incident administration Bootstrap Port",
-		"IncidentMembershipBootstrapPortPass!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident_membership-support-bootstrap-port@example.test", DisplayName: "Incident administration Bootstrap Port"})
 	bootstrapErr := errors.New("bootstrap port failed")
 	store, err := incidents.NewApplication(incidents.ApplicationDependencies{
 		Postgres:            harness.DB,
@@ -352,26 +328,8 @@ func TestStoreCreateIncidentPreferenceBootstrapFailureRollsBack(t *testing.T) {
 func TestTerminalMutationCommitResultsUseCommittedAuditEventIdentity_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "incident-terminal-effect-identity")
 	ctx := context.Background()
-	admin := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident-terminal-effect-admin@example.test",
-		"Incident terminal effect admin",
-		"IncidentTerminalEffectAdmin1!",
-		false,
-		false,
-		true,
-	)
-	member := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident-terminal-effect-member@example.test",
-		"Incident terminal effect member",
-		"IncidentTerminalEffectMember1!",
-		false,
-		false,
-		true,
-	)
+	admin := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident-terminal-effect-admin@example.test", DisplayName: "Incident terminal effect admin"})
+	member := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident-terminal-effect-member@example.test", DisplayName: "Incident terminal effect member"})
 	incident := storetest.CreateIncidentInStore(
 		t, harness.Incidents, admin,
 		"txn-terminal-effect-create", "IR-TERMINAL-EFFECT", "Terminal effect identity",
@@ -467,16 +425,7 @@ func TestIncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construct incident bundle import finalizer: %v", err)
 	}
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident_membership-support-bundle-finalize@example.test",
-		"Incident administration Bundle Finalize",
-		"IncidentMembershipBundleFinalizePass!",
-		false,
-		true,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident_membership-support-bundle-finalize@example.test", DisplayName: "Incident administration Bundle Finalize", DeploymentAdmin: true})
 	incidentID := uuid.New()
 	publishedAt := time.Date(2026, 5, 25, 18, 0, 0, 0, time.UTC)
 	requestID := "incident-bundle-finalization-request"
@@ -536,16 +485,7 @@ func TestIncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construct incident bundle import finalizer: %v", err)
 	}
-	creator := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident_membership-support-bundle-finalize-creator@example.test",
-		"Incident administration Bundle Finalize Creator",
-		"IncidentMembershipBundleFinalizeCreatorPass!",
-		false,
-		true,
-		true,
-	)
+	creator := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident_membership-support-bundle-finalize-creator@example.test", DisplayName: "Incident administration Bundle Finalize Creator", DeploymentAdmin: true})
 	incidentID := uuid.New()
 
 	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
@@ -646,26 +586,8 @@ VALUES ($1, $2, $2, $3, 'active', $4, $4)
 func TestStoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor_Unit(t *testing.T) {
 	harness := storetest.StartStore(t, "incident_membership-u-2-04")
 	store := harness.Incidents
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident_membership-u204@example.test",
-		"Incident administration U204",
-		"IncidentMembershipU204Pass!",
-		false,
-		false,
-		true,
-	)
-	secondActor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident_membership-u204-second@example.test",
-		"Incident administration U204 Second",
-		"IncidentMembershipU204SecondPass!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident_membership-u204@example.test", DisplayName: "Incident administration U204"})
+	secondActor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident_membership-u204-second@example.test", DisplayName: "Incident administration U204 Second"})
 
 	firstInput := admissiontest.IncidentCreateInput{
 		ClientTxnID: "txn-u-2-04",
@@ -775,16 +697,7 @@ func TestStoreIncidentPatchReturnsTypedVersionConflictDetails_Unit(t *testing.T)
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
 	}
-	admin := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident_membership-u214-admin@example.test",
-		"Incident administration U214 Admin",
-		"IncidentMembershipU214AdminPass!",
-		false,
-		false,
-		true,
-	)
+	admin := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident_membership-u214-admin@example.test", DisplayName: "Incident administration U214 Admin"})
 
 	incidentResult := storetest.CreateIncidentInStore(
 		t, harness.Incidents, admin,
@@ -859,26 +772,8 @@ func TestStoreMembershipPatchAndDeleteRejectStaleBaseVersion_Unit(t *testing.T) 
 	if err != nil {
 		t.Fatalf("construct Incidents application: %v", err)
 	}
-	admin := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident_membership-u207-admin@example.test",
-		"Incident administration U207 Admin",
-		"IncidentMembershipU207AdminPass!",
-		false,
-		false,
-		true,
-	)
-	target := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"incident_membership-u207-target@example.test",
-		"Incident administration U207 Target",
-		"IncidentMembershipU207TargetPass!",
-		false,
-		false,
-		true,
-	)
+	admin := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident_membership-u207-admin@example.test", DisplayName: "Incident administration U207 Admin"})
+	target := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "incident_membership-u207-target@example.test", DisplayName: "Incident administration U207 Target"})
 
 	incidentResult := storetest.CreateIncidentInStore(
 		t, harness.Incidents, admin,

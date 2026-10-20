@@ -14,8 +14,9 @@ import (
 
 func nativeAdmission(capacities map[string]int64, parent *string, root string, production *harnessfixtures.Production) func(context.Context, unit) (*hostLease, error) {
 	return func(caller context.Context, u unit) (*hostLease, error) {
-		ctx, cancel := context.WithTimeout(caller, time.Duration(u.TimeoutMS)*time.Millisecond)
-		defer cancel()
+		// Capacity waiting is invocation-owned queue residence. The process
+		// runner applies the unit watchdog only after admission and setup.
+		ctx := caller
 		claims, available := harnessadmission.Quantities{}, harnessadmission.Quantities{}
 		for k, v := range u.Claims {
 			claims[k] = float64(v)
@@ -32,6 +33,7 @@ func nativeAdmission(capacities map[string]int64, parent *string, root string, p
 			lease, finish, err = production.Admit(ctx, workRequirement(u))
 		}
 		if err != nil {
+			primary := classifyAdmissionFailure(caller, err)
 			if lease != nil {
 				cleanup, done := context.WithTimeout(context.Background(), 2*time.Minute)
 				if finish != nil {
@@ -40,13 +42,7 @@ func nativeAdmission(capacities map[string]int64, parent *string, root string, p
 				err = errors.Join(err, lease.Release(cleanup))
 				done()
 			}
-			if errors.Is(err, harnessadmission.ErrRelease) {
-				return nil, failed("harness", "cleanup_error")
-			}
-			if caller.Err() != nil {
-				return nil, caller.Err()
-			}
-			return nil, failed("infra", "resource_conflict")
+			return nil, errors.Join(primary, err)
 		}
 		return &hostLease{Token: lease.Token, Release: func(ctx context.Context) error {
 			var err error
@@ -59,10 +55,23 @@ func nativeAdmission(capacities map[string]int64, parent *string, root string, p
 }
 
 func workRequirement(u unit) harnessfixtures.WorkRequirement {
-	env := u.Command.Environment
-	profile := env["CARTULARY_BROWSER_RUNTIME_PROFILE_ID"]
-	if profile == "" {
-		profile = "default"
+	request := nativeFixtureRequest(fixtureRequest{PostgresIsolation: u.PostgresIsolation, Services: u.Services, UnitID: u.ID, Capability: u.Fixture, Affinity: fixtureAffinity(u), Environment: u.Command.Environment})
+	return harnessfixtures.WorkRequirement{Request: request, Renderer: u.Renderer, Physical: u.Physical, Active: u.Claims, Exclusive: slices.Contains(u.ExclusiveLocks, "host_activity")}
+}
+
+func classifyAdmissionFailure(caller context.Context, err error) error {
+	var typed interface{ HarnessFailure() (string, string) }
+	if errors.As(err, &typed) {
+		return failureOf(err)
 	}
-	return harnessfixtures.WorkRequirement{Request: harnessfixtures.Request{UnitID: u.ID, Capability: u.Fixture, Affinity: fixtureAffinity(u), RuntimeProfile: profile, FixtureProfile: env["CARTULARY_FIXTURE_PROFILE_ID"], SnapshotKey: env["CARTULARY_FIXTURE_SNAPSHOT_KEY"]}, Renderer: u.Renderer, Physical: u.Physical, Active: u.Claims, Exclusive: slices.Contains(u.ExclusiveLocks, "host_activity")}
+	if caller.Err() != nil {
+		return failureOf(caller.Err())
+	}
+	if errors.Is(err, harnessadmission.ErrRelease) {
+		return failed("harness", "cleanup_error")
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, harnessadmission.ErrConflict) {
+		return failed("infra", "resource_conflict")
+	}
+	return failureOf(err)
 }

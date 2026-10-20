@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/collaborationsupport/intenttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -23,7 +24,7 @@ const testJobKind = collaborationsupport.TestJobKind
 
 func TestManagerCreatesCancelsAndReplaysJobCancel(t *testing.T) {
 	ctx := context.Background()
-	manager, actorID, incidentID := newJobsHarness(t, "jobs-cancel-replay")
+	manager, actorID, incidentID, _ := newJobsStoreHarness(t, "jobs-cancel-replay", func() time.Time { return time.Now().UTC() })
 
 	resource, err := enqueueTestJob(t, manager, jobs.EnqueueParams{
 		JobKind:           testJobKind,
@@ -238,7 +239,7 @@ SELECT pid
 func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 5, 23, 10, 0, 0, 0, time.UTC)
-	manager, actorID, _ := newJobsHarnessWithClock(t, "jobs-terminal-success", func() time.Time { return now })
+	manager, actorID, _, _ := newJobsStoreHarness(t, "jobs-terminal-success", func() time.Time { return now })
 
 	resource, err := enqueueTestJob(t, manager, jobs.EnqueueParams{
 		JobKind:           testJobKind,
@@ -275,7 +276,7 @@ func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 }
 
 func TestManagerPersistsCanonicalIncidentProgressIntents_Integration(t *testing.T) {
-	manager, actorID, incidentID, pool := newJobsHarnessWithPool(
+	manager, actorID, incidentID, pool := newJobsStoreHarness(
 		t,
 		"jobs-progress-intent",
 		func() time.Time { return time.Date(2026, 7, 27, 21, 0, 0, 123000000, time.UTC) },
@@ -323,7 +324,7 @@ func (a rejectingProgressIntentAppender) AppendProgressIntentTx(context.Context,
 }
 
 func TestManagerProgressIntentFailureRollsBackJobMutation_Integration(t *testing.T) {
-	_, actorID, incidentID, pool := newJobsHarnessWithPool(
+	_, actorID, incidentID, pool := newJobsStoreHarness(
 		t,
 		"jobs-progress-intent-rollback",
 		func() time.Time { return time.Date(2026, 7, 28, 5, 15, 0, 0, time.UTC) },
@@ -353,7 +354,8 @@ func TestManagerProgressIntentFailureRollsBackJobMutation_Integration(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	testJobCompositions.Store(manager, testJobComposition{catalog: catalog, transactions: transactions, pool: pool, now: func() time.Time { return time.Date(2026, 7, 28, 5, 15, 0, 0, time.UTC) }})
+	testJobCompositions.Store(manager, testJobComposition{catalog: catalog, transactions: transactions, db: pool, now: func() time.Time { return time.Date(2026, 7, 28, 5, 15, 0, 0, time.UTC) }})
+	t.Cleanup(func() { testJobCompositions.Delete(manager) })
 	_, err = enqueueTestJob(t, manager, jobs.EnqueueParams{
 		JobKind:           testJobKind,
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
@@ -514,10 +516,25 @@ func TestRunnerNamedCompositionRejectsInvalidAndDuplicateRegistration(t *testing
 	if _, err := jobs.NewRunner(jobs.RunnerOptions{}); !errors.Is(err, jobs.ErrNotConfigured) {
 		t.Fatalf("unconfigured named composition error = %v; want ErrNotConfigured", err)
 	}
-	manager, _, _ := newJobsHarness(t, "jobs-runner-registration")
+	catalog := collaborationsupport.NewJobCatalog()
+	// Construction and registration must not use persistence. Any DB operation
+	// on this inert dependency fails immediately instead of acquiring a service.
+	manager, err := jobs.NewManager(jobs.ManagerOptions{
+		Postgres: struct{ postgres.DB }{}, Catalog: catalog,
+		Transactions: collaborationsupport.NewJobTransactionsForCatalog(catalog),
+		Policy:       jobs.ProductionRuntimePolicy(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	gate := &dequeueGate{}
 	gate.open.Store(true)
-	runner := newTestRunner(t, manager, gate)
+	runner, err := jobs.NewRunner(jobs.RunnerOptions{
+		Manager: manager, Catalog: catalog, Policy: jobs.ProductionRuntimePolicy(), DequeueGate: gate,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -545,7 +562,7 @@ func (gate *dequeueGate) AdmissionOpen() bool {
 func TestManagerFailsDurableHandlerClosedAfterMaxAttempts(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 8, 8, 16, 0, 0, 0, time.UTC)
-	manager, actorID, incidentID, pool := newJobsHarnessWithPool(
+	manager, actorID, incidentID, pool := newJobsStoreHarness(
 		t,
 		"jobs-durable-exhausted",
 		func() time.Time { return now },
@@ -632,21 +649,38 @@ func newJobsHarnessWithPool(
 	}
 	t.Cleanup(pool.Close)
 
+	manager, actorID, incidentID := newJobsHarnessWithDB(t, pool, now, "0.0.0+unknown")
+	return manager, actorID, incidentID, pool
+}
+
+// newJobsStoreHarness owns one rollback transaction and never starts a runner or
+// registers asynchronous metric callbacks. Concurrency and telemetry tests use
+// the pool-backed fixture instead.
+func newJobsStoreHarness(t testing.TB, prefix string, now func() time.Time) (*jobs.Manager, uuid.UUID, uuid.UUID, postgres.DB) {
+	t.Helper()
+	db := pgtest.Start(t).BeginRollbackDBT(t, prefix)
+	manager, actorID, incidentID := newJobsHarnessWithDB(t, db, now, "")
+	return manager, actorID, incidentID, db
+}
+
+func newJobsHarnessWithDB(t testing.TB, db postgres.DB, now func() time.Time, serviceVersion string) (*jobs.Manager, uuid.UUID, uuid.UUID) {
+	t.Helper()
+
 	actorID := uuid.New()
 	incidentID := uuid.New()
-	if _, err := pool.Exec(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO users (id, email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
 VALUES ($1, $2, 'Jobs Actor', 'hash', false, true, true)
 `, actorID, actorID.String()+"@example.test"); err != nil {
 		t.Fatalf("insert actor: %v", err)
 	}
-	if _, err := pool.Exec(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO incidents (id, incident_key, incident_key_canonical, title, status, created_by_user_id, updated_by_user_id)
 VALUES ($1, $2, $2, 'Jobs Incident', 'active', $3, $3)
 `, incidentID, "jobs-"+incidentID.String(), actorID); err != nil {
 		t.Fatalf("insert incident: %v", err)
 	}
-	if _, err := pool.Exec(context.Background(), `
+	if _, err := db.Exec(context.Background(), `
 INSERT INTO incident_memberships (incident_id, user_id, role, added_by_user_id, updated_by_user_id)
 VALUES ($1, $2, 'admin', $2, $2)
 `, incidentID, actorID); err != nil {
@@ -656,24 +690,24 @@ VALUES ($1, $2, 'admin', $2, $2)
 	catalog := collaborationsupport.NewJobCatalog()
 	transactions := collaborationsupport.NewJobTransactionsForCatalog(catalog)
 	manager, err := jobs.NewManager(jobs.ManagerOptions{
-		Postgres: pool, Transactions: transactions, Catalog: catalog,
+		Postgres: db, Transactions: transactions, Catalog: catalog,
 		Policy: jobs.ProductionRuntimePolicy(), Now: now,
-		TelemetryServiceVersion: "0.0.0+unknown",
+		TelemetryServiceVersion: serviceVersion,
 	})
 	if err != nil {
 		t.Fatalf("compose test Jobs manager: %v", err)
 	}
 	testJobCompositions.Store(manager, testJobComposition{
-		catalog: catalog, transactions: transactions, pool: pool, now: now,
+		catalog: catalog, transactions: transactions, db: db, now: now,
 	})
 	t.Cleanup(func() { testJobCompositions.Delete(manager) })
-	return manager, actorID, incidentID, pool
+	return manager, actorID, incidentID
 }
 
 type testJobComposition struct {
 	catalog      *jobs.Catalog
 	transactions *jobs.TransactionService
-	pool         *pgxpool.Pool
+	db           postgres.DB
 	now          func() time.Time
 }
 
@@ -686,7 +720,7 @@ func enqueueTestJob(t testing.TB, manager *jobs.Manager, params jobs.EnqueuePara
 		return jobs.Resource{}, errors.New("test Jobs transaction service is unavailable")
 	}
 	composition := value.(testJobComposition)
-	tx, err := composition.pool.Begin(context.Background())
+	tx, err := composition.db.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
 		return jobs.Resource{}, err
 	}

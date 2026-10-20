@@ -1,0 +1,922 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_performance_explanation.v5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "target",
+    "status",
+    "canonical_wall_ms",
+    "inclusive_wall_ms",
+    "exclusive_wall_ms",
+    "dependency_path_ms",
+    "invocation_path_queue_ms",
+    "canonical_time_outside_selected_phases_ms",
+    "phase_overlap_ms",
+    "units_omitted",
+    "phase_union_ms",
+    "units",
+    "reservations",
+    "resources",
+    "envelope",
+    "limitations",
+    "comparison",
+    "execution",
+    "terminal_receipt",
+    "not_launched_units",
+    "not_launched_units_omitted",
+    "evidence_absences",
+    "evidence_absences_omitted"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_performance_explanation.v5"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail",
+        "cancelled",
+        "skipped"
+      ]
+    },
+    "canonical_wall_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "inclusive_wall_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "exclusive_wall_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dependency_path_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "invocation_path_queue_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "canonical_time_outside_selected_phases_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "phase_overlap_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "units_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "phase_union_ms": {
+      "$ref": "cartulary.harness_instrumentation_defs.v2#/$defs/phase_union"
+    },
+    "units": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "unit_id",
+          "kind",
+          "queue_ms",
+          "execution_ms",
+          "on_invocation_dependency_path",
+          "queue_by_reason_ms",
+          "wait_segments"
+        ],
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "kind": {
+            "enum": [
+              "runner",
+              "readiness",
+              "lifecycle",
+              "finalizer",
+              "policy",
+              "artifact",
+              "fixture_builder"
+            ]
+          },
+          "queue_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "execution_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "on_invocation_dependency_path": {
+            "type": "boolean"
+          },
+          "queue_by_reason_ms": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "resources",
+              "exclusive_barrier",
+              "rank",
+              "scheduler_stop"
+            ],
+            "properties": {
+              "resources": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "exclusive_barrier": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "rank": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "scheduler_stop": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "wait_segments": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "reservations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested_capacity",
+        "resolved_capacity",
+        "peak_use",
+        "saturation_ms",
+        "wait_events",
+        "blocked_units",
+        "resource_holders",
+        "blocked_units_omitted",
+        "resource_holders_omitted"
+      ],
+      "properties": {
+        "requested_capacity": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxProperties": 32
+        },
+        "resolved_capacity": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxProperties": 32
+        },
+        "peak_use": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxProperties": 32
+        },
+        "saturation_ms": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maxProperties": 32
+        },
+        "wait_events": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_units": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "resource_holders": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "blocked_units_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resource_holders_omitted": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability",
+        "mode"
+      ],
+      "properties": {
+        "availability": {
+          "enum": [
+            "available",
+            "not_observed",
+            "collector_failed"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "basic"
+          ]
+        },
+        "completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "truncated",
+            "unsupported",
+            "collector_failed"
+          ]
+        },
+        "coverage": {
+          "const": "observed_partial"
+        },
+        "samples": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sample_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "omitted_observations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "discovery_truncations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sampled_simultaneous_rss_sum_bytes": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maximum_sample_sweep_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit_cpu_lower_bounds": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "unit_id",
+              "observed_attributed_cpu_us"
+            ],
+            "properties": {
+              "unit_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "observed_attributed_cpu_us": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "unit_cpu_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rss_sum_semantics": {
+          "const": "sweep_subset_shared_pages_may_repeat"
+        },
+        "scopes": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scope_ref",
+              "scope",
+              "unit_id",
+              "samples",
+              "unavailable",
+              "resets",
+              "metrics",
+              "cpu_percent_one_core",
+              "allocation_ref"
+            ],
+            "properties": {
+              "scope_ref": {
+                "type": "string",
+                "pattern": "^(process:[1-9][0-9]*|container:[1-9][0-9]*|guest:(cpu|memory|io)|cgroup:[0-9]+)$"
+              },
+              "scope": {
+                "enum": [
+                  "process",
+                  "guest_context",
+                  "cgroup_context",
+                  "container"
+                ]
+              },
+              "unit_id": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 255
+              },
+              "samples": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unavailable": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "resets": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "metrics": {
+                "$ref": "cartulary.harness_instrumentation_defs.v2#/$defs/aggregate_metrics"
+              },
+              "cpu_percent_one_core": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "allocation_ref": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^allocation:[A-Za-z0-9_.:-]+$",
+                "maxLength": 255
+              }
+            }
+          }
+        },
+        "scopes_omitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observer": {
+          "$ref": "cartulary.harness_instrumentation_defs.v2#/$defs/observer"
+        },
+        "containers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "availability",
+            "identities",
+            "omitted_observations",
+            "deadline_overruns"
+          ],
+          "properties": {
+            "availability": {
+              "enum": [
+                "not_observed",
+                "available",
+                "unsupported",
+                "collector_failed"
+              ]
+            },
+            "identities": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "container_ref",
+                  "identity_digest",
+                  "allocation_ref",
+                  "ownership"
+                ],
+                "properties": {
+                  "container_ref": {
+                    "type": "string",
+                    "pattern": "^container:[1-9][0-9]*$"
+                  },
+                  "identity_digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  },
+                  "allocation_ref": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 255,
+                        "pattern": "^[A-Za-z0-9_.:/-]+$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "ownership": {
+                    "enum": [
+                      "owned",
+                      "borrowed"
+                    ]
+                  }
+                }
+              }
+            },
+            "omitted_observations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "deadline_overruns": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "envelope": {
+      "anyOf": [
+        {
+          "$ref": "cartulary.harness_invocation_envelope.v2"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "unit_execution_includes_harness_work",
+          "phase_categories_may_overlap",
+          "reservations_are_not_consumption",
+          "resource_coverage_is_observed_partial",
+          "guest_is_not_windows_host"
+        ]
+      }
+    },
+    "comparison": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "equivalent",
+                "instrumentation"
+              ]
+            },
+            "reference_run_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "compatible": {
+              "type": "boolean"
+            },
+            "reasons": {
+              "type": "array",
+              "maxItems": 20,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "command_id",
+                  "target",
+                  "source_commit",
+                  "source_state",
+                  "source_digest",
+                  "graph_digest",
+                  "toolchain_digest",
+                  "system_digest",
+                  "cache_mode",
+                  "declared_inputs",
+                  "capability_snapshot",
+                  "instrumentation_policy",
+                  "instrumentation_mode",
+                  "missing_treatment_difference",
+                  "observed_cache_counts",
+                  "unit_outcomes",
+                  "incomplete_or_failed_run"
+                ],
+                "type": "string"
+              }
+            },
+            "qualification": {
+              "const": "descriptive_only"
+            },
+            "current_mode": {
+              "enum": [
+                "off",
+                "basic"
+              ]
+            },
+            "reference_mode": {
+              "enum": [
+                "off",
+                "basic"
+              ]
+            },
+            "current_wall_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reference_wall_ms": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "wall_delta_ms": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "limitations": {
+              "type": "array",
+              "maxItems": 4,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "one_pair_is_not_a_performance_gate",
+                  "unobserved_host_activity_and_service_history",
+                  "same_source_required",
+                  "canonical_phase_cost_is_present_in_both_modes"
+                ],
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "mode",
+            "reference_run_id",
+            "compatible",
+            "reasons",
+            "qualification",
+            "current_mode",
+            "reference_mode",
+            "current_wall_ms",
+            "reference_wall_ms",
+            "wall_delta_ms",
+            "limitations"
+          ]
+        }
+      ]
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "availability"
+      ],
+      "properties": {
+        "availability": {
+          "enum": [
+            "available",
+            "not_observed"
+          ]
+        },
+        "completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "truncated"
+          ]
+        },
+        "omitted_records": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "launches": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "omitted"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "$ref": "cartulary.harness_execution_record.v2"
+              }
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "allocations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "omitted"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "$ref": "cartulary.harness_execution_record.v2"
+              }
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "leases": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "omitted"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "$ref": "cartulary.harness_execution_record.v2"
+              }
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "activities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "omitted"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "$ref": "cartulary.harness_execution_record.v2"
+              }
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "relationships": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "records",
+            "omitted"
+          ],
+          "properties": {
+            "records": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "fact",
+                  "attribution"
+                ],
+                "properties": {
+                  "fact": {
+                    "$ref": "cartulary.harness_execution_record.v2"
+                  },
+                  "attribution": {
+                    "enum": [
+                      "conflicted",
+                      "inferred",
+                      "allocation_context",
+                      "registered"
+                    ]
+                  }
+                }
+              }
+            },
+            "omitted": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "placements": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "activity_ref",
+              "availability",
+              "start_bounds_ms",
+              "end_bounds_ms",
+              "uncertainty_ms"
+            ],
+            "properties": {
+              "activity_ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255,
+                "pattern": "^[A-Za-z0-9_.:/-]+$"
+              },
+              "availability": {
+                "enum": [
+                  "available",
+                  "missing_anchor",
+                  "incompatible_clock",
+                  "discontinuity",
+                  "uncertainty_exceeded",
+                  "incomplete"
+                ]
+              },
+              "start_bounds_ms": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "maxItems": 2,
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "end_bounds_ms": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "maxItems": 2,
+                    "items": {
+                      "type": "number"
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "uncertainty_ms": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "terminal_receipt": {
+      "anyOf": [
+        {
+          "$ref": "cartulary.harness_terminal_receipt.v1"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "not_launched_units": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "not_launched_units_omitted": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence_absences": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reference",
+          "unit_ids",
+          "reason"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "unit_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          },
+          "reason": {
+            "enum": [
+              "not_launched",
+              "dependency_unavailable"
+            ]
+          }
+        }
+      }
+    },
+    "evidence_absences_omitted": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

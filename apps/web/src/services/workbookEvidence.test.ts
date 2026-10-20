@@ -3,7 +3,7 @@ import {
   requireViewContract,
 } from "@cartulary/view-contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fullWorkbookViewRow } from "../testing/timelineWorkbookTestSupport";
+import { fullWorkbookViewRow } from "../testing/workbookFixtureData";
 import { createEvidenceFileTransport } from "../workbook/adapters/createEvidenceFileTransport";
 import { EvidenceUploadSession } from "../workbook/features/evidence/EvidenceUploadSession";
 

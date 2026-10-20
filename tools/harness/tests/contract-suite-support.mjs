@@ -82,7 +82,7 @@ function assertPerformanceEvidenceGenerationBoundary() {
   const attachments = readJSON("tools/harness_schema_attachments.json");
   const activeIDs = new Set(attachments.attachments.map((entry) => entry.schema_id));
   for (const schemaID of [
-    "cartulary.browser_target_result.v7",
+    "cartulary.browser_target_result.v8",
     "cartulary.frontend_measurement_aggregate.v5",
     "cartulary.frontend_measurement_observation.v4",
     "cartulary.frontend_measurement_summary.v5",
@@ -387,7 +387,7 @@ const generalCases = [
     acceptance_ids: ["TH-HARNESS-AC-082"],
     run(context) {
       assert.equal(context.taskSurface.schema_id, "cartulary.task_surface_owner.v4");
-      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v14");
+      assert.equal(context.topology.schema_id, "cartulary.execution_topology.v15");
     },
   },
   {
@@ -524,7 +524,7 @@ async function assertBoundaryContract(context, kind) {
     }
     case "current_schema_presence":
       for (const schema of [
-        "cartulary.harness_work_graph.v7.schema.json",
+        "cartulary.harness_work_graph.v8.schema.json",
         "cartulary.harness_execution_context.v3.schema.json",
         "cartulary.harness_runtime_plan.v6.schema.json",
         "cartulary.harness_run_manifest.v3.schema.json",
@@ -549,7 +549,7 @@ async function assertBoundaryContract(context, kind) {
       return;
     case "work_graph_owner_validation":
       validateSchemaSync(
-        "cartulary.harness_work_graph_owner.v5",
+        "cartulary.harness_work_graph_owner.v8",
         readJSON("tools/harness_work_graph_owner.json"),
       );
       return;
@@ -844,8 +844,11 @@ function assertGraphContract(context, kind) {
       const groups = graph.units.filter((unit) => unit.unit_id.startsWith("browser_group:visual:"));
       const rows = context.catalog.rows.filter((row) => row.runner === "playwright" && row.selector.stage === "visual");
       const selected = groups.flatMap((unit) => {
-        const ids = unit.command.environment.CARTULARY_BROWSER_SELECTED_ROW_IDS.split(",");
-        assert.equal(ids.length, 1, "visual execution bounds each existing semantic row independently");
+        const ids = unit.row_bindings.map((row) => row.row_id);
+        assert.ok(ids.length > 0, "visual cohorts retain semantic row identities");
+        const selectedRows = ids.map((id) => context.catalog.rowByID.get(id));
+        if (ids.length > 1) assert.ok(selectedRows.every((row) => row.browser_state_scope === "test_owned"), "only explicitly test-owned visual rows may share a cohort");
+        assert.equal(new Set(selectedRows.map((row) => row.owner_id)).size, 1, "visual cohorts preserve owner partitions");
         return ids;
       });
       assert.equal(new Set(selected).size, selected.length, "visual claims execute exactly once");
@@ -859,13 +862,15 @@ function assertGraphContract(context, kind) {
     }
     case "measurement_semantic_identity": {
       const graph = context.compiler.compile({ kind: "target", target: "harness.suite_browser_measurement" });
-      const groups = graph.units.filter((unit) => unit.unit_id.startsWith("browser_group:measurement:measurement-measurement-timeline-grid-"));
       const rows = context.catalog.rows.filter((row) => row.selector?.file === "apps/web/e2e/measurement/timeline-grid.spec.ts");
+      const ids = new Set(rows.map((row) => row.row_id));
+      const groups = graph.units.filter((unit) => unit.unit_id.startsWith("browser_group:measurement:") &&
+        unit.row_bindings.some((binding) => ids.has(binding.row_id)));
       assert.equal(groups.length, 4);
       assert.deepEqual(groups.map((unit) => unit.command.environment.CARTULARY_FIXTURE_ROW_ID).sort(), rows.map((row) => row.row_id).sort());
       for (const unit of groups) {
-        assert.ok(unit.unit_id.endsWith(unit.command.environment.CARTULARY_FIXTURE_ROW_ID), "full catalog identity survives routing");
-        assert.ok(unit.unit_id.length > 128, "semantic identities are independent of private capture component bounds");
+        assert.deepEqual(unit.row_bindings, [{ row_id: unit.command.environment.CARTULARY_FIXTURE_ROW_ID, runner: "playwright" }], "dedicated measurement retains its full catalog identity");
+        assert.match(unit.unit_id, /^browser_group:measurement:cohort-[a-f0-9]{64}$/u, "bounded cohort identity binds the exact semantic selection");
       }
       return;
     }

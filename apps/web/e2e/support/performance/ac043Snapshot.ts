@@ -22,13 +22,13 @@ import {
 } from "@cartulary/view-contracts";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { csrfHeaders } from "../auth/browserSession";
+import type { FixtureActorCredentials } from "../auth/sessions";
 import {
   loginBootstrapControlPlaneContext,
   loginTrackedUserViaPage,
   logoutAndVerify,
   readCurrentSession,
 } from "../auth/sessions";
-import type { WorkerAdminEntry } from "../auth/workerAdmin";
 import { apiBase, webBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
@@ -104,7 +104,7 @@ export function parseAc043RuntimeBundle(
 
 export async function prepareAc043Snapshot(
   page: Page,
-  workerAdmin: WorkerAdminEntry,
+  testActor: FixtureActorCredentials,
   options: {
     foregroundRole?: "editor" | "reviewer";
     fixtureProfileId?: LargeGridProfileId;
@@ -128,7 +128,7 @@ export async function prepareAc043Snapshot(
     { fixtureProfileId: fixtureProfile, snapshotKey },
   );
   const incidentId = await admitForegroundWorker(
-    workerAdmin,
+    testActor,
     options.foregroundRole ?? "editor",
   );
   await validateDefaultView(page, incidentId);
@@ -318,7 +318,7 @@ export async function startAc043SnapshotTraffic(
 }
 
 async function admitForegroundWorker(
-  workerAdmin: WorkerAdminEntry,
+  testActor: FixtureActorCredentials,
   role: "editor" | "reviewer",
 ) {
   const controlPlane = await loginBootstrapControlPlaneContext();
@@ -348,7 +348,7 @@ async function admitForegroundWorker(
     const membership = await publicHttpOperation({
       body: {
         client_txn_id: uniqueTxn("ac043-foreground-membership"),
-        email: workerAdmin.email,
+        email: testActor.email,
         role,
       },
       operationID: "createIncidentMembership",

@@ -379,13 +379,13 @@ test("Canonical late response preserves retargeted drafts and exact recovery aft
 
 test("Canonical results survive unavailable targets and current editor authority is checked before resolution", async ({
   page,
-  workerAdminRequest,
+  testActorRequest,
   sessionTracker,
 }, testInfo) => {
   const fixture = await createCanonicalObservationFixture(page),
     email = uniqueEmail("canonical-editor"),
     password = "CanonicalEditorPass!";
-  const user = await createDeploymentUser(workerAdminRequest, {
+  const user = await createDeploymentUser(testActorRequest, {
     email,
     display_name: "Canonical editor",
     initial_password: password,
@@ -422,7 +422,7 @@ test("Canonical results survive unavailable targets and current editor authority
     publicHttpOperation({
       operationID,
       pathParameters: { record_id: canonical.record_id },
-      request: workerAdminRequest,
+      request: testActorRequest,
       body: {
         client_txn_id: uniqueTxn(operationID),
         base_row_version: version,
@@ -435,7 +435,7 @@ test("Canonical results survive unavailable targets and current editor authority
     `**/indicator-observations/${fixture.observation.observation_id}/resolve`,
     async (route) => {
       resolveCount++;
-      const response = await workerAdminRequest.patch(
+      const response = await testActorRequest.patch(
         `/api/v1/incidents/${fixture.incidentId}/memberships/${user.user_id}`,
         { data: { base_membership_version: 1, role: "viewer" } },
       );
@@ -477,7 +477,7 @@ test("Canonical results survive unavailable targets and current editor authority
   const observations = await publicHttpOperation({
     operationID: "listSourceRecordIndicatorObservations",
     pathParameters: { source_record_id: fixture.source.record_id },
-    request: workerAdminRequest,
+    request: testActorRequest,
   });
   expect(observations.ok).toBe(true);
   if (observations.ok) {
@@ -494,7 +494,7 @@ test("Canonical results survive unavailable targets and current editor authority
   const history = await publicHttpOperation({
     operationID: "getRecordHistory",
     pathParameters: { record_id: canonical.record_id },
-    request: workerAdminRequest,
+    request: testActorRequest,
   });
   expect(history.ok).toBe(true);
   if (history.ok) expect(history.payload.data.items).toHaveLength(3);

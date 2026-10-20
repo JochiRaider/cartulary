@@ -455,10 +455,22 @@ func (f *canonicalFacts) pressure() map[string]any {
 	}
 	slices.SortFunc(boundaries, func(a, b boundary) int { return cmp.Compare(a.seq, b.seq) })
 	active, peaks, saturated, starts := map[string]int64{}, map[string]int64{}, map[string]int64{}, map[string]int64{}
+	volumes := map[string]int64{}
 	for _, b := range boundaries {
 		for resource, amount := range f.byID[b.id].Claims {
 			before := active[resource]
 			after := before + b.direction*amount
+			if resource == "volume" {
+				if b.direction > 0 {
+					volumes[b.id] = amount
+				} else {
+					delete(volumes, b.id)
+				}
+				after = 0
+				for _, claim := range volumes {
+					after = max(after, claim)
+				}
+			}
 			active[resource] = after
 			peaks[resource] = max(peaks[resource], after)
 			capacity := f.plan.facts.Capacities[resource]

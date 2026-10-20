@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	SchemaID = "cartulary.harness_test_failure.v2"
+	SchemaID = "cartulary.harness_test_failure.v4"
 	Marker   = "CARTULARY_HARNESS_TEST_FAILURE="
 )
 
@@ -83,7 +83,7 @@ func (e Envelope) Validate() error {
 			return fmt.Errorf("too many cleanup diagnostics")
 		}
 		for _, diagnostic := range e.CleanupDiagnostics {
-			if !validCleanupStage(diagnostic.Stage) || !validCleanupCause(diagnostic.Cause) || (diagnostic.Wait != nil && (diagnostic.Wait.Validate() != nil || (diagnostic.Stage != "normal_drop" && diagnostic.Stage != "forced_drop"))) {
+			if !validCleanupStage(diagnostic.Stage) || !validCleanupCause(diagnostic.Cause) || (diagnostic.Postgres != nil && diagnostic.Postgres.Validate() != nil) {
 				return fmt.Errorf("invalid cleanup diagnostic")
 			}
 		}

@@ -1,8 +1,8 @@
-import { constants, closeSync, fstatSync, openSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { validateSchemaSync } from "../contract/index.mjs";
+import { parseStrictJSON, validateSchemaSync } from "../contract/index.mjs";
+import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
-export const failureDetailsSchemaID = "cartulary.vitest_failure_details.v2";
+export const failureDetailsSchemaID = "cartulary.vitest_failure_details.v3";
 const maxReportBytes = 16 * 1024 * 1024;
 
 export function diagnosticFailure(message, reason = "artifact_error") {
@@ -13,16 +13,10 @@ export function diagnosticFailure(message, reason = "artifact_error") {
 }
 
 export function readVitestJSON(file) {
-  let fd;
   try {
-    fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
-    const stat = fstatSync(fd);
-    if (!stat.isFile() || stat.size > maxReportBytes) throw new Error("not a bounded regular file");
-    return JSON.parse(readFileSync(fd, "utf8"));
+    return parseStrictJSON(readLocalFile(file, { maximum: maxReportBytes, privateFile: false, allowReplacement: true }).toString("utf8"));
   } catch {
     throw diagnosticFailure("Required Vitest diagnostic input is missing, unsafe, oversized, or malformed");
-  } finally {
-    if (fd !== undefined) closeSync(fd);
   }
 }
 
@@ -93,22 +87,41 @@ export function selectedVitestObservations(details, file, titles, project = null
   });
 }
 
-export function reconcileVitestReport(details, report, root) {
-  if (!report || !Array.isArray(report.testResults)) throw diagnosticFailure("Vitest runner JSON has no test results");
-  const seen = new Set();
-  for (const suite of report.testResults) {
-    const file = path.relative(root, path.resolve(root, suite.name)).replaceAll("\\", "/");
-    for (const assertion of suite.assertionResults ?? []) {
-      const title = assertion.fullName ?? [...(assertion.ancestorTitles ?? []), assertion.title].join(" ");
-      const [observation] = selectedVitestObservations(details, file, [title]);
-      const key = vitestObservationKey(observation);
-      if (seen.has(key) || observation.status !== assertion.status) {
-        throw diagnosticFailure("Vitest runner and collector terminal observations contradict", "scheduler_accounting_error");
+export function reconcileVitestReport(details, envelope, root) {
+  try { validateSchemaSync("cartulary.vitest_runner_reports.v1", envelope); }
+  catch { throw diagnosticFailure("Vitest native reports do not satisfy the current schema"); }
+  if (envelope.invocation_id !== details.invocation_id || envelope.run_id !== details.run_id) throw diagnosticFailure("Vitest native reports belong to a different invocation");
+  const seen = new Set(), files = new Set();
+  for (const entry of envelope.reports) {
+    const fileKey = JSON.stringify([entry.project, entry.file]);
+    if (files.has(fileKey) || !Array.isArray(entry.report.testResults)) throw diagnosticFailure("Duplicate or invalid Vitest native file report", "scheduler_accounting_error");
+    files.add(fileKey);
+    if (entry.report.testResults.length !== 1) throw diagnosticFailure("Vitest native report must describe exactly one selected file", "scheduler_accounting_error");
+    for (const suite of entry.report.testResults) {
+      const file = path.relative(root, path.resolve(root, suite.name)).replaceAll("\\", "/");
+      if (file !== entry.file) throw diagnosticFailure("Vitest native report file identity mismatch", "scheduler_accounting_error");
+      for (const assertion of suite.assertionResults ?? []) {
+        const title = assertion.fullName ?? [...(assertion.ancestorTitles ?? []), assertion.title].join(" ");
+        const [observation] = selectedVitestObservations(details, file, [title], entry.project);
+        const key = vitestObservationKey(observation);
+        if (seen.has(key) || observation.status !== assertion.status) throw diagnosticFailure("Vitest runner and collector terminal observations contradict", "scheduler_accounting_error");
+        seen.add(key);
       }
-      seen.add(key);
     }
   }
-  if (details.observations.some((item) => item.scope === "test" && !seen.has(vitestObservationKey(item)))) {
-    throw diagnosticFailure("Vitest collector has an unaccounted test observation", "scheduler_accounting_error");
+  const completed = new Set(details.completed_files.map((file) => JSON.stringify([file.project, file.owner_path])));
+  if (files.size !== completed.size || [...files].some((key) => !completed.has(key))) throw diagnosticFailure("Vitest completed files disagree with native reports", "scheduler_accounting_error");
+  if (details.observations.some((item) => item.scope === "test" && !seen.has(vitestObservationKey(item)))) throw diagnosticFailure("Vitest collector has an unaccounted test observation", "scheduler_accounting_error");
+}
+
+// Presentation-only aggregation; retained evidence keeps each native JSON object.
+export function vitestReportProjection(envelope) {
+  validateSchemaSync("cartulary.vitest_runner_reports.v1", envelope);
+  const result = { success: envelope.reports.length > 0, testResults: [] };
+  for (const { report } of envelope.reports) {
+    result.success &&= report.success === true;
+    result.testResults.push(...report.testResults);
+    for (const [key, value] of Object.entries(report)) if (key.startsWith("num") && Number.isInteger(value)) result[key] = (result[key] ?? 0) + value;
   }
+  return result;
 }

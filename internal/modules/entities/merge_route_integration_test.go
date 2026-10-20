@@ -106,7 +106,7 @@ func TestExplicitMergeRoute_Integration(t *testing.T) {
 			}
 		}
 
-		otherActor := authflowtest.SeedLocalUserRecord(t, harness.DB, "entity_linking-route-precedence-other@example.test", "EntityLinking Route Other", "EntityLinkingRouteOtherPass1!", false, false, true)
+		otherActor := authflowtest.SeedActor(t, harness.DB, authflowtest.ActorAttributes{Email: "entity_linking-route-precedence-other@example.test", DisplayName: "EntityLinking Route Other"})
 		otherIncident := appsupport.CreateIncidentInStore(t, harness.Pool, otherActor, "txn-entity_linking-route-precedence-hidden-incident", "IR-ROUTE-PRECEDENCE-HIDDEN", "Entity route hidden incident")
 		hiddenLoserID := uuid.New()
 		entitytest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, hiddenLoserID, "Hidden loser", "HIDDEN-LOSER", "", "")

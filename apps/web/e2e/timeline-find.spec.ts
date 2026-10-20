@@ -869,7 +869,7 @@ test("Timeline Find borrows collection and inspector editors without writes and 
 test("Timeline Find retires protected terms and matches on session suspension and does not return them after recovery", async ({
   page,
   sessionTracker,
-  workerAdminRequest,
+  testActorRequest,
 }) => {
   const f = await seed(page);
   const member = await createIncidentMemberUser(page, f.incident, {
@@ -903,7 +903,7 @@ test("Timeline Find retires protected terms and matches on session suspension an
   );
   await entry(page).click();
   await revokeAllSessions(
-    workerAdminRequest,
+    testActorRequest,
     member.user_id,
     "Find suspension evidence",
   );

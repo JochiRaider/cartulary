@@ -176,16 +176,7 @@ func TestTasksDecisionsImportReplayAndAtomicity(t *testing.T) {
 func newTasksDecisionsImportHarness(t testing.TB, suffix string) tasksDecisionsImportHarness {
 	t.Helper()
 	storeHarness := appsupport.StartStore(t, "tasks-decisions-import-"+suffix)
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		storeHarness.DB,
-		"tasks-decisions-import-"+uuid.NewString()+"@example.test",
-		"Tasks Decisions Import",
-		"TasksDecisionsImport1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, storeHarness.DB, authstoretest.ActorAttributes{Email: "tasks-decisions-import-" + uuid.NewString() + "@example.test", DisplayName: "Tasks Decisions Import"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		storeHarness.DB,
@@ -279,16 +270,7 @@ func inertEvidenceImportFacade(t testing.TB) ownerfacade.ImportOwnerCreateFacade
 
 func seedTasksDecisionsImportUser(t testing.TB, harness tasksDecisionsImportHarness, active bool, member bool) authn.UserRecord {
 	t.Helper()
-	user := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.db,
-		"tasks-decisions-import-ref-"+uuid.NewString()+"@example.test",
-		"Tasks Decisions Import Reference",
-		"TasksDecisionsImportReference1!",
-		false,
-		false,
-		true,
-	)
+	user := authstoretest.SeedActor(t, harness.db, authstoretest.ActorAttributes{Email: "tasks-decisions-import-ref-" + uuid.NewString() + "@example.test", DisplayName: "Tasks Decisions Import Reference"})
 	if member {
 		seedTasksDecisionsMembership(t, harness.db, harness.incidentID, user.ID, harness.actor.ID)
 	}

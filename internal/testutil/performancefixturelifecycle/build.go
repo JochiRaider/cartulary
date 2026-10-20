@@ -31,7 +31,7 @@ func Build(
 	profile performancefixtureprofile.Profile,
 	args BuildArgs,
 	newAssembler AssemblerFactory,
-) (BuildArtifact, error) {
+) (_ BuildArtifact, retErr error) {
 	if newAssembler == nil {
 		return BuildArtifact{}, errors.New("performance fixture assembler factory is required")
 	}
@@ -64,17 +64,19 @@ func Build(
 	if err := cloneDatabase(ctx, adminDSN, migratedTemplate, templateName); err != nil {
 		return BuildArtifact{}, err
 	}
-	if err := markTemplateOwned(ctx, adminDSN, templateName, templateOwner(suiteID, args.SnapshotKey)); err != nil {
-		_ = dropTemplate(context.Background(), adminDSN, templateName)
-		return BuildArtifact{}, err
-	}
 	sealed := false
 	defer func() {
 		if !sealed {
-			_ = dropTemplate(context.Background(), adminDSN, templateName)
-			_ = removeTemplateRuntime(env, args.SnapshotKey)
+			// Failed acquisition has one fresh bounded cleanup lifetime. Keep
+			// disposal failures alongside the original preparation failure.
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			defer cancel()
+			retErr = errors.Join(retErr, dropTemplate(cleanupCtx, adminDSN, templateName), removeTemplateRuntime(env, args.SnapshotKey))
 		}
 	}()
+	if err := markTemplateOwned(ctx, adminDSN, templateName, templateOwner(suiteID, args.SnapshotKey)); err != nil {
+		return BuildArtifact{}, err
+	}
 	dsn, err := replaceDatabaseInDSN(adminDSN, templateName)
 	if err != nil {
 		return BuildArtifact{}, err

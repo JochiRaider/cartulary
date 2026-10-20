@@ -6453,10 +6453,10 @@ test.describe("browser.incident-selection accessibility readiness", () => {
 
   test(
     incidentSelectionAccessibilityScenarioTitles[1],
-    async ({ page, sessionTracker, workerAdminRequest }) => {
+    async ({ page, sessionTracker, testActorRequest }) => {
       const email = uniqueEmail("a11y-incident-selection-login");
       const password = "A11yIncidentSelectionLoginPass!";
-      const user = await createDeploymentUser(workerAdminRequest, {
+      const user = await createDeploymentUser(testActorRequest, {
         email,
         display_name: "A11Y Incident Selection Login",
         initial_password: password,
@@ -6507,10 +6507,10 @@ test.describe("browser.incident-selection accessibility readiness", () => {
 
   test(
     incidentSelectionAccessibilityScenarioTitles[2],
-    async ({ page, sessionTracker, workerAdminRequest }) => {
+    async ({ page, sessionTracker, testActorRequest }) => {
       const email = uniqueEmail("a11y-incident-selection-mfa");
       const password = "A11yIncidentSelectionMfaPass!";
-      const user = await createDeploymentUser(workerAdminRequest, {
+      const user = await createDeploymentUser(testActorRequest, {
         email,
         display_name: "A11Y Incident Selection MFA",
         initial_password: password,
@@ -6563,10 +6563,10 @@ test.describe("browser.incident-selection accessibility readiness", () => {
 
   test(
     incidentSelectionAccessibilityScenarioTitles[3],
-    async ({ page, workerAdminRequest }) => {
+    async ({ page, testActorRequest }) => {
       const email = uniqueEmail("a11y-incident-selection-mfa-setup");
       const password = "A11yIncidentSelectionSetupPass!";
-      await createDeploymentUser(workerAdminRequest, {
+      await createDeploymentUser(testActorRequest, {
         email,
         display_name: "A11Y Incident Selection MFA Setup",
         initial_password: password,
@@ -6650,10 +6650,10 @@ test.describe("browser.incident-selection accessibility readiness", () => {
 
   test(
     incidentSelectionAccessibilityScenarioTitles[5],
-    async ({ page, sessionTracker, workerAdminRequest }) => {
+    async ({ page, sessionTracker, testActorRequest }) => {
       const email = uniqueEmail("a11y-incident-selection-incident");
       const password = "A11yIncidentSelectionIncidentPass!";
-      const user = await createDeploymentUser(workerAdminRequest, {
+      const user = await createDeploymentUser(testActorRequest, {
         email,
         display_name: "A11Y Incident Selection Incident",
         initial_password: password,
@@ -6670,23 +6670,23 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       await expectStatusRole(page.getByTestId(incidentLandingTestId("status")));
 
       const selectedIncidentId = await createIncidentWithRequest(
-        workerAdminRequest,
+        testActorRequest,
         uniqueIncidentKey("A11YEMPTYA"),
         "A11Y selected incident",
       );
       await createIncidentMembershipWithRequest(
-        workerAdminRequest,
+        testActorRequest,
         selectedIncidentId,
         email,
         "admin",
       );
       const alternateIncidentId = await createIncidentWithRequest(
-        workerAdminRequest,
+        testActorRequest,
         uniqueIncidentKey("A11YEMPTYB"),
         "A11Y alternate incident",
       );
       await createIncidentMembershipWithRequest(
-        workerAdminRequest,
+        testActorRequest,
         alternateIncidentId,
         email,
         "admin",
@@ -6722,12 +6722,12 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       const staleIncidentURL = page.url();
 
       const selectedMembership = await loadIncidentMembership(
-        workerAdminRequest,
+        testActorRequest,
         selectedIncidentId,
         user.user_id,
       );
       await deleteIncidentMembership(
-        workerAdminRequest,
+        testActorRequest,
         selectedIncidentId,
         user.user_id,
         selectedMembership.membership_version,
@@ -6753,11 +6753,11 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         page.getByTestId(incidentAdministrationTestId("patch-tlp")),
       ).toBeVisible();
       const alternateMembership = await loadIncidentMembership(
-        workerAdminRequest,
+        testActorRequest,
         alternateIncidentId,
         user.user_id,
       );
-      await patchIncidentMembership(workerAdminRequest, alternateIncidentId, {
+      await patchIncidentMembership(testActorRequest, alternateIncidentId, {
         baseMembershipVersion: alternateMembership.membership_version,
         role: "editor",
         userId: user.user_id,
@@ -6840,7 +6840,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
 
   test(
     incidentSelectionAccessibilityScenarioTitles[7],
-    async ({ page, sessionTracker, workerAdminRequest }) => {
+    async ({ page, sessionTracker, testActorRequest }) => {
       const incidentId = await createIncident(
         page,
         uniqueIncidentKey("A11YREVOKE"),
@@ -6848,7 +6848,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       );
       const email = uniqueEmail("a11y-incident-selection-revoked");
       const password = "A11yIncidentSelectionRevokedPass!";
-      const user = await createDeploymentUser(workerAdminRequest, {
+      const user = await createDeploymentUser(testActorRequest, {
         email,
         display_name: "A11Y Incident Selection Revoked",
         initial_password: password,
@@ -6874,7 +6874,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       });
 
       await revokeAllSessions(
-        workerAdminRequest,
+        testActorRequest,
         user.user_id,
         "a11y.incident-selection.row-01 revoked-session",
       );
@@ -6969,7 +6969,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
 });
 
 test("a11y.incident-creation keyboard feedback and constrained recovery remain reachable", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -7082,7 +7082,7 @@ test("a11y.incident-creation keyboard feedback and constrained recovery remain r
 });
 
 test("a11y.account-menu keyboard focus names current state and nested navigation", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const incidentId = await createIncident(
@@ -7176,7 +7176,7 @@ test("a11y.account-menu keyboard focus names current state and nested navigation
 });
 
 test("a11y.account-settings native forms radios validation and recovery", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   const fixture = await installAccountEditingFixture(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -7270,10 +7270,10 @@ test("a11y.account-settings native forms radios validation and recovery", async 
 });
 
 test("a11y.deployment-users guarded drafts and credential dialogs remain keyboard reachable", async ({
-  workerAdminPage: page,
-  workerAdminRequest,
+  testActorPage: page,
+  testActorRequest,
 }, testInfo) => {
-  const target = await createDeploymentUser(workerAdminRequest, {
+  const target = await createDeploymentUser(testActorRequest, {
     email: uniqueEmail("admin-accessibility"),
     display_name: "Accessible target",
     initial_password: "AccessibleTargetPass!",
@@ -7392,7 +7392,7 @@ test("a11y.deployment-users guarded drafts and credential dialogs remain keyboar
 });
 
 test("a11y.administrative-audit exact filters paging inspection and recovery stay reachable", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const fixture = await installAuditPresentation(page);
@@ -7493,13 +7493,13 @@ test("a11y.administrative-audit exact filters paging inspection and recovery sta
 });
 
 test("a11y.reference-packs keyboard selection upload observation and cancellation recovery remain reachable", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const fixture = await installReferencePackPresentation(
     page,
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   const panel = await openReferencePacks(page);
   const file = panel.getByLabel("Reference pack bundle");
@@ -7617,13 +7617,13 @@ test("a11y.reference-packs keyboard selection upload observation and cancellatio
 });
 
 test("a11y.incident-import upload recovery progress and cancellation remain keyboard reachable", async ({
-  workerAdminPage: page,
-  workerAdmin,
+  testActorPage: page,
+  testActor,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const fixture = await installImportObservationFixture(
     page,
-    workerAdmin.user_id,
+    testActor.user_id,
   );
   const form = await openImportPresentation(page);
   const file = form.getByLabel("Incident bundle file");
@@ -7753,7 +7753,7 @@ test("a11y.incident-import upload recovery progress and cancellation remain keyb
 });
 
 test("a11y.membership-audit exact filters inspection paging recovery and drawer focus remain reachable", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const fixture = await installMembershipAuditPresentation(page);
@@ -7843,7 +7843,7 @@ test("a11y.membership-audit exact filters inspection paging recovery and drawer 
 });
 
 test("a11y.membership-management draft review keyboard recovery and removal focus remain reachable", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const fixture = await installMembershipManagementPresentation(page);
@@ -7947,7 +7947,7 @@ test("a11y.membership-management draft review keyboard recovery and removal focu
 });
 
 test("a11y.metadata native inputs inline review discard and drawer focus remain reachable", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const fixture = await installMetadataPresentation(page);
@@ -8036,7 +8036,7 @@ test("a11y.metadata native inputs inline review discard and drawer focus remain 
 });
 
 test("a11y.lifecycle multiline reason inline review exact recovery and departure retain keyboard focus", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const incidentId = await createIncident(
@@ -8144,7 +8144,7 @@ test("a11y.lifecycle multiline reason inline review exact recovery and departure
 });
 
 test("a11y.preferences independent clear and recovery controls preserve keyboard focus and responsive reachability", async ({
-  workerAdminPage: page,
+  testActorPage: page,
 }, testInfo) => {
   const incidentId = await createIncident(
     page,

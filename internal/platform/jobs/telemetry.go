@@ -15,7 +15,7 @@ import (
 )
 
 func (m *Manager) registerJobGauges() {
-	if m == nil || m.pool == nil || strings.TrimSpace(m.serviceVersion) == "" || m.jobGaugesRegistered {
+	if m == nil || m.db == nil || strings.TrimSpace(m.serviceVersion) == "" || m.jobGaugesRegistered {
 		return
 	}
 	m.jobGaugesRegistered = true
@@ -39,7 +39,7 @@ func (m *Manager) registerJobGauges() {
 }
 
 func (m *Manager) observeActiveJobs(ctx context.Context, observer metric.Int64Observer) error {
-	if m == nil || m.pool == nil {
+	if m == nil || m.db == nil {
 		return nil
 	}
 	if _, ok := ctx.Deadline(); !ok {
@@ -59,7 +59,7 @@ func (m *Manager) observeActiveJobs(ctx context.Context, observer metric.Int64Ob
 	}
 	sort.Strings(kinds)
 	kinds = append(kinds, "unknown")
-	rows, err := m.pool.Query(ctx, `
+	rows, err := m.db.Query(ctx, `
 SELECT job_kind, COUNT(*)::bigint
   FROM jobs
  WHERE status = 'running'
@@ -94,7 +94,7 @@ SELECT job_kind, COUNT(*)::bigint
 }
 
 func (m *Manager) observeQueuedJobs(ctx context.Context, observer metric.Int64Observer) error {
-	if m == nil || m.pool == nil {
+	if m == nil || m.db == nil {
 		return nil
 	}
 	if _, ok := ctx.Deadline(); !ok {
@@ -103,7 +103,7 @@ func (m *Manager) observeQueuedJobs(ctx context.Context, observer metric.Int64Ob
 		defer cancel()
 	}
 	counts, kinds := m.emptyCatalogJobCounts()
-	rows, err := m.pool.Query(ctx, `
+	rows, err := m.db.Query(ctx, `
 SELECT job_kind, COUNT(*)::bigint
   FROM jobs
  WHERE status IN ('queued', 'running')

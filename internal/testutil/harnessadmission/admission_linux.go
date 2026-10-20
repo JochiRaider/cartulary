@@ -420,7 +420,11 @@ func mutate(s *state, r Request) (bool, error) {
 			residentTotal := float64(0)
 			for _, allocation := range allocations {
 				capacity = math.Min(capacity, allocation.Capacities[key])
-				residentTotal += allocation.Claims[key]
+				if key == "volume" {
+					residentTotal = math.Max(residentTotal, allocation.Claims[key])
+				} else {
+					residentTotal += allocation.Claims[key]
+				}
 				if allocation.Parent == nil {
 					sum += allocation.Claims[key]
 				}
@@ -428,6 +432,20 @@ func mutate(s *state, r Request) (bool, error) {
 			for _, entry := range s.Leases {
 				if entry.Parent == nil && included[entry.Token] {
 					sum += total(entry, key)
+				}
+			}
+			// Volume is a writable-root capability, not a consumable disk slot.
+			// Every resident retains the requirement; sharing never invents
+			// additional storage capacity or promises device isolation.
+			if key == "volume" {
+				sum = 0
+				for _, allocation := range allocations {
+					sum = math.Max(sum, allocation.Claims[key])
+				}
+				for _, entry := range s.Leases {
+					if charged[entry.Token] {
+						sum = math.Max(sum, entry.Claims[key])
+					}
 				}
 			}
 			if sum > capacity {
@@ -606,8 +624,45 @@ func mutate(s *state, r Request) (bool, error) {
 			s.Sequence++
 			l = &lease{Residents: slices.Clone(r.Residents), Token: r.Token, Process: r.Owner, Guards: []Proof{}, Sequence: s.Sequence, Mode: r.Mode, Claims: r.Claims, Capacities: r.Capacities, Parent: r.Parent}
 			s.Leases = append(s.Leases, l)
-		} else if !reflect.DeepEqual(l.Residents, r.Residents) || l.Released || l.Process != r.Owner || l.Mode != r.Mode || !reflect.DeepEqual(l.Claims, r.Claims) || !reflect.DeepEqual(l.Capacities, r.Capacities) || !reflect.DeepEqual(l.Parent, r.Parent) {
+		} else if l.Granted && !reflect.DeepEqual(l.Residents, r.Residents) || l.Released || l.Process != r.Owner || l.Mode != r.Mode || !reflect.DeepEqual(l.Claims, r.Claims) || !reflect.DeepEqual(l.Capacities, r.Capacities) || !reflect.DeepEqual(l.Parent, r.Parent) {
 			return false, ErrConflict
+		}
+		// Pending borrowers yield logical ownership while queued. Retirement
+		// may replace a generation before the next attempt, but must not move
+		// the borrower to the back of the queue. No capacity belongs to these
+		// references until the request is granted atomically below.
+		if !l.Granted {
+			l.Residents = slices.Clone(r.Residents)
+		}
+		// An invocation cannot wait for capacity consumed by its own
+		// indispensable startup and resident claims. Reject that shape before
+		// launching physical owners, while ordinary contention remains queued.
+		for _, key := range resources {
+			resident, independent := float64(0), float64(0)
+			for _, allocation := range l.Residents {
+				if key == "volume" {
+					resident = math.Max(resident, allocation.Claims[key])
+				} else {
+					resident += allocation.Claims[key]
+				}
+				if allocation.Parent == nil {
+					independent += allocation.Claims[key]
+				}
+			}
+			own := l.Claims[key] + resident
+			if key == "volume" {
+				own = math.Max(l.Claims[key], resident)
+			}
+			if own > l.Capacities[key] || resident > 0 && resident+cleanupHeadroom(key) > l.Capacities[key] {
+				return false, ErrConflict
+			}
+			ancestorClaim := float64(0)
+			for parent := l.Parent; parent != nil; parent = find(*parent).Parent {
+				ancestorClaim = math.Max(ancestorClaim, find(*parent).Claims[key])
+			}
+			if key != "volume" && ancestorClaim+independent > l.Capacities[key] {
+				return false, ErrConflict
+			}
 		}
 		rootOf := func(l *lease) *lease {
 			for l.Parent != nil {

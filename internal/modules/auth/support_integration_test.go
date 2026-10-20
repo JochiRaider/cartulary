@@ -32,8 +32,8 @@ func TestUserListContinuationUsesLiveRows(t *testing.T) {
 	defer db.Close()
 
 	seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000701", "pagination-admin@example.test", "Pagination Admin", "PaginationAdmin1!", true)
-	_ = seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000702", "pagination-one@example.test", "Pagination One", "PaginationOne1!", false)
-	userTwoID := seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000703", "pagination-two@example.test", "Pagination Two", "PaginationTwo1!", false)
+	_ = flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "pagination-one@example.test", DisplayName: "Pagination One", ID: uuid.MustParse("10000000-0000-0000-0000-000000000702")}).ID.String()
+	userTwoID := flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "pagination-two@example.test", DisplayName: "Pagination Two", ID: uuid.MustParse("10000000-0000-0000-0000-000000000703")}).ID.String()
 
 	adminSession, adminCSRF := loginLocalUser(t, server, "pagination-admin@example.test", "PaginationAdmin1!", nil)
 
@@ -115,7 +115,7 @@ func TestUserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
 	seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000711", "search-viewer@example.test", "Search Viewer", "SearchViewer1!", false)
 	// An unrelated row may sort before the named viewer, including the bootstrap
 	// admin. Only the searched user's position beyond the first page matters.
-	seedFixedLocalUser(t, db, "00000000-0000-4000-8000-000000000710", "search-earlier@example.test", "Earlier User", "SearchEarlier1!", false)
+	flowtest.SeedActor(t, db, flowtest.ActorAttributes{Email: "search-earlier@example.test", DisplayName: "Earlier User", ID: uuid.MustParse("00000000-0000-4000-8000-000000000710")})
 	adminID := seedFixedLocalUser(t, db, "d56d8685-f36e-448c-8f44-bd2978aa26d8", "uuid-admin@example.test", "UUID Admin", "UUIDAdmin12!", true)
 
 	adminSession, _ := loginLocalUser(t, server, "uuid-admin@example.test", "UUIDAdmin12!", nil)

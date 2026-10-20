@@ -20,7 +20,7 @@
       "$ref": "cartulary.harness_execution_defs.v1#/$defs/digest"
     },
     "graph": {
-      "$ref": "cartulary.harness_work_graph.v7"
+      "$ref": "cartulary.harness_work_graph.v8"
     },
     "projections": {
       "type": "object",

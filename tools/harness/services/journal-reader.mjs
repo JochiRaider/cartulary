@@ -23,7 +23,7 @@ function readProducerJournal(file, producerId) {
     }
     const expectedSequence = events.length + 1;
     if (
-      event.schema_id !== "cartulary.test_services.journal_event.v1" ||
+      event.schema_id !== "cartulary.test_services.journal_event.v2" ||
       event.producer_id !== producerId ||
       event.seq !== expectedSequence ||
       !event.type ||

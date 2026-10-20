@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"fmt"
 	evidenceflow "github.com/JochiRaider/cartulary/internal/modules/evidence/testsupport/flowtest"
 	"io"
@@ -21,6 +20,7 @@ import (
 	linktest "github.com/JochiRaider/cartulary/internal/modules/links/testsupport"
 	timelinetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/appsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	workbookscenariotest "github.com/JochiRaider/cartulary/internal/testutil/workbookscenariotest"
@@ -643,7 +643,7 @@ func requireStableReplayPayload(t testing.TB, route workbookscenariotest.RouteIn
 	}
 }
 
-func requireColumns(t testing.TB, db *sql.DB, table string, columns ...string) {
+func requireColumns(t testing.TB, db postgres.DB, table string, columns ...string) {
 	t.Helper()
 	for _, column := range columns {
 		assertCount(t, db, `
@@ -656,7 +656,7 @@ SELECT COUNT(*)
 	}
 }
 
-func requireNoColumns(t testing.TB, db *sql.DB, column string, tables ...string) {
+func requireNoColumns(t testing.TB, db postgres.DB, column string, tables ...string) {
 	t.Helper()
 	for _, table := range tables {
 		assertCount(t, db, `
@@ -669,7 +669,7 @@ SELECT COUNT(*)
 	}
 }
 
-func requireGenericRecordFKsDoNotTargetTimeline(t testing.TB, db *sql.DB) {
+func requireGenericRecordFKsDoNotTargetTimeline(t testing.TB, db postgres.DB) {
 	t.Helper()
 	assertCount(t, db, `
 SELECT COUNT(*)
@@ -682,12 +682,9 @@ SELECT COUNT(*)
 `, 0)
 }
 
-func assertCount(t testing.TB, db *sql.DB, query string, want int, args ...any) {
+func assertCount(t testing.TB, db postgres.DB, query string, want int, args ...any) {
 	t.Helper()
-	var got int
-	if err := db.QueryRowContext(context.Background(), query, args...).Scan(&got); err != nil {
-		t.Fatalf("query count failed: %v\n%s", err, query)
-	}
+	got := appsupport.QueryCount(t, db, query, args...)
 	if got != want {
 		t.Fatalf("unexpected count: got %d want %d\n%s", got, want, query)
 	}

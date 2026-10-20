@@ -9,25 +9,33 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
 )
 
-const databaseResetDiagnosticSchemaID = "cartulary.test.database_reset_diagnostic.v1"
+const databaseResetDiagnosticSchemaID = "cartulary.test.database_reset_diagnostic.v2"
+
+type databaseResetSettlementFailure struct {
+	Stage    string  `json:"stage"`
+	SQLState *string `json:"sqlstate"`
+	TimedOut bool    `json:"timed_out"`
+}
 
 type databaseResetDiagnostic struct {
-	SchemaID                   string                        `json:"schema_id"`
-	ResetID                    string                        `json:"reset_id"`
-	Status                     string                        `json:"status"`
-	Attempt                    int                           `json:"attempt"`
-	Stage                      string                        `json:"stage"`
-	SQLState                   *string                       `json:"sqlstate"`
-	TimedOut                   bool                          `json:"timed_out"`
-	DurationMS                 int64                         `json:"duration_ms"`
-	TablesReset                []string                      `json:"tables_reset"`
-	TableCounts                []databaseResetTableCount     `json:"table_counts"`
-	MutableTableCount          int                           `json:"mutable_table_count"`
-	MigrationMetadataPreserved bool                          `json:"migration_metadata_preserved"`
-	BootstrapAdminRestored     bool                          `json:"bootstrap_admin_restored"`
-	PostResetCounts            databaseResetDiagnosticCounts `json:"post_reset_counts"`
-	FailureClass               *string                       `json:"failure_class"`
-	FailureReason              *string                       `json:"failure_reason"`
+	SettlementFailures         []databaseResetSettlementFailure `json:"settlement_failures"`
+	TransactionSettlement      string                           `json:"transaction_settlement"`
+	SchemaID                   string                           `json:"schema_id"`
+	ResetID                    string                           `json:"reset_id"`
+	Status                     string                           `json:"status"`
+	Attempt                    int                              `json:"attempt"`
+	Stage                      string                           `json:"stage"`
+	SQLState                   *string                          `json:"sqlstate"`
+	TimedOut                   bool                             `json:"timed_out"`
+	DurationMS                 int64                            `json:"duration_ms"`
+	TablesReset                []string                         `json:"tables_reset"`
+	TableCounts                []databaseResetTableCount        `json:"table_counts"`
+	MutableTableCount          int                              `json:"mutable_table_count"`
+	MigrationMetadataPreserved bool                             `json:"migration_metadata_preserved"`
+	BootstrapAdminRestored     bool                             `json:"bootstrap_admin_restored"`
+	PostResetCounts            databaseResetDiagnosticCounts    `json:"post_reset_counts"`
+	FailureClass               *string                          `json:"failure_class"`
+	FailureReason              *string                          `json:"failure_reason"`
 }
 
 type databaseResetTableCount struct {
@@ -47,6 +55,8 @@ type databaseResetDiagnosticCounts struct {
 func newDatabaseResetDiagnostic(resetID string, result harnessruntime.DatabaseResetResult, resetErr error, duration time.Duration) databaseResetDiagnostic {
 	diagnostic := databaseResetDiagnostic{
 		SchemaID:                   databaseResetDiagnosticSchemaID,
+		SettlementFailures:         []databaseResetSettlementFailure{},
+		TransactionSettlement:      result.TransactionSettlement,
 		ResetID:                    resetID,
 		Status:                     "pass",
 		Attempt:                    1,
@@ -65,6 +75,16 @@ func newDatabaseResetDiagnostic(resetID string, result harnessruntime.DatabaseRe
 			UserSessions:           result.PostResetCounts.UserSessions,
 			RouteIdempotency:       result.PostResetCounts.RouteIdempotency,
 		},
+	}
+	if diagnostic.TransactionSettlement == "" {
+		diagnostic.TransactionSettlement = "not_started"
+	}
+	for _, failure := range result.SettlementFailures {
+		entry := databaseResetSettlementFailure{Stage: failure.Stage(), TimedOut: failure.TimedOut()}
+		if state := failure.SQLState(); state != "" {
+			entry.SQLState = &state
+		}
+		diagnostic.SettlementFailures = append(diagnostic.SettlementFailures, entry)
 	}
 	for _, count := range result.TableCounts {
 		diagnostic.TableCounts = append(diagnostic.TableCounts, databaseResetTableCount{

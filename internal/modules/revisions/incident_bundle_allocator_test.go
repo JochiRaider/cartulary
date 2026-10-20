@@ -251,16 +251,7 @@ func newRevisionAllocatorHarness(t testing.TB, suffix string) revisionAllocatorH
 		t.Fatalf("open allocator database: %v", err)
 	}
 	t.Cleanup(db.Close)
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		db,
-		"revisions-allocator-"+uuid.NewString()+"@example.test",
-		"Revisions Allocator",
-		"RevisionsAllocator1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, db, authstoretest.ActorAttributes{Email: "revisions-allocator-" + uuid.NewString() + "@example.test", DisplayName: "Revisions Allocator"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		db,

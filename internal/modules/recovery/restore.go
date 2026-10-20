@@ -606,48 +606,13 @@ func (mutation *vNextRestoreMutation) RestoreObject(
 }
 
 func (mutation *vNextRestoreMutation) RunCatalogAlgorithm(ctx context.Context, algorithmID string) error {
-	switch algorithmID {
-	case "entities.restore_active_identifier_claims.v1":
-		var rebuiltCount int64
-		if err := mutation.tx.QueryRow(
-			ctx,
-			`SELECT public.entities_rebuild_active_identifier_claims_v1()`,
-		).Scan(&rebuiltCount); err != nil {
-			return fmt.Errorf("rebuild Entities active identifier claims: %w", err)
-		}
-		var valid bool
-		if err := mutation.tx.QueryRow(
-			ctx,
-			`SELECT public.entities_active_identifier_claims_are_valid_v1()`,
-		).Scan(&valid); err != nil {
-			return fmt.Errorf("validate rebuilt Entities active identifier claims: %w", err)
-		}
-		if !valid {
-			return fmt.Errorf("%w: rebuilt Entities active identifier claims are invalid", ErrVNextBackup)
-		}
-	case "parties.restore_active_key_claims.v1":
-		var rebuiltCount int64
-		if err := mutation.tx.QueryRow(
-			ctx,
-			`SELECT public.parties_rebuild_active_key_claims_v1()`,
-		).Scan(&rebuiltCount); err != nil {
-			return fmt.Errorf("rebuild Parties active key claims: %w", err)
-		}
-		var valid bool
-		if err := mutation.tx.QueryRow(
-			ctx,
-			`SELECT public.parties_active_key_claims_are_valid_v1()`,
-		).Scan(&valid); err != nil {
-			return fmt.Errorf("validate rebuilt Parties active key claims: %w", err)
-		}
-		if !valid {
-			return fmt.Errorf("%w: rebuilt Parties active key claims are invalid", ErrVNextBackup)
-		}
-	default:
-		// PreparePostgresTables invalidates excluded projections whose owner
-		// rebuilders run once after authoritative state commits.
+	err := RebuildPostgresDerivedState(ctx, mutation.tx, algorithmID)
+	if errors.Is(err, ErrUnsupportedPostgresRebuild) {
+		// Other excluded projections were invalidated by PreparePostgresTables;
+		// their owner rebuilders execute after authoritative state commits.
+		return nil
 	}
-	return nil
+	return err
 }
 
 func vNextConsistencyReport(

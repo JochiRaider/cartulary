@@ -525,7 +525,28 @@ test("support keeps a pending edit anchored to its record under sort, filter, gr
     "timeline.has_evidence",
     "false",
   );
+  const groupedQuery = waitForTimelineQueryResponse(page, incidentId, {
+    limit: 100,
+    filters: [
+      {
+        arg: { value: false },
+        field_key: "timeline.has_evidence",
+        op: "eq",
+      },
+    ],
+    group_by: "timeline.capture_state",
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
+  });
   await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
+  expect((await groupedQuery).ok()).toBeTruthy();
+  const frame = page.locator(
+    `[data-workbook-view-schema-id="${timelineViewSchemaId}"]`,
+  );
+  await expect(frame).toHaveAttribute(
+    "data-workbook-query-group-field",
+    "timeline.capture_state",
+  );
+  await expect(frame).toHaveAttribute("data-workbook-query-pending", "false");
 
   const heldPatch = await holdBrowserApiRequest(page, {
     method: "PATCH",

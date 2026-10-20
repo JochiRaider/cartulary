@@ -1,5 +1,4 @@
-import { waitFor } from "@testing-library/react";
-import { expect } from "vitest";
+import { expect, vi } from "vitest";
 
 type FetchMock = {
   mock: {
@@ -208,7 +207,7 @@ export async function expectStableFetchCount(
   fetchMock: FetchMock,
   expectedCount: number,
 ) {
-  await waitFor(() => {
+  await vi.waitFor(() => {
     expect(fetchMock).toHaveBeenCalledTimes(expectedCount);
   });
   await flushMicrotasks();

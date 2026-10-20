@@ -115,9 +115,11 @@ func TestProducerJournalRejectsSequenceGapsAndDuplicates(t *testing.T) {
 	for _, testCase := range []struct {
 		name      string
 		sequences []uint64
+		legacy    bool
 	}{
 		{name: "gap", sequences: []uint64{2}},
 		{name: "duplicate", sequences: []uint64{1, 1}},
+		{name: "obsolete_contract", sequences: []uint64{1}, legacy: true},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			resultsRoot := t.TempDir()
@@ -137,10 +139,14 @@ func TestProducerJournalRejectsSequenceGapsAndDuplicates(t *testing.T) {
 			}
 			producerID := "producer-identity"
 			var records strings.Builder
+			schemaID := "cartulary.test_services.journal_event.v2"
+			if testCase.legacy {
+				schemaID = "cartulary.test_services.journal_event.v1"
+			}
 			for index, sequence := range testCase.sequences {
 				records.WriteString(fmt.Sprintf(
-					`{"schema_id":"cartulary.test_services.journal_event.v1","producer_id":%q,"seq":%d,"type":"wrapper-owned-start","timestamp":"2026-08-17T12:00:%02dZ","pid":8080}`+"\n",
-					producerID, sequence, index,
+					`{"schema_id":%q,"producer_id":%q,"seq":%d,"type":"wrapper-owned-start","timestamp":"2026-08-17T12:00:%02dZ","pid":8080}`+"\n",
+					schemaID, producerID, sequence, index,
 				))
 			}
 			if err := os.WriteFile(filepath.Join(journalDir, producerID+".ndjson"), []byte(records.String()), 0o600); err != nil {
@@ -239,6 +245,18 @@ func TestScopeV2OmitsExactResourcesAndPrivateLedgerIsOwnerOnly(t *testing.T) {
 	if err := os.Chmod(ledgerPath, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	ledger.SchemaID = "cartulary.test_services.resource_ledger.v1"
+	legacy, err := json.Marshal(ledger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(ledgerPath, legacy, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ReadResourceLedger(env); err == nil {
+		t.Fatal("obsolete ledger cannot authorize current cleanup")
+	}
+	ledger.SchemaID = "cartulary.test_services.resource_ledger.v2"
 	ledger.SuiteID = "wrong-suite"
 	tampered, err := json.Marshal(ledger)
 	if err != nil {
@@ -943,5 +961,29 @@ func assertPreparation(t testing.TB, got PostgresDatabasePreparation, want Postg
 
 	if got != want {
 		t.Fatalf("unexpected database preparation:\ngot  %#v\nwant %#v", got, want)
+	}
+}
+
+func TestBucketReservationRetainsUncertainCreateWithoutCountingSuccess(t *testing.T) {
+	env := map[string]string{SuiteIDEnv: "suite-reservation", TargetEnv: "test-slice", testResultsDirEnv: t.TempDir(), testRunIDEnv: "run-reservation"}
+	for _, step := range []struct {
+		event            string
+		buckets, created int
+	}{
+		{EventS3BucketReserved, 1, 0},
+		{EventS3BucketCreated, 1, 1},
+		{EventS3BucketCleaned, 0, 1},
+	} {
+		if err := RecordEvent(env, Event{Type: step.event, Name: "ct-reserved"}); err != nil {
+			t.Fatal(err)
+		}
+		ledger, ok, err := CurrentResourceLedger(env)
+		if err != nil || !ok || len(ledger.Buckets) != step.buckets {
+			t.Fatalf("cleanup ownership after %s: ok=%t err=%v ledger=%#v", step.event, ok, err, ledger)
+		}
+		scope, ok, err := Summarize(env)
+		if err != nil || !ok || scope.ObjectStore.BucketCreateCount != step.created {
+			t.Fatalf("creation accounting after %s: ok=%t err=%v count=%d", step.event, ok, err, scope.ObjectStore.BucketCreateCount)
+		}
 	}
 }

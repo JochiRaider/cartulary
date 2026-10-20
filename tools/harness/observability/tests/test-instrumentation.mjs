@@ -83,7 +83,7 @@ function temporary(t) {
 }
 const unit = (id, needs = []) => ({ unit_id: id, owner_id: "harness.evidence_accounting", kind: "runner",
   command: { executable: "true", args: [], environment: {} }, needs,
-  resource_claims: { cpu: 1, process: 1 }, fixture_lease: "none", service_dependencies: [],
+  resource_claims: { cpu: 1, process: 1 }, fixture_lease: "none", postgres_isolation: "none", service_dependencies: [],
   cache_policy: "none", timeout_ms: 1000, current_run_evidence_outputs: [],
   failure_policy: { block_descendants: true, continue_independent: true, aggregate_effect: "required" }, estimated_work_ms: 10 });
 
@@ -566,7 +566,7 @@ test("complete observability rejects duplicate, unsafe and incomplete evidence a
   const { checkRetainedObservability } = await import("../retained-checks.mjs");
   const { writeCompleteFixture } = await import("./retained-fixture.mjs");
   for (const mutation of [
-    (dir, f) => f.write("cleanup-results.json", { schema_id: "cartulary.harness_cleanup_results.v1", run_id: f.manifest.run_id, results: [] }),
+    (dir, f) => f.write("cleanup-results.json", { schema_id: "cartulary.harness_cleanup_results.v2", run_id: f.manifest.run_id, results: [] }),
     (dir, f) => f.write("execution-context.json", { ...f.context, graph: { ...f.context.graph, units: [...f.context.graph.units, ...f.context.graph.units] } }),
     (dir, f) => { rmSync(path.join(dir, "unit-results/a.json")); symlinkSync("/dev/null", path.join(dir, "unit-results/a.json")); },
     (dir, f) => f.write("unit-results/a.json", { schema_id: "cartulary.harness_unit_result.v1", unit_id: "a", semantic_digest: f.context.graph.units[0].semantic_digest,
@@ -632,4 +632,70 @@ test("complete retained evidence rejects altered context preimages independently
     mutate(f); f.write("execution-context.json", f.context);
     await assert.rejects(checkRetainedObservability(dir, "all"));
   }
+});
+
+
+test("prelaunch absence is explainable while dispatched or malformed required evidence fails", async (t) => {
+  const { writeCompleteFixture } = await import("./retained-fixture.mjs");
+  const dir = temporary(t), f = writeCompleteFixture(dir);
+  const output = "browser-e2e-stateful/browser-groups/cohort-unlaunched/browser-group-result.json";
+  const write = f.write;
+  const target = JSON.parse(readFileSync(path.join(dir, "target-summaries/test-slice.json")));
+  Object.assign(target, { status: "fail", failure_class: "infra", failure_reason: "resource_conflict", evidence_refs: [output, "unit-results/a.json"] });
+  Object.assign(f.summary, { status: "fail", failure_class: "infra", failure_reason: "resource_conflict", unit_counts: { total: 1, passed: 0, failed: 1, skipped: 0, cancelled: 0 } });
+  const result = { schema_id: "cartulary.harness_unit_result.v1", unit_id: "a", semantic_digest: digest, status: "failed", exit_code: null, signal: null, failure_class: "infra", failure_reason: "resource_conflict", evidence_outputs: [output, "unit-results/a.json"], missing_outputs: [] };
+  write("unit-results/a.json", result); write("run-summary.json", f.summary); write("target-summaries/test-slice.json", target);
+  const events = f.events.map((event) => structuredClone(event));
+  const terminal = events.find((event) => event.event === "completed");
+  Object.assign(terminal, { event: "failed", status: "failed", failure_class: "infra", failure_reason: "resource_conflict" });
+  events.at(-1).status = "failed";
+  const phase = { ...events.find((event) => event.event === "started"), event: "phase_started", interval_id: "phase:1", phase: "host_admission" };
+  events.splice(7, 0, phase, { ...phase, event: "phase_finished", monotonic_ms: 8, phase_outcome: "failed" });
+  const publish = () => atomicLocalFile(path.join(dir, "unit-events.ndjson"), events.map((event, index) => JSON.stringify({ ...event, seq: index + 1 })).join("\n") + "\n", { replace: true });
+  publish();
+  const explained = await performanceExplanation(dir);
+  assert.deepEqual(explained.not_launched_units, ["a"]);
+  assert.deepEqual(explained.evidence_absences, [{ reference: output, unit_ids: ["a"], reason: "not_launched" }]);
+  assert.match(formatPerformanceExplanation(explained), /launch=not_launched/u);
+  write("unit-results/a.json", { ...result, unknown: true });
+  await assert.rejects(performanceExplanation(dir), /additional properties/u);
+  write("unit-results/a.json", result);
+  for (const event of events) if (event.phase) event.phase = "runner";
+  publish();
+  await assert.rejects(performanceExplanation(dir), /ENOENT/u);
+});
+
+test("checkpoint generations retain independent clocks and exact completeness", async (t) => {
+  const { writeCanonicalFixture } = await import("./retained-fixture.mjs");
+  const dir = temporary(t), f = writeCanonicalFixture(dir);
+  const checkpoint = {
+    schema_id: "cartulary.harness_postgres_checkpoints.v2", run_id: f.manifest.run_id,
+    source_digest: f.manifest.source_digest, graph_digest: f.manifest.graph_digest,
+    policy_digest: f.manifest.instrumentation.policy_digest, clock: "owned_service_start",
+    status: "observed", services: 2, unavailable: 0, unavailable_causes: [], truncated: false,
+    service_results: [1, 2].map((n) => ({ service_ordinal: n, service_scope_ref: `_shared/test-services/cluster-${n}/service-scope.json`, generation: `${n}`, identity_digest: `sha256:${String(n).repeat(64)}`, status: "observed", unavailable_causes: [], truncated: false })),
+    records: [1, 2].map((n) => ({ service_ordinal: n, elapsed_ms: 3000 - n * 1000, write_ms: 10, sync_ms: 20, files: 4, longest_sync_ms: 8, average_sync_ms: 5 })),
+  };
+  const write = (value) => atomicLocalFile(path.join(dir, "diagnostics/postgres-checkpoints.json"), JSON.stringify(value), { replace: true });
+  write(checkpoint);
+  assert.deepEqual((await loadRetainedObservability(dir)).postgresCheckpoints, checkpoint);
+  for (const mutate of [
+    (v) => { v.services = 1; },
+    (v) => { v.service_results[1].service_scope_ref = v.service_results[0].service_scope_ref; },
+    (v) => { v.records[1].service_ordinal = 3; },
+    (v) => { v.service_results[0].generation = ""; },
+    (v) => { v.service_results[0].status = "not_observed"; },
+    (v) => { v.unavailable = 1; },
+    (v) => { v.status = "unavailable"; },
+    (v) => { v.unavailable_causes = ["cancelled"]; },
+  ]) {
+    const changed = structuredClone(checkpoint); mutate(changed); write(changed);
+    await assert.rejects(loadRetainedObservability(dir), /checkpoint/u);
+  }
+  const interrupted = structuredClone(checkpoint);
+  Object.assign(interrupted.service_results[1], { status: "unavailable", identity_digest: null, unavailable_causes: ["cancelled"] });
+  interrupted.records.pop();
+  Object.assign(interrupted, { status: "unavailable", unavailable: 1, unavailable_causes: ["cancelled"] });
+  write(interrupted);
+  assert.deepEqual((await loadRetainedObservability(dir)).postgresCheckpoints, interrupted);
 });

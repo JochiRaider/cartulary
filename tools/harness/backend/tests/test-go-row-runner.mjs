@@ -52,7 +52,7 @@ const failed = adaptGoInvocation(invocation, {
 assert.deepEqual(failed.map((entry) => entry.terminal_state), ["failed"]);
 assert.deepEqual(failed.map((entry) => entry.exit_code), [10]);
 const readinessEnvelope = {
-  schema_id: "cartulary.harness_test_failure.v2",
+  schema_id: "cartulary.harness_test_failure.v4",
   failure_class: "infra",
   failure_reason: "service_readiness_timeout",
   setup_source: "s3test",
@@ -78,7 +78,7 @@ assert.equal(readiness[0].terminal_state, "infrastructure_failed");
 assert.equal(readiness[0].failure_class, "infra");
 assert.equal(readiness[0].failure_reason, "service_readiness_timeout");
 assert.equal(readiness[0].exit_code, 3);
-assert.deepEqual(readiness[0].failure_diagnostic, { schema_id: "cartulary.harness_go_failure_diagnostic.v1", setup: readinessEnvelope, cleanup: [] });
+assert.deepEqual(readiness[0].failure_diagnostic, { schema_id: "cartulary.harness_go_failure_diagnostic.v3", setup: readinessEnvelope, cleanup: [] });
 
 const duplicateReadiness = adaptGoInvocation(invocation, {
   status: 1,
@@ -137,11 +137,12 @@ assert.deepEqual(cleanupOnly.failure_diagnostic.cleanup, [cleanupEnvelope]);
 const waitSnapshot = {
   type: "IPC", event: "CheckpointDone", blockers: 0,
   checkpointer_type: "IO", checkpointer_event: "DataFileSync", checkpointer_blockers: 0,
-  requested: 7, done: 6, buffers: 200,
+  requested: 7, done: 6, buffers: 200, write_ms: 1234, sync_ms: 56,
   barrier: { operation: "select", database_scope: "other", operation_age_ms: 123, status: "sampled", backend: "client backend", state: "idle", type: "Client", event: "ClientRead", blockers: 0 },
 };
+const dropAttempt = { duration_ms: 5000, admission_ms: 1, service_generation: null, admission_budget_ms: 15000, operation_ms: 4999, operation_budget_ms: 5000, admission: "acquired", outcome: "deadline_exceeded" };
 const observedCleanup = { ...cleanupEnvelope, cleanup_diagnostics: [{ stage: "forced_drop", cause: "deadline_exceeded",
-  wait: { status: "sampled", first: waitSnapshot, last: waitSnapshot } }] };
+  postgres: { ...dropAttempt, wait: { status: "sampled", first: waitSnapshot, last: waitSnapshot } } }] };
 const retainedWait = withCleanup([{ envelope: observedCleanup }]);
 assert.equal(retainedWait.exit_code, 12);
 assert.deepEqual(retainedWait.failure_diagnostic.cleanup, [observedCleanup]);
@@ -202,12 +203,12 @@ for (const invalidWait of [
   { status: "not_observed", first: waitSnapshot, last: null },
   { status: "sampled", first: waitSnapshot, last: { ...waitSnapshot, buffers: -1 } },
 ]) {
-  const rejected = withCleanup([{ envelope: { ...cleanupEnvelope, cleanup_diagnostics: [{ stage: "forced_drop", cause: "deadline_exceeded", wait: invalidWait }] } }]);
+  const rejected = withCleanup([{ envelope: { ...cleanupEnvelope, cleanup_diagnostics: [{ stage: "forced_drop", cause: "deadline_exceeded", postgres: { ...dropAttempt, wait: invalidWait } }] } }]);
   assert.equal(rejected.failure_reason, "scheduler_accounting_error", "invalid drop observations must fail before evidence attribution");
   assert.equal(rejected.failure_diagnostic, null);
 }
 const misplacedWait = withCleanup([{ envelope: { ...observedCleanup, cleanup_diagnostics: [{ ...observedCleanup.cleanup_diagnostics[0], stage: "catalog_unlock" }] } }]);
-assert.equal(misplacedWait.failure_reason, "scheduler_accounting_error", "drop observation cannot be attributed to another cleanup stage");
+assert.equal(misplacedWait.failure_reason, "cleanup_error", "attempt evidence survives independent unlock failure");
 const afterAssertion = withCleanup([{ envelope: { ...cleanupEnvelope, prior_failure: true } }]);
 assert.equal(afterAssertion.failure_reason, "test_assertion_failure");
 assert.equal(afterAssertion.exit_code, 10);
@@ -335,3 +336,33 @@ assert.ok(
     ),
   ),
 );
+
+// Execution order is an admitted, reproducible input. It cannot broaden the exact
+// symbol selection or collide with an ordinary/other-seed cached graph.
+const selectedGoRow = "module.auth.integration.start_store_uses_rollback_dbfor_seeds_assertions_29c8a92930";
+const orderInputs = { OWNER: "module.auth", ROWS: selectedGoRow };
+const orderCompiler = new WorkGraphCompiler(root);
+const orderPlan = (seed) => orderCompiler.compileCommand("test-slice", {
+  ...orderInputs, ...(seed === undefined ? {} : { GO_SHUFFLE_SEED: seed }),
+}).graph;
+const normalOrder = orderPlan(undefined), firstOrder = orderPlan("1"), secondOrder = orderPlan("2");
+assert.equal(firstOrder.graph_digest, orderPlan("1").graph_digest);
+assert.notEqual(firstOrder.graph_digest, normalOrder.graph_digest);
+assert.notEqual(firstOrder.graph_digest, secondOrder.graph_digest);
+const firstGoUnit = firstOrder.units.find((unit) => unit.unit_id.startsWith("go:"));
+assert.deepEqual(firstGoUnit.row_bindings.map((row) => row.row_id), [selectedGoRow]);
+assert.equal(firstGoUnit.command.environment.CARTULARY_GO_SHUFFLE_SEED, "1");
+assert.equal(normalOrder.units.find((unit) => unit.unit_id.startsWith("go:")).command.environment.CARTULARY_GO_SHUFFLE_SEED, "");
+for (const invalid of ["0", "-1", "random", "1.5", "2147483648"]) {
+  assert.throws(() => orderPlan(invalid));
+}
+assert.throws(() => orderCompiler.compileCommand("test-slice", {
+  OWNER: "harness.command_surface", ROWS: "harness.command_surface.behavior.owner_boundaries", GO_SHUFFLE_SEED: "1",
+}), /Go-only selection/);
+const [shuffledInvocation] = buildGoInvocations([
+  { row_id: "fixture", selector: { package: "./internal/fixture", tests: ["TestActive"] } },
+], 2, "pinned-go", { ...buildContext, goShuffleSeed: "1" });
+assert.deepEqual(shuffledInvocation.args.filter((arg) => !arg.startsWith("-shuffle=")), ordinaryInvocation.args);
+assert.ok(shuffledInvocation.args.includes("-shuffle=1"));
+assert.equal(shuffledInvocation.environment.GOFLAGS, "");
+assert.throws(() => buildGoInvocations([], 1, "go", { ...buildContext, goShuffleSeed: "on" }), /shuffle seed/);

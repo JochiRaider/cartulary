@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_work_graph_owner.v5",
+  "schema_id": "cartulary.harness_work_graph_owner.v8",
   "capacity_override_input": "CARTULARY_HARNESS_CAPACITY_OVERRIDE",
   "tier_order": [
     "fast",
@@ -523,7 +523,8 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.build_migrate": {
       "needs": [
@@ -532,7 +533,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.build_operator": {
       "needs": [
@@ -541,7 +543,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.build_server": {
       "needs": [
@@ -550,7 +553,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.build_server_harness": {
       "needs": [
@@ -560,7 +564,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.build_web": {
       "needs": [
@@ -569,7 +574,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.codegen_toolchain": {
       "needs": [
@@ -578,7 +584,8 @@
       "cache_policy": "same_run",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.deployable_shape": {
       "needs": [
@@ -587,7 +594,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.embedded_web_assets": {
       "needs": [
@@ -596,7 +604,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.frontend_fallow_static": {
       "needs": [
@@ -605,7 +614,8 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.frontend_import_boundary_check": {
       "needs": [
@@ -614,14 +624,16 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.frontend_install": {
       "needs": [],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.frontend_typecheck": {
       "needs": [
@@ -630,7 +642,8 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.generated_artifact_policy_check": {
       "needs": [
@@ -639,7 +652,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.go_gosec_audit": {
       "needs": [
@@ -648,7 +662,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 8000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.go_gosec_targeted": {
       "needs": [
@@ -657,7 +672,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 8000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.go_lint_toolchain": {
       "needs": [
@@ -666,7 +682,8 @@
       "cache_policy": "same_run",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.go_vulncheck": {
       "needs": [
@@ -675,7 +692,8 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 8000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.goose_toolchain": {
       "needs": [
@@ -684,7 +702,8 @@
       "cache_policy": "same_run",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.gosec_toolchain": {
       "needs": [
@@ -693,7 +712,8 @@
       "cache_policy": "same_run",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.govulncheck_toolchain": {
       "needs": [
@@ -702,7 +722,8 @@
       "cache_policy": "same_run",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.json_shape_check": {
       "needs": [
@@ -712,7 +733,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.license_report": {
       "needs": [
@@ -721,7 +743,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.lint_biome": {
       "needs": [
@@ -730,7 +753,8 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.lint_scripts": {
       "needs": [
@@ -739,7 +763,8 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.lint_shell": {
       "needs": [
@@ -748,7 +773,8 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.migration_input_drift": {
       "needs": [
@@ -757,14 +783,16 @@
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.object_store_init": {
       "needs": [],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.openapi_compatibility_check": {
       "needs": [
@@ -773,7 +801,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.otel_conformance": {
       "needs": [
@@ -829,7 +858,8 @@
           "row_id": "platform.telemetry.unit.resource_identity",
           "rationale": "Required OTel runtime/security evidence above the ordinary aggregate tier: resource identity."
         }
-      ]
+      ],
+      "postgres_isolation": "none"
     },
     "harness.playwright_install": {
       "needs": [
@@ -838,7 +868,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.release_inventory_artifacts": {
       "needs": [
@@ -864,7 +895,8 @@
       ],
       "estimated_work_ms": 10000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.release_readiness_evidence": {
       "needs": [
@@ -885,7 +917,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.sbom": {
       "needs": [
@@ -894,7 +927,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.seaweedfs_compatibility": {
       "needs": [
@@ -906,7 +940,8 @@
       "resource_profile_id": "standard",
       "service_dependencies": [
         "object_store"
-      ]
+      ],
+      "postgres_isolation": "none"
     },
     "harness.seaweedfs_release_evidence": {
       "needs": [
@@ -917,7 +952,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.seaweedfs_release_gate": {
       "needs": [
@@ -928,7 +964,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.semantic_identity_check": {
       "needs": [
@@ -937,7 +974,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.shell_lint_toolchain": {
       "needs": [
@@ -946,7 +984,8 @@
       "cache_policy": "same_run",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.standup_operational_recovery_smoke": {
       "needs": [
@@ -958,7 +997,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     "harness.standup_package_smoke": {
       "needs": [
@@ -970,7 +1010,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     "harness.test_catalog_check": {
       "needs": [
@@ -979,7 +1020,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.test_service_images": {
       "needs": [
@@ -988,14 +1030,16 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.testservices_build": {
       "needs": [],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.toolchain_drift": {
       "needs": [
@@ -1004,7 +1048,8 @@
       "cache_policy": "same_run",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.build_web_measurement": {
       "needs": [
@@ -1013,7 +1058,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.protocol_ts_browser_artifact_reachability": {
       "needs": [
@@ -1022,14 +1068,16 @@
       "cache_policy": "none",
       "estimated_work_ms": 1000,
       "resource_profile_id": "io_heavy",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.frontend_lockfile_update": {
       "needs": [],
       "cache_policy": "none",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.standup_reference_pack_smoke": {
       "needs": [
@@ -1041,7 +1089,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     "harness.cryptographic_policy_assessment": {
       "needs": [
@@ -1050,7 +1099,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 15000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.credential_capacity_assessment": {
       "needs": [
@@ -1062,7 +1112,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     "harness.package_release": {
       "needs": [
@@ -1073,7 +1124,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 120000,
       "resource_profile_id": "package_qualification",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.package_inspect": {
       "needs": [
@@ -1082,7 +1134,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 20000,
       "resource_profile_id": "package_qualification",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.syft_toolchain": {
       "needs": [
@@ -1091,7 +1144,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.harness_graph_contract": {
       "needs": [
@@ -1100,7 +1154,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.harness_boundary_contract": {
       "needs": [
@@ -1109,7 +1164,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.harness_scheduler_contract": {
       "needs": [
@@ -1118,7 +1174,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.harness_local_session_contract": {
       "needs": [
@@ -1127,7 +1184,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.harness_playwright_adapter_contract": {
       "needs": [
@@ -1136,7 +1194,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.harness_observation_contract": {
       "needs": [
@@ -1145,7 +1204,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.harness_command_surface_contract": {
       "needs": [
@@ -1154,7 +1214,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.harness_evidence_contract": {
       "needs": [
@@ -1163,7 +1224,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.harness_ui_review_contract": {
       "needs": [
@@ -1172,7 +1234,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 1000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.build_report_renderer": {
       "needs": [
@@ -1182,7 +1245,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 15000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_toolchain_pins": {
       "needs": [
@@ -1191,7 +1255,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_go_toolchain_readiness": {
       "needs": [
@@ -1200,7 +1265,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_bootstrap_node_runtime": {
       "needs": [
@@ -1209,7 +1275,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_bootstrap_shellcheck": {
       "needs": [
@@ -1218,7 +1285,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_cache_artifact": {
       "needs": [
@@ -1227,7 +1295,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_cleanup_contract": {
       "needs": [
@@ -1236,7 +1305,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_capacity_failure_contract": {
       "needs": [
@@ -1245,7 +1315,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_lint_shell": {
       "needs": [
@@ -1254,7 +1325,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_build_input_discovery": {
       "needs": [
@@ -1263,7 +1335,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_check_migrations": {
       "needs": [
@@ -1272,7 +1345,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_generate_drift": {
       "needs": [
@@ -1281,7 +1355,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_generated_artifact_policy": {
       "needs": [
@@ -1290,7 +1365,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_json_shapes": {
       "needs": [
@@ -1299,7 +1375,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_run_go_staticcheck": {
       "needs": [
@@ -1308,7 +1385,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_run_go_govulncheck": {
       "needs": [
@@ -1317,7 +1395,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_run_go_gosec_targeted": {
       "needs": [
@@ -1326,7 +1405,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_run_go_gosec_audit": {
       "needs": [
@@ -1335,7 +1415,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_work_graph_fast": {
       "needs": [
@@ -1344,7 +1425,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_work_graph_matrix": {
       "needs": [
@@ -1353,7 +1435,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_observability": {
       "needs": [
@@ -1362,7 +1445,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_release_task_surface": {
       "needs": [
@@ -1371,7 +1455,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_release_readiness_evidence": {
       "needs": [
@@ -1380,7 +1465,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_sbom_license_evidence": {
       "needs": [
@@ -1389,7 +1475,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_seaweedfs_release_evidence": {
       "needs": [
@@ -1398,7 +1485,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_task_surface_report": {
       "needs": [
@@ -1407,7 +1495,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_agent_finalize": {
       "needs": [
@@ -1416,7 +1505,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_make_node_tools": {
       "needs": [
@@ -1425,7 +1515,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_execution_topology": {
       "needs": [
@@ -1434,7 +1525,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_canonical_evidence": {
       "needs": [
@@ -1443,7 +1535,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_browser_work_graph": {
       "needs": [
@@ -1452,7 +1545,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_run_step": {
       "needs": [
@@ -1461,7 +1555,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_print_target_plan": {
       "needs": [
@@ -1470,7 +1565,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_fixture_broker_matrix": {
       "needs": [
@@ -1479,7 +1575,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_work_graph_scheduler_matrix": {
       "needs": [
@@ -1488,7 +1585,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_run_playwright_step": {
       "needs": [
@@ -1497,7 +1595,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_run_vitest_step": {
       "needs": [
@@ -1506,7 +1605,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_frontend_import_boundaries": {
       "needs": [
@@ -1515,7 +1615,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_fallow_static": {
       "needs": [
@@ -1524,7 +1625,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_web_e2e_lifecycle": {
       "needs": [
@@ -1533,7 +1635,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_dev_stack_lifecycle": {
       "needs": [
@@ -1542,7 +1645,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.source_generated": {
       "needs": [
@@ -1551,7 +1655,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.generated_refresh": {
       "needs": [
@@ -1560,14 +1665,16 @@
       "cache_policy": "none",
       "estimated_work_ms": 5000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_dev_services_lifecycle": {
       "needs": [],
       "resource_profile_id": "harness_contract",
       "service_dependencies": [],
       "cache_policy": "none",
-      "estimated_work_ms": 10000
+      "estimated_work_ms": 10000,
+      "postgres_isolation": "none"
     },
     "harness.public_wrapper_smoke": {
       "needs": [
@@ -1576,7 +1683,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 1500,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.lint_go_format": {
       "needs": [
@@ -1585,7 +1693,8 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.lint_go_vet": {
       "needs": [
@@ -1594,7 +1703,8 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.lint_go_staticcheck": {
       "needs": [
@@ -1603,7 +1713,8 @@
       "cache_policy": "content_addressed",
       "estimated_work_ms": 3000,
       "resource_profile_id": "standard",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_source_schema": {
       "needs": [
@@ -1612,7 +1723,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_backend_unit": {
       "needs": [
@@ -1621,7 +1733,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_backend_unit_machine": {
       "needs": [
@@ -1630,7 +1743,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_owner_json": {
       "needs": [
@@ -1639,7 +1753,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_lint": {
       "needs": [
@@ -1648,7 +1763,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_build": {
       "needs": [
@@ -1657,7 +1773,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_build_machine": {
       "needs": [
@@ -1666,7 +1783,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_test_fast": {
       "needs": [
@@ -1675,7 +1793,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_check": {
       "needs": [
@@ -1685,7 +1804,8 @@
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": [],
-      "timeout_ms": 1800000
+      "timeout_ms": 1800000,
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_check_machine": {
       "needs": [
@@ -1695,7 +1815,8 @@
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
       "service_dependencies": [],
-      "timeout_ms": 1800000
+      "timeout_ms": 1800000,
+      "postgres_isolation": "none"
     },
     "harness.assurance_output_invalid_usage": {
       "needs": [
@@ -1704,7 +1825,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     "harness.browser_lane_policy": {
       "needs": [
@@ -1713,7 +1835,8 @@
       "cache_policy": "none",
       "estimated_work_ms": 10000,
       "resource_profile_id": "harness_contract",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   },
   "evidence_estimates_ms": {
@@ -5910,5 +6033,28 @@
       "cache_policy": "none",
       "go_race": true
     }
+  },
+  "invocation_policies": {
+    "vitest": {
+      "startup_ms": 1000,
+      "cleanup_ms": 250,
+      "coordinator_claims": {
+        "cpu": 1,
+        "memory_mb": 384,
+        "process": 3
+      }
+    },
+    "go": {
+      "startup_ms": 5000,
+      "cleanup_ms": 250
+    }
+  },
+  "lifecycle_estimates_ms": {
+    "browser_reset": 4000,
+    "browser_target_finalize": 500,
+    "measurement_finalize": 500,
+    "performance_fixture_prepare": 120000,
+    "browser_allocation_acquire": 20000,
+    "browser_allocation_release": 5000
   }
 }

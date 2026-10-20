@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.extensions",
   "rows": [
     {
@@ -36,7 +36,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.extensions.integration.admission_preflight_v6",
@@ -65,7 +67,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.extensions.integration.bc011_deadline_precedence_ef23af86ac",
@@ -84,17 +87,15 @@
           "TestExtensionBC011DeadlinePrecedence_Integration"
         ]
       },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "managed_process",
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "managed_process",
+      "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.integration.bc015_browser_availability_e0a71bee5d",
@@ -114,17 +115,15 @@
           "TestExtensionBC015BrowserAvailability_Integration"
         ]
       },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "managed_process",
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "managed_process",
+      "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.integration.clean_job_cutover_migration_4917a0cdef",
@@ -152,7 +151,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.extensions.integration.extension_coordination_state_and_staged_objects_5a1db013c5",
@@ -178,7 +178,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.extensions.integration.inactive_job_reconciliation_adapter_5c3e201b45",
@@ -206,7 +207,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.extensions.integration.job_finalization_cancellation_and_reconciliation_2c712826c2",
@@ -236,7 +238,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.extensions.integration.job_progress_intent_persistence_characterization_a2b3c4d5e6",
@@ -262,14 +265,43 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
-      "row_id": "module.extensions.integration.named_portability_job_recovery_f7c496c10b",
+      "row_id": "module.extensions.integration.jobs_runner_composition_rejects_invalid_and_dupl_5be27f087d",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "module.incidentbundles",
+        "module.jobapi"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.incident_portability_jobs"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/jobs",
+        "tests": [
+          "TestRunnerNamedCompositionRejectsInvalidAndDuplicateRegistration"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "module.extensions.integration.jobs_runner_dispatch_and_recovery_preserve_durab_f126232e74",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
       "collaborator_ids": [
@@ -284,7 +316,6 @@
         "package": "./internal/platform/jobs",
         "tests": [
           "TestRunnerDispatchesDurableHandlerAndCompletesJob",
-          "TestRunnerNamedCompositionRejectsInvalidAndDuplicateRegistration",
           "TestRunnerRecoversQueuedDurableHandlerJob"
         ]
       },
@@ -297,41 +328,11 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.extensions.integration.network_flow_state_v4",
-      "owner_id": "module.extensions",
-      "family_id": "module.extensions.integration",
-      "collaborator_ids": [
-        "module.networkflow",
-        "platform.postgres"
-      ],
-      "verification_ids": [
-        "module.extensions.verification.behavior_contract"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/modules/extensions",
-        "tests": [
-          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowFinalValidator",
-          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStateThreeToFourPreservesLedgerHistory",
-          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStatesOneAndTwoFailBeforeExecution"
-        ]
-      },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "postgres_dedicated",
-      "aggregate_placement": "standard",
-      "service_dependencies": [
-        "postgres"
-      ]
-    },
-    {
-      "row_id": "module.extensions.integration.state_admission_matrix_7f6ad80724",
+      "row_id": "module.extensions.integration.managed_service_assertions_for_state_admission_m_55b90ea265",
       "owner_id": "module.extensions",
       "family_id": "module.extensions.integration",
       "collaborator_ids": [
@@ -362,7 +363,6 @@
           "TestStateRuntimeAdmit_ServiceBacked_MigrationDefinitionClosure",
           "TestStateRuntimeAdmit_ServiceBacked_MigrationSequence",
           "TestStateRuntimeAdmit_ServiceBacked_MigrationStepRollback",
-          "TestStateRuntimeAdmit_ServiceBacked_StatePresenceMatrix",
           "TestStateRuntimeAdmit_ServiceBacked_StepAndProfileDeadlines"
         ]
       },
@@ -375,7 +375,68 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.extensions.integration.network_flow_state_v4",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "module.networkflow",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowFinalValidator",
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStateThreeToFourPreservesLedgerHistory",
+          "TestStateRuntimeAdmit_ServiceBacked_NetworkFlowStatesOneAndTwoFailBeforeExecution"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "standard",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.extensions.integration.service_free_contract_assertions_for_state_admis_e2f242ee26",
+      "owner_id": "module.extensions",
+      "family_id": "module.extensions.integration",
+      "collaborator_ids": [
+        "module.networkflow",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "module.extensions.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/extensions",
+        "tests": [
+          "TestStateRuntimeAdmit_ServiceBacked_StatePresenceMatrix"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.integration.state_concurrent_admission",
@@ -403,7 +464,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.extensions.process.bc010_lease_lifecycle_4be7ab1e5d",
@@ -423,17 +485,15 @@
           "TestExtensionBC010LeaseLifecycle_Process"
         ]
       },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "managed_process",
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "managed_process",
+      "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.process.bc017_component_loss_755919c8d7",
@@ -452,17 +512,15 @@
           "TestExtensionBC017PublishedComponentLoss_Process"
         ]
       },
-      "evidence_class": "integration",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "managed_process",
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "managed_process",
+      "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.static.bc004_dependency_declarations_7dd570e1e4",
@@ -480,16 +538,14 @@
         ]
       },
       "evidence_class": "static",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "managed_process",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "managed_process",
+      "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.static.behavior_routing_e80c9e3dc7",
@@ -507,16 +563,14 @@
         ]
       },
       "evidence_class": "static",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "managed_process",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "managed_process",
+      "fixture_capability": "none",
       "aggregate_placement": "standard",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ]
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.admission_invocation_v6",
@@ -542,7 +596,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.bc001_empty_state_7ca75ba0bc",
@@ -568,7 +623,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.bc002_validation_precedence_af944dca6e",
@@ -594,7 +650,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.bc005_descriptor_projection_1e0ea91df8",
@@ -618,7 +675,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.bc006_validation_inventory_6e85895643",
@@ -644,7 +702,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.bc016_capabilities_disabled_77bb995602",
@@ -670,7 +729,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.coordinator_binding_admission_c2d8beffdb",
@@ -694,7 +754,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.coordinator_claim_resolution_6cfce6db24",
@@ -718,7 +779,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.coordinator_collision_admission_590bd27481",
@@ -742,7 +804,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.coordinator_publication_plan_05ae1ed79d",
@@ -768,7 +831,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.coordinator_registry_1dce9a539a",
@@ -794,7 +858,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.cross_owner_descriptors_uses_current_machine_con_a4d6a2c187",
@@ -818,7 +883,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.inactive_configuration_catalog",
@@ -844,7 +910,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.job_admission_and_terminal_contracts_64d299b374",
@@ -871,7 +938,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.job_inactive_reconciliation_49b5990495",
@@ -898,7 +966,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.network_flow_v5_state_jobs_reporting_projection",
@@ -925,7 +994,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.extensions.unit.publication_catalog_exact_profile_contribution_s_15f926e0bd",
@@ -949,7 +1019,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

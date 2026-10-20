@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "web.collaboration",
   "rows": [
     {
@@ -14,12 +14,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/collaboration/incidentCollaborationSessionPlan.test.ts",
+        "file": "apps/web/src/collaboration/incidentCollaborationSessionPlan.node.test.ts",
         "titles": [
           "incident collaboration session plan classifies handshake, heartbeat, and terminal messages exactly",
           "incident collaboration session plan deduplicates, detects gaps, and suppresses replay while resetting"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -28,7 +28,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.collaboration.regression.incidentcollaborationsession_suite_6b9c4a2c72",
@@ -55,7 +56,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.collaboration.regression.presence_accessibility",
@@ -82,7 +84,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.collaboration.regression.presence_presentation",
@@ -117,7 +120,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.collaboration.regression.timeline_collaboration_binding_5e6a9b1472",
@@ -146,7 +150,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.collaboration.regression.workbook_collaboration_transition_models_lr07",
@@ -161,7 +166,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/collaboration/workbookCollaborationTransitionModels.test.ts",
+        "file": "apps/web/src/workbook/collaboration/workbookCollaborationTransitionModels.node.test.ts",
         "titles": [
           "Workbook collaboration transition models plans ordered protected-state, reset, role, closure, and disposal invalidation",
           "Workbook collaboration transition models projects presence as an exact keyed collection and rejects malformed snapshots",
@@ -169,7 +174,7 @@
           "Workbook collaboration transition models routes the closed event family without interpreting ignored message owners",
           "Workbook collaboration transition models settles only the current reset subject"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -178,7 +183,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "web.collaboration.regression.workbookcollaborationcoordinator_suite_514be174a8",
@@ -192,7 +198,7 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.test.ts",
+        "file": "apps/web/src/workbook/collaboration/WorkbookCollaborationCoordinator.node.test.ts",
         "titles": [
           "WorkbookCollaborationCoordinator cancels late authorization recovery when the incident closes",
           "WorkbookCollaborationCoordinator classifies failed surface confirmation without replaying or retrying contract defects",
@@ -221,7 +227,7 @@
           "WorkbookCollaborationCoordinator routes typed invalidation and pauses replay on authorization loss and closure",
           "WorkbookCollaborationCoordinator waits for an active accepted surface before resuming retained edits"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -230,7 +236,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     }
   ]
 }

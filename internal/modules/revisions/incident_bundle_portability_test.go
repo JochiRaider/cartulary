@@ -107,138 +107,140 @@ func (r *revisionsAttributionRecorder) ImportedAttributions() []incidentportabil
 }
 
 func TestRevisionsIncidentBundleInvariantAttribution(t *testing.T) {
-	harness := newRevisionsPortabilityHarness(t, "invariant-attribution")
-	valid := harness.validBundle(t)
+	t.Run("row_invariants", func(t *testing.T) {
+		harness := newRevisionsPortabilityHarness(t, "invariant-attribution")
+		valid := harness.validBundle(t)
 
-	tests := []struct {
-		name      string
-		invariant string
-		mutate    func(sourceport.MapBundle)
-	}{
-		{
-			name:      "references_complete",
-			invariant: "revisions.references_complete",
-			mutate: func(bundle sourceport.MapBundle) {
-				rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
-				rows[0]["record_id"] = uuid.NewString()
-				bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+		tests := []struct {
+			name      string
+			invariant string
+			mutate    func(sourceport.MapBundle)
+		}{
+			{
+				name:      "references_complete",
+				invariant: "revisions.references_complete",
+				mutate: func(bundle sourceport.MapBundle) {
+					rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
+					rows[0]["record_id"] = uuid.NewString()
+					bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+				},
 			},
-		},
-		{
-			name:      "actor_references_complete",
-			invariant: "revisions.actor_references_complete",
-			mutate: func(bundle sourceport.MapBundle) {
-				rows := decodePortableRows(t, bundle[revisionsTestChangeSetsPath])
-				rows[0]["actor_user_id"] = uuid.NewString()
-				bundle[revisionsTestChangeSetsPath] = encodePortableRows(t, rows)
+			{
+				name:      "actor_references_complete",
+				invariant: "revisions.actor_references_complete",
+				mutate: func(bundle sourceport.MapBundle) {
+					rows := decodePortableRows(t, bundle[revisionsTestChangeSetsPath])
+					rows[0]["actor_user_id"] = uuid.NewString()
+					bundle[revisionsTestChangeSetsPath] = encodePortableRows(t, rows)
+				},
 			},
-		},
-		{
-			name:      "mutation_sequence_contiguous",
-			invariant: "revisions.mutation_sequence_contiguous",
-			mutate: func(bundle sourceport.MapBundle) {
-				rows := decodePortableRows(t, bundle[revisionsTestMutationsPath])
-				rows[0]["sequence_no"] = 2
-				bundle[revisionsTestMutationsPath] = encodePortableRows(t, rows)
+			{
+				name:      "mutation_sequence_contiguous",
+				invariant: "revisions.mutation_sequence_contiguous",
+				mutate: func(bundle sourceport.MapBundle) {
+					rows := decodePortableRows(t, bundle[revisionsTestMutationsPath])
+					rows[0]["sequence_no"] = 2
+					bundle[revisionsTestMutationsPath] = encodePortableRows(t, rows)
+				},
 			},
-		},
-		{
-			name:      "record_version_unique",
-			invariant: "revisions.record_version_unique",
-			mutate: func(bundle sourceport.MapBundle) {
-				rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
-				duplicate := clonePortableRow(t, rows[0])
-				duplicate["revision_id"] = 2
-				rows = append(rows, duplicate)
-				bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+			{
+				name:      "record_version_unique",
+				invariant: "revisions.record_version_unique",
+				mutate: func(bundle sourceport.MapBundle) {
+					rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
+					duplicate := clonePortableRow(t, rows[0])
+					duplicate["revision_id"] = 2
+					rows = append(rows, duplicate)
+					bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+				},
 			},
-		},
-		{
-			name:      "history_reconstruction",
-			invariant: "revisions.history_reconstruction",
-			mutate: func(bundle sourceport.MapBundle) {
-				rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
-				after := rows[0]["after_json"].(map[string]any)
-				after["source"].(map[string]any)["display_name"] = "not-current"
-				bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+			{
+				name:      "history_reconstruction",
+				invariant: "revisions.history_reconstruction",
+				mutate: func(bundle sourceport.MapBundle) {
+					rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
+					after := rows[0]["after_json"].(map[string]any)
+					after["source"].(map[string]any)["display_name"] = "not-current"
+					bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+				},
 			},
-		},
-		{
-			name:      "schema_less_history_rejected",
-			invariant: "revisions.history_reconstruction",
-			mutate: func(bundle sourceport.MapBundle) {
-				rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
-				delete(rows[0]["after_json"].(map[string]any), "snapshot_schema_id")
-				bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+			{
+				name:      "schema_less_history_rejected",
+				invariant: "revisions.history_reconstruction",
+				mutate: func(bundle sourceport.MapBundle) {
+					rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
+					delete(rows[0]["after_json"].(map[string]any), "snapshot_schema_id")
+					bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+				},
 			},
-		},
-		{
-			name:      "schema_less_mutation_history_rejected",
-			invariant: "revisions.history_reconstruction",
-			mutate: func(bundle sourceport.MapBundle) {
-				rows := decodePortableRows(t, bundle[revisionsTestMutationsPath])
-				delete(rows[0]["after_value"].(map[string]any), "snapshot_schema_id")
-				bundle[revisionsTestMutationsPath] = encodePortableRows(t, rows)
+			{
+				name:      "schema_less_mutation_history_rejected",
+				invariant: "revisions.history_reconstruction",
+				mutate: func(bundle sourceport.MapBundle) {
+					rows := decodePortableRows(t, bundle[revisionsTestMutationsPath])
+					delete(rows[0]["after_value"].(map[string]any), "snapshot_schema_id")
+					bundle[revisionsTestMutationsPath] = encodePortableRows(t, rows)
+				},
 			},
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			bundle := clonePortableBundle(valid)
-			test.mutate(bundle)
-			err := harness.applyAndValidate(t, bundle)
-			requireRevisionsInvariant(t, err, test.invariant)
-		})
-	}
+		}
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				bundle := clonePortableBundle(valid)
+				test.mutate(bundle)
+				err := harness.applyAndValidate(t, bundle)
+				requireRevisionsInvariant(t, err, test.invariant)
+			})
+		}
 
-	descriptor := harness.port.Descriptor()
-	if got := descriptor.InvariantIDs[len(descriptor.InvariantIDs)-2:]; got[0] != "revisions.sequence_repair_after_validation" || got[1] != "revisions.source_identity_admitted" {
-		t.Fatalf("revisions invariant tail = %#v", got)
-	}
+		descriptor := harness.port.Descriptor()
+		if got := descriptor.InvariantIDs[len(descriptor.InvariantIDs)-2:]; got[0] != "revisions.sequence_repair_after_validation" || got[1] != "revisions.source_identity_admitted" {
+			t.Fatalf("revisions invariant tail = %#v", got)
+		}
 
-	strictFixtures := []struct {
-		name   string
-		mutate func(sourceport.MapBundle)
-	}{
-		{
-			name: "unknown_member",
-			mutate: func(bundle sourceport.MapBundle) {
-				rows := decodePortableRows(t, bundle[revisionsTestChangeSetsPath])
-				rows[0]["hostile_unknown"] = "must-not-escape"
-				bundle[revisionsTestChangeSetsPath] = encodePortableRows(t, rows)
+		strictFixtures := []struct {
+			name   string
+			mutate func(sourceport.MapBundle)
+		}{
+			{
+				name: "unknown_member",
+				mutate: func(bundle sourceport.MapBundle) {
+					rows := decodePortableRows(t, bundle[revisionsTestChangeSetsPath])
+					rows[0]["hostile_unknown"] = "must-not-escape"
+					bundle[revisionsTestChangeSetsPath] = encodePortableRows(t, rows)
+				},
 			},
-		},
-		{
-			name: "missing_nullable_member",
-			mutate: func(bundle sourceport.MapBundle) {
-				rows := decodePortableRows(t, bundle[revisionsTestMutationsPath])
-				delete(rows[0], "before_value")
-				bundle[revisionsTestMutationsPath] = encodePortableRows(t, rows)
+			{
+				name: "missing_nullable_member",
+				mutate: func(bundle sourceport.MapBundle) {
+					rows := decodePortableRows(t, bundle[revisionsTestMutationsPath])
+					delete(rows[0], "before_value")
+					bundle[revisionsTestMutationsPath] = encodePortableRows(t, rows)
+				},
 			},
-		},
-		{
-			name: "wrong_integer_type",
-			mutate: func(bundle sourceport.MapBundle) {
-				rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
-				rows[0]["row_version"] = "1"
-				bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+			{
+				name: "wrong_integer_type",
+				mutate: func(bundle sourceport.MapBundle) {
+					rows := decodePortableRows(t, bundle[revisionsTestHistoryPath])
+					rows[0]["row_version"] = "1"
+					bundle[revisionsTestHistoryPath] = encodePortableRows(t, rows)
+				},
 			},
-		},
-	}
-	for _, fixture := range strictFixtures {
-		t.Run("strict_"+fixture.name, func(t *testing.T) {
-			bundle := clonePortableBundle(valid)
-			fixture.mutate(bundle)
-			_, err := harness.port.PrepareImport(context.Background(), bundle, harness.context)
-			if err == nil {
-				t.Fatal("malformed Revisions row passed strict preparation")
-			}
-			if bytes.Contains([]byte(err.Error()), []byte("must-not-escape")) ||
-				bytes.Contains([]byte(err.Error()), []byte("hostile_unknown")) {
-				t.Fatalf("strict failure exposed hostile input: %v", err)
-			}
-		})
-	}
+		}
+		for _, fixture := range strictFixtures {
+			t.Run("strict_"+fixture.name, func(t *testing.T) {
+				bundle := clonePortableBundle(valid)
+				fixture.mutate(bundle)
+				_, err := harness.port.PrepareImport(context.Background(), bundle, harness.context)
+				if err == nil {
+					t.Fatal("malformed Revisions row passed strict preparation")
+				}
+				if bytes.Contains([]byte(err.Error()), []byte("must-not-escape")) ||
+					bytes.Contains([]byte(err.Error()), []byte("hostile_unknown")) {
+					t.Fatalf("strict failure exposed hostile input: %v", err)
+				}
+			})
+		}
+	})
 	t.Run("links_history_is_strict_before_import_mutation", func(t *testing.T) {
 		exerciseStrictLinksIncidentBundleAdmission(t)
 	})
@@ -480,16 +482,7 @@ func TestRevisionsIncidentBundleFailureIsAtomic(t *testing.T) {
 func newRevisionsPortabilityHarness(t testing.TB, suffix string) revisionsPortabilityHarness {
 	t.Helper()
 	store := appsupport.StartStore(t, "revisions-portability-"+suffix)
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		store.DB,
-		"revisions-portability-"+uuid.NewString()+"@example.test",
-		"Revisions Portability",
-		"RevisionsPortability1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, store.DB, authstoretest.ActorAttributes{Email: "revisions-portability-" + uuid.NewString() + "@example.test", DisplayName: "Revisions Portability"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		store.DB,

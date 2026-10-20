@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v10",
+  "schema_id": "cartulary.test_family_manifest.v12",
   "owner_id": "module.savedviews",
   "rows": [
     {
@@ -36,7 +36,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
@@ -72,7 +74,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.browser.authoring_recovery_005364829450",
@@ -107,7 +111,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.browser.authoring_recovery_38dcbd1862c5",
@@ -142,7 +148,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.browser.authoring_recovery_5cd20f1b328e",
@@ -177,7 +185,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.browser.independent_discovery_continuity",
@@ -212,7 +222,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.browser.literal_saved_array_unchanged_reapplication_f2ec5c3af8",
@@ -247,7 +259,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.browser.timestamp_saved_queries_reload_and_reopen_withou_6a98a26dd7",
@@ -282,7 +296,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.browser.verify_saved_view_create_update_select_default_u_ce0bb1647d",
@@ -317,7 +333,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.browser.verify_saved_views_appear_only_under_the_active_69995294db",
@@ -352,7 +370,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.browser_stateful.browser_saved_view_query_layout_state_user_home_cb9c681674",
@@ -387,7 +407,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.frontend_unit.workbook_saved_view_pagination_machine_lr06",
@@ -401,12 +423,12 @@
       ],
       "runner": "vitest",
       "selector": {
-        "file": "apps/web/src/workbook/models/workbookSavedViewPaginationMachine.test.ts",
+        "file": "apps/web/src/workbook/models/workbookSavedViewPaginationMachine.node.test.ts",
         "titles": [
           "Workbook saved-view pagination machine rejects duplicate resources schema mismatch and inconsistent continuation without sorting",
           "Workbook saved-view pagination machine validates adapter pages against incident, limit, cursor, and resources"
         ],
-        "project_id": "browser-unit"
+        "project_id": "node-unit"
       },
       "evidence_class": "unit",
       "runtime_profile_id": "none",
@@ -415,7 +437,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.savedviews.integration.imported_saved_views_preserve_portable_owners_se_45009255f0",
@@ -443,7 +466,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.savedviews.integration.independent_read_contract",
@@ -471,7 +495,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.integration.saved_view_create_update_duplicate_and_delete_pe_5f93d857d3",
@@ -499,7 +524,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.integration.saved_view_export_emits_the_exact_canonical_elev_fb78b01a43",
@@ -527,7 +553,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.savedviews.integration.saved_views_storage_hardening_rejects_invalid_le_debf877cb1",
@@ -555,7 +582,8 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.integration.timestamp_saved_queries_preserve_precision_and_r_993e5032bf",
@@ -583,10 +611,11 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
-      "row_id": "module.savedviews.store.ordinary_saved_view_create_defaults_omitted_scop_c2e245f7d7",
+      "row_id": "module.savedviews.store.managed_service_assertions_for_ordinary_saved_vi_fc464a05e5",
       "owner_id": "module.savedviews",
       "family_id": "module.savedviews.store",
       "collaborator_ids": [],
@@ -599,7 +628,6 @@
         "tests": [
           "TestSavedViewCreateDefaults_Unit",
           "TestSavedViewCreateEvolvesAdditiveHiddenFields_Unit",
-          "TestSavedViewOpenAPICreateInputIsLenient_Unit",
           "TestSavedViewSystemFixtureRouteUnavailableByDefault_Unit",
           "TestSavedViewSystemFixtureRoute_Unit"
         ]
@@ -614,7 +642,8 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "exclusive"
     },
     {
       "row_id": "module.savedviews.store.ordinary_saved_view_patch_enforces_the_mutable_f_9554a5d90f",
@@ -640,7 +669,33 @@
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
-      ]
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
+      "row_id": "module.savedviews.store.service_free_contract_assertions_for_ordinary_sa_27bac8bf90",
+      "owner_id": "module.savedviews",
+      "family_id": "module.savedviews.store",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.savedviews.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/savedviews",
+        "tests": [
+          "TestSavedViewOpenAPICreateInputIsLenient_Unit"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.savedviews.unit.independent_read_query_contract",
@@ -665,7 +720,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.savedviews.unit.saved_view_application_policy_preserves_visibili_5af44d4ba8",
@@ -689,7 +745,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.savedviews.unit.saved_view_scope_vocabulary_is_exactly_private_s_aa8991ad84",
@@ -713,7 +770,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.savedviews.unit.strict_saved_views_preparation_rejects_illegal_i_d1e9382c70",
@@ -739,7 +797,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.savedviews.unit.strict_saved_views_preparation_rejects_unbounded_0ac27d4f10",
@@ -765,7 +824,8 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "fast",
-      "service_dependencies": []
+      "service_dependencies": [],
+      "postgres_isolation": "none"
     },
     {
       "row_id": "module.savedviews.visual.capture_saved_view_selector_active_chips_grouped_3da7859cdc",
@@ -802,7 +862,9 @@
       "service_dependencies": [
         "object_store",
         "postgres"
-      ]
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
     }
   ]
 }

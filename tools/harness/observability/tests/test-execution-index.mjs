@@ -67,7 +67,7 @@ test("failed acquisition cannot invent a successful lease or measured unavailabl
   f.index.records.pop();
   f.index.records.push({ kind: "allocation", ref: "allocation:a", allocation_ref: "allocation:a", unit_id: "u", ownership: null, capability: "browser_stack", outcome: "failed" },
     { kind: "lease", ref: "lease:a", lease_ref: "a", allocation_ref: "allocation:a", unit_id: "u", ownership: "owned", capability: "browser_stack" });
-  atomicLocalFile(path.join(f.root, "_shared/fixture-leases/a.json"), JSON.stringify({ schema_id: "cartulary.harness_fixture_lease.v4", lease_id: "a", capability: "browser_stack", ownership: "owned", state: "leased", cleanup_outcome: "not_required", cleanup_failure_reason: null, resource_ids: [], created_at: "2026-10-09T00:00:00.000Z" }));
+  atomicLocalFile(path.join(f.root, "_shared/fixture-leases/a.json"), JSON.stringify({ schema_id: "cartulary.harness_fixture_lease.v5", lease_id: "a", capability: "browser_stack", postgres_isolation: "exclusive", ownership: "owned", state: "leased", cleanup_outcome: "not_required", cleanup_failure_reason: null, resource_ids: [], created_at: "2026-10-09T00:00:00.000Z" }));
   f.save(); assert.throws(() => readExecutionIndex(f.root, f.run), /successful allocation/u);
 });
 

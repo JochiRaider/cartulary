@@ -16,7 +16,7 @@ import (
 
 func TestMergeDeduplicatesOnlyFullFieldAwareTupleCharacterization(t *testing.T) {
 	harness := appsupport.StartStore(t, "links-field-aware-merge-characterization")
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "links-field-merge@example.test", "Links Field Merge", "LinksFieldMergePass1!", false, true, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "links-field-merge@example.test", DisplayName: "Links Field Merge", DeploymentAdmin: true})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, "txn-links-field-merge-incident", "IR-LINK-MERGE", "Links field merge")
 	ctx := context.Background()
 	now := time.Date(2026, time.August, 21, 18, 41, 0, 0, time.UTC)

@@ -29,7 +29,7 @@ func (p ProductionOptions) stopResource(ctx context.Context, resource harnessses
 	return CleanupFailure(p.Runtime.StopResource(ctx, p.Root, p.Runtime.RunRoot, p.environment(), resource))
 }
 func (p ProductionOptions) releaseResource(resource harnesssession.Resource) error {
-	return p.Runtime.RecordResource(resource.Kind, resource.Target, "released")
+	return harnesssession.AtCleanupStage("resource_release", p.Runtime.RecordResource(resource.Kind, resource.Target, "released"))
 }
 
 // Recover and ordinary closure share one evaluator. Only physical operations
@@ -101,34 +101,41 @@ func (p ProductionOptions) recoverBrowser(ctx context.Context, resource harnesss
 		return err
 	}
 	return p.Runtime.AttemptCleanup(ctx, "browser_stack", file, func(step context.Context) error {
-		if len(resource.Dependencies) < 1 || len(resource.Dependencies) > 2 {
+		if len(resource.Dependencies) < 1 || len(resource.Dependencies) > 3 {
 			return errCleanupUncertain
 		}
-		var dependency *harnesssession.Resource
-		for i := range resources {
-			if (resources[i].Kind == "managed_suite" || resources[i].Kind == "borrowed_suite") && slices.Contains(resource.Dependencies, resources[i].Reference()) {
-				dependency = &resources[i]
-				break
+		physical := 0
+		ownedParents := []string{}
+		fullyOwned := p.RecoveryOutput && p.Runtime.InRecoveryAttempt()
+		for _, r := range resources {
+			if (r.Kind == "managed_suite" || r.Kind == "borrowed_suite") && slices.Contains(resource.Dependencies, r.Reference()) {
+				physical++
+				if r.Kind == "borrowed_suite" {
+					fullyOwned = false
+				} else {
+					parent, err := r.Path()
+					if err != nil {
+						return err
+					}
+					ownedParents = append(ownedParents, parent)
+				}
 			}
 		}
-		if dependency == nil || (dependency.Kind != "managed_suite" && dependency.Kind != "borrowed_suite") {
+		if physical == 0 {
 			return errCleanupUncertain
 		}
-		suite, err := dependency.Path()
-		if err != nil {
-			return err
+		environmentFile := filepath.Join(filepath.Dir(filepath.Dir(file)), "stack-environment.json")
+		if !slices.Contains(resource.RecoveryFiles, environmentFile) {
+			return errCleanupUncertain
 		}
-		environmentFile := filepath.Join(filepath.Dir(suite), "suite-environment.json")
-		if dependency.Kind == "borrowed_suite" {
-			suite = filepath.Join(p.Runtime.Root, "borrowed-service-lease.json")
-			environmentFile = filepath.Join(p.Runtime.Root, "borrowed-environment.json")
-		}
+
 		p.Dependencies = append([]string{resource.Reference()}, resource.Dependencies...)
 		owner, err := p.browserOperation(step, "inspect", []string{file}, p.environment())
 		if err != nil {
 			return err
 		}
-		if owner["suite_lease"] != suite {
+		suite, ok := owner["suite_lease"].(string)
+		if !ok || !slices.Contains(resource.RecoveryFiles, suite) {
 			return errCleanupUncertain
 		}
 		environment, err := readRecoveryEnvironment(environmentFile)
@@ -142,7 +149,12 @@ func (p ProductionOptions) recoverBrowser(ctx context.Context, resource harnesss
 			return err
 		}
 		bound["CARTULARY_BROWSER_RECOVERY_RESULTS_DIR"] = filepath.Dir(output)
-		_, err = p.browserOperation(step, "recover", []string{file}, bound)
+		args := []string{file}
+		if fullyOwned {
+			slices.Sort(ownedParents)
+			args = append(args, ownedParents...)
+		}
+		_, err = p.browserOperation(step, "recover", args, bound)
 		return err
 	})
 }

@@ -862,6 +862,10 @@ test("keyboard shortcuts keep workbook grid anchors without module switching", a
   ).toBe(false);
   await expect(page.getByTestId(rowHistoryPanelTestId())).toHaveCount(0);
 
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.evaluate(() =>
+    navigator.clipboard.writeText("Keyboard shortcut clipboard Ω"),
+  );
   await page.keyboard.press("Control+V");
   await expect(page.getByTestId(workbookFocusAnchorTestId())).toHaveText(
     `${timelineViewSchemaId}:${alpha.record_id}:timeline.analyst_text`,
@@ -1888,7 +1892,7 @@ test("Timeline virtualization reaches off-screen rows with a frozen gutter", asy
 
 test("shared grid keyboard anchors stay stable across workbook cells", async ({
   page,
-  workerAdmin,
+  testActor,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -2073,7 +2077,7 @@ test("shared grid keyboard anchors stay stable across workbook cells", async ({
   await test.step("Handoff anchor", async () => {
     const handoff = await createViewRow(page, incidentId, handoffViewSchemaId, {
       client_txn_id: uniqueTxn("e9grid01-handoff"),
-      "handoff.incoming_owner_user_id": workerAdmin.user_id,
+      "handoff.incoming_owner_user_id": testActor.user_id,
       "handoff.current_state_summary": "Workbook inspector handoff anchor",
     });
     await expectSharedGridAnchorSurface({

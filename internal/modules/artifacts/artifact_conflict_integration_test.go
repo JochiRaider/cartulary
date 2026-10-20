@@ -15,16 +15,7 @@ import (
 func TestArtifactConflictSourceRevalidation(t *testing.T) {
 	ctx := context.Background()
 	harness := appsupport.StartStore(t, "artifacts-conflict-source-revalidation")
-	actor := authstoretest.SeedLocalUserRecord(
-		t,
-		harness.DB,
-		"artifact-conflict-owner@example.test",
-		"Artifact Conflict Owner",
-		"ArtifactConflictOwner1!",
-		false,
-		false,
-		true,
-	)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "artifact-conflict-owner@example.test", DisplayName: "Artifact Conflict Owner"})
 	incident := appsupport.CreateIncidentInStore(
 		t,
 		harness.DB,

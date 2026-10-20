@@ -65,10 +65,11 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 	}
 	var once sync.Once
 	var closeErr error
+	var observationProof map[string]any
 	close := func(ctx context.Context) error {
 		once.Do(func() {
 			closeErr = p.closeResource(ctx, "borrowed_suite", file, func(ctx context.Context) error {
-				p.containerProof(nil)
+				p.containerProof(ctx, observationProof, true)
 				_, closeErr = p.attachmentOperation(ctx, "detach")
 				if closeErr == nil {
 					closeErr = p.Runtime.RecordResource("borrowed_suite", file, "released")
@@ -123,7 +124,7 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 		return nil, artifactFailure(harnesslocal.ErrUnsafe)
 	}
 	source, ok := proof["lease"].(map[string]any)
-	if !ok || harnessschema.Validate("cartulary.test_services.lease.v2", source) != nil {
+	if !ok || harnessschema.Validate("cartulary.test_services.lease.v3", source) != nil {
 		return nil, artifactFailure(harnesslocal.ErrUnsafe)
 	}
 	if err := validatePostgresProvisioning(source, environment); err != nil {
@@ -135,10 +136,11 @@ func (p ProductionOptions) AttachSuite(ctx context.Context) (suite *Suite, resul
 	for key, value := range map[string]any{"lease_id": p.Runtime.LeaseID, "suite_id": environment["CARTULARY_TEST_SUITE_ID"], "run_id": p.Runtime.RunID, "result_root": filepath.Dir(p.RunRoot), "run_root": p.RunRoot, "target": p.Target, "mode": "attach", "ownership_mode": "attach", "owner_pid": os.Getpid(), "created_at": time.Now().UTC().Format(time.RFC3339Nano), "cleanup_state": "not_started"} {
 		lease[key] = value
 	}
-	if err := privateJSON(leaseFile, "cartulary.test_services.lease.v2", lease, false); err != nil {
+	if err := privateJSON(leaseFile, "cartulary.test_services.lease.v3", lease, false); err != nil {
 		return nil, artifactFailure(err)
 	}
-	p.containerProof(proof)
+	observationProof = proof
+	p.containerProof(ctx, proof, false)
 	environment["CARTULARY_HARNESS_RESOURCE_DEPENDENCIES"] = resourceDependencies([]string{resourceRef})
-	return &Suite{Environment: environment, LeaseFile: leaseFile, ResourceRef: resourceRef, Close: close}, nil
+	return &Suite{Environment: environment, LeaseFile: leaseFile, ResourceRef: resourceRef, ResourceRefs: []string{resourceRef}, Close: close}, nil
 }

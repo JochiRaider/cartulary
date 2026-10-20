@@ -30,7 +30,7 @@ func TestEvidenceInspectorFixturePreservesOwnerAttachments_Integration(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "fixture-inspector@example.test", "Inspector fixture", "EvidenceFixture1!", false, false, true)
+	actor := authstoretest.SeedActor(t, harness.DB, authstoretest.ActorAttributes{Email: "fixture-inspector@example.test", DisplayName: "Inspector fixture"})
 	incident := appsupport.CreateIncidentInStore(t, harness.DB, actor, uuid.NewString(), "IR-INSPECTOR-FIXTURE", "Inspector fixture")
 	application, err := timelinefixture.NewEvidenceInspectorApplication(owners.Timeline, owners.TimelineMutations, actor)
 	if err != nil {

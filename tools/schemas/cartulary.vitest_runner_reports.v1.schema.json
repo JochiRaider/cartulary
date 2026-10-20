@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "$id": "cartulary.vitest_runner_reports.v1",
+  "required": [
+    "schema_id",
+    "invocation_id",
+    "run_id",
+    "reports"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.vitest_runner_reports.v1"
+    },
+    "invocation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reports": {
+      "type": "array",
+      "maxItems": 50000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project",
+          "file",
+          "report"
+        ],
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]*$"
+          },
+          "report": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

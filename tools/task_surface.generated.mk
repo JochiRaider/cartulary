@@ -13,6 +13,7 @@ test-run-status: override export CARTULARY_MACHINE_CACHE_DIR := $(value CARTULAR
 test-run-status: override export GO_CACHE_DIR := $(value GO_CACHE_DIR)
 test-run-status: override export GO_MOD_CACHE_DIR := $(value GO_MOD_CACHE_DIR)
 test-run-status: override export GO_TMP_DIR := $(value GO_TMP_DIR)
+test-run-status: override export CARTULARY_HARNESS_SCRATCH_ROOT := $(value CARTULARY_HARNESS_SCRATCH_ROOT)
 test-run-status: override export CARTULARY_MAKE_INPUT_SOURCES := $(TASK_SURFACE_NATIVE_INPUT_SOURCES)
 test-run-status:
 ifneq ($(wildcard $(HARNESS_RUNTIME_BIN)),)
@@ -230,7 +231,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'release-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
 	'test-slice inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), JSON=exact_1_bool (default false), OWNER=owner_id (optional), ROWS=row_ids (optional), VITEST_MAX_WORKERS=positive_integer (default 4), HARNESS_DIAGNOSTICS=off|basic (default off), SUITE=backend-unit|backend-store|backend-integration|backend-process|frontend-unit (optional), SCOPE=all|services (default all), CARTULARY_TEST_SERVICES_MODE=owned|attach (default \
-	  owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4)' \
+	  owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4), GO_SHUFFLE_SEED=positive_integer (optional)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
 	'browser-e2e inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), SUITE=functional|stateful|measurement|accessibility|visual|support (required), CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
@@ -391,8 +392,8 @@ test-slice:
 	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-slice)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,JSON OWNER ROWS SCOPE SUITE) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" \
-	  HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE HARNESS_DIAGNOSTICS JSON OWNER ROWS SCOPE SUITE VITEST_MAX_WORKERS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target test-slice
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,GO_SHUFFLE_SEED JSON OWNER ROWS SCOPE SUITE) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" \
+	  HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE GO_SHUFFLE_SEED HARNESS_DIAGNOSTICS JSON OWNER ROWS SCOPE SUITE VITEST_MAX_WORKERS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target test-slice
 
 browser-e2e: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e: export CARTULARY_TEST_TARGET ?= browser-e2e
@@ -634,7 +635,7 @@ doctor:
 
 bootstrap: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 bootstrap:
-	$(Q)$(if $(filter-out PART CARTULARY_MACHINE_CACHE_DIR GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR,$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)),echo 'bootstrap received an undeclared input' >&2; exit 2;,:)
+	$(Q)$(if $(filter-out PART CARTULARY_MACHINE_CACHE_DIR GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR CARTULARY_HARNESS_SCRATCH_ROOT,$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)),echo 'bootstrap received an undeclared input' >&2; exit 2;,:)
 ifneq ($(findstring command line,$(origin PART)),)
 	$(Q)case $(call task_surface_shell_quote_trimmed,PART) in node|frontend|browser|test-images) : ;; *) echo 'PART has an invalid value' >&2; exit 2;; esac
 endif
@@ -723,7 +724,7 @@ test-services-session-down:
 	  CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_TEST_SERVICES_SESSION_FILE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(NODE_BIN) ./tools/harness/services/local-session-cli.mjs down
 
 help:
-	$(Q)$(if $(filter-out JSON ALL CARTULARY_MACHINE_CACHE_DIR GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR,$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)),echo 'help received an undeclared input' >&2; exit 2;,:)
+	$(Q)$(if $(filter-out JSON ALL CARTULARY_MACHINE_CACHE_DIR GO_CACHE_DIR GO_MOD_CACHE_DIR GO_TMP_DIR CARTULARY_HARNESS_SCRATCH_ROOT,$(TASK_SURFACE_COMMAND_LINE_INPUT_NAMES)),echo 'help received an undeclared input' >&2; exit 2;,:)
 ifneq ($(findstring command line,$(origin JSON)),)
 	$(Q)case $(call task_surface_shell_quote_trimmed,JSON) in 1) : ;; *) echo 'JSON has an invalid value' >&2; exit 2;; esac
 endif

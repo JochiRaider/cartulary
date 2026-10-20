@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_services.postgres_provisioning.v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "generation",
+    "policy_digest",
+    "template_digest",
+    "postgres_isolation",
+    "allocation_ref"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.test_services.postgres_provisioning.v2"
+    },
+    "generation": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "policy_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "template_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "postgres_isolation": {
+      "enum": [
+        "shared",
+        "exclusive"
+      ]
+    },
+    "allocation_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}
