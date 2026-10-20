@@ -273,6 +273,26 @@ including all of `tmp`. `make distclean` additionally removes repository-local
 installations, proofs, and caches. Both fail immediately while managed work is
 active. Stop that work and retry; cleanup never kills it.
 
+Cleanup announces validation, permission repair, and deletion with elapsed time
+and completed-root counts. It scans every candidate before mutating any of them.
+The scan streams safety checks without retaining or sorting the entire tree.
+Writable directories require no permission repair; other inspectable directories
+are repaired in bounded batches after identity revalidation. Large trees still
+require filesystem traversal and deletion proportional to their contents.
+
+Interrupting cleanup settles its own utility children before releasing admission.
+Completed roots stay deleted; a partially deleted root remains incomplete.
+Inspect the reported phase and remaining ownership references before explicitly
+running cleanup again. Neither interruption nor an I/O failure rolls back
+permission repairs or deletions. Do not bypass a safety rejection with manual
+recursive removal or weaken the registered directory boundaries.
+
+Save wanted evidence outside the disposable roots before cleanup. Preview does
+not create temporary inventories or reports. The streaming implementation uses
+the existing shell and Linux utilities, including `setsid`, without a language
+runtime or package installation. It changes neither directory tiers nor the
+public command identities, and needs no retained-format migration.
+
 The machine directory inventory is `tools/workspace_layout.json`; the behavioral
 owner is Testing Harness NLSpec Section 13. Update the owner, producers, and
 projections together through `make generate`. See `make help` for the maintained
@@ -302,7 +322,9 @@ the removal is recorded in the index. Keep that protection in place.
 
 Qualification uses the `harness.command_surface` owner route and disposable
 Git repositories. It covers input/preview parity, directory tiers, rejected
-plans, worktrees, symlinks, I/O failure, admission, and projection drift. Build,
+plans, worktrees, symlinks, I/O failure, admission, projection drift, stream
+completion, root and repair identity replacement, bounded repair batches,
+cancellation in each phase, and ordinary-tree process and memory scaling. Build,
 frontend typecheck, generated-policy, schema, shell/script lint, harness, and
 release-shape checks complete the integration evidence. Consult `make
 task-guide OWNER=harness.command_surface` before selecting

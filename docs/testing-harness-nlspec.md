@@ -8428,6 +8428,31 @@ Filesystem deletion is not transactional and MUST NOT claim rollback. Admission
 excludes cooperating writers; cleanup is not a sandbox for a hostile process
 mutating the filesystem outside managed admission.
 
+The mutation identity boundary is the owned root and each directory whose
+permissions cleanup repairs. Cleanup MUST retain root device/inode/type identity
+from planning, revalidate all roots before the first candidate mutation, and
+revalidate the affected root immediately before repair or removal. Permission
+repair MUST inspect and revalidate the actual directory identities in each
+bounded batch before changing that batch. Ordinary descendant file identity is
+not a snapshot contract. Complete traversal safety validation remains mandatory;
+this boundary MUST NOT authorize skipping unsafe descendants.
+
+Traversal MUST stream safety decisions without retaining or sorting a complete
+descendant inventory. Ordinary writable descendants MUST NOT cause individual
+utility launches. Permission repair MUST select only directories needing owner
+permissions and bound batches by both pathname bytes and count. Enumeration and
+batch-command completion MUST be checked explicitly; EOF, partial output, or a
+successful consumer cannot conceal a failed producer. Preview MUST NOT use
+temporary-file-producing sort or spill paths.
+
+Cleanup MUST announce its inspection, repair, and deletion phases before their
+work, and report elapsed time and completed roots within the existing human
+output budget. Progress is not a completion receipt. Cancellation MUST stop
+further mutations, settle invocation-owned children before releasing admission,
+and report the phase, completed roots, and remaining roots. A partially processed
+root remains incomplete; cancellation retains the Section 9 signal outcome.
+No report, runtime installation, or persistent inventory is required.
+
 ### 13.2 Cleanup Scope And Admission
 
 **TH-HARNESS-REQ-505**

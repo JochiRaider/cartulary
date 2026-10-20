@@ -1,15 +1,59 @@
 #!/usr/bin/env bash
 # Deliberately independent of runtimes, package installs, and retained reports.
 set -euo pipefail
+set +m
 export LC_ALL=C
 cleanup_execution=0
+completed=0
+phase=configuration
+active_root=none
+command_id=unresolved
+launching=0
+pending_signal=0
+declare -a plan=() plan_ids=()
+declare -A children=()
+
+# Each utility is launched in this invocation's own child session. The lock is
+# inherited by every child, including a child surviving forced parent death.
+stop_children() {
+  local child
+  for child in "${!children[@]}"; do
+    kill -TERM -- "-$child" 2>/dev/null || kill -TERM "$child" 2>/dev/null || true
+    kill -KILL -- "-$child" 2>/dev/null || kill -KILL "$child" 2>/dev/null || true
+  done
+  for child in "${!children[@]}"; do wait "$child" 2>/dev/null || true; done
+  children=()
+}
+report_incomplete() {
+  local remaining_index
+  printf 'cleanup: %s command=%s completed=%s remaining=%s phase=%s root=%s; deletion is not rolled back\n' \
+    "$1" "$command_id" "$completed" "$((${#plan[@]}-completed))" "$phase" "$active_root" >&2
+  for ((remaining_index=completed; remaining_index<${#plan[@]} && remaining_index<completed+20; remaining_index++)); do
+    printf 'remaining proof=workspace-layout:%s\n' "${plan_ids[remaining_index]}" >&2
+  done
+}
 
 cleanup_fail() {
+  trap - ERR
+  stop_children
   printf 'cleanup: %s\n' "$2" >&2
-  if ((cleanup_execution)); then execution_failure; fi
+  if ((cleanup_execution)); then report_incomplete cleanup_error; fi
   exit "$1"
 }
-for utility in git flock stat find sort sha256sum readlink rm chmod; do
+interrupted() {
+  # A signal between fork and registration must not orphan the new child.
+  # Complete that small publication boundary before settling owned utilities.
+  if ((launching)); then pending_signal="$1"; return 0; fi
+  trap '' INT TERM
+  trap - ERR
+  stop_children
+  report_incomplete cancelled_or_interrupted
+  exit "$1"
+}
+trap 'interrupted 130' INT
+trap 'interrupted 143' TERM
+trap stop_children EXIT
+for utility in git flock stat find sha256sum readlink rm chmod setsid; do
   command -v "$utility" >/dev/null || cleanup_fail 2 "configuration_error: missing $utility"
 done
 root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../.." && pwd -P)"
@@ -42,6 +86,7 @@ trim "${CARTULARY_CLEANUP_DRY_RUN:-}"
 case "$REPLY" in '') preview=0 ;; 1) preview=1 ;; *) cleanup_fail 2 'usage_error: CARTULARY_CLEANUP_DRY_RUN must be empty or 1' ;; esac
 trim "${CARTULARY_OUTPUT_MODE:-}"
 case "$REPLY" in ''|quiet|summary|verbose|ci) ;; *) cleanup_fail 2 'usage_error: unsupported cleanup output mode' ;; esac
+output_mode="${REPLY:-summary}"
 for input in ${CARTULARY_MAKE_COMMAND_LINE_INPUTS:-}; do
   case "$input" in CARTULARY_CLEANUP_DRY_RUN|CARTULARY_OUTPUT_MODE|VERBOSE|CI_VERBOSE|CI) ;; *) cleanup_fail 2 "usage_error: undeclared Make input $input" ;; esac
 done
@@ -65,14 +110,64 @@ else
   flock --nonblock --exclusive 8 || cleanup_fail 4 'resource_conflict: managed work is active'
 fi
 
-# The success sentinel carries the producer's status across process substitution.
-# Enumeration is NUL delimited; no temporary files are created even on failure.
+# Process substitutions supply anonymous pipes, never filesystem scratch.
+# Save and wait for their exact producer: EOF alone is not successful traversal.
+finish_launch() {
+  launching=0
+  if ((pending_signal)); then interrupted "$pending_signal"; fi
+}
+open_stream() {
+  launching=1
+  exec {stream_fd}< <(exec setsid "$@" 2>/dev/null)
+  stream_pid=$!
+  children["$stream_pid"]=1
+  finish_launch
+}
+finish_stream() {
+  local descriptor="$1" child="$2" status=0
+  exec {descriptor}<&-
+  wait "$child" 2>/dev/null || status=$?
+  unset 'children[$child]'
+  return "$status"
+}
+run_child() {
+  local child status=0
+  launching=1
+  setsid "$@" >/dev/null 2>&1 &
+  child=$!
+  children["$child"]=1
+  finish_launch
+  wait "$child" 2>/dev/null || status=$?
+  unset 'children[$child]'
+  return "$status"
+}
 enumerate() {
   local -n enumeration_result="$1"
   shift
-  mapfile -d '' -t enumeration_result < <("$@" 2>/dev/null && printf '\001complete\0')
-  ((${#enumeration_result[@]})) && [[ "${enumeration_result[-1]}" == $'\001complete' ]] || cleanup_fail 12 'cleanup_error: enumeration failed before mutation'
-  unset 'enumeration_result[-1]'
+  local descriptor child record=''
+  enumeration_result=()
+  open_stream "$@"; descriptor=$stream_fd; child=$stream_pid
+  while IFS= read -r -d '' record <&"$descriptor"; do
+    enumeration_result+=("$record"); record=''
+  done
+  [[ -z "$record" ]] || cleanup_fail 12 'cleanup_error: truncated enumeration record'
+  finish_stream "$descriptor" "$child" || cleanup_fail 12 'cleanup_error: enumeration failed'
+}
+stat_records() {
+  local -n stat_result="$1"
+  shift
+  local descriptor child record='' expected=$#
+  stat_result=()
+  open_stream stat --printf '%d:%i:%a:%u:%f\0' -- "$@"
+  descriptor=$stream_fd; child=$stream_pid
+  while IFS= read -r -d '' record <&"$descriptor"; do
+    stat_result+=("$record"); record=''
+    ((${#stat_result[@]} <= expected)) || cleanup_fail 12 'cleanup_error: surplus identity inspection'
+  done
+  if [[ -n "$record" ]] || ((${#stat_result[@]} != expected)); then
+    cleanup_fail 12 'cleanup_error: incomplete identity inspection'
+  fi
+  finish_stream "$descriptor" "$child" || cleanup_fail 12 'cleanup_error: identity inspection failed'
 }
 declare -a worktrees=() git_records=() tracked=() candidates=() ids=()
 enumerate git_records git worktree list --porcelain -z
@@ -118,7 +213,6 @@ for entry in "${CARTULARY_CLEANUP_ENTRIES[@]}"; do
   fi
 done
 # A later ancestor (e.g. node_modules in distclean) subsumes a clean-tier child.
-declare -a plan=() plan_ids=()
 for index in "${!candidates[@]}"; do
   relative="${candidates[index]}"; covered=0
   for ancestor in "${candidates[@]}"; do
@@ -128,47 +222,89 @@ for index in "${!candidates[@]}"; do
 done
 ((${#plan[@]} <= 180)) || cleanup_fail 2 'configuration_error: cleanup plan exceeds human output budget'
 
-declare -a fingerprints=() directory_paths=() directory_ids=() directory_modes=() plan_states=() root_ids=()
-declare -a listing=() mount_records=()
+declare -a plan_states=() root_ids=() repair_needed=() facts=() mount_records=()
+# Reserve mandatory action output before emitting any optional progress.
+action_bytes=0
+for index in "${!plan[@]}"; do
+  printf -v action_line 'DRY-RUN remove-directory %q proof=workspace-layout:%s state=directory\n' "$root/${plan[index]}" "${plan_ids[index]}"
+  action_bytes=$((action_bytes+${#action_line}))
+done
+((action_bytes <= 18000)) || cleanup_fail 2 'configuration_error: cleanup plan exceeds human byte budget'
+progress_lines=0
+progress_bytes=0
+progress() {
+  local line
+  [[ "$output_mode" != quiet ]] || return 0
+  ((progress_lines < 20)) || return 0
+  printf -v line 'CLEANUP phase=%s roots=%s completed=%s elapsed_s=%s\n' "$phase" "${#plan[@]}" "$completed" "$SECONDS"
+  ((progress_bytes+${#line} <= 2000)) || return 0
+  printf '%s' "$line"
+  progress_lines=$((progress_lines+1)); progress_bytes=$((progress_bytes+${#line}))
+}
 # Linux mountinfo catches bind mounts as well as differing device IDs.
-mapfile -t mount_records </proc/self/mountinfo || cleanup_fail 12 'cleanup_error: mount enumeration unavailable'
-inspect_tree() {
-  local relative="$1" row identity kind mode owner object device root_device mount mountpoint
+check_mounts() {
+  local relative="$1" mount mountpoint
   local -a fields
-  root_device="$(stat -c '%d' -- "$relative")" || cleanup_fail 12 'cleanup_error: cannot inspect candidate'
+  mapfile -t mount_records </proc/self/mountinfo || cleanup_fail 12 'cleanup_error: mount enumeration unavailable'
   for mount in "${mount_records[@]}"; do
     read -r -a fields <<<"$mount"
     printf -v mountpoint '%b' "${fields[4]}"
     [[ "$mountpoint" != "$root/$relative" && "$mountpoint" != "$root/$relative/"* ]] || cleanup_fail 12 'cleanup_error: candidate crosses a mount boundary'
   done
-  enumerate listing find -P "$relative" -xdev -printf '%D:%i:%y:%m:%U\0%p\0'
-  for ((row=0; row<${#listing[@]}; row+=2)); do
-    identity="${listing[row]}"; object="${listing[row+1]}"
-    IFS=: read -r device _ kind mode owner <<<"$identity"
-    [[ "$device" == "$root_device" ]] || cleanup_fail 12 'cleanup_error: cross-filesystem traversal'
-    [[ "${object##*/}" != .git ]] || cleanup_fail 12 "cleanup_error: nested Git metadata in $(printf '%q' "$relative")"
-    case "$kind" in
-      d)
-        if [[ ! -r "$object" || ! -x "$object" ]] || (( (8#$mode & 0500) != 0500 )); then
-          cleanup_fail 12 'cleanup_error: unreadable directory'
-        fi
-        if (( (8#$mode & 0700) != 0700 && owner != EUID && EUID != 0 )); then
-          cleanup_fail 12 'cleanup_error: cannot repair directory permissions owned by another user'
-        fi
-        if [[ "$inspection_phase" == plan ]]; then
-          directory_paths+=("$object"); directory_ids+=("${identity%:*:*}"); directory_modes+=("$mode")
-        fi
-        ;;
-      f|l) ;;
-      *) cleanup_fail 12 'cleanup_error: unsupported filesystem object' ;;
+}
+inspect_tree() {
+  local relative="$1" descriptor child record needs_repair=0
+  local -a denied_owner=(-false)
+  if ((EUID != 0)); then denied_owner=(! -uid "$EUID"); fi
+  check_mounts "$relative"
+  # Predicates run in find, not in a shell loop over millions of ordinary files.
+  # Only repair notices and the first rejection cross the pipe.
+  open_stream find -P "$relative" -xdev \
+    \( -name .git -printf 'nested Git metadata\0' -quit \) -o \
+    \( ! -type d ! -type f ! -type l -printf 'unsupported filesystem object\0' -quit \) -o \
+    \( -type d \( ! -readable -o ! -executable -o ! -perm -0500 \) -printf 'unreadable directory\0' -quit \) -o \
+    \( -type d ! -perm -0700 "${denied_owner[@]}" -printf 'unrepairable directory owner\0' -quit \) -o \
+    \( -type d ! -perm -0700 -printf 'repair\0' \)
+  descriptor=$stream_fd; child=$stream_pid
+  record=''
+  while IFS= read -r -d '' record <&"$descriptor"; do
+    case "$record" in
+      repair) ;;
+      'nested Git metadata'|'unsupported filesystem object'|'unreadable directory'|'unrepairable directory owner')
+        cleanup_fail 12 "cleanup_error: $record" ;;
+      *) cleanup_fail 12 'cleanup_error: invalid inspection record' ;;
     esac
+    needs_repair=1
+    record=''
   done
-  tree_fingerprint="$(printf '%s\0' "${listing[@]}" | sort -z | sha256sum)"
+  [[ -z "$record" ]] || cleanup_fail 12 'cleanup_error: truncated inspection record'
+  finish_stream "$descriptor" "$child" || cleanup_fail 12 'cleanup_error: enumeration failed'
+  repair_needed+=("$needs_repair")
+}
+root_fact() {
+  stat_records facts "$1"
+  [[ "${facts[0]}" =~ ^[0-9]+:[0-9]+:[0-7]+:[0-9]+:[0-9a-f]+$ ]] || cleanup_fail 12 'cleanup_error: invalid root identity'
+  IFS=: read -r fact_device fact_inode _ _ fact_type <<<"${facts[0]}"
+  root_identity="$fact_device:$fact_inode:$((16#$fact_type & 0170000))"
+}
+check_root() {
+  local item="$1" relative="${plan[$1]}"
+  check_ancestors "$relative"
+  case "${plan_states[item]}" in
+    absent) [[ ! -e "$relative" && ! -L "$relative" ]] || cleanup_fail 12 'cleanup_error: candidate appeared during validation' ;;
+    directory|symlink)
+      root_fact "$relative"
+      [[ "$root_identity" == "${root_ids[item]}" ]] || cleanup_fail 12 'cleanup_error: root identity changed'
+      if [[ "${plan_states[item]}" == directory ]]; then check_mounts "$relative"; fi
+      ;;
+  esac
 }
 
-inspection_phase=plan
+phase=validating
+progress
 for index in "${!plan[@]}"; do
   relative="${plan[index]}"
+  active_root="${plan_ids[index]}"
   if [[ -e "$relative" || -L "$relative" ]]; then
     parent=.
     [[ "$relative" != */* ]] || parent="${relative%/*}"
@@ -181,14 +317,15 @@ for index in "${!plan[@]}"; do
     [[ "$source" != "$relative" && "$source" != "$relative/"* ]] || cleanup_fail 12 "cleanup_error: tracked source overlaps $(printf '%q' "$relative")"
   done
   if [[ -L "$relative" ]]; then
-    root_ids+=('')
-    plan_states+=(symlink); fingerprints+=("$(stat -c '%d:%i:%f' -- "$relative")")
+    root_fact "$relative"
+    (( (16#$fact_type & 0170000) == 0120000 )) || cleanup_fail 12 'cleanup_error: root type changed'
+    root_ids+=("$root_identity"); repair_needed+=(0); plan_states+=(symlink)
   elif [[ ! -e "$relative" ]]; then
-    root_ids+=('')
-    plan_states+=(absent); fingerprints+=('')
+    root_ids+=(''); repair_needed+=(0); plan_states+=(absent)
   elif [[ -d "$relative" ]]; then
-    root_ids+=("$(stat -c '%d:%i' -- "$relative")")
-    plan_states+=(directory); inspect_tree "$relative"; fingerprints+=("$tree_fingerprint")
+    root_fact "$relative"
+    (( (16#$fact_type & 0170000) == 0040000 )) || cleanup_fail 12 'cleanup_error: root type changed'
+    root_ids+=("$root_identity"); plan_states+=(directory); inspect_tree "$relative"
   else
     cleanup_fail 12 "cleanup_error: candidate is not a directory: $(printf '%q' "$relative")"
   fi
@@ -199,50 +336,75 @@ if ((preview)); then
     case "${plan_states[index]}" in symlink) action='unlink' ;; absent) action='no-op' ;; esac
     printf 'DRY-RUN %s %q proof=workspace-layout:%s state=%s\n' "$action" "$root/${plan[index]}" "${plan_ids[index]}" "${plan_states[index]}"
   done
+  phase=preview_complete
+  progress
   exit 0
 fi
 
-# Revalidate the whole inspected tree before the first permission change. The
-# lock excludes cooperating writers; this is not a hostile-filesystem sandbox.
-inspection_phase=recheck
-for index in "${!plan[@]}"; do
-  relative="${plan[index]}"; check_ancestors "$relative"
-  case "${plan_states[index]}" in
-    absent) [[ ! -e "$relative" && ! -L "$relative" ]] || cleanup_fail 12 'cleanup_error: candidate appeared during validation' ;;
-    symlink) [[ -L "$relative" && "$(stat -c '%d:%i:%f' -- "$relative")" == "${fingerprints[index]}" ]] || cleanup_fail 12 'cleanup_error: candidate changed during validation' ;;
-    directory)
-      [[ -d "$relative" && ! -L "$relative" ]] || cleanup_fail 12 'cleanup_error: directory identity changed'
-      inspect_tree "$relative"
-      [[ "$tree_fingerprint" == "${fingerprints[index]}" ]] || cleanup_fail 12 'cleanup_error: directory contents changed during validation'
-      ;;
-  esac
-done
-completed=0
-execution_failure() {
-  printf 'cleanup: cleanup_error command=%s completed=%s remaining=%s; deletion is not rolled back\n' "$command_id" "$completed" "$((${#plan[@]}-completed))" >&2
-  for ((index=completed; index<${#plan[@]} && index<completed+20; index++)); do printf 'remaining %q\n' "${plan[index]}" >&2; done
-  exit 12
+# The complete plan is validated before any candidate permissions change.
+for index in "${!plan[@]}"; do check_root "$index"; done
+declare -a batch_paths=() batch_ids=() batch_facts=()
+batch_bytes=0
+repair_batch() {
+  ((${#batch_paths[@]})) || return 0
+  local item device inode mode owner kind
+  check_root "$index"
+  stat_records batch_facts "${batch_paths[@]}"
+  for item in "${!batch_paths[@]}"; do
+    [[ "${batch_facts[item]}" =~ ^[0-9]+:[0-9]+:[0-7]+:[0-9]+:[0-9a-f]+$ ]] || cleanup_fail 12 'cleanup_error: invalid repair identity'
+    IFS=: read -r device inode mode owner kind <<<"${batch_facts[item]}"
+    if [[ "$device:$inode:$mode:$owner" != "${batch_ids[item]}" ]] || (( (16#$kind & 0170000) != 0040000 )); then
+      cleanup_fail 12 'cleanup_error: repair identity changed'
+    fi
+    check_ancestors "${batch_paths[item]}"
+  done
+  run_child chmod u+rwx -- "${batch_paths[@]}" || cleanup_fail 12 'cleanup_error: permission repair failed'
+  batch_paths=(); batch_ids=(); batch_facts=(); batch_bytes=0
 }
-trap execution_failure ERR
+repair_tree() {
+  local relative="$1" descriptor child identity object
+  check_root "$index"
+  open_stream find -P "$relative" -xdev -type d ! -perm -0700 -printf '%D:%i:%m:%U\0%p\0'
+  descriptor=$stream_fd; child=$stream_pid
+  identity=''
+  while IFS= read -r -d '' identity <&"$descriptor"; do
+    IFS= read -r -d '' object <&"$descriptor" || cleanup_fail 12 'cleanup_error: truncated repair pathname'
+    [[ "$identity" =~ ^[0-9]+:[0-9]+:[0-7]+:[0-9]+$ && ( "$object" == "$relative" || "$object" == "$relative/"* ) ]] || cleanup_fail 12 'cleanup_error: invalid repair record'
+    ((${#object}+1 <= 32768)) || cleanup_fail 12 'cleanup_error: repair pathname exceeds batch bound'
+    if ((${#batch_paths[@]} >= 128 || batch_bytes+${#object}+1 > 32768)); then repair_batch; fi
+    batch_paths+=("$object"); batch_ids+=("$identity"); batch_bytes=$((batch_bytes+${#object}+1))
+    identity=''
+  done
+  [[ -z "$identity" ]] || cleanup_fail 12 'cleanup_error: truncated repair identity'
+  finish_stream "$descriptor" "$child" || cleanup_fail 12 'cleanup_error: repair enumeration failed'
+  repair_batch
+}
+trap 'cleanup_fail 12 "cleanup_error: command failed"' ERR
 cleanup_execution=1
-for index in "${!directory_paths[@]}"; do
-  object="${directory_paths[index]}"
-  [[ ! -L "$object" && "$(stat -c '%d:%i:d' -- "$object")" == "${directory_ids[index]}" ]] || execution_failure
-  if (( (8#${directory_modes[index]} & 0700) != 0700 )); then chmod u+rwx -- "$object"; fi
+phase=repairing
+progress
+for index in "${!plan[@]}"; do
+  active_root="${plan_ids[index]}"
+  if ((repair_needed[index])); then repair_tree "${plan[index]}"; fi
 done
+phase=deleting
+progress
 for index in "${!plan[@]}"; do
   relative="${plan[index]}"
-  check_ancestors "$relative"
+  active_root="${plan_ids[index]}"
+  check_root "$index"
   case "${plan_states[index]}" in
     symlink)
-      [[ -L "$relative" && "$(stat -c '%d:%i:%f' -- "$relative")" == "${fingerprints[index]}" ]] || execution_failure
-      rm -- "$relative"
+      run_child rm -- "$relative" || cleanup_fail 12 'cleanup_error: unlink failed'
       ;;
     directory)
-      [[ ! -L "$relative" && "$(stat -c '%d:%i' -- "$relative")" == "${root_ids[index]}" ]] || execution_failure
-      rm -rf --one-file-system -- "$relative"
+      run_child rm -rf --one-file-system -- "$relative" || cleanup_fail 12 'cleanup_error: removal failed'
       ;;
   esac
+  [[ ! -e "$relative" && ! -L "$relative" ]] || cleanup_fail 12 'cleanup_error: removed root still present'
   printf 'CLEANED %q proof=workspace-layout:%s\n' "$root/$relative" "${plan_ids[index]}"
   completed=$((completed+1))
 done
+phase=complete
+active_root=none
+progress

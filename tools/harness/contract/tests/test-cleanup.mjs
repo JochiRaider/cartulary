@@ -39,6 +39,198 @@ function snapshot(root) {
 }
 function success(result) { assert.equal(result.status, 0, result.stderr || result.stdout); }
 function rejected(result, reason) { assert.notEqual(result.status, 0); assert.match(result.stderr, new RegExp(reason)); }
+function utility(f, name, body) {
+  f.write(`utilities/${name}`, `#!/bin/bash\nset -e\n${body}\n`);
+  chmodSync(path.join(f.root, `utilities/${name}`), 0o755);
+  return { PATH: `${f.root}/utilities:${process.env.PATH}` };
+}
+function outputBudget(result) {
+  assert.ok(Buffer.byteLength(result.stdout) <= 20000, "stdout byte budget");
+  assert.ok(result.stdout.trimEnd().split("\n").length <= 200, "stdout line budget");
+  assert.ok(Buffer.byteLength(result.stderr) <= 6000, "stderr byte budget");
+  assert.ok(result.stderr.trimEnd().split("\n").length <= 35, "stderr line budget");
+}
+
+test("ordinary tree growth does not grow coordinator memory or utility launches", (t) => {
+  const measurements = [];
+  for (const count of [128, 8192]) {
+    const f = fixture(t);
+    for (let index = 0; index < count; index++) f.write(`tmp/d${index}/file`);
+    let environment;
+    for (const command of ["stat", "find", "chmod"]) {
+      environment = utility(f, command, `
+printf '${command}\\n' >> trace
+while read -r key value rest; do
+  if [[ "$key" == VmRSS: ]]; then printf '%s\\n' "$value" >> memory; fi
+done < "/proc/$PPID/status"
+exec /usr/bin/${command} "$@"`);
+    }
+    const result = f.run(["clean"], environment); success(result); outputBudget(result);
+    assert.equal(result.stderr, "");
+    assert.match(result.stdout, /phase=validating[\s\S]*phase=repairing[\s\S]*phase=deleting[\s\S]*CLEANED[\s\S]*phase=complete/u);
+    const calls = readFileSync(path.join(f.root, "trace"), "utf8").trim().split("\n");
+    measurements.push({
+      stat: calls.filter((name) => name === "stat").length,
+      find: calls.filter((name) => name === "find").length,
+      chmod: calls.filter((name) => name === "chmod").length,
+      memoryKiB: Math.max(...readFileSync(path.join(f.root, "memory"), "utf8").trim().split("\n").map(Number)),
+    });
+  }
+  assert.equal(measurements[0].stat, measurements[1].stat);
+  assert.ok(measurements[1].stat <= 8, JSON.stringify(measurements));
+  assert.equal(measurements[0].find, measurements[1].find);
+  assert.equal(measurements[1].chmod, 0);
+  assert.ok(measurements[1].memoryKiB < measurements[0].memoryKiB + 16384, JSON.stringify(measurements));
+  t.diagnostic(`128 and 8192 ordinary directories: ${JSON.stringify(measurements)}`);
+});
+
+test("permission repair uses bounded count and byte batches with exact identity checks", (t) => {
+  for (const longNames of [false, true]) {
+    const f = fixture(t), count = 300;
+    for (let index = 0; index < count; index++) {
+      const directory = `tmp/${longNames ? "x".repeat(200) + "/" : ""}d${index}${longNames ? "y".repeat(100) : ""}`;
+      f.write(`${directory}/file`);
+      chmodSync(path.join(f.root, directory), 0o500);
+    }
+    const environment = utility(f, "chmod", `
+count=0; bytes=0
+for item in "\${@:3}"; do count=$((count+1)); bytes=$((bytes+\${#item}+1)); done
+printf '%s %s\\n' "$count" "$bytes" >> batches
+exec /usr/bin/chmod "$@"`);
+    const result = f.run(["clean"], environment); success(result);
+    const batches = readFileSync(path.join(f.root, "batches"), "utf8").trim().split("\n").map((line) => line.split(" ").map(Number));
+    assert.equal(batches.reduce((sum, batch) => sum + batch[0], 0), count);
+    assert.ok(batches.every(([size, bytes]) => size > 0 && size <= 128 && bytes <= 32768), JSON.stringify(batches));
+    assert.equal(batches.length, longNames ? 3 : Math.ceil(count / 128));
+    assert.equal(existsSync(path.join(f.root, "tmp")), false);
+  }
+});
+
+test("partial or failed stream producers cannot authorize mutation", (t) => {
+  for (const scenario of ["failed-find", "truncated-find", "failed-stat", "truncated-stat", "surplus-stat"]) {
+    const f = fixture(t);
+    f.write("tmp/readonly/file"); chmodSync(path.join(f.root, "tmp/readonly"), 0o500);
+    const scripts = {
+      "failed-find": ["find", `printf 'repair\\0'; exit 7`],
+      "truncated-find": ["find", `printf 'repair'; exit 0`],
+      "failed-stat": ["stat", `/usr/bin/stat "$@"; exit 7`],
+      "truncated-stat": ["stat", `printf '1:2:700:1000:41c0'; exit 0`],
+      "surplus-stat": ["stat", `/usr/bin/stat "$@"; printf '1:2:700:1000:41c0\\0'`],
+    };
+    const environment = utility(f, ...scripts[scenario]);
+    const before = snapshot(path.join(f.root, "tmp"));
+    const result = f.run(["clean"], environment); rejected(result, "cleanup_error"); outputBudget(result);
+    assert.deepEqual(snapshot(path.join(f.root, "tmp")), before, scenario);
+    assert.doesNotMatch(result.stdout, /CLEANED/u);
+  }
+});
+
+test("root replacement and repair symlink substitution fail closed", (t) => {
+  for (const scenario of ["root", "repair"]) {
+    const f = fixture(t);
+    f.write("tmp/readonly/file"); chmodSync(path.join(f.root, "tmp/readonly"), 0o500);
+    f.write("outside/keep"); chmodSync(path.join(f.root, "outside"), 0o500);
+    const environment = utility(f, "stat", scenario === "root" ? `
+for item in "$@"; do
+  if [[ "$item" == tmp ]]; then
+    if [[ -e inspected && ! -e replaced ]]; then
+      /usr/bin/mv tmp original; /usr/bin/mkdir tmp; : > replaced
+    fi
+    : > inspected
+  fi
+done
+exec /usr/bin/stat "$@"` : `
+for item in "$@"; do
+  if [[ "$item" == tmp/readonly ]]; then
+    /usr/bin/chmod u+w tmp/readonly
+    /usr/bin/mv tmp/readonly original
+    /usr/bin/chmod 500 original
+    /usr/bin/ln -s "$PWD/outside" tmp/readonly
+  fi
+done
+exec /usr/bin/stat "$@"`);
+    const result = f.run(["clean"], environment); rejected(result, `${scenario} identity changed`);
+    assert.doesNotMatch(result.stdout, /CLEANED/u);
+    assert.equal(readFileSync(path.join(f.root, "outside/keep"), "utf8"), "fixture");
+    assert.equal(lstatSync(path.join(f.root, "outside")).mode & 0o777, 0o500);
+    assert.equal(lstatSync(path.join(f.root, scenario === "root" ? "original/readonly" : "original")).mode & 0o777, 0o500);
+  }
+});
+
+test("failed permission repair stops removal and reports incomplete work", (t) => {
+  const f = fixture(t);
+  f.write("tmp/readonly/file"); chmodSync(path.join(f.root, "tmp/readonly"), 0o500);
+  const result = f.run(["clean"], utility(f, "chmod", "exit 7"));
+  rejected(result, "permission repair failed");
+  assert.match(result.stderr, /completed=0.*phase=repairing/u); outputBudget(result);
+  assert.equal(existsSync(path.join(f.root, "tmp/readonly/file")), true);
+  assert.doesNotMatch(result.stdout, /CLEANED/u);
+});
+
+test("repair producer failure after complete records remains an execution failure", (t) => {
+  const f = fixture(t);
+  for (let index = 0; index < 300; index++) {
+    f.write(`tmp/d${index}/file`); chmodSync(path.join(f.root, `tmp/d${index}`), 0o500);
+  }
+  const environment = utility(f, "find", `
+/usr/bin/find "$@"
+for item in "$@"; do
+  if [[ "$item" == *'%D:'* ]]; then exit 7; fi
+done`);
+  const result = f.run(["clean"], environment);
+  rejected(result, "repair enumeration failed"); outputBudget(result);
+  assert.match(result.stderr, /completed=0.*phase=repairing/u);
+  assert.doesNotMatch(result.stdout, /CLEANED/u);
+  for (let index = 0; index < 300; index++) assert.equal(existsSync(path.join(f.root, `tmp/d${index}/file`)), true);
+});
+
+test("cancellation settles owned utility groups during validation, repair, and deletion", async (t) => {
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    for (const [command, phase] of [["find", "validating"], ["chmod", "repairing"], ["rm", "deleting"]]) {
+      const f = fixture(t);
+      f.write("tmp/readonly/file");
+      if (command === "chmod") chmodSync(path.join(f.root, "tmp/readonly"), 0o500);
+      const environment = utility(f, command, `
+trap '' INT TERM
+${command === "rm" ? "/usr/bin/rm -f tmp/readonly/file" : ""}
+sleep 30 &
+descendant=$!
+printf '%s %s %s\\n' "$PPID" "$$" "$descendant" > barrier
+wait "$descendant"`);
+      const child = spawn("make", ["--no-print-directory", "clean"], { cwd: f.root, env: fixtureEnvironment(environment), stdio: ["ignore", "pipe", "pipe"] });
+      let stdout = "", stderr = "", identities = [];
+      child.stdout.on("data", (chunk) => { stdout += chunk; });
+      child.stderr.on("data", (chunk) => { stderr += chunk; });
+      const exited = once(child, "exit");
+      t.after(() => {
+        child.kill("SIGKILL");
+        for (const pid of identities) { try { process.kill(pid, "SIGKILL"); } catch {} }
+      });
+      const barrier = path.join(f.root, "barrier");
+      for (let attempt = 0; !existsSync(barrier) && attempt < 500; attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
+      assert.ok(existsSync(barrier), `${command} did not reach the cancellation barrier: ${stderr}`);
+      identities = readFileSync(barrier, "utf8").trim().split(" ").map(Number);
+      assert.equal(identities.length, 3);
+      process.kill(identities[0], signal);
+      const [code] = await exited;
+      assert.notEqual(code, 0);
+      assert.match(stderr, new RegExp(`cancelled_or_interrupted.*phase=${phase}`));
+      assert.match(stderr, new RegExp(`Error ${signal === "SIGINT" ? 130 : 143}`));
+      assert.doesNotMatch(stdout, /CLEANED/u);
+      assert.equal(existsSync(path.join(f.root, "tmp")), true);
+      assert.equal(existsSync(path.join(f.root, "tmp/readonly/file")), command !== "rm");
+      outputBudget({ stdout, stderr });
+      for (const pid of identities.slice(1)) {
+        for (let attempt = 0; existsSync(`/proc/${pid}/fd/8`) && attempt < 100; attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
+        assert.equal(existsSync(`/proc/${pid}/fd/8`), false, `${pid} retained admission`);
+        if (existsSync(`/proc/${pid}/status`)) assert.match(readFileSync(`/proc/${pid}/status`, "utf8"), /^State:\s+Z/mu);
+      }
+      identities = [];
+      // Prove the settled children no longer hold admission without deleting.
+      success(f.run(["clean", "CARTULARY_CLEANUP_DRY_RUN=1"]));
+    }
+  }
+});
 
 test("default Make identity is stable across child environments and honors caller identity", (t) => {
   const f = fixture(t);
@@ -65,7 +257,7 @@ endif
 
 test("cleanup input parity and inert preview without runtimes", (t) => {
   const f = fixture(t), utilities = path.join(f.root, "utilities"); mkdirSync(utilities);
-  for (const command of ["bash", "env", "make", "git", "flock", "stat", "find", "sort", "sha256sum", "readlink", "rm", "chmod", "dirname"]) symlinkSync(`/usr/bin/${command}`, path.join(utilities, command));
+  for (const command of ["bash", "env", "make", "git", "flock", "stat", "find", "sha256sum", "readlink", "rm", "chmod", "dirname", "setsid"]) symlinkSync(`/usr/bin/${command}`, path.join(utilities, command));
   f.write("tmp/file"); f.write(".cache/cartulary/cache");
   const before = snapshot(f.root);
   for (const value of ["1", " 1 ", "\t1\n", "\u00a0\ufeff1\u3000", "\u2028 1\u2029"]) {
