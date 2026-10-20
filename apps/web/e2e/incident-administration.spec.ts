@@ -646,28 +646,20 @@ function expectNear(actual: number, expected: number, tolerance = 1) {
   expect(Math.abs(actual - expected)).toBeLessThanOrEqual(tolerance);
 }
 
-test("creates an incident, bootstraps the creator as admin, and lands on the workbook surface", async ({
+test("confirms workbook home and incident default preferences in a ready workbook shell", async ({
   page,
 }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => {
     pageErrors.push(error.message);
   });
-  await page.goto("/");
+  const incidentKey = uniqueIncidentKey("WORKBOOK-PREFERENCES");
+  const incidentTitle = "Incident workbook preferences";
+  const incidentId = await createIncident(page, incidentKey, incidentTitle);
+  await page.goto(`/?incident_id=${incidentId}`);
 
-  const incidentKey = uniqueIncidentKey("INCIDENT-ADMINISTRATION");
-  await new IncidentDirectory(page).createAndOpenIncident(
-    incidentKey,
-    "Incident administration incident-directory",
-  );
-
-  await expect(page).toHaveURL(/incident_id=/);
-  const openedWorkbookUrl = new URL(page.url());
-  const openedIncidentId = openedWorkbookUrl.searchParams.get("incident_id");
-  expect(openedWorkbookUrl.pathname).toBe("/");
-  if (openedIncidentId === null) {
-    throw new Error("expected incident-directory to open an incident workbook");
-  }
+  await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
+  expect(new URL(page.url()).pathname).toBe("/");
   await setCurrentSavedViewAsHome(page, timelineViewSchemaId);
   await expect(
     page.getByTestId(workbookPreferenceTestId("home", "shortcut-outcome")),
@@ -679,9 +671,9 @@ test("creates an incident, bootstraps the creator as admin, and lands on the wor
 
   await expectWorkbookShellComposition(page, {
     expectIncidentPreferences: true,
-    incidentId: openedIncidentId,
+    incidentId,
     incidentKey,
-    incidentTitle: "Incident administration incident-directory",
+    incidentTitle,
   });
   expect(pageErrors).toEqual([]);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();

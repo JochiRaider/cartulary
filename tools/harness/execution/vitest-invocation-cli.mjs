@@ -5,13 +5,12 @@ import { mkdirSync, rmSync } from "node:fs";
 import { Writable } from "node:stream";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { primaryPublicFailure, publicExitCodeForFailure, publicExitCodeForFailures, redactString, redactValue, validateSchemaSync } from "../contract/index.mjs";
-import { diagnosticFailure, normalizeVitestObservations, readVitestJSON, reconcileVitestReport } from "../diagnostics/vitest-failure-details.mjs";
+import { primaryPublicFailure, publicExitCodeForFailure, publicExitCodeForFailures, redactString } from "../contract/index.mjs";
+import { createVitestEvidence, diagnosticFailure, readVitestJSON } from "../diagnostics/vitest-failure-details.mjs";
 import VitestCollector from "../diagnostics/vitest-collector.mjs";
 import { adaptVitestInvocation, validateVitestRequest, vitestInvocation } from "./runners/vitest.mjs";
 import { publishRowResult } from "./runners/row-results.mjs";
 import { settledForkPool } from "./runners/vitest-worker-lifecycle.mjs";
-import { atomicLocalFile } from "../runtime/secure-local-files.mjs";
 import { reportCommandFailure } from "../runtime/command-failure.mjs";
 import { borrowRuntime } from "../runtime/session-client.mjs";
 
@@ -50,31 +49,11 @@ async function main() {
   const rawReport = path.join(privateRoot, "runner.json");
   const startedAt = new Date().toISOString(), started = Date.now();
   const collector = new VitestCollector(root, invocationID, runID);
-  const reports = { schema_id: "cartulary.vitest_runner_reports.v1", invocation_id: invocationID, run_id: runID, reports: [] };
-  const capture = { schema_id: "cartulary.vitest_failure_details.v3", invocation_id: invocationID, run_id: runID,
-    run_status: "passed", generated_at: startedAt, runner_json: "", stdout_log: "", stderr_log: "", observations: [], failures: [], completed_files: [], final_complete: false };
-  let ctx, signal = "", closing = false, closeOutput = "", checkpoint = 0, priorReport, details;
+  let evidence, ctx, signal = "", closing = false, closeOutput = "";
   const publishRows = (results) => {
     if (!request.publish_rows) return;
     for (const result of results) publishRowResult(runRoot, { schema_id: "cartulary.harness_row_result.v6", ...result, runner: "vitest",
-      started_at: startedAt, finished_at: new Date().toISOString(), wall_duration_ms: Date.now() - started });
-  };
-  const publish = (finalComplete) => {
-    capture.final_complete = finalComplete;
-    capture.generated_at = new Date().toISOString();
-    const destination = finalComplete ? reportFile : path.join(path.dirname(reportFile), `runner-checkpoint-${++checkpoint}.json`);
-    details = normalizeVitestObservations(capture, { invocationID, runID, runnerJSON: path.relative(root, destination),
-      stdoutLog: path.relative(root, path.join(path.dirname(reportFile), "stdout.log")), stderrLog: path.relative(root, path.join(path.dirname(reportFile), "stderr.log")) });
-    reconcileVitestReport(details, reports, root);
-    const redacted = redactValue(details);
-    validateSchemaSync(redacted.schema_id, redacted);
-    atomicLocalFile(destination, `${JSON.stringify(redactValue(reports))}\n`);
-    atomicLocalFile(detailsFile, `${JSON.stringify(redacted, null, 2)}\n`, { replace: true, maximumReplacementBytes: 16 * 1024 * 1024 });
-    if (priorReport) rmSync(priorReport);
-    priorReport = destination;
-    const results = adaptVitestInvocation(invocation, { details, report: reports, signal });
-    const completed = new Set(capture.completed_files.map((file) => file.owner_path));
-    publishRows(finalComplete ? results : results.filter((result) => completed.has(invocation.rows.find((row) => row.row_id === result.row_id).file)));
+      started_at: startedAt, finished_at: new Date().toISOString(), wall_duration_ms: Date.now() - started }, { preserveEquivalent: true });
   };
   const cancel = (value) => { signal ||= value; if (ctx) void ctx.cancelCurrentRun("keyboard-input").catch(() => {}); };
   const onInterrupt = () => cancel("SIGINT"), onTerminate = () => cancel("SIGTERM");
@@ -84,6 +63,7 @@ async function main() {
     process.stderr.write(chunk); done();
   } });
   try {
+    evidence = createVitestEvidence({ root, request, reportFile, detailsFile, runID, invocationID, startedAt });
     const require = createRequire(path.join(root, "apps/web/package.json"));
     const { createVitest, ForksPoolWorker } = await import(pathToFileURL(require.resolve("vitest/node")).href);
     const workers = settledForkPool(ForksPoolWorker);
@@ -113,34 +93,37 @@ async function main() {
       if (current.completed_files.length !== 1 || current.completed_files[0].owner_path !== request.files[index].file || current.completed_files[0].project !== request.project) throw diagnosticFailure("Vitest settled a different file", "scheduler_accounting_error");
       if (teardownError) current.observations.push({ project: request.project, owner_path: request.files[index].file, title: "(environment teardown)", test_name: "", scope: "suite", status: "failed", duration_ms: 0, timeout_ms: null,
         errors: [{ name: String(teardownError.name ?? "Error"), message: String(teardownError.message ?? ""), stack: String(teardownError.stack ?? "") }] });
-      capture.observations.push(...current.observations);
-      capture.completed_files.push(...current.completed_files);
-      reports.reports.push({ project: request.project, file: request.files[index].file, report: readVitestJSON(rawReport) });
-      if (current.run_status === "failed" || current.observations.some((item) => item.status === "failed")) capture.run_status = "failed";
-      publish(false);
-      if (current.observations.some((item) => item.scope === "run")) break;
+      const runObservations = current.observations.filter((item) => item.scope === "run");
+      evidence.recordRunFailures(runObservations);
+      const settled = evidence.settleFile(index, current, readVitestJSON(rawReport));
+      if (runObservations.length) {
+        publishRows(adaptVitestInvocation(invocation, evidence.snapshot()));
+        break;
+      }
+      const fileInvocation = vitestInvocation(root, { ...request, files: [request.files[index]] });
+      publishRows(adaptVitestInvocation(fileInvocation, settled));
     }
     closing = true;
     await ctx.close();
     if (closeOutput) {
-      capture.run_status = "failed";
-      capture.observations.push({ project: "", owner_path: "", title: "(invocation teardown)", test_name: "", scope: "run", status: "failed", duration_ms: 0, timeout_ms: null,
-        errors: [{ name: "Error", message: redactString(closeOutput), stack: "" }] });
+      evidence.recordRunFailures([{ project: "", owner_path: "", title: "(invocation teardown)", test_name: "", scope: "run", status: "failed", duration_ms: 0, timeout_ms: null,
+        errors: [{ name: "Error", message: redactString(closeOutput), stack: "" }] }]);
     }
-    if (signal) capture.run_status = "interrupted";
-    publish(!signal);
+    const terminal = evidence.finish(signal);
+    const outcomes = adaptVitestInvocation(invocation, { ...terminal, signal });
+    publishRows(outcomes);
     if (signal) return signal === "SIGTERM" ? 143 : 130;
-    const outcomes = adaptVitestInvocation(invocation, { details, report: reports });
     const failures = outcomes.filter((row) => row.failure_class);
     if (failures.length) {
       const primary = primaryPublicFailure(failures);
       process.stderr.write(`[FAIL] failure_class=${primary.failure_class} failure_reason=${primary.failure_reason} diagnostic=${path.relative(root, detailsFile)}\n`);
       return publicExitCodeForFailures(failures);
     }
-    if (details.run_status !== "passed" || reports.reports.some(({ report }) => report.success !== true)) throw diagnosticFailure("Vitest native status contradicts successful observations", "scheduler_accounting_error");
+    if (terminal.details.run_status !== "passed" || terminal.report.reports.some(({ report }) => report.success !== true)) throw diagnosticFailure("Vitest native status contradicts successful observations", "scheduler_accounting_error");
     return 0;
   } catch (error) {
     const failure = error.failure_reason ? error : diagnosticFailure("Vitest invocation failed to settle", "scheduler_accounting_error");
+    evidence?.fail(failure);
     publishRows(adaptVitestInvocation(invocation, { commandFailure: failure }));
     throw error;
   } finally {

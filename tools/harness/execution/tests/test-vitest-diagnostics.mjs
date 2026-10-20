@@ -5,8 +5,10 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, wri
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { primaryPublicFailure, publicExitCodeForFailures, validateSchemaSync } from "../../contract/index.mjs";
-import { normalizeVitestObservations, readVitestJSON, reconcileVitestReport } from "../../diagnostics/vitest-failure-details.mjs";
-import { adaptVitestInvocation, adaptVitestInvocationFile, buildVitestInvocations, vitestInvocation } from "../runners/vitest.mjs";
+import { createVitestEvidence, normalizeVitestObservations, readVitestEvidence, readVitestJSON, reconcileVitestReport } from "../../diagnostics/vitest-failure-details.mjs";
+import { adaptVitestInvocation, adaptVitestInvocationFile, buildVitestInvocations, vitestInvocation, vitestInvocationFailure } from "../runners/vitest.mjs";
+import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
+import { publishRowResult } from "../runners/row-results.mjs";
 import { createRuntime } from "../../runtime/session-client.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
@@ -72,7 +74,7 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   assert.equal(details.failures.find((item) => item.title === "original cause").message, "precise original assertion");
   assert.match(details.failures.find((item) => item.title === "original cause").original_error.stack, /STACK_TRACE_ERROR/u);
   assert.equal(details.failures.find((item) => item.title === "marker only").failure_class, "unknown");
-  for (const file of [invocation.detailsFile, invocation.runnerJSON]) assert.ok(!readFileSync(file, "utf8").includes("vitest-fixture-sensitive-value"));
+  for (const file of [invocation.detailsFile, invocation.runnerJSON, path.join(path.dirname(invocation.runnerJSON), "vitest-evidence/file-0.json")]) assert.ok(!readFileSync(file, "utf8").includes("vitest-fixture-sensitive-value"));
   assert.equal(statSync(invocation.detailsFile).mode & 0o777, 0o600);
   assert.deepEqual(full.rows.map((row) => row.failure_class), ["timing", "timing", "product", "unknown", "product", null, null]);
   assert.ok(full.rows[0].duration_ms >= 30 && full.rows[1].duration_ms >= 30);
@@ -109,6 +111,107 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   assert.throws(() => readVitestJSON(path.join(fixture, "linked.json")), /unsafe/u);
   assert.equal(adaptVitestInvocation(invocation, { signal: "SIGTERM", status: null })[0].exit_code, 143);
 
+  // Exercise crash boundaries without launching workers: the durable protocol
+  // must recover independently of row publication or terminal-envelope commit.
+  const synthetic = (name, count, interruptPublish = () => false) => {
+    const selection = request(Array.from({ length: count }, (_, index) => [path.join(fixture, `file-${index}.test.mjs`), ["same title"]]));
+    const invocation = prepare(name, selection), invocationID = randomUUID();
+    const writes = [];
+    const settings = { root, request: selection, reportFile: invocation.runnerJSON, detailsFile: invocation.detailsFile,
+      runID: process.env.CARTULARY_TEST_RUN_ID, invocationID, startedAt: "2026-01-01T00:00:00.000Z" };
+    const evidence = createVitestEvidence({ ...settings, publish(file, bytes, options) {
+      if (interruptPublish(file)) throw new Error("publication interrupted");
+      writes.push({ file, bytes: Buffer.byteLength(bytes) }); atomicLocalFile(file, bytes, options);
+    } });
+    const settle = (index) => {
+      const file = selection.files[index].file;
+      const capture = { ...raw, invocation_id: invocationID, run_id: settings.runID, run_status: "passed", final_complete: false,
+        completed_files: [{ project: selection.project, owner_path: file }],
+        observations: [{ project: selection.project, owner_path: file, title: "same title", test_name: "same title",
+          scope: "test", status: "passed", duration_ms: 1, timeout_ms: null, errors: [] }], failures: [] };
+      evidence.settleFile(index, capture, { success: true, testResults: [{ name: path.resolve(root, file),
+        assertionResults: [{ fullName: "same title", status: "passed" }] }] });
+    };
+    return { ...settings, invocation, evidence, writes, settle,
+      read: () => readVitestEvidence(settings),
+      packet: (index) => path.join(path.dirname(invocation.runnerJSON), "vitest-evidence", `file-${index}.json`) };
+  };
+  const growth = [];
+  for (const count of [4, 8, 16]) {
+    const current = synthetic(`growth-${count}`, count);
+    current.settle(0);
+    const first = statSync(current.packet(0));
+    for (let index = 1; index < count; index++) current.settle(index);
+    assert.equal(statSync(current.packet(0)).mtimeMs, first.mtimeMs);
+    assert.equal(statSync(current.packet(0)).ino, first.ino);
+    assert.equal(current.writes.length, count + 1, "one immutable publication per file plus the initial disposition");
+    assert.ok(adaptVitestInvocation(current.invocation, current.read()).every((row) => row.terminal_state === "passed"));
+    current.evidence.finish("");
+    assert.equal(current.writes.length, count + 5, "terminal envelopes are each published once");
+    assert.equal(current.read().details.final_complete, true);
+    growth.push(current.writes.reduce((sum, item) => sum + item.bytes, 0));
+  }
+  assert.ok(growth[1] < growth[0] * 2.1 && growth[2] < growth[1] * 2.1, `serialized publication growth: ${growth}`);
+  const partialPublication = synthetic("partial-publication", 2, (file) => file.endsWith("vitest-failure-details.json"));
+  partialPublication.settle(0); partialPublication.settle(1);
+  assert.throws(() => partialPublication.evidence.finish(""), /publication interrupted/u);
+  assert.equal(partialPublication.read().details.final_complete, false);
+  assert.ok(adaptVitestInvocation(partialPublication.invocation, partialPublication.read()).every((row) => row.terminal_state === "passed"));
+  partialPublication.evidence.recordRunFailures([{ project: "", owner_path: "", title: "global close", test_name: "",
+    scope: "run", status: "failed", duration_ms: 0, timeout_ms: null, errors: [{ name: "Error", message: "global close failed", stack: "" }] }]);
+  assert.ok(adaptVitestInvocation(partialPublication.invocation, partialPublication.read()).every((row) => row.failure_class === "infra"));
+  partialPublication.evidence.fail({ failure_class: "harness", failure_reason: "scheduler_accounting_error" });
+  assert.ok(adaptVitestInvocation(partialPublication.invocation, partialPublication.read()).every((row) => row.failure_reason === "scheduler_accounting_error"));
+  const corrupt = synthetic("invalid-evidence", 2);
+  corrupt.settle(0); corrupt.settle(1);
+  const original = readVitestJSON(corrupt.packet(0));
+  for (const mutate of [
+    (packet) => { packet.run_id = "foreign"; },
+    (packet) => { packet.invocation_id = "foreign"; },
+    (packet) => { packet.request_digest = `sha256:${"0".repeat(64)}`; },
+    (packet) => { packet.artifact_root = "foreign"; },
+    (packet) => { packet.file_index = 1; },
+    (packet) => { packet.details.completed_files[0].project = "foreign"; },
+    (packet) => { packet.report.reports[0].report.testResults[0].assertionResults[0].status = "failed"; },
+    (packet) => { packet.details.observations.push(packet.details.observations[0]); },
+    (packet) => { packet.details.observations = []; },
+    (packet) => { packet.details.completed_files.push(packet.details.completed_files[0]); },
+  ]) {
+    const packet = structuredClone(original); mutate(packet); save(corrupt.packet(0), packet);
+    assert.throws(corrupt.read, undefined, "invalid checkpoint cannot establish success");
+  }
+  const skipped = structuredClone(original);
+  skipped.details.observations[0].status = "skipped";
+  skipped.report.reports[0].report.testResults[0].assertionResults[0].status = "skipped";
+  save(corrupt.packet(0), skipped);
+  assert.equal(adaptVitestInvocation(corrupt.invocation, corrupt.read())[0].failure_reason, "scheduler_accounting_error");
+  save(corrupt.packet(0), original);
+  assert.throws(() => readVitestEvidence({ ...corrupt, request: { ...corrupt.request, project: "foreign" } }), /different invocation/u);
+  rmSync(corrupt.packet(0));
+  assert.throws(corrupt.read, /gap/u);
+  symlinkSync(corrupt.packet(1), corrupt.packet(0));
+  assert.throws(corrupt.read, /unsafe/u);
+  rmSync(corrupt.packet(0)); writeFileSync(corrupt.packet(0), "{", { mode: 0o600 });
+  assert.throws(corrupt.read, /malformed/u);
+  save(corrupt.packet(0), original); save(corrupt.packet(2), original);
+  assert.throws(corrupt.read, /Unexpected/u); rmSync(corrupt.packet(2));
+  writeFileSync(corrupt.packet(0), " ".repeat(32 * 1024 * 1024 + 1));
+  assert.throws(corrupt.read, /oversized/u);
+  save(corrupt.packet(0), original);
+  assert.ok(adaptVitestInvocationFile(corrupt.invocation, { status: 0 }).every((row) => row.failure_reason === "scheduler_accounting_error"), "zero exit without final settlement is contradictory");
+  assert.ok(adaptVitestInvocationFile(corrupt.invocation, { status: 11,
+    commandFailure: { failure_class: "artifact", failure_reason: "artifact_error" } }).every((row) => row.failure_reason === "artifact_error"), "private command failure must not be erased by a null disposition failure");
+  const rowRoot = path.join(output, "stable-row");
+  const row = { schema_id: "cartulary.harness_row_result.v6", ...full.rows[5], row_id: "harness.command_surface.behavior.stable_fixture", runner: "vitest",
+    started_at: "2026-01-01T00:00:00.000Z", finished_at: "2026-01-01T00:00:01.000Z", wall_duration_ms: 1000 };
+  publishRowResult(rowRoot, row, { preserveEquivalent: true });
+  const rowFile = path.join(rowRoot, "rows", `${row.row_id}.json`), before = statSync(rowFile);
+  publishRowResult(rowRoot, { ...row, finished_at: "2026-01-01T00:00:02.000Z", wall_duration_ms: 2000 }, { preserveEquivalent: true });
+  assert.equal(statSync(rowFile).ino, before.ino);
+  assert.deepEqual(readVitestJSON(rowFile), row);
+  publishRowResult(rowRoot, { ...row, ...full.rows[0], row_id: row.row_id }, { preserveEquivalent: true });
+  assert.equal(readVitestJSON(rowFile).failure_class, "timing", "changed outcomes supersede earlier rows");
+
   const firstFile = path.join(root, "apps/web/src/testing/fixtures/vitestSelectionTestSupport.ts");
   const secondFile = path.join(root, "apps/web/src/testing/fixtures/vitestCohortTestSupport.ts");
   const groupedConfig = path.join(groupedFixture, "vite.config.mjs");
@@ -134,8 +237,9 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   assert.throws(() => buildVitestInvocations(root, [groupedRows[0], { ...groupedRows[1], selector: { ...groupedRows[1].selector, project_id: "browser-unit" } }], output), /compatible project/u);
   assert.throws(() => buildVitestInvocations(root, [groupedRows[0], { ...groupedRows[0], row_id: "overlap" }], output), /overlapping/u);
 
-  const passFile = path.join(fixture, "pass.test.mjs"), loadFile = path.join(fixture, "load.test.mjs"), teardownFile = path.join(fixture, "teardown.test.mjs"), unhandledFile = path.join(fixture, "unhandled.test.mjs");
+  const passFile = path.join(fixture, "pass.test.mjs"), secondPassFile = path.join(fixture, "second-pass.test.mjs"), loadFile = path.join(fixture, "load.test.mjs"), teardownFile = path.join(fixture, "teardown.test.mjs"), unhandledFile = path.join(fixture, "unhandled.test.mjs");
   writeFileSync(passFile, `import { test } from ${JSON.stringify(api)}; test('ok', () => {});`);
+  writeFileSync(secondPassFile, `import { test } from ${JSON.stringify(api)}; test('ok', () => {});`);
   writeFileSync(loadFile, "throw new Error('suite collection failed');");
   writeFileSync(teardownFile, `import { test, afterAll } from ${JSON.stringify(api)}; test('ok', () => {}); afterAll(() => { throw new Error('file teardown failed'); });`);
   writeFileSync(unhandledFile, `import { test } from ${JSON.stringify(api)}; test('ok', async () => { void Promise.reject(new Error('unhandled runner error')); await new Promise(resolve => setTimeout(resolve, 25)); });`);
@@ -158,9 +262,10 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   const globalMarker = path.join(fixture, "global-setup-ran");
   writeFileSync(globalSetup, `import { writeFileSync } from 'node:fs'; export default function () { writeFileSync(${JSON.stringify(globalMarker)}, 'setup'); return () => { writeFileSync(${JSON.stringify(globalMarker)}, 'teardown'); throw new Error('global teardown failed'); }; }`);
   config({ globalSetup });
-  const globalFailure = run("global-teardown", request([[passFile, ["ok"]]]));
+  const globalFailure = run("global-teardown", request([[passFile, ["ok"]], [secondPassFile, ["ok"]]]));
   assert.equal(readFileSync(globalMarker, "utf8"), "teardown", globalFailure.result.stderr);
   assert.equal(globalFailure.rows[0].failure_class, "infra", globalFailure.result.stderr + globalFailure.result.stdout);
+  assert.equal(globalFailure.rows[1].failure_class, "infra", "global teardown supersedes every settled file");
   assert.ok(globalFailure.details.failures.some((failure) => failure.message.includes("global teardown failed")));
   config();
 
@@ -168,18 +273,38 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   writeFileSync(hangFile, `import { test } from ${JSON.stringify(api)}; import { writeFileSync } from 'node:fs'; test('hang', async () => { console.log('interruption stdout'); console.error('interruption stderr'); writeFileSync(${JSON.stringify(marker)}, 'running'); await new Promise(() => {}); }, 10000);`);
   for (const signal of ["SIGTERM", "SIGKILL"]) {
     rmSync(marker, { force: true });
-    const interrupted = prepare(`interrupted-${signal}`, request([[passFile, ["ok"]], [hangFile, ["hang"]]]));
+    const interrupted = prepare(`interrupted-${signal}`, request([[passFile, ["ok"]], [secondPassFile, ["ok"]], [hangFile, ["hang"]]]));
     const child = spawn(process.execPath, interrupted.args, { cwd: root, env: fixtureEnvironment, stdio: "ignore" });
     const done = new Promise((resolve) => child.once("close", (status, signal) => resolve({ status, signal })));
     try { await waitForFile(marker, child); child.kill(signal); }
     finally { const timer = setTimeout(() => child.kill("SIGKILL"), 1500); await done; clearTimeout(timer); }
     const rows = adaptVitestInvocationFile(interrupted, { ...(await done), signal });
     assert.equal(rows[0].terminal_state, "passed", "settled file survives invocation interruption/owner loss");
-    assert.equal(rows[1].terminal_state, "cancelled");
-    const checkpoint = readVitestJSON(interrupted.detailsFile);
+    assert.equal(rows[1].terminal_state, "passed", "a second settled file also survives interruption");
+    assert.equal(rows[2].terminal_state, "cancelled");
+    const checkpoint = readVitestEvidence({ root, request: interrupted.request, reportFile: interrupted.runnerJSON,
+      detailsFile: interrupted.detailsFile, runID: process.env.CARTULARY_TEST_RUN_ID }).details;
     assert.equal(checkpoint.final_complete, false);
-    assert.equal(checkpoint.completed_files.length, 1);
+    assert.equal(checkpoint.completed_files.length, 2);
   }
+
+  // Loss during global close, after every file settled, preserves row evidence
+  // while the enclosing invocation still reports interruption.
+  const closeMarker = path.join(fixture, "closing"), hangingClose = path.join(fixture, "hanging-close.mjs");
+  writeFileSync(hangingClose, `import { writeFileSync } from 'node:fs'; export default function() { return async () => { writeFileSync(${JSON.stringify(closeMarker)}, 'closing'); await new Promise(() => {}); }; }`);
+  config({ globalSetup: hangingClose });
+  const completedFiles = prepare("interrupted-after-files", request([[passFile, ["ok"]], [secondPassFile, ["ok"]]]));
+  const closingChild = spawn(process.execPath, completedFiles.args, { cwd: root, env: fixtureEnvironment, stdio: "ignore" });
+  const closingDone = new Promise((resolve) => closingChild.once("close", (status, signal) => resolve({ status, signal })));
+  try { await waitForFile(closeMarker, closingChild); }
+  finally { closingChild.kill("SIGKILL"); await closingDone; }
+  const closingExecution = await closingDone;
+  const settledRows = adaptVitestInvocationFile(completedFiles, closingExecution);
+  assert.ok(settledRows.every((row) => row.terminal_state === "passed"));
+  assert.equal(vitestInvocationFailure(closingExecution, settledRows).failure_class, "interrupted");
+  assert.equal(vitestInvocationFailure({ status: 11 }, settledRows).failure_reason, "scheduler_accounting_error");
+  assert.equal(vitestInvocationFailure({ status: 0 }, settledRows), null);
+  config();
 
   // A passed assertion is insufficient while environment teardown remains open.
   const environment = path.join(fixture, "environment.mjs"), teardownMarker = path.join(fixture, "environment-teardown");
@@ -218,7 +343,7 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   assert.equal(success.status, 0, success.stderr);
   assert.equal(success.stdout, "");
   const timeoutLabel = `vitest-watchdog-${randomUUID()}`;
-  const hung = prepare("wrapper-hang", request([[hangFile, ["hang"]]]));
+  const hung = prepare("wrapper-hang", request([[passFile, ["ok"]], [hangFile, ["hang"]]]));
   const timeout = spawnSync("bash", [wrapperPath, timeoutLabel, "--", hung.requestFile],
     { cwd: root, env: { ...wrapperEnvironment, CARTULARY_VITEST_WATCHDOG_SECONDS: "1", CARTULARY_WATCHDOG_KILL_GRACE_SECONDS: "1" }, encoding: "utf8", timeout: 15000 });
   assert.notEqual(timeout.status, 0, timeout.stderr);
@@ -235,6 +360,7 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   assert.equal((await wrapperDone).status, 143);
   const interruption = readVitestJSON(path.join(runRoot, "adhoc", interruptLabel, "step-summary.json"));
   assert.equal(interruption.failure_reason, "cancelled_or_interrupted");
+  assert.ok(interruption.inventory.some((item) => item.symbol_or_title === "ok"), "output consumer retains settled inventory");
   assert.match(readFileSync(path.resolve(root, interruption.artifacts.stdout_log), "utf8"), /interruption stdout/u);
   assert.match(readFileSync(path.resolve(root, interruption.artifacts.stderr_log), "utf8"), /interruption stderr/u);
   process.stdout.write("Vitest exact cohorts, file settlement, diagnostic attribution, interruption and privacy contracts passed\n");

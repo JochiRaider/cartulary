@@ -405,7 +405,7 @@ chmod 700 "$security_suite_root" "$security_session_root"
 "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$tmp_dir" <<'JS'
 import assert from "node:assert/strict";
 import path from "node:path";
-import { mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync } from "node:fs";
 import { createRuntime } from "./tools/harness/runtime/session-client.mjs";
 import { spawnSync } from "./tools/harness/workspace/child-process.mjs";
 const [root, scratch] = process.argv.slice(2);
@@ -415,6 +415,13 @@ const runtime = createRuntime({repoRoot:root, runRoot, runID});
 try {
   const privateSession = runtime.privatePath("browser-stack-leases", "security-session");
   mkdirSync(privateSession, {recursive:true, mode:0o700});
+  const trustRoot = path.join(privateSession, "runtime-root", "tls");
+  mkdirSync(path.dirname(trustRoot), {mode:0o700});
+  const trust = spawnSync(process.env.GO || "go", ["run", "./tools/browserpki", "--directory", trustRoot], {
+    cwd:root, env:process.env, encoding:"utf8"
+  });
+  assert.equal(trust.status, 0, trust.stderr);
+  copyFileSync(path.join(trustRoot, "ca.pem"), path.join(trustRoot, "trust.pem"));
   const env = {...process.env, CARTULARY_TEST_RESULTS_DIR:path.dirname(runRoot), CARTULARY_TEST_RUN_ID:runID,
     CARTULARY_HARNESS_SUITE_RUNTIME_ROOT:runtime.root, CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID:runtime.leaseID,
     CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID:runID, CARTULARY_WEB_E2E_PRIVATE_SESSION_ROOT:privateSession,

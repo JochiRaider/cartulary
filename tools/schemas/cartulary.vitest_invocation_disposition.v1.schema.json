@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.vitest_invocation_disposition.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "invocation_id", "run_id", "request_digest", "artifact_root", "details", "command_failure", "terminal_published", "report_digest", "details_digest"],
+  "properties": {
+    "schema_id": { "const": "cartulary.vitest_invocation_disposition.v1" },
+    "invocation_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "request_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "artifact_root": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]*$" },
+    "details": { "$ref": "cartulary.vitest_failure_details.v3" },
+    "command_failure": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["failure_class", "failure_reason"],
+          "properties": {
+            "failure_class": { "type": "string", "$ref": "cartulary.harness.defs.v1#/$defs/failure_class" },
+            "failure_reason": { "type": "string", "$ref": "cartulary.harness.defs.v1#/$defs/failure_reason" }
+          }
+        }
+      ]
+    },
+    "terminal_published": { "type": "boolean" },
+    "report_digest": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+    "details_digest": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" }
+  },
+  "allOf": [{
+    "if": { "properties": { "terminal_published": { "const": true } } },
+    "then": { "properties": { "report_digest": { "type": "string" }, "details_digest": { "type": "string" } } },
+    "else": { "properties": { "report_digest": { "type": "null" }, "details_digest": { "type": "null" } } }
+  }]
+}

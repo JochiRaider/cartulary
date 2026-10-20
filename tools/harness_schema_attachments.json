@@ -1685,10 +1685,24 @@
       "validation": "harness.json_shape_check"
     },
     {
+      "schema_id": "cartulary.vitest_file_checkpoint.v1",
+      "path": "tools/schemas/cartulary.vitest_file_checkpoint.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "Vitest invocation coordinator",
+      "validation": "harness.json_shape_check"
+    },
+    {
       "schema_id": "cartulary.vitest_invocation.v1",
       "path": "tools/schemas/cartulary.vitest_invocation.v1.schema.json",
       "classification": "shared_component",
       "producer": "Vitest invocation adapter",
+      "validation": "harness.json_shape_check"
+    },
+    {
+      "schema_id": "cartulary.vitest_invocation_disposition.v1",
+      "path": "tools/schemas/cartulary.vitest_invocation_disposition.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "Vitest invocation coordinator",
       "validation": "harness.json_shape_check"
     },
     {

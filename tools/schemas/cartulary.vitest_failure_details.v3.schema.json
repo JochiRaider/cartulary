@@ -67,7 +67,6 @@
     },
     "completed_files": {
       "type": "array",
-      "uniqueItems": true,
       "maxItems": 50000,
       "items": {
         "type": "object",

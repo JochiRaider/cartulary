@@ -273,7 +273,16 @@
     ],
     "harness.contract_runtime_boundary": [
       {
-        "operation_id": "harness.harness_runtime_boundary_contract"
+        "row_id": "harness.browser.integration.native_borrowed_fixture_lifecycle"
+      },
+      {
+        "row_id": "harness.browser.integration.native_fixture_lifecycle"
+      },
+      {
+        "row_id": "harness.browser.integration.native_graph_observations"
+      },
+      {
+        "row_id": "harness.browser.integration.native_selected_service_lifecycle"
       }
     ],
     "harness.contract_artifact_consumers": [
@@ -310,11 +319,6 @@
       "harness.package_reference_pack",
       "harness.package_recovery"
     ],
-    "harness.assurance_work_graph_service_backed_target": [
-      {
-        "operation_id": "harness.harness_runtime_boundary_contract"
-      }
-    ],
     "harness.contract_regression": [
       "harness.assurance_execution_topology",
       "harness.assurance_task_surface_report",
@@ -323,7 +327,7 @@
       "harness.assurance_run_vitest_step",
       "harness.assurance_run_playwright_step",
       "harness.assurance_work_graph_fast",
-      "harness.assurance_work_graph_service_backed_target",
+      "harness.contract_runtime_boundary",
       "harness.assurance_toolchain_pins",
       "harness.assurance_go_toolchain_readiness",
       "harness.assurance_bootstrap_node_runtime",
@@ -364,7 +368,7 @@
       "harness.assurance_run_vitest_step",
       "harness.assurance_run_playwright_step",
       "harness.assurance_work_graph_fast",
-      "harness.assurance_work_graph_service_backed_target",
+      "harness.contract_runtime_boundary",
       "harness.assurance_make_node_tools"
     ],
     "harness.contract_lifecycle": [
@@ -2800,35 +2804,6 @@
           "--test",
           "--test-concurrency=1",
           "./tools/harness/browser/tests/test-playwright-row-runner.mjs"
-        ],
-        "test_target": "self"
-      },
-      "kind": "policy"
-    },
-    "harness.harness_runtime_boundary_contract": {
-      "report_key": "harness-runtime-boundary-contract",
-      "execution": {
-        "type": "step_command",
-        "prerequisites": [
-          "$(FRONTEND_INSTALL_STAMP)",
-          "$(HARNESS_RUNTIME_BIN)",
-          "$(NODE_BIN)",
-          "$(TEST_SERVICES_BIN)"
-        ],
-        "mode": "run_step",
-        "step_label": "harness-runtime-boundary-contract",
-        "env": {
-          "NODE_BIN": "$(NODE_BIN)",
-          "GOCACHE": "$(GO_CACHE_DIR)",
-          "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
-          "GOTMPDIR": "$(GO_TMP_DIR)",
-          "CARTULARY_HARNESS_RUNTIME_BIN": "$(HARNESS_RUNTIME_BIN)"
-        },
-        "command": [
-          "$(GO)",
-          "test",
-          "-count=1",
-          "./internal/testutil/harnessruntime/boundary"
         ],
         "test_target": "self"
       },

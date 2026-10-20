@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { goRunnerBuildContext, loadSelectedTestRows, targetForCatalogRow } from "../../test-catalog/index.mjs";
-import { publicExitCodeForFailure, publicExitCodeForFailures, redactString, validateSchemaSync } from "../../contract/index.mjs";
+import { primaryPublicFailure, publicExitCodeForFailure, publicExitCodeForFailures, redactString, validateSchemaSync } from "../../contract/index.mjs";
 import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { beginActivity } from "../../runtime/local-activity.mjs";
 import { createCommandFailureContext, reportCommandFailure } from "../../runtime/command-failure.mjs";
@@ -14,7 +14,7 @@ import { adaptGoInvocationFile, buildGoInvocations } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
 import { publishRowResult } from "./row-results.mjs";
 import { readUnitSelection } from "./unit-selection.mjs";
-import { adaptVitestInvocationFile, buildVitestInvocations } from "./vitest.mjs";
+import { adaptVitestInvocationFile, buildVitestInvocations, vitestInvocationFailure } from "./vitest.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
@@ -165,7 +165,7 @@ async function main() {
   const { invocations, adapt } = invocationsForRows(rows);
   const startedAt = new Date().toISOString();
   const started = Date.now();
-  const results = [];
+  const results = [], invocationFailures = [];
   let cleanupFailed = false;
   for (const invocation of invocations) {
     const execution = await execute(invocation, rows[0].runner);
@@ -176,6 +176,10 @@ async function main() {
         const adapted = await adapt(invocation, execution, (output) => { failureOutput = output; });
         parsing.finish(adapted.some((row) => row.failure_class === "artifact" || row.failure_class === "harness") ? "failed" : "passed");
         results.push(...adapted);
+        if (rows[0].runner === "vitest") {
+          const failure = vitestInvocationFailure(execution, adapted);
+          if (failure) invocationFailures.push(failure);
+        }
       } catch (error) { parsing.finish(error.name === "AbortError" ? "cancelled" : "failed"); throw error; }
       if (execution.status !== 0) {
         if (execution.stdout) process.stderr.write(redactString(execution.stdout));
@@ -198,7 +202,7 @@ async function main() {
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       wall_duration_ms: Date.now() - started,
-    });
+    }, { preserveEquivalent: rows[0].runner === "vitest" });
     if (result.terminal_state !== "passed") {
       const failure = canonicalFailure(result);
       process.stderr.write(
@@ -206,13 +210,16 @@ async function main() {
       );
     }
   }
-  if (results.every((result) => result.terminal_state === "passed")) {
+  if (invocationFailures.length) {
+    const failure = primaryPublicFailure(invocationFailures);
+    reportCommandFailure(root, new Error("Vitest invocation did not complete successfully"), failure);
+    process.stderr.write(`[FAIL] runner=vitest failure_class=${failure.failure_class} failure_reason=${failure.failure_reason}\n`);
+  }
+  const failures = [...results.filter((result) => result.terminal_state !== "passed").map(canonicalFailure), ...invocationFailures];
+  if (!failures.length) {
     if (cleanupFailed) process.stderr.write("failure_class=harness failure_reason=cleanup_error\n");
     return cleanupFailed ? 12 : 0;
   }
-  const failures = results
-    .filter((result) => result.terminal_state !== "passed")
-    .map(canonicalFailure);
   return publicExitCodeForFailures(failures);
 }
 

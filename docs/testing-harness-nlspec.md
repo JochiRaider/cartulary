@@ -559,7 +559,11 @@ Partial acquisition, publication failure, cancellation and owner loss retain exa
 recovery proof. A provider that has acquired physical ownership MUST return that
 partial ownership to the existing fixture broker even when startup fails. The
 broker owns cleanup and quarantine; local cleanup must not hide an unsettled
-allocation or omit its exclusive service retirement. Primary startup and secondary
+allocation or omit its exclusive service retirement. The broker MUST durably publish
+its minimal allowlisted recovery environment before launch intent. Success-only
+service bindings MUST use a separate disposable output; validating those bindings
+and atomically refreshing recovery authority precede consumer admission. Failed
+startup or loss during binding publication MUST NOT erase pre-ready authority. Primary startup and secondary
 settlement failures remain distinct. Uncertain settlement cannot readmit a generation. Quarantine takes
 effect when any borrower invalidates a generation, including while siblings remain
 active. No replacement for the same allocation affinity may reach its service
@@ -801,6 +805,16 @@ uses exactly one file worker; scheduler claims cover both. File environments rem
 isolated, with normal setup and teardown for each file. Exclusive/process-global
 cases remain singleton invocations. A resident test daemon is unsupported.
 
+Reporting owner, family and verification identities MUST NOT independently
+partition otherwise compatible Go or Vitest execution. Required owner partitions
+MUST be expressed by the applicable runtime, setup/environment, dependency,
+resource, fixture, evidence, timeout, failure or process-isolation contract;
+the compiler MUST NOT infer isolation from an owner name. Selected rows retain
+their individual owner and verification attribution. A mixed-owner Vitest unit
+uses `harness.command_surface` as its execution owner; Go units retain
+`harness.backend`. These execution owners MUST NOT replace catalog row ownership
+in evidence. Owner-specific selection MUST NOT widen to unselected owners.
+
 Within each compatibility partition, exact file selections are ordered by
 descending predicted selected execution cost with stable project/file identity
 ties. Deterministic first-fit packing places each selection in the first cohort
@@ -837,9 +851,32 @@ it MUST NOT access or replace private runner state. A teardown error is attribut
 to its file, and uncertain termination cannot admit another file. The invocation
 owns its diagnostic output stream across worker EOF and coordinator teardown.
 Settled file checkpoints use the existing
-canonical row publication/finalization path. Invocation-global teardown and
+canonical row publication/finalization path. Each settled file MUST be normalized
+and reconciled independently and published once as an immutable
+`cartulary.vitest_file_checkpoint.v1` record, bound to the invocation, run, exact
+request digest and selected file ordinal. Native report and normalized
+observations MUST become durable atomically before publishing that file's rows.
+A reader MUST reject foreign, duplicate, malformed, unsafe or selection-mismatched
+records; it MUST NOT infer completion from uncommitted temporary files.
+`cartulary.vitest_invocation_disposition.v1` records invocation-wide failure,
+interruption and final settlement separately from file evidence. An observed
+invocation-wide failure MUST be retained before superseding provisional rows.
+Independently settled file evidence MUST survive interruption between its atomic
+publication and row publication. Row publication MUST preserve an existing
+semantically identical outcome and its settlement timestamps.
+Observation lookup uses exact project/file/full-title identities. Processing
+and checkpoint publication MUST be linear in retained evidence volume, without
+cumulative checkpoint rewrites. Terminal cumulative native-report and diagnostic
+envelopes are assembled once; all interruption and terminal consumers use the
+same validated evidence loader. Intermediate cumulative checkpoints are retired
+without aliases or fallback readers.
+Invocation-global teardown and
 unhandled runner failures remain invocation-scoped and supersede earlier provisional
 success when observed; interruption retains independently settled file results.
+Even if every selected file settled, an interrupted or failed invocation MUST
+retain its enclosing command failure. A private command failure cannot be erased
+by an absent disposition failure. A successful command exit without final
+invocation settlement is contradictory evidence and MUST NOT qualify.
 
 `cartulary.vitest_invocation.v1` carries the exact invocation-local request,
 including per-file row/title bindings and the sole selected project. It is not a
@@ -3001,6 +3038,12 @@ snapshot. It MUST be a positive safe integer no greater than physical CPU
 capacity. Execution admission and retained readers MUST reject missing or
 invalid budgets. Retained reconstruction MUST use this value without consulting
 ambient parent-lease state or substituting current or physical host capacity.
+
+Native runtime-boundary assurance MUST select the existing catalog rows that
+own its test symbols and retain their resource, fixture, process-isolation and
+per-invocation deadline contracts. Direct assurance and aggregate selections
+MUST share those row projections; a parallel whole-package operation that
+bypasses the row contracts is unsupported.
 
 Auto-derived scheduler capacity MUST NOT resolve below the largest declared claim for that resource in the normalized work-unit set. Caller overrides MAY still choose lower limits, but such overrides are configuration errors when they cannot satisfy a declared work unit.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-021
@@ -6091,7 +6134,8 @@ own scheduler unit; backend finalization MAY reuse the bounded worker-count
 formula without rewriting capture-child `GOMAXPROCS`.
 All exact symbols in one
 compatible package/runtime/fixture/isolation/evidence-class group MAY share one
-Go JSON process. Raw package selectors remain separate. Each physical Go report
+Go JSON process, including rows attributed to different catalog owners under
+REQ-805's explicit compatibility contract. Raw package selectors remain separate. Each physical Go report
 MUST be parsed once; immutable family-projection requests then execute through
 the same host-derived worker pool. Each worker MUST initialize the output
 runtime once and process multiple requests sequentially; starting one cold
@@ -9665,7 +9709,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-084 | Section 2.1 | Unified scheduling | Contention, starvation, failure, cancellation, and simultaneous-completion fixtures | Deterministic scheduler simulation and process tests | Rank, fit, backfill, elapsed eligible aging, failure propagation, and cancellation match REQ-802; dispatch frequency and fixture warmth never override rank; capacity misses preserve pending host priority, refresh only ungranted resident references, yield ordinary/dedicated logical pins, and bound unstarted renderer identities without weakening physical compatibility | Bounded scheduler summary | Scheduler diagnostic | Unit events and capability snapshot | Unheld reservation, starvation, or leaked process passes | owned work cleaned |
 | TH-HARNESS-AC-085 | Section 2.1 | Capacity closure | CPU, memory, process, IO, port, service, missing-data, override, resident ownership and dead-owner fixtures | Capability resolver and native admission validation | Resolved capacity is the safe multidimensional minimum; physical allocations remain charged once until proven cleanup; idle residents do not hold activity; drain and exclusive work progress | Bounded capability summary | Configuration diagnostic | Capability snapshot, allocation references and active grants | PID death frees resident capacity, borrowing double-charges, or cleanup bypasses capacity | no unaccounted child work |
 | TH-HARNESS-AC-086 | Section 2.1 | Fixture broker | Transaction, dedicated, migration, object, process, browser, contamination and borrowed-resource fixtures; empty/single/multi-page/multi-batch cleanup, per-object failure, repeated tokens, cancellation, missing bucket, sibling prefix and failed reuse | Broker lifecycle, one-time cluster initialization, clone grants and failure isolation, renderer reuse/context isolation/interruption, scoped trust, object-store admission and affected owner slices | Explicit leases preserve isolation; templates complete WAL-backed publication; ordinary clones perform only database finalization; compatible groups share one renderer generation; owned cleanup never deletes borrowed services; empty-state and mutation proof precede reuse; uncertain cleanup cannot readmit a generation | Bounded lease and safe stage summary | Fixture/cleanup diagnostic, with earlier readiness failure retained as primary | Logical borrow/settlement, shared physical attestations, provisioning identity and terminal cleanup | Implicit fallback, contamination, repeated clone role DDL, premature capacity release, post-readiness replacement or borrowed deletion passes | unhealthy generations retired; unresolved ownership and capacity retained |
-| TH-HARNESS-AC-087 | Section 2.1 | Runner grouping | Compatible cross-file and incompatible project/setup cohorts; repeated titles, partial selections, excluded tests, suite-load/teardown failure, unhandled errors, interruption, file-global contamination, exclusive and missing/duplicate-output fixtures | Deterministic Go shard/Vitest cohort planning, worker claims and per-file public-API selection | Go LPT plans are capacity-derived; bounded Vitest cohorts preserve isolated file lifetimes, independently settled outcomes and exact selected coverage with fewer coordinator launches | Bounded shard summary | Row/shard diagnostic | Plan digest and row outcomes | Fixed packing, incompatible merge, or missing row passes | ordinary test cleanup |
+| TH-HARNESS-AC-087 | Section 2.1 | Runner grouping and incremental evidence | Compatible cross-owner/cross-file and incompatible project/setup cohorts; exact owner subsets; repeated titles; excluded, missing, duplicate and skipped tests; suite/global teardown; uncertain worker termination; interruption between durable checkpoint and row publication; foreign/malformed/unsafe checkpoint identities; redaction and evidence-volume scaling | Deterministic Go shard/Vitest cohort planning, explicit compatibility, worker claims, per-file public-API selection and atomic settled-file evidence | Bounded cohorts preserve isolated file lifetimes and exact per-owner attribution; completed files survive interruption; global failures supersede provisional success; incremental processing avoids cumulative rewrites and unchanged rows retain settlement timestamps | Bounded shard summary | Row/shard diagnostic | Plan digest, native reports, row outcomes and immutable file checkpoints | Owner-only fragmentation, incompatible merge, false completion, lost settled evidence, repeated cumulative publication or stale success | ordinary test cleanup |
 | TH-HARNESS-AC-088 | Section 2.1 | Browser group scheduling | Declared-state cohorts alone/reordered/concurrent; predecessor/reset failure, cancellation, owner loss, measurement, visual/accessibility and snapshot-write fixtures | Browser graph and lifecycle tests | Cohorts share only proved control-plane state; contexts and observed actors/sessions are test-owned; resets follow cohort boundaries; completed outcomes survive failures; conflicting writes never overlap and every lane settles | Bounded browser summary | Lifecycle diagnostic | Group events, leases, and target projections | Unproved state sharing, widened selection, lost completed outcomes, reset drift, or lane leak passes | all lanes cleaned |
 | TH-HARNESS-AC-089 | Section 2.1 | Aggregate and cache closure | Five aggregate graphs plus hit, miss, cold, off, mutation, corruption, and stale-security fixtures | Aggregate graph/cache validation | No phase barrier or nested scheduler remains; units deduplicate and reuse only closed work | Bounded aggregate/cache summary | Cache or graph diagnostic | Current-run unit and target evidence | Stateful reuse, stale finding, or duplicate unit passes | cache scratch proof-gated |
 | TH-HARNESS-AC-090 | Section 2.1 | Canonical retained artifacts | Direct and aggregate runs plus old, malformed, overlapping, and unattributed fixtures | Schema and event-projection validation | Event unions close material wall time once, changing wait segments close exactly, and all projections agree | Bounded evidence summary | Artifact/accounting diagnostic | V3 run manifest, events, run summary, and target summaries | Old reader, dual write, dispatch timing, or duplicate attribution passes | retained v3 artifacts follow cleanup policy |

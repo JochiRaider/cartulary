@@ -1,10 +1,9 @@
 import path from "node:path";
-import { existsSync } from "node:fs";
 import { resolveVitestTitles } from "../../test-catalog/index.mjs";
 import { primaryPublicFailure, publicExitCodeForFailure, secureWriteFile, validateSchemaSync } from "../../contract/index.mjs";
 import {
   diagnosticFailure, failureDetailsSchemaID, readVitestJSON,
-  reconcileVitestReport, selectedVitestObservations, vitestObservationKey,
+  readVitestEvidence, reconcileVitestReport, selectedVitestObservations, validateVitestRequest, vitestFileKey, vitestObservationKey,
 } from "../../diagnostics/vitest-failure-details.mjs";
 
 export function buildVitestInvocations(root, rows, runRoot) {
@@ -30,26 +29,10 @@ export function buildVitestInvocations(root, rows, runRoot) {
     args: [path.join(root, "tools/harness/execution/vitest-invocation-cli.mjs"), runnerJSON, detailsFile, requestFile] }];
 }
 
-export function validateVitestRequest(request) {
-  validateSchemaSync("cartulary.vitest_invocation.v1", request);
-  const files = new Set(), rows = new Set();
-  for (const file of request.files) {
-    if (files.has(file.file)) throw diagnosticFailure("Duplicate Vitest file selection", "scheduler_accounting_error");
-    files.add(file.file);
-    const titles = new Set();
-    for (const row of file.rows) {
-      if (rows.has(row.row_id)) throw diagnosticFailure("Duplicate Vitest row selection", "scheduler_accounting_error");
-      rows.add(row.row_id);
-      for (const title of row.selectors) {
-        if (titles.has(title)) throw diagnosticFailure("Vitest rows select overlapping test identities", "scheduler_accounting_error");
-        titles.add(title);
-      }
-    }
-  }
-}
+export { validateVitestRequest };
 
 export function vitestInvocation(root, request) {
-  return { root, project: request.project, rows: request.files.flatMap((file) => file.rows.map((row) => ({ ...row, file: file.file, project: request.project }))) };
+  return { root, request, project: request.project, rows: request.files.flatMap((file) => file.rows.map((row) => ({ ...row, file: file.file, project: request.project }))) };
 }
 
 function rowResult(rowID, observations, failure = null) {
@@ -72,28 +55,36 @@ export function adaptVitestInvocation(invocation, result) {
     if (result.commandFailure && result.commandFailure.failure_class !== "interrupted") throw Object.assign(new Error("Vitest invocation failed"), result.commandFailure);
     if (!result.details && interrupted) return invocation.rows.map(cancelled);
     validateSchemaSync(failureDetailsSchemaID, result.details);
-    reconcileVitestReport(result.details, result.report, invocation.root);
+    const index = reconcileVitestReport(result.details, result.report, invocation.root);
     const completed = new Set(result.details.completed_files.map((file) => JSON.stringify([file.project, file.owner_path])));
     const selected = new Set(invocation.rows.flatMap((row) => row.selectors.map((title) => vitestObservationKey({ project: row.project, owner_path: row.file, title }))));
     if (result.details.observations.some((item) => item.scope === "test" && ["passed", "failed"].includes(item.status) && !selected.has(vitestObservationKey(item)))) {
       throw diagnosticFailure("Vitest executed an unselected test", "scheduler_accounting_error");
     }
-    const runKeys = new Set(result.details.observations.filter((item) => item.scope === "run").map(vitestObservationKey));
-    const runFailures = result.details.failures.filter((failure) => runKeys.has(vitestObservationKey(failure)));
+    const runFailures = [];
+    const suiteFailures = new Map();
+    for (const observation of index.observations.values()) {
+      const failures = index.failures.get(vitestObservationKey(observation)) ?? [];
+      if (observation.scope === "run") runFailures.push(...failures);
+      if (observation.scope === "suite") {
+        const key = vitestFileKey(observation.project, observation.owner_path);
+        const existing = suiteFailures.get(key) ?? [];
+        existing.push(...failures); suiteFailures.set(key, existing);
+      }
+    }
+    const runFailure = primaryPublicFailure(runFailures);
+    const fileFailure = new Map([...suiteFailures].map(([key, failures]) => [key, primaryPublicFailure(failures)]));
     return invocation.rows.map((row) => {
       try {
-        if (runFailures.length) return rowResult(row.row_id, [], primaryPublicFailure(runFailures));
+        if (runFailure) return rowResult(row.row_id, [], runFailure);
         if (!completed.has(JSON.stringify([row.project, row.file]))) {
           if (interrupted || !result.details.final_complete) return cancelled(row);
           throw diagnosticFailure("Vitest selected file has no completed observation", "scheduler_accounting_error");
         }
-        const fileObservations = result.details.observations.filter((item) => item.project === row.project && item.owner_path === row.file);
-        const suiteKeys = new Set(fileObservations.filter((item) => item.scope === "suite").map(vitestObservationKey));
-        const suiteFailures = result.details.failures.filter((failure) => suiteKeys.has(vitestObservationKey(failure)));
-        if (suiteFailures.length) return rowResult(row.row_id, fileObservations.filter((item) => item.scope === "test" && row.selectors.includes(item.title)), primaryPublicFailure(suiteFailures));
-        const observations = selectedVitestObservations(result.details, row.file, row.selectors, row.project);
-        const keys = new Set(observations.map(vitestObservationKey));
-        const failures = result.details.failures.filter((failure) => keys.has(vitestObservationKey(failure)));
+        const failure = fileFailure.get(vitestFileKey(row.project, row.file));
+        if (failure) return rowResult(row.row_id, row.selectors.map((title) => index.observations.get(vitestObservationKey({ project: row.project, owner_path: row.file, title }))).filter(Boolean), failure);
+        const observations = selectedVitestObservations(result.details, row.file, row.selectors, row.project, index);
+        const failures = observations.flatMap((observation) => index.failures.get(vitestObservationKey(observation)) ?? []);
         if (observations.some((item) => ["pending", "skipped"].includes(item.status)) && !failures.length) {
           failures.push({ failure_class: "harness", failure_reason: "scheduler_accounting_error" });
         }
@@ -109,13 +100,25 @@ export function adaptVitestInvocation(invocation, result) {
 
 export function adaptVitestInvocationFile(invocation, result) {
   try {
-    const details = existsSync(invocation.detailsFile) ? readVitestJSON(invocation.detailsFile) : undefined;
-    let report;
-    if (details) {
-      const reportPath = path.resolve(invocation.root, details.runner_json);
-      if (path.dirname(reportPath) !== path.dirname(invocation.runnerJSON) || !/^runner(?:-checkpoint-[0-9]+)?\.json$/u.test(path.basename(reportPath))) throw diagnosticFailure("Vitest native report reference escapes the invocation");
-      report = readVitestJSON(reportPath);
+    const request = invocation.requestFile ? readVitestJSON(invocation.requestFile) : invocation.request;
+    const evidence = readVitestEvidence({ root: invocation.root, request, reportFile: invocation.runnerJSON,
+      detailsFile: invocation.detailsFile, runID: process.env.CARTULARY_TEST_RUN_ID });
+    const commandFailure = result.commandFailure ?? evidence?.commandFailure;
+    if (result.status === 0 && evidence && !evidence.details.final_complete && !commandFailure) {
+      throw diagnosticFailure("Successful Vitest invocation lacks final settlement", "scheduler_accounting_error");
     }
-    return adaptVitestInvocation(invocation, { ...result, details, report });
-  } catch (error) { return invocation.rows.map((row) => rowResult(row.row_id, [], error)); }
+    return adaptVitestInvocation(invocation, { ...result, ...evidence, commandFailure });
+  } catch (error) { return invocation.rows.map((row) => rowResult(row.row_id, [], error.failure_reason ? error : diagnosticFailure("Invalid Vitest diagnostic evidence"))); }
+}
+
+// Independently settled rows may survive owner loss after the final file. That
+// does not make an interrupted or failed enclosing invocation successful.
+export function vitestInvocationFailure(execution, rows) {
+  if (rows.some((row) => row.terminal_state !== "passed")) return null;
+  if (execution.commandFailure) return execution.commandFailure;
+  if (execution.signal || [130, 143].includes(execution.status)) {
+    return { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" };
+  }
+  if (execution.status !== 0) return diagnosticFailure("Vitest invocation failed after file settlement", "scheduler_accounting_error");
+  return null;
 }

@@ -235,6 +235,11 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	if err != nil {
 		return nil, err
 	}
+	bindingsFile, err := p.Runtime.PrivatePath("suite-bindings-" + serviceID + ".json")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { result = errors.Join(result, removePrivate(bindingsFile)) }()
 	resourceRef, err := p.Runtime.ResourceReference("managed_suite", leaseFile)
 	if err != nil {
 		return nil, err
@@ -250,10 +255,16 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	environment[suiteservices.PGAllocationRefEnv] = p.PostgresAllocation
 	dependencies := append([]string{}, p.residency.reference(p.ServiceKey)...)
 
+	// Recovery authority belongs to the broker and must survive failure before
+	// readiness. The helper's success-only bindings are disposable until validated;
+	// partial publication must never truncate or replace this recovery record.
+	if err := saveRecoveryEnvironment(environmentFile, environment); err != nil {
+		return nil, artifactFailure(err)
+	}
 	if err := p.Runtime.RecordDependentResource("managed_suite", leaseFile, "pending", dependencies, environmentFile); err != nil {
 		return nil, artifactFailure(err)
 	}
-	startup, commandErr := p.command()(ctx, p.serviceBinary(), []string{"start-suite", "--env-file", environmentFile, "--lease-file", leaseFile, "--result-file", resultFile}, environment)
+	startup, commandErr := p.command()(ctx, p.serviceBinary(), []string{"start-suite", "--env-file", bindingsFile, "--lease-file", leaseFile, "--result-file", resultFile}, environment)
 	// Successful helper exit is insufficient: exact start/scope evidence must
 	// agree before bindings or container proof become available to consumers.
 	settled := false
@@ -340,7 +351,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	if start["status"] != "ready" || scope["failure"] != nil {
 		return nil, artifactFailure(errors.New("ready evidence mismatch"))
 	}
-	data, err := harnesslocal.ReadFile(environmentFile, 1048576, false)
+	data, err := harnesslocal.ReadFile(bindingsFile, 1048576, false)
 	if err != nil {
 		return nil, artifactFailure(err)
 	}

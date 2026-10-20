@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { publicExitCodeForFailure, publicExitCodeForFailures, repoRoot } from "../../../contract/index.mjs";
-import { diagnosticFailure, readVitestJSON, reconcileVitestReport, vitestReportProjection } from "../../../diagnostics/vitest-failure-details.mjs";
+import { diagnosticFailure, readVitestEvidence, readVitestJSON, reconcileVitestReport, vitestObservationKey, vitestReportProjection } from "../../../diagnostics/vitest-failure-details.mjs";
 import { readCommandFailure } from "../../../runtime/command-failure.mjs";
 
 import {
@@ -591,12 +591,11 @@ function summarizeVitestRun(
   stepLabel,
   selection = null,
   rawFiles = [reportFile],
-  failureDetailsFile = "",
+  evidence,
 ) {
-  const nativeReports = readVitestJSON(reportFile);
-  const failureDetails = readVitestJSON(failureDetailsFile);
+  const { report: nativeReports, details: failureDetails } = evidence;
   validateSchemaSync(vitestFailureDetailsSchemaID, failureDetails);
-  reconcileVitestReport(failureDetails, nativeReports, repoRoot);
+  const index = reconcileVitestReport(failureDetails, nativeReports, repoRoot);
   const report = vitestReportProjection(nativeReports);
   const owners = new Set();
   const inventory = [];
@@ -606,7 +605,7 @@ function summarizeVitestRun(
 
   for (const observation of failureDetails.observations) {
     const ownerPath = normalizeVitestOwnerPath(observation.owner_path);
-    if (selection && !(observation.scope === "test"
+    if (selection && observation.scope !== "run" && !(observation.scope === "test"
       ? (selection.matches(ownerPath, observation.title) || selection.matches(ownerPath, observation.test_name))
       : selection.matchesFile(ownerPath))) continue;
     if (observation.status === "skipped") continue;
@@ -625,8 +624,7 @@ function summarizeVitestRun(
     }
     counts.failed += 1;
     addCoverageFailureCount(counts, classification.coverage);
-    const failures = failureDetails.failures.filter((failure) =>
-      failure.project === observation.project && failure.owner_path === observation.owner_path && failure.title === observation.title);
+    const failures = index.failures.get(vitestObservationKey(observation)) ?? [];
     if (!failures.length) throw diagnosticFailure("Failed Vitest observation has no cause", "scheduler_accounting_error");
     for (const failure of failures) dossiers.push({
       coverage: classification.coverage, step: classification.step, id: classification.id,
@@ -640,6 +638,7 @@ function summarizeVitestRun(
   }
 
   if (
+    failureDetails.final_complete &&
     counts.tests === 0 &&
     dossiers.length === 0 &&
     optionalEnv("CARTULARY_VITEST_ALLOW_EMPTY_SELECTION") !== "1"
@@ -700,71 +699,31 @@ export function handleVitestStep({ catalogAware }) {
   removeEmptyArtifact(stderrLog);
   removeEmptyArtifact(stdoutLog);
 
-  if (!existsSync(reportFile) || !existsSync(failureDetailsLog) || interruptSignal !== "" || [130, 143].includes(context.exitStatus)) {
-    const commandFailure = readCommandFailure(repoRoot);
-    const interrupted =
-      interruptSignal !== "" ||
-      context.exitStatus === 130 ||
-      context.exitStatus === 143;
-    const normalizedInterruptSignal =
-      interruptSignal ||
-      (context.exitStatus === 130
-        ? "SIGINT"
-        : context.exitStatus === 143
-          ? "SIGTERM"
-          : "");
-    const counts = createCounts();
-    counts.failed += 1;
-    counts.non_test += 1;
-    counts.non_test_failed += 1;
-    const message = interrupted
-      ? `vitest interrupted${normalizedInterruptSignal ? ` by ${normalizedInterruptSignal}` : ""}${existsSync(reportFile) ? " after diagnostic publication" : " before runner.json was written"}`
-      : existsSync(watchdogLog)
-        ? "vitest watchdog timed out before runner.json was written"
-        : commandFailure?.failure_reason === "scheduler_accounting_error"
-          ? "Vitest invocation rejected contradictory diagnostic observations"
-          : "required Vitest runner JSON or diagnostic sidecar was not written";
-    const dossier = {
-      failure_class: interrupted ? "interrupted" : existsSync(watchdogLog) ? "timing" : commandFailure?.failure_class ?? "artifact",
-      failure_reason: interrupted ? "cancelled_or_interrupted" : existsSync(watchdogLog) ? "timeout_failure" : commandFailure?.failure_reason ?? "artifact_error",
-      coverage: "non_test",
-      step: catalogOwnerFromEnvironment(),
-      id: "",
-      runner: "vitest",
-      package_or_file: "(vitest runner)",
-      symbol_or_title: "(runner.json)",
-      message,
-      reproduce: context.command,
-      raw: renderRawList([watchdogLog, stdoutLog, stderrLog]),
-    };
-    writeStepArtifacts(context, {
-      status: "fail",
-      step: catalogOwnerFromEnvironment(),
-      counts,
-      owners: [],
-      inventory: [],
-      dossiers: [dossier],
-      artifacts: {
-        runner_json: reportFile,
-        stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
-        stderr_log: existsSync(stderrLog) ? stderrLog : "",
-        watchdog_json: existsSync(watchdogLog) ? watchdogLog : "",
-        vitest_failure_details_json: existsSync(failureDetailsLog)
-          ? failureDetailsLog
-          : "",
-      },
-    });
-    if (showStepDetailOutput(context)) {
-      printBlock(`failure: ${context.label}`, dossier);
-    }
-    return publicExitCodeForFailure(dossier, { exit_status: context.exitStatus });
-  }
-
   let summary;
   try {
-    summary = summarizeVitestRun(reportFile, context.label,
+    const evidence = readVitestEvidence({ root: repoRoot,
+      request: readVitestJSON(requiredEnv("CARTULARY_STEP_VITEST_REQUEST")),
+      reportFile, detailsFile: failureDetailsLog, runID: requiredEnv("CARTULARY_TEST_RUN_ID") });
+    summary = evidence ? summarizeVitestRun(reportFile, context.label,
       createVitestSelection({ catalogAware }),
-      [reportFile, failureDetailsLog, stdoutLog, stderrLog], failureDetailsLog);
+      [reportFile, failureDetailsLog, stdoutLog, stderrLog], evidence)
+      : { report: { success: false, testResults: [] }, counts: createCounts(), owners: [], inventory: [], dossiers: [] };
+    const interrupted = interruptSignal !== "" || [130, 143].includes(context.exitStatus);
+    const watchdog = existsSync(watchdogLog);
+    const commandFailure = evidence?.commandFailure ?? readCommandFailure(repoRoot);
+    if (interrupted || watchdog || commandFailure || !evidence?.details.final_complete) {
+      const failure = interrupted ? { failure_class: "interrupted", failure_reason: "cancelled_or_interrupted" }
+        : watchdog ? { failure_class: "timing", failure_reason: "timeout_failure" }
+          : commandFailure ?? { failure_class: "artifact", failure_reason: "artifact_error" };
+      summary.counts.failed += 1;
+      summary.counts.non_test += 1;
+      summary.counts.non_test_failed += 1;
+      summary.dossiers.push({ ...failure, coverage: "non_test", step: catalogOwnerFromEnvironment(), id: "", runner: "vitest",
+        package_or_file: "(vitest runner)", symbol_or_title: "(invocation disposition)",
+        message: interrupted ? `Vitest interrupted${interruptSignal ? ` by ${interruptSignal}` : ""}`
+          : watchdog ? "Vitest watchdog timed out" : "Vitest invocation did not settle successfully",
+        reproduce: context.command, raw: renderRawList([reportFile, failureDetailsLog, watchdogLog, stdoutLog, stderrLog]) });
+    }
   } catch (error) {
     const failure = error.failure_reason ? error : diagnosticFailure("Invalid required Vitest diagnostic evidence");
     const counts = createCounts();

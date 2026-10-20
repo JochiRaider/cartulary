@@ -302,7 +302,29 @@ func TestFixtureSuiteOwner(t *testing.T) {
 			}
 		}
 	})
-	for _, variant := range []string{"ready", "recovery_proof", "missing_recovery_file", "foreign_recovery_file", "unsafe_recovery_file", "forged_scope", "duplicate_environment", "startup_failure", "startup_settled", "startup_cleanup_failed", "missing_result", "missing_result_cleanup_failure"} {
+	t.Run("recovery_publication_failure_prevents_launch", func(t *testing.T) {
+		runtime, root, run := runtimeFixture(t)
+		serviceID := "publication-fault"
+		directory := filepath.Join(runtime.Root, "service-owners", serviceID)
+		if err := os.MkdirAll(directory, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(t.TempDir(), "foreign"), filepath.Join(directory, "suite-environment.json")); err != nil {
+			t.Fatal(err)
+		}
+		options := ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, ServiceID: serviceID,
+			Run: func(context.Context, string, []string, map[string]string) (CommandResult, error) {
+				t.Fatal("launched without durable recovery authority")
+				return CommandResult{}, nil
+			}}
+		if _, err := options.StartSuite(t.Context()); err == nil {
+			t.Fatal("unsafe recovery publication accepted")
+		}
+		if resources, err := runtime.Resources(64); err != nil || len(resources) != 0 {
+			t.Fatal("launch intent recorded before recovery authority", resources, err)
+		}
+	})
+	for _, variant := range []string{"ready", "recovery_proof", "missing_recovery_file", "foreign_recovery_file", "unsafe_recovery_file", "forged_scope", "duplicate_environment", "startup_failure", "startup_settled", "startup_cleanup_failed", "startup_cleanup_failed_without_bindings", "startup_cleanup_failed_partial_bindings", "missing_result", "missing_result_cleanup_failure"} {
 		t.Run(variant, func(t *testing.T) {
 			runtime, root, run := runtimeFixture(t)
 			stops := 0
@@ -327,6 +349,12 @@ func TestFixtureSuiteOwner(t *testing.T) {
 					return CommandResult{Started: true}, nil
 				}
 				suite := environment["CARTULARY_TEST_SUITE_ID"]
+				recoveryFile := filepath.Join(filepath.Dir(args[4]), "suite-environment.json")
+				recovery, err := readRecoveryEnvironment(recoveryFile)
+				if err != nil || recovery["CARTULARY_TEST_SUITE_ID"] != suite || recoveryFile == args[2] ||
+					recovery["CARTULARY_PGTEST_ADMIN_DSN"] != "" {
+					t.Fatal("prelaunch recovery authority missing, unbound, or coupled to ready bindings", err)
+				}
 				scope := serviceScope(runtime.RunID, "test", suite)
 				status := map[string]any{"schema_id": "cartulary.test_services.start_result.v2", "recovery_files": []string{}, "status": "ready", "run_id": runtime.RunID, "target": "test", "suite_id": suite, "service_scope_ref": "_shared/test-services/" + suite + "/service-scope.json", "failure_class": nil, "failure_reason": nil}
 				writeFixtureJSON(t, args[4], map[string]any{"schema_id": "cartulary.test_services.lease.v3", "postgres_provisioning": map[string]any{"schema_id": "cartulary.test_services.postgres_provisioning.v2", "postgres_isolation": "exclusive", "allocation_ref": "fixture-owner", "generation": "12345", "policy_digest": pgtest.ProvisioningDigest(), "template_digest": pgtest.TemplateDigest(pgschema.MustHash())}, "lease_id": runtime.LeaseID, "suite_id": suite, "run_id": runtime.RunID, "result_root": filepath.Dir(run), "run_root": run, "target": "test", "mode": "owned", "ownership_mode": "owned", "owner_pid": os.Getpid(), "created_at": time.Now().UTC().Format(time.RFC3339Nano), "resources": []any{map[string]any{"kind": "container", "service": "postgres", "container_id": "fixture-postgres", "image": "fixture", "labels": map[string]any{}}}, "proof_labels": map[string]any{}, "proof_prefixes": map[string]any{}, "cleanup_state": "not_started"})
@@ -343,12 +371,18 @@ func TestFixtureSuiteOwner(t *testing.T) {
 					scope["failure"] = map[string]any{"failure_class": "infra", "failure_reason": "service_start_error", "attempts_started": 1, "max_attempts": 1, "retryable": false, "retry_blocked_by_context": false}
 					if variant == "startup_settled" {
 						scope["cleanup"] = map[string]any{"status": "startup_failed", "physical_settlement": "completed"}
-					} else if variant == "startup_cleanup_failed" {
+					} else if strings.HasPrefix(variant, "startup_cleanup_failed") {
 						scope["cleanup"] = map[string]any{"status": "startup_failed", "physical_settlement": "unresolved"}
 					}
 				}
 				writeFixtureJSON(t, filepath.Join(run, status["service_scope_ref"].(string)), scope)
-				if variant == "duplicate_environment" {
+				if variant == "startup_cleanup_failed_without_bindings" {
+					// A readiness failure need not publish any consumer binding.
+				} else if variant == "startup_cleanup_failed_partial_bindings" {
+					if err := os.WriteFile(args[2], []byte("{"), 0600); err != nil {
+						t.Fatal(err)
+					}
+				} else if variant == "duplicate_environment" {
 					if err := harnesslocal.PublishNew(args[2], []byte(`{"SSL_CERT_FILE":"a","SSL_CERT_FILE":"b"}`)); err != nil {
 						t.Fatal(err)
 					}
@@ -391,7 +425,7 @@ func TestFixtureSuiteOwner(t *testing.T) {
 				return CommandResult{Started: true}, nil
 			}
 			suite, err := options.StartSuite(context.Background())
-			if variant == "startup_settled" || variant == "startup_cleanup_failed" {
+			if variant == "startup_settled" || strings.HasPrefix(variant, "startup_cleanup_failed") {
 				if err == nil || stops != 0 {
 					t.Fatal("startup failure concealed or cleanup repeated", stops, err)
 				}
@@ -412,10 +446,15 @@ func TestFixtureSuiteOwner(t *testing.T) {
 							t.Fatal("unresolved startup cleanup retried")
 						}
 					}
-					for _, resource := range resources {
-						if err := runtime.RecordResource(resource.Kind, resource.Target, "released"); err != nil {
-							t.Fatal(err)
-						}
+					if err := runtime.PreserveRecovery(); err != nil {
+						t.Fatal("failed acquisition lost recovery dependencies", err)
+					}
+					if err := options.Recover(t.Context()); err != nil {
+						t.Fatal("exact recovery could not settle failed startup", err)
+					}
+					resources, resourceErr = runtime.Resources(64)
+					if resourceErr != nil || len(resources) != 0 || stops != 1 {
+						t.Fatal("recovery did not settle exactly once", resources, stops, resourceErr)
 					}
 				}
 				return

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.vitest_file_checkpoint.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "invocation_id", "run_id", "request_digest", "artifact_root", "file_index", "details", "report"],
+  "properties": {
+    "schema_id": { "const": "cartulary.vitest_file_checkpoint.v1" },
+    "invocation_id": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "request_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "artifact_root": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]*$" },
+    "file_index": { "type": "integer", "minimum": 0, "maximum": 49999 },
+    "details": { "$ref": "cartulary.vitest_failure_details.v3" },
+    "report": { "$ref": "cartulary.vitest_runner_reports.v1" }
+  }
+}

@@ -136,6 +136,28 @@ function assertGraphCutover() {
   assert.equal(JSON.stringify(audit).includes("must-not-forward"), false);
   assert.notEqual(audit.semantic_digest, new WorkGraphCompiler(root, { targetInputs: { "test-evidence-audit": { OWNER: "harness.browser", EVIDENCE_ROOTS_FILE: ".cartulary/audit-inputs/other.json" } } }).compileTarget("test-evidence-audit").units.find((unit) => unit.unit_id === audit.unit_id).semantic_digest);
   assert.deepEqual(inputs.compileTarget("harness.frontend_install"), compiler.compileTarget("harness.frontend_install"), "explicit audit input must not reach another command");
+  const boundaryRows = compiler.catalog.rows.filter((row) => row.runner === "go" &&
+    row.selector.package === "./internal/testutil/harnessruntime/boundary");
+  const boundaryIDs = boundaryRows.map((row) => row.row_id).sort();
+  assert.equal(boundaryRows.length, 4, "native boundary assurance has four independently owned row contracts");
+  assert.deepEqual(boundaryRows.flatMap((row) => row.selector.tests).sort(), [
+    "TestNativeBorrowedFixturePhysicalLifecycle", "TestNativeFixturePhysicalLifecycle",
+    "TestNativeGraphServiceObservations", "TestNativeSelectedServiceLifecycle", "TestStandaloneNativeSession",
+  ], "native boundary assurance must cover each package test exactly once");
+  const boundaryGraph = compiler.compileRows(boundaryIDs);
+  const boundaryCommand = new WorkGraphCompiler(root, { targetInputs: { "harness-contract": { SUITE: "runtime-boundary" } } });
+  assert.deepEqual(boundaryCommand.compileTarget("harness-contract"), boundaryGraph,
+    "direct runtime assurance must reuse catalog preparation, resource, isolation and deadline contracts");
+  const boundaryConsumers = (graph) => graph.units.filter((unit) =>
+    unit.row_bindings.some((row) => boundaryIDs.includes(row.row_id)));
+  for (const selection of ["harness.contract_execution", "harness.contract_regression", "harness.contract_full"]) {
+    const selected = compiler.compileTarget(selection);
+    assert.deepEqual(boundaryConsumers(selected), boundaryConsumers(boundaryGraph),
+      `${selection} must select the same canonical boundary invocations without widening or duplication`);
+    assert.equal(selected.units.some((unit) => unit.unit_id === "operation:harness.harness_runtime_boundary_contract"), false);
+  }
+  assert.throws(() => compiler.compileTarget("harness.harness_runtime_boundary_contract"), /unknown public command/u);
+  assert.throws(() => compiler.compileTarget("harness.assurance_work_graph_service_backed_target"), /unknown public command/u);
   const rendererRows = compiler.catalog.rows.filter((row) => row.runner === "vitest" && row.selector.project_id === "renderer-node");
   assert.ok(rendererRows.some((row) => row.evidence_class === "integration"));
   assert.ok(rendererRows.some((row) => row.evidence_class === "unit"));
@@ -204,7 +226,6 @@ function assertGraphCutover() {
   for (const mutation of [
     { process_isolation: "exclusive" }, { evidence_class: "security" },
     { runtime_profile_id: "default" }, { resource_profile_id: "harness_contract" },
-    { owner_id: pair[1].owner_id === "web.architecture" ? "harness.browser" : "web.architecture" },
     { selector: { ...pair[1].selector, project_id: pair[1].selector.project_id === "browser-unit" ? "harness-node" : "browser-unit" } },
   ]) {
     const prior = compiler.catalog.rowByID.get(pair[1].row_id);
@@ -212,6 +233,47 @@ function assertGraphCutover() {
     try { assert.equal(consumers(compiler.compileRows(ids)).length, 2, JSON.stringify(mutation)); }
     finally { compiler.catalog.rowByID.set(prior.row_id, prior); }
   }
+  const changedOwner = { ...pair[1], owner_id: pair[1].owner_id === "web.architecture" ? "harness.browser" : "web.architecture" };
+  compiler.catalog.rowByID.set(changedOwner.row_id, changedOwner);
+  try {
+    const mixed = consumers(compiler.compileRows(ids));
+    assert.equal(mixed.length, 1, "reporting ownership cannot fragment a compatible invocation");
+    assert.equal(mixed[0].owner_id, "harness.command_surface");
+    assertCanonicalCurrentRunOutputs(mixed[0], ids, "mixed-owner Vitest group");
+  } finally { compiler.catalog.rowByID.set(pair[1].row_id, pair[1]); }
+  const authRows = frontendRows.filter((row) => row.selector.file === "apps/web/src/app/App.auth.test.tsx");
+  assert.equal(authRows.length, 7, "App.auth's exact migration cohort is intentional");
+  assert.deepEqual([...new Set(authRows.map((row) => row.owner_id))].sort(), ["module.auth", "web.application"]);
+  const authIDs = authRows.map((row) => row.row_id).sort();
+  const authGraph = compiler.compileRows(authIDs);
+  const authUnits = authGraph.units.filter((unit) => unit.unit_id.startsWith("vitest_cohort:"));
+  assert.equal(authUnits.length, 1, "seven App.auth rows across two owners execute in one isolated file worker");
+  assert.equal(authUnits[0].owner_id, "harness.command_surface");
+  assertCanonicalCurrentRunOutputs(authUnits[0], authIDs, "App.auth migration cohort");
+  assert.deepEqual(compiler.compileRows([...authIDs].reverse()), authGraph);
+  for (const owner of ["module.auth", "web.application"]) {
+    const selected = authRows.filter((row) => row.owner_id === owner).map((row) => row.row_id).sort();
+    const subset = compiler.compileOwner(owner, selected).units.filter((unit) => unit.unit_id.startsWith("vitest_cohort:"));
+    assert.equal(subset.length, 1);
+    assert.equal(subset[0].owner_id, owner);
+    assertCanonicalCurrentRunOutputs(subset[0], selected, "App.auth exact owner subset");
+    assert.throws(() => compiler.compileOwner(owner, authIDs), /does not belong/u);
+  }
+  const mixedGoIDs = ["module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2", "module.networkflow.integration.graph_result_cleanup"].sort();
+  const mixedGo = compiler.compileRows(mixedGoIDs);
+  const goConsumers = (graph) => graph.units.filter((unit) => unit.row_bindings.some((row) => mixedGoIDs.includes(row.row_id)));
+  assert.equal(goConsumers(mixedGo).length, 1, "compatible reporting/networkflow rows share one Go package invocation");
+  assert.equal(goConsumers(mixedGo)[0].owner_id, "harness.backend");
+  assertCanonicalCurrentRunOutputs(goConsumers(mixedGo)[0], mixedGoIDs, "mixed-owner Go package");
+  assert.deepEqual(compiler.compileRows([...mixedGoIDs].reverse()), mixedGo);
+  const goRow = compiler.catalog.rowByID.get(mixedGoIDs[0]);
+  for (const mutation of [{ process_isolation: "exclusive" }, { postgres_isolation: "exclusive" },
+    { preparation_operations: ["harness.playwright_install"] }, { resource_profile_id: "harness_contract" }]) {
+    compiler.catalog.rowByID.set(goRow.row_id, { ...goRow, ...mutation });
+    try { assert.equal(goConsumers(compiler.compileRows(mixedGoIDs)).length, 2, JSON.stringify(mutation)); }
+    finally { compiler.catalog.rowByID.set(goRow.row_id, goRow); }
+  }
+  process.stdout.write("Cross-owner grouping: App.auth 2 owner invocations -> 1; reporting/networkflow package 2 -> 1; exact row bindings preserved\n");
   const contractRows = frontendRows.filter((row) => row.owner_id === "package.view_contracts" && row.selector.project_id === "node-unit");
   const contractGraph = compiler.compileRows(contractRows.map((row) => row.row_id));
   const contractUnits = contractGraph.units.filter((unit) => unit.unit_id.startsWith("vitest_cohort:"));

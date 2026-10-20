@@ -378,7 +378,8 @@ export class WorkGraphCompiler {
     for (const row of rows.filter((row) => row.runner === "vitest")) {
       const base = rowUnit(row, this.rowTargets.get(row.row_id), this.owner, this.topology, needsForRow(row), runtimeEnvironmentForRow(row));
       const { CARTULARY_TEST_ROWS: _selection, ...environment } = base.command.environment;
-      const { unit_id: _id, command: _command, current_run_evidence_outputs: _outputs, row_bindings: _rows, estimated_work_ms: _estimate, ...contract } = base;
+      // Reporting ownership does not alter the physical execution contract.
+      const { owner_id: _owner, unit_id: _id, command: _command, current_run_evidence_outputs: _outputs, row_bindings: _rows, estimated_work_ms: _estimate, ...contract } = base;
       const key = semanticJSONDigest({ contract, environment, project: row.selector.project_id,
         evidence_class: row.evidence_class, runtime_profile_id: row.runtime_profile_id, resource_profile_id: row.resource_profile_id,
         fixture_profile_id: row.fixture_profile_id ?? null,
@@ -404,7 +405,7 @@ export class WorkGraphCompiler {
         const claims = { ...base.resource_claims };
         const { CARTULARY_TEST_ROWS: _selection, ...environment } = base.command.environment;
         for (const [resource, amount] of Object.entries(vitestPolicy.coordinator_claims)) claims[resource] = (claims[resource] ?? 0) + amount;
-        return { ...base, unit_id: `vitest_cohort:${semanticJSONDigest({ key, selections, policy: vitestPolicy, workers: 1, isolate: true, settlement: "public_fork_stop" }).slice("sha256:".length)}`,
+        return { ...base, owner_id: new Set(selectedRows.map((row) => row.owner_id)).size === 1 ? selectedRows[0].owner_id : "harness.command_surface", unit_id: `vitest_cohort:${semanticJSONDigest({ key, selections, policy: vitestPolicy, workers: 1, isolate: true, settlement: "public_fork_stop" }).slice("sha256:".length)}`,
           command: { ...base.command, args: ["tools/harness/execution/runners/row-runner-cli.mjs", "--unit-rows"],
             environment: { ...environment, VITEST_MAX_WORKERS: "1" } },
           resource_claims: Object.fromEntries(Object.entries(claims).sort(([a], [b]) => compareASCII(a, b))),
@@ -427,7 +428,6 @@ export class WorkGraphCompiler {
           estimated_work_ms: this.owner.evidence_estimates_ms[row.evidence_class],
           compatibility: {
             target: this.rowTargets.get(row.row_id),
-            owner_id: row.owner_id,
             package_selection: row.selector.package,
             evidence_class: row.evidence_class,
             runtime_profile_id: row.runtime_profile_id,
