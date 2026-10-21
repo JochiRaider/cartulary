@@ -48,7 +48,9 @@ try {
 if (runDir) {
   try {
     const result = await checkRetainedObservability(runDir, options.check);
-    process.stdout.write(`harness-observability-check PASS check=${result.check} full_validity=${result.full_validity ? 1 : 0} run_id=${result.run_id} read_only=1\n`);
+    const diagnostics = result.diagnostics ? Object.entries(result.diagnostics)
+      .map(([key, value]) => ` diagnostic_${key}=${value ?? "unavailable"}`).join("") : "";
+    process.stdout.write(`harness-observability-check PASS check=${result.check} full_validity=${result.full_validity ? 1 : 0} run_id=${result.run_id} read_only=1${diagnostics}\n`);
   } catch {
     artifactFailure();
   }

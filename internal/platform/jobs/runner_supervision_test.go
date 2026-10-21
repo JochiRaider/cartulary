@@ -275,7 +275,10 @@ UPDATE jobs
 	})
 
 	t.Run("concurrency is bounded and shutdown releases attempts neutrally", func(t *testing.T) {
-		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarness(t, "jobs-supervisor-concurrency")
+		// Capacity and shutdown are independent of elapsed lease time. Keep the
+		// manager's injected clock fixed; renewal and expiry have their own cases.
+		now := time.Now().UTC()
+		manager, actorID, incidentID, pool, catalog, policy := newSupervisedJobsHarnessWithClock(t, "jobs-supervisor-concurrency", func() time.Time { return now })
 		policy.HandlerConcurrency = 8
 		gate := &dequeueGate{}
 		gate.open.Store(true)
@@ -285,6 +288,8 @@ UPDATE jobs
 		if err != nil {
 			t.Fatal(err)
 		}
+		t.Cleanup(func() { closeRunner(t, runner) })
+		jobs.ConfigureRunnerSynchronizationForTest(runner, nil, nil, nil)
 		var current atomic.Int32
 		var maximum atomic.Int32
 		var releasing atomic.Int32
@@ -292,6 +297,9 @@ UPDATE jobs
 		releaseWaveReady := make(chan struct{})
 		var releaseWaveOnce sync.Once
 		entered := make(chan uuid.UUID, 16)
+		exited := make(chan struct{}, 16)
+		allActive := make(chan struct{})
+		var allActiveOnce sync.Once
 		jobs.ConfigureRunnerReleaseForTest(runner, func(ctx context.Context, execution jobs.Execution) error {
 			active := releasing.Add(1)
 			defer releasing.Add(-1)
@@ -321,18 +329,28 @@ UPDATE jobs
 				}
 			}
 			entered <- execution.JobID()
+			if active == int32(policy.HandlerConcurrency) {
+				allActiveOnce.Do(func() { close(allActive) })
+			}
 			<-ctx.Done()
+			exited <- struct{}{}
 			return ctx.Err()
 		}); err != nil {
-			t.Fatal(err)
-		}
-		if err := runner.Activate(context.Background()); err != nil {
 			t.Fatal(err)
 		}
 		jobIDs := make([]uuid.UUID, 12)
 		for index := range jobIDs {
 			jobIDs[index] = createSupervisedJob(t, manager, actorID, incidentID)
-			runner.Notify(jobIDs[index])
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-allActive:
+		case <-exited:
+			t.Fatal("handler ended before shutdown: stage=capacity reason=unexpected_cancellation")
+		case <-time.After(2 * time.Second):
+			t.Fatalf("capacity barrier: live=%d maximum=%d want=%d", current.Load(), maximum.Load(), policy.HandlerConcurrency)
 		}
 		enteredJobIDs := make([]uuid.UUID, 0, policy.HandlerConcurrency)
 		enteredSet := make(map[uuid.UUID]struct{}, policy.HandlerConcurrency)
@@ -348,10 +366,13 @@ UPDATE jobs
 				t.Fatal("timed out waiting for eight concurrent attempts")
 			}
 		}
-		if maximum.Load() != 8 {
-			t.Fatalf("maximum concurrency = %d, want 8", maximum.Load())
+		if current.Load() != int32(policy.HandlerConcurrency) || maximum.Load() != int32(policy.HandlerConcurrency) {
+			t.Fatalf("capacity: live=%d maximum=%d want=%d", current.Load(), maximum.Load(), policy.HandlerConcurrency)
 		}
 		closeRunnerWithBudget(t, runner, 2*policy.AttemptOperationTimeout+time.Second)
+		if current.Load() != 0 {
+			t.Fatalf("shutdown left %d handlers active", current.Load())
+		}
 		if maximumReleasing.Load() > int32(policy.HandlerConcurrency) {
 			t.Fatalf("maximum release concurrency = %d, want <= %d", maximumReleasing.Load(), policy.HandlerConcurrency)
 		}
@@ -372,6 +393,66 @@ SELECT handler_attempt_id, handler_failure_count, handler_next_attempt_at
 			if attemptID != nil || failureCount != 0 || nextAttemptAt != nil {
 				t.Fatalf("shutdown release for %s = attempt %v failures %d next %v", jobID, attemptID, failureCount, nextAttemptAt)
 			}
+		}
+	})
+
+	t.Run("lease expiry can end an entry before capacity is filled", func(t *testing.T) {
+		// Establish the transition that a cumulative entry count cannot detect,
+		// using the real persistence operation and a controlled logical clock.
+		var clock atomic.Int64
+		clock.Store(time.Now().UTC().UnixNano())
+		manager, actorID, incidentID, _, catalog, policy := newSupervisedJobsHarnessWithClock(t, "jobs-supervisor-capacity-expiry", func() time.Time {
+			return time.Unix(0, clock.Load()).UTC()
+		})
+		createSupervisedJob(t, manager, actorID, incidentID)
+		gate := &dequeueGate{}
+		gate.open.Store(true)
+		runner, err := jobs.NewRunner(jobs.RunnerOptions{
+			Manager: manager, Catalog: catalog, Policy: policy, DequeueGate: gate,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { closeRunner(t, runner) })
+		renewalTicks := make(chan time.Time, 1)
+		renewed := make(chan error, 1)
+		jobs.ConfigureRunnerSynchronizationForTest(runner, renewalTicks, nil, func(ctx context.Context, execution jobs.Execution) error {
+			err := manager.RenewExecution(ctx, execution)
+			renewed <- err
+			return err
+		})
+		entered, exited := make(chan struct{}), make(chan struct{})
+		if err := runner.RegisterHandler(supervisedHandlerName, func(ctx context.Context, _ jobs.Execution) error {
+			close(entered)
+			<-ctx.Done()
+			close(exited)
+			return ctx.Err()
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := runner.Activate(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-entered:
+		case <-time.After(2 * time.Second):
+			t.Fatal("stage=entry reason=deadline_exceeded")
+		}
+		gate.open.Store(false)
+		clock.Add(int64(policy.HandlerLease + time.Millisecond))
+		renewalTicks <- time.Unix(0, clock.Load()).UTC()
+		select {
+		case err := <-renewed:
+			if !errors.Is(err, jobs.ErrExecutionLost) {
+				t.Fatal("stage=renewal reason=expected_execution_loss")
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("stage=renewal reason=deadline_exceeded")
+		}
+		select {
+		case <-exited:
+		case <-time.After(2 * time.Second):
+			t.Fatal("stage=handler_exit reason=deadline_exceeded")
 		}
 	})
 
@@ -875,8 +956,16 @@ func newSupervisedJobsHarness(
 	t testing.TB,
 	name string,
 ) (*jobs.Manager, uuid.UUID, uuid.UUID, *pgxpool.Pool, *jobs.Catalog, jobs.RuntimePolicy) {
+	return newSupervisedJobsHarnessWithClock(t, name, func() time.Time { return time.Now().UTC() })
+}
+
+func newSupervisedJobsHarnessWithClock(
+	t testing.TB,
+	name string,
+	now func() time.Time,
+) (*jobs.Manager, uuid.UUID, uuid.UUID, *pgxpool.Pool, *jobs.Catalog, jobs.RuntimePolicy) {
 	t.Helper()
-	_, actorID, incidentID, pool := newJobsHarnessWithPool(t, name, func() time.Time { return time.Now().UTC() })
+	_, actorID, incidentID, pool := newJobsHarnessWithPool(t, name, now)
 	definition := jobs.Definition{
 		JobKind:        supervisedJobKind,
 		ProgressUnitID: "test_platform.supervised.operation.v1",
@@ -895,14 +984,14 @@ func newSupervisedJobsHarness(
 	policy.RetryDelays = []time.Duration{20 * time.Millisecond, 40 * time.Millisecond}
 	manager, err := jobs.NewManager(jobs.ManagerOptions{
 		Postgres: pool, Transactions: transactions, Catalog: catalog,
-		Policy: policy, Now: func() time.Time { return time.Now().UTC() },
+		Policy: policy, Now: now,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	testJobCompositions.Store(manager, testJobComposition{
 		catalog: catalog, transactions: transactions, db: pool,
-		now: func() time.Time { return time.Now().UTC() },
+		now: now,
 	})
 	t.Cleanup(func() { testJobCompositions.Delete(manager) })
 	return manager, actorID, incidentID, pool, catalog, policy

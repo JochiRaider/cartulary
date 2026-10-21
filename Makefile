@@ -16,7 +16,7 @@ else
 .SECONDEXPANSION:
 
 GO ?= $(shell if command -v go >/dev/null 2>&1; then command -v go; elif [ -x /usr/local/go/bin/go ]; then printf /usr/local/go/bin/go; fi)
-override GO_TOOLCHAIN := go1.27.2
+override GO_TOOLCHAIN := go1.27.3
 GOFIPS140 ?= v1.0.0-c2097c7c
 export GOFIPS140
 ifeq ($(CARTULARY_PREPARATION_POLICY),installed_only)

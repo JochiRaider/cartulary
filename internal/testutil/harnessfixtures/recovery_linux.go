@@ -9,11 +9,14 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/leaseproof"
 )
 
 var ErrCleanupBlocked = errors.New("resource cleanup blocked by unresolved dependent")
@@ -81,7 +84,7 @@ func (p ProductionOptions) cleanupResource(ctx context.Context, resource harness
 		if err != nil {
 			return err
 		}
-		environment, err := readRecoveryEnvironment(filepath.Join(filepath.Dir(file), "suite-environment.json"))
+		environment, err := p.physicalRecoveryEnvironment(resource, file)
 		if err != nil {
 			return artifactFailure(err)
 		}
@@ -93,6 +96,42 @@ func (p ProductionOptions) cleanupResource(ctx context.Context, resource harness
 	default:
 		return errCleanupUncertain
 	}
+}
+
+var exactContainerID = regexp.MustCompile(`^[a-f0-9]{64}$`)
+
+// Startup credentials are not physical ownership. When they are absent, only
+// a complete acquired lease can authorize the existing container cleanup owner.
+// A present corrupt environment and an ambiguous pending start stay unresolved.
+func (p ProductionOptions) physicalRecoveryEnvironment(resource harnesssession.Resource, file string) (map[string]string, error) {
+	environment, err := readRecoveryEnvironment(filepath.Join(filepath.Dir(file), "suite-environment.json"))
+	if !errors.Is(err, os.ErrNotExist) || !p.RecoveryOutput || resource.State != "acquired" {
+		return environment, err
+	}
+	value, err := readObject(file, "cartulary.test_services.lease.v3", 1048576)
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	var lease leaseproof.Lease
+	if json.Unmarshal(data, &lease) != nil || lease.Mode != "owned" || lease.OwnershipMode != "owned" ||
+		lease.RunID != p.Runtime.RunID || lease.RunRoot != p.Runtime.RunRoot ||
+		lease.ResultRoot != filepath.Dir(p.Runtime.RunRoot) || len(lease.Resources) == 0 {
+		return nil, harnesslocal.ErrUnsafe
+	}
+	for _, r := range lease.Resources {
+		if r.Kind != "container" || !exactContainerID.MatchString(r.ContainerID) ||
+			(r.Service != suiteservices.ServicePostgres && r.Service != suiteservices.ServiceObjectStore) ||
+			r.Labels[leaseproof.LabelManaged] != leaseproof.ManagedValue ||
+			r.Labels[leaseproof.LabelSuiteID] != lease.SuiteID || r.Labels[leaseproof.LabelRunID] != lease.RunID ||
+			r.Labels[leaseproof.LabelTarget] != lease.Target || r.Labels[leaseproof.LabelService] != r.Service {
+			return nil, harnesslocal.ErrUnsafe
+		}
+	}
+	return map[string]string{suiteservices.SuiteIDEnv: lease.SuiteID}, nil
 }
 
 func (p ProductionOptions) recoverBrowser(ctx context.Context, resource harnesssession.Resource, resources []harnesssession.Resource) error {

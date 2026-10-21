@@ -36,8 +36,8 @@ function evidenceClosure(root, run) {
   validateRetainedSelection(root, run, units, run.targetSummaries.get(run.manifest.target));
 }
 
-// Scoped checks never return the complete-bundle receipt. Readers may explain
-// failed runs, while full evidence validation requires successful closure.
+// Scoped checks never return the required-evidence closure receipt. Optional
+// observation completeness is independent of both validity and run success.
 export async function checkRetainedObservability(root, check = "all") {
   if (!observabilityChecks.includes(check)) throw Object.assign(new Error("invalid observability check"), { exit_code: 2 });
   if (check === "events") {
@@ -47,14 +47,18 @@ export async function checkRetainedObservability(root, check = "all") {
   const run = await validateCanonicalRun(root, "", { evidence: check === "all" || check === "evidence" });
   if (check === "all" || check === "evidence") evidenceClosure(root, run);
   let retained;
+  let diagnostics;
   if (check === "all" || check === "diagnostics") {
     retained = await loadRetainedObservability(root, { canonical: run });
-    if (run.manifest.instrumentation.mode === "basic" && (!retained.execution || !retained.envelope || !retained.terminalReceipt || !retained.resourceIndex)) {
-      throw new Error("basic diagnostics are incomplete");
-    }
-    if (retained.execution && retained.execution.status !== "complete" || retained.resourceIndex && retained.resourceIndex.status !== "complete") {
-      throw new Error("published diagnostics are incomplete");
-    }
+    diagnostics = Object.freeze({
+      execution: retained.execution?.status ?? "unavailable",
+      execution_omissions: retained.execution?.omitted_records ?? null,
+      resources: retained.resourceIndex?.status ?? retained.resources.availability,
+      resource_omissions: retained.resourceIndex?.omitted_observations ?? null,
+      envelope: retained.envelope ? "available" : "unavailable",
+      terminal_receipt: retained.terminalReceipt ? "available" : "unavailable",
+      postgres_checkpoints: retained.postgresCheckpoints?.status ?? "unavailable",
+    });
   }
-  return { check, full_validity: check === "all", run_id: run.manifest.run_id, ...(retained ? { retained } : {}) };
+  return { check, full_validity: check === "all", run_id: run.manifest.run_id, ...(retained ? { retained, diagnostics } : {}) };
 }

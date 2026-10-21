@@ -309,7 +309,11 @@ test("retained validation reconstructs path and target fields and rejects tamper
   assert.equal(JSON.stringify(payloads).includes("activity:example"), false);
   const cli = new URL("../observability-check-cli.mjs", import.meta.url);
   const check = (args) => spawnSync(process.execPath, [cli.pathname, ...args], { encoding: "utf8" });
-  assert.equal(check(["--results-dir", dir]).status, 11, "partial diagnostic fixture cannot establish full validity");
+  assert.equal(check(["--results-dir", dir]).status, 11, "missing required execution context cannot establish full validity");
+  const diagnosticCheck = check(["--results-dir", dir, "--check", "diagnostics"]);
+  assert.equal(diagnosticCheck.status, 0, diagnosticCheck.stderr);
+  assert.match(diagnosticCheck.stdout, /diagnostic_execution=complete/u);
+  assert.match(diagnosticCheck.stdout, /diagnostic_envelope=unavailable/u);
   assert.equal(check(["--results-dir", dir, "--check", "timing"]).status, 0);
   assert.equal(check(["--results-dir", path.join(dir, "missing")]).status, 2);
   const sampled = retainedSamples(t, [{ elapsed_ms: 0, metrics: { rss_bytes: metric(1024) } }]);
@@ -337,11 +341,11 @@ test("retained validation reconstructs path and target fields and rejects tamper
       await facade.performanceExplanation(workerData.dir, "", { comparisonDir: workerData.dir });
       process.argv = [process.execPath, workerData.cli, '--results-dir', workerData.dir, '--check', 'diagnostics'];
       await import(workerData.cli);
-      parentPort.postMessage({ duration: value.dependency_path_ms, traversals, artifactExit: process.exitCode });
+      parentPort.postMessage({ duration: value.dependency_path_ms, traversals, artifactExit: process.exitCode ?? 0 });
     });
   `, { eval: true, workerData: { facade: new URL("../observability.mjs", import.meta.url).href, cli: cli.href, dir } });
   t.after(() => isolated.terminate());
-  assert.deepEqual(await new Promise((resolve, reject) => { isolated.once("message", resolve); isolated.once("error", reject); }), { duration: 9, traversals: 4, artifactExit: 11 });
+  assert.deepEqual(await new Promise((resolve, reject) => { isolated.once("message", resolve); isolated.once("error", reject); }), { duration: 9, traversals: 4, artifactExit: 0 });
 
   const envelopeFile = path.join(dir, "diagnostics/invocation-envelope.json");
   const envelope = { schema_id: "cartulary.harness_invocation_envelope.v2",
@@ -631,6 +635,55 @@ test("complete retained evidence rejects altered context preimages independently
     const dir = temporary(t), f = writeCompleteFixture(dir);
     mutate(f); f.write("execution-context.json", f.context);
     await assert.rejects(checkRetainedObservability(dir, "all"));
+  }
+});
+
+test("optional completeness is reported independently while every published record remains validated", async (t) => {
+  const { checkRetainedObservability } = await import("../retained-checks.mjs");
+  const { writeCompleteFixture } = await import("./retained-fixture.mjs");
+  for (const status of ["absent", "complete", "partial", "truncated", "collector_failed", "foreign", "bad_digest", "malformed"]) {
+    await t.test(status, async (t) => {
+      const dir = temporary(t), f = writeCompleteFixture(dir);
+      f.manifest.instrumentation.mode = "basic";
+      f.context.manifest_digest = `sha256:${createHash("sha256").update(canonicalJSONString(f.manifest)).digest("hex")}`;
+      f.write("run-manifest.json", f.manifest); f.write("execution-context.json", f.context);
+      if (status !== "absent") {
+        const sampled = retainedSamples(t, [{ elapsed_ms: 0, metrics: { rss_bytes: metric(1024) } }]);
+        const index = JSON.parse(readFileSync(path.join(sampled.dir, "diagnostics/resource-index.json")));
+        for (const key of ["run_id", "source_digest", "graph_digest"]) index[key] = f.manifest[key];
+        index.policy_digest = f.manifest.instrumentation.policy_digest;
+        index.status = ["partial", "truncated", "collector_failed"].includes(status) ? status : "complete";
+        if (status === "partial" || status === "truncated") index.omitted_observations = 7;
+        if (status === "collector_failed") {
+          index.sample_digest = null; index.sample_bytes = 0; index.samples = 0;
+        }
+        if (status === "foreign") index.run_id = "foreign";
+        if (status === "bad_digest") index.sample_digest = `sha256:${"b".repeat(64)}`;
+        if (status === "malformed") index.unknown = true;
+        f.write("diagnostics/resource-index.json", index);
+        if (status !== "collector_failed") atomicLocalFile(path.join(dir, "diagnostics/resource-samples.ndjson"), readFileSync(path.join(sampled.dir, "diagnostics/resource-samples.ndjson")));
+        f.write("diagnostics/execution-index.json", {
+          schema_id: "cartulary.harness_execution_index.v2", graph_clock: null,
+          run_id: f.manifest.run_id, source_digest: f.manifest.source_digest, graph_digest: f.manifest.graph_digest,
+          policy_digest: f.manifest.instrumentation.policy_digest, status: "partial", omitted_records: 1,
+          omitted_refs: [], records: [], records_digest: executionRecordsDigest([]),
+        });
+      }
+      for (const check of ["all", "diagnostics"]) {
+        if (["foreign", "bad_digest", "malformed"].includes(status)) {
+          await assert.rejects(checkRetainedObservability(dir, check));
+          continue;
+        }
+        const result = await checkRetainedObservability(dir, check);
+        assert.equal(result.full_validity, check === "all");
+        assert.equal(result.diagnostics.resources, status === "absent" ? "not_observed" : status);
+        assert.equal(result.diagnostics.resource_omissions, status === "partial" || status === "truncated" ? 7 : status === "complete" ? 0 : null);
+        assert.equal(result.diagnostics.execution, status === "absent" ? "unavailable" : "partial");
+        assert.equal(result.diagnostics.execution_omissions, status === "absent" ? null : 1);
+        assert.equal(result.diagnostics.envelope, "unavailable");
+        assert.equal(result.diagnostics.terminal_receipt, "unavailable");
+      }
+    });
   }
 });
 

@@ -1188,7 +1188,42 @@ projections; passing tests do not establish normative completeness.
 | Final command success and cleanup independently established | NOT MET for overall acceptance: final assurance native exit 2; the parent and both real-check cleanup ledgers and scans passed, but W5 historical settlement remains unresolved |
 | Handoff is actionable | Final source/run identities, migration notes, skipped checks and W1/W2/W5 owner/closure criteria recorded |
 
-## PostgreSQL readiness causal follow-up
+## Current completion scope
+
+The latest user instruction supersedes the earlier diagnostic stop rule: fix
+D-010, settle the remaining cleanup obligations through supported ownership
+recovery, and run full validation to completion. Historical PostgreSQL cause
+attribution is dropped from acceptance; retained diagnostics and historical
+receipts remain unchanged. Do not stop an aggregate at the first failed unit.
+
+Current sequence and exit criteria:
+
+1. **D-010:** repair the concurrency fixture at its demonstrated ownership
+   boundary; validate simultaneous live handlers, neutral concurrent shutdown,
+   and independent lease-loss behavior through the supervised-runner row.
+2. **D-008 cleanup closure:** examine each of the three exact retained authorities
+   and run supported recovery. Settle only from valid ownership and acquisition
+   proof; retain explicit uncertainty if the old record cannot supply that proof.
+3. **D-003 full validation:** format/generate, finalize, source checks, then a
+   fresh uncached full harness aggregate without early cancellation. Diagnose
+   failures, implement necessary repairs as separately recorded workstreams,
+   and repeat the affected validation. Run applicable evidence checks and
+   reconcile cleanup before the final Markdown-validated handoff.
+
+Dependencies are sequential, with a tracker receipt after each workstream.
+Risks are short real-time fixture leases, incomplete legacy acquisition proof,
+aggregate-only failures, and partial optional resource evidence. None authorizes
+weaker assertions, fabricated recovery records, relaxed service deadlines, or
+silent acceptance of missing evidence. Core REQ-01-453 already permits injected
+fixture clocks/policy and requires simultaneous bounded execution and neutral
+shutdown; D-010 needs no production-contract or public-schema change.
+
+Starting this continuation: HEAD `8bcece3e7`; working tree clean. Previous D-001
+through D-009 changes are committed in that baseline and are preserved. Appendix
+A is preserved byte-for-byte. D-007 historical investigation is closed by scope
+decision, with no claim that its historical transport cause was established.
+
+## PostgreSQL readiness causal follow-up (historical receipts)
 
 Authorized after commit `da5be0309`: diagnose the final W2 failure; the user
 subsequently approved bounded redacted diagnostics and a focused reproduction
@@ -1199,14 +1234,18 @@ remain separate. No service reset, speculative tuning or force recovery is in sc
 | --- | --- | --- |
 | D-001 Preserve causal startup evidence | COMPLETE | Specification and v2 schema updated; typed probe causes, pre-cleanup state and bounded log markers implemented; lifecycle/redaction/bounds tests pass; Make generation complete |
 | D-004 Nested diagnostic forwarding | COMPLETE | Both wrapper modes securely read the exact parent's manifest and forward its validated selection; contract suite and final affected row pass; runtime stripping remains intact |
-| D-002 Focused reproduction and causal analysis | BOUNDED REPRODUCTION COMPLETE; EXACT TRANSPORT CAUSE OPEN | Two PostgreSQL readiness failures reproduced despite final-server readiness; early stop completed; endpoint-path diagnosis continues in D-007 |
-| D-003 Validation and handoff | D-009 BOUNDED HANDOFF COMPLETE; ACCEPTANCE OPEN | D-009 causal repair and focused/source checks passed; aggregate-6 stopped at D-010; event/timing and backend evidence checks passed, cancelled-run resource diagnostics remain partial; final receipt below |
+| D-002 Focused reproduction and causal analysis | BOUNDED REPRODUCTION COMPLETE; HISTORICAL CAUSE DROPPED | Historical evidence retained; no further cause-attribution acceptance obligation |
+| D-003 Validation and handoff | FULL VALIDATION PASSED; TWO LEGACY CLEANUP OBLIGATIONS BLOCKED | `d003-full-8` passed 62/62 parent units and both 340/340 full-check children; evidence, event/timing and current cleanup/scan checks passed; final receipt below |
 | D-005 Startup phase attribution and readiness policy | DIAGNOSTICS COMPLETE | v3 distinguishes bootstrap from final TCP readiness; new evidence does not support increasing startup/readiness timeouts; preserve current budgets pending D-007 |
 | D-006 Nested cancellation settlement | COMPLETE | Native lifecycle protocol, full-suite routing, authority forwarding and cleanup-outcome acknowledgement validated; aggregate retains both child terminal records and propagates independent cleanup failure |
-| D-007 PostgreSQL endpoint-path attribution and correction | AGGREGATE-6 REPRODUCTION STOPPED AT D-010; CAUSE OPEN | Full real-check reached service-backed execution without a readiness recurrence; jobs supervisor concurrency assertion caused the required early stop |
+| D-007 PostgreSQL endpoint-path attribution and correction | HISTORICAL INVESTIGATION CLOSED BY USER SCOPE DECISION | Both current full checks passed with unchanged service policy; no historical cause claim or further investigation required |
 | D-008 Pending service-start recovery closure | IMPLEMENTED AND FOCUSED VALIDATION COMPLETE | Settle a started helper cancelled before lease publication using durable acquisition proof; preserve uncertainty and resident claims when proof is absent |
 | D-009 Atomic snapshot replacement regression | IMPLEMENTED AND VALIDATED | Demonstrated ctime rejection repaired; focused regressions, source checks and both 192-unit aggregate backend wrappers passed |
-| D-010 Jobs supervisor concurrent-attempt regression | OPEN; NOT IMPLEMENTED | Full real-check reported peak concurrency 7 after eight distinct entries; identify early attempt termination and repair the responsible fixture or runner boundary before another aggregate |
+| D-010 Jobs supervisor concurrent-attempt regression | COMPLETE | Deterministic simultaneous-handler barrier, controlled lease-loss regression, focused row and both full aggregate contexts passed |
+| D-011 Acquired lease recovery without startup credentials | COMPLETE; W5 SETTLED | Existing owner recovered three acquired services and their resident dependencies; two unrelated ambiguous pending startups retain authority |
+| D-012 Go security patch | COMPLETE | Go 1.27.3 pins and executable admission aligned; focused security/TLS checks and both full security scans passed |
+| D-013 Runtime boundary graph assertion | COMPLETE | Expected selection includes the separately owned nested-cancellation row; focused execution suite and full fast/matrix graph checks passed |
+| D-014 Optional diagnostic completeness | COMPLETE | Specification, validated-reader projection and regressions separate optional completeness from validity; full evidence checks passed with explicit omissions |
 
 Read-only investigation confirmed the final failure's allocation/scope binding,
 60 failed probes in 15,001 ms, successful container start/endpoint resolution,
@@ -2177,6 +2216,400 @@ Appendix A's byte comparison passed. After recording this receipt, final
 Markdown validation uses `pgcause-d003-markdown-final-6`; its exact result is
 retained at
 `.cartulary/test-results/pgcause-d003-markdown-final-6/adhoc/lint-markdown/tool-run-summary.json`.
+
+### D-010 completion receipt — deterministic capacity ownership
+
+The fixture conflated cumulative handler starts with simultaneous live attempts.
+Its 120 ms wall-clock lease could expire while subsequent jobs were being
+created. The new controlled-clock regression demonstrates the actual manager
+renewal returning `ErrExecutionLost` and the runner cancelling the previously
+entered handler before capacity is filled. This establishes the causal defect
+in the assertion, without claiming the exact lost timing of aggregate-6.
+
+The capacity/shutdown case now stages all twelve durable jobs before activation,
+uses a fixed injected manager clock and the existing private renewal-clock seam,
+and waits at an eight-live-handler barrier. It checks current and maximum
+concurrency, rejects premature cancellation, closes the runner, checks zero
+remaining handlers, and retains the concurrent neutral-release assertions.
+Cleanup is registered before activation. Separate renewal, execution-loss,
+shutdown-precedence, timeout and fairness cases remain in the same row.
+
+Areas: tests and this handoff. Core REQ-01-453 already specifies these invariants;
+no production specification, runtime, policy, schema or compatibility migration
+is needed. This removes scheduler speed from the capacity proof without longer
+leases, retries, sleeps or relaxed bounds. Leaving the old fixture would produce
+false capacity failures and mask the actual early-termination boundary.
+
+Validation: `CARTULARY_TEST_RUN_ID=d010-focused-1
+CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=platform.jobs
+ROWS=platform.jobs.integration.supervised_runner HARNESS_DIAGNOSTICS=basic`
+passed, native session **85703**, outer exit **0**, graph **23,878 ms**.
+Root: `.cartulary/test-results/d010-focused-1`. The row includes both
+`TestSupervisedRunnerContract_Integration` and
+`TestRunnerWorkerCapacityAndMixedKindFairness_Integration`. This completes the
+focused D-010 exit gate; aggregate coverage follows after cleanup reconciliation
+and required finalization. Tracker updated before starting that workstream.
+
+### D-008 recovery evaluation and D-011 owner repair
+
+Supported exact-bound recoveries ran sequentially after the D-010 receipt:
+`d008-recovery-legacy-1` (native 13062/2), `d008-recovery-journal-1`
+(26120/2), and `d008-recovery-w5-1` (48469/2). All preserve normalized
+`cleanup_error` / child exit 12 and independent ownership records. The first
+still lacks a ready lease/journal; the second retains an ambiguous acquiring
+attempt. Neither has sufficient proof for release. These are current blocked
+cleanup obligations, not an active historical PostgreSQL investigation.
+
+W5 currently retains three acquired PostgreSQL suites and three resident
+allocations, correcting the earlier shorthand about object-store residency.
+Each exact container lease exists, but each saved startup environment is missing.
+Recovery fails at that unnecessary prerequisite before invoking physical cleanup.
+
+**D-011 — recover acquired owned containers from their lease** is the separate
+repair workstream. Specification first: after the dependency evaluator settles
+consumers, a schema-valid exact-run owned lease with exact container IDs and
+matching ownership labels authorizes the existing physical owner. Missing startup
+credentials must not require reconstruction. Present invalid environments,
+foreign/borrowed leases and uncertain pending starts remain rejected. Tests cover
+those distinctions, failure retention, one attempt and repeated recovery. Exit:
+focused fixture/lifecycle checks pass and supported exact W5 recovery settles its
+three services/resident dependencies. Then update this tracker before D-003.
+This reduces cleanup coupling to launch-only bindings; compatibility is additive
+for valid leases, with no manufactured historical authority.
+
+### D-011 completion receipt — W5 settled
+
+The specification and fixture owner now distinguish launch environment from
+acquired container ownership. Only explicit recovery of an acquired resource
+may use a missing-environment path, and only with a schema-valid owned lease,
+exact original run/root binding, full container IDs and matching managed,
+suite, run, target and service labels. Existing physical cleanup and dependency
+ordering remain authoritative. Present malformed/unsafe environments and
+pending/foreign/borrowed/missing leases fail closed; no historical file is
+recreated. Repeated cleanup attempts within one recovery remain single-owner.
+
+`CARTULARY_TEST_RUN_ID=d011-focused-1 CARTULARY_HARNESS_CACHE_MODE=off make
+test-slice OWNER=harness.browser
+ROWS=harness.browser.unit.native_fixtures,harness.browser.unit.testservices_lifecycle_contract
+HARNESS_DIAGNOSTICS=basic` passed, native **35860/0**, graph **4,314 ms**.
+Coverage includes successful and failed physical cleanup, repeat recovery,
+foreign run/root/labels, borrowed mode, abbreviated container IDs, pending
+acquisition, missing leases, malformed JSON and unsafe environment links.
+
+Supported W5 recovery then passed as **d011-recovery-w5-2**, native **40670/0**,
+550 ms, with the same exact `RESULTS_DIR`, `RUNTIME_ROOT`, and
+`RUNTIME_LEASE_ID=ce924c85-30f5-4e77-8b89-2c79756a04ac` recorded above.
+All three managed suites and three resident allocations completed; the owning
+runtime closed. Original failed test evidence is unchanged. Receipt:
+`.cartulary/test-results/d011-recovery-w5-2/test-run-recover/tool-run-summary.json`.
+
+Two cleanup obligations remain blocked: `suite-real-check-c23d3848-2231-44dd-a57e-398babafefa8`
+(no journal or returned container lease) and
+`suite-summary-startup-116e32e4-9675-4864-85b9-f9c9a240241b` (unknown create
+outcome). Supported attempts above confirm these limits. Resolving them requires
+independent original acquisition/settlement evidence; a new empty search,
+missing helper or fabricated receipt cannot supply it. Retain both capacities
+and authorities. This limitation does not stop full validation, but prevents a
+claim that all cleanup obligations are closed.
+
+D-011 is complete and this tracker is updated before D-003 full validation.
+Appendix A byte comparison and `git diff --check` passed. Historical PostgreSQL
+cause remains outside scope; production SQL deadlines, capacity, TLS and checksum
+requirements are unchanged.
+
+### D-003 pre-aggregate checkpoint
+
+Required `make format` (`d003-format-7`, native 72378/0, 7,848 ms),
+`make generate` (`d003-generate-7`, 17403/0, 10,660 ms), and
+`make agent-finalize` (`d003-finalize-7`, 30802/0, 25,713 ms) passed.
+Retained-run maintenance was skipped because `RESULTS_DIR` was unset; no
+qualifying successful full warm check at this source identity is available.
+All-source validation uses `d003-source-7` before the aggregate. D-010 and D-011
+focused validation receipts above remain valid; generated projections did not
+change. Full validation will use an unused explicit ID and cache mode off, with
+basic diagnostics and no early cancellation on a test failure.
+
+D-003 source checkpoint: `CARTULARY_TEST_RUN_ID=d003-source-7 make source-check
+CHECK=all` passed, native **60276/0**, graph **16,380 ms**.
+
+Fresh full invocation:
+
+```sh
+CARTULARY_TEST_RUN_ID=d003-full-7 CARTULARY_HARNESS_CACHE_MODE=off make harness-contract SUITE=full HARNESS_DIAGNOSTICS=basic
+```
+
+Native session **68130**, root `.cartulary/test-results/d003-full-7`.
+Source identity:
+`sha256:4dd8102743aac96c39c3138f7ddf4adb15da5928e1e5ada3d67eee4241452322`.
+Graph identity:
+`sha256:0ca41f006be3edc508c7931daca7f31cfb50573850a14fb288b40661d865be3a`.
+Initial public observation: executing, 6 passed, 3 running, 53 pending, zero
+failed/cancelled. These counts are progress only; terminal receipts follow.
+
+### D-012 identified during full validation — Go security patch
+
+The full invocation was not interrupted. Its human-output check reported
+`operation:harness.go_vulncheck`, `security/security_finding`. The exact retained
+report is
+`.cartulary/test-results/d003-full-7/unit-artifacts/operation-harness.assurance_output_check/real-command-output/runs/real-check/unit-artifacts/operation-harness.go_vulncheck/govulncheck-findings.json`.
+It reports reachable `GO-2026-6809` / `CVE-2026-111943` in Go 1.27.2's
+`crypto/x509.Certificate.Verify`, fixed in Go 1.27.3. The database revision is
+2026-10-21T00:27:29Z. The official [Go download index](https://go.dev/dl/?mode=json)
+confirms Go 1.27.3 is stable. Module-only OpenPGP advisory GO-2026-5932 is
+separately reported non-blocking; no unrelated dependency migration is implied.
+
+D-012 will update the authored toolchain registry and Go module directives to
+the fixed patch, regenerate through Make and verify the scanner and toolchain
+before another full invocation. Production certificate verification stays
+strict. This is a dependency-security repair with a patch-version compatibility
+impact; leaving it unresolved retains a known reachable trust vulnerability.
+No source or toolchain mutation is made while the current aggregate is active.
+Exit: patched toolchain recorded, zero blocking vulnerability findings, required
+finalization/source checks pass, then repeat full validation. Update this tracker
+with terminal receipts and D-012 completion before the next workstream.
+
+### D-003 full-7 terminal receipt and next repairs
+
+The invocation completed without user/agent interruption: native **68130/2**,
+normalized failing work exit **10**, graph **1,642,844 ms**. Parent counts:
+**58 passed, 4 failed, 0 cancelled, 0 skipped / 62**. Both real-check children
+completed **339 passed, 1 failed / 340**, with only `security/security_finding`
+from Go vulnerability scanning; human duration **1,087,175 ms**, machine duration
+**1,039,101 ms**. D-010's supervised-runner row passed in both contexts.
+
+Child roots are exactly P plus
+`unit-artifacts/operation-harness.assurance_output_check/real-command-output/runs/real-check`
+and
+`unit-artifacts/operation-harness.assurance_output_check_machine/real-command-output/runs/real-check-machine`,
+where P is `.cartulary/test-results/d003-full-7`. Both use graph
+`sha256:930d8f151989ede9ca2355fbe38a46405ecacfd104a3e4ef22c1ddd12b85bdf1`
+and the source identity recorded at launch. All **26** cleanup ledgers contain
+completed outcomes, including parent **71** and each full child **589** steps.
+All **26** retained-secret scans passed (parent **13,164** files, children
+**3,809** each). No new unresolved runtime was reported.
+
+Public `harness-observability-check CHECK=events` and `CHECK=timing` passed for
+P and both full children. `CHECK=diagnostics` failed with normalized artifact
+exit 11 / Make exit 2 for each. Resource indexes explicitly report parent
+`truncated` / 467 omissions and children `partial` / 281 and 192 omissions;
+this is independent of execution failures. Full evidence closure is skipped for
+these failed invocations. No warm maintenance acceptance is claimed.
+
+Two additional top-level failures are the same stale work-graph fixture
+assertion in `harness.assurance_work_graph_fast` and
+`harness.assurance_work_graph_matrix`: the `runtime-boundary` command correctly
+includes the D-006 nested-cancellation row, while the expected graph only selects
+the four rows in the separate boundary package. This is **D-013**, an expected
+selection repair: preserve the canonical per-row graph comparison and explicit
+nested cancellation coverage rather than remove that required row.
+
+**D-014** evaluates the diagnostic-checker mismatch with REQ-835: valid optional
+partial records must report completeness separately from canonical validity;
+malformed records still fail. Add explicit completeness reporting and targeted
+partial/absent/malformed regression coverage if the owner review confirms that
+boundary. Never report truncated samples as complete or enlarge collector limits
+to hide the distinction.
+
+Proceed sequentially: D-012 Go patch and focused checks → tracker receipt →
+D-013 fixture repair and focused checks → tracker receipt → D-014 evidence-owner
+repair and validation → finalization/source checks → fresh full aggregate. The
+historical PostgreSQL investigation stays dropped, with the two old unprovable
+startup obligations retained separately. Three explanatory Make calls with
+unsupported log selection were rejected as usage errors; bounded published unit
+logs supplied the actual assertion evidence and no test rerun was used to diagnose.
+
+### D-012 completion receipt — pinned Go 1.27.3
+
+Updated the authored registry, root and analysis-module Go directives, Make
+selection and executable cryptographic admission constant to Go 1.27.3.
+Core REQ-04-164 continues to require exact actual toolchain/module admission;
+FIPS module selection, archive digest, enabled mode and TLS policy are unchanged.
+Historical compiler-format fixtures and the comment describing the 1.27.2
+export-data transition remain historical examples, not active pins.
+
+Two preflight attempts failed before security scanning: `d012-vuln-1` rejected
+the temporarily inconsistent Make/toolchain identity, and `d012-vuln-2`
+(native 37113/2, graph 465 ms) detected the remaining executable admission pin.
+Those mirrors were aligned before the successful scan; no admission check was
+weakened. `d012-vuln-3` (`make go-vulncheck`, native **40876/0**, **6,581 ms**)
+reports Go **1.27.3**, **zero blocking findings**, and only the existing
+module-level non-blocking OpenPGP advisory.
+
+`d012-toolchain-1` (`make source-check CHECK=toolchain`, **68953/0**, **459 ms**)
+passed. `d012-crypto-1` (uncached `make test-slice OWNER=platform.cryptography
+ROWS=platform.cryptography.unit.execution_identity,platform.cryptography.unit.tls_transport
+HARNESS_DIAGNOSTICS=basic`, **50747/0**, **3,933 ms**) passed. Generated/source
+finalization follows the remaining fixes before the next full aggregate.
+D-012 focused exit criteria are met; tracker updated before D-013 implementation.
+
+### D-013 completion receipt — canonical boundary selection
+
+The graph test still asserts the four boundary-package rows and their five exact
+symbols, then independently requires the catalog's nested-cancellation row and
+its exact `TestRuntimeNestedServiceCancellation` selector. It compares the
+combined five-row canonical graph against direct runtime-boundary, execution,
+regression and full selections. No routing, capacity, timeout or test coverage
+was removed. REQ-102 already requires this row-owner reuse; no specification
+change or migration is necessary.
+
+`CARTULARY_TEST_RUN_ID=d013-execution-1 CARTULARY_HARNESS_CACHE_MODE=off make
+harness-contract SUITE=execution HARNESS_DIAGNOSTICS=basic` passed, native
+**33394/0**, graph **203,032 ms**, all **11** units passed. This covers the
+corrected fast graph assertion and all native boundary/nested cancellation
+lifecycle rows. The matrix mode reuses the same assertion and will also run in
+full validation. Tracker updated before D-014 implementation.
+
+### D-014 completion receipt — validity and diagnostic completeness
+
+Clarified REQ-835 before updating its checker: full validity requires successful
+canonical evidence closure and validity of every published optional artifact;
+it does not require complete optional sampling. The existing validated retained
+model now supplies bounded completeness fields for execution, resources,
+envelope, terminal receipt and PostgreSQL checkpoints. Unknown omission counts
+remain unavailable. Schema, identity, digest, relationship and stream validation
+remain strict; failed invocations still cannot pass full evidence closure.
+No retained schema, diagnostic budget, sampling limit or historical artifact
+changed. This removes an extra acceptance predicate that contradicted the
+existing optional-observation contract.
+
+`CARTULARY_TEST_RUN_ID=d014-contract-1 CARTULARY_HARNESS_CACHE_MODE=off make
+harness-contract SUITE=contract HARNESS_DIAGNOSTICS=basic` passed, native
+**3333/0**, graph **70,353 ms**. Coverage includes valid absent, complete,
+partial, truncated and collector-failed observations, separately reported
+omissions, and rejection of foreign identities, invalid digests and malformed
+published records. The required context rejection and shared-reader traversal
+checks remain intact.
+
+Read-only `make harness-observability-check RESULTS_DIR=<root>
+CHECK=diagnostics` now passes for `d003-full-7` and both exact full-check child
+roots above. It reports parent execution/resource truncation and **467** resource
+omissions; children retain partial resources with **281** and **192** omissions.
+These receipts validate the correction against the demonstrated failure; they
+do not turn the failed aggregate into a pass. Tracker updated before repeating
+finalization and full validation.
+
+### D-003 renewed full-validation checkpoint
+
+Current-source preparation passed: `d003-format-8` (`make format`, native
+**6109/0**, **8,085 ms**), `d003-generate-8` (`make generate`, **78974/0**,
+reported generation **11,260 ms**), `d003-finalize-8b` (`make agent-finalize`,
+**95624/0**, **25,608 ms**), and `d003-source-8` (`make source-check CHECK=all`,
+**27945/0**, **16,327 ms**). An earlier overlapping finalizer,
+`d003-finalize-8` (**41692/2**), correctly rejected a stale source context while
+generation was finishing; its rollback completed. Generation then exited and
+the sequential finalizer passed. This was execution sequencing, not a relaxed
+source-consistency check. Retained-run maintenance is skipped with `RESULTS_DIR`
+unset because no qualifying successful full warm-check root is available.
+
+Next invocation, with a fresh unused run identity and unchanged limits:
+
+```sh
+CARTULARY_TEST_RUN_ID=d003-full-8 CARTULARY_HARNESS_CACHE_MODE=off make harness-contract SUITE=full HARNESS_DIAGNOSTICS=basic
+```
+
+Native session **40233**; exact parent
+`/home/jochi/code/cartulary/.cartulary/test-results/d003-full-8`.
+Emitted source
+`sha256:69eae72ad683b2a21886644f61a014a839893fc3daf0be9c5f2c571784c792ca`
+and graph
+`sha256:0ca41f006be3edc508c7931daca7f31cfb50573850a14fb288b40661d865be3a`.
+Allow every independent unit and finalizer to finish, including after any unit
+failure. Historical PostgreSQL attribution remains outside acceptance.
+
+### D-003 terminal validation and handoff
+
+The fresh uncached aggregate completed without cancellation. Native session
+**40233** exited **0** after the final retained-boundary checks; graph duration
+**1,702,468 ms**. Parent **62/62** work units passed, with no failed, skipped or
+cancelled units. Source and graph identities are the launch identities above.
+
+Let P be the exact parent
+`/home/jochi/code/cartulary/.cartulary/test-results/d003-full-8`.
+These child roots are P plus the literal suffixes below; all completed with
+zero failed, skipped or cancelled units:
+
+| Child | Exact root suffix | Passed units | Graph duration (ms) |
+| --- | --- | ---: | ---: |
+| Human full check | `unit-artifacts/operation-harness.assurance_output_check/real-command-output/runs/real-check` | 340/340 | 1,232,451 |
+| Machine full check | `unit-artifacts/operation-harness.assurance_output_check_machine/real-command-output/runs/real-check-machine` | 340/340 | 1,113,947 |
+| Human backend unit | `unit-artifacts/operation-harness.assurance_output_backend_unit/real-command-output/runs/real-backend-unit` | 192/192 | 272,911 |
+| Machine backend unit | `unit-artifacts/operation-harness.assurance_output_backend_unit_machine/real-command-output/runs/real-backend-unit-machine` | 192/192 | 268,844 |
+
+Both full children use graph
+`sha256:930d8f151989ede9ca2355fbe38a46405ecacfd104a3e4ef22c1ddd12b85bdf1`
+and the parent's final source identity. Their D-010 supervised-runner row and
+Go vulnerability scan passed. The parent fast and matrix graph assertions also
+passed. This validates D-010 through D-014 together with the existing recovery,
+atomic-snapshot and nested-cancellation regressions.
+
+Read-only public acceptance commands, each with native exit **0**:
+
+```sh
+make harness-observability-check RESULTS_DIR=<exact-root> CHECK=all
+make harness-observability-check RESULTS_DIR=<exact-root> CHECK=events
+make harness-observability-check RESULTS_DIR=<exact-root> CHECK=timing
+```
+
+`CHECK=all` passed with `full_validity=1` for P and all four child roots in the
+table. `CHECK=events` and `CHECK=timing` separately passed for P and both full
+children. All checks are scoped to those exact roots. Optional diagnostics remain
+honest: parent execution/resource status is truncated with **1,361** resource
+omissions and unavailable execution omission count; full-child execution indexes
+are complete, while resource status is partial with **390** and **46** omissions.
+Backend wrapper diagnostics report complete resource observations with zero
+omissions. This is valid bounded evidence, not a claim of complete whole-run
+resource measurement.
+
+All **26** published cleanup ledgers under P contain completed outcomes: **2,102**
+ledger entries in total, including parent **71** and each full child **589**.
+All **26** retained-secret scans passed, including parent **13,164** files and
+each full child **3,809**. These counts describe published ledger entries and
+scan coverage, not unique physical resources. No new unresolved runtime is
+reported by this aggregate. Original failures and recovery receipts remain
+unchanged.
+
+| Phase | Exit disposition | Remaining obligation |
+| --- | --- | --- |
+| D-010 fixture repair | Complete: deterministic live-capacity proof and lease-loss regression, focused and full checks passed | None for this repair |
+| D-011 supported recovery | Complete: W5's three acquired suites and three resident allocations settled; runtime closed | Two legacy pending startups still lack sufficient acquisition/settlement proof |
+| D-012 security patch | Complete: Go 1.27.3 admitted consistently and both full security scans passed | Use the pinned Make bootstrap/toolchain on other checkouts |
+| D-013 graph fixture | Complete: exact required selection checked in fast and matrix modes | None |
+| D-014 evidence contract | Complete: optional completeness reported separately; malformed evidence remains rejected | Preserve explicit omission/unavailability reporting |
+| D-003 validation/handoff | Current implementation and equivalent aggregate acceptance passed; no early stop | Legacy cleanup closure remains blocked, independently of passing current execution |
+
+The two remaining authorities are still
+`suite-real-check-c23d3848-2231-44dd-a57e-398babafefa8` and
+`suite-summary-startup-116e32e4-9675-4864-85b9-f9c9a240241b`, under
+`/home/jochi/.cache/cartulary/harness-scratch/suite-runtime/`. Their exact runtime
+leases, original run bindings and supported recovery attempts are recorded above.
+The first has no returned lease/journal; the second has an unknown create outcome.
+Each retains one pending service and its resident allocation. Their only safe
+next step is to obtain independent original provider acquisition or settlement
+proof, then use the same supported recovery owner. No new receipt, empty search,
+missing helper or manual authority deletion can establish settlement. Consequently
+the request to close **all** historical cleanup obligations is not fully satisfied;
+the implementation and full current validation are complete.
+
+Historical PostgreSQL investigation is dropped by the user's scope decision;
+no further attribution work or historical cause claim is required. SQL deadlines,
+polling, TLS, checksums and capacity remain unchanged. Product APIs and stored
+data have no migration. The toolchain patch requires Go 1.27.3; valid acquired
+leases gain recovery without startup credentials, while ambiguous legacy pending
+records remain unresolved. Normative amendments remain subject to human fidelity
+review independently of passing generated and executable checks.
+
+Retained-run maintenance remains **skipped**: `RESULTS_DIR` was unset for
+finalization, and these successful full children have `cache_mode=off`, so they
+are not qualifying full warm `make check` roots. No acceptance shortcut or extra
+warm run was used to manufacture eligibility. Changes remain uncommitted for
+review. An unrelated untracked `testing-harness-remediation-03.md` was preserved.
+`CARTULARY_TEST_RUN_ID=d003-final-markdown-8 make lint-markdown` passed, native
+**64440/0**, **14,510 ms**. Final diff whitespace checks passed, and Appendix A
+matches HEAD byte-for-byte with SHA-256
+`fb781abc040d653286aab0b90f004cc5f8b938a528d64c7bae4ad5c84d342154`.
+After recording this receipt, repeat Markdown validation as
+`CARTULARY_TEST_RUN_ID=d003-handoff-markdown-8 make lint-markdown`; documentation
+updates require no additional product generation or aggregate run.
 
 ## Appendix A — Historical remediation record
 

@@ -138,12 +138,17 @@ function assertGraphCutover() {
   assert.deepEqual(inputs.compileTarget("harness.frontend_install"), compiler.compileTarget("harness.frontend_install"), "explicit audit input must not reach another command");
   const boundaryRows = compiler.catalog.rows.filter((row) => row.runner === "go" &&
     row.selector.package === "./internal/testutil/harnessruntime/boundary");
-  const boundaryIDs = boundaryRows.map((row) => row.row_id).sort();
   assert.equal(boundaryRows.length, 4, "native boundary assurance has four independently owned row contracts");
   assert.deepEqual(boundaryRows.flatMap((row) => row.selector.tests).sort(), [
     "TestNativeBorrowedFixturePhysicalLifecycle", "TestNativeFixturePhysicalLifecycle",
     "TestNativeGraphServiceObservations", "TestNativeSelectedServiceLifecycle", "TestStandaloneNativeSession",
   ], "native boundary assurance must cover each package test exactly once");
+  const cancellationRow = compiler.catalog.rows.find((row) => row.row_id === "harness.browser.integration.native_nested_cancellation");
+  assert.equal(cancellationRow?.runner, "go");
+  assert.deepEqual(cancellationRow.selector, {
+    package: "./internal/testutil/harnessruntime", tests: ["TestRuntimeNestedServiceCancellation"],
+  }, "native assurance must include the separate nested cancellation owner");
+  const boundaryIDs = [...boundaryRows, cancellationRow].map((row) => row.row_id).sort();
   const boundaryGraph = compiler.compileRows(boundaryIDs);
   const boundaryCommand = new WorkGraphCompiler(root, { targetInputs: { "harness-contract": { SUITE: "runtime-boundary" } } });
   assert.deepEqual(boundaryCommand.compileTarget("harness-contract"), boundaryGraph,

@@ -6437,6 +6437,15 @@ at 262,144 bytes and displays at most 20 units/scopes with omission counts.
 `harness-observability-check` MUST validate published optional resource records
 when present and report their completeness separately; absent optional records
 MUST NOT invalidate otherwise complete canonical evidence.
+For `CHECK=all`, `full_validity=1` attests successful required-evidence closure
+and validity of any published optional records; it MUST NOT imply complete
+optional collection. `CHECK=all|diagnostics` MUST report execution/resource
+status and known omission counts, envelope/terminal-receipt availability, and
+checkpoint observation status from the same validated model. Valid partial,
+truncated, collector-failed or absent optional observations remain explicit and
+do not fail canonical validity. Invalid published schemas, identities, references,
+digests or streams still fail inspection. Failed invocations still cannot obtain
+successful required-evidence closure.
 Performance views MUST identify queue/execution path contributions and coarse
 bucket/reservation limitations. Human resource views MUST expose the selected
 scope's validated signals with their units and aggregation semantics. Container
@@ -7478,6 +7487,15 @@ After helper producers settle, an unstarted journal or explicit completed settle
 can discharge a missing ready lease. An ambiguous provider request, missing lease,
 dead helper or empty Docker lookup alone MUST NOT release residency. Valid legacy
 leases remain usable; insufficient legacy pending proof remains unresolved.
+Once all declared consumers have settled, an acquired owned-container lease is
+sufficient physical cleanup authority without its startup environment. Recovery
+MUST securely validate its schema, exact original run binding, owned mode, exact
+container identities and matching ownership labels, then invoke the existing
+physical cleanup owner. It MUST NOT recreate missing environment files or infer
+credentials. Missing or invalid leases, borrowed resources and ambiguous pending
+acquisitions do not gain this authority. A present but unsafe or malformed recovery
+environment remains an error. Resident dependencies are released only after the
+physical owner confirms settlement.
 Cancellation/readiness and cleanup failures remain independent; recovery summaries
 MUST preserve the normalized cleanup-error classification.
 

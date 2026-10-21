@@ -15,6 +15,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/leaseproof"
 )
 
 func fixtureReference(t *testing.T, runtime *harnesssession.Runtime, kind string, target any) string {
@@ -32,6 +34,7 @@ func recordBrowserRecoveryFixture(t *testing.T, runtime *harnesssession.Runtime,
 	return runtime.RecordDependentResource("browser_stack", browser, "pending", []string{fixtureReference(t, runtime, kind, dependency)}, binding, environmentFile)
 }
 func TestFixtureRecovery(t *testing.T) {
+	testOwnedLeaseWithoutStartupEnvironment(t)
 	testPendingStartupRecovery(t)
 	testRecoveryCommand(t)
 	testCleanupDependencies(t)
@@ -284,6 +287,90 @@ func TestFixtureRecovery(t *testing.T) {
 				if err == nil || strings.Contains(joined, "suite") || strings.Contains(joined, "detach") {
 					t.Fatal("dependency failure authorized suite stop", calls, err)
 				}
+			}
+		})
+	}
+}
+
+func testOwnedLeaseWithoutStartupEnvironment(t *testing.T) {
+	for _, variant := range []string{"owned", "failed_cleanup", "foreign_run", "foreign_root", "borrowed", "foreign_label", "short_identity", "pending", "missing_lease", "malformed_environment", "unsafe_environment"} {
+		t.Run("lease_without_startup_environment_"+variant, func(t *testing.T) {
+			runtime, root, run := runtimeFixture(t)
+			file := filepath.Join(runtime.Root, "suite", "suite-lease.json")
+			lease := leaseproof.Lease{
+				SchemaID: "cartulary.test_services.lease.v3", LeaseID: "original-lease", SuiteID: "original-suite",
+				RunID: runtime.RunID, RunRoot: run, ResultRoot: filepath.Dir(run), Target: "check",
+				Mode: "owned", OwnershipMode: "owned", OwnerPID: os.Getpid(), CreatedAt: time.Now().UTC().Format(time.RFC3339Nano),
+				CleanupState: "not_started", ProofLabels: map[string]string{}, ProofPrefixes: map[string]string{},
+				Resources: []leaseproof.LeaseResource{{Kind: "container", Service: "postgres", ContainerID: strings.Repeat("a", 64), Image: "fixture", Labels: map[string]string{
+					leaseproof.LabelManaged: leaseproof.ManagedValue, leaseproof.LabelSuiteID: "original-suite",
+					leaseproof.LabelRunID: runtime.RunID, leaseproof.LabelTarget: "check", leaseproof.LabelService: "postgres",
+				}}},
+			}
+			state := "acquired"
+			switch variant {
+			case "foreign_run":
+				lease.RunID = "foreign"
+			case "foreign_root":
+				lease.RunRoot = filepath.Join(root, "foreign")
+			case "borrowed":
+				lease.OwnershipMode = "attach"
+			case "foreign_label":
+				lease.Resources[0].Labels[leaseproof.LabelSuiteID] = "foreign"
+			case "short_identity":
+				lease.Resources[0].ContainerID = "abcdef"
+			case "pending":
+				state = "pending"
+			}
+			if variant != "missing_lease" {
+				writeFixtureJSON(t, file, lease)
+			}
+			envFile := filepath.Join(filepath.Dir(file), "suite-environment.json")
+			if variant == "malformed_environment" {
+				writeFixtureJSON(t, envFile, []string{"invalid"})
+			} else if variant == "unsafe_environment" {
+				if err := os.Symlink(file, envFile); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := runtime.RecordDependentResource("managed_suite", file, state, []string{}, envFile); err != nil {
+				t.Fatal(err)
+			}
+			defer runtime.RecordResource("managed_suite", file, "released")
+			stops := 0
+			p := ProductionOptions{Root: root, RunRoot: run, Runtime: runtime, Environment: map[string]string{"TEST_SERVICES_BIN": "services"}, Run: func(_ context.Context, _ string, args []string, env map[string]string) (CommandResult, error) {
+				stops++
+				if args[0] != "terminate-suite" || !strings.HasPrefix(args[2], file+".cleanup-") || env[suiteservices.SuiteIDEnv] != lease.SuiteID {
+					t.Fatal("cleanup did not use original lease")
+				}
+				if _, err := os.Lstat(envFile); !errors.Is(err, os.ErrNotExist) {
+					t.Fatal("startup environment was recreated")
+				}
+				if variant == "failed_cleanup" {
+					return CommandResult{}, errors.New("physical cleanup failed")
+				}
+				return CommandResult{}, nil
+			}}
+			if _, err := runtime.BeginRecoveryAttempt(); err != nil {
+				t.Fatal(err)
+			}
+			defer runtime.FinishRecoveryAttempt()
+			for range 2 {
+				err := p.Recover(context.Background())
+				if (err == nil) != (variant == "owned") {
+					t.Fatalf("recovery outcome: %v", err)
+				}
+			}
+			wantStops := 0
+			if variant == "owned" || variant == "failed_cleanup" {
+				wantStops = 1
+			}
+			if stops != wantStops {
+				t.Fatalf("cleanup calls=%d want=%d", stops, wantStops)
+			}
+			resources, err := runtime.Resources(4096)
+			if err != nil || (len(resources) == 0) != (variant == "owned") {
+				t.Fatal("lost recovery authority", err, len(resources))
 			}
 		})
 	}
