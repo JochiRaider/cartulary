@@ -74,6 +74,26 @@ func CaptureProcess(pid int) (ProcessProof, error) {
 	p.Boot = strings.TrimSpace(string(boot))
 	return p.ProcessProof, err
 }
+
+// DescendsFrom verifies a live ancestry chain against an exact launch identity.
+// It grants no signaling authority and does not infer ownership from names.
+func DescendsFrom(pid int, ancestor ProcessProof) bool {
+	current, err := CaptureProcess(ancestor.PID)
+	if err != nil || current != ancestor {
+		return false
+	}
+	for depth := 0; depth < 256 && pid > 1; depth++ {
+		if pid == ancestor.PID {
+			return true
+		}
+		process, err := readProcess(pid)
+		if err != nil || process.parent == pid {
+			return false
+		}
+		pid = process.parent
+	}
+	return false
+}
 func sameProcess(a, b ProcessProof) bool {
 	return a.PID == b.PID && a.Start == b.Start && a.PGID == b.PGID && a.SID == b.SID
 }

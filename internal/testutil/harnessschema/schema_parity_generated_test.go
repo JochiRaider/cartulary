@@ -88,6 +88,7 @@ case "probe.pattern63": return probeSchema112(value)
 case "probe.pattern64": return probeSchema113(value)
 case "probe.pattern65": return probeSchema114(value)
 case "probe.pattern66": return probeSchema115(value)
+case "probe.pattern67": return probeSchema116(value)
 default: return false
 }
 }
@@ -520,7 +521,7 @@ return true
 func probeSchema58(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^(ordinary|[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$", s) { return false }
+if !schemaPattern("^(endpoint-([1-9]|[12][0-9]|3[0-2])|omitted)$", s) { return false }
 }
 return true
 }
@@ -528,7 +529,7 @@ return true
 func probeSchema59(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^(process:[1-9][0-9]*|container:[1-9][0-9]*|guest:(cpu|memory|io)|cgroup:[0-9]+)$", s) { return false }
+if !schemaPattern("^(ordinary|[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$", s) { return false }
 }
 return true
 }
@@ -536,7 +537,7 @@ return true
 func probeSchema60(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^/", s) { return false }
+if !schemaPattern("^(process:[1-9][0-9]*|container:[1-9][0-9]*|guest:(cpu|memory|io)|cgroup:[0-9]+)$", s) { return false }
 }
 return true
 }
@@ -544,7 +545,7 @@ return true
 func probeSchema61(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"0",3,3,0xff000000000000,0x0,0xff000000000000,0x0) { return false }
+if !schemaPattern("^/", s) { return false }
 }
 return true
 }
@@ -552,7 +553,7 @@ return true
 func probeSchema62(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",4,4,0xff000000000000,0x0,0xff000000000000,0x0) { return false }
+if !schemaToken(s,"0",3,3,0xff000000000000,0x0,0xff000000000000,0x0) { return false }
 }
 return true
 }
@@ -560,7 +561,7 @@ return true
 func probeSchema63(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",5,5,0x3ff000000000000,0x7fffffe,0x3ff000000000000,0x7fffffe) { return false }
+if !schemaToken(s,"",4,4,0xff000000000000,0x0,0xff000000000000,0x0) { return false }
 }
 return true
 }
@@ -568,7 +569,7 @@ return true
 func probeSchema64(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",1,-1,0x3ff000000000000,0x0,0x3ff000000000000,0x0) { return false }
+if !schemaToken(s,"",5,5,0x3ff000000000000,0x7fffffe,0x3ff000000000000,0x7fffffe) { return false }
 }
 return true
 }
@@ -576,7 +577,7 @@ return true
 func probeSchema65(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",36,36,0x3ff200000000000,0x7e00000000,0x3ff200000000000,0x7e00000000) { return false }
+if !schemaToken(s,"",1,-1,0x3ff000000000000,0x0,0x3ff000000000000,0x0) { return false }
 }
 return true
 }
@@ -584,7 +585,7 @@ return true
 func probeSchema66(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",40,40,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaToken(s,"",36,36,0x3ff200000000000,0x7e00000000,0x3ff200000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -592,7 +593,7 @@ return true
 func probeSchema67(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaToken(s,"",40,40,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -600,7 +601,7 @@ return true
 func probeSchema68(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", s) { return false }
+if !schemaToken(s,"",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -608,7 +609,7 @@ return true
 func probeSchema69(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", s) { return false }
+if !schemaPattern("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", s) { return false }
 }
 return true
 }
@@ -616,7 +617,7 @@ return true
 func probeSchema70(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",1,20,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
+if !schemaPattern("^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", s) { return false }
 }
 return true
 }
@@ -624,7 +625,7 @@ return true
 func probeSchema71(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",1,-1,0x0,0x7fffffe,0x3ff000000000000,0x87fffffe) { return false }
+if !schemaToken(s,"",1,20,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
 }
 return true
 }
@@ -632,7 +633,7 @@ return true
 func probeSchema72(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",1,128,0x7ff600000000000,0x7fffffe87fffffe,0x7ff600000000000,0x7fffffe87fffffe) { return false }
+if !schemaToken(s,"",1,-1,0x0,0x7fffffe,0x3ff000000000000,0x87fffffe) { return false }
 }
 return true
 }
@@ -640,7 +641,7 @@ return true
 func probeSchema73(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",1,128,0x3ff000000000000,0x7fffffe07fffffe,0x3ff600000000000,0x7fffffe87fffffe) { return false }
+if !schemaToken(s,"",1,128,0x7ff600000000000,0x7fffffe87fffffe,0x7ff600000000000,0x7fffffe87fffffe) { return false }
 }
 return true
 }
@@ -648,7 +649,7 @@ return true
 func probeSchema74(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",1,-1,0x3ff600000000000,0x7fffffe87fffffe,0x3ff600000000000,0x7fffffe87fffffe) { return false }
+if !schemaToken(s,"",1,128,0x3ff000000000000,0x7fffffe07fffffe,0x3ff600000000000,0x7fffffe87fffffe) { return false }
 }
 return true
 }
@@ -656,7 +657,7 @@ return true
 func probeSchema75(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",1,96,0x3ff600000000000,0x7fffffe87fffffe,0x3ff600000000000,0x7fffffe87fffffe) { return false }
+if !schemaToken(s,"",1,-1,0x3ff600000000000,0x7fffffe87fffffe,0x3ff600000000000,0x7fffffe87fffffe) { return false }
 }
 return true
 }
@@ -664,7 +665,7 @@ return true
 func probeSchema76(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[A-Za-z0-9_./,\\[\\]-]+$", s) { return false }
+if !schemaToken(s,"",1,96,0x3ff600000000000,0x7fffffe87fffffe,0x3ff600000000000,0x7fffffe87fffffe) { return false }
 }
 return true
 }
@@ -672,7 +673,7 @@ return true
 func probeSchema77(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[A-Za-z0-9_.:/-]+$", s) { return false }
+if !schemaPattern("^[A-Za-z0-9_./,\\[\\]-]+$", s) { return false }
 }
 return true
 }
@@ -680,7 +681,7 @@ return true
 func probeSchema78(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[A-Za-z0-9_.:@+-]+$", s) { return false }
+if !schemaPattern("^[A-Za-z0-9_.:/-]+$", s) { return false }
 }
 return true
 }
@@ -688,7 +689,7 @@ return true
 func probeSchema79(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$", s) { return false }
+if !schemaPattern("^[A-Za-z0-9_.:@+-]+$", s) { return false }
 }
 return true
 }
@@ -696,7 +697,7 @@ return true
 func probeSchema80(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[^\u0000-\u001f]+$", s) { return false }
+if !schemaPattern("^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$", s) { return false }
 }
 return true
 }
@@ -704,7 +705,7 @@ return true
 func probeSchema81(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[^\u0000]*$", s) { return false }
+if !schemaPattern("^[^\u0000-\u001f]+$", s) { return false }
 }
 return true
 }
@@ -712,7 +713,7 @@ return true
 func probeSchema82(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",32,32,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaPattern("^[^\u0000]*$", s) { return false }
 }
 return true
 }
@@ -720,7 +721,7 @@ return true
 func probeSchema83(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",40,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaToken(s,"",32,32,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -728,7 +729,7 @@ return true
 func probeSchema84(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaToken(s,"",40,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -736,7 +737,7 @@ return true
 func probeSchema85(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$", s) { return false }
+if !schemaToken(s,"",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -744,7 +745,7 @@ return true
 func probeSchema86(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[a-z0-9]+/[a-z0-9_]+$", s) { return false }
+if !schemaPattern("^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$", s) { return false }
 }
 return true
 }
@@ -752,7 +753,7 @@ return true
 func probeSchema87(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",1,-1,0x0,0x7fffffe00000000,0x3ff600000000000,0x7fffffe80000000) { return false }
+if !schemaPattern("^[a-z0-9]+/[a-z0-9_]+$", s) { return false }
 }
 return true
 }
@@ -760,7 +761,7 @@ return true
 func probeSchema88(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"",1,-1,0x0,0x7fffffe00000000,0x3ff000000000000,0x7fffffe80000000) { return false }
+if !schemaToken(s,"",1,-1,0x0,0x7fffffe00000000,0x3ff600000000000,0x7fffffe80000000) { return false }
 }
 return true
 }
@@ -768,7 +769,7 @@ return true
 func probeSchema89(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^[a-z][a-z0-9_]*_v[1-9][0-9]*$", s) { return false }
+if !schemaToken(s,"",1,-1,0x0,0x7fffffe00000000,0x3ff000000000000,0x7fffffe80000000) { return false }
 }
 return true
 }
@@ -776,7 +777,7 @@ return true
 func probeSchema90(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^\\d+$", s) { return false }
+if !schemaPattern("^[a-z][a-z0-9_]*_v[1-9][0-9]*$", s) { return false }
 }
 return true
 }
@@ -784,7 +785,7 @@ return true
 func probeSchema91(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^\\d+\\.\\d+\\.\\d+$", s) { return false }
+if !schemaPattern("^\\d+$", s) { return false }
 }
 return true
 }
@@ -792,7 +793,7 @@ return true
 func probeSchema92(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^\\d+\\.\\d+\\.\\d+\\.\\d+$", s) { return false }
+if !schemaPattern("^\\d+\\.\\d+\\.\\d+$", s) { return false }
 }
 return true
 }
@@ -800,7 +801,7 @@ return true
 func probeSchema93(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$", s) { return false }
+if !schemaPattern("^\\d+\\.\\d+\\.\\d+\\.\\d+$", s) { return false }
 }
 return true
 }
@@ -808,7 +809,7 @@ return true
 func probeSchema94(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^_shared/fixture-leases/[A-Za-z0-9_.-]+\\.json$", s) { return false }
+if !schemaPattern("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$", s) { return false }
 }
 return true
 }
@@ -816,7 +817,7 @@ return true
 func probeSchema95(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^_shared/test-services/[A-Za-z0-9][A-Za-z0-9._-]*/service-scope\\.json$", s) { return false }
+if !schemaPattern("^_shared/fixture-leases/[A-Za-z0-9_.-]+\\.json$", s) { return false }
 }
 return true
 }
@@ -824,7 +825,7 @@ return true
 func probeSchema96(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"allocation:",1,-1,0x7ff600000000000,0x7fffffe87fffffe,0x7ff600000000000,0x7fffffe87fffffe) { return false }
+if !schemaPattern("^_shared/test-services/[A-Za-z0-9][A-Za-z0-9._-]*/service-scope\\.json$", s) { return false }
 }
 return true
 }
@@ -832,7 +833,7 @@ return true
 func probeSchema97(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"bundle-",1,-1,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
+if !schemaToken(s,"allocation:",1,-1,0x7ff600000000000,0x7fffffe87fffffe,0x7ff600000000000,0x7fffffe87fffffe) { return false }
 }
 return true
 }
@@ -840,7 +841,7 @@ return true
 func probeSchema98(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^cartulary-visual-[1-9][0-9]*-[a-f0-9]{12}$", s) { return false }
+if !schemaToken(s,"bundle-",1,-1,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
 }
 return true
 }
@@ -848,7 +849,7 @@ return true
 func probeSchema99(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^cartulary\\.harness\\.command\\.[a-z0-9_]+\\.v[1-9][0-9]*$", s) { return false }
+if !schemaPattern("^cartulary-visual-[1-9][0-9]*-[a-f0-9]{12}$", s) { return false }
 }
 return true
 }
@@ -856,7 +857,7 @@ return true
 func probeSchema100(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^cartulary\\.harness\\.command\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$", s) { return false }
+if !schemaPattern("^cartulary\\.harness\\.command\\.[a-z0-9_]+\\.v[1-9][0-9]*$", s) { return false }
 }
 return true
 }
@@ -864,7 +865,7 @@ return true
 func probeSchema101(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"cgroup:",1,-1,0x3ff000000000000,0x0,0x3ff000000000000,0x0) { return false }
+if !schemaPattern("^cartulary\\.harness\\.command\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$", s) { return false }
 }
 return true
 }
@@ -872,7 +873,7 @@ return true
 func probeSchema102(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"container:",1,-1,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
+if !schemaToken(s,"cgroup:",1,-1,0x3ff000000000000,0x0,0x3ff000000000000,0x0) { return false }
 }
 return true
 }
@@ -880,7 +881,7 @@ return true
 func probeSchema103(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^extensions$", s) { return false }
+if !schemaToken(s,"container:",1,-1,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
 }
 return true
 }
@@ -888,7 +889,7 @@ return true
 func probeSchema104(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^guest:(cpu|memory|io)$", s) { return false }
+if !schemaPattern("^extensions$", s) { return false }
 }
 return true
 }
@@ -896,7 +897,7 @@ return true
 func probeSchema105(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"launch:",36,36,0x3ff200000000000,0x7e00000000,0x3ff200000000000,0x7e00000000) { return false }
+if !schemaPattern("^guest:(cpu|memory|io)$", s) { return false }
 }
 return true
 }
@@ -904,7 +905,7 @@ return true
 func probeSchema106(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^mcr\\.microsoft\\.com/playwright@sha256:[a-f0-9]{64}$", s) { return false }
+if !schemaToken(s,"launch:",36,36,0x3ff200000000000,0x7e00000000,0x3ff200000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -912,7 +913,7 @@ return true
 func probeSchema107(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"phase:",1,-1,0x3ff000000000000,0x0,0x3ff000000000000,0x0) { return false }
+if !schemaPattern("^mcr\\.microsoft\\.com/playwright@sha256:[a-f0-9]{64}$", s) { return false }
 }
 return true
 }
@@ -920,7 +921,7 @@ return true
 func probeSchema108(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"process:",1,-1,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
+if !schemaToken(s,"phase:",1,-1,0x3ff000000000000,0x0,0x3ff000000000000,0x0) { return false }
 }
 return true
 }
@@ -928,7 +929,7 @@ return true
 func probeSchema109(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"producer:",4,4,0x3ff000000000000,0x0,0x3ff000000000000,0x0) { return false }
+if !schemaToken(s,"process:",1,-1,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
 }
 return true
 }
@@ -936,7 +937,7 @@ return true
 func probeSchema110(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaPattern("^resource:[A-Za-z0-9_.-]+:[0-9a-f-]{36}:[a-z_]+-[a-f0-9]{64}$", s) { return false }
+if !schemaToken(s,"producer:",4,4,0x3ff000000000000,0x0,0x3ff000000000000,0x0) { return false }
 }
 return true
 }
@@ -944,7 +945,7 @@ return true
 func probeSchema111(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"sha256:",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaPattern("^resource:[A-Za-z0-9_.-]+:[0-9a-f-]{36}:[a-z_]+-[a-f0-9]{64}$", s) { return false }
 }
 return true
 }
@@ -960,7 +961,7 @@ return true
 func probeSchema113(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
-if !schemaToken(s,"uireview-",32,32,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+if !schemaToken(s,"sha256:",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
 }
 return true
 }
@@ -974,6 +975,14 @@ return true
 }
 
 func probeSchema115(v any) bool {
+if !(schemaType(v, "string")) { return false }
+if s, ok := v.(string); ok {
+if !schemaToken(s,"uireview-",32,32,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+}
+return true
+}
+
+func probeSchema116(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if !schemaToken(s,"visual.renderer.",1,-1,0x3ff000000000000,0x7fffffe80000000,0x3ff000000000000,0x7fffffe80000000) { return false }
@@ -3219,7 +3228,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern11","\"a/../b\"",false},
 {"probe.pattern11","\"a/./b\"",false},
 {"probe.pattern11","\"a//b\"",false},
-{"probe.pattern11","\"/a\"",true},
+{"probe.pattern11","\"/a\"",false},
 {"probe.pattern11","\"a\\n\"",false},
 {"probe.pattern11","\"a\\r\"",false},
 {"probe.pattern11","\"a\\r\\n\"",false},
@@ -3409,7 +3418,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern12","\"a/../b\"",false},
 {"probe.pattern12","\"a/./b\"",false},
 {"probe.pattern12","\"a//b\"",false},
-{"probe.pattern12","\"/a\"",false},
+{"probe.pattern12","\"/a\"",true},
 {"probe.pattern12","\"a\\n\"",false},
 {"probe.pattern12","\"a\\r\"",false},
 {"probe.pattern12","\"a\\r\\n\"",false},
@@ -4572,7 +4581,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern18","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern18","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern18","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern18","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern18","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern18","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern18","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern18","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
@@ -4762,7 +4771,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern19","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern19","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern19","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern19","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern19","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern19","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern19","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern19","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
@@ -5494,7 +5503,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern22","\"a~\"",false},
 {"probe.pattern22","\"a\"",false},
 {"probe.pattern23","\"\"",false},
-{"probe.pattern23","\"a\"",true},
+{"probe.pattern23","\"a\"",false},
 {"probe.pattern23","\"a/b\"",false},
 {"probe.pattern23","\"a/../b\"",false},
 {"probe.pattern23","\"a/./b\"",false},
@@ -5505,42 +5514,42 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern23","\"a\\r\\n\"",false},
 {"probe.pattern23","\"a \"",false},
 {"probe.pattern23","\"a \"",false},
-{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
-{"probe.pattern23","\"2026-10-10T00:00:00.000Z\"",true},
-{"probe.pattern23","\"command.v1\"",true},
+{"probe.pattern23","\"2026-10-10T00:00:00.000Z\"",false},
+{"probe.pattern23","\"command.v1\"",false},
 {"probe.pattern23","\"😀\"",false},
 {"probe.pattern23","\"\"",false},
-{"probe.pattern23","\"_\"",true},
-{"probe.pattern23","\"sha256:\"",true},
-{"probe.pattern23","\"a\"",true},
-{"probe.pattern23","\"_a\"",true},
-{"probe.pattern23","\"sha256:a\"",true},
-{"probe.pattern23","\"aa\"",true},
-{"probe.pattern23","\"_aa\"",true},
-{"probe.pattern23","\"sha256:aa\"",true},
-{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern23","\"_\"",false},
+{"probe.pattern23","\"sha256:\"",false},
+{"probe.pattern23","\"a\"",false},
+{"probe.pattern23","\"_a\"",false},
+{"probe.pattern23","\"sha256:a\"",false},
+{"probe.pattern23","\"aa\"",false},
+{"probe.pattern23","\"_aa\"",false},
+{"probe.pattern23","\"sha256:aa\"",false},
+{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern23","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern23","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern23","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
@@ -5600,84 +5609,84 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern23","\"a*\"",false},
 {"probe.pattern23","\"a+\"",false},
 {"probe.pattern23","\"a,\"",false},
-{"probe.pattern23","\"a-\"",true},
-{"probe.pattern23","\"a.\"",true},
+{"probe.pattern23","\"a-\"",false},
+{"probe.pattern23","\"a.\"",false},
 {"probe.pattern23","\"a/\"",false},
-{"probe.pattern23","\"a0\"",true},
-{"probe.pattern23","\"a1\"",true},
-{"probe.pattern23","\"a2\"",true},
-{"probe.pattern23","\"a3\"",true},
-{"probe.pattern23","\"a4\"",true},
-{"probe.pattern23","\"a5\"",true},
-{"probe.pattern23","\"a6\"",true},
-{"probe.pattern23","\"a7\"",true},
-{"probe.pattern23","\"a8\"",true},
-{"probe.pattern23","\"a9\"",true},
-{"probe.pattern23","\"a:\"",true},
+{"probe.pattern23","\"a0\"",false},
+{"probe.pattern23","\"a1\"",false},
+{"probe.pattern23","\"a2\"",false},
+{"probe.pattern23","\"a3\"",false},
+{"probe.pattern23","\"a4\"",false},
+{"probe.pattern23","\"a5\"",false},
+{"probe.pattern23","\"a6\"",false},
+{"probe.pattern23","\"a7\"",false},
+{"probe.pattern23","\"a8\"",false},
+{"probe.pattern23","\"a9\"",false},
+{"probe.pattern23","\"a:\"",false},
 {"probe.pattern23","\"a;\"",false},
 {"probe.pattern23","\"a<\"",false},
 {"probe.pattern23","\"a=\"",false},
 {"probe.pattern23","\"a>\"",false},
 {"probe.pattern23","\"a?\"",false},
 {"probe.pattern23","\"a@\"",false},
-{"probe.pattern23","\"aA\"",true},
-{"probe.pattern23","\"aB\"",true},
-{"probe.pattern23","\"aC\"",true},
-{"probe.pattern23","\"aD\"",true},
-{"probe.pattern23","\"aE\"",true},
-{"probe.pattern23","\"aF\"",true},
-{"probe.pattern23","\"aG\"",true},
-{"probe.pattern23","\"aH\"",true},
-{"probe.pattern23","\"aI\"",true},
-{"probe.pattern23","\"aJ\"",true},
-{"probe.pattern23","\"aK\"",true},
-{"probe.pattern23","\"aL\"",true},
-{"probe.pattern23","\"aM\"",true},
-{"probe.pattern23","\"aN\"",true},
-{"probe.pattern23","\"aO\"",true},
-{"probe.pattern23","\"aP\"",true},
-{"probe.pattern23","\"aQ\"",true},
-{"probe.pattern23","\"aR\"",true},
-{"probe.pattern23","\"aS\"",true},
-{"probe.pattern23","\"aT\"",true},
-{"probe.pattern23","\"aU\"",true},
-{"probe.pattern23","\"aV\"",true},
-{"probe.pattern23","\"aW\"",true},
-{"probe.pattern23","\"aX\"",true},
-{"probe.pattern23","\"aY\"",true},
-{"probe.pattern23","\"aZ\"",true},
+{"probe.pattern23","\"aA\"",false},
+{"probe.pattern23","\"aB\"",false},
+{"probe.pattern23","\"aC\"",false},
+{"probe.pattern23","\"aD\"",false},
+{"probe.pattern23","\"aE\"",false},
+{"probe.pattern23","\"aF\"",false},
+{"probe.pattern23","\"aG\"",false},
+{"probe.pattern23","\"aH\"",false},
+{"probe.pattern23","\"aI\"",false},
+{"probe.pattern23","\"aJ\"",false},
+{"probe.pattern23","\"aK\"",false},
+{"probe.pattern23","\"aL\"",false},
+{"probe.pattern23","\"aM\"",false},
+{"probe.pattern23","\"aN\"",false},
+{"probe.pattern23","\"aO\"",false},
+{"probe.pattern23","\"aP\"",false},
+{"probe.pattern23","\"aQ\"",false},
+{"probe.pattern23","\"aR\"",false},
+{"probe.pattern23","\"aS\"",false},
+{"probe.pattern23","\"aT\"",false},
+{"probe.pattern23","\"aU\"",false},
+{"probe.pattern23","\"aV\"",false},
+{"probe.pattern23","\"aW\"",false},
+{"probe.pattern23","\"aX\"",false},
+{"probe.pattern23","\"aY\"",false},
+{"probe.pattern23","\"aZ\"",false},
 {"probe.pattern23","\"a[\"",false},
 {"probe.pattern23","\"a\\\\\"",false},
 {"probe.pattern23","\"a]\"",false},
 {"probe.pattern23","\"a^\"",false},
-{"probe.pattern23","\"a_\"",true},
+{"probe.pattern23","\"a_\"",false},
 {"probe.pattern23","\"a`\"",false},
-{"probe.pattern23","\"aa\"",true},
-{"probe.pattern23","\"ab\"",true},
-{"probe.pattern23","\"ac\"",true},
-{"probe.pattern23","\"ad\"",true},
-{"probe.pattern23","\"ae\"",true},
-{"probe.pattern23","\"af\"",true},
-{"probe.pattern23","\"ag\"",true},
-{"probe.pattern23","\"ah\"",true},
-{"probe.pattern23","\"ai\"",true},
-{"probe.pattern23","\"aj\"",true},
-{"probe.pattern23","\"ak\"",true},
-{"probe.pattern23","\"al\"",true},
-{"probe.pattern23","\"am\"",true},
-{"probe.pattern23","\"an\"",true},
-{"probe.pattern23","\"ao\"",true},
-{"probe.pattern23","\"ap\"",true},
-{"probe.pattern23","\"aq\"",true},
-{"probe.pattern23","\"ar\"",true},
-{"probe.pattern23","\"as\"",true},
-{"probe.pattern23","\"at\"",true},
-{"probe.pattern23","\"au\"",true},
-{"probe.pattern23","\"av\"",true},
-{"probe.pattern23","\"aw\"",true},
-{"probe.pattern23","\"ax\"",true},
-{"probe.pattern23","\"ay\"",true},
-{"probe.pattern23","\"az\"",true},
+{"probe.pattern23","\"aa\"",false},
+{"probe.pattern23","\"ab\"",false},
+{"probe.pattern23","\"ac\"",false},
+{"probe.pattern23","\"ad\"",false},
+{"probe.pattern23","\"ae\"",false},
+{"probe.pattern23","\"af\"",false},
+{"probe.pattern23","\"ag\"",false},
+{"probe.pattern23","\"ah\"",false},
+{"probe.pattern23","\"ai\"",false},
+{"probe.pattern23","\"aj\"",false},
+{"probe.pattern23","\"ak\"",false},
+{"probe.pattern23","\"al\"",false},
+{"probe.pattern23","\"am\"",false},
+{"probe.pattern23","\"an\"",false},
+{"probe.pattern23","\"ao\"",false},
+{"probe.pattern23","\"ap\"",false},
+{"probe.pattern23","\"aq\"",false},
+{"probe.pattern23","\"ar\"",false},
+{"probe.pattern23","\"as\"",false},
+{"probe.pattern23","\"at\"",false},
+{"probe.pattern23","\"au\"",false},
+{"probe.pattern23","\"av\"",false},
+{"probe.pattern23","\"aw\"",false},
+{"probe.pattern23","\"ax\"",false},
+{"probe.pattern23","\"ay\"",false},
+{"probe.pattern23","\"az\"",false},
 {"probe.pattern23","\"a{\"",false},
 {"probe.pattern23","\"a|\"",false},
 {"probe.pattern23","\"a}\"",false},
@@ -5695,40 +5704,40 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern24","\"a\\r\\n\"",false},
 {"probe.pattern24","\"a \"",false},
 {"probe.pattern24","\"a \"",false},
-{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
-{"probe.pattern24","\"2026-10-10T00:00:00.000Z\"",false},
+{"probe.pattern24","\"2026-10-10T00:00:00.000Z\"",true},
 {"probe.pattern24","\"command.v1\"",true},
 {"probe.pattern24","\"😀\"",false},
 {"probe.pattern24","\"\"",false},
-{"probe.pattern24","\"_\"",false},
-{"probe.pattern24","\"sha256:\"",false},
+{"probe.pattern24","\"_\"",true},
+{"probe.pattern24","\"sha256:\"",true},
 {"probe.pattern24","\"a\"",true},
-{"probe.pattern24","\"_a\"",false},
-{"probe.pattern24","\"sha256:a\"",false},
+{"probe.pattern24","\"_a\"",true},
+{"probe.pattern24","\"sha256:a\"",true},
 {"probe.pattern24","\"aa\"",true},
-{"probe.pattern24","\"_aa\"",false},
-{"probe.pattern24","\"sha256:aa\"",false},
+{"probe.pattern24","\"_aa\"",true},
+{"probe.pattern24","\"sha256:aa\"",true},
 {"probe.pattern24","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern24","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern24","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern24","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern24","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern24","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern24","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern24","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern24","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern24","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
@@ -5803,7 +5812,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern24","\"a7\"",true},
 {"probe.pattern24","\"a8\"",true},
 {"probe.pattern24","\"a9\"",true},
-{"probe.pattern24","\"a:\"",false},
+{"probe.pattern24","\"a:\"",true},
 {"probe.pattern24","\"a;\"",false},
 {"probe.pattern24","\"a<\"",false},
 {"probe.pattern24","\"a=\"",false},
@@ -5891,49 +5900,49 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern25","\"command.v1\"",true},
 {"probe.pattern25","\"😀\"",false},
 {"probe.pattern25","\"\"",false},
-{"probe.pattern25","\"_\"",true},
+{"probe.pattern25","\"_\"",false},
 {"probe.pattern25","\"sha256:\"",false},
 {"probe.pattern25","\"a\"",true},
-{"probe.pattern25","\"_a\"",true},
+{"probe.pattern25","\"_a\"",false},
 {"probe.pattern25","\"sha256:a\"",false},
 {"probe.pattern25","\"aa\"",true},
-{"probe.pattern25","\"_aa\"",true},
+{"probe.pattern25","\"_aa\"",false},
 {"probe.pattern25","\"sha256:aa\"",false},
 {"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern25","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern25","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern25","\"a\\u0000\"",false},
 {"probe.pattern25","\"a\\u0001\"",false},
@@ -6102,28 +6111,28 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern26","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern26","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern26","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern26","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern26","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern26","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern26","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern26","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern26","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern26","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern26","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern26","\"a\\u0000\"",false},
 {"probe.pattern26","\"a\\u0001\"",false},
@@ -6255,11 +6264,11 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern26","\"a\"",false},
 {"probe.pattern27","\"\"",false},
 {"probe.pattern27","\"a\"",true},
-{"probe.pattern27","\"a/b\"",true},
-{"probe.pattern27","\"a/../b\"",true},
-{"probe.pattern27","\"a/./b\"",true},
-{"probe.pattern27","\"a//b\"",true},
-{"probe.pattern27","\"/a\"",true},
+{"probe.pattern27","\"a/b\"",false},
+{"probe.pattern27","\"a/../b\"",false},
+{"probe.pattern27","\"a/./b\"",false},
+{"probe.pattern27","\"a//b\"",false},
+{"probe.pattern27","\"/a\"",false},
 {"probe.pattern27","\"a\\n\"",false},
 {"probe.pattern27","\"a\\r\"",false},
 {"probe.pattern27","\"a\\r\\n\"",false},
@@ -6292,28 +6301,28 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern27","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern27","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern27","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern27","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern27","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern27","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern27","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern27","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern27","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern27","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern27","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern27","\"a\\u0000\"",false},
 {"probe.pattern27","\"a\\u0001\"",false},
@@ -6359,10 +6368,10 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern27","\"a)\"",false},
 {"probe.pattern27","\"a*\"",false},
 {"probe.pattern27","\"a+\"",false},
-{"probe.pattern27","\"a,\"",true},
+{"probe.pattern27","\"a,\"",false},
 {"probe.pattern27","\"a-\"",true},
 {"probe.pattern27","\"a.\"",true},
-{"probe.pattern27","\"a/\"",true},
+{"probe.pattern27","\"a/\"",false},
 {"probe.pattern27","\"a0\"",true},
 {"probe.pattern27","\"a1\"",true},
 {"probe.pattern27","\"a2\"",true},
@@ -6406,9 +6415,9 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern27","\"aX\"",true},
 {"probe.pattern27","\"aY\"",true},
 {"probe.pattern27","\"aZ\"",true},
-{"probe.pattern27","\"a[\"",true},
+{"probe.pattern27","\"a[\"",false},
 {"probe.pattern27","\"a\\\\\"",false},
-{"probe.pattern27","\"a]\"",true},
+{"probe.pattern27","\"a]\"",false},
 {"probe.pattern27","\"a^\"",false},
 {"probe.pattern27","\"a_\"",true},
 {"probe.pattern27","\"a`\"",false},
@@ -6455,56 +6464,56 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern28","\"a\\r\\n\"",false},
 {"probe.pattern28","\"a \"",false},
 {"probe.pattern28","\"a \"",false},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
-{"probe.pattern28","\"2026-10-10T00:00:00.000Z\"",true},
+{"probe.pattern28","\"2026-10-10T00:00:00.000Z\"",false},
 {"probe.pattern28","\"command.v1\"",true},
 {"probe.pattern28","\"😀\"",false},
 {"probe.pattern28","\"\"",false},
 {"probe.pattern28","\"_\"",true},
-{"probe.pattern28","\"sha256:\"",true},
+{"probe.pattern28","\"sha256:\"",false},
 {"probe.pattern28","\"a\"",true},
 {"probe.pattern28","\"_a\"",true},
-{"probe.pattern28","\"sha256:a\"",true},
+{"probe.pattern28","\"sha256:a\"",false},
 {"probe.pattern28","\"aa\"",true},
 {"probe.pattern28","\"_aa\"",true},
-{"probe.pattern28","\"sha256:aa\"",true},
+{"probe.pattern28","\"sha256:aa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern28","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern28","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern28","\"a\\u0000\"",false},
 {"probe.pattern28","\"a\\u0001\"",false},
 {"probe.pattern28","\"a\\u0002\"",false},
@@ -6549,7 +6558,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern28","\"a)\"",false},
 {"probe.pattern28","\"a*\"",false},
 {"probe.pattern28","\"a+\"",false},
-{"probe.pattern28","\"a,\"",false},
+{"probe.pattern28","\"a,\"",true},
 {"probe.pattern28","\"a-\"",true},
 {"probe.pattern28","\"a.\"",true},
 {"probe.pattern28","\"a/\"",true},
@@ -6563,7 +6572,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern28","\"a7\"",true},
 {"probe.pattern28","\"a8\"",true},
 {"probe.pattern28","\"a9\"",true},
-{"probe.pattern28","\"a:\"",true},
+{"probe.pattern28","\"a:\"",false},
 {"probe.pattern28","\"a;\"",false},
 {"probe.pattern28","\"a<\"",false},
 {"probe.pattern28","\"a=\"",false},
@@ -6596,9 +6605,9 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern28","\"aX\"",true},
 {"probe.pattern28","\"aY\"",true},
 {"probe.pattern28","\"aZ\"",true},
-{"probe.pattern28","\"a[\"",false},
+{"probe.pattern28","\"a[\"",true},
 {"probe.pattern28","\"a\\\\\"",false},
-{"probe.pattern28","\"a]\"",false},
+{"probe.pattern28","\"a]\"",true},
 {"probe.pattern28","\"a^\"",false},
 {"probe.pattern28","\"a_\"",true},
 {"probe.pattern28","\"a`\"",false},
@@ -6635,11 +6644,11 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern28","\"a\"",false},
 {"probe.pattern29","\"\"",false},
 {"probe.pattern29","\"a\"",true},
-{"probe.pattern29","\"a/b\"",false},
-{"probe.pattern29","\"a/../b\"",false},
-{"probe.pattern29","\"a/./b\"",false},
-{"probe.pattern29","\"a//b\"",false},
-{"probe.pattern29","\"/a\"",false},
+{"probe.pattern29","\"a/b\"",true},
+{"probe.pattern29","\"a/../b\"",true},
+{"probe.pattern29","\"a/./b\"",true},
+{"probe.pattern29","\"a//b\"",true},
+{"probe.pattern29","\"/a\"",true},
 {"probe.pattern29","\"a\\n\"",false},
 {"probe.pattern29","\"a\\r\"",false},
 {"probe.pattern29","\"a\\r\\n\"",false},
@@ -6738,11 +6747,11 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern29","\"a(\"",false},
 {"probe.pattern29","\"a)\"",false},
 {"probe.pattern29","\"a*\"",false},
-{"probe.pattern29","\"a+\"",true},
+{"probe.pattern29","\"a+\"",false},
 {"probe.pattern29","\"a,\"",false},
 {"probe.pattern29","\"a-\"",true},
 {"probe.pattern29","\"a.\"",true},
-{"probe.pattern29","\"a/\"",false},
+{"probe.pattern29","\"a/\"",true},
 {"probe.pattern29","\"a0\"",true},
 {"probe.pattern29","\"a1\"",true},
 {"probe.pattern29","\"a2\"",true},
@@ -6759,7 +6768,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern29","\"a=\"",false},
 {"probe.pattern29","\"a>\"",false},
 {"probe.pattern29","\"a?\"",false},
-{"probe.pattern29","\"a@\"",true},
+{"probe.pattern29","\"a@\"",false},
 {"probe.pattern29","\"aA\"",true},
 {"probe.pattern29","\"aB\"",true},
 {"probe.pattern29","\"aC\"",true},
@@ -6824,7 +6833,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern29","\"a~\"",false},
 {"probe.pattern29","\"a\"",false},
 {"probe.pattern30","\"\"",false},
-{"probe.pattern30","\"a\"",false},
+{"probe.pattern30","\"a\"",true},
 {"probe.pattern30","\"a/b\"",false},
 {"probe.pattern30","\"a/../b\"",false},
 {"probe.pattern30","\"a/./b\"",false},
@@ -6835,56 +6844,56 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern30","\"a\\r\\n\"",false},
 {"probe.pattern30","\"a \"",false},
 {"probe.pattern30","\"a \"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
-{"probe.pattern30","\"2026-10-10T00:00:00.000Z\"",false},
-{"probe.pattern30","\"command.v1\"",false},
+{"probe.pattern30","\"2026-10-10T00:00:00.000Z\"",true},
+{"probe.pattern30","\"command.v1\"",true},
 {"probe.pattern30","\"😀\"",false},
 {"probe.pattern30","\"\"",false},
-{"probe.pattern30","\"_\"",false},
-{"probe.pattern30","\"sha256:\"",false},
-{"probe.pattern30","\"a\"",false},
-{"probe.pattern30","\"_a\"",false},
-{"probe.pattern30","\"sha256:a\"",false},
+{"probe.pattern30","\"_\"",true},
+{"probe.pattern30","\"sha256:\"",true},
+{"probe.pattern30","\"a\"",true},
+{"probe.pattern30","\"_a\"",true},
+{"probe.pattern30","\"sha256:a\"",true},
 {"probe.pattern30","\"aa\"",true},
-{"probe.pattern30","\"_aa\"",false},
-{"probe.pattern30","\"sha256:aa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern30","\"_aa\"",true},
+{"probe.pattern30","\"sha256:aa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern30","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern30","\"a\\u0000\"",false},
 {"probe.pattern30","\"a\\u0001\"",false},
 {"probe.pattern30","\"a\\u0002\"",false},
@@ -6928,28 +6937,28 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern30","\"a(\"",false},
 {"probe.pattern30","\"a)\"",false},
 {"probe.pattern30","\"a*\"",false},
-{"probe.pattern30","\"a+\"",false},
+{"probe.pattern30","\"a+\"",true},
 {"probe.pattern30","\"a,\"",false},
-{"probe.pattern30","\"a-\"",false},
-{"probe.pattern30","\"a.\"",false},
+{"probe.pattern30","\"a-\"",true},
+{"probe.pattern30","\"a.\"",true},
 {"probe.pattern30","\"a/\"",false},
-{"probe.pattern30","\"a0\"",false},
-{"probe.pattern30","\"a1\"",false},
-{"probe.pattern30","\"a2\"",false},
-{"probe.pattern30","\"a3\"",false},
-{"probe.pattern30","\"a4\"",false},
-{"probe.pattern30","\"a5\"",false},
-{"probe.pattern30","\"a6\"",false},
-{"probe.pattern30","\"a7\"",false},
-{"probe.pattern30","\"a8\"",false},
-{"probe.pattern30","\"a9\"",false},
-{"probe.pattern30","\"a:\"",false},
+{"probe.pattern30","\"a0\"",true},
+{"probe.pattern30","\"a1\"",true},
+{"probe.pattern30","\"a2\"",true},
+{"probe.pattern30","\"a3\"",true},
+{"probe.pattern30","\"a4\"",true},
+{"probe.pattern30","\"a5\"",true},
+{"probe.pattern30","\"a6\"",true},
+{"probe.pattern30","\"a7\"",true},
+{"probe.pattern30","\"a8\"",true},
+{"probe.pattern30","\"a9\"",true},
+{"probe.pattern30","\"a:\"",true},
 {"probe.pattern30","\"a;\"",false},
 {"probe.pattern30","\"a<\"",false},
 {"probe.pattern30","\"a=\"",false},
 {"probe.pattern30","\"a>\"",false},
 {"probe.pattern30","\"a?\"",false},
-{"probe.pattern30","\"a@\"",false},
+{"probe.pattern30","\"a@\"",true},
 {"probe.pattern30","\"aA\"",true},
 {"probe.pattern30","\"aB\"",true},
 {"probe.pattern30","\"aC\"",true},
@@ -6980,7 +6989,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern30","\"a\\\\\"",false},
 {"probe.pattern30","\"a]\"",false},
 {"probe.pattern30","\"a^\"",false},
-{"probe.pattern30","\"a_\"",false},
+{"probe.pattern30","\"a_\"",true},
 {"probe.pattern30","\"a`\"",false},
 {"probe.pattern30","\"aa\"",true},
 {"probe.pattern30","\"ab\"",true},
@@ -7014,67 +7023,67 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern30","\"a~\"",false},
 {"probe.pattern30","\"a\"",false},
 {"probe.pattern31","\"\"",false},
-{"probe.pattern31","\"a\"",true},
-{"probe.pattern31","\"a/b\"",true},
-{"probe.pattern31","\"a/../b\"",true},
-{"probe.pattern31","\"a/./b\"",true},
-{"probe.pattern31","\"a//b\"",true},
-{"probe.pattern31","\"/a\"",true},
+{"probe.pattern31","\"a\"",false},
+{"probe.pattern31","\"a/b\"",false},
+{"probe.pattern31","\"a/../b\"",false},
+{"probe.pattern31","\"a/./b\"",false},
+{"probe.pattern31","\"a//b\"",false},
+{"probe.pattern31","\"/a\"",false},
 {"probe.pattern31","\"a\\n\"",false},
 {"probe.pattern31","\"a\\r\"",false},
 {"probe.pattern31","\"a\\r\\n\"",false},
-{"probe.pattern31","\"a \"",true},
-{"probe.pattern31","\"a \"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern31","\"a \"",false},
+{"probe.pattern31","\"a \"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
-{"probe.pattern31","\"2026-10-10T00:00:00.000Z\"",true},
-{"probe.pattern31","\"command.v1\"",true},
-{"probe.pattern31","\"😀\"",true},
+{"probe.pattern31","\"2026-10-10T00:00:00.000Z\"",false},
+{"probe.pattern31","\"command.v1\"",false},
+{"probe.pattern31","\"😀\"",false},
 {"probe.pattern31","\"\"",false},
-{"probe.pattern31","\"_\"",true},
-{"probe.pattern31","\"sha256:\"",true},
-{"probe.pattern31","\"a\"",true},
-{"probe.pattern31","\"_a\"",true},
-{"probe.pattern31","\"sha256:a\"",true},
+{"probe.pattern31","\"_\"",false},
+{"probe.pattern31","\"sha256:\"",false},
+{"probe.pattern31","\"a\"",false},
+{"probe.pattern31","\"_a\"",false},
+{"probe.pattern31","\"sha256:a\"",false},
 {"probe.pattern31","\"aa\"",true},
-{"probe.pattern31","\"_aa\"",true},
-{"probe.pattern31","\"sha256:aa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern31","\"_aa\"",false},
+{"probe.pattern31","\"sha256:aa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern31","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern31","\"a\\u0000\"",false},
 {"probe.pattern31","\"a\\u0001\"",false},
 {"probe.pattern31","\"a\\u0002\"",false},
@@ -7107,39 +7116,39 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern31","\"a\\u001d\"",false},
 {"probe.pattern31","\"a\\u001e\"",false},
 {"probe.pattern31","\"a\\u001f\"",false},
-{"probe.pattern31","\"a \"",true},
-{"probe.pattern31","\"a!\"",true},
-{"probe.pattern31","\"a\\\"\"",true},
-{"probe.pattern31","\"a#\"",true},
-{"probe.pattern31","\"a$\"",true},
-{"probe.pattern31","\"a%\"",true},
-{"probe.pattern31","\"a&\"",true},
-{"probe.pattern31","\"a'\"",true},
-{"probe.pattern31","\"a(\"",true},
-{"probe.pattern31","\"a)\"",true},
-{"probe.pattern31","\"a*\"",true},
-{"probe.pattern31","\"a+\"",true},
-{"probe.pattern31","\"a,\"",true},
-{"probe.pattern31","\"a-\"",true},
-{"probe.pattern31","\"a.\"",true},
-{"probe.pattern31","\"a/\"",true},
-{"probe.pattern31","\"a0\"",true},
-{"probe.pattern31","\"a1\"",true},
-{"probe.pattern31","\"a2\"",true},
-{"probe.pattern31","\"a3\"",true},
-{"probe.pattern31","\"a4\"",true},
-{"probe.pattern31","\"a5\"",true},
-{"probe.pattern31","\"a6\"",true},
-{"probe.pattern31","\"a7\"",true},
-{"probe.pattern31","\"a8\"",true},
-{"probe.pattern31","\"a9\"",true},
-{"probe.pattern31","\"a:\"",true},
-{"probe.pattern31","\"a;\"",true},
-{"probe.pattern31","\"a<\"",true},
-{"probe.pattern31","\"a=\"",true},
-{"probe.pattern31","\"a>\"",true},
-{"probe.pattern31","\"a?\"",true},
-{"probe.pattern31","\"a@\"",true},
+{"probe.pattern31","\"a \"",false},
+{"probe.pattern31","\"a!\"",false},
+{"probe.pattern31","\"a\\\"\"",false},
+{"probe.pattern31","\"a#\"",false},
+{"probe.pattern31","\"a$\"",false},
+{"probe.pattern31","\"a%\"",false},
+{"probe.pattern31","\"a&\"",false},
+{"probe.pattern31","\"a'\"",false},
+{"probe.pattern31","\"a(\"",false},
+{"probe.pattern31","\"a)\"",false},
+{"probe.pattern31","\"a*\"",false},
+{"probe.pattern31","\"a+\"",false},
+{"probe.pattern31","\"a,\"",false},
+{"probe.pattern31","\"a-\"",false},
+{"probe.pattern31","\"a.\"",false},
+{"probe.pattern31","\"a/\"",false},
+{"probe.pattern31","\"a0\"",false},
+{"probe.pattern31","\"a1\"",false},
+{"probe.pattern31","\"a2\"",false},
+{"probe.pattern31","\"a3\"",false},
+{"probe.pattern31","\"a4\"",false},
+{"probe.pattern31","\"a5\"",false},
+{"probe.pattern31","\"a6\"",false},
+{"probe.pattern31","\"a7\"",false},
+{"probe.pattern31","\"a8\"",false},
+{"probe.pattern31","\"a9\"",false},
+{"probe.pattern31","\"a:\"",false},
+{"probe.pattern31","\"a;\"",false},
+{"probe.pattern31","\"a<\"",false},
+{"probe.pattern31","\"a=\"",false},
+{"probe.pattern31","\"a>\"",false},
+{"probe.pattern31","\"a?\"",false},
+{"probe.pattern31","\"a@\"",false},
 {"probe.pattern31","\"aA\"",true},
 {"probe.pattern31","\"aB\"",true},
 {"probe.pattern31","\"aC\"",true},
@@ -7166,12 +7175,12 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern31","\"aX\"",true},
 {"probe.pattern31","\"aY\"",true},
 {"probe.pattern31","\"aZ\"",true},
-{"probe.pattern31","\"a[\"",true},
-{"probe.pattern31","\"a\\\\\"",true},
-{"probe.pattern31","\"a]\"",true},
-{"probe.pattern31","\"a^\"",true},
-{"probe.pattern31","\"a_\"",true},
-{"probe.pattern31","\"a`\"",true},
+{"probe.pattern31","\"a[\"",false},
+{"probe.pattern31","\"a\\\\\"",false},
+{"probe.pattern31","\"a]\"",false},
+{"probe.pattern31","\"a^\"",false},
+{"probe.pattern31","\"a_\"",false},
+{"probe.pattern31","\"a`\"",false},
 {"probe.pattern31","\"aa\"",true},
 {"probe.pattern31","\"ab\"",true},
 {"probe.pattern31","\"ac\"",true},
@@ -7198,29 +7207,29 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern31","\"ax\"",true},
 {"probe.pattern31","\"ay\"",true},
 {"probe.pattern31","\"az\"",true},
-{"probe.pattern31","\"a{\"",true},
-{"probe.pattern31","\"a|\"",true},
-{"probe.pattern31","\"a}\"",true},
-{"probe.pattern31","\"a~\"",true},
-{"probe.pattern31","\"a\"",true},
-{"probe.pattern32","\"\"",true},
+{"probe.pattern31","\"a{\"",false},
+{"probe.pattern31","\"a|\"",false},
+{"probe.pattern31","\"a}\"",false},
+{"probe.pattern31","\"a~\"",false},
+{"probe.pattern31","\"a\"",false},
+{"probe.pattern32","\"\"",false},
 {"probe.pattern32","\"a\"",true},
 {"probe.pattern32","\"a/b\"",true},
 {"probe.pattern32","\"a/../b\"",true},
 {"probe.pattern32","\"a/./b\"",true},
 {"probe.pattern32","\"a//b\"",true},
 {"probe.pattern32","\"/a\"",true},
-{"probe.pattern32","\"a\\n\"",true},
-{"probe.pattern32","\"a\\r\"",true},
-{"probe.pattern32","\"a\\r\\n\"",true},
+{"probe.pattern32","\"a\\n\"",false},
+{"probe.pattern32","\"a\\r\"",false},
+{"probe.pattern32","\"a\\r\\n\"",false},
 {"probe.pattern32","\"a \"",true},
 {"probe.pattern32","\"a \"",true},
 {"probe.pattern32","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
-{"probe.pattern32","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",true},
+{"probe.pattern32","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
 {"probe.pattern32","\"2026-10-10T00:00:00.000Z\"",true},
 {"probe.pattern32","\"command.v1\"",true},
 {"probe.pattern32","\"😀\"",true},
-{"probe.pattern32","\"\"",true},
+{"probe.pattern32","\"\"",false},
 {"probe.pattern32","\"_\"",true},
 {"probe.pattern32","\"sha256:\"",true},
 {"probe.pattern32","\"a\"",true},
@@ -7266,37 +7275,37 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern32","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern32","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern32","\"a\\u0000\"",false},
-{"probe.pattern32","\"a\\u0001\"",true},
-{"probe.pattern32","\"a\\u0002\"",true},
-{"probe.pattern32","\"a\\u0003\"",true},
-{"probe.pattern32","\"a\\u0004\"",true},
-{"probe.pattern32","\"a\\u0005\"",true},
-{"probe.pattern32","\"a\\u0006\"",true},
-{"probe.pattern32","\"a\\u0007\"",true},
-{"probe.pattern32","\"a\\b\"",true},
-{"probe.pattern32","\"a\\t\"",true},
-{"probe.pattern32","\"a\\n\"",true},
-{"probe.pattern32","\"a\\u000b\"",true},
-{"probe.pattern32","\"a\\f\"",true},
-{"probe.pattern32","\"a\\r\"",true},
-{"probe.pattern32","\"a\\u000e\"",true},
-{"probe.pattern32","\"a\\u000f\"",true},
-{"probe.pattern32","\"a\\u0010\"",true},
-{"probe.pattern32","\"a\\u0011\"",true},
-{"probe.pattern32","\"a\\u0012\"",true},
-{"probe.pattern32","\"a\\u0013\"",true},
-{"probe.pattern32","\"a\\u0014\"",true},
-{"probe.pattern32","\"a\\u0015\"",true},
-{"probe.pattern32","\"a\\u0016\"",true},
-{"probe.pattern32","\"a\\u0017\"",true},
-{"probe.pattern32","\"a\\u0018\"",true},
-{"probe.pattern32","\"a\\u0019\"",true},
-{"probe.pattern32","\"a\\u001a\"",true},
-{"probe.pattern32","\"a\\u001b\"",true},
-{"probe.pattern32","\"a\\u001c\"",true},
-{"probe.pattern32","\"a\\u001d\"",true},
-{"probe.pattern32","\"a\\u001e\"",true},
-{"probe.pattern32","\"a\\u001f\"",true},
+{"probe.pattern32","\"a\\u0001\"",false},
+{"probe.pattern32","\"a\\u0002\"",false},
+{"probe.pattern32","\"a\\u0003\"",false},
+{"probe.pattern32","\"a\\u0004\"",false},
+{"probe.pattern32","\"a\\u0005\"",false},
+{"probe.pattern32","\"a\\u0006\"",false},
+{"probe.pattern32","\"a\\u0007\"",false},
+{"probe.pattern32","\"a\\b\"",false},
+{"probe.pattern32","\"a\\t\"",false},
+{"probe.pattern32","\"a\\n\"",false},
+{"probe.pattern32","\"a\\u000b\"",false},
+{"probe.pattern32","\"a\\f\"",false},
+{"probe.pattern32","\"a\\r\"",false},
+{"probe.pattern32","\"a\\u000e\"",false},
+{"probe.pattern32","\"a\\u000f\"",false},
+{"probe.pattern32","\"a\\u0010\"",false},
+{"probe.pattern32","\"a\\u0011\"",false},
+{"probe.pattern32","\"a\\u0012\"",false},
+{"probe.pattern32","\"a\\u0013\"",false},
+{"probe.pattern32","\"a\\u0014\"",false},
+{"probe.pattern32","\"a\\u0015\"",false},
+{"probe.pattern32","\"a\\u0016\"",false},
+{"probe.pattern32","\"a\\u0017\"",false},
+{"probe.pattern32","\"a\\u0018\"",false},
+{"probe.pattern32","\"a\\u0019\"",false},
+{"probe.pattern32","\"a\\u001a\"",false},
+{"probe.pattern32","\"a\\u001b\"",false},
+{"probe.pattern32","\"a\\u001c\"",false},
+{"probe.pattern32","\"a\\u001d\"",false},
+{"probe.pattern32","\"a\\u001e\"",false},
+{"probe.pattern32","\"a\\u001f\"",false},
 {"probe.pattern32","\"a \"",true},
 {"probe.pattern32","\"a!\"",true},
 {"probe.pattern32","\"a\\\"\"",true},
@@ -7393,196 +7402,196 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern32","\"a}\"",true},
 {"probe.pattern32","\"a~\"",true},
 {"probe.pattern32","\"a\"",true},
-{"probe.pattern33","\"\"",false},
-{"probe.pattern33","\"a\"",false},
-{"probe.pattern33","\"a/b\"",false},
-{"probe.pattern33","\"a/../b\"",false},
-{"probe.pattern33","\"a/./b\"",false},
-{"probe.pattern33","\"a//b\"",false},
-{"probe.pattern33","\"/a\"",false},
-{"probe.pattern33","\"a\\n\"",false},
-{"probe.pattern33","\"a\\r\"",false},
-{"probe.pattern33","\"a\\r\\n\"",false},
-{"probe.pattern33","\"a \"",false},
-{"probe.pattern33","\"a \"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
-{"probe.pattern33","\"2026-10-10T00:00:00.000Z\"",false},
-{"probe.pattern33","\"command.v1\"",false},
-{"probe.pattern33","\"😀\"",false},
-{"probe.pattern33","\"\"",false},
-{"probe.pattern33","\"_\"",false},
-{"probe.pattern33","\"sha256:\"",false},
-{"probe.pattern33","\"a\"",false},
-{"probe.pattern33","\"_a\"",false},
-{"probe.pattern33","\"sha256:a\"",false},
-{"probe.pattern33","\"aa\"",false},
-{"probe.pattern33","\"_aa\"",false},
-{"probe.pattern33","\"sha256:aa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern33","\"\"",true},
+{"probe.pattern33","\"a\"",true},
+{"probe.pattern33","\"a/b\"",true},
+{"probe.pattern33","\"a/../b\"",true},
+{"probe.pattern33","\"a/./b\"",true},
+{"probe.pattern33","\"a//b\"",true},
+{"probe.pattern33","\"/a\"",true},
+{"probe.pattern33","\"a\\n\"",true},
+{"probe.pattern33","\"a\\r\"",true},
+{"probe.pattern33","\"a\\r\\n\"",true},
+{"probe.pattern33","\"a \"",true},
+{"probe.pattern33","\"a \"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",true},
+{"probe.pattern33","\"2026-10-10T00:00:00.000Z\"",true},
+{"probe.pattern33","\"command.v1\"",true},
+{"probe.pattern33","\"😀\"",true},
+{"probe.pattern33","\"\"",true},
+{"probe.pattern33","\"_\"",true},
+{"probe.pattern33","\"sha256:\"",true},
+{"probe.pattern33","\"a\"",true},
+{"probe.pattern33","\"_a\"",true},
+{"probe.pattern33","\"sha256:a\"",true},
+{"probe.pattern33","\"aa\"",true},
+{"probe.pattern33","\"_aa\"",true},
+{"probe.pattern33","\"sha256:aa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern33","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern33","\"a\\u0000\"",false},
-{"probe.pattern33","\"a\\u0001\"",false},
-{"probe.pattern33","\"a\\u0002\"",false},
-{"probe.pattern33","\"a\\u0003\"",false},
-{"probe.pattern33","\"a\\u0004\"",false},
-{"probe.pattern33","\"a\\u0005\"",false},
-{"probe.pattern33","\"a\\u0006\"",false},
-{"probe.pattern33","\"a\\u0007\"",false},
-{"probe.pattern33","\"a\\b\"",false},
-{"probe.pattern33","\"a\\t\"",false},
-{"probe.pattern33","\"a\\n\"",false},
-{"probe.pattern33","\"a\\u000b\"",false},
-{"probe.pattern33","\"a\\f\"",false},
-{"probe.pattern33","\"a\\r\"",false},
-{"probe.pattern33","\"a\\u000e\"",false},
-{"probe.pattern33","\"a\\u000f\"",false},
-{"probe.pattern33","\"a\\u0010\"",false},
-{"probe.pattern33","\"a\\u0011\"",false},
-{"probe.pattern33","\"a\\u0012\"",false},
-{"probe.pattern33","\"a\\u0013\"",false},
-{"probe.pattern33","\"a\\u0014\"",false},
-{"probe.pattern33","\"a\\u0015\"",false},
-{"probe.pattern33","\"a\\u0016\"",false},
-{"probe.pattern33","\"a\\u0017\"",false},
-{"probe.pattern33","\"a\\u0018\"",false},
-{"probe.pattern33","\"a\\u0019\"",false},
-{"probe.pattern33","\"a\\u001a\"",false},
-{"probe.pattern33","\"a\\u001b\"",false},
-{"probe.pattern33","\"a\\u001c\"",false},
-{"probe.pattern33","\"a\\u001d\"",false},
-{"probe.pattern33","\"a\\u001e\"",false},
-{"probe.pattern33","\"a\\u001f\"",false},
-{"probe.pattern33","\"a \"",false},
-{"probe.pattern33","\"a!\"",false},
-{"probe.pattern33","\"a\\\"\"",false},
-{"probe.pattern33","\"a#\"",false},
-{"probe.pattern33","\"a$\"",false},
-{"probe.pattern33","\"a%\"",false},
-{"probe.pattern33","\"a&\"",false},
-{"probe.pattern33","\"a'\"",false},
-{"probe.pattern33","\"a(\"",false},
-{"probe.pattern33","\"a)\"",false},
-{"probe.pattern33","\"a*\"",false},
-{"probe.pattern33","\"a+\"",false},
-{"probe.pattern33","\"a,\"",false},
-{"probe.pattern33","\"a-\"",false},
-{"probe.pattern33","\"a.\"",false},
-{"probe.pattern33","\"a/\"",false},
-{"probe.pattern33","\"a0\"",false},
-{"probe.pattern33","\"a1\"",false},
-{"probe.pattern33","\"a2\"",false},
-{"probe.pattern33","\"a3\"",false},
-{"probe.pattern33","\"a4\"",false},
-{"probe.pattern33","\"a5\"",false},
-{"probe.pattern33","\"a6\"",false},
-{"probe.pattern33","\"a7\"",false},
-{"probe.pattern33","\"a8\"",false},
-{"probe.pattern33","\"a9\"",false},
-{"probe.pattern33","\"a:\"",false},
-{"probe.pattern33","\"a;\"",false},
-{"probe.pattern33","\"a<\"",false},
-{"probe.pattern33","\"a=\"",false},
-{"probe.pattern33","\"a>\"",false},
-{"probe.pattern33","\"a?\"",false},
-{"probe.pattern33","\"a@\"",false},
-{"probe.pattern33","\"aA\"",false},
-{"probe.pattern33","\"aB\"",false},
-{"probe.pattern33","\"aC\"",false},
-{"probe.pattern33","\"aD\"",false},
-{"probe.pattern33","\"aE\"",false},
-{"probe.pattern33","\"aF\"",false},
-{"probe.pattern33","\"aG\"",false},
-{"probe.pattern33","\"aH\"",false},
-{"probe.pattern33","\"aI\"",false},
-{"probe.pattern33","\"aJ\"",false},
-{"probe.pattern33","\"aK\"",false},
-{"probe.pattern33","\"aL\"",false},
-{"probe.pattern33","\"aM\"",false},
-{"probe.pattern33","\"aN\"",false},
-{"probe.pattern33","\"aO\"",false},
-{"probe.pattern33","\"aP\"",false},
-{"probe.pattern33","\"aQ\"",false},
-{"probe.pattern33","\"aR\"",false},
-{"probe.pattern33","\"aS\"",false},
-{"probe.pattern33","\"aT\"",false},
-{"probe.pattern33","\"aU\"",false},
-{"probe.pattern33","\"aV\"",false},
-{"probe.pattern33","\"aW\"",false},
-{"probe.pattern33","\"aX\"",false},
-{"probe.pattern33","\"aY\"",false},
-{"probe.pattern33","\"aZ\"",false},
-{"probe.pattern33","\"a[\"",false},
-{"probe.pattern33","\"a\\\\\"",false},
-{"probe.pattern33","\"a]\"",false},
-{"probe.pattern33","\"a^\"",false},
-{"probe.pattern33","\"a_\"",false},
-{"probe.pattern33","\"a`\"",false},
-{"probe.pattern33","\"aa\"",false},
-{"probe.pattern33","\"ab\"",false},
-{"probe.pattern33","\"ac\"",false},
-{"probe.pattern33","\"ad\"",false},
-{"probe.pattern33","\"ae\"",false},
-{"probe.pattern33","\"af\"",false},
-{"probe.pattern33","\"ag\"",false},
-{"probe.pattern33","\"ah\"",false},
-{"probe.pattern33","\"ai\"",false},
-{"probe.pattern33","\"aj\"",false},
-{"probe.pattern33","\"ak\"",false},
-{"probe.pattern33","\"al\"",false},
-{"probe.pattern33","\"am\"",false},
-{"probe.pattern33","\"an\"",false},
-{"probe.pattern33","\"ao\"",false},
-{"probe.pattern33","\"ap\"",false},
-{"probe.pattern33","\"aq\"",false},
-{"probe.pattern33","\"ar\"",false},
-{"probe.pattern33","\"as\"",false},
-{"probe.pattern33","\"at\"",false},
-{"probe.pattern33","\"au\"",false},
-{"probe.pattern33","\"av\"",false},
-{"probe.pattern33","\"aw\"",false},
-{"probe.pattern33","\"ax\"",false},
-{"probe.pattern33","\"ay\"",false},
-{"probe.pattern33","\"az\"",false},
-{"probe.pattern33","\"a{\"",false},
-{"probe.pattern33","\"a|\"",false},
-{"probe.pattern33","\"a}\"",false},
-{"probe.pattern33","\"a~\"",false},
-{"probe.pattern33","\"a\"",false},
+{"probe.pattern33","\"a\\u0001\"",true},
+{"probe.pattern33","\"a\\u0002\"",true},
+{"probe.pattern33","\"a\\u0003\"",true},
+{"probe.pattern33","\"a\\u0004\"",true},
+{"probe.pattern33","\"a\\u0005\"",true},
+{"probe.pattern33","\"a\\u0006\"",true},
+{"probe.pattern33","\"a\\u0007\"",true},
+{"probe.pattern33","\"a\\b\"",true},
+{"probe.pattern33","\"a\\t\"",true},
+{"probe.pattern33","\"a\\n\"",true},
+{"probe.pattern33","\"a\\u000b\"",true},
+{"probe.pattern33","\"a\\f\"",true},
+{"probe.pattern33","\"a\\r\"",true},
+{"probe.pattern33","\"a\\u000e\"",true},
+{"probe.pattern33","\"a\\u000f\"",true},
+{"probe.pattern33","\"a\\u0010\"",true},
+{"probe.pattern33","\"a\\u0011\"",true},
+{"probe.pattern33","\"a\\u0012\"",true},
+{"probe.pattern33","\"a\\u0013\"",true},
+{"probe.pattern33","\"a\\u0014\"",true},
+{"probe.pattern33","\"a\\u0015\"",true},
+{"probe.pattern33","\"a\\u0016\"",true},
+{"probe.pattern33","\"a\\u0017\"",true},
+{"probe.pattern33","\"a\\u0018\"",true},
+{"probe.pattern33","\"a\\u0019\"",true},
+{"probe.pattern33","\"a\\u001a\"",true},
+{"probe.pattern33","\"a\\u001b\"",true},
+{"probe.pattern33","\"a\\u001c\"",true},
+{"probe.pattern33","\"a\\u001d\"",true},
+{"probe.pattern33","\"a\\u001e\"",true},
+{"probe.pattern33","\"a\\u001f\"",true},
+{"probe.pattern33","\"a \"",true},
+{"probe.pattern33","\"a!\"",true},
+{"probe.pattern33","\"a\\\"\"",true},
+{"probe.pattern33","\"a#\"",true},
+{"probe.pattern33","\"a$\"",true},
+{"probe.pattern33","\"a%\"",true},
+{"probe.pattern33","\"a&\"",true},
+{"probe.pattern33","\"a'\"",true},
+{"probe.pattern33","\"a(\"",true},
+{"probe.pattern33","\"a)\"",true},
+{"probe.pattern33","\"a*\"",true},
+{"probe.pattern33","\"a+\"",true},
+{"probe.pattern33","\"a,\"",true},
+{"probe.pattern33","\"a-\"",true},
+{"probe.pattern33","\"a.\"",true},
+{"probe.pattern33","\"a/\"",true},
+{"probe.pattern33","\"a0\"",true},
+{"probe.pattern33","\"a1\"",true},
+{"probe.pattern33","\"a2\"",true},
+{"probe.pattern33","\"a3\"",true},
+{"probe.pattern33","\"a4\"",true},
+{"probe.pattern33","\"a5\"",true},
+{"probe.pattern33","\"a6\"",true},
+{"probe.pattern33","\"a7\"",true},
+{"probe.pattern33","\"a8\"",true},
+{"probe.pattern33","\"a9\"",true},
+{"probe.pattern33","\"a:\"",true},
+{"probe.pattern33","\"a;\"",true},
+{"probe.pattern33","\"a<\"",true},
+{"probe.pattern33","\"a=\"",true},
+{"probe.pattern33","\"a>\"",true},
+{"probe.pattern33","\"a?\"",true},
+{"probe.pattern33","\"a@\"",true},
+{"probe.pattern33","\"aA\"",true},
+{"probe.pattern33","\"aB\"",true},
+{"probe.pattern33","\"aC\"",true},
+{"probe.pattern33","\"aD\"",true},
+{"probe.pattern33","\"aE\"",true},
+{"probe.pattern33","\"aF\"",true},
+{"probe.pattern33","\"aG\"",true},
+{"probe.pattern33","\"aH\"",true},
+{"probe.pattern33","\"aI\"",true},
+{"probe.pattern33","\"aJ\"",true},
+{"probe.pattern33","\"aK\"",true},
+{"probe.pattern33","\"aL\"",true},
+{"probe.pattern33","\"aM\"",true},
+{"probe.pattern33","\"aN\"",true},
+{"probe.pattern33","\"aO\"",true},
+{"probe.pattern33","\"aP\"",true},
+{"probe.pattern33","\"aQ\"",true},
+{"probe.pattern33","\"aR\"",true},
+{"probe.pattern33","\"aS\"",true},
+{"probe.pattern33","\"aT\"",true},
+{"probe.pattern33","\"aU\"",true},
+{"probe.pattern33","\"aV\"",true},
+{"probe.pattern33","\"aW\"",true},
+{"probe.pattern33","\"aX\"",true},
+{"probe.pattern33","\"aY\"",true},
+{"probe.pattern33","\"aZ\"",true},
+{"probe.pattern33","\"a[\"",true},
+{"probe.pattern33","\"a\\\\\"",true},
+{"probe.pattern33","\"a]\"",true},
+{"probe.pattern33","\"a^\"",true},
+{"probe.pattern33","\"a_\"",true},
+{"probe.pattern33","\"a`\"",true},
+{"probe.pattern33","\"aa\"",true},
+{"probe.pattern33","\"ab\"",true},
+{"probe.pattern33","\"ac\"",true},
+{"probe.pattern33","\"ad\"",true},
+{"probe.pattern33","\"ae\"",true},
+{"probe.pattern33","\"af\"",true},
+{"probe.pattern33","\"ag\"",true},
+{"probe.pattern33","\"ah\"",true},
+{"probe.pattern33","\"ai\"",true},
+{"probe.pattern33","\"aj\"",true},
+{"probe.pattern33","\"ak\"",true},
+{"probe.pattern33","\"al\"",true},
+{"probe.pattern33","\"am\"",true},
+{"probe.pattern33","\"an\"",true},
+{"probe.pattern33","\"ao\"",true},
+{"probe.pattern33","\"ap\"",true},
+{"probe.pattern33","\"aq\"",true},
+{"probe.pattern33","\"ar\"",true},
+{"probe.pattern33","\"as\"",true},
+{"probe.pattern33","\"at\"",true},
+{"probe.pattern33","\"au\"",true},
+{"probe.pattern33","\"av\"",true},
+{"probe.pattern33","\"aw\"",true},
+{"probe.pattern33","\"ax\"",true},
+{"probe.pattern33","\"ay\"",true},
+{"probe.pattern33","\"az\"",true},
+{"probe.pattern33","\"a{\"",true},
+{"probe.pattern33","\"a|\"",true},
+{"probe.pattern33","\"a}\"",true},
+{"probe.pattern33","\"a~\"",true},
+{"probe.pattern33","\"a\"",true},
 {"probe.pattern34","\"\"",false},
 {"probe.pattern34","\"a\"",false},
 {"probe.pattern34","\"a/b\"",false},
@@ -7609,10 +7618,10 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern34","\"aa\"",false},
 {"probe.pattern34","\"_aa\"",false},
 {"probe.pattern34","\"sha256:aa\"",false},
-{"probe.pattern34","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern34","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern34","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern34","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern34","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern34","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern34","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern34","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern34","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
@@ -7799,7 +7808,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern35","\"aa\"",false},
 {"probe.pattern35","\"_aa\"",false},
 {"probe.pattern35","\"sha256:aa\"",false},
-{"probe.pattern35","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern35","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern35","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern35","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern35","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
@@ -7992,7 +8001,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern36","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern36","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern36","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern36","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern36","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern36","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern36","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern36","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
@@ -8155,7 +8164,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern36","\"a\"",false},
 {"probe.pattern37","\"\"",false},
 {"probe.pattern37","\"a\"",false},
-{"probe.pattern37","\"a/b\"",true},
+{"probe.pattern37","\"a/b\"",false},
 {"probe.pattern37","\"a/../b\"",false},
 {"probe.pattern37","\"a/./b\"",false},
 {"probe.pattern37","\"a//b\"",false},
@@ -8344,8 +8353,8 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern37","\"a~\"",false},
 {"probe.pattern37","\"a\"",false},
 {"probe.pattern38","\"\"",false},
-{"probe.pattern38","\"a\"",true},
-{"probe.pattern38","\"a/b\"",false},
+{"probe.pattern38","\"a\"",false},
+{"probe.pattern38","\"a/b\"",true},
 {"probe.pattern38","\"a/../b\"",false},
 {"probe.pattern38","\"a/./b\"",false},
 {"probe.pattern38","\"a//b\"",false},
@@ -8358,51 +8367,51 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
 {"probe.pattern38","\"2026-10-10T00:00:00.000Z\"",false},
-{"probe.pattern38","\"command.v1\"",true},
+{"probe.pattern38","\"command.v1\"",false},
 {"probe.pattern38","\"😀\"",false},
 {"probe.pattern38","\"\"",false},
 {"probe.pattern38","\"_\"",false},
 {"probe.pattern38","\"sha256:\"",false},
-{"probe.pattern38","\"a\"",true},
+{"probe.pattern38","\"a\"",false},
 {"probe.pattern38","\"_a\"",false},
 {"probe.pattern38","\"sha256:a\"",false},
-{"probe.pattern38","\"aa\"",true},
+{"probe.pattern38","\"aa\"",false},
 {"probe.pattern38","\"_aa\"",false},
 {"probe.pattern38","\"sha256:aa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern38","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern38","\"a\\u0000\"",false},
@@ -8450,19 +8459,19 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern38","\"a*\"",false},
 {"probe.pattern38","\"a+\"",false},
 {"probe.pattern38","\"a,\"",false},
-{"probe.pattern38","\"a-\"",true},
-{"probe.pattern38","\"a.\"",true},
+{"probe.pattern38","\"a-\"",false},
+{"probe.pattern38","\"a.\"",false},
 {"probe.pattern38","\"a/\"",false},
-{"probe.pattern38","\"a0\"",true},
-{"probe.pattern38","\"a1\"",true},
-{"probe.pattern38","\"a2\"",true},
-{"probe.pattern38","\"a3\"",true},
-{"probe.pattern38","\"a4\"",true},
-{"probe.pattern38","\"a5\"",true},
-{"probe.pattern38","\"a6\"",true},
-{"probe.pattern38","\"a7\"",true},
-{"probe.pattern38","\"a8\"",true},
-{"probe.pattern38","\"a9\"",true},
+{"probe.pattern38","\"a0\"",false},
+{"probe.pattern38","\"a1\"",false},
+{"probe.pattern38","\"a2\"",false},
+{"probe.pattern38","\"a3\"",false},
+{"probe.pattern38","\"a4\"",false},
+{"probe.pattern38","\"a5\"",false},
+{"probe.pattern38","\"a6\"",false},
+{"probe.pattern38","\"a7\"",false},
+{"probe.pattern38","\"a8\"",false},
+{"probe.pattern38","\"a9\"",false},
 {"probe.pattern38","\"a:\"",false},
 {"probe.pattern38","\"a;\"",false},
 {"probe.pattern38","\"a<\"",false},
@@ -8500,34 +8509,34 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern38","\"a\\\\\"",false},
 {"probe.pattern38","\"a]\"",false},
 {"probe.pattern38","\"a^\"",false},
-{"probe.pattern38","\"a_\"",true},
+{"probe.pattern38","\"a_\"",false},
 {"probe.pattern38","\"a`\"",false},
-{"probe.pattern38","\"aa\"",true},
-{"probe.pattern38","\"ab\"",true},
-{"probe.pattern38","\"ac\"",true},
-{"probe.pattern38","\"ad\"",true},
-{"probe.pattern38","\"ae\"",true},
-{"probe.pattern38","\"af\"",true},
-{"probe.pattern38","\"ag\"",true},
-{"probe.pattern38","\"ah\"",true},
-{"probe.pattern38","\"ai\"",true},
-{"probe.pattern38","\"aj\"",true},
-{"probe.pattern38","\"ak\"",true},
-{"probe.pattern38","\"al\"",true},
-{"probe.pattern38","\"am\"",true},
-{"probe.pattern38","\"an\"",true},
-{"probe.pattern38","\"ao\"",true},
-{"probe.pattern38","\"ap\"",true},
-{"probe.pattern38","\"aq\"",true},
-{"probe.pattern38","\"ar\"",true},
-{"probe.pattern38","\"as\"",true},
-{"probe.pattern38","\"at\"",true},
-{"probe.pattern38","\"au\"",true},
-{"probe.pattern38","\"av\"",true},
-{"probe.pattern38","\"aw\"",true},
-{"probe.pattern38","\"ax\"",true},
-{"probe.pattern38","\"ay\"",true},
-{"probe.pattern38","\"az\"",true},
+{"probe.pattern38","\"aa\"",false},
+{"probe.pattern38","\"ab\"",false},
+{"probe.pattern38","\"ac\"",false},
+{"probe.pattern38","\"ad\"",false},
+{"probe.pattern38","\"ae\"",false},
+{"probe.pattern38","\"af\"",false},
+{"probe.pattern38","\"ag\"",false},
+{"probe.pattern38","\"ah\"",false},
+{"probe.pattern38","\"ai\"",false},
+{"probe.pattern38","\"aj\"",false},
+{"probe.pattern38","\"ak\"",false},
+{"probe.pattern38","\"al\"",false},
+{"probe.pattern38","\"am\"",false},
+{"probe.pattern38","\"an\"",false},
+{"probe.pattern38","\"ao\"",false},
+{"probe.pattern38","\"ap\"",false},
+{"probe.pattern38","\"aq\"",false},
+{"probe.pattern38","\"ar\"",false},
+{"probe.pattern38","\"as\"",false},
+{"probe.pattern38","\"at\"",false},
+{"probe.pattern38","\"au\"",false},
+{"probe.pattern38","\"av\"",false},
+{"probe.pattern38","\"aw\"",false},
+{"probe.pattern38","\"ax\"",false},
+{"probe.pattern38","\"ay\"",false},
+{"probe.pattern38","\"az\"",false},
 {"probe.pattern38","\"a{\"",false},
 {"probe.pattern38","\"a|\"",false},
 {"probe.pattern38","\"a}\"",false},
@@ -8548,7 +8557,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern39","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern39","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
 {"probe.pattern39","\"2026-10-10T00:00:00.000Z\"",false},
-{"probe.pattern39","\"command.v1\"",false},
+{"probe.pattern39","\"command.v1\"",true},
 {"probe.pattern39","\"😀\"",false},
 {"probe.pattern39","\"\"",false},
 {"probe.pattern39","\"_\"",false},
@@ -8640,8 +8649,8 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern39","\"a*\"",false},
 {"probe.pattern39","\"a+\"",false},
 {"probe.pattern39","\"a,\"",false},
-{"probe.pattern39","\"a-\"",false},
-{"probe.pattern39","\"a.\"",false},
+{"probe.pattern39","\"a-\"",true},
+{"probe.pattern39","\"a.\"",true},
 {"probe.pattern39","\"a/\"",false},
 {"probe.pattern39","\"a0\"",true},
 {"probe.pattern39","\"a1\"",true},
@@ -8724,7 +8733,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern39","\"a~\"",false},
 {"probe.pattern39","\"a\"",false},
 {"probe.pattern40","\"\"",false},
-{"probe.pattern40","\"a\"",false},
+{"probe.pattern40","\"a\"",true},
 {"probe.pattern40","\"a/b\"",false},
 {"probe.pattern40","\"a/../b\"",false},
 {"probe.pattern40","\"a/./b\"",false},
@@ -8743,46 +8752,46 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern40","\"\"",false},
 {"probe.pattern40","\"_\"",false},
 {"probe.pattern40","\"sha256:\"",false},
-{"probe.pattern40","\"a\"",false},
+{"probe.pattern40","\"a\"",true},
 {"probe.pattern40","\"_a\"",false},
 {"probe.pattern40","\"sha256:a\"",false},
-{"probe.pattern40","\"aa\"",false},
+{"probe.pattern40","\"aa\"",true},
 {"probe.pattern40","\"_aa\"",false},
 {"probe.pattern40","\"sha256:aa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern40","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern40","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern40","\"a\\u0000\"",false},
@@ -8833,16 +8842,16 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern40","\"a-\"",false},
 {"probe.pattern40","\"a.\"",false},
 {"probe.pattern40","\"a/\"",false},
-{"probe.pattern40","\"a0\"",false},
-{"probe.pattern40","\"a1\"",false},
-{"probe.pattern40","\"a2\"",false},
-{"probe.pattern40","\"a3\"",false},
-{"probe.pattern40","\"a4\"",false},
-{"probe.pattern40","\"a5\"",false},
-{"probe.pattern40","\"a6\"",false},
-{"probe.pattern40","\"a7\"",false},
-{"probe.pattern40","\"a8\"",false},
-{"probe.pattern40","\"a9\"",false},
+{"probe.pattern40","\"a0\"",true},
+{"probe.pattern40","\"a1\"",true},
+{"probe.pattern40","\"a2\"",true},
+{"probe.pattern40","\"a3\"",true},
+{"probe.pattern40","\"a4\"",true},
+{"probe.pattern40","\"a5\"",true},
+{"probe.pattern40","\"a6\"",true},
+{"probe.pattern40","\"a7\"",true},
+{"probe.pattern40","\"a8\"",true},
+{"probe.pattern40","\"a9\"",true},
 {"probe.pattern40","\"a:\"",false},
 {"probe.pattern40","\"a;\"",false},
 {"probe.pattern40","\"a<\"",false},
@@ -8880,34 +8889,34 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern40","\"a\\\\\"",false},
 {"probe.pattern40","\"a]\"",false},
 {"probe.pattern40","\"a^\"",false},
-{"probe.pattern40","\"a_\"",false},
+{"probe.pattern40","\"a_\"",true},
 {"probe.pattern40","\"a`\"",false},
-{"probe.pattern40","\"aa\"",false},
-{"probe.pattern40","\"ab\"",false},
-{"probe.pattern40","\"ac\"",false},
-{"probe.pattern40","\"ad\"",false},
-{"probe.pattern40","\"ae\"",false},
-{"probe.pattern40","\"af\"",false},
-{"probe.pattern40","\"ag\"",false},
-{"probe.pattern40","\"ah\"",false},
-{"probe.pattern40","\"ai\"",false},
-{"probe.pattern40","\"aj\"",false},
-{"probe.pattern40","\"ak\"",false},
-{"probe.pattern40","\"al\"",false},
-{"probe.pattern40","\"am\"",false},
-{"probe.pattern40","\"an\"",false},
-{"probe.pattern40","\"ao\"",false},
-{"probe.pattern40","\"ap\"",false},
-{"probe.pattern40","\"aq\"",false},
-{"probe.pattern40","\"ar\"",false},
-{"probe.pattern40","\"as\"",false},
-{"probe.pattern40","\"at\"",false},
-{"probe.pattern40","\"au\"",false},
-{"probe.pattern40","\"av\"",false},
-{"probe.pattern40","\"aw\"",false},
-{"probe.pattern40","\"ax\"",false},
-{"probe.pattern40","\"ay\"",false},
-{"probe.pattern40","\"az\"",false},
+{"probe.pattern40","\"aa\"",true},
+{"probe.pattern40","\"ab\"",true},
+{"probe.pattern40","\"ac\"",true},
+{"probe.pattern40","\"ad\"",true},
+{"probe.pattern40","\"ae\"",true},
+{"probe.pattern40","\"af\"",true},
+{"probe.pattern40","\"ag\"",true},
+{"probe.pattern40","\"ah\"",true},
+{"probe.pattern40","\"ai\"",true},
+{"probe.pattern40","\"aj\"",true},
+{"probe.pattern40","\"ak\"",true},
+{"probe.pattern40","\"al\"",true},
+{"probe.pattern40","\"am\"",true},
+{"probe.pattern40","\"an\"",true},
+{"probe.pattern40","\"ao\"",true},
+{"probe.pattern40","\"ap\"",true},
+{"probe.pattern40","\"aq\"",true},
+{"probe.pattern40","\"ar\"",true},
+{"probe.pattern40","\"as\"",true},
+{"probe.pattern40","\"at\"",true},
+{"probe.pattern40","\"au\"",true},
+{"probe.pattern40","\"av\"",true},
+{"probe.pattern40","\"aw\"",true},
+{"probe.pattern40","\"ax\"",true},
+{"probe.pattern40","\"ay\"",true},
+{"probe.pattern40","\"az\"",true},
 {"probe.pattern40","\"a{\"",false},
 {"probe.pattern40","\"a|\"",false},
 {"probe.pattern40","\"a}\"",false},
@@ -9497,7 +9506,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern44","\"a \"",false},
 {"probe.pattern44","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern44","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
-{"probe.pattern44","\"2026-10-10T00:00:00.000Z\"",true},
+{"probe.pattern44","\"2026-10-10T00:00:00.000Z\"",false},
 {"probe.pattern44","\"command.v1\"",false},
 {"probe.pattern44","\"😀\"",false},
 {"probe.pattern44","\"\"",false},
@@ -9687,7 +9696,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern45","\"a \"",false},
 {"probe.pattern45","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern45","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
-{"probe.pattern45","\"2026-10-10T00:00:00.000Z\"",false},
+{"probe.pattern45","\"2026-10-10T00:00:00.000Z\"",true},
 {"probe.pattern45","\"command.v1\"",false},
 {"probe.pattern45","\"😀\"",false},
 {"probe.pattern45","\"\"",false},
@@ -12915,7 +12924,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern62","\"a\\r\\n\"",false},
 {"probe.pattern62","\"a \"",false},
 {"probe.pattern62","\"a \"",false},
-{"probe.pattern62","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern62","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern62","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
 {"probe.pattern62","\"2026-10-10T00:00:00.000Z\"",false},
 {"probe.pattern62","\"command.v1\"",false},
@@ -12934,7 +12943,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern62","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern62","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern62","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern62","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
+{"probe.pattern62","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern62","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern62","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern62","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
@@ -13295,7 +13304,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern64","\"a\\r\\n\"",false},
 {"probe.pattern64","\"a \"",false},
 {"probe.pattern64","\"a \"",false},
-{"probe.pattern64","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern64","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern64","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
 {"probe.pattern64","\"2026-10-10T00:00:00.000Z\"",false},
 {"probe.pattern64","\"command.v1\"",false},
@@ -13314,7 +13323,7 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern64","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern64","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern64","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
-{"probe.pattern64","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern64","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",true},
 {"probe.pattern64","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern64","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
 {"probe.pattern64","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
@@ -13853,5 +13862,195 @@ for _, c := range []struct{id, text string; valid bool}{
 {"probe.pattern66","\"a}\"",false},
 {"probe.pattern66","\"a~\"",false},
 {"probe.pattern66","\"a\"",false},
+{"probe.pattern67","\"\"",false},
+{"probe.pattern67","\"a\"",false},
+{"probe.pattern67","\"a/b\"",false},
+{"probe.pattern67","\"a/../b\"",false},
+{"probe.pattern67","\"a/./b\"",false},
+{"probe.pattern67","\"a//b\"",false},
+{"probe.pattern67","\"/a\"",false},
+{"probe.pattern67","\"a\\n\"",false},
+{"probe.pattern67","\"a\\r\"",false},
+{"probe.pattern67","\"a\\r\\n\"",false},
+{"probe.pattern67","\"a \"",false},
+{"probe.pattern67","\"a \"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n\"",false},
+{"probe.pattern67","\"2026-10-10T00:00:00.000Z\"",false},
+{"probe.pattern67","\"command.v1\"",false},
+{"probe.pattern67","\"😀\"",false},
+{"probe.pattern67","\"\"",false},
+{"probe.pattern67","\"_\"",false},
+{"probe.pattern67","\"sha256:\"",false},
+{"probe.pattern67","\"a\"",false},
+{"probe.pattern67","\"_a\"",false},
+{"probe.pattern67","\"sha256:a\"",false},
+{"probe.pattern67","\"aa\"",false},
+{"probe.pattern67","\"_aa\"",false},
+{"probe.pattern67","\"sha256:aa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",false},
+{"probe.pattern67","\"a\\u0000\"",false},
+{"probe.pattern67","\"a\\u0001\"",false},
+{"probe.pattern67","\"a\\u0002\"",false},
+{"probe.pattern67","\"a\\u0003\"",false},
+{"probe.pattern67","\"a\\u0004\"",false},
+{"probe.pattern67","\"a\\u0005\"",false},
+{"probe.pattern67","\"a\\u0006\"",false},
+{"probe.pattern67","\"a\\u0007\"",false},
+{"probe.pattern67","\"a\\b\"",false},
+{"probe.pattern67","\"a\\t\"",false},
+{"probe.pattern67","\"a\\n\"",false},
+{"probe.pattern67","\"a\\u000b\"",false},
+{"probe.pattern67","\"a\\f\"",false},
+{"probe.pattern67","\"a\\r\"",false},
+{"probe.pattern67","\"a\\u000e\"",false},
+{"probe.pattern67","\"a\\u000f\"",false},
+{"probe.pattern67","\"a\\u0010\"",false},
+{"probe.pattern67","\"a\\u0011\"",false},
+{"probe.pattern67","\"a\\u0012\"",false},
+{"probe.pattern67","\"a\\u0013\"",false},
+{"probe.pattern67","\"a\\u0014\"",false},
+{"probe.pattern67","\"a\\u0015\"",false},
+{"probe.pattern67","\"a\\u0016\"",false},
+{"probe.pattern67","\"a\\u0017\"",false},
+{"probe.pattern67","\"a\\u0018\"",false},
+{"probe.pattern67","\"a\\u0019\"",false},
+{"probe.pattern67","\"a\\u001a\"",false},
+{"probe.pattern67","\"a\\u001b\"",false},
+{"probe.pattern67","\"a\\u001c\"",false},
+{"probe.pattern67","\"a\\u001d\"",false},
+{"probe.pattern67","\"a\\u001e\"",false},
+{"probe.pattern67","\"a\\u001f\"",false},
+{"probe.pattern67","\"a \"",false},
+{"probe.pattern67","\"a!\"",false},
+{"probe.pattern67","\"a\\\"\"",false},
+{"probe.pattern67","\"a#\"",false},
+{"probe.pattern67","\"a$\"",false},
+{"probe.pattern67","\"a%\"",false},
+{"probe.pattern67","\"a&\"",false},
+{"probe.pattern67","\"a'\"",false},
+{"probe.pattern67","\"a(\"",false},
+{"probe.pattern67","\"a)\"",false},
+{"probe.pattern67","\"a*\"",false},
+{"probe.pattern67","\"a+\"",false},
+{"probe.pattern67","\"a,\"",false},
+{"probe.pattern67","\"a-\"",false},
+{"probe.pattern67","\"a.\"",false},
+{"probe.pattern67","\"a/\"",false},
+{"probe.pattern67","\"a0\"",false},
+{"probe.pattern67","\"a1\"",false},
+{"probe.pattern67","\"a2\"",false},
+{"probe.pattern67","\"a3\"",false},
+{"probe.pattern67","\"a4\"",false},
+{"probe.pattern67","\"a5\"",false},
+{"probe.pattern67","\"a6\"",false},
+{"probe.pattern67","\"a7\"",false},
+{"probe.pattern67","\"a8\"",false},
+{"probe.pattern67","\"a9\"",false},
+{"probe.pattern67","\"a:\"",false},
+{"probe.pattern67","\"a;\"",false},
+{"probe.pattern67","\"a<\"",false},
+{"probe.pattern67","\"a=\"",false},
+{"probe.pattern67","\"a>\"",false},
+{"probe.pattern67","\"a?\"",false},
+{"probe.pattern67","\"a@\"",false},
+{"probe.pattern67","\"aA\"",false},
+{"probe.pattern67","\"aB\"",false},
+{"probe.pattern67","\"aC\"",false},
+{"probe.pattern67","\"aD\"",false},
+{"probe.pattern67","\"aE\"",false},
+{"probe.pattern67","\"aF\"",false},
+{"probe.pattern67","\"aG\"",false},
+{"probe.pattern67","\"aH\"",false},
+{"probe.pattern67","\"aI\"",false},
+{"probe.pattern67","\"aJ\"",false},
+{"probe.pattern67","\"aK\"",false},
+{"probe.pattern67","\"aL\"",false},
+{"probe.pattern67","\"aM\"",false},
+{"probe.pattern67","\"aN\"",false},
+{"probe.pattern67","\"aO\"",false},
+{"probe.pattern67","\"aP\"",false},
+{"probe.pattern67","\"aQ\"",false},
+{"probe.pattern67","\"aR\"",false},
+{"probe.pattern67","\"aS\"",false},
+{"probe.pattern67","\"aT\"",false},
+{"probe.pattern67","\"aU\"",false},
+{"probe.pattern67","\"aV\"",false},
+{"probe.pattern67","\"aW\"",false},
+{"probe.pattern67","\"aX\"",false},
+{"probe.pattern67","\"aY\"",false},
+{"probe.pattern67","\"aZ\"",false},
+{"probe.pattern67","\"a[\"",false},
+{"probe.pattern67","\"a\\\\\"",false},
+{"probe.pattern67","\"a]\"",false},
+{"probe.pattern67","\"a^\"",false},
+{"probe.pattern67","\"a_\"",false},
+{"probe.pattern67","\"a`\"",false},
+{"probe.pattern67","\"aa\"",false},
+{"probe.pattern67","\"ab\"",false},
+{"probe.pattern67","\"ac\"",false},
+{"probe.pattern67","\"ad\"",false},
+{"probe.pattern67","\"ae\"",false},
+{"probe.pattern67","\"af\"",false},
+{"probe.pattern67","\"ag\"",false},
+{"probe.pattern67","\"ah\"",false},
+{"probe.pattern67","\"ai\"",false},
+{"probe.pattern67","\"aj\"",false},
+{"probe.pattern67","\"ak\"",false},
+{"probe.pattern67","\"al\"",false},
+{"probe.pattern67","\"am\"",false},
+{"probe.pattern67","\"an\"",false},
+{"probe.pattern67","\"ao\"",false},
+{"probe.pattern67","\"ap\"",false},
+{"probe.pattern67","\"aq\"",false},
+{"probe.pattern67","\"ar\"",false},
+{"probe.pattern67","\"as\"",false},
+{"probe.pattern67","\"at\"",false},
+{"probe.pattern67","\"au\"",false},
+{"probe.pattern67","\"av\"",false},
+{"probe.pattern67","\"aw\"",false},
+{"probe.pattern67","\"ax\"",false},
+{"probe.pattern67","\"ay\"",false},
+{"probe.pattern67","\"az\"",false},
+{"probe.pattern67","\"a{\"",false},
+{"probe.pattern67","\"a|\"",false},
+{"probe.pattern67","\"a}\"",false},
+{"probe.pattern67","\"a~\"",false},
+{"probe.pattern67","\"a\"",false},
 } { value, err := Decode([]byte(c.text)); if err != nil {t.Fatal(err)}; if validProbeSchema(c.id,value) != c.valid { t.Errorf("%s input %s: expected %v",c.id,c.text,c.valid) } }
 }

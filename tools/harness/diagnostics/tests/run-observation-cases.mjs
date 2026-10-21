@@ -163,32 +163,48 @@ export function registerRunObservationTests() {
   });
   test("concurrent readers admit only complete atomic replacements", async (t) => {
     const f = fixture(t, 3000); f.publisher();
-    const worker = (role) => new Promise((resolve, reject) => {
-      const child = new Worker(`
-        const { workerData, parentPort } = require('node:worker_threads');
-        (async () => {
-          const { atomicLocalFile } = await import(workerData.secure);
-          const { observeRun } = await import(workerData.reader);
-          for (let i = 0; i < 24; i++) {
+    const workers = ["writer", "reader", "reader", "reader", "reader"].map((role) => new Worker(`
+      const { workerData, parentPort } = require('node:worker_threads');
+      (async () => {
+        const { atomicLocalFile } = await import(workerData.secure);
+        const { observeRun } = await import(workerData.reader);
+        parentPort.on('message', async (revision) => {
+          try {
             if (workerData.role === 'writer') {
-              atomicLocalFile(workerData.file, JSON.stringify({ ...workerData.snapshot, revision: i + 3 }) + '\\n', { replace: true, maximumReplacementBytes: 16777216 });
+              atomicLocalFile(workerData.file, JSON.stringify({ ...workerData.snapshot, revision }) + '\\n', { replace: true, maximumReplacementBytes: 16777216 });
             } else {
               const observed = await observeRun({ resultsDir: workerData.root });
               if (observed.operation_exit_code !== 0 || observed.live.unit_counts.total !== 3000) throw new Error(JSON.stringify(observed));
             }
-            await new Promise(resolve => setTimeout(resolve, 2));
-          }
-          parentPort.postMessage('complete');
-        })().catch(error => { throw error; });
-      `, { eval: true, workerData: {
-        role, root: f.runRoot, file: f.snapshotFile, snapshot: f.snapshot(),
-        secure: pathToFileURL(path.join(root, "tools/harness/runtime/secure-local-files.mjs")).href,
-        reader: pathToFileURL(path.join(root, "tools/harness/diagnostics/tests/native-observation.mjs")).href,
-      } });
-      t.after(() => child.terminate());
-      child.once("error", reject); child.once("exit", (code) => code ? reject(new Error(`worker exit ${code}`)) : resolve());
+            parentPort.postMessage('complete');
+          } catch (error) { throw error; }
+        });
+        parentPort.postMessage('ready');
+      })().catch(error => { throw error; });
+    `, { eval: true, workerData: {
+      role, root: f.runRoot, file: f.snapshotFile, snapshot: f.snapshot(),
+      secure: pathToFileURL(path.join(root, "tools/harness/runtime/secure-local-files.mjs")).href,
+      reader: pathToFileURL(path.join(root, "tools/harness/diagnostics/tests/native-observation.mjs")).href,
+    } }));
+    const acknowledgement = (child) => new Promise((resolve, reject) => {
+      const cleanup = () => { child.off("message", complete); child.off("error", failed); child.off("exit", exited); };
+      const complete = () => { cleanup(); resolve(); };
+      const failed = (error) => { cleanup(); reject(error); };
+      const exited = () => failed(new Error("reader fixture worker exited before acknowledgement"));
+      child.once("message", complete); child.once("error", failed); child.once("exit", exited);
     });
-    await Promise.all([worker("writer"), worker("reader"), worker("reader"), worker("reader"), worker("reader")]);
+    try {
+      await Promise.all(workers.map(acknowledgement));
+      for (let revision = 3; revision < 27; revision++) {
+        const completed = workers.map(acknowledgement);
+        for (const child of workers) child.postMessage(revision);
+        await Promise.all(completed);
+      }
+    } finally {
+      // Fixture deletion is registered by fixture(t); every worker must settle
+      // before this test returns, including the first reader or writer failure.
+      await Promise.all(workers.map((child) => child.terminate()));
+    }
   });
   test("reader process interruption leaves observed invocation and leases untouched", async (t) => {
     const f = fixture(t); f.publisher();

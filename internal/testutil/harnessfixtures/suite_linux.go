@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/startupproof"
 	"golang.org/x/sys/unix"
 )
 
@@ -191,6 +192,12 @@ func (p ProductionOptions) stopSuiteAttempt(ctx context.Context, lease string, e
 	}
 	p.Dependencies = []string{reference}
 	bytes, err := harnesslocal.ReadFile(lease, 1048576, false)
+	if errors.Is(err, os.ErrNotExist) {
+		if settleErr := p.settlePendingSuite(lease, environment); settleErr == nil {
+			return nil
+		}
+		bytes, err = p.startupCleanupLease(lease, environment)
+	}
 	if err != nil {
 		return err
 	}
@@ -214,7 +221,7 @@ func (p ProductionOptions) stopSuiteAttempt(ctx context.Context, lease string, e
 	if err := p.Runtime.RecordResource("managed_suite", lease, "released"); err != nil {
 		return artifactFailure(harnesssession.AtCleanupStage("resource_release", err))
 	}
-	return errors.Join(removePrivate(lease), removePrivate(filepath.Join(filepath.Dir(lease), "suite-environment.json")))
+	return errors.Join(removePrivate(lease), removePrivate(filepath.Join(filepath.Dir(lease), "suite-environment.json")), removePrivate(filepath.Join(filepath.Dir(lease), startupproof.Filename)))
 }
 func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result error) {
 	serviceID := p.ServiceID
@@ -261,7 +268,15 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	if err := saveRecoveryEnvironment(environmentFile, environment); err != nil {
 		return nil, artifactFailure(err)
 	}
-	if err := p.Runtime.RecordDependentResource("managed_suite", leaseFile, "pending", dependencies, environmentFile); err != nil {
+	services := []string{"object_store", "postgres"}
+	if value, ok := environment[suiteservices.HarnessServiceDependenciesEnv]; ok {
+		services = strings.Split(value, ",")
+	}
+	journalFile := filepath.Join(root, startupproof.Filename)
+	if err := startupproof.Create(journalFile, startupproof.Binding{RuntimeRoot: p.Runtime.Root, RuntimeLease: p.Runtime.LeaseID, RunRoot: p.Runtime.RunRoot, RunID: p.Runtime.RunID, SuiteID: environment["CARTULARY_TEST_SUITE_ID"], Services: services, Dependencies: dependencies}); err != nil {
+		return nil, artifactFailure(err)
+	}
+	if err := p.Runtime.RecordDependentResource("managed_suite", leaseFile, "pending", dependencies, environmentFile, journalFile); err != nil {
 		return nil, artifactFailure(err)
 	}
 	startup, commandErr := p.command()(ctx, p.serviceBinary(), []string{"start-suite", "--env-file", bindingsFile, "--lease-file", leaseFile, "--result-file", resultFile}, environment)
@@ -277,7 +292,9 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 		if settled {
 			return
 		}
-		if settlementAttempted {
+		if proof, err := p.startupProof(leaseFile, environment); err == nil && proof.State == "settled" && proof.SettledWithoutLease() {
+			settlement = p.Runtime.RecordResource("managed_suite", leaseFile, "released")
+		} else if settlementAttempted {
 			settlement = harnesssession.ErrUnresolved
 		} else if _, err := harnesslocal.ReadFile(leaseFile, 1048576, false); err == nil {
 			cleanupCtx, done := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -286,7 +303,7 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 		} else if !startup.Started && !settled {
 			settlement = p.Runtime.RecordResource("managed_suite", leaseFile, "released")
 		} else if !settled {
-			settlement = harnesssession.ErrUnresolved
+			settlement = p.settlePendingSuite(leaseFile, environment)
 		}
 		if settlement != nil {
 			// Acquisition already spent its one cleanup attempt. Carry the
@@ -298,6 +315,9 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	}()
 	start, err := readObject(resultFile, "cartulary.test_services.start_result.v2", 1048576)
 	if err != nil {
+		if ctx.Err() != nil && startup.Started {
+			return nil, &Failure{Class: "interrupted", Reason: "cancelled_or_interrupted", Cause: ctx.Err()}
+		}
 		if !startup.Started {
 			return nil, &Failure{Class: "config", Reason: "configuration_error", Cause: commandErr}
 		}
@@ -322,6 +342,9 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 	if scope["run_id"] != start["run_id"] || scope["target"] != start["target"] || scope["suite_id"] != suiteID {
 		return nil, artifactFailure(errors.New("scope identity mismatch"))
 	}
+	if ctx.Err() != nil && start["status"] == "ready" {
+		return nil, &Failure{Class: "interrupted", Reason: "cancelled_or_interrupted", Cause: ctx.Err()}
+	}
 	if startup.Exit != 0 || commandErr != nil {
 		failure, ok := scope["failure"].(map[string]any)
 		if !ok || start["status"] != "failed" || failure["failure_class"] != start["failure_class"] || failure["failure_reason"] != start["failure_reason"] {
@@ -330,6 +353,11 @@ func (p ProductionOptions) StartSuite(ctx context.Context) (suite *Suite, result
 		if cleanup, ok := scope["cleanup"].(map[string]any); ok {
 			settlementAttempted = cleanup["physical_settlement"] == "completed" || cleanup["physical_settlement"] == "unresolved"
 			if cleanup["physical_settlement"] == "completed" {
+				if proof, err := p.startupProof(leaseFile, environment); err != nil || !proof.SettledWithoutLease() {
+					class, _ := start["failure_class"].(string)
+					reason, _ := start["failure_reason"].(string)
+					return nil, &Failure{Class: class, Reason: reason, Refs: []string{ref}, Cause: commandErr}
+				}
 				if err := p.Runtime.RecordResource("managed_suite", leaseFile, "released"); err != nil {
 					return nil, artifactFailure(err)
 				}

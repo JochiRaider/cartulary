@@ -57,12 +57,14 @@ case "cartulary.harness_terminal_receipt.v1": return schema668(value)
 case "cartulary.harness_unit_event.v4": return schema1865(value)
 case "cartulary.harness_unit_event_prefix.v1": return schema1906(value)
 case "cartulary.harness_unit_result.v1": return schema1912(value)
-case "cartulary.postgres_readiness_diagnostic.v1": return schema1922(value)
-case "cartulary.test_services.lease.v3": return schema1937(value)
-case "cartulary.test_services.postgres_provisioning.v2": return schema1956(value)
-case "cartulary.test_services.scope.v2": return schema1962(value)
-case "cartulary.test_services.start_result.v2": return schema2034(value)
-case "cartulary.tool_run_summary.v5": return schema2053(value)
+case "cartulary.postgres_readiness_diagnostic.v3": return schema1922(value)
+case "cartulary.postgres_readiness_diagnostic.v4": return schema1954(value)
+case "cartulary.test_services.lease.v3": return schema2008(value)
+case "cartulary.test_services.postgres_provisioning.v2": return schema2027(value)
+case "cartulary.test_services.scope.v2": return schema2033(value)
+case "cartulary.test_services.start_result.v2": return schema2105(value)
+case "cartulary.test_services.startup_journal.v1": return schema2124(value)
+case "cartulary.tool_run_summary.v5": return schema2139(value)
 case "cartulary.ui_review_action.v3": return schema1036(value)
 case "cartulary.ui_review_analysis_request.v1": return schema1124(value)
 case "cartulary.ui_review_capture_request.v1": return schema1097(value)
@@ -19482,6 +19484,15 @@ if _, present := o["probe_count"]; !present { return false }
 if _, present := o["cleanup_outcome"]; !present { return false }
 if _, present := o["container_state"]; !present { return false }
 if _, present := o["phases"]; !present { return false }
+if _, present := o["probe_failures"]; !present { return false }
+if _, present := o["startup_log_status"]; !present { return false }
+if _, present := o["startup_log_signals"]; !present { return false }
+if _, present := o["startup_log_clock"]; !present { return false }
+if _, present := o["startup_log_events"]; !present { return false }
+if _, present := o["container_started_at"]; !present { return false }
+if _, present := o["probe_observations"]; !present { return false }
+if _, present := o["probe_observations_truncated"]; !present { return false }
+if _, present := o["first_sql_connection_ms"]; !present { return false }
 if x, present := o["schema_id"]; present && !schema1923(x) { return false }
 if x, present := o["stage"]; present && !schema1924(x) { return false }
 if x, present := o["outcome"]; present && !schema1925(x) { return false }
@@ -19493,10 +19504,23 @@ if x, present := o["probe_count"]; present && !schema1930(x) { return false }
 if x, present := o["cleanup_outcome"]; present && !schema1931(x) { return false }
 if x, present := o["container_state"]; present && !schema1932(x) { return false }
 if x, present := o["phases"]; present && !schema1933(x) { return false }
+if x, present := o["probe_failures"]; present && !schema1937(x) { return false }
+if x, present := o["last_probe_failure"]; present && !schema1938(x) { return false }
+if x, present := o["last_sqlstate"]; present && !schema1940(x) { return false }
+if x, present := o["container_exit_code"]; present && !schema1941(x) { return false }
+if x, present := o["container_oom_killed"]; present && !schema1942(x) { return false }
+if x, present := o["startup_log_status"]; present && !schema1943(x) { return false }
+if x, present := o["startup_log_signals"]; present && !schema1944(x) { return false }
+if x, present := o["startup_log_clock"]; present && !schema1946(x) { return false }
+if x, present := o["startup_log_events"]; present && !schema1947(x) { return false }
+if x, present := o["container_started_at"]; present && !schema1950(x) { return false }
+if x, present := o["probe_observations"]; present && !schema1952(x) { return false }
+if x, present := o["probe_observations_truncated"]; present && !schema1942(x) { return false }
+if x, present := o["first_sql_connection_ms"]; present && !schema1951(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
-case "schema_id","stage","outcome","elapsed_ms","sql_window_ms","poll_ms","probe_cap_ms","probe_count","cleanup_outcome","container_state","phases":
+case "schema_id","stage","outcome","elapsed_ms","sql_window_ms","poll_ms","probe_cap_ms","probe_count","cleanup_outcome","container_state","phases","probe_failures","last_probe_failure","last_sqlstate","container_exit_code","container_oom_killed","startup_log_status","startup_log_signals","startup_log_clock","startup_log_events","container_started_at","probe_observations","probe_observations_truncated","first_sql_connection_ms":
 default:
 return false
 }
@@ -19506,7 +19530,7 @@ return true
 }
 
 func schema1923(v any) bool {
-if !schemaEqual(v, "cartulary.postgres_readiness_diagnostic.v1") { return false }
+if !schemaEqual(v, "cartulary.postgres_readiness_diagnostic.v3") { return false }
 return true
 }
 
@@ -19555,7 +19579,7 @@ return true
 }
 
 func schema1932(v any) bool {
-if !(schemaEqual(v, "unavailable") || schemaEqual(v, "created") || schemaEqual(v, "running") || schemaEqual(v, "exited") || schemaEqual(v, "dead")) { return false }
+if !(schemaEqual(v, "unavailable") || schemaEqual(v, "created") || schemaEqual(v, "running") || schemaEqual(v, "paused") || schemaEqual(v, "restarting") || schemaEqual(v, "removing") || schemaEqual(v, "exited") || schemaEqual(v, "dead")) { return false }
 return true
 }
 
@@ -19612,6 +19636,729 @@ func schema1937(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
+if len(o) > 14 { return false }
+for key := range o { if !schema1938(key) { return false } }
+for key, x := range o {
+_ = x
+switch key {
+default:
+if !schema1939(x) { return false }
+}
+}
+}
+return true
+}
+
+func schema1938(v any) bool {
+if !(schemaEqual(v, "server_starting") || schemaEqual(v, "connection_limit") || schemaEqual(v, "authentication_rejected") || schemaEqual(v, "capability_rejected") || schemaEqual(v, "server_error") || schemaEqual(v, "tls_rejected") || schemaEqual(v, "local_configuration") || schemaEqual(v, "connection_refused") || schemaEqual(v, "connection_reset") || schemaEqual(v, "connection_closed") || schemaEqual(v, "cancelled") || schemaEqual(v, "probe_timeout") || schemaEqual(v, "transport_unreachable") || schemaEqual(v, "unknown")) { return false }
+return true
+}
+
+func schema1939(v any) bool {
+if !(schemaType(v, "integer")) { return false }
+if n, ok := v.(float64); ok && n < 1 { return false }
+if n, ok := v.(float64); ok && n > 10000 { return false }
+return true
+}
+
+func schema1940(v any) bool {
+if !(schemaType(v, "string")) { return false }
+if s, ok := v.(string); ok {
+if !schemaToken(s,"",5,5,0x3ff000000000000,0x7fffffe,0x3ff000000000000,0x7fffffe) { return false }
+}
+return true
+}
+
+func schema1941(v any) bool {
+if !(schemaType(v, "integer")) { return false }
+return true
+}
+
+func schema1942(v any) bool {
+if !(schemaType(v, "boolean")) { return false }
+return true
+}
+
+func schema1943(v any) bool {
+if !(schemaEqual(v, "not_collected") || schemaEqual(v, "unavailable") || schemaEqual(v, "complete") || schemaEqual(v, "truncated")) { return false }
+return true
+}
+
+func schema1944(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 16 { return false }
+if !schemaUnique(a) { return false }
+for i := 0; i < len(a); i++ { if !schema1945(a[i]) { return false } }
+}
+return true
+}
+
+func schema1945(v any) bool {
+if !(schemaEqual(v, "initdb_sync_started") || schemaEqual(v, "initdb_sync_completed") || schemaEqual(v, "initdb_complete") || schemaEqual(v, "temporary_server_start") || schemaEqual(v, "initialization_complete") || schemaEqual(v, "server_ready") || schemaEqual(v, "server_shutdown") || schemaEqual(v, "fatal") || schemaEqual(v, "panic") || schemaEqual(v, "storage_exhausted") || schemaEqual(v, "permission_denied") || schemaEqual(v, "memory_exhausted") || schemaEqual(v, "tls_file_error") || schemaEqual(v, "initdb_started") || schemaEqual(v, "initialization_skipped") || schemaEqual(v, "tcp_listener_started")) { return false }
+return true
+}
+
+func schema1946(v any) bool {
+if !schemaEqual(v, "docker_wall") { return false }
+return true
+}
+
+func schema1947(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 128 { return false }
+for i := 0; i < len(a); i++ { if !schema1948(a[i]) { return false } }
+}
+return true
+}
+
+func schema1948(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["signal"]; !present { return false }
+if _, present := o["phase"]; !present { return false }
+if _, present := o["timestamp"]; !present { return false }
+if _, present := o["container_elapsed_ms"]; !present { return false }
+if x, present := o["signal"]; present && !schema1945(x) { return false }
+if x, present := o["phase"]; present && !schema1949(x) { return false }
+if x, present := o["timestamp"]; present && !schema1950(x) { return false }
+if x, present := o["container_elapsed_ms"]; present && !schema1951(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "signal","phase","timestamp","container_elapsed_ms":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema1949(v any) bool {
+if !(schemaEqual(v, "unknown") || schemaEqual(v, "bootstrap") || schemaEqual(v, "final_server")) { return false }
+return true
+}
+
+func schema1950(v any) bool {
+if !(schemaType(v, "string") || schemaType(v, "null")) { return false }
+return true
+}
+
+func schema1951(v any) bool {
+if !(schemaType(v, "integer") || schemaType(v, "null")) { return false }
+if n, ok := v.(float64); ok && n < 0 { return false }
+if n, ok := v.(float64); ok && n > 600000 { return false }
+return true
+}
+
+func schema1952(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 128 { return false }
+for i := 0; i < len(a); i++ { if !schema1953(a[i]) { return false } }
+}
+return true
+}
+
+func schema1953(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["elapsed_ms"]; !present { return false }
+if _, present := o["cause"]; !present { return false }
+if x, present := o["elapsed_ms"]; present && !schema1926(x) { return false }
+if x, present := o["cause"]; present && !schema1938(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "elapsed_ms","cause":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema1954(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["schema_id"]; !present { return false }
+if _, present := o["stage"]; !present { return false }
+if _, present := o["outcome"]; !present { return false }
+if _, present := o["elapsed_ms"]; !present { return false }
+if _, present := o["sql_window_ms"]; !present { return false }
+if _, present := o["poll_ms"]; !present { return false }
+if _, present := o["probe_cap_ms"]; !present { return false }
+if _, present := o["probe_count"]; !present { return false }
+if _, present := o["cleanup_outcome"]; !present { return false }
+if _, present := o["container_state"]; !present { return false }
+if _, present := o["phases"]; !present { return false }
+if _, present := o["probe_failures"]; !present { return false }
+if _, present := o["startup_log_status"]; !present { return false }
+if _, present := o["startup_log_signals"]; !present { return false }
+if _, present := o["startup_log_clock"]; !present { return false }
+if _, present := o["startup_log_events"]; !present { return false }
+if _, present := o["container_started_at"]; !present { return false }
+if _, present := o["probe_observations"]; !present { return false }
+if _, present := o["probe_observations_truncated"]; !present { return false }
+if _, present := o["first_sql_connection_ms"]; !present { return false }
+if _, present := o["endpoint"]; !present { return false }
+if x, present := o["schema_id"]; present && !schema1955(x) { return false }
+if x, present := o["stage"]; present && !schema1956(x) { return false }
+if x, present := o["outcome"]; present && !schema1957(x) { return false }
+if x, present := o["elapsed_ms"]; present && !schema1958(x) { return false }
+if x, present := o["sql_window_ms"]; present && !schema1959(x) { return false }
+if x, present := o["poll_ms"]; present && !schema1960(x) { return false }
+if x, present := o["probe_cap_ms"]; present && !schema1961(x) { return false }
+if x, present := o["probe_count"]; present && !schema1962(x) { return false }
+if x, present := o["cleanup_outcome"]; present && !schema1963(x) { return false }
+if x, present := o["container_state"]; present && !schema1964(x) { return false }
+if x, present := o["phases"]; present && !schema1965(x) { return false }
+if x, present := o["probe_failures"]; present && !schema1969(x) { return false }
+if x, present := o["last_probe_failure"]; present && !schema1970(x) { return false }
+if x, present := o["last_sqlstate"]; present && !schema1972(x) { return false }
+if x, present := o["container_exit_code"]; present && !schema1973(x) { return false }
+if x, present := o["container_oom_killed"]; present && !schema1974(x) { return false }
+if x, present := o["startup_log_status"]; present && !schema1975(x) { return false }
+if x, present := o["startup_log_signals"]; present && !schema1976(x) { return false }
+if x, present := o["startup_log_clock"]; present && !schema1978(x) { return false }
+if x, present := o["startup_log_events"]; present && !schema1979(x) { return false }
+if x, present := o["container_started_at"]; present && !schema1982(x) { return false }
+if x, present := o["probe_observations"]; present && !schema1986(x) { return false }
+if x, present := o["probe_observations_truncated"]; present && !schema1974(x) { return false }
+if x, present := o["first_sql_connection_ms"]; present && !schema1983(x) { return false }
+if x, present := o["endpoint"]; present && !schema1988(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "schema_id","stage","outcome","elapsed_ms","sql_window_ms","poll_ms","probe_cap_ms","probe_count","cleanup_outcome","container_state","phases","probe_failures","last_probe_failure","last_sqlstate","container_exit_code","container_oom_killed","startup_log_status","startup_log_signals","startup_log_clock","startup_log_events","container_started_at","probe_observations","probe_observations_truncated","first_sql_connection_ms","endpoint":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema1955(v any) bool {
+if !schemaEqual(v, "cartulary.postgres_readiness_diagnostic.v4") { return false }
+return true
+}
+
+func schema1956(v any) bool {
+if !(schemaEqual(v, "container_start") || schemaEqual(v, "endpoint_resolution") || schemaEqual(v, "sql_connectivity") || schemaEqual(v, "security_capability") || schemaEqual(v, "generation_initialization")) { return false }
+return true
+}
+
+func schema1957(v any) bool {
+if !(schemaEqual(v, "unavailable") || schemaEqual(v, "cancelled") || schemaEqual(v, "authentication_rejected") || schemaEqual(v, "capability_rejected") || schemaEqual(v, "deadline_expired") || schemaEqual(v, "transport_unreachable") || schemaEqual(v, "initialization_failed") || schemaEqual(v, "ready")) { return false }
+return true
+}
+
+func schema1958(v any) bool {
+if !(schemaType(v, "integer")) { return false }
+if n, ok := v.(float64); ok && n < 0 { return false }
+if n, ok := v.(float64); ok && n > 600000 { return false }
+return true
+}
+
+func schema1959(v any) bool {
+if !schemaEqual(v, float64(15000)) { return false }
+return true
+}
+
+func schema1960(v any) bool {
+if !schemaEqual(v, float64(250)) { return false }
+return true
+}
+
+func schema1961(v any) bool {
+if !schemaEqual(v, float64(5000)) { return false }
+return true
+}
+
+func schema1962(v any) bool {
+if !(schemaType(v, "integer")) { return false }
+if n, ok := v.(float64); ok && n < 0 { return false }
+if n, ok := v.(float64); ok && n > 10000 { return false }
+return true
+}
+
+func schema1963(v any) bool {
+if !(schemaEqual(v, "completed") || schemaEqual(v, "unresolved") || schemaEqual(v, "not_needed")) { return false }
+return true
+}
+
+func schema1964(v any) bool {
+if !(schemaEqual(v, "unavailable") || schemaEqual(v, "created") || schemaEqual(v, "running") || schemaEqual(v, "paused") || schemaEqual(v, "restarting") || schemaEqual(v, "removing") || schemaEqual(v, "exited") || schemaEqual(v, "dead")) { return false }
+return true
+}
+
+func schema1965(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) < 1 { return false }
+if len(a) > 5 { return false }
+for i := 0; i < len(a); i++ { if !schema1966(a[i]) { return false } }
+}
+return true
+}
+
+func schema1966(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["stage"]; !present { return false }
+if _, present := o["outcome"]; !present { return false }
+if _, present := o["configured_ms"]; !present { return false }
+if _, present := o["effective_ms"]; !present { return false }
+if _, present := o["limiting_deadline"]; !present { return false }
+if _, present := o["elapsed_ms"]; !present { return false }
+if x, present := o["stage"]; present && !schema1956(x) { return false }
+if x, present := o["outcome"]; present && !schema1967(x) { return false }
+if x, present := o["configured_ms"]; present && !schema1958(x) { return false }
+if x, present := o["effective_ms"]; present && !schema1958(x) { return false }
+if x, present := o["limiting_deadline"]; present && !schema1968(x) { return false }
+if x, present := o["elapsed_ms"]; present && !schema1958(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "stage","outcome","configured_ms","effective_ms","limiting_deadline","elapsed_ms":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema1967(v any) bool {
+if !(schemaEqual(v, "ready") || schemaEqual(v, "unavailable") || schemaEqual(v, "cancelled") || schemaEqual(v, "authentication_rejected") || schemaEqual(v, "capability_rejected") || schemaEqual(v, "deadline_expired") || schemaEqual(v, "transport_unreachable") || schemaEqual(v, "initialization_failed")) { return false }
+return true
+}
+
+func schema1968(v any) bool {
+if !(schemaEqual(v, "phase") || schemaEqual(v, "parent") || schemaEqual(v, "none")) { return false }
+return true
+}
+
+func schema1969(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if len(o) > 14 { return false }
+for key := range o { if !schema1970(key) { return false } }
+for key, x := range o {
+_ = x
+switch key {
+default:
+if !schema1971(x) { return false }
+}
+}
+}
+return true
+}
+
+func schema1970(v any) bool {
+if !(schemaEqual(v, "server_starting") || schemaEqual(v, "connection_limit") || schemaEqual(v, "authentication_rejected") || schemaEqual(v, "capability_rejected") || schemaEqual(v, "server_error") || schemaEqual(v, "tls_rejected") || schemaEqual(v, "local_configuration") || schemaEqual(v, "connection_refused") || schemaEqual(v, "connection_reset") || schemaEqual(v, "connection_closed") || schemaEqual(v, "cancelled") || schemaEqual(v, "probe_timeout") || schemaEqual(v, "transport_unreachable") || schemaEqual(v, "unknown")) { return false }
+return true
+}
+
+func schema1971(v any) bool {
+if !(schemaType(v, "integer")) { return false }
+if n, ok := v.(float64); ok && n < 1 { return false }
+if n, ok := v.(float64); ok && n > 10000 { return false }
+return true
+}
+
+func schema1972(v any) bool {
+if !(schemaType(v, "string")) { return false }
+if s, ok := v.(string); ok {
+if !schemaToken(s,"",5,5,0x3ff000000000000,0x7fffffe,0x3ff000000000000,0x7fffffe) { return false }
+}
+return true
+}
+
+func schema1973(v any) bool {
+if !(schemaType(v, "integer")) { return false }
+return true
+}
+
+func schema1974(v any) bool {
+if !(schemaType(v, "boolean")) { return false }
+return true
+}
+
+func schema1975(v any) bool {
+if !(schemaEqual(v, "not_collected") || schemaEqual(v, "unavailable") || schemaEqual(v, "complete") || schemaEqual(v, "truncated")) { return false }
+return true
+}
+
+func schema1976(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 16 { return false }
+if !schemaUnique(a) { return false }
+for i := 0; i < len(a); i++ { if !schema1977(a[i]) { return false } }
+}
+return true
+}
+
+func schema1977(v any) bool {
+if !(schemaEqual(v, "initdb_sync_started") || schemaEqual(v, "initdb_sync_completed") || schemaEqual(v, "initdb_complete") || schemaEqual(v, "temporary_server_start") || schemaEqual(v, "initialization_complete") || schemaEqual(v, "server_ready") || schemaEqual(v, "server_shutdown") || schemaEqual(v, "fatal") || schemaEqual(v, "panic") || schemaEqual(v, "storage_exhausted") || schemaEqual(v, "permission_denied") || schemaEqual(v, "memory_exhausted") || schemaEqual(v, "tls_file_error") || schemaEqual(v, "initdb_started") || schemaEqual(v, "initialization_skipped") || schemaEqual(v, "tcp_listener_started")) { return false }
+return true
+}
+
+func schema1978(v any) bool {
+if !schemaEqual(v, "docker_wall") { return false }
+return true
+}
+
+func schema1979(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 128 { return false }
+for i := 0; i < len(a); i++ { if !schema1980(a[i]) { return false } }
+}
+return true
+}
+
+func schema1980(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["signal"]; !present { return false }
+if _, present := o["phase"]; !present { return false }
+if _, present := o["timestamp"]; !present { return false }
+if _, present := o["container_elapsed_ms"]; !present { return false }
+if _, present := o["stream"]; !present { return false }
+if _, present := o["stream_sequence"]; !present { return false }
+if x, present := o["signal"]; present && !schema1977(x) { return false }
+if x, present := o["phase"]; present && !schema1981(x) { return false }
+if x, present := o["timestamp"]; present && !schema1982(x) { return false }
+if x, present := o["container_elapsed_ms"]; present && !schema1983(x) { return false }
+if x, present := o["stream"]; present && !schema1984(x) { return false }
+if x, present := o["stream_sequence"]; present && !schema1985(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "signal","phase","timestamp","container_elapsed_ms","stream","stream_sequence":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema1981(v any) bool {
+if !(schemaEqual(v, "unknown") || schemaEqual(v, "bootstrap") || schemaEqual(v, "final_server")) { return false }
+return true
+}
+
+func schema1982(v any) bool {
+if !(schemaType(v, "string") || schemaType(v, "null")) { return false }
+return true
+}
+
+func schema1983(v any) bool {
+if !(schemaType(v, "integer") || schemaType(v, "null")) { return false }
+if n, ok := v.(float64); ok && n < 0 { return false }
+if n, ok := v.(float64); ok && n > 600000 { return false }
+return true
+}
+
+func schema1984(v any) bool {
+if !(schemaEqual(v, "stdout") || schemaEqual(v, "stderr") || schemaEqual(v, "unknown")) { return false }
+return true
+}
+
+func schema1985(v any) bool {
+if !(schemaType(v, "integer")) { return false }
+if n, ok := v.(float64); ok && n < 1 { return false }
+if n, ok := v.(float64); ok && n > 65536 { return false }
+return true
+}
+
+func schema1986(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 128 { return false }
+for i := 0; i < len(a); i++ { if !schema1987(a[i]) { return false } }
+}
+return true
+}
+
+func schema1987(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["elapsed_ms"]; !present { return false }
+if _, present := o["cause"]; !present { return false }
+if x, present := o["elapsed_ms"]; present && !schema1958(x) { return false }
+if x, present := o["cause"]; present && !schema1970(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "elapsed_ms","cause":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema1988(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["selected"]; !present { return false }
+if _, present := o["initial_status"]; !present { return false }
+if _, present := o["failure_status"]; !present { return false }
+if _, present := o["initial_bindings"]; !present { return false }
+if _, present := o["failure_bindings"]; !present { return false }
+if _, present := o["binding_changed"]; !present { return false }
+if _, present := o["selected_port_published"]; !present { return false }
+if _, present := o["container_identity_matches"]; !present { return false }
+if _, present := o["lookups"]; !present { return false }
+if _, present := o["dials"]; !present { return false }
+if _, present := o["internal_listener"]; !present { return false }
+if _, present := o["published_dial"]; !present { return false }
+if _, present := o["truncated"]; !present { return false }
+if x, present := o["selected"]; present && !schema1989(x) { return false }
+if x, present := o["initial_status"]; present && !schema1995(x) { return false }
+if x, present := o["failure_status"]; present && !schema1995(x) { return false }
+if x, present := o["initial_bindings"]; present && !schema1996(x) { return false }
+if x, present := o["failure_bindings"]; present && !schema1996(x) { return false }
+if x, present := o["binding_changed"]; present && !schema1998(x) { return false }
+if x, present := o["selected_port_published"]; present && !schema1998(x) { return false }
+if x, present := o["container_identity_matches"]; present && !schema1998(x) { return false }
+if x, present := o["lookups"]; present && !schema1999(x) { return false }
+if x, present := o["dials"]; present && !schema2003(x) { return false }
+if x, present := o["internal_listener"]; present && !schema2006(x) { return false }
+if x, present := o["published_dial"]; present && !schema2007(x) { return false }
+if x, present := o["truncated"]; present && !schema1974(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "selected","initial_status","failure_status","initial_bindings","failure_bindings","binding_changed","selected_port_published","container_identity_matches","lookups","dials","internal_listener","published_dial","truncated":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema1989(v any) bool {
+if !(schema1990(v) || schema1994(v)) { return false }
+return true
+}
+
+func schema1990(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["ref"]; !present { return false }
+if _, present := o["family"]; !present { return false }
+if _, present := o["category"]; !present { return false }
+if x, present := o["ref"]; present && !schema1991(x) { return false }
+if x, present := o["family"]; present && !schema1992(x) { return false }
+if x, present := o["category"]; present && !schema1993(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "ref","family","category":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema1991(v any) bool {
+if !(schemaType(v, "string")) { return false }
+if s, ok := v.(string); ok {
+if !schemaPattern("^(endpoint-([1-9]|[12][0-9]|3[0-2])|omitted)$", s) { return false }
+}
+return true
+}
+
+func schema1992(v any) bool {
+if !(schemaEqual(v, "ipv4") || schemaEqual(v, "ipv6") || schemaEqual(v, "hostname") || schemaEqual(v, "unknown")) { return false }
+return true
+}
+
+func schema1993(v any) bool {
+if !(schemaEqual(v, "loopback") || schemaEqual(v, "unspecified") || schemaEqual(v, "private") || schemaEqual(v, "link_local") || schemaEqual(v, "public") || schemaEqual(v, "name") || schemaEqual(v, "unknown")) { return false }
+return true
+}
+
+func schema1994(v any) bool {
+if !(schemaType(v, "null")) { return false }
+return true
+}
+
+func schema1995(v any) bool {
+if !(schemaEqual(v, "not_collected") || schemaEqual(v, "observed") || schemaEqual(v, "unavailable") || schemaEqual(v, "truncated")) { return false }
+return true
+}
+
+func schema1996(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 32 { return false }
+for i := 0; i < len(a); i++ { if !schema1997(a[i]) { return false } }
+}
+return true
+}
+
+func schema1997(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["endpoint"]; !present { return false }
+if _, present := o["matches_selected_port"]; !present { return false }
+if x, present := o["endpoint"]; present && !schema1990(x) { return false }
+if x, present := o["matches_selected_port"]; present && !schema1974(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "endpoint","matches_selected_port":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema1998(v any) bool {
+if !(schema1974(v) || schema1994(v)) { return false }
+return true
+}
+
+func schema1999(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 128 { return false }
+for i := 0; i < len(a); i++ { if !schema2000(a[i]) { return false } }
+}
+return true
+}
+
+func schema2000(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["elapsed_ms"]; !present { return false }
+if _, present := o["selected_host"]; !present { return false }
+if _, present := o["outcome"]; !present { return false }
+if _, present := o["addresses"]; !present { return false }
+if x, present := o["elapsed_ms"]; present && !schema1958(x) { return false }
+if x, present := o["selected_host"]; present && !schema1974(x) { return false }
+if x, present := o["outcome"]; present && !schema2001(x) { return false }
+if x, present := o["addresses"]; present && !schema2002(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "elapsed_ms","selected_host","outcome","addresses":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema2001(v any) bool {
+if !(schemaEqual(v, "resolved") || schemaEqual(v, "server_starting") || schemaEqual(v, "connection_limit") || schemaEqual(v, "authentication_rejected") || schemaEqual(v, "capability_rejected") || schemaEqual(v, "server_error") || schemaEqual(v, "tls_rejected") || schemaEqual(v, "local_configuration") || schemaEqual(v, "connection_refused") || schemaEqual(v, "connection_reset") || schemaEqual(v, "connection_closed") || schemaEqual(v, "cancelled") || schemaEqual(v, "probe_timeout") || schemaEqual(v, "transport_unreachable") || schemaEqual(v, "unknown")) { return false }
+return true
+}
+
+func schema2002(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 32 { return false }
+for i := 0; i < len(a); i++ { if !schema1990(a[i]) { return false } }
+}
+return true
+}
+
+func schema2003(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 128 { return false }
+for i := 0; i < len(a); i++ { if !schema2004(a[i]) { return false } }
+}
+return true
+}
+
+func schema2004(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["elapsed_ms"]; !present { return false }
+if _, present := o["endpoint"]; !present { return false }
+if _, present := o["peer"]; !present { return false }
+if _, present := o["matches_selected_port"]; !present { return false }
+if _, present := o["from_lookup"]; !present { return false }
+if _, present := o["outcome"]; !present { return false }
+if x, present := o["elapsed_ms"]; present && !schema1958(x) { return false }
+if x, present := o["endpoint"]; present && !schema1990(x) { return false }
+if x, present := o["peer"]; present && !schema1989(x) { return false }
+if x, present := o["matches_selected_port"]; present && !schema1974(x) { return false }
+if x, present := o["from_lookup"]; present && !schema1974(x) { return false }
+if x, present := o["outcome"]; present && !schema2005(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "elapsed_ms","endpoint","peer","matches_selected_port","from_lookup","outcome":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema2005(v any) bool {
+if !(schemaEqual(v, "connected") || schemaEqual(v, "server_starting") || schemaEqual(v, "connection_limit") || schemaEqual(v, "authentication_rejected") || schemaEqual(v, "capability_rejected") || schemaEqual(v, "server_error") || schemaEqual(v, "tls_rejected") || schemaEqual(v, "local_configuration") || schemaEqual(v, "connection_refused") || schemaEqual(v, "connection_reset") || schemaEqual(v, "connection_closed") || schemaEqual(v, "cancelled") || schemaEqual(v, "probe_timeout") || schemaEqual(v, "transport_unreachable") || schemaEqual(v, "unknown")) { return false }
+return true
+}
+
+func schema2006(v any) bool {
+if !(schemaEqual(v, "not_collected") || schemaEqual(v, "present") || schemaEqual(v, "absent") || schemaEqual(v, "unavailable") || schemaEqual(v, "truncated")) { return false }
+return true
+}
+
+func schema2007(v any) bool {
+if !(schema2004(v) || schema1994(v)) { return false }
+return true
+}
+
+func schema2008(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
 if _, present := o["schema_id"]; !present { return false }
 if _, present := o["lease_id"]; !present { return false }
 if _, present := o["suite_id"]; !present { return false }
@@ -19628,24 +20375,24 @@ if _, present := o["proof_labels"]; !present { return false }
 if _, present := o["proof_prefixes"]; !present { return false }
 if _, present := o["cleanup_state"]; !present { return false }
 if _, present := o["postgres_provisioning"]; !present { return false }
-if x, present := o["schema_id"]; present && !schema1938(x) { return false }
-if x, present := o["lease_id"]; present && !schema1939(x) { return false }
-if x, present := o["suite_id"]; present && !schema1939(x) { return false }
-if x, present := o["run_id"]; present && !schema1939(x) { return false }
-if x, present := o["result_root"]; present && !schema1939(x) { return false }
-if x, present := o["run_root"]; present && !schema1939(x) { return false }
-if x, present := o["target"]; present && !schema1940(x) { return false }
-if x, present := o["mode"]; present && !schema1941(x) { return false }
-if x, present := o["ownership_mode"]; present && !schema1941(x) { return false }
-if x, present := o["owner_pid"]; present && !schema1942(x) { return false }
-if x, present := o["created_at"]; present && !schema1943(x) { return false }
-if x, present := o["expires_at"]; present && !schema1943(x) { return false }
-if x, present := o["resources"]; present && !schema1945(x) { return false }
-if x, present := o["proof_labels"]; present && !schema1947(x) { return false }
-if x, present := o["proof_prefixes"]; present && !schema1947(x) { return false }
-if x, present := o["cleanup_state"]; present && !schema1939(x) { return false }
-if x, present := o["extensions"]; present && !schema1950(x) { return false }
-if x, present := o["postgres_provisioning"]; present && !schema1953(x) { return false }
+if x, present := o["schema_id"]; present && !schema2009(x) { return false }
+if x, present := o["lease_id"]; present && !schema2010(x) { return false }
+if x, present := o["suite_id"]; present && !schema2010(x) { return false }
+if x, present := o["run_id"]; present && !schema2010(x) { return false }
+if x, present := o["result_root"]; present && !schema2010(x) { return false }
+if x, present := o["run_root"]; present && !schema2010(x) { return false }
+if x, present := o["target"]; present && !schema2011(x) { return false }
+if x, present := o["mode"]; present && !schema2012(x) { return false }
+if x, present := o["ownership_mode"]; present && !schema2012(x) { return false }
+if x, present := o["owner_pid"]; present && !schema2013(x) { return false }
+if x, present := o["created_at"]; present && !schema2014(x) { return false }
+if x, present := o["expires_at"]; present && !schema2014(x) { return false }
+if x, present := o["resources"]; present && !schema2016(x) { return false }
+if x, present := o["proof_labels"]; present && !schema2018(x) { return false }
+if x, present := o["proof_prefixes"]; present && !schema2018(x) { return false }
+if x, present := o["cleanup_state"]; present && !schema2010(x) { return false }
+if x, present := o["extensions"]; present && !schema2021(x) { return false }
+if x, present := o["postgres_provisioning"]; present && !schema2024(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -19658,12 +20405,12 @@ return false
 return true
 }
 
-func schema1938(v any) bool {
+func schema2009(v any) bool {
 if !schemaEqual(v, "cartulary.test_services.lease.v3") { return false }
 return true
 }
 
-func schema1939(v any) bool {
+func schema2010(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -19671,28 +20418,28 @@ if schemaLength(s) < 1 { return false }
 return true
 }
 
-func schema1940(v any) bool {
+func schema2011(v any) bool {
 if !(schemaType(v, "string")) { return false }
 return true
 }
 
-func schema1941(v any) bool {
+func schema2012(v any) bool {
 if !(schemaEqual(v, "owned") || schemaEqual(v, "attach")) { return false }
 return true
 }
 
-func schema1942(v any) bool {
+func schema2013(v any) bool {
 if !(schemaType(v, "integer")) { return false }
 if n, ok := v.(float64); ok && n < 1 { return false }
 return true
 }
 
-func schema1943(v any) bool {
-if !schema1944(v) { return false }
+func schema2014(v any) bool {
+if !schema2015(v) { return false }
 return true
 }
 
-func schema1944(v any) bool {
+func schema2015(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -19700,16 +20447,16 @@ if schemaLength(s) < 1 { return false }
 return true
 }
 
-func schema1945(v any) bool {
+func schema2016(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
-for i := 0; i < len(a); i++ { if !schema1946(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2017(a[i]) { return false } }
 }
 return true
 }
 
-func schema1946(v any) bool {
+func schema2017(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -19718,12 +20465,12 @@ if _, present := o["service"]; !present { return false }
 if _, present := o["container_id"]; !present { return false }
 if _, present := o["image"]; !present { return false }
 if _, present := o["labels"]; !present { return false }
-if x, present := o["kind"]; present && !schema1939(x) { return false }
-if x, present := o["service"]; present && !schema1939(x) { return false }
-if x, present := o["container_id"]; present && !schema1940(x) { return false }
-if x, present := o["name"]; present && !schema1940(x) { return false }
-if x, present := o["image"]; present && !schema1940(x) { return false }
-if x, present := o["labels"]; present && !schema1947(x) { return false }
+if x, present := o["kind"]; present && !schema2010(x) { return false }
+if x, present := o["service"]; present && !schema2010(x) { return false }
+if x, present := o["container_id"]; present && !schema2011(x) { return false }
+if x, present := o["name"]; present && !schema2011(x) { return false }
+if x, present := o["image"]; present && !schema2011(x) { return false }
+if x, present := o["labels"]; present && !schema2018(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -19736,12 +20483,12 @@ return false
 return true
 }
 
-func schema1947(v any) bool {
-if !schema1948(v) { return false }
+func schema2018(v any) bool {
+if !schema2019(v) { return false }
 return true
 }
 
-func schema1948(v any) bool {
+func schema2019(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -19749,58 +20496,58 @@ for key, x := range o {
 _ = x
 switch key {
 default:
-if !schema1949(x) { return false }
+if !schema2020(x) { return false }
 }
 }
 }
 return true
 }
 
-func schema1949(v any) bool {
+func schema2020(v any) bool {
 if !(schemaType(v, "string")) { return false }
 return true
 }
 
-func schema1950(v any) bool {
-if !schema1951(v) { return false }
+func schema2021(v any) bool {
+if !schema2022(v) { return false }
 return true
 }
 
-func schema1951(v any) bool {
+func schema2022(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
-for key := range o { if !schema1952(key) { return false } }
+for key := range o { if !schema2023(key) { return false } }
 }
 return true
 }
 
-func schema1952(v any) bool {
+func schema2023(v any) bool {
 if s, ok := v.(string); ok {
 if !schemaPattern("^(?:cartulary\\.[A-Za-z0-9_.-]+|[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+){2,})$", s) { return false }
 }
 return true
 }
 
-func schema1953(v any) bool {
+func schema2024(v any) bool {
 matches := 0
-if schema1954(v) { matches++ }
-if schema1955(v) { matches++ }
+if schema2025(v) { matches++ }
+if schema2026(v) { matches++ }
 if matches != 1 { return false }
 return true
 }
 
-func schema1954(v any) bool {
+func schema2025(v any) bool {
 if !(schemaType(v, "null")) { return false }
 return true
 }
 
-func schema1955(v any) bool {
-if !schema1956(v) { return false }
+func schema2026(v any) bool {
+if !schema2027(v) { return false }
 return true
 }
 
-func schema1956(v any) bool {
+func schema2027(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -19810,12 +20557,12 @@ if _, present := o["policy_digest"]; !present { return false }
 if _, present := o["template_digest"]; !present { return false }
 if _, present := o["postgres_isolation"]; !present { return false }
 if _, present := o["allocation_ref"]; !present { return false }
-if x, present := o["schema_id"]; present && !schema1957(x) { return false }
-if x, present := o["generation"]; present && !schema1958(x) { return false }
-if x, present := o["policy_digest"]; present && !schema1959(x) { return false }
-if x, present := o["template_digest"]; present && !schema1959(x) { return false }
-if x, present := o["postgres_isolation"]; present && !schema1960(x) { return false }
-if x, present := o["allocation_ref"]; present && !schema1961(x) { return false }
+if x, present := o["schema_id"]; present && !schema2028(x) { return false }
+if x, present := o["generation"]; present && !schema2029(x) { return false }
+if x, present := o["policy_digest"]; present && !schema2030(x) { return false }
+if x, present := o["template_digest"]; present && !schema2030(x) { return false }
+if x, present := o["postgres_isolation"]; present && !schema2031(x) { return false }
+if x, present := o["allocation_ref"]; present && !schema2032(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -19828,12 +20575,12 @@ return false
 return true
 }
 
-func schema1957(v any) bool {
+func schema2028(v any) bool {
 if !schemaEqual(v, "cartulary.test_services.postgres_provisioning.v2") { return false }
 return true
 }
 
-func schema1958(v any) bool {
+func schema2029(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if !schemaToken(s,"",1,20,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return false }
@@ -19841,7 +20588,7 @@ if !schemaToken(s,"",1,20,0x3fe000000000000,0x0,0x3ff000000000000,0x0) { return 
 return true
 }
 
-func schema1959(v any) bool {
+func schema2030(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if !schemaToken(s,"",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
@@ -19849,12 +20596,12 @@ if !schemaToken(s,"",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e
 return true
 }
 
-func schema1960(v any) bool {
+func schema2031(v any) bool {
 if !(schemaEqual(v, "shared") || schemaEqual(v, "exclusive")) { return false }
 return true
 }
 
-func schema1961(v any) bool {
+func schema2032(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -19863,7 +20610,7 @@ if schemaLength(s) > 512 { return false }
 return true
 }
 
-func schema1962(v any) bool {
+func schema2033(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -19882,24 +20629,24 @@ if _, present := o["object_store"]; !present { return false }
 if _, present := o["browser_e2e"]; !present { return false }
 if _, present := o["fixture"]; !present { return false }
 if _, present := o["started_services"]; !present { return false }
-if x, present := o["schema_id"]; present && !schema1963(x) { return false }
-if x, present := o["target"]; present && !schema1964(x) { return false }
-if x, present := o["suite_id"]; present && !schema1964(x) { return false }
-if x, present := o["run_id"]; present && !schema1964(x) { return false }
-if x, present := o["artifact_dir"]; present && !schema1964(x) { return false }
-if x, present := o["readiness_generation"]; present && !schema1965(x) { return false }
-if x, present := o["wrapper"]; present && !schema1966(x) { return false }
-if x, present := o["preflight"]; present && !schema1969(x) { return false }
-if x, present := o["failure"]; present && !schema1976(x) { return false }
-if x, present := o["failures"]; present && !schema1977(x) { return false }
-if x, present := o["cleanup"]; present && !schema1984(x) { return false }
-if x, present := o["postgres"]; present && !schema1988(x) { return false }
-if x, present := o["object_store"]; present && !schema2003(x) { return false }
-if x, present := o["browser_e2e"]; present && !schema2005(x) { return false }
-if x, present := o["fixture"]; present && !schema2007(x) { return false }
-if x, present := o["started_services"]; present && !schema2013(x) { return false }
-if x, present := o["extensions"]; present && !schema2015(x) { return false }
-for key, x := range o { if schemaPattern("^extensions$", key) && !schema2016(x) { return false } }
+if x, present := o["schema_id"]; present && !schema2034(x) { return false }
+if x, present := o["target"]; present && !schema2035(x) { return false }
+if x, present := o["suite_id"]; present && !schema2035(x) { return false }
+if x, present := o["run_id"]; present && !schema2035(x) { return false }
+if x, present := o["artifact_dir"]; present && !schema2035(x) { return false }
+if x, present := o["readiness_generation"]; present && !schema2036(x) { return false }
+if x, present := o["wrapper"]; present && !schema2037(x) { return false }
+if x, present := o["preflight"]; present && !schema2040(x) { return false }
+if x, present := o["failure"]; present && !schema2047(x) { return false }
+if x, present := o["failures"]; present && !schema2048(x) { return false }
+if x, present := o["cleanup"]; present && !schema2055(x) { return false }
+if x, present := o["postgres"]; present && !schema2059(x) { return false }
+if x, present := o["object_store"]; present && !schema2074(x) { return false }
+if x, present := o["browser_e2e"]; present && !schema2076(x) { return false }
+if x, present := o["fixture"]; present && !schema2078(x) { return false }
+if x, present := o["started_services"]; present && !schema2084(x) { return false }
+if x, present := o["extensions"]; present && !schema2086(x) { return false }
+for key, x := range o { if schemaPattern("^extensions$", key) && !schema2087(x) { return false } }
 for key, x := range o {
 _ = x
 switch key {
@@ -19913,12 +20660,12 @@ return false
 return true
 }
 
-func schema1963(v any) bool {
+func schema2034(v any) bool {
 if !schemaEqual(v, "cartulary.test_services.scope.v2") { return false }
 return true
 }
 
-func schema1964(v any) bool {
+func schema2035(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -19926,7 +20673,7 @@ if schemaLength(s) < 1 { return false }
 return true
 }
 
-func schema1965(v any) bool {
+func schema2036(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if !schemaToken(s,"sha256:",64,64,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
@@ -19934,14 +20681,14 @@ if !schemaToken(s,"sha256:",64,64,0x3ff000000000000,0x7e00000000,0x3ff0000000000
 return true
 }
 
-func schema1966(v any) bool {
+func schema2037(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
 if _, present := o["owned_count"]; !present { return false }
 if _, present := o["pass_through_count"]; !present { return false }
-if x, present := o["owned_count"]; present && !schema1967(x) { return false }
-if x, present := o["pass_through_count"]; present && !schema1967(x) { return false }
+if x, present := o["owned_count"]; present && !schema2038(x) { return false }
+if x, present := o["pass_through_count"]; present && !schema2038(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -19954,18 +20701,18 @@ return false
 return true
 }
 
-func schema1967(v any) bool {
-if !schema1968(v) { return false }
+func schema2038(v any) bool {
+if !schema2039(v) { return false }
 return true
 }
 
-func schema1968(v any) bool {
+func schema2039(v any) bool {
 if !(schemaType(v, "integer")) { return false }
 if n, ok := v.(float64); ok && n < 0 { return false }
 return true
 }
 
-func schema1969(v any) bool {
+func schema2040(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -19975,16 +20722,16 @@ if _, present := o["stale_containers_scanned"]; !present { return false }
 if _, present := o["stale_containers_removed"]; !present { return false }
 if _, present := o["stale_containers_deferred"]; !present { return false }
 if _, present := o["ryuk_disabled_for_suite_startup"]; !present { return false }
-if x, present := o["status"]; present && !schema1970(x) { return false }
-if x, present := o["failure_class"]; present && !schema1971(x) { return false }
-if x, present := o["failure_reason"]; present && !schema1973(x) { return false }
-if x, present := o["docker_ok"]; present && !schema1975(x) { return false }
-if x, present := o["reaper_ready"]; present && !schema1975(x) { return false }
-if x, present := o["stale_containers_scanned"]; present && !schema1967(x) { return false }
-if x, present := o["stale_containers_removed"]; present && !schema1967(x) { return false }
-if x, present := o["stale_containers_deferred"]; present && !schema1967(x) { return false }
-if x, present := o["ryuk_disabled_for_suite_startup"]; present && !schema1975(x) { return false }
-if x, present := o["message"]; present && !schema1970(x) { return false }
+if x, present := o["status"]; present && !schema2041(x) { return false }
+if x, present := o["failure_class"]; present && !schema2042(x) { return false }
+if x, present := o["failure_reason"]; present && !schema2044(x) { return false }
+if x, present := o["docker_ok"]; present && !schema2046(x) { return false }
+if x, present := o["reaper_ready"]; present && !schema2046(x) { return false }
+if x, present := o["stale_containers_scanned"]; present && !schema2038(x) { return false }
+if x, present := o["stale_containers_removed"]; present && !schema2038(x) { return false }
+if x, present := o["stale_containers_deferred"]; present && !schema2038(x) { return false }
+if x, present := o["ryuk_disabled_for_suite_startup"]; present && !schema2046(x) { return false }
+if x, present := o["message"]; present && !schema2041(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -19997,37 +20744,37 @@ return false
 return true
 }
 
-func schema1970(v any) bool {
+func schema2041(v any) bool {
 if !(schemaType(v, "string")) { return false }
 return true
 }
 
-func schema1971(v any) bool {
-if !schema1972(v) { return false }
+func schema2042(v any) bool {
+if !schema2043(v) { return false }
 return true
 }
 
-func schema1972(v any) bool {
+func schema2043(v any) bool {
 if !(schemaEqual(v, "product") || schemaEqual(v, "security") || schemaEqual(v, "config") || schemaEqual(v, "infra") || schemaEqual(v, "harness") || schemaEqual(v, "artifact") || schemaEqual(v, "timing") || schemaEqual(v, "interrupted") || schemaEqual(v, "unknown")) { return false }
 return true
 }
 
-func schema1973(v any) bool {
-if !schema1974(v) { return false }
+func schema2044(v any) bool {
+if !schema2045(v) { return false }
 return true
 }
 
-func schema1974(v any) bool {
+func schema2045(v any) bool {
 if !(schemaEqual(v, "usage_error") || schemaEqual(v, "configuration_error") || schemaEqual(v, "preflight_error") || schemaEqual(v, "service_start_error") || schemaEqual(v, "service_readiness_timeout") || schemaEqual(v, "fixture_error") || schemaEqual(v, "resource_conflict") || schemaEqual(v, "test_assertion_failure") || schemaEqual(v, "security_finding") || schemaEqual(v, "child_target_failure") || schemaEqual(v, "tool_diagnostic_failure") || schemaEqual(v, "scheduler_accounting_error") || schemaEqual(v, "test_accounting_unmapped") || schemaEqual(v, "artifact_error") || schemaEqual(v, "cleanup_error") || schemaEqual(v, "duration_baseline_drift") || schemaEqual(v, "timeout_failure") || schemaEqual(v, "cancelled_or_interrupted") || schemaEqual(v, "unknown_failure")) { return false }
 return true
 }
 
-func schema1975(v any) bool {
+func schema2046(v any) bool {
 if !(schemaType(v, "boolean")) { return false }
 return true
 }
 
-func schema1976(v any) bool {
+func schema2047(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20037,16 +20784,16 @@ if _, present := o["attempts_started"]; !present { return false }
 if _, present := o["max_attempts"]; !present { return false }
 if _, present := o["retryable"]; !present { return false }
 if _, present := o["retry_blocked_by_context"]; !present { return false }
-if x, present := o["failure_class"]; present && !schema1971(x) { return false }
-if x, present := o["failure_reason"]; present && !schema1973(x) { return false }
-if x, present := o["service"]; present && !schema1970(x) { return false }
-if x, present := o["stage"]; present && !schema1970(x) { return false }
-if x, present := o["operation"]; present && !schema1970(x) { return false }
-if x, present := o["message"]; present && !schema1970(x) { return false }
-if x, present := o["attempts_started"]; present && !schema1967(x) { return false }
-if x, present := o["max_attempts"]; present && !schema1967(x) { return false }
-if x, present := o["retryable"]; present && !schema1975(x) { return false }
-if x, present := o["retry_blocked_by_context"]; present && !schema1975(x) { return false }
+if x, present := o["failure_class"]; present && !schema2042(x) { return false }
+if x, present := o["failure_reason"]; present && !schema2044(x) { return false }
+if x, present := o["service"]; present && !schema2041(x) { return false }
+if x, present := o["stage"]; present && !schema2041(x) { return false }
+if x, present := o["operation"]; present && !schema2041(x) { return false }
+if x, present := o["message"]; present && !schema2041(x) { return false }
+if x, present := o["attempts_started"]; present && !schema2038(x) { return false }
+if x, present := o["max_attempts"]; present && !schema2038(x) { return false }
+if x, present := o["retryable"]; present && !schema2046(x) { return false }
+if x, present := o["retry_blocked_by_context"]; present && !schema2046(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20059,13 +20806,13 @@ return false
 return true
 }
 
-func schema1977(v any) bool {
+func schema2048(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
-if x, present := o["counts"]; present && !schema1978(x) { return false }
-if x, present := o["reasons"]; present && !schema1979(x) { return false }
-if x, present := o["exemplars"]; present && !schema1980(x) { return false }
+if x, present := o["counts"]; present && !schema2049(x) { return false }
+if x, present := o["reasons"]; present && !schema2050(x) { return false }
+if x, present := o["exemplars"]; present && !schema2051(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20078,39 +20825,39 @@ return false
 return true
 }
 
-func schema1978(v any) bool {
+func schema2049(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
-for key := range o { if !schema1971(key) { return false } }
+for key := range o { if !schema2042(key) { return false } }
 for key, x := range o {
 _ = x
 switch key {
 default:
-if !schema1967(x) { return false }
+if !schema2038(x) { return false }
 }
 }
 }
 return true
 }
 
-func schema1979(v any) bool {
+func schema2050(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
-for key := range o { if !schema1973(key) { return false } }
+for key := range o { if !schema2044(key) { return false } }
 for key, x := range o {
 _ = x
 switch key {
 default:
-if !schema1967(x) { return false }
+if !schema2038(x) { return false }
 }
 }
 }
 return true
 }
 
-func schema1980(v any) bool {
+func schema2051(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20118,29 +20865,29 @@ for key, x := range o {
 _ = x
 switch key {
 default:
-if !schema1981(x) { return false }
+if !schema2052(x) { return false }
 }
 }
 }
 return true
 }
 
-func schema1981(v any) bool {
+func schema2052(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
 if len(a) > 10 { return false }
-for i := 0; i < len(a); i++ { if !schema1982(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2053(a[i]) { return false } }
 }
 return true
 }
 
-func schema1982(v any) bool {
-if !schema1983(v) { return false }
+func schema2053(v any) bool {
+if !schema2054(v) { return false }
 return true
 }
 
-func schema1983(v any) bool {
+func schema2054(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20148,16 +20895,16 @@ if _, present := o["attempts_started"]; !present { return false }
 if _, present := o["max_attempts"]; !present { return false }
 if _, present := o["retryable"]; !present { return false }
 if _, present := o["retry_blocked_by_context"]; !present { return false }
-if x, present := o["failure_class"]; present && !schema1971(x) { return false }
-if x, present := o["failure_reason"]; present && !schema1973(x) { return false }
-if x, present := o["service"]; present && !schema1970(x) { return false }
-if x, present := o["stage"]; present && !schema1970(x) { return false }
-if x, present := o["operation"]; present && !schema1970(x) { return false }
-if x, present := o["message"]; present && !schema1970(x) { return false }
-if x, present := o["attempts_started"]; present && !schema1967(x) { return false }
-if x, present := o["max_attempts"]; present && !schema1967(x) { return false }
-if x, present := o["retryable"]; present && !schema1975(x) { return false }
-if x, present := o["retry_blocked_by_context"]; present && !schema1975(x) { return false }
+if x, present := o["failure_class"]; present && !schema2042(x) { return false }
+if x, present := o["failure_reason"]; present && !schema2044(x) { return false }
+if x, present := o["service"]; present && !schema2041(x) { return false }
+if x, present := o["stage"]; present && !schema2041(x) { return false }
+if x, present := o["operation"]; present && !schema2041(x) { return false }
+if x, present := o["message"]; present && !schema2041(x) { return false }
+if x, present := o["attempts_started"]; present && !schema2038(x) { return false }
+if x, present := o["max_attempts"]; present && !schema2038(x) { return false }
+if x, present := o["retryable"]; present && !schema2046(x) { return false }
+if x, present := o["retry_blocked_by_context"]; present && !schema2046(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20170,14 +20917,14 @@ return false
 return true
 }
 
-func schema1984(v any) bool {
+func schema2055(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
-if x, present := o["status"]; present && !schema1970(x) { return false }
-if x, present := o["completed_at"]; present && !schema1985(x) { return false }
-if x, present := o["child_exit_status"]; present && !schema1986(x) { return false }
-if x, present := o["physical_settlement"]; present && !schema1987(x) { return false }
+if x, present := o["status"]; present && !schema2041(x) { return false }
+if x, present := o["completed_at"]; present && !schema2056(x) { return false }
+if x, present := o["child_exit_status"]; present && !schema2057(x) { return false }
+if x, present := o["physical_settlement"]; present && !schema2058(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20190,27 +20937,27 @@ return false
 return true
 }
 
-func schema1985(v any) bool {
-if !schema1944(v) { return false }
+func schema2056(v any) bool {
+if !schema2015(v) { return false }
 return true
 }
 
-func schema1986(v any) bool {
+func schema2057(v any) bool {
 if !(schemaType(v, "integer")) { return false }
 return true
 }
 
-func schema1987(v any) bool {
+func schema2058(v any) bool {
 if !(schemaEqual(v, "completed") || schemaEqual(v, "unresolved")) { return false }
 return true
 }
 
-func schema1988(v any) bool {
-if !schema1989(v) { return false }
+func schema2059(v any) bool {
+if !schema2060(v) { return false }
 return true
 }
 
-func schema1989(v any) bool {
+func schema2060(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20220,19 +20967,19 @@ if _, present := o["attached_harness_count"]; !present { return false }
 if _, present := o["created_database_count"]; !present { return false }
 if _, present := o["migrated_database_count"]; !present { return false }
 if _, present := o["template_clone_count"]; !present { return false }
-if x, present := o["started"]; present && !schema1975(x) { return false }
-if x, present := o["started_at"]; present && !schema1985(x) { return false }
-if x, present := o["user"]; present && !schema1970(x) { return false }
-if x, present := o["template_database"]; present && !schema1970(x) { return false }
-if x, present := o["startup"]; present && !schema1990(x) { return false }
-if x, present := o["attached_harness_count"]; present && !schema1967(x) { return false }
-if x, present := o["created_database_count"]; present && !schema1967(x) { return false }
-if x, present := o["migrated_database_count"]; present && !schema1967(x) { return false }
-if x, present := o["template_clone_count"]; present && !schema1967(x) { return false }
-if x, present := o["preparation_examples"]; present && !schema1995(x) { return false }
-if x, present := o["drop_attempts"]; present && !schema1999(x) { return false }
-if x, present := o["omitted_drop_attempts"]; present && !schema1968(x) { return false }
-if x, present := o["allocation_ref"]; present && !schema2002(x) { return false }
+if x, present := o["started"]; present && !schema2046(x) { return false }
+if x, present := o["started_at"]; present && !schema2056(x) { return false }
+if x, present := o["user"]; present && !schema2041(x) { return false }
+if x, present := o["template_database"]; present && !schema2041(x) { return false }
+if x, present := o["startup"]; present && !schema2061(x) { return false }
+if x, present := o["attached_harness_count"]; present && !schema2038(x) { return false }
+if x, present := o["created_database_count"]; present && !schema2038(x) { return false }
+if x, present := o["migrated_database_count"]; present && !schema2038(x) { return false }
+if x, present := o["template_clone_count"]; present && !schema2038(x) { return false }
+if x, present := o["preparation_examples"]; present && !schema2066(x) { return false }
+if x, present := o["drop_attempts"]; present && !schema2070(x) { return false }
+if x, present := o["omitted_drop_attempts"]; present && !schema2039(x) { return false }
+if x, present := o["allocation_ref"]; present && !schema2073(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20245,12 +20992,12 @@ return false
 return true
 }
 
-func schema1990(v any) bool {
-if !schema1991(v) { return false }
+func schema2061(v any) bool {
+if !schema2062(v) { return false }
 return true
 }
 
-func schema1991(v any) bool {
+func schema2062(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20260,14 +21007,14 @@ if _, present := o["slowest_attempt_duration_ms"]; !present { return false }
 if _, present := o["final_attempt"]; !present { return false }
 if _, present := o["final_retryable"]; !present { return false }
 if _, present := o["final_retry_blocked_by_context"]; !present { return false }
-if x, present := o["attempt_count"]; present && !schema1967(x) { return false }
-if x, present := o["retry_count"]; present && !schema1967(x) { return false }
-if x, present := o["slowest_attempt_duration_ms"]; present && !schema1967(x) { return false }
-if x, present := o["final_attempt"]; present && !schema1967(x) { return false }
-if x, present := o["final_status"]; present && !schema1970(x) { return false }
-if x, present := o["final_retryable"]; present && !schema1975(x) { return false }
-if x, present := o["final_retry_blocked_by_context"]; present && !schema1975(x) { return false }
-if x, present := o["attempts"]; present && !schema1992(x) { return false }
+if x, present := o["attempt_count"]; present && !schema2038(x) { return false }
+if x, present := o["retry_count"]; present && !schema2038(x) { return false }
+if x, present := o["slowest_attempt_duration_ms"]; present && !schema2038(x) { return false }
+if x, present := o["final_attempt"]; present && !schema2038(x) { return false }
+if x, present := o["final_status"]; present && !schema2041(x) { return false }
+if x, present := o["final_retryable"]; present && !schema2046(x) { return false }
+if x, present := o["final_retry_blocked_by_context"]; present && !schema2046(x) { return false }
+if x, present := o["attempts"]; present && !schema2063(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20280,17 +21027,17 @@ return false
 return true
 }
 
-func schema1992(v any) bool {
+func schema2063(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
 if len(a) > 10 { return false }
-for i := 0; i < len(a); i++ { if !schema1993(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2064(a[i]) { return false } }
 }
 return true
 }
 
-func schema1993(v any) bool {
+func schema2064(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20300,15 +21047,15 @@ if _, present := o["duration_ms"]; !present { return false }
 if _, present := o["retryable"]; !present { return false }
 if _, present := o["retry_scheduled"]; !present { return false }
 if _, present := o["retry_blocked_by_context"]; !present { return false }
-if x, present := o["attempt"]; present && !schema1994(x) { return false }
-if x, present := o["max_attempts"]; present && !schema1967(x) { return false }
-if x, present := o["status"]; present && !schema1970(x) { return false }
-if x, present := o["duration_ms"]; present && !schema1967(x) { return false }
-if x, present := o["retryable"]; present && !schema1975(x) { return false }
-if x, present := o["retry_scheduled"]; present && !schema1975(x) { return false }
-if x, present := o["retry_blocked_by_context"]; present && !schema1975(x) { return false }
-if x, present := o["message"]; present && !schema1970(x) { return false }
-if x, present := o["timestamp"]; present && !schema1985(x) { return false }
+if x, present := o["attempt"]; present && !schema2065(x) { return false }
+if x, present := o["max_attempts"]; present && !schema2038(x) { return false }
+if x, present := o["status"]; present && !schema2041(x) { return false }
+if x, present := o["duration_ms"]; present && !schema2038(x) { return false }
+if x, present := o["retryable"]; present && !schema2046(x) { return false }
+if x, present := o["retry_scheduled"]; present && !schema2046(x) { return false }
+if x, present := o["retry_blocked_by_context"]; present && !schema2046(x) { return false }
+if x, present := o["message"]; present && !schema2041(x) { return false }
+if x, present := o["timestamp"]; present && !schema2056(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20321,28 +21068,28 @@ return false
 return true
 }
 
-func schema1994(v any) bool {
+func schema2065(v any) bool {
 if !(schemaType(v, "integer")) { return false }
 if n, ok := v.(float64); ok && n < 1 { return false }
 return true
 }
 
-func schema1995(v any) bool {
+func schema2066(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
 if len(a) > 10 { return false }
-for i := 0; i < len(a); i++ { if !schema1996(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2067(a[i]) { return false } }
 }
 return true
 }
 
-func schema1996(v any) bool {
-if !schema1997(v) { return false }
+func schema2067(v any) bool {
+if !schema2068(v) { return false }
 return true
 }
 
-func schema1997(v any) bool {
+func schema2068(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20350,14 +21097,14 @@ if _, present := o["name"]; !present { return false }
 if _, present := o["strategy"]; !present { return false }
 if _, present := o["pid"]; !present { return false }
 if _, present := o["timestamp"]; !present { return false }
-if x, present := o["name"]; present && !schema1964(x) { return false }
-if x, present := o["strategy"]; present && !schema1998(x) { return false }
-if x, present := o["template_database"]; present && !schema1970(x) { return false }
-if x, present := o["schema_hash"]; present && !schema1970(x) { return false }
-if x, present := o["fixture_class"]; present && !schema1970(x) { return false }
-if x, present := o["target"]; present && !schema1970(x) { return false }
-if x, present := o["pid"]; present && !schema1994(x) { return false }
-if x, present := o["timestamp"]; present && !schema1985(x) { return false }
+if x, present := o["name"]; present && !schema2035(x) { return false }
+if x, present := o["strategy"]; present && !schema2069(x) { return false }
+if x, present := o["template_database"]; present && !schema2041(x) { return false }
+if x, present := o["schema_hash"]; present && !schema2041(x) { return false }
+if x, present := o["fixture_class"]; present && !schema2041(x) { return false }
+if x, present := o["target"]; present && !schema2041(x) { return false }
+if x, present := o["pid"]; present && !schema2065(x) { return false }
+if x, present := o["timestamp"]; present && !schema2056(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20370,29 +21117,29 @@ return false
 return true
 }
 
-func schema1998(v any) bool {
+func schema2069(v any) bool {
 if !(schemaEqual(v, "template") || schemaEqual(v, "template-clone") || schemaEqual(v, "fresh-migration")) { return false }
 return true
 }
 
-func schema1999(v any) bool {
+func schema2070(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
 if len(a) > 32 { return false }
-for i := 0; i < len(a); i++ { if !schema2000(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2071(a[i]) { return false } }
 }
 return true
 }
 
-func schema2000(v any) bool {
+func schema2071(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
 if _, present := o["completed_at"]; !present { return false }
 if _, present := o["attempt"]; !present { return false }
-if x, present := o["completed_at"]; present && !schema1985(x) { return false }
-if x, present := o["attempt"]; present && !schema2001(x) { return false }
+if x, present := o["completed_at"]; present && !schema2056(x) { return false }
+if x, present := o["attempt"]; present && !schema2072(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20405,12 +21152,12 @@ return false
 return true
 }
 
-func schema2001(v any) bool {
+func schema2072(v any) bool {
 if !schema431(v) { return false }
 return true
 }
 
-func schema2002(v any) bool {
+func schema2073(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -20420,12 +21167,12 @@ if !schemaPattern("^[A-Za-z0-9_.:/-]+$", s) { return false }
 return true
 }
 
-func schema2003(v any) bool {
-if !schema2004(v) { return false }
+func schema2074(v any) bool {
+if !schema2075(v) { return false }
 return true
 }
 
-func schema2004(v any) bool {
+func schema2075(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20435,13 +21182,13 @@ if _, present := o["startup"]; !present { return false }
 if _, present := o["attached_harness_count"]; !present { return false }
 if _, present := o["bucket_create_count"]; !present { return false }
 if _, present := o["bucket_cleanup_count"]; !present { return false }
-if x, present := o["started"]; present && !schema1975(x) { return false }
-if x, present := o["started_at"]; present && !schema1985(x) { return false }
-if x, present := o["secure"]; present && !schema1975(x) { return false }
-if x, present := o["startup"]; present && !schema1990(x) { return false }
-if x, present := o["attached_harness_count"]; present && !schema1967(x) { return false }
-if x, present := o["bucket_create_count"]; present && !schema1967(x) { return false }
-if x, present := o["bucket_cleanup_count"]; present && !schema1967(x) { return false }
+if x, present := o["started"]; present && !schema2046(x) { return false }
+if x, present := o["started_at"]; present && !schema2056(x) { return false }
+if x, present := o["secure"]; present && !schema2046(x) { return false }
+if x, present := o["startup"]; present && !schema2061(x) { return false }
+if x, present := o["attached_harness_count"]; present && !schema2038(x) { return false }
+if x, present := o["bucket_create_count"]; present && !schema2038(x) { return false }
+if x, present := o["bucket_cleanup_count"]; present && !schema2038(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20454,21 +21201,21 @@ return false
 return true
 }
 
-func schema2005(v any) bool {
-if !schema2006(v) { return false }
+func schema2076(v any) bool {
+if !schema2077(v) { return false }
 return true
 }
 
-func schema2006(v any) bool {
+func schema2077(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
 if _, present := o["retired_fixture_count"]; !present { return false }
 if _, present := o["cleaned_fixture_count"]; !present { return false }
 if _, present := o["reclaimed_fixture_count"]; !present { return false }
-if x, present := o["retired_fixture_count"]; present && !schema1967(x) { return false }
-if x, present := o["cleaned_fixture_count"]; present && !schema1967(x) { return false }
-if x, present := o["reclaimed_fixture_count"]; present && !schema1967(x) { return false }
+if x, present := o["retired_fixture_count"]; present && !schema2038(x) { return false }
+if x, present := o["cleaned_fixture_count"]; present && !schema2038(x) { return false }
+if x, present := o["reclaimed_fixture_count"]; present && !schema2038(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20481,23 +21228,23 @@ return false
 return true
 }
 
-func schema2007(v any) bool {
-if !schema2008(v) { return false }
+func schema2078(v any) bool {
+if !schema2079(v) { return false }
 return true
 }
 
-func schema2008(v any) bool {
+func schema2079(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
 if _, present := o["total_count"]; !present { return false }
 if _, present := o["total_duration_ms"]; !present { return false }
 if _, present := o["strategy_aggregate_count"]; !present { return false }
-if x, present := o["total_count"]; present && !schema1967(x) { return false }
-if x, present := o["total_duration_ms"]; present && !schema1967(x) { return false }
-if x, present := o["strategy_aggregate_count"]; present && !schema1967(x) { return false }
-if x, present := o["by_strategy"]; present && !schema2009(x) { return false }
-if x, present := o["slowest"]; present && !schema2012(x) { return false }
+if x, present := o["total_count"]; present && !schema2038(x) { return false }
+if x, present := o["total_duration_ms"]; present && !schema2038(x) { return false }
+if x, present := o["strategy_aggregate_count"]; present && !schema2038(x) { return false }
+if x, present := o["by_strategy"]; present && !schema2080(x) { return false }
+if x, present := o["slowest"]; present && !schema2083(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20510,40 +21257,40 @@ return false
 return true
 }
 
-func schema2009(v any) bool {
+func schema2080(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
 if len(a) > 32 { return false }
-for i := 0; i < len(a); i++ { if !schema2010(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2081(a[i]) { return false } }
 }
 return true
 }
 
-func schema2010(v any) bool {
-if !schema2011(v) { return false }
+func schema2081(v any) bool {
+if !schema2082(v) { return false }
 return true
 }
 
-func schema2011(v any) bool {
+func schema2082(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
 if _, present := o["count"]; !present { return false }
 if _, present := o["total_duration_ms"]; !present { return false }
-if x, present := o["service"]; present && !schema1970(x) { return false }
-if x, present := o["target"]; present && !schema1970(x) { return false }
-if x, present := o["operation"]; present && !schema1970(x) { return false }
-if x, present := o["strategy"]; present && !schema1970(x) { return false }
-if x, present := o["fixture_policy"]; present && !schema1970(x) { return false }
-if x, present := o["fixture_class"]; present && !schema1970(x) { return false }
-if x, present := o["reuse_scope"]; present && !schema1970(x) { return false }
-if x, present := o["reuse_group"]; present && !schema1970(x) { return false }
-if x, present := o["caller_package"]; present && !schema1970(x) { return false }
-if x, present := o["caller_file"]; present && !schema1970(x) { return false }
-if x, present := o["test_name"]; present && !schema1970(x) { return false }
-if x, present := o["count"]; present && !schema1967(x) { return false }
-if x, present := o["total_duration_ms"]; present && !schema1967(x) { return false }
+if x, present := o["service"]; present && !schema2041(x) { return false }
+if x, present := o["target"]; present && !schema2041(x) { return false }
+if x, present := o["operation"]; present && !schema2041(x) { return false }
+if x, present := o["strategy"]; present && !schema2041(x) { return false }
+if x, present := o["fixture_policy"]; present && !schema2041(x) { return false }
+if x, present := o["fixture_class"]; present && !schema2041(x) { return false }
+if x, present := o["reuse_scope"]; present && !schema2041(x) { return false }
+if x, present := o["reuse_group"]; present && !schema2041(x) { return false }
+if x, present := o["caller_package"]; present && !schema2041(x) { return false }
+if x, present := o["caller_file"]; present && !schema2041(x) { return false }
+if x, present := o["test_name"]; present && !schema2041(x) { return false }
+if x, present := o["count"]; present && !schema2038(x) { return false }
+if x, present := o["total_duration_ms"]; present && !schema2038(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20556,21 +21303,21 @@ return false
 return true
 }
 
-func schema2012(v any) bool {
+func schema2083(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
 if len(a) > 10 { return false }
-for i := 0; i < len(a); i++ { if !schema2010(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2081(a[i]) { return false } }
 }
 return true
 }
 
-func schema2013(v any) bool {
+func schema2084(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
-if x, present := o["names"]; present && !schema2014(x) { return false }
+if x, present := o["names"]; present && !schema2085(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20583,38 +21330,38 @@ return false
 return true
 }
 
-func schema2014(v any) bool {
+func schema2085(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
 if len(a) > 2 { return false }
 if !schemaUnique(a) { return false }
-for i := 0; i < len(a); i++ { if !schema1964(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2035(a[i]) { return false } }
 }
 return true
 }
 
-func schema2015(v any) bool {
-if !schema1951(v) { return false }
+func schema2086(v any) bool {
+if !schema2022(v) { return false }
 return true
 }
 
-func schema2016(v any) bool {
+func schema2087(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
-if x, present := o["cartulary.object_store_readiness"]; present && !schema2017(x) { return false }
-if x, present := o["cartulary.postgres_readiness"]; present && !schema2033(x) { return false }
+if x, present := o["cartulary.object_store_readiness"]; present && !schema2088(x) { return false }
+if x, present := o["cartulary.postgres_readiness"]; present && !schema2104(x) { return false }
 }
 return true
 }
 
-func schema2017(v any) bool {
-if !schema2018(v) { return false }
+func schema2088(v any) bool {
+if !schema2089(v) { return false }
 return true
 }
 
-func schema2018(v any) bool {
+func schema2089(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20627,19 +21374,19 @@ if _, present := o["attempt_timeout_count"]; !present { return false }
 if _, present := o["elapsed_ms"]; !present { return false }
 if _, present := o["cleanup_outcome"]; !present { return false }
 if _, present := o["cause_counts"]; !present { return false }
-if x, present := o["schema_id"]; present && !schema2019(x) { return false }
-if x, present := o["phase"]; present && !schema2020(x) { return false }
-if x, present := o["stage"]; present && !schema2021(x) { return false }
-if x, present := o["outcome"]; present && !schema2022(x) { return false }
-if x, present := o["attempt_count"]; present && !schema2023(x) { return false }
-if x, present := o["attempt_timeout_count"]; present && !schema2024(x) { return false }
-if x, present := o["elapsed_ms"]; present && !schema2025(x) { return false }
-if x, present := o["cleanup_outcome"]; present && !schema2026(x) { return false }
-if x, present := o["cause_counts"]; present && !schema2027(x) { return false }
-if x, present := o["container_state"]; present && !schema2029(x) { return false }
-if x, present := o["health_state"]; present && !schema2030(x) { return false }
-if x, present := o["exit_code"]; present && !schema2031(x) { return false }
-if x, present := o["oom_killed"]; present && !schema2032(x) { return false }
+if x, present := o["schema_id"]; present && !schema2090(x) { return false }
+if x, present := o["phase"]; present && !schema2091(x) { return false }
+if x, present := o["stage"]; present && !schema2092(x) { return false }
+if x, present := o["outcome"]; present && !schema2093(x) { return false }
+if x, present := o["attempt_count"]; present && !schema2094(x) { return false }
+if x, present := o["attempt_timeout_count"]; present && !schema2095(x) { return false }
+if x, present := o["elapsed_ms"]; present && !schema2096(x) { return false }
+if x, present := o["cleanup_outcome"]; present && !schema2097(x) { return false }
+if x, present := o["cause_counts"]; present && !schema2098(x) { return false }
+if x, present := o["container_state"]; present && !schema2100(x) { return false }
+if x, present := o["health_state"]; present && !schema2101(x) { return false }
+if x, present := o["exit_code"]; present && !schema2102(x) { return false }
+if x, present := o["oom_killed"]; present && !schema2103(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20652,101 +21399,101 @@ return false
 return true
 }
 
-func schema2019(v any) bool {
+func schema2090(v any) bool {
 if !schemaEqual(v, "cartulary.object_store_readiness_diagnostic.v1") { return false }
 return true
 }
 
-func schema2020(v any) bool {
+func schema2091(v any) bool {
 if !(schemaEqual(v, "initial_lane") || schemaEqual(v, "broker_namespace") || schemaEqual(v, "package_admission")) { return false }
 return true
 }
 
-func schema2021(v any) bool {
+func schema2092(v any) bool {
 if !(schemaEqual(v, "list") || schemaEqual(v, "create_namespace") || schemaEqual(v, "put") || schemaEqual(v, "head") || schemaEqual(v, "delete") || schemaEqual(v, "delete_verify")) { return false }
 return true
 }
 
-func schema2022(v any) bool {
+func schema2093(v any) bool {
 if !(schemaEqual(v, "deadline_expired") || schemaEqual(v, "capability_rejected") || schemaEqual(v, "cancelled") || schemaEqual(v, "unavailable")) { return false }
 return true
 }
 
-func schema2023(v any) bool {
+func schema2094(v any) bool {
 if !(schemaType(v, "integer")) { return false }
 if n, ok := v.(float64); ok && n < 1 { return false }
 if n, ok := v.(float64); ok && n > 10000 { return false }
 return true
 }
 
-func schema2024(v any) bool {
+func schema2095(v any) bool {
 if !(schemaType(v, "integer")) { return false }
 if n, ok := v.(float64); ok && n < 0 { return false }
 if n, ok := v.(float64); ok && n > 10000 { return false }
 return true
 }
 
-func schema2025(v any) bool {
+func schema2096(v any) bool {
 if !(schemaType(v, "integer")) { return false }
 if n, ok := v.(float64); ok && n < 0 { return false }
 if n, ok := v.(float64); ok && n > 600000 { return false }
 return true
 }
 
-func schema2026(v any) bool {
+func schema2097(v any) bool {
 if !(schemaEqual(v, "not_needed") || schemaEqual(v, "completed") || schemaEqual(v, "failed")) { return false }
 return true
 }
 
-func schema2027(v any) bool {
+func schema2098(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
 if len(o) < 1 { return false }
 if len(o) > 7 { return false }
-for key := range o { if !schema2028(key) { return false } }
+for key := range o { if !schema2099(key) { return false } }
 for key, x := range o {
 _ = x
 switch key {
 default:
-if !schema2023(x) { return false }
+if !schema2094(x) { return false }
 }
 }
 }
 return true
 }
 
-func schema2028(v any) bool {
+func schema2099(v any) bool {
 if !(schemaEqual(v, "transport_unreachable") || schemaEqual(v, "operation_timeout") || schemaEqual(v, "service_error") || schemaEqual(v, "capability_rejected") || schemaEqual(v, "semantic_mismatch") || schemaEqual(v, "cancelled") || schemaEqual(v, "unknown_transient")) { return false }
 return true
 }
 
-func schema2029(v any) bool {
+func schema2100(v any) bool {
 if !(schemaEqual(v, "created") || schemaEqual(v, "running") || schemaEqual(v, "paused") || schemaEqual(v, "restarting") || schemaEqual(v, "removing") || schemaEqual(v, "exited") || schemaEqual(v, "dead") || schemaEqual(v, "unavailable")) { return false }
 return true
 }
 
-func schema2030(v any) bool {
+func schema2101(v any) bool {
 if !(schemaEqual(v, "healthy") || schemaEqual(v, "unhealthy") || schemaEqual(v, "starting") || schemaEqual(v, "none") || schemaEqual(v, "unavailable")) { return false }
 return true
 }
 
-func schema2031(v any) bool {
+func schema2102(v any) bool {
 if !(schemaType(v, "integer")) { return false }
 return true
 }
 
-func schema2032(v any) bool {
+func schema2103(v any) bool {
 if !(schemaType(v, "boolean")) { return false }
 return true
 }
 
-func schema2033(v any) bool {
-if !schema1922(v) { return false }
+func schema2104(v any) bool {
+if !schema1954(v) { return false }
 return true
 }
 
-func schema2034(v any) bool {
+func schema2105(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20759,15 +21506,15 @@ if _, present := o["service_scope_ref"]; !present { return false }
 if _, present := o["failure_class"]; !present { return false }
 if _, present := o["failure_reason"]; !present { return false }
 if _, present := o["recovery_files"]; !present { return false }
-if x, present := o["schema_id"]; present && !schema2035(x) { return false }
-if x, present := o["status"]; present && !schema2036(x) { return false }
-if x, present := o["run_id"]; present && !schema2037(x) { return false }
-if x, present := o["target"]; present && !schema2037(x) { return false }
-if x, present := o["suite_id"]; present && !schema2037(x) { return false }
-if x, present := o["service_scope_ref"]; present && !schema2038(x) { return false }
-if x, present := o["failure_class"]; present && !schema2039(x) { return false }
-if x, present := o["failure_reason"]; present && !schema2040(x) { return false }
-if x, present := o["recovery_files"]; present && !schema2041(x) { return false }
+if x, present := o["schema_id"]; present && !schema2106(x) { return false }
+if x, present := o["status"]; present && !schema2107(x) { return false }
+if x, present := o["run_id"]; present && !schema2108(x) { return false }
+if x, present := o["target"]; present && !schema2108(x) { return false }
+if x, present := o["suite_id"]; present && !schema2108(x) { return false }
+if x, present := o["service_scope_ref"]; present && !schema2109(x) { return false }
+if x, present := o["failure_class"]; present && !schema2110(x) { return false }
+if x, present := o["failure_reason"]; present && !schema2111(x) { return false }
+if x, present := o["recovery_files"]; present && !schema2112(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20777,21 +21524,21 @@ return false
 }
 }
 }
-if !(schema2043(v) && schema2048(v)) { return false }
+if !(schema2114(v) && schema2119(v)) { return false }
 return true
 }
 
-func schema2035(v any) bool {
+func schema2106(v any) bool {
 if !schemaEqual(v, "cartulary.test_services.start_result.v2") { return false }
 return true
 }
 
-func schema2036(v any) bool {
+func schema2107(v any) bool {
 if !(schemaEqual(v, "ready") || schemaEqual(v, "failed")) { return false }
 return true
 }
 
-func schema2037(v any) bool {
+func schema2108(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -20800,7 +21547,7 @@ if schemaLength(s) > 128 { return false }
 return true
 }
 
-func schema2038(v any) bool {
+func schema2109(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if !schemaPattern("^_shared/test-services/[A-Za-z0-9][A-Za-z0-9._-]*/service-scope\\.json$", s) { return false }
@@ -20808,28 +21555,28 @@ if !schemaPattern("^_shared/test-services/[A-Za-z0-9][A-Za-z0-9._-]*/service-sco
 return true
 }
 
-func schema2039(v any) bool {
+func schema2110(v any) bool {
 if !(schemaEqual(v, nil) || schemaEqual(v, "product") || schemaEqual(v, "security") || schemaEqual(v, "config") || schemaEqual(v, "infra") || schemaEqual(v, "harness") || schemaEqual(v, "artifact") || schemaEqual(v, "timing") || schemaEqual(v, "interrupted") || schemaEqual(v, "unknown")) { return false }
 return true
 }
 
-func schema2040(v any) bool {
+func schema2111(v any) bool {
 if !(schemaEqual(v, nil) || schemaEqual(v, "usage_error") || schemaEqual(v, "configuration_error") || schemaEqual(v, "preflight_error") || schemaEqual(v, "service_start_error") || schemaEqual(v, "service_readiness_timeout") || schemaEqual(v, "fixture_error") || schemaEqual(v, "resource_conflict") || schemaEqual(v, "test_assertion_failure") || schemaEqual(v, "security_finding") || schemaEqual(v, "child_target_failure") || schemaEqual(v, "tool_diagnostic_failure") || schemaEqual(v, "scheduler_accounting_error") || schemaEqual(v, "test_accounting_unmapped") || schemaEqual(v, "artifact_error") || schemaEqual(v, "cleanup_error") || schemaEqual(v, "duration_baseline_drift") || schemaEqual(v, "timeout_failure") || schemaEqual(v, "cancelled_or_interrupted") || schemaEqual(v, "unknown_failure")) { return false }
 return true
 }
 
-func schema2041(v any) bool {
+func schema2112(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
 if len(a) > 32 { return false }
 if !schemaUnique(a) { return false }
-for i := 0; i < len(a); i++ { if !schema2042(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2113(a[i]) { return false } }
 }
 return true
 }
 
-func schema2042(v any) bool {
+func schema2113(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -20838,77 +21585,262 @@ if schemaLength(s) > 4096 { return false }
 return true
 }
 
-func schema2043(v any) bool {
-if schema2044(v) {
-if !schema2046(v) { return false }
+func schema2114(v any) bool {
+if schema2115(v) {
+if !schema2117(v) { return false }
 } else {
 }
 return true
 }
 
-func schema2044(v any) bool {
+func schema2115(v any) bool {
 if o, ok := v.(map[string]any); ok {
 _ = o
-if x, present := o["status"]; present && !schema2045(x) { return false }
+if x, present := o["status"]; present && !schema2116(x) { return false }
 }
 return true
 }
 
-func schema2045(v any) bool {
+func schema2116(v any) bool {
 if !schemaEqual(v, "ready") { return false }
 return true
 }
 
-func schema2046(v any) bool {
+func schema2117(v any) bool {
 if o, ok := v.(map[string]any); ok {
 _ = o
-if x, present := o["failure_class"]; present && !schema2047(x) { return false }
-if x, present := o["failure_reason"]; present && !schema2047(x) { return false }
+if x, present := o["failure_class"]; present && !schema2118(x) { return false }
+if x, present := o["failure_reason"]; present && !schema2118(x) { return false }
 }
 return true
 }
 
-func schema2047(v any) bool {
+func schema2118(v any) bool {
 if !(schemaType(v, "null")) { return false }
 return true
 }
 
-func schema2048(v any) bool {
-if schema2049(v) {
-if !schema2051(v) { return false }
+func schema2119(v any) bool {
+if schema2120(v) {
+if !schema2122(v) { return false }
 } else {
 }
 return true
 }
 
-func schema2049(v any) bool {
+func schema2120(v any) bool {
 if o, ok := v.(map[string]any); ok {
 _ = o
-if x, present := o["status"]; present && !schema2050(x) { return false }
+if x, present := o["status"]; present && !schema2121(x) { return false }
 }
 return true
 }
 
-func schema2050(v any) bool {
+func schema2121(v any) bool {
 if !schemaEqual(v, "failed") { return false }
 return true
 }
 
-func schema2051(v any) bool {
+func schema2122(v any) bool {
 if o, ok := v.(map[string]any); ok {
 _ = o
-if x, present := o["failure_class"]; present && !schema2052(x) { return false }
-if x, present := o["failure_reason"]; present && !schema2052(x) { return false }
+if x, present := o["failure_class"]; present && !schema2123(x) { return false }
+if x, present := o["failure_reason"]; present && !schema2123(x) { return false }
 }
 return true
 }
 
-func schema2052(v any) bool {
+func schema2123(v any) bool {
 if !(schemaType(v, "string")) { return false }
 return true
 }
 
-func schema2053(v any) bool {
+func schema2124(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["schema_id"]; !present { return false }
+if _, present := o["binding"]; !present { return false }
+if _, present := o["state"]; !present { return false }
+if _, present := o["helper"]; !present { return false }
+if _, present := o["attempts"]; !present { return false }
+if x, present := o["schema_id"]; present && !schema2125(x) { return false }
+if x, present := o["binding"]; present && !schema2126(x) { return false }
+if x, present := o["state"]; present && !schema2131(x) { return false }
+if x, present := o["helper"]; present && !schema2132(x) { return false }
+if x, present := o["attempts"]; present && !schema2133(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "schema_id","binding","state","helper","attempts":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema2125(v any) bool {
+if !schemaEqual(v, "cartulary.test_services.startup_journal.v1") { return false }
+return true
+}
+
+func schema2126(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["runtime_root"]; !present { return false }
+if _, present := o["runtime_lease"]; !present { return false }
+if _, present := o["run_root"]; !present { return false }
+if _, present := o["run_id"]; !present { return false }
+if _, present := o["suite_id"]; !present { return false }
+if _, present := o["services"]; !present { return false }
+if _, present := o["dependencies"]; !present { return false }
+if x, present := o["runtime_root"]; present && !schema2127(x) { return false }
+if x, present := o["runtime_lease"]; present && !schema2127(x) { return false }
+if x, present := o["run_root"]; present && !schema2127(x) { return false }
+if x, present := o["run_id"]; present && !schema2127(x) { return false }
+if x, present := o["suite_id"]; present && !schema2127(x) { return false }
+if x, present := o["services"]; present && !schema2128(x) { return false }
+if x, present := o["dependencies"]; present && !schema2130(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "runtime_root","runtime_lease","run_root","run_id","suite_id","services","dependencies":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema2127(v any) bool {
+if !(schemaType(v, "string")) { return false }
+if s, ok := v.(string); ok {
+if schemaLength(s) < 1 { return false }
+if schemaLength(s) > 4096 { return false }
+}
+return true
+}
+
+func schema2128(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) < 1 { return false }
+if len(a) > 2 { return false }
+if !schemaUnique(a) { return false }
+for i := 0; i < len(a); i++ { if !schema2129(a[i]) { return false } }
+}
+return true
+}
+
+func schema2129(v any) bool {
+if !(schemaEqual(v, "postgres") || schemaEqual(v, "object_store")) { return false }
+return true
+}
+
+func schema2130(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 16 { return false }
+for i := 0; i < len(a); i++ { if !schema2127(a[i]) { return false } }
+}
+return true
+}
+
+func schema2131(v any) bool {
+if !(schemaEqual(v, "prepared") || schemaEqual(v, "registered") || schemaEqual(v, "published") || schemaEqual(v, "settled") || schemaEqual(v, "unresolved")) { return false }
+return true
+}
+
+func schema2132(v any) bool {
+if !(schemaType(v, "string")) { return false }
+if s, ok := v.(string); ok {
+if schemaLength(s) > 4096 { return false }
+}
+return true
+}
+
+func schema2133(v any) bool {
+if !(schemaType(v, "array")) { return false }
+if a, ok := v.([]any); ok {
+_ = a
+if len(a) > 6 { return false }
+for i := 0; i < len(a); i++ { if !schema2134(a[i]) { return false } }
+}
+return true
+}
+
+func schema2134(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if _, present := o["id"]; !present { return false }
+if _, present := o["service"]; !present { return false }
+if _, present := o["labels"]; !present { return false }
+if _, present := o["cleanup_files"]; !present { return false }
+if _, present := o["container_id"]; !present { return false }
+if _, present := o["state"]; !present { return false }
+if x, present := o["id"]; present && !schema2135(x) { return false }
+if x, present := o["service"]; present && !schema2129(x) { return false }
+if x, present := o["labels"]; present && !schema2136(x) { return false }
+if x, present := o["cleanup_files"]; present && !schema2130(x) { return false }
+if x, present := o["container_id"]; present && !schema2137(x) { return false }
+if x, present := o["state"]; present && !schema2138(x) { return false }
+for key, x := range o {
+_ = x
+switch key {
+case "id","service","labels","cleanup_files","container_id","state":
+default:
+return false
+}
+}
+}
+return true
+}
+
+func schema2135(v any) bool {
+if !(schemaType(v, "string")) { return false }
+if s, ok := v.(string); ok {
+if !schemaToken(s,"",32,32,0x3ff000000000000,0x7e00000000,0x3ff000000000000,0x7e00000000) { return false }
+}
+return true
+}
+
+func schema2136(v any) bool {
+if !(schemaType(v, "object")) { return false }
+if o, ok := v.(map[string]any); ok {
+_ = o
+if len(o) > 16 { return false }
+for key, x := range o {
+_ = x
+switch key {
+default:
+if !schema2127(x) { return false }
+}
+}
+}
+return true
+}
+
+func schema2137(v any) bool {
+if !(schemaType(v, "string")) { return false }
+if s, ok := v.(string); ok {
+if schemaLength(s) > 256 { return false }
+}
+return true
+}
+
+func schema2138(v any) bool {
+if !(schemaEqual(v, "acquiring") || schemaEqual(v, "acquired") || schemaEqual(v, "settled")) { return false }
+return true
+}
+
+func schema2139(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20939,33 +21871,33 @@ if _, present := o["warnings"]; !present { return false }
 if _, present := o["rerun_commands"]; !present { return false }
 if _, present := o["scheduler_timing"]; !present { return false }
 if _, present := o["extensions"]; !present { return false }
-if x, present := o["schema_id"]; present && !schema2054(x) { return false }
-if x, present := o["target"]; present && !schema2055(x) { return false }
-if x, present := o["command"]; present && !schema2056(x) { return false }
-if x, present := o["status"]; present && !schema2061(x) { return false }
-if x, present := o["exit_code"]; present && !schema2062(x) { return false }
-if x, present := o["started_at"]; present && !schema2063(x) { return false }
-if x, present := o["completed_at"]; present && !schema2063(x) { return false }
-if x, present := o["duration_ms"]; present && !schema2064(x) { return false }
-if x, present := o["output_mode"]; present && !schema2065(x) { return false }
-if x, present := o["result_root"]; present && !schema2057(x) { return false }
-if x, present := o["run_id"]; present && !schema2055(x) { return false }
-if x, present := o["run_root"]; present && !schema2057(x) { return false }
-if x, present := o["summary_artifacts"]; present && !schema2066(x) { return false }
-if x, present := o["log_artifacts"]; present && !schema2066(x) { return false }
-if x, present := o["work_units"]; present && !schema2079(x) { return false }
-if x, present := o["evidence_targets"]; present && !schema2083(x) { return false }
-if x, present := o["helper_units"]; present && !schema2083(x) { return false }
-if x, present := o["counts"]; present && !schema2086(x) { return false }
-if x, present := o["step_accounting"]; present && !schema2088(x) { return false }
-if x, present := o["failure_class"]; present && !schema2090(x) { return false }
-if x, present := o["failure_reason"]; present && !schema2091(x) { return false }
-if x, present := o["failures"]; present && !schema2092(x) { return false }
-if x, present := o["slowest"]; present && !schema2093(x) { return false }
-if x, present := o["warnings"]; present && !schema2092(x) { return false }
-if x, present := o["rerun_commands"]; present && !schema2058(x) { return false }
-if x, present := o["scheduler_timing"]; present && !schema2096(x) { return false }
-if x, present := o["extensions"]; present && !schema2098(x) { return false }
+if x, present := o["schema_id"]; present && !schema2140(x) { return false }
+if x, present := o["target"]; present && !schema2141(x) { return false }
+if x, present := o["command"]; present && !schema2142(x) { return false }
+if x, present := o["status"]; present && !schema2147(x) { return false }
+if x, present := o["exit_code"]; present && !schema2148(x) { return false }
+if x, present := o["started_at"]; present && !schema2149(x) { return false }
+if x, present := o["completed_at"]; present && !schema2149(x) { return false }
+if x, present := o["duration_ms"]; present && !schema2150(x) { return false }
+if x, present := o["output_mode"]; present && !schema2151(x) { return false }
+if x, present := o["result_root"]; present && !schema2143(x) { return false }
+if x, present := o["run_id"]; present && !schema2141(x) { return false }
+if x, present := o["run_root"]; present && !schema2143(x) { return false }
+if x, present := o["summary_artifacts"]; present && !schema2152(x) { return false }
+if x, present := o["log_artifacts"]; present && !schema2152(x) { return false }
+if x, present := o["work_units"]; present && !schema2165(x) { return false }
+if x, present := o["evidence_targets"]; present && !schema2169(x) { return false }
+if x, present := o["helper_units"]; present && !schema2169(x) { return false }
+if x, present := o["counts"]; present && !schema2172(x) { return false }
+if x, present := o["step_accounting"]; present && !schema2174(x) { return false }
+if x, present := o["failure_class"]; present && !schema2176(x) { return false }
+if x, present := o["failure_reason"]; present && !schema2177(x) { return false }
+if x, present := o["failures"]; present && !schema2178(x) { return false }
+if x, present := o["slowest"]; present && !schema2179(x) { return false }
+if x, present := o["warnings"]; present && !schema2178(x) { return false }
+if x, present := o["rerun_commands"]; present && !schema2144(x) { return false }
+if x, present := o["scheduler_timing"]; present && !schema2182(x) { return false }
+if x, present := o["extensions"]; present && !schema2184(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -20978,12 +21910,12 @@ return false
 return true
 }
 
-func schema2054(v any) bool {
+func schema2140(v any) bool {
 if !schemaEqual(v, "cartulary.tool_run_summary.v5") { return false }
 return true
 }
 
-func schema2055(v any) bool {
+func schema2141(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -20991,7 +21923,7 @@ if schemaLength(s) < 1 { return false }
 return true
 }
 
-func schema2056(v any) bool {
+func schema2142(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -20999,10 +21931,10 @@ if _, present := o["cwd"]; !present { return false }
 if _, present := o["argv"]; !present { return false }
 if _, present := o["make_target"]; !present { return false }
 if _, present := o["env"]; !present { return false }
-if x, present := o["cwd"]; present && !schema2057(x) { return false }
-if x, present := o["argv"]; present && !schema2058(x) { return false }
-if x, present := o["make_target"]; present && !schema2059(x) { return false }
-if x, present := o["env"]; present && !schema2060(x) { return false }
+if x, present := o["cwd"]; present && !schema2143(x) { return false }
+if x, present := o["argv"]; present && !schema2144(x) { return false }
+if x, present := o["make_target"]; present && !schema2145(x) { return false }
+if x, present := o["env"]; present && !schema2146(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -21015,41 +21947,41 @@ return false
 return true
 }
 
-func schema2057(v any) bool {
+func schema2143(v any) bool {
 if !(schemaType(v, "string")) { return false }
 return true
 }
 
-func schema2058(v any) bool {
+func schema2144(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
-for i := 0; i < len(a); i++ { if !schema2057(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2143(a[i]) { return false } }
 }
 return true
 }
 
-func schema2059(v any) bool {
+func schema2145(v any) bool {
 if !(schemaType(v, "string") || schemaType(v, "null")) { return false }
 return true
 }
 
-func schema2060(v any) bool {
+func schema2146(v any) bool {
 if !(schemaType(v, "object")) { return false }
 return true
 }
 
-func schema2061(v any) bool {
+func schema2147(v any) bool {
 if !(schemaEqual(v, "pass") || schemaEqual(v, "fail")) { return false }
 return true
 }
 
-func schema2062(v any) bool {
+func schema2148(v any) bool {
 if !(schemaType(v, "integer")) { return false }
 return true
 }
 
-func schema2063(v any) bool {
+func schema2149(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -21057,45 +21989,45 @@ if schemaLength(s) < 1 { return false }
 return true
 }
 
-func schema2064(v any) bool {
+func schema2150(v any) bool {
 if !(schemaType(v, "integer")) { return false }
 if n, ok := v.(float64); ok && n < 0 { return false }
 return true
 }
 
-func schema2065(v any) bool {
+func schema2151(v any) bool {
 if !(schemaEqual(v, "quiet") || schemaEqual(v, "summary") || schemaEqual(v, "ci") || schemaEqual(v, "verbose") || schemaEqual(v, "debug") || schemaEqual(v, "machine")) { return false }
 return true
 }
 
-func schema2066(v any) bool {
+func schema2152(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
-for i := 0; i < len(a); i++ { if !schema2067(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2153(a[i]) { return false } }
 }
 return true
 }
 
-func schema2067(v any) bool {
-if !schema2068(v) { return false }
+func schema2153(v any) bool {
+if !schema2154(v) { return false }
 return true
 }
 
-func schema2068(v any) bool {
-if !schema2069(v) { return false }
+func schema2154(v any) bool {
+if !schema2155(v) { return false }
 return true
 }
 
-func schema2069(v any) bool {
+func schema2155(v any) bool {
 matches := 0
-if schema2070(v) { matches++ }
-if schema2077(v) { matches++ }
+if schema2156(v) { matches++ }
+if schema2163(v) { matches++ }
 if matches != 1 { return false }
 return true
 }
 
-func schema2070(v any) bool {
+func schema2156(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -21103,10 +22035,10 @@ if _, present := o["role"]; !present { return false }
 if _, present := o["path_kind"]; !present { return false }
 if _, present := o["format"]; !present { return false }
 if _, present := o["path"]; !present { return false }
-if x, present := o["role"]; present && !schema2071(x) { return false }
-if x, present := o["path_kind"]; present && !schema2072(x) { return false }
-if x, present := o["format"]; present && !schema2073(x) { return false }
-if x, present := o["path"]; present && !schema2075(x) { return false }
+if x, present := o["role"]; present && !schema2157(x) { return false }
+if x, present := o["path_kind"]; present && !schema2158(x) { return false }
+if x, present := o["format"]; present && !schema2159(x) { return false }
+if x, present := o["path"]; present && !schema2161(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -21119,7 +22051,7 @@ return false
 return true
 }
 
-func schema2071(v any) bool {
+func schema2157(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -21127,27 +22059,27 @@ if schemaLength(s) < 1 { return false }
 return true
 }
 
-func schema2072(v any) bool {
+func schema2158(v any) bool {
 if !schemaEqual(v, "file") { return false }
 return true
 }
 
-func schema2073(v any) bool {
-if !schema2074(v) { return false }
+func schema2159(v any) bool {
+if !schema2160(v) { return false }
 return true
 }
 
-func schema2074(v any) bool {
+func schema2160(v any) bool {
 if !(schemaEqual(v, "json") || schemaEqual(v, "jsonl") || schemaEqual(v, "log") || schemaEqual(v, "markdown") || schemaEqual(v, "sarif") || schemaEqual(v, "text")) { return false }
 return true
 }
 
-func schema2075(v any) bool {
-if !schema2076(v) { return false }
+func schema2161(v any) bool {
+if !schema2162(v) { return false }
 return true
 }
 
-func schema2076(v any) bool {
+func schema2162(v any) bool {
 if !(schemaType(v, "string")) { return false }
 if s, ok := v.(string); ok {
 if schemaLength(s) < 1 { return false }
@@ -21156,16 +22088,16 @@ if !schemaPattern("^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*/
 return true
 }
 
-func schema2077(v any) bool {
+func schema2163(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
 if _, present := o["role"]; !present { return false }
 if _, present := o["path_kind"]; !present { return false }
 if _, present := o["path"]; !present { return false }
-if x, present := o["role"]; present && !schema2071(x) { return false }
-if x, present := o["path_kind"]; present && !schema2078(x) { return false }
-if x, present := o["path"]; present && !schema2075(x) { return false }
+if x, present := o["role"]; present && !schema2157(x) { return false }
+if x, present := o["path_kind"]; present && !schema2164(x) { return false }
+if x, present := o["path"]; present && !schema2161(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -21178,26 +22110,26 @@ return false
 return true
 }
 
-func schema2078(v any) bool {
+func schema2164(v any) bool {
 if !schemaEqual(v, "directory") { return false }
 return true
 }
 
-func schema2079(v any) bool {
+func schema2165(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
-for i := 0; i < len(a); i++ { if !schema2080(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2166(a[i]) { return false } }
 }
 return true
 }
 
-func schema2080(v any) bool {
-if !schema2081(v) { return false }
+func schema2166(v any) bool {
+if !schema2167(v) { return false }
 return true
 }
 
-func schema2081(v any) bool {
+func schema2167(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -21205,11 +22137,11 @@ if _, present := o["id"]; !present { return false }
 if _, present := o["completed"]; !present { return false }
 if _, present := o["total"]; !present { return false }
 if _, present := o["status"]; !present { return false }
-if x, present := o["id"]; present && !schema2055(x) { return false }
-if x, present := o["completed"]; present && !schema2082(x) { return false }
-if x, present := o["total"]; present && !schema2082(x) { return false }
-if x, present := o["aborted_after"]; present && !schema2057(x) { return false }
-if x, present := o["status"]; present && !schema2055(x) { return false }
+if x, present := o["id"]; present && !schema2141(x) { return false }
+if x, present := o["completed"]; present && !schema2168(x) { return false }
+if x, present := o["total"]; present && !schema2168(x) { return false }
+if x, present := o["aborted_after"]; present && !schema2143(x) { return false }
+if x, present := o["status"]; present && !schema2141(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -21222,33 +22154,33 @@ return false
 return true
 }
 
-func schema2082(v any) bool {
-if !schema2064(v) { return false }
+func schema2168(v any) bool {
+if !schema2150(v) { return false }
 return true
 }
 
-func schema2083(v any) bool {
+func schema2169(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
-for i := 0; i < len(a); i++ { if !schema2084(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2170(a[i]) { return false } }
 }
 return true
 }
 
-func schema2084(v any) bool {
-if !schema2085(v) { return false }
+func schema2170(v any) bool {
+if !schema2171(v) { return false }
 return true
 }
 
-func schema2085(v any) bool {
+func schema2171(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
 if _, present := o["target"]; !present { return false }
-if x, present := o["target"]; present && !schema2055(x) { return false }
-if x, present := o["status"]; present && !schema2055(x) { return false }
-if x, present := o["run_root"]; present && !schema2057(x) { return false }
+if x, present := o["target"]; present && !schema2141(x) { return false }
+if x, present := o["status"]; present && !schema2141(x) { return false }
+if x, present := o["run_root"]; present && !schema2143(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -21261,12 +22193,12 @@ return false
 return true
 }
 
-func schema2086(v any) bool {
-if !schema2087(v) { return false }
+func schema2172(v any) bool {
+if !schema2173(v) { return false }
 return true
 }
 
-func schema2087(v any) bool {
+func schema2173(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -21276,12 +22208,12 @@ if _, present := o["failed"]; !present { return false }
 if _, present := o["non_test"]; !present { return false }
 if _, present := o["non_test_failed"]; !present { return false }
 if _, present := o["packages"]; !present { return false }
-if x, present := o["steps"]; present && !schema2082(x) { return false }
-if x, present := o["tests"]; present && !schema2082(x) { return false }
-if x, present := o["failed"]; present && !schema2082(x) { return false }
-if x, present := o["non_test"]; present && !schema2082(x) { return false }
-if x, present := o["non_test_failed"]; present && !schema2082(x) { return false }
-if x, present := o["packages"]; present && !schema2082(x) { return false }
+if x, present := o["steps"]; present && !schema2168(x) { return false }
+if x, present := o["tests"]; present && !schema2168(x) { return false }
+if x, present := o["failed"]; present && !schema2168(x) { return false }
+if x, present := o["non_test"]; present && !schema2168(x) { return false }
+if x, present := o["non_test_failed"]; present && !schema2168(x) { return false }
+if x, present := o["packages"]; present && !schema2168(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -21294,12 +22226,12 @@ return false
 return true
 }
 
-func schema2088(v any) bool {
-if !schema2089(v) { return false }
+func schema2174(v any) bool {
+if !schema2175(v) { return false }
 return true
 }
 
-func schema2089(v any) bool {
+func schema2175(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -21316,19 +22248,19 @@ if _, present := o["tooling_support_failed"]; !present { return false }
 if _, present := o["unowned_regression_failed"]; !present { return false }
 if _, present := o["unmapped_failed"]; !present { return false }
 if _, present := o["missing"]; !present { return false }
-if x, present := o["authoritative"]; present && !schema2082(x) { return false }
-if x, present := o["support"]; present && !schema2082(x) { return false }
-if x, present := o["raw"]; present && !schema2082(x) { return false }
-if x, present := o["tooling_support"]; present && !schema2082(x) { return false }
-if x, present := o["unowned_regression"]; present && !schema2082(x) { return false }
-if x, present := o["unmapped"]; present && !schema2082(x) { return false }
-if x, present := o["authoritative_failed"]; present && !schema2082(x) { return false }
-if x, present := o["support_failed"]; present && !schema2082(x) { return false }
-if x, present := o["raw_failed"]; present && !schema2082(x) { return false }
-if x, present := o["tooling_support_failed"]; present && !schema2082(x) { return false }
-if x, present := o["unowned_regression_failed"]; present && !schema2082(x) { return false }
-if x, present := o["unmapped_failed"]; present && !schema2082(x) { return false }
-if x, present := o["missing"]; present && !schema2082(x) { return false }
+if x, present := o["authoritative"]; present && !schema2168(x) { return false }
+if x, present := o["support"]; present && !schema2168(x) { return false }
+if x, present := o["raw"]; present && !schema2168(x) { return false }
+if x, present := o["tooling_support"]; present && !schema2168(x) { return false }
+if x, present := o["unowned_regression"]; present && !schema2168(x) { return false }
+if x, present := o["unmapped"]; present && !schema2168(x) { return false }
+if x, present := o["authoritative_failed"]; present && !schema2168(x) { return false }
+if x, present := o["support_failed"]; present && !schema2168(x) { return false }
+if x, present := o["raw_failed"]; present && !schema2168(x) { return false }
+if x, present := o["tooling_support_failed"]; present && !schema2168(x) { return false }
+if x, present := o["unowned_regression_failed"]; present && !schema2168(x) { return false }
+if x, present := o["unmapped_failed"]; present && !schema2168(x) { return false }
+if x, present := o["missing"]; present && !schema2168(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -21341,49 +22273,49 @@ return false
 return true
 }
 
-func schema2090(v any) bool {
+func schema2176(v any) bool {
 if !(schemaEqual(v, nil) || schemaEqual(v, "product") || schemaEqual(v, "security") || schemaEqual(v, "config") || schemaEqual(v, "infra") || schemaEqual(v, "harness") || schemaEqual(v, "artifact") || schemaEqual(v, "timing") || schemaEqual(v, "interrupted") || schemaEqual(v, "unknown")) { return false }
 return true
 }
 
-func schema2091(v any) bool {
+func schema2177(v any) bool {
 if !(schemaEqual(v, nil) || schemaEqual(v, "usage_error") || schemaEqual(v, "configuration_error") || schemaEqual(v, "preflight_error") || schemaEqual(v, "service_start_error") || schemaEqual(v, "service_readiness_timeout") || schemaEqual(v, "fixture_error") || schemaEqual(v, "resource_conflict") || schemaEqual(v, "test_assertion_failure") || schemaEqual(v, "security_finding") || schemaEqual(v, "child_target_failure") || schemaEqual(v, "tool_diagnostic_failure") || schemaEqual(v, "scheduler_accounting_error") || schemaEqual(v, "test_accounting_unmapped") || schemaEqual(v, "artifact_error") || schemaEqual(v, "cleanup_error") || schemaEqual(v, "duration_baseline_drift") || schemaEqual(v, "timeout_failure") || schemaEqual(v, "cancelled_or_interrupted") || schemaEqual(v, "unknown_failure")) { return false }
 return true
 }
 
-func schema2092(v any) bool {
+func schema2178(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
-for i := 0; i < len(a); i++ { if !schema2060(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2146(a[i]) { return false } }
 }
 return true
 }
 
-func schema2093(v any) bool {
+func schema2179(v any) bool {
 if !(schemaType(v, "array")) { return false }
 if a, ok := v.([]any); ok {
 _ = a
-for i := 0; i < len(a); i++ { if !schema2094(a[i]) { return false } }
+for i := 0; i < len(a); i++ { if !schema2180(a[i]) { return false } }
 }
 return true
 }
 
-func schema2094(v any) bool {
-if !schema2095(v) { return false }
+func schema2180(v any) bool {
+if !schema2181(v) { return false }
 return true
 }
 
-func schema2095(v any) bool {
+func schema2181(v any) bool {
 if !(schemaType(v, "object")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
 if _, present := o["id"]; !present { return false }
 if _, present := o["duration_ms"]; !present { return false }
 if _, present := o["kind"]; !present { return false }
-if x, present := o["id"]; present && !schema2055(x) { return false }
-if x, present := o["duration_ms"]; present && !schema2082(x) { return false }
-if x, present := o["kind"]; present && !schema2055(x) { return false }
+if x, present := o["id"]; present && !schema2141(x) { return false }
+if x, present := o["duration_ms"]; present && !schema2168(x) { return false }
+if x, present := o["kind"]; present && !schema2141(x) { return false }
 for key, x := range o {
 _ = x
 switch key {
@@ -21396,12 +22328,12 @@ return false
 return true
 }
 
-func schema2096(v any) bool {
-if !schema2097(v) { return false }
+func schema2182(v any) bool {
+if !schema2183(v) { return false }
 return true
 }
 
-func schema2097(v any) bool {
+func schema2183(v any) bool {
 if !(schemaType(v, "object") || schemaType(v, "null")) { return false }
 if o, ok := v.(map[string]any); ok {
 _ = o
@@ -21409,7 +22341,7 @@ _ = o
 return true
 }
 
-func schema2098(v any) bool {
-if !schema1951(v) { return false }
+func schema2184(v any) bool {
+if !schema2022(v) { return false }
 return true
 }

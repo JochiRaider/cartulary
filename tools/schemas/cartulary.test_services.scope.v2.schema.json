@@ -242,7 +242,7 @@
           "$ref": "cartulary.object_store_readiness_diagnostic.v1"
         },
         "cartulary.postgres_readiness": {
-          "$ref": "cartulary.postgres_readiness_diagnostic.v1"
+          "$ref": "cartulary.postgres_readiness_diagnostic.v4"
         }
       }
     }

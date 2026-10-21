@@ -1,0 +1,925 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.postgres_readiness_diagnostic.v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "stage",
+    "outcome",
+    "elapsed_ms",
+    "sql_window_ms",
+    "poll_ms",
+    "probe_cap_ms",
+    "probe_count",
+    "cleanup_outcome",
+    "container_state",
+    "phases",
+    "probe_failures",
+    "startup_log_status",
+    "startup_log_signals",
+    "startup_log_clock",
+    "startup_log_events",
+    "container_started_at",
+    "probe_observations",
+    "probe_observations_truncated",
+    "first_sql_connection_ms",
+    "endpoint"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.postgres_readiness_diagnostic.v4"
+    },
+    "stage": {
+      "enum": [
+        "container_start",
+        "endpoint_resolution",
+        "sql_connectivity",
+        "security_capability",
+        "generation_initialization"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "unavailable",
+        "cancelled",
+        "authentication_rejected",
+        "capability_rejected",
+        "deadline_expired",
+        "transport_unreachable",
+        "initialization_failed",
+        "ready"
+      ]
+    },
+    "elapsed_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 600000
+    },
+    "sql_window_ms": {
+      "const": 15000
+    },
+    "poll_ms": {
+      "const": 250
+    },
+    "probe_cap_ms": {
+      "const": 5000
+    },
+    "probe_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "cleanup_outcome": {
+      "enum": [
+        "completed",
+        "unresolved",
+        "not_needed"
+      ]
+    },
+    "container_state": {
+      "enum": [
+        "unavailable",
+        "created",
+        "running",
+        "paused",
+        "restarting",
+        "removing",
+        "exited",
+        "dead"
+      ]
+    },
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "stage",
+          "outcome",
+          "configured_ms",
+          "effective_ms",
+          "limiting_deadline",
+          "elapsed_ms"
+        ],
+        "properties": {
+          "stage": {
+            "enum": [
+              "container_start",
+              "endpoint_resolution",
+              "sql_connectivity",
+              "security_capability",
+              "generation_initialization"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "ready",
+              "unavailable",
+              "cancelled",
+              "authentication_rejected",
+              "capability_rejected",
+              "deadline_expired",
+              "transport_unreachable",
+              "initialization_failed"
+            ]
+          },
+          "configured_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 600000
+          },
+          "effective_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 600000
+          },
+          "limiting_deadline": {
+            "enum": [
+              "phase",
+              "parent",
+              "none"
+            ]
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 600000
+          }
+        }
+      }
+    },
+    "probe_failures": {
+      "type": "object",
+      "maxProperties": 14,
+      "propertyNames": {
+        "enum": [
+          "server_starting",
+          "connection_limit",
+          "authentication_rejected",
+          "capability_rejected",
+          "server_error",
+          "tls_rejected",
+          "local_configuration",
+          "connection_refused",
+          "connection_reset",
+          "connection_closed",
+          "cancelled",
+          "probe_timeout",
+          "transport_unreachable",
+          "unknown"
+        ]
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10000
+      }
+    },
+    "last_probe_failure": {
+      "enum": [
+        "server_starting",
+        "connection_limit",
+        "authentication_rejected",
+        "capability_rejected",
+        "server_error",
+        "tls_rejected",
+        "local_configuration",
+        "connection_refused",
+        "connection_reset",
+        "connection_closed",
+        "cancelled",
+        "probe_timeout",
+        "transport_unreachable",
+        "unknown"
+      ]
+    },
+    "last_sqlstate": {
+      "type": "string",
+      "pattern": "^[0-9A-Z]{5}$"
+    },
+    "container_exit_code": {
+      "type": "integer"
+    },
+    "container_oom_killed": {
+      "type": "boolean"
+    },
+    "startup_log_status": {
+      "enum": [
+        "not_collected",
+        "unavailable",
+        "complete",
+        "truncated"
+      ]
+    },
+    "startup_log_signals": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "initdb_sync_started",
+          "initdb_sync_completed",
+          "initdb_complete",
+          "temporary_server_start",
+          "initialization_complete",
+          "server_ready",
+          "server_shutdown",
+          "fatal",
+          "panic",
+          "storage_exhausted",
+          "permission_denied",
+          "memory_exhausted",
+          "tls_file_error",
+          "initdb_started",
+          "initialization_skipped",
+          "tcp_listener_started"
+        ]
+      }
+    },
+    "startup_log_clock": {
+      "const": "docker_wall"
+    },
+    "startup_log_events": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "signal",
+          "phase",
+          "timestamp",
+          "container_elapsed_ms",
+          "stream",
+          "stream_sequence"
+        ],
+        "properties": {
+          "signal": {
+            "enum": [
+              "initdb_sync_started",
+              "initdb_sync_completed",
+              "initdb_complete",
+              "temporary_server_start",
+              "initialization_complete",
+              "server_ready",
+              "server_shutdown",
+              "fatal",
+              "panic",
+              "storage_exhausted",
+              "permission_denied",
+              "memory_exhausted",
+              "tls_file_error",
+              "initdb_started",
+              "initialization_skipped",
+              "tcp_listener_started"
+            ]
+          },
+          "phase": {
+            "enum": [
+              "unknown",
+              "bootstrap",
+              "final_server"
+            ]
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "container_elapsed_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 600000
+          },
+          "stream": {
+            "enum": [
+              "stdout",
+              "stderr",
+              "unknown"
+            ]
+          },
+          "stream_sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65536
+          }
+        }
+      }
+    },
+    "container_started_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "probe_observations": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "elapsed_ms",
+          "cause"
+        ],
+        "properties": {
+          "elapsed_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 600000
+          },
+          "cause": {
+            "enum": [
+              "server_starting",
+              "connection_limit",
+              "authentication_rejected",
+              "capability_rejected",
+              "server_error",
+              "tls_rejected",
+              "local_configuration",
+              "connection_refused",
+              "connection_reset",
+              "connection_closed",
+              "cancelled",
+              "probe_timeout",
+              "transport_unreachable",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "probe_observations_truncated": {
+      "type": "boolean"
+    },
+    "first_sql_connection_ms": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 600000
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selected",
+        "initial_status",
+        "failure_status",
+        "initial_bindings",
+        "failure_bindings",
+        "binding_changed",
+        "selected_port_published",
+        "container_identity_matches",
+        "lookups",
+        "dials",
+        "internal_listener",
+        "published_dial",
+        "truncated"
+      ],
+      "properties": {
+        "selected": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "ref",
+                "family",
+                "category"
+              ],
+              "properties": {
+                "ref": {
+                  "type": "string",
+                  "pattern": "^(endpoint-([1-9]|[12][0-9]|3[0-2])|omitted)$"
+                },
+                "family": {
+                  "enum": [
+                    "ipv4",
+                    "ipv6",
+                    "hostname",
+                    "unknown"
+                  ]
+                },
+                "category": {
+                  "enum": [
+                    "loopback",
+                    "unspecified",
+                    "private",
+                    "link_local",
+                    "public",
+                    "name",
+                    "unknown"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "initial_status": {
+          "enum": [
+            "not_collected",
+            "observed",
+            "unavailable",
+            "truncated"
+          ]
+        },
+        "failure_status": {
+          "enum": [
+            "not_collected",
+            "observed",
+            "unavailable",
+            "truncated"
+          ]
+        },
+        "initial_bindings": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "endpoint",
+              "matches_selected_port"
+            ],
+            "properties": {
+              "endpoint": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ref",
+                  "family",
+                  "category"
+                ],
+                "properties": {
+                  "ref": {
+                    "type": "string",
+                    "pattern": "^(endpoint-([1-9]|[12][0-9]|3[0-2])|omitted)$"
+                  },
+                  "family": {
+                    "enum": [
+                      "ipv4",
+                      "ipv6",
+                      "hostname",
+                      "unknown"
+                    ]
+                  },
+                  "category": {
+                    "enum": [
+                      "loopback",
+                      "unspecified",
+                      "private",
+                      "link_local",
+                      "public",
+                      "name",
+                      "unknown"
+                    ]
+                  }
+                }
+              },
+              "matches_selected_port": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "failure_bindings": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "endpoint",
+              "matches_selected_port"
+            ],
+            "properties": {
+              "endpoint": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ref",
+                  "family",
+                  "category"
+                ],
+                "properties": {
+                  "ref": {
+                    "type": "string",
+                    "pattern": "^(endpoint-([1-9]|[12][0-9]|3[0-2])|omitted)$"
+                  },
+                  "family": {
+                    "enum": [
+                      "ipv4",
+                      "ipv6",
+                      "hostname",
+                      "unknown"
+                    ]
+                  },
+                  "category": {
+                    "enum": [
+                      "loopback",
+                      "unspecified",
+                      "private",
+                      "link_local",
+                      "public",
+                      "name",
+                      "unknown"
+                    ]
+                  }
+                }
+              },
+              "matches_selected_port": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "binding_changed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "selected_port_published": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "container_identity_matches": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lookups": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "elapsed_ms",
+              "selected_host",
+              "outcome",
+              "addresses"
+            ],
+            "properties": {
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 600000
+              },
+              "selected_host": {
+                "type": "boolean"
+              },
+              "outcome": {
+                "enum": [
+                  "resolved",
+                  "server_starting",
+                  "connection_limit",
+                  "authentication_rejected",
+                  "capability_rejected",
+                  "server_error",
+                  "tls_rejected",
+                  "local_configuration",
+                  "connection_refused",
+                  "connection_reset",
+                  "connection_closed",
+                  "cancelled",
+                  "probe_timeout",
+                  "transport_unreachable",
+                  "unknown"
+                ]
+              },
+              "addresses": {
+                "type": "array",
+                "maxItems": 32,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ref",
+                    "family",
+                    "category"
+                  ],
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "pattern": "^(endpoint-([1-9]|[12][0-9]|3[0-2])|omitted)$"
+                    },
+                    "family": {
+                      "enum": [
+                        "ipv4",
+                        "ipv6",
+                        "hostname",
+                        "unknown"
+                      ]
+                    },
+                    "category": {
+                      "enum": [
+                        "loopback",
+                        "unspecified",
+                        "private",
+                        "link_local",
+                        "public",
+                        "name",
+                        "unknown"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "dials": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "elapsed_ms",
+              "endpoint",
+              "peer",
+              "matches_selected_port",
+              "from_lookup",
+              "outcome"
+            ],
+            "properties": {
+              "elapsed_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 600000
+              },
+              "endpoint": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ref",
+                  "family",
+                  "category"
+                ],
+                "properties": {
+                  "ref": {
+                    "type": "string",
+                    "pattern": "^(endpoint-([1-9]|[12][0-9]|3[0-2])|omitted)$"
+                  },
+                  "family": {
+                    "enum": [
+                      "ipv4",
+                      "ipv6",
+                      "hostname",
+                      "unknown"
+                    ]
+                  },
+                  "category": {
+                    "enum": [
+                      "loopback",
+                      "unspecified",
+                      "private",
+                      "link_local",
+                      "public",
+                      "name",
+                      "unknown"
+                    ]
+                  }
+                }
+              },
+              "peer": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "ref",
+                      "family",
+                      "category"
+                    ],
+                    "properties": {
+                      "ref": {
+                        "type": "string",
+                        "pattern": "^(endpoint-([1-9]|[12][0-9]|3[0-2])|omitted)$"
+                      },
+                      "family": {
+                        "enum": [
+                          "ipv4",
+                          "ipv6",
+                          "hostname",
+                          "unknown"
+                        ]
+                      },
+                      "category": {
+                        "enum": [
+                          "loopback",
+                          "unspecified",
+                          "private",
+                          "link_local",
+                          "public",
+                          "name",
+                          "unknown"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "matches_selected_port": {
+                "type": "boolean"
+              },
+              "from_lookup": {
+                "type": "boolean"
+              },
+              "outcome": {
+                "enum": [
+                  "connected",
+                  "server_starting",
+                  "connection_limit",
+                  "authentication_rejected",
+                  "capability_rejected",
+                  "server_error",
+                  "tls_rejected",
+                  "local_configuration",
+                  "connection_refused",
+                  "connection_reset",
+                  "connection_closed",
+                  "cancelled",
+                  "probe_timeout",
+                  "transport_unreachable",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        },
+        "internal_listener": {
+          "enum": [
+            "not_collected",
+            "present",
+            "absent",
+            "unavailable",
+            "truncated"
+          ]
+        },
+        "published_dial": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "elapsed_ms",
+                "endpoint",
+                "peer",
+                "matches_selected_port",
+                "from_lookup",
+                "outcome"
+              ],
+              "properties": {
+                "elapsed_ms": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 600000
+                },
+                "endpoint": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ref",
+                    "family",
+                    "category"
+                  ],
+                  "properties": {
+                    "ref": {
+                      "type": "string",
+                      "pattern": "^(endpoint-([1-9]|[12][0-9]|3[0-2])|omitted)$"
+                    },
+                    "family": {
+                      "enum": [
+                        "ipv4",
+                        "ipv6",
+                        "hostname",
+                        "unknown"
+                      ]
+                    },
+                    "category": {
+                      "enum": [
+                        "loopback",
+                        "unspecified",
+                        "private",
+                        "link_local",
+                        "public",
+                        "name",
+                        "unknown"
+                      ]
+                    }
+                  }
+                },
+                "peer": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "ref",
+                        "family",
+                        "category"
+                      ],
+                      "properties": {
+                        "ref": {
+                          "type": "string",
+                          "pattern": "^(endpoint-([1-9]|[12][0-9]|3[0-2])|omitted)$"
+                        },
+                        "family": {
+                          "enum": [
+                            "ipv4",
+                            "ipv6",
+                            "hostname",
+                            "unknown"
+                          ]
+                        },
+                        "category": {
+                          "enum": [
+                            "loopback",
+                            "unspecified",
+                            "private",
+                            "link_local",
+                            "public",
+                            "name",
+                            "unknown"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "matches_selected_port": {
+                  "type": "boolean"
+                },
+                "from_lookup": {
+                  "type": "boolean"
+                },
+                "outcome": {
+                  "enum": [
+                    "connected",
+                    "server_starting",
+                    "connection_limit",
+                    "authentication_rejected",
+                    "capability_rejected",
+                    "server_error",
+                    "tls_rejected",
+                    "local_configuration",
+                    "connection_refused",
+                    "connection_reset",
+                    "connection_closed",
+                    "cancelled",
+                    "probe_timeout",
+                    "transport_unreachable",
+                    "unknown"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

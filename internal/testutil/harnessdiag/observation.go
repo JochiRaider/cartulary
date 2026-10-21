@@ -150,11 +150,11 @@ func sortedUnique(values []string) bool {
 }
 func validateLive(snapshot, manifest object) error {
 	if err := Validate("cartulary.harness_live_snapshot.v3", snapshot); err != nil {
-		return err
+		return rejected("live_snapshot", "schema", "invalid_document")
 	}
 	for key, manifestKey := range map[string]string{"run_id": "run_id", "public_target": "target", "command_id": "command_id", "source_digest": "source_digest", "graph_digest": "graph_digest"} {
 		if snapshot[key] != manifest[manifestKey] {
-			return errArtifact
+			return rejected("live_snapshot", "identity", "invalid_identity")
 		}
 	}
 	if snapshot["availability"] == "unavailable" {
@@ -168,7 +168,7 @@ func validateLive(snapshot, manifest object) error {
 		members[id] = true
 	}
 	if !sortedUnique(ids) {
-		return errArtifact
+		return rejected("live_snapshot", "identity", "invalid_identity")
 	}
 	targets := []string{}
 	for _, value := range snapshot["targets"].([]any) {
@@ -176,31 +176,31 @@ func validateLive(snapshot, manifest object) error {
 		targets = append(targets, target["target"].(string))
 		ids := stringsOf(target["unit_ids"])
 		if !sortedUnique(ids) {
-			return errArtifact
+			return rejected("live_snapshot", "identity", "invalid_identity")
 		}
 		for _, id := range ids {
 			if !members[id] {
-				return errArtifact
+				return rejected("live_snapshot", "identity", "invalid_identity")
 			}
 		}
 	}
 	if !sortedUnique(targets) || !contains(targets, manifest["target"].(string)) {
-		return errArtifact
+		return rejected("live_snapshot", "identity", "invalid_identity")
 	}
 	for _, value := range snapshot["units"].([]any) {
 		u := value.(object)
 		resources := stringsOf(u["blocking_resources"])
 		ids := stringsOf(u["blocking_unit_ids"])
 		if !sortedUnique(resources) || !sortedUnique(ids) {
-			return errArtifact
+			return rejected("live_snapshot", "identity", "invalid_identity")
 		}
 		for _, id := range ids {
 			if !members[id] {
-				return errArtifact
+				return rejected("live_snapshot", "identity", "invalid_identity")
 			}
 		}
 		if u["started_elapsed_ms"] != nil && u["started_elapsed_ms"].(float64) > snapshot["sampled_elapsed_ms"].(float64) || u["failure_class"] != nil && u["failure_reason"] == nil {
-			return errArtifact
+			return rejected("live_snapshot", "identity", "invalid_identity")
 		}
 	}
 	return nil
@@ -283,29 +283,29 @@ func sample(s selection) (object, error) {
 		return r, nil
 	}
 	if err != nil {
-		return r, errArtifact
+		return r, rejected("invocation", "opening", "directory_unavailable")
 	}
 	defer directory.Close()
-	manifest, err := readObject(filepath.Join(s.root, "run-manifest.json"), "cartulary.harness_run_manifest.v3", true, false)
+	manifest, err := readObject(filepath.Join(s.root, "run-manifest.json"), "cartulary.harness_run_manifest.v3", "manifest", true, false)
 	if err != nil {
 		return r, err
 	}
 	if manifest != nil {
 		if manifest["run_id"] != s.runID {
-			return r, errArtifact
+			return r, rejected("manifest", "identity", "invalid_identity")
 		}
 		for _, key := range []string{"command_id", "source_digest", "graph_digest"} {
 			identity[key] = manifest[key]
 		}
 		identity["public_target"] = manifest["target"]
 	}
-	summary, err := readObject(filepath.Join(s.root, "run-summary.json"), "cartulary.harness_run_summary.v1", true, false)
+	summary, err := readObject(filepath.Join(s.root, "run-summary.json"), "cartulary.harness_run_summary.v1", "run_summary", true, false)
 	if err != nil {
 		return r, err
 	}
 	if summary != nil {
 		if manifest == nil || summary["run_id"] != s.runID || summary["target"] != manifest["target"] {
-			return r, errArtifact
+			return r, rejected("run_summary", "identity", "invalid_identity")
 		}
 		if s.target == "" {
 			return terminal(r, summary, "run-summary.json"), nil
@@ -314,12 +314,12 @@ func sample(s selection) (object, error) {
 		if !contains(stringsOf(summary["artifact_refs"]), ref) {
 			return r, errUsage
 		}
-		projection, err := readObject(filepath.Join(s.root, ref), "cartulary.harness_target_summary.v1", false, false)
+		projection, err := readObject(filepath.Join(s.root, ref), "cartulary.harness_target_summary.v1", "target_summary", false, false)
 		if err != nil {
 			return r, err
 		}
 		if projection["target"] != s.target {
-			return r, errArtifact
+			return r, rejected("target_summary", "identity", "invalid_identity")
 		}
 		return terminal(r, projection, ref), nil
 	}
@@ -328,8 +328,11 @@ func sample(s selection) (object, error) {
 		if s.target == "" {
 			candidates = []string{}
 			entries, err := directory.ReadDir(4097)
-			if (err != nil && !errors.Is(err, io.EOF)) || len(entries) > 4096 {
-				return r, errArtifact
+			if err != nil && !errors.Is(err, io.EOF) {
+				return r, rejected("invocation", "reading", "read_failed")
+			}
+			if len(entries) > 4096 {
+				return r, rejected("invocation", "reading", "size_limit")
 			}
 			for _, entry := range entries {
 				if entry.IsDir() && validToken(entry.Name(), 255, true) {
@@ -342,7 +345,7 @@ func sample(s selection) (object, error) {
 		ref := ""
 		for _, candidate := range candidates {
 			candidateRef := candidate + "/tool-run-summary.json"
-			tool, err := readObject(filepath.Join(s.root, candidateRef), "cartulary.tool_run_summary.v5", true, false)
+			tool, err := readObject(filepath.Join(s.root, candidateRef), "cartulary.tool_run_summary.v5", "tool_summary", true, false)
 			if err != nil {
 				return r, err
 			}
@@ -352,7 +355,7 @@ func sample(s selection) (object, error) {
 			runRoot, e1 := filepath.Abs(tool["run_root"].(string))
 			resultRoot, e2 := filepath.Abs(tool["result_root"].(string))
 			if e1 != nil || e2 != nil || tool["run_id"] != s.runID || tool["target"] != candidate || runRoot != s.root || resultRoot != filepath.Dir(s.root) {
-				return r, errArtifact
+				return r, rejected("tool_summary", "identity", "invalid_identity")
 			}
 			if selected != nil {
 				return r, errUsage
@@ -367,7 +370,7 @@ func sample(s selection) (object, error) {
 		addLimitation(r, "live_unavailable")
 		return r, nil
 	}
-	snapshot, err := readObject(filepath.Join(s.root, "diagnostics/live-status.json"), "", true, true)
+	snapshot, err := readObject(filepath.Join(s.root, "diagnostics/live-status.json"), "", "live_snapshot", true, true)
 	if err != nil {
 		return r, err
 	}
@@ -474,6 +477,10 @@ func bound(r object) (object, error) {
 // Observe reads only selected public evidence. The context cancels this reader,
 // never the invocation. It does not establish liveness or audit acceptance.
 func Observe(ctx context.Context, in Inputs) object {
+	result, _ := observe(ctx, in)
+	return result
+}
+func observe(ctx context.Context, in Inputs) (object, error) {
 	start := time.Now()
 	r := emptyObservation()
 	s, err := normalize(in)
@@ -526,10 +533,11 @@ func Observe(ctx context.Context, in Inputs) object {
 		r = failObservation(r, err, 0)
 		r["waited_ms"] = float64(time.Since(start).Milliseconds())
 	}
-	if _, err = bound(r); err != nil {
+	if _, boundErr := bound(r); boundErr != nil {
+		err = rejected("observation", "projection", "invalid_document")
 		r = failObservation(r, err, 0)
 	}
-	return r
+	return r, err
 }
 func Render(r object) string {
 	run, _ := r["run"].(object)

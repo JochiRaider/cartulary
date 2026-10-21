@@ -405,6 +405,12 @@ func TestRunStartsObjectStoreWhilePostgresTemplateIsPreparing(t *testing.T) {
 }
 
 func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
+	for _, stage := range []string{stageStartupPreflight, stagePostgresStart, stageObjectStoreStart, stagePostgresTemplate, stageChildStart} {
+		failure := failureSummary("", stage, "startup", context.Canceled)
+		if failure.FailureClass != "interrupted" || failure.FailureReason != "cancelled_or_interrupted" {
+			t.Fatal("startup cancellation misclassified", stage, failure)
+		}
+	}
 	previousPostgresStarter := startPostgresHarnessWithOptions
 	previousObjectStoreStarter := startObjectStoreHarnessWithOptions
 	previousProbeBootstrap := bootstrapObjectStoreProbeBucket

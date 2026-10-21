@@ -31,6 +31,29 @@ fail() {
   exit 1
 }
 
+# The native runtime strips Make inputs from child environments. The immutable
+# parent manifest is the authority for the selected diagnostic mode.
+parent_diagnostics() {
+  "$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+const [repoRoot] = process.argv.slice(2);
+const { parseStrictJSON, readRetainedArtifactBytes, validateSchemaSync } =
+  await import(pathToFileURL(path.join(repoRoot, "tools/harness/contract/index.mjs")));
+const { validateRunId } =
+  await import(pathToFileURL(path.join(repoRoot, "tools/harness/contract/harness-contract.mjs")));
+const parent = process.env.CARTULARY_TEST_RESULTS_DIR ?? "";
+const runID = process.env.CARTULARY_TEST_RUN_ID ?? "";
+if (!path.isAbsolute(parent) || validateRunId(runID) !== runID) {
+  throw new Error("real-command assertions require an exact parent run identity");
+}
+const manifest = parseStrictJSON(readRetainedArtifactBytes(parent, `${runID}/run-manifest.json`, 1024 * 1024).toString("utf8"));
+validateSchemaSync("cartulary.harness_run_manifest.v3", manifest);
+if (manifest.run_id !== runID) throw new Error("real-command parent manifest identity mismatch");
+process.stdout.write(manifest.instrumentation.mode);
+EOF
+}
+
 run_target() {
   local target="$1"
   local label="$2"
@@ -40,6 +63,9 @@ run_target() {
   if [[ -n "${RUN_TARGET_MAKE_ARGS:-}" ]]; then
     read -r -a make_args <<<"${RUN_TARGET_MAKE_ARGS}"
   fi
+  local diagnostics
+  diagnostics="$(parent_diagnostics)" || return 1
+  make_args+=("HARNESS_DIAGNOSTICS=${diagnostics}")
   mkdir -p "$target_dir"
   (
     cd "$ROOT_DIR"
@@ -245,6 +271,9 @@ run_machine_target() {
   local target_dir="${TMP_DIR}/${label}"
   local make_args=()
   if [[ -n "${RUN_TARGET_MAKE_ARGS:-}" ]]; then read -r -a make_args <<<"${RUN_TARGET_MAKE_ARGS}"; fi
+  local diagnostics
+  diagnostics="$(parent_diagnostics)" || return 1
+  make_args+=("HARNESS_DIAGNOSTICS=${diagnostics}")
   mkdir -p "$target_dir"
   (
     cd "$ROOT_DIR"

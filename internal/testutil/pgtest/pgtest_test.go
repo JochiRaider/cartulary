@@ -1,12 +1,17 @@
 package pgtest
 
 import (
+	"bytes"
 	"context"
+	"crypto/x509"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -14,15 +19,19 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/api/types/network"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 
 	database_migrations "github.com/JochiRaider/cartulary/internal/modules/database_migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 	"github.com/JochiRaider/cartulary/internal/testutil/testcontainersx"
@@ -233,6 +242,200 @@ func mustPurposeKey(t *testing.T, purpose postgres.Purpose) string {
 }
 
 func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T) {
+	t.Run("endpoint_evidence", testEndpointDiagnostic)
+	t.Run("cancel_drains_create_before_settlement", func(t *testing.T) {
+		stubOwnedPostgresStartup(t)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		deadline, _ := ctx.Deadline()
+		acquired, settled := 0, 0
+		startContainerFn = func(create context.Context, _ testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+			cancel()
+			if create.Err() != nil {
+				t.Fatal("cancel discarded in-flight create")
+			}
+			got, _ := create.Deadline()
+			if !got.Equal(deadline) {
+				t.Fatal("create deadline changed")
+			}
+			return fakePostgresContainer{host: "127.0.0.1", port: network.MustParsePort("5432/tcp")}, nil
+		}
+		waitReadyFn = func(context.Context, *Harness) error { t.Fatal("cancelled acquisition became ready"); return nil }
+		_, err := StartOwnedWithOptions(ctx, StartOptions{BeforeAcquire: func(*Harness) error { return nil }, Acquired: func(*Harness) error { acquired++; return nil }, Settled: func(*Harness) error { settled++; return nil }})
+		if !errors.Is(err, context.Canceled) || acquired != 1 || settled != 1 {
+			t.Fatal("late acquisition lost", err, acquired, settled)
+		}
+	})
+	t.Run("timestamped_bootstrap_and_final_server_events_remain_distinct", func(t *testing.T) {
+		d := newStartupDiagnostic(t.Context())
+		started := "2026-10-20T00:00:00Z"
+		d.ContainerStartedAt = &started
+		d.StartupLogStatus = "complete"
+		d.observeStartupLogEvents(strings.Join([]string{
+			"2026-10-20T00:00:01Z The files belonging to this database system will be owned by user secret",
+			"2026-10-20T00:00:09Z Success. You can now start the database server",
+			"2026-10-20T00:00:10Z database system is ready to accept connections",
+			"2026-10-20T00:00:11Z database system is shut down",
+			"2026-10-20T00:00:15Z PostgreSQL init process complete; ready for start up.",
+			"2026-10-20T00:00:17Z listening on IPv4 address secret-endpoint",
+			"2026-10-20T00:00:18Z database system is ready to accept connections",
+		}, "\n"))
+		if len(d.StartupLogEvents) != 7 {
+			t.Fatal(d.StartupLogEvents)
+		}
+		for i, ms := range []int64{1000, 9000, 10000, 11000, 15000, 17000, 18000} {
+			event := d.StartupLogEvents[i]
+			phase := "bootstrap"
+			if i >= 4 {
+				phase = "final_server"
+			}
+			if event.Phase != phase || event.Timestamp == nil || event.ContainerElapsedMS == nil || *event.ContainerElapsedMS != ms {
+				t.Fatal("phase timing lost", event)
+			}
+		}
+		if d.StartupLogEvents[2].Signal != "server_ready" || d.StartupLogEvents[6].Signal != "server_ready" {
+			t.Fatal("ready events collapsed")
+		}
+		encoded, _ := json.Marshal(d)
+		if bytes.Contains(encoded, []byte("secret")) {
+			t.Fatal("raw log content retained")
+		}
+	})
+	t.Run("missing_or_regressing_clocks_and_bounds_never_fabricate_phase_timing", func(t *testing.T) {
+		d := newStartupDiagnostic(t.Context())
+		started := "2026-10-20T00:00:00Z"
+		d.ContainerStartedAt = &started
+		d.observeStartupLogEvents("database system is ready to accept connections\n2026-10-20T00:00:10Z Skipping initialization\n2026-10-20T00:00:09Z database system is ready to accept connections\n")
+		if d.StartupLogEvents[0].Phase != "unknown" || d.StartupLogEvents[0].Timestamp != nil || d.StartupLogEvents[0].ContainerElapsedMS != nil || d.StartupLogEvents[2].ContainerElapsedMS != nil {
+			t.Fatal(d.StartupLogEvents)
+		}
+		d.observeStartupLogEvents(strings.Repeat("FATAL: secret\n", 129))
+		if len(d.StartupLogEvents) != 128 || d.StartupLogStatus != "truncated" {
+			t.Fatal("event cap lost")
+		}
+		for range 129 {
+			d.recordProbeFailure(syscall.ECONNREFUSED)
+		}
+		if len(d.ProbeObservations) != 128 || !d.ProbeObservationsTruncated || d.ProbeFailures["connection_refused"] != 129 {
+			t.Fatal("probe cap changed counts")
+		}
+	})
+	t.Run("Docker_frames_are_bounded_before_provider_length_allocation", func(t *testing.T) {
+		frame := func(stream byte, length uint32, content string) []byte {
+			header := make([]byte, 8)
+			header[0] = stream
+			binary.BigEndian.PutUint32(header[4:], length)
+			return append(header, []byte(content)...)
+		}
+		data, truncated, err := readPostgresLogFrames(bytes.NewReader(append(frame(1, 4, "one\n"), frame(2, 4, "two\n")...)))
+		if err != nil || truncated || string(data) != "one\ntwo\n" {
+			t.Fatal(string(data), truncated, err)
+		}
+		data, truncated, err = readPostgresLogFrames(bytes.NewReader(frame(1, ^uint32(0), strings.Repeat("x", 65536))))
+		if err != nil || !truncated || len(data) != 65536 {
+			t.Fatal("unbounded frame", len(data), truncated, err)
+		}
+		if _, _, err := readPostgresLogFrames(bytes.NewReader(frame(3, 0, ""))); err == nil {
+			t.Fatal("invalid stream accepted")
+		}
+		if _, _, err := readPostgresLogFrames(bytes.NewReader(frame(1, 5, "x"))); err == nil {
+			t.Fatal("incomplete frame accepted")
+		}
+	})
+	t.Run("probe_cause_and_container_evidence_survive_deadline_and_cleanup", func(t *testing.T) {
+		stubOwnedPostgresStartup(t)
+		oldPing := pingAdminDSNFn
+		t.Cleanup(func() { pingAdminDSNFn = oldPing })
+		pingAdminDSNFn = func(context.Context, string, func(context.Context)) error {
+			return &net.OpError{Op: "dial", Net: "tcp", Err: syscall.ECONNREFUSED}
+		}
+		waitReadyFn = func(ctx context.Context, h *Harness) error {
+			probeCtx, cancel := context.WithTimeout(ctx, 30*time.Millisecond)
+			defer cancel()
+			return h.WaitReady(probeCtx)
+		}
+		terminated, inspected, logged := false, false, false
+		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+			return fakePostgresContainer{host: "127.0.0.1", port: network.MustParsePort("5432/tcp"),
+				state: func(ctx context.Context) (*dockercontainer.State, error) {
+					deadline, ok := ctx.Deadline()
+					if terminated || ctx.Err() != nil || !ok || time.Until(deadline) > 2*time.Second {
+						t.Fatal("inspection lost independent budget or ran after termination")
+					}
+					inspected = true
+					return &dockercontainer.State{Status: dockercontainer.StateExited, ExitCode: 1, OOMKilled: false}, nil
+				},
+				logs: func(context.Context) (io.ReadCloser, error) {
+					if terminated {
+						t.Fatal("logs read after termination")
+					}
+					logged = true
+					return io.NopCloser(strings.NewReader("initdb: No space left on device /private/secret-path\nsecret-password\n")), nil
+				},
+				terminate: func(context.Context) error { terminated = true; return nil },
+			}, nil
+		}
+		h, err := StartOwned(t.Context())
+		d, ok := ReadinessDiagnosticFromError(err)
+		if h != nil || !ok || !terminated || !inspected || !logged || d.Outcome != "deadline_expired" || d.ProbeCount != 1 || d.ProbeFailures["connection_refused"] != 1 || d.LastProbeFailure != "connection_refused" || d.CleanupOutcome != "completed" || d.ContainerState != "exited" || d.ContainerExitCode == nil || *d.ContainerExitCode != 1 || d.ContainerOOMKilled == nil || *d.ContainerOOMKilled || d.StartupLogStatus != "complete" || !reflect.DeepEqual(d.StartupLogSignals, []string{"storage_exhausted"}) {
+			t.Fatal("causal observation lost", d, err)
+		}
+		encoded, err := json.Marshal(d)
+		if err != nil || strings.Contains(string(encoded), "secret") || strings.Contains(string(encoded), "private") {
+			t.Fatal("sensitive diagnostic", err)
+		}
+		value, err := harnessschema.Decode(encoded)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v4", value); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("probe_classification_keeps_safe_causes_only", func(t *testing.T) {
+		for _, tc := range []struct {
+			err          error
+			cause, state string
+		}{
+			{&pgconn.PgError{Code: "57P03", Message: "secret-host"}, "server_starting", "57P03"},
+			{&pgconn.PgError{Code: "53300", Detail: "secret-user"}, "connection_limit", "53300"},
+			{&pgconn.PgError{Code: "secret"}, "server_error", ""},
+			{x509.UnknownAuthorityError{}, "tls_rejected", ""},
+			{&os.PathError{Op: "open", Path: "/secret/key", Err: os.ErrNotExist}, "local_configuration", ""},
+			{syscall.ECONNRESET, "connection_reset", ""},
+			{io.EOF, "connection_closed", ""},
+			{context.DeadlineExceeded, "probe_timeout", ""},
+			{errors.New("secret-raw-provider-error"), "unknown", ""},
+		} {
+			d := newStartupDiagnostic(t.Context())
+			d.recordProbeFailure(fmt.Errorf("secret-envelope: %w", tc.err))
+			if d.LastProbeFailure != tc.cause || d.LastSQLState != tc.state || d.ProbeFailures[tc.cause] != 1 {
+				t.Fatal("incorrect normalized cause", d)
+			}
+		}
+	})
+	t.Run("observation_is_bounded_and_cannot_replace_primary_failure", func(t *testing.T) {
+		stubOwnedPostgresStartup(t)
+		cleanupErr := errors.New("cleanup receipt")
+		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+			return fakePostgresContainer{
+				state: func(context.Context) (*dockercontainer.State, error) {
+					return nil, errors.New("secret-inspect-failure")
+				},
+				logs: func(context.Context) (io.ReadCloser, error) {
+					return io.NopCloser(strings.NewReader(strings.Repeat("x", 65536) + "FATAL: secret\n")), nil
+				},
+				terminate: func(context.Context) error { return cleanupErr },
+			}, nil
+		}
+		waitReadyFn = func(context.Context, *Harness) error { return context.DeadlineExceeded }
+		h, err := StartOwned(t.Context())
+		d, ok := ReadinessDiagnosticFromError(err)
+		if h == nil || !ok || !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, cleanupErr) || d.StartupLogStatus != "truncated" || len(d.StartupLogSignals) != 0 || d.ContainerState != "unavailable" || d.CleanupOutcome != "unresolved" {
+			t.Fatal("diagnostic changed failure or exceeded bound", d, err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(h.tlsDirectory) })
+	})
 	t.Run("capability_validation_has_a_distinct_terminal_boundary", func(t *testing.T) {
 		stubOwnedPostgresStartup(t)
 		oldPing := pingAdminDSNFn
@@ -1280,11 +1483,26 @@ func stubOwnedPostgresStartup(t testing.TB) {
 	oldWaitReady := waitReadyFn
 	oldPreflight := startPreflightFn
 	oldSleep := startSleepFn
+	oldLogs := postgresStartupLogsFn
+	postgresStartupLogsFn = func(ctx context.Context, container testcontainers.Container) ([]postgresLogChunk, bool, error) {
+		logs, err := container.Logs(ctx)
+		if err != nil {
+			return nil, false, err
+		}
+		defer logs.Close()
+		data, err := io.ReadAll(io.LimitReader(logs, 65537))
+		truncated := len(data) > 65536
+		if truncated {
+			data = data[:65536]
+		}
+		return []postgresLogChunk{{stream: "unknown", data: data}}, truncated, err
+	}
 	t.Cleanup(func() {
 		startContainerFn = oldStartContainer
 		waitReadyFn = oldWaitReady
 		startPreflightFn = oldPreflight
 		startSleepFn = oldSleep
+		postgresStartupLogsFn = oldLogs
 	})
 
 	startPreflightFn = func(context.Context) (string, error) {
@@ -1301,6 +1519,31 @@ type fakePostgresContainer struct {
 	port      network.Port
 	start     func(context.Context) error
 	terminate func(context.Context) error
+	state     func(context.Context) (*dockercontainer.State, error)
+	logs      func(context.Context) (io.ReadCloser, error)
+	inspect   func(context.Context) (*dockercontainer.InspectResponse, error)
+}
+
+func (c fakePostgresContainer) GetContainerID() string { return "fixture-container" }
+func (c fakePostgresContainer) Inspect(ctx context.Context) (*dockercontainer.InspectResponse, error) {
+	if c.inspect != nil {
+		return c.inspect(ctx)
+	}
+	return nil, errors.New("inspection unavailable")
+}
+
+func (c fakePostgresContainer) State(ctx context.Context) (*dockercontainer.State, error) {
+	if c.state != nil {
+		return c.state(ctx)
+	}
+	return nil, errors.New("state not observed")
+}
+
+func (c fakePostgresContainer) Logs(ctx context.Context) (io.ReadCloser, error) {
+	if c.logs != nil {
+		return c.logs(ctx)
+	}
+	return nil, errors.New("logs not observed")
 }
 
 func (c fakePostgresContainer) Host(context.Context) (string, error) {

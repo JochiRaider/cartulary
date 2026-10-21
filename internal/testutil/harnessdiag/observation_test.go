@@ -64,6 +64,7 @@ func TestDiagnosticSelection(t *testing.T) {
 	}
 }
 func TestDiagnosticSecureFiles(t *testing.T) {
+	t.Run("closed_rejection_codes", testRejectionCodes)
 	root := t.TempDir()
 	file := filepath.Join(root, "data")
 	if err := os.WriteFile(file, []byte(`{}`), 0600); err != nil {

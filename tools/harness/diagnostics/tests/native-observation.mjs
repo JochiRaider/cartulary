@@ -13,6 +13,7 @@ export async function observeRun(inputs) {
   const observation=JSON.parse(result.stdout);
   validateSchemaSync("cartulary.harness_run_observation.v3",observation);
   assert.equal(result.status,observation.operation_exit_code);
+  if (result.status === 11 && result.stderr) process.stderr.write(result.stderr);
   return observation;
 }
 export function renderObservation(observation) {

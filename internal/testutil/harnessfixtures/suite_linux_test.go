@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/startupproof"
 )
 
 func writeFixtureJSON(t *testing.T, name string, v any) {
@@ -44,6 +45,7 @@ func serviceScope(run, target, suite string) map[string]any {
 		"browser_e2e":  map[string]int{"retired_fixture_count": 0, "cleaned_fixture_count": 0, "reclaimed_fixture_count": 0}, "fixture": map[string]int{"total_count": 0, "total_duration_ms": 0, "strategy_aggregate_count": 0}, "started_services": map[string]any{}}
 }
 func TestFixtureSuiteOwner(t *testing.T) {
+	testStartupJournal(t)
 	t.Run("postgres_only_builder_can_bind_independent_objects_without_reprovisioning", func(t *testing.T) {
 		runtime, root, run := runtimeFixture(t)
 		p := NewProduction(ProductionOptions{Runtime: runtime, Root: root, RunRoot: run}, Options{})
@@ -276,8 +278,23 @@ func TestFixtureSuiteOwner(t *testing.T) {
 	t.Run("unpublished_started_owner_retains_residency", func(t *testing.T) {
 		runtime, root, run := runtimeFixture(t)
 		starts := 0
-		options := ProductionOptions{Runtime: runtime, Root: root, RunRoot: run, Environment: map[string]string{"TEST_SERVICES_BIN": "/fixed/testservices"}, Run: func(context.Context, string, []string, map[string]string) (CommandResult, error) {
+		options := ProductionOptions{Runtime: runtime, Root: root, RunRoot: run, Environment: map[string]string{"TEST_SERVICES_BIN": "/fixed/testservices"}, Run: func(_ context.Context, _ string, args []string, _ map[string]string) (CommandResult, error) {
 			starts++
+			file := filepath.Join(filepath.Dir(args[4]), startupproof.Filename)
+			proof, err := startupproof.Read(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			journal, err := startupproof.Open(file, proof.Binding)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := journal.Register("fixture helper"); err != nil {
+				t.Fatal(err)
+			}
+			if err := journal.Begin("postgres", map[string]string{}, nil); err != nil {
+				t.Fatal(err)
+			}
 			return CommandResult{Started: true, Exit: 1}, errors.New("interrupted before publication")
 		}}
 		owner := &SuiteOwner{Acquire: options.StartSuite, ReleaseResidency: func(context.Context) error {
@@ -539,6 +556,7 @@ func TestFixtureSuiteOwner(t *testing.T) {
 	}
 }
 func TestFixtureCommandLifecycle(t *testing.T) {
+	testStartupCommandCancellation(t)
 	runtime, root, _ := runtimeFixture(t)
 	run := commandRunner(root, runtime, []string{})
 	for _, mode := range []string{"exit", "cancel", "overflow"} {

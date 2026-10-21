@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/startupproof"
 	"golang.org/x/sys/unix"
 )
 
@@ -62,7 +63,16 @@ func (r *Runtime) PreserveRecovery() error {
 	validationErrors := []error{purgeErr}
 	for _, v := range resources {
 		if p, e := v.Path(); e == nil {
-			protected = append(protected, p)
+			// A managed start journal is independent recovery authority even when
+			// no ready lease could be published. This preserves uncertainty; it
+			// does not release the resource or infer an absent container.
+			journalFile := filepath.Join(filepath.Dir(p), startupproof.Filename)
+			journal, je := startupproof.Read(journalFile)
+			_, pe := harnesslocal.ReadFile(p, 1048576, false)
+			journalOwnsMissing := v.Kind == "managed_suite" && errors.Is(pe, os.ErrNotExist) && je == nil && slices.Contains(v.RecoveryFiles, journalFile) && journal.Binding.RuntimeRoot == r.Root && journal.Binding.RuntimeLease == r.LeaseID && journal.Binding.RunRoot == r.RunRoot && journal.Binding.RunID == r.RunID && slices.Equal(journal.Binding.Dependencies, v.Dependencies)
+			if !journalOwnsMissing {
+				protected = append(protected, p)
+			}
 		}
 		protected = append(protected, v.RecoveryFiles...)
 	}

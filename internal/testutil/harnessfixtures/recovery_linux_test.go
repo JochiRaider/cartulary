@@ -32,6 +32,7 @@ func recordBrowserRecoveryFixture(t *testing.T, runtime *harnesssession.Runtime,
 	return runtime.RecordDependentResource("browser_stack", browser, "pending", []string{fixtureReference(t, runtime, kind, dependency)}, binding, environmentFile)
 }
 func TestFixtureRecovery(t *testing.T) {
+	testPendingStartupRecovery(t)
 	testRecoveryCommand(t)
 	testCleanupDependencies(t)
 	for _, mode := range []string{"ordinary", "recovery"} {

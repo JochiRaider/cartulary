@@ -1,10 +1,11 @@
 import "../contract/tests/test-cleanup.mjs";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { classifyShellFailureDetails } from "../output/test-output/runners/shell.mjs";
 import { runContractSuite } from "./contract-suite-support.mjs";
 import { registerRunStatusCommandTests } from "../diagnostics/tests/run-observation-cases.mjs";
 import { registerFrontendProducerGraphTests } from "./test-frontend-producer-graph.mjs";
@@ -18,6 +19,79 @@ registerFrontendProducerLifecycleTests();
 registerCommandFailureTests();
 runContractSuite("command_surface");
 registerRunStatusCommandTests();
+
+test("native recovery exit retains cleanup classification independently of provider text", () => {
+  assert.deepEqual(classifyShellFailureDetails({target:"test-run-recover",exitStatus:12}, [], ["untrusted provider text"], ""),
+    {failure_class:"harness",failure_reason:"cleanup_error"});
+});
+
+test("real-command assertions forward the published parent diagnostics and reject invalid evidence before Make", (t) => {
+  const root = path.resolve(import.meta.dirname, "../../..");
+  const parent = mkdtempSync(path.join(tmpdir(), "real-command-diagnostics-"));
+  t.after(() => rmSync(parent, { recursive: true, force: true }));
+  const runID = "_parent-run";
+  const runRoot = path.join(parent, runID);
+  const artifacts = path.join(runRoot, "unit-artifacts", "assertion");
+  mkdirSync(artifacts, { recursive: true });
+  const manifestFile = path.join(runRoot, "run-manifest.json");
+  const digest = `sha256:${"a".repeat(64)}`;
+  const manifest = {
+    schema_id: "cartulary.harness_run_manifest.v3", run_id: runID, target: "harness-contract",
+    command_id: "cartulary.harness.command.harness_contract.v1", declared_inputs: {},
+    source_commit: "a".repeat(40), source_state: "dirty", source_digest: digest,
+    toolchain_digest: digest, system_digest: digest, graph_digest: digest,
+    instrumentation: { mode: "basic", policy_digest: digest },
+    cache_mode: "normal", started_at: "2026-10-20T00:00:00.000Z", go_worker_budget: 2,
+    capability_snapshot: {
+      schema_id: "cartulary.harness_capability_snapshot.v1", cpu_tokens: 2, memory_bytes: 1024,
+      process_slots: 2, io_tokens: 1, postgres_lanes: 1, object_store_lanes: 1,
+      writable_volume: true, port_lanes: 1, services: {}, sources: {}, snapshot_digest: digest,
+    },
+  };
+  const receipt = path.join(parent, "make-args");
+  const make = path.join(parent, "fake-make");
+  // Stop at the child boundary; these are transport tests, not nested run tests.
+  writeFileSync(make, '#!/bin/sh\nprintf "%s\\n" "$@" > "$DIAGNOSTICS_TEST_RECEIPT"\nexit 73\n', { mode: 0o700 });
+  const invoke = (caseName, ambient) => {
+    rmSync(receipt, { force: true });
+    const env = { ...process.env, MAKE_BIN: make, NODE_BIN: process.execPath,
+      CARTULARY_TEST_RESULTS_DIR: parent, CARTULARY_TEST_RUN_ID: runID,
+      CARTULARY_STEP_ARTIFACT_DIR: artifacts, DIAGNOSTICS_TEST_RECEIPT: receipt };
+    delete env.HARNESS_DIAGNOSTICS;
+    if (ambient !== undefined) env.HARNESS_DIAGNOSTICS = ambient;
+    return spawnSync("bash", ["tools/harness/tests/test-tool-output-real-targets.sh", caseName],
+      { cwd: root, env, encoding: "utf8", timeout: 10000, maxBuffer: 16384 });
+  };
+  for (const caseName of ["backend-unit", "backend-unit-machine"]) {
+    for (const mode of ["basic", "off"]) {
+      manifest.instrumentation.mode = mode;
+      writeFileSync(manifestFile, JSON.stringify(manifest));
+      for (const ambient of [undefined, mode === "basic" ? "off" : "basic"]) {
+        const result = invoke(caseName, ambient);
+        assert.equal(result.status, 1, result.stderr);
+        assert.match(result.stderr, /failed with status 73/u);
+        assert.deepEqual(readFileSync(receipt, "utf8").trim().split("\n"),
+          ["--no-print-directory", "test-slice", "SUITE=backend-unit", `HARNESS_DIAGNOSTICS=${mode}`]);
+      }
+    }
+    for (const invalid of [null, "{", JSON.stringify({ ...manifest, run_id: "foreign" }),
+      JSON.stringify({ ...manifest, instrumentation: { ...manifest.instrumentation, mode: "unknown" } }),
+      JSON.stringify(manifest).replace('{', '{"run_id":"duplicate",'), " ".repeat(1024 * 1024 + 1)]) {
+      rmSync(manifestFile, { force: true });
+      if (invalid !== null) writeFileSync(manifestFile, invalid);
+      const result = invoke(caseName, "basic");
+      assert.equal(result.status, 1, result.stderr);
+      assert.equal(existsSync(receipt), false, "invalid parent evidence must not start Make");
+    }
+    rmSync(manifestFile);
+    const alias = path.join(parent, "alias-manifest.json");
+    writeFileSync(alias, JSON.stringify(manifest));
+    symlinkSync(alias, manifestFile);
+    assert.equal(invoke(caseName).status, 1);
+    assert.equal(existsSync(receipt), false);
+    rmSync(manifestFile);
+  }
+});
 
 test("logical reporting metadata cannot introduce executable commands", () => {
   const root = path.resolve(import.meta.dirname, "../../..");

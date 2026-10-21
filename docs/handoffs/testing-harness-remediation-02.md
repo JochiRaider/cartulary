@@ -1188,6 +1188,996 @@ projections; passing tests do not establish normative completeness.
 | Final command success and cleanup independently established | NOT MET for overall acceptance: final assurance native exit 2; the parent and both real-check cleanup ledgers and scans passed, but W5 historical settlement remains unresolved |
 | Handoff is actionable | Final source/run identities, migration notes, skipped checks and W1/W2/W5 owner/closure criteria recorded |
 
+## PostgreSQL readiness causal follow-up
+
+Authorized after commit `da5be0309`: diagnose the final W2 failure; the user
+subsequently approved bounded redacted diagnostics and a focused reproduction
+with unchanged readiness deadlines and capacity. Existing W1 and W5 obligations
+remain separate. No service reset, speculative tuning or force recovery is in scope.
+
+| Workstream | Status | Dependency and exit criterion |
+| --- | --- | --- |
+| D-001 Preserve causal startup evidence | COMPLETE | Specification and v2 schema updated; typed probe causes, pre-cleanup state and bounded log markers implemented; lifecycle/redaction/bounds tests pass; Make generation complete |
+| D-004 Nested diagnostic forwarding | COMPLETE | Both wrapper modes securely read the exact parent's manifest and forward its validated selection; contract suite and final affected row pass; runtime stripping remains intact |
+| D-002 Focused reproduction and causal analysis | BOUNDED REPRODUCTION COMPLETE; EXACT TRANSPORT CAUSE OPEN | Two PostgreSQL readiness failures reproduced despite final-server readiness; early stop completed; endpoint-path diagnosis continues in D-007 |
+| D-003 Validation and handoff | D-009 BOUNDED HANDOFF COMPLETE; ACCEPTANCE OPEN | D-009 causal repair and focused/source checks passed; aggregate-6 stopped at D-010; event/timing and backend evidence checks passed, cancelled-run resource diagnostics remain partial; final receipt below |
+| D-005 Startup phase attribution and readiness policy | DIAGNOSTICS COMPLETE | v3 distinguishes bootstrap from final TCP readiness; new evidence does not support increasing startup/readiness timeouts; preserve current budgets pending D-007 |
+| D-006 Nested cancellation settlement | COMPLETE | Native lifecycle protocol, full-suite routing, authority forwarding and cleanup-outcome acknowledgement validated; aggregate retains both child terminal records and propagates independent cleanup failure |
+| D-007 PostgreSQL endpoint-path attribution and correction | AGGREGATE-6 REPRODUCTION STOPPED AT D-010; CAUSE OPEN | Full real-check reached service-backed execution without a readiness recurrence; jobs supervisor concurrency assertion caused the required early stop |
+| D-008 Pending service-start recovery closure | IMPLEMENTED AND FOCUSED VALIDATION COMPLETE | Settle a started helper cancelled before lease publication using durable acquisition proof; preserve uncertainty and resident claims when proof is absent |
+| D-009 Atomic snapshot replacement regression | IMPLEMENTED AND VALIDATED | Demonstrated ctime rejection repaired; focused regressions, source checks and both 192-unit aggregate backend wrappers passed |
+| D-010 Jobs supervisor concurrent-attempt regression | OPEN; NOT IMPLEMENTED | Full real-check reported peak concurrency 7 after eight distinct entries; identify early attempt termination and repair the responsible fixture or runner boundary before another aggregate |
+
+Read-only investigation confirmed the final failure's allocation/scope binding,
+60 failed probes in 15,001 ms, successful container start/endpoint resolution,
+and completed settlement. It also found that the original probe error was kept
+only in memory, container state was initialized to unavailable without inspection,
+and the nested check had diagnostics off. Therefore the retained timeout alone
+cannot establish storage contention, a crash, TLS failure or network failure.
+
+D-001 validation: `pgcause-d001-format` (`make format`, native 94564/0),
+`pgcause-d001-generate` (`make generate`, 41919/0),
+`pgcause-d001-contract` (uncached platform PostgreSQL certificate fixture lifecycle,
+52367/0, graph 2,713 ms, ten completed cleanup steps, retained scan passed), and
+`pgcause-d001-service-contract` (uncached harness PostgreSQL helper and testservices
+lifecycle rows, 81163/0, graph 2,442 ms) passed. The new schema replaces v1 without
+a compatibility alias. Diagnostic tests prove deadline/cause separation,
+pre-termination observation, raw-secret exclusion, log byte limits and preservation
+of primary and cleanup errors. The readiness window and resource policy are unchanged.
+
+D-002 isolated cohort: `pgcause-d002-networkflow`, native 99215/0, uncached exact
+eight previously infrastructure-failed Network Flow rows with basic diagnostics,
+passed in 85,765 ms. The unit identity remains
+`go:08fcce5155edfae4:ed1de841f34f`; the source digest is
+`sha256:0f1200b6ad0841a50f2808341dece7f6958b227db880966e154b845fd786984d`.
+This is non-reproduction in isolation, not a repair or proof of the historical
+cause. The user subsequently authorized the original aggregate reproduction.
+Finalization precedes any broader end-of-run verification.
+
+The focused run completed all 14 cleanup steps and passed its retained-secret
+scan over 42 files. `make harness-observability-check` against that exact root
+with `CHECK=evidence` returned 0. This verifies the focused evidence only.
+`pgcause-finalize` (`make agent-finalize`, native 26298/0, graph 25,701 ms) and
+`pgcause-source` (`make source-check CHECK=all`, 45002/0, graph 16,373 ms) passed.
+Retained-run maintenance was skipped because `RESULTS_DIR` was unset; no successful
+full warm check at this diagnostic source identity is available.
+
+Initial causal finding: the historical run exhausted SQL connectivity before any
+successful `PingContext`, capability query, generation initialization or Network
+Flow assertion. Neither slow storage nor TLS/network/process failure is proved.
+The confirmed implementation defect is loss of causal evidence: the final probe
+error was not projected, container state was never sampled, and helper stderr
+was not retained. The diagnostic change closes that observability gap; it does
+not claim to repair or identify the historical PostgreSQL failure. The next
+bounded step is the separately requested original aggregate reproduction. W2 and
+overall acceptance remain open; W1 and W5 are untouched. Changes are uncommitted.
+
+Documentation validation: `pgcause-markdown` (`make lint-markdown`, native
+13325/0, 12,880 ms) passed. The final handoff-only edit is checked by
+`CARTULARY_TEST_RUN_ID=pgcause-markdown-final make lint-markdown`; its receipt is
+`.cartulary/test-results/pgcause-markdown-final/adhoc/lint-markdown/tool-run-summary.json`.
+No full assurance or CI rerun is represented by these focused results.
+
+D-004: the nested real-command wrapper cleared `MAKEFLAGS` while passing no
+command-line diagnostics input. Because that input intentionally accepts only
+Make command-line selection, nested graphs defaulted to off. The wrapper now
+forwards the selected mode explicitly for its graph commands, with no input-policy
+relaxation. The planned widened run is
+`CARTULARY_TEST_RUN_ID=pgcause-d002-aggregate make harness-contract SUITE=full HARNESS_DIAGNOSTICS=basic`.
+It uses normal caching, as did the original failing aggregate; native workload,
+readiness budgets and admission capacity are unchanged. Fresh manifest identities
+and both nested check diagnostic selections will be verified after publication.
+
+Prelaunch finalization: `pgcause-aggregate-finalize`, native 64963/0, graph
+25,990 ms, passed. `RESULTS_DIR` remained unset, so retained-run maintenance was
+skipped. Widened invocation launched through native session 20158 at exact root
+`.cartulary/test-results/pgcause-d002-aggregate`; no terminal outcome yet.
+
+Early aggregate observation: the parent manifest records basic diagnostics and
+source `sha256:c3f4e13ed6b30e9add70b69df1f7a8bf171da4936f2bb4f802c28f2805c0af33`,
+but the nested `real-backend-unit` manifest records off. The native runtime removes
+`HARNESS_DIAGNOSTICS` from child environments; therefore the wrapper's environment
+fallback cannot carry the selected mode. D-004 is reopened.
+
+The user subsequently authorized ending the run early when fixes are needed.
+`pgcause-d002-aggregate` was cancelled through its native session 20158, which
+exited 130 after 397,700 ms: 32 units passed, none failed, and 29 were cancelled.
+All 43 cleanup steps completed; the retained-secret scan passed over 2,914 files.
+`make explain-run` against this exact root confirmed interruption and completed
+settlement. No PostgreSQL readiness failure recurred before cancellation. Repair
+the wrapper to read the validated published parent manifest, retain runtime
+environment stripping, and verify forwarding before beginning a fresh aggregate.
+
+D-004 correction: both human and machine assertions now use the bounded secure
+artifact reader, strict JSON parser, manifest schema validator and existing run-ID
+validator to obtain the parent's recorded diagnostic mode. Missing, malformed,
+oversized, aliased or identity-mismatched evidence fails before a child Make
+invocation. Regression cases verify basic and off with absent or contradictory
+ambient input in both output modes; no fallback can silently disable diagnostics.
+`pgcause-d004-contract` (`make harness-contract SUITE=contract HARNESS_DIAGNOSTICS=basic`,
+native 99902/0) passed all nine units in 72,436 ms, with 18 completed cleanup steps.
+After the final shared-validator adjustment, `pgcause-d004-finalize`
+(`make agent-finalize`, native 10150/0) passed in 26,080 ms. Retained-run maintenance
+was skipped because `RESULTS_DIR` was unset. The exact affected contract row is
+rechecked under `pgcause-d004-contract-final` passed: native 97738/0, graph
+66,837 ms, both units passed. Final source is
+`sha256:563171bc81815b92ac031eb02bfea1259beca899f53d2e992bd336647e17edf4`.
+D-004 is complete before D-002 resumes with
+`CARTULARY_TEST_RUN_ID=pgcause-d002-aggregate-2 make harness-contract SUITE=full HARNESS_DIAGNOSTICS=basic`.
+The final row completed all 11 cleanup steps and passed its retained-secret scan
+over 173 files. The fresh aggregate is bound to native session 11443 and exact
+root `.cartulary/test-results/pgcause-d002-aggregate-2`.
+
+The fresh aggregate reproduced `infra/service_readiness_timeout` in nested
+`real-check`, unit `go:dd735da5111c073b:a387ca184603` (three Collaboration store
+rows), at 2026-10-20T23:09:16Z. The exact scope is
+`unit-artifacts/operation-harness.assurance_output_check/real-command-output/runs/real-check/_shared/test-services/c617df93fc9347328f2fc8ea/service-scope.json`
+under the fresh aggregate root. Both nested full-check manifests confirmed basic
+diagnostics and the final source digest. Per the user's early-stop instruction,
+the aggregate was cancelled through native session 11443: exit 130, graph
+1,168,546 ms, 36 parent units passed and 25 cancelled. All 47 parent cleanup
+steps completed; its retained-secret scan passed over 7,260 files. The failed
+PostgreSQL acquisition independently reports completed physical cleanup.
+
+The v2 diagnostic records 60 connection refusals and one final probe timeout in
+the unchanged 15-second SQL window; container state running, OOM false, no
+successful SQL connection. Complete bounded log classification includes initdb
+sync start/completion, initdb completion, server ready/shutdown and initialization
+completion. No TLS/authentication/capacity rejection was observed. These markers
+do not carry timing or distinguish repeated ready messages; they do not prove
+storage contention or final-server readiness. The remaining inference and
+bootstrap boundary are being reviewed.
+
+Cancellation interrupted both nested full checks before canonical run summaries,
+resource indexes and terminal cleanup receipts were published. Parent cleanup
+does not prove their closure. Exact runtime-owner bindings were found for these
+two roots; supported recovery will settle only these interrupted runtimes. The
+older W5 runtime is outside this operation and remains untouched.
+
+Supported recovery completed for both new child runtimes:
+
+| Exact child | Recovery run / native exit | Completed settlement |
+| --- | --- | --- |
+| `real-check` | `pgcause-d002-recover-check`, 29439/0, 2,410 ms | 2 helper processes, 4 managed suites, 14 resident allocations |
+| `real-check-machine` | `pgcause-d002-recover-check-machine`, 51237/0, 1,500 ms | 1 helper process, 3 managed suites, 14 resident allocations |
+
+The recovery receipts are each run's
+`test-run-recover/test-run-recover/stdout.log` and
+`test-run-recover/tool-run-summary.json`. Recovery explicitly leaves the original
+execution result unchanged; it does not manufacture missing child summaries or
+resource indexes. Parent `make explain-run` succeeds. A parent
+`make harness-observability-check ... CHECK=evidence` returned Make exit 2 with
+`artifact_error/invalid-retained-diagnostics`: this mode requires a passing
+invocation (`retained-checks.mjs:evidenceClosure`), so cancelled evidence cannot
+receive its acceptance receipt. This is not a passing full aggregate or CI run.
+
+The demonstrated failure boundary is an externally unreachable PostgreSQL listener
+through the entire SQL readiness window, before any product assertion, capability
+query or generation initialization. The fresh failing cohort is Collaboration,
+not the original Network Flow cohort. This supports a shared fixture/startup
+problem but does not establish that both events have an identical physical cause.
+No recorded probe reached TLS/authentication; the observed container was running
+and not OOM-killed. A completed initdb sync marker does not measure its duration.
+
+Code review confirms `postgresPortWaitStrategy` waits for port mapping; the SQL
+window follows endpoint resolution while the Docker entrypoint may still be
+bootstrapping. The
+[upstream entrypoint](https://github.com/docker-library/postgres/blob/master/docker-entrypoint.sh)
+starts a socket-only temporary server, runs initialization scripts, stops it,
+announces initialization completion, and then executes the final server. This
+explains why the retained ready/shutdown markers are insufficient to establish
+external readiness. The upstream source is corroborating design context, not
+an attestation of the pinned image's exact bytes. Slow bootstrap/final-listener
+transition is a supported hypothesis; storage contention, kernel/network delay
+and the exact delayed phase remain unproved. No timeout, capacity, durability,
+authentication or retry policy was changed.
+
+Remaining workstreams, sequenced before another acceptance run:
+
+| Slice | Areas and remediation | Rationale, compatibility and risk | Exit criterion |
+| --- | --- | --- | --- |
+| D-005 | Specification, diagnostics, tests and handoff: retain bounded phase-tagged startup timing and distinguish temporary-server readiness from final TCP readiness. Use that evidence to choose an explicit cold-bootstrap/final-listener contract with one bounded acquisition budget. | Mapping is not readiness; phase-specific evidence prevents speculative global timeout increases. Any diagnostic schema change needs regenerated projections; any deadline change needs an explicit specification decision. Preserve TLS, checksums, durability and single-generation terminal failure. Leaving this open keeps cold-start failures causally ambiguous. | Inject slow initialization, delayed final listener, TLS rejection and parent deadline cases; prove phase attribution, redaction, unchanged cleanup authority and bounded total duration; then validate the chosen policy in the previously failing aggregate. |
+| D-006 | Specification, runtime implementation, regression tests and handoff: make nested graph cancellation a lifecycle-owned operation, with bounded child settlement and terminal publication before parent completion. | The generic process runner defaults to a two-second signal-to-kill grace; these nested graphs lost summaries and required separate recovery. Simply increasing that generic grace couples unrelated process types. Keep ordinary process behavior separate from explicit nested graph ownership; preserve primary readiness failure and independent cleanup failure. Leaving this open loses causal resource evidence and leaves resources to recovery after early stops. | Cancel nested human/machine graph checks with acquired services; verify original failure preservation, child terminal publication, no surviving owned allocations, bounded fallback recovery and accurate parent closure. |
+
+D-005 and D-006 are recorded follow-up fixes, not implemented by this diagnostic
+turn. The user-requested broad run is stopped and will not be restarted in this
+handoff. W2/full acceptance remain open; earlier W1 and W5 obligations are
+unchanged. Finalization passed before aggregate verification, and retained-run
+maintenance remained skipped because no successful full warm `RESULTS_DIR` was
+available. The diagnostic and forwarding changes remain uncommitted.
+
+D-003 completion: the exact cancelled parent passed
+`make harness-observability-check RESULTS_DIR=<aggregate-2 root> CHECK=events`
+with `full_validity=0`; this validates event closure only. Documentation lint
+passed as `pgcause-d003-aggregate-markdown` (native 3485/0, 14,700 ms), and
+`git diff --check` passed. The final status/receipt edit uses
+`CARTULARY_TEST_RUN_ID=pgcause-d003-handoff-final make lint-markdown`; its retained
+receipt is
+`.cartulary/test-results/pgcause-d003-handoff-final/adhoc/lint-markdown/tool-run-summary.json`.
+No further product test or aggregate is part of this handoff. The absent nested
+terminal evidence and deeper startup cause remain explicit limitations.
+
+Resumption authorized on 2026-10-20: implement D-005 and D-006, update this tracker
+after each slice, then resume testing with early cancellation for further needed
+fixes. The prior no-further-testing statement closes the previous turn only.
+D-005 preserves the current acquisition/readiness, capacity and durability policy
+while improving phase evidence; a readiness-policy change remains evidence-driven.
+
+D-005 implementation validation: `pgcause-d005-format` (native 89429/0, 7,895 ms),
+`pgcause-d005-generate` (35221/0, 10,950 ms), and uncached
+`pgcause-d005-contract` (5912/0, 2,779 ms; exact
+`platform.postgres.support_unit.certificate_fixture_lifecycle` row) passed.
+The v3 projection replaces v2 without translation. Tests distinguish repeated
+temporary/final readiness, missing/backward timestamps, bounded Docker frames,
+event/probe caps and redaction. Docker wall-clock emission times remain separate
+from local monotonic acquisition time; neither a buffered log line nor a missing
+event proves an operation's start or absence. D-006 starts after this receipt.
+
+D-006 uses a private per-launch Unix channel with kernel peer credentials, exact
+owner identity and verified launch ancestry. Graphs register before preparation;
+cancellation fences registration and waits for lifecycle acknowledgement after
+finalization and scanning. Ordinary processes retain two-second grace. Nested
+settlement has a separate five-minute bound; abrupt disconnect or expiry remains
+a cleanup failure and never proves resource release. Existing exact recovery
+authority remains responsible for unresolved resources after forced termination.
+No readiness or capacity limits were increased.
+
+D-006 validation: `pgcause-d006-format-3` (80937/0, 8,022 ms),
+`pgcause-d006-generate` (70724/0, 10,520 ms), uncached
+`pgcause-d006-unit-final` (56571/0, 54,517 ms; exact native runtime row), and
+`pgcause-d006-services` (36955/0, 37,756 ms; new exact
+`harness.browser.integration.native_nested_cancellation` row) passed.
+The unit matrix covers slow finalization, watchdog versus cancellation primary
+causes, abrupt exit, hard-bound fallback, multiple registrations, cancellation
+fencing, malformed authority and foreign identity. The installed-service test
+launches public Make through both output modes and cancels after the Collaboration
+Go unit dispatches. Both child roots under
+`.cartulary/test-results/pgcause-d006-services/nested-cancellation/{summary,machine}`
+retain cancelled run summaries, completed cleanup ledgers, successful owned
+PostgreSQL cleanup and passing retained scans. These intentional cancellations
+are passing lifecycle regressions, not successful product-row results.
+D-003 resumes only after this workstream receipt.
+
+Current-source finalization passed: `pgcause-d006-finalize` (79723/0,
+26,043 ms). Retained-run maintenance was skipped because `RESULTS_DIR` was unset;
+there is no successful full warm check at this source. All source checks passed
+in `pgcause-d003-source` (16355/0, 16,734 ms), including authored/generated/schema
+closure. Source identity is
+`sha256:8214833ce52fea72fb73cb4f6f6b4992473a323bd1ae3b42ad2be65c5371204b`.
+The renewed full assurance is intended to include the nested-cancellation row;
+the PostgreSQL readiness deadline, probe limits and host capacity policy are
+unchanged. Stop early on a needed fix and preserve terminal and cleanup evidence.
+
+Early-stop routing correction: `pgcause-d002-aggregate-3` initially omitted the
+new regression because full assurance uses an explicit row list. It was stopped
+after 34,530 ms (native 97674/1, graph interrupted; Make reported child 130),
+with 3 passed and 58 cancelled units, no failed units and 14 completed parent
+cleanup steps. Its graph digest still matched the preceding 61-unit graph.
+The selected-service boundary fixture also stripped the new lifecycle authority;
+it now preserves that exact field. The row was added to the authored
+`harness.contract_runtime_boundary` list and generated projections refreshed.
+
+Two exact remaining child runtimes were settled through `make test-run-recover`:
+`pgcause-d006-recover-object` (9414/0, 660 ms) completed one helper, one managed
+suite and one resident allocation for the interrupted `selected-service-boundary/object-store`
+root; `pgcause-d006-recover-preparation` (30756/0, 160 ms) completed one helper
+for `physical-fixtures/owned`. Both reported original execution evidence unchanged.
+These are separate from historical W5; no force reset or old-runtime mutation occurred.
+Routing generation `pgcause-d006-routing-generate` (48323/0, 9,960 ms) and
+uncached affected `native_selected_service_lifecycle` row in
+`pgcause-d006-boundary` (49889/0, 42,510 ms) passed before closing this follow-up.
+
+Final closure review added an explicit child cleanup outcome to the acknowledgement.
+Lifecycle return alone cannot prove resource release. The native owner captures
+unresolved resources before closing its handles and carries failed cleanup to the
+parent independently of interruption or timeout. The first validation,
+`pgcause-d006-closure-unit` (8792/2, child 12), caught an incorrect post-close
+ownership query that treated closed descriptors as unresolved resources; its
+child ledgers were complete and no matching private runtimes remained. The query
+was replaced with the pre-close ownership result. Uncached
+`pgcause-d006-closure-unit-fixed` (77101/0, 54,420 ms) passed, including an explicit
+failed-cleanup acknowledgement fixture. `pgcause-d006-closure-services-final`
+(72589/0, 34,460 ms) passed both real output-mode cancellations. That regression
+fixture now holds its own enclosing lifecycle authority and drains its nested
+work on outer interruption. D-006 is closed before renewed finalization and
+aggregate reproduction; D-003 remains the final handoff slice.
+
+Current finalization `pgcause-d006-closure-finalize` (55690/0, 26,248 ms) and
+all source checks `pgcause-d003-source-closure` (97734/0, 17,038 ms) passed;
+retained-run maintenance remains skipped with `RESULTS_DIR` unset. Renewed
+`pgcause-d002-aggregate-4` ran in native session 54469 with basic diagnostics.
+Its published manifest confirms the corrected 62-unit graph,
+`sha256:0ca41f006be3edc508c7931daca7f31cfb50573850a14fb288b40661d865be3a`,
+and source
+`sha256:0acdcda3883827fd301cb73082899ab9fd5fec44f0e7bb7780f90c4956fd97b2`.
+
+The run was stopped at the first observed actionable readiness failures. Native
+session 54469 exited 1 after the interrupt; Make reported child exit 130. The
+parent retained 37 passed and 25 cancelled units in 1,321,467 ms. Its 49 cleanup
+records include one failed child-settlement record. No further product run was
+started after these findings.
+
+### D-002 final causal evidence
+
+Both failures are PostgreSQL `sql_connectivity/deadline_expired`, with one
+terminal startup attempt, no retry, a running container, exit code zero, no OOM,
+and completed physical settlement of the failed container. Neither attempt
+reached its first successful SQL connection or generation initialization.
+
+| Child run and exact scope | Failed unit / rows | Probe evidence | Startup evidence |
+| --- | --- | --- | --- |
+| `real-check`, `_shared/test-services/51b22cb4ea6b4fc4a22c5c5b/service-scope.json` | `go:b800aee355339b09:5f96e028e8f8`; Evidence blob association race and uniqueness migration rows | 60 connection refusals over the 15,000 ms SQL window; container start 542 ms, endpoint resolution 5 ms | Complete bounded log includes bootstrap readiness/shutdown, initialization complete, final TCP listeners and final-server readiness. Docker wall timestamps for container start and final readiness are `00:16:17.153011657Z` and `00:16:18.459185821Z` on 2026-10-21. Normalized elapsed fields after the first event are null because merged-log timestamp order regressed; do not treat these as canonical monotonic durations. |
+| `real-check-machine`, `_shared/test-services/506b4e4df1af4c50a9a8dbf7/service-scope.json` | `go:0389eced7179da2c:63b7714bdfa7`; server optional-profile quiescence and Collaboration dispatcher startup-loss rows | 53 connection refusals and one connection closure over 15,001 ms; container start 707 ms, endpoint resolution 7 ms | Initdb complete at Docker-relative 1,888 ms; temporary readiness at 2,015 ms; temporary shutdown at 2,424 ms; initialization complete at 2,431 ms; final TCP listeners at 2,473 ms; final readiness at 2,552 ms. All are descriptive Docker wall-clock intervals, separate from local monotonic probes. |
+
+The child run roots are respectively:
+
+- `.cartulary/test-results/pgcause-d002-aggregate-4/unit-artifacts/operation-harness.assurance_output_check/real-command-output/runs/real-check`
+- `.cartulary/test-results/pgcause-d002-aggregate-4/unit-artifacts/operation-harness.assurance_output_check_machine/real-command-output/runs/real-check-machine`
+
+This evidence changes the causal direction: the final PostgreSQL server reached
+readiness, while the harness's connection path continued to refuse connections.
+Cold bootstrap consuming the whole window is not supported for these attempts.
+No TLS/authentication rejection, capacity SQLSTATE, server crash or OOM was
+observed. The exact cause within endpoint resolution, address-family selection,
+Docker port publication and host forwarding is not yet proved. The diagnostic
+does not retain endpoint-binding comparison or independent internal/external
+connectivity facts. Do not label a specific Docker/NAT/DNS defect as established,
+increase the timeout, weaken authentication, or infer the historical W2 failure
+had exactly the same underlying cause.
+
+Code inspection confirms that owned startup resolves `Host` and `MappedPort`
+once, builds the certificate DSN, and creates a fresh SQL handle for each probe.
+The installed testcontainers v0.42.0 implementation reads the current container
+inspection for `MappedPort` and selects the first binding; this alone does not
+prove a stale-map or address-family defect. D-007 must distinguish those cases
+with failure-bound evidence before selecting a structural repair.
+
+### Cancellation, recovery and remaining work
+
+The new lifecycle protocol retained both 339-unit child summaries instead of
+losing them to the generic two-second kill. `real-check-machine` retained 96
+passed, one failed and 242 cancelled units, with all 191 cleanup steps completed.
+`real-check` retained 86 passed, two failed and 251 cancelled units. Its primary
+readiness failure survived cancellation; the second failure is an acquisition
+artifact failure for `go:1c004c893bc8a37b:896c15fb8384` (Parties portable public
+failure contract). Its cleanup ledger reports `host_release/unresolved`,
+`managed_service_settlement/io/ENOENT`, and `recovery_proof/io/ENOENT`.
+The parent correctly retained an independent failed settlement record for this
+child. This proves propagation and terminal publication, not successful closure
+of the affected pending acquisition.
+
+All retained scans passed: parent 9,844 files, human child 3,341, machine child
+3,280. `make explain-run` consumed all three terminal roots. Event checks passed
+with `full_validity=0`; they are not full acceptance receipts. A passing full
+warm check and full evidence acceptance remain absent after the intentional stop.
+
+One exact runtime remains unresolved:
+
+- Runtime: `/home/jochi/.cache/cartulary/harness-scratch/suite-runtime/suite-real-check-c23d3848-2231-44dd-a57e-398babafefa8`
+- Lease: `4920e8c9-908b-4208-90a6-5cab49fd247f`
+- Bound run: the `real-check` child root above.
+- Pending service owner: `service-owners/postgres-57f7f2f5-2020-4988-90b9-4e394d54a98a`.
+
+Its broker recovery environment exists, but its `suite-lease.json` is absent.
+The ledger retains one `pending` managed suite and one acquired resident
+allocation. This differs from historical W5's missing recovery environment.
+Supported recovery `pgcause-d002-recover-aggregate-4` (native 69255/2; Make child
+12) failed closed at `managed_service_settlement`, errno 2: one managed suite
+failed and one resident allocation was blocked. The tool summary projects
+`harness/unknown_failure`, while its bounded stdout retains the more precise
+`cleanup_error` and stage; retain both observations. No force release, fabricated
+lease, environment reconstruction, or unrelated old-runtime mutation was made.
+
+| Workstream | Remediation and areas | Rationale, benefit and compatibility | Risk if unresolved and validation exit |
+| --- | --- | --- | --- |
+| D-008 Pending startup recovery | Specification, implementation, tests and documentation: make pre-acquisition intent, helper launch, physical acquisition and lease publication explicit durable states. A cancelled started helper must publish settled/no-acquisition proof or retain exact recoverable physical identity before losing its owner. Recovery must distinguish pending intent from acquired service without interpreting a missing lease as absence. Preserve the original cancellation or readiness failure and independent cleanup outcome. | Removes the publication gap that strands resident capacity; extends the existing resource owner instead of adding retries or a second cleanup coordinator. Any private-protocol migration must reject insufficient legacy proof and preserve this exact runtime until an authorized owner can settle it. | Current evidence has a pending suite with no lease and blocked residency. Exercise cancellation before spawn, after spawn, during each acquisition and before/after lease publication; verify exact resource settlement, idempotent recovery, retained proof on uncertainty, accurate failure classification and no leaked residency. Recover the recorded runtime only if the available ownership proof supports it. |
+| D-007 Endpoint-path attribution and fix | Specification, implementation, tests and documentation: add bounded, redacted failure-time facts for the exact resolved endpoint, address families, original versus fresh Docker binding identity and independent internal-versus-published connectivity observations. Keep credentials, raw endpoints/logs and certificates private. Then repair the proved binding/publication/forwarding defect at its owner, with fail-closed identity and TLS validation. Preserve stream/order provenance when using Docker log timestamps. | Distinguishes a ready server from an unreachable published path and prevents speculative deadline inflation. A diagnostic schema bump requires regenerated consumers; any endpoint-policy change needs explicit specification and migration review. No fallback plaintext connection or arbitrary alternate host is acceptable. | Refusals can recur while the server is ready, and current evidence cannot choose a definitive transport repair. Cover wrong/stale binding, IPv4/IPv6 selection, internally ready/externally refused, mapping revalidation, malformed diagnostics, redaction, parent deadline and cleanup. Reproduce the corrected case and complete the equivalent aggregate with unchanged capacity before claiming the cause fixed. |
+
+Sequence the follow-up as D-008 (safe interruption and recovery), D-007 (causal
+transport evidence and the proved repair), then reopen D-003 for finalization,
+focused regressions, the aggregate, acceptance checks and handoff. Each
+implementation slice updates this tracker before the next begins. No further
+implementation slice or test rerun was undertaken in this turn after the newly
+identified gaps; the requested startup diagnostics and nested graph lifecycle
+changes remain implemented and narrowly validated. Overall remediation acceptance
+and the exact PostgreSQL transport root cause remain open.
+
+D-003 documentation validation: `pgcause-d003-handoff-closure`, native 4399/0,
+`make lint-markdown`, passed in 14,620 ms. Its receipt is
+`.cartulary/test-results/pgcause-d003-handoff-closure/adhoc/lint-markdown/tool-run-summary.json`.
+The working-tree diff check is clean. No new commit was made in this turn.
+
+## D-008 implementation follow-up — pending startup ownership
+
+The native broker now creates a schema-validated private startup journal before
+launch. It binds runtime/run/suite identity, selected services and resident
+prerequisites. The helper cannot acquire before broker admission and durable
+registration. Provider intents, returned identities and settlement are serialized
+across services; ready publication is fenced by cancellation. Existing physical
+cleanup adapters remain the only service terminators.
+
+A private inherited pipe carries admission and owner loss. Startup cancellation
+allows the existing two-minute settlement bound; unrelated command cancellation
+is unchanged. In-flight managed Docker creation drains within its original
+attempt deadline, then publishes and settles any late identity before returning
+cancellation. No new readiness time, retry, capacity or TLS fallback was added.
+Recovery can use exact returned journal identities through the existing lease
+cleanup adapter, or discharge a journal proving no submitted acquisition. Unknown
+create outcomes and insufficient legacy proof remain unresolved. Runtime
+preservation accepts a bound journal when no lease was ever published. Native
+recovery exit 12 now projects `harness/cleanup_error` in command summaries.
+
+This closes the helper-kill/publication gap without a second cleanup coordinator.
+The journal is a new private v1 contract; valid existing service leases remain
+supported. Historical records are not upgraded or reconstructed.
+
+Validation and corrections:
+
+- `pgcause-d008-unit-1`, native 44885/0: native runtime row passed (53,940 ms).
+- `pgcause-d008-generate-2`, native 85686/0: Make generation passed (10,120 ms),
+  including the journal's native foundation-validator registration.
+- `pgcause-d008-fixtures-4`, native 77854/0: native fixture and test-services
+  lifecycle unit rows passed (3,610 ms). Earlier fixtures-1/2/3 runs exposed
+  missing native schema registration and test-directory permissions; repaired.
+- `pgcause-d008-live-1`, native 65015/130: stopped at 93,552 ms after detecting
+  an inherited blocking-pipe close deadlock. The descriptor now joins Go's poller;
+  a close-interrupt regression covers it. Parent and nested cleanup scans passed.
+  Its physical fixture runtime was recovered through `pgcause-d008-recover-live-1`,
+  native 82243/0, public `test-run-recover`, 710 ms. No residue remains from that
+  exact runtime (`suite-owned-2f07a7c3-fc54-4108-aa04-5d54a4122f29`).
+- `pgcause-d008-closure-1`, native 89308/2: four rows passed, including selected
+  service and physical fixture lifecycle; the new startup-cancellation scenario
+  exposed cancellation of an in-flight create response and missing-lease proof
+  preservation. It failed at 128,394 ms before the stop reached the already-ended
+  command. Those paths and cancellation classification were corrected.
+- `pgcause-d008-closure-2`, native 63533/0: native fixtures, test-services,
+  PostgreSQL helper and nested cancellation rows passed (44,951 ms). The nested
+  fixture covers summary/machine cancellation after acquisition and cancellation
+  immediately after startup registration, retaining child terminal evidence.
+- `pgcause-d008-command-1`, native 85157/130: command-surface verification was
+  stopped with the failing live reproduction; it remains required in D-003.
+- `pgcause-d008-format-final`, native 59420/0: format passed (7,757 ms).
+  Final focused validation `pgcause-d008-closure-final` passed (native 84816/0,
+  42,330 ms), source `sha256:db72009a3c451931279697b729f1f11530cc2ba0524b821d20bbb303d9027b88`.
+  This tracker update closes D-008 implementation before D-007 begins; legacy
+  uncertain resources and full acceptance remain open.
+
+Two distinct insufficient-proof obligations remain unchanged or preserved:
+
+1. The previously recorded `suite-real-check-c23d3848-2231-44dd-a57e-398babafefa8`
+   runtime has no startup journal or ready lease. It cannot be retrofitted with
+   fabricated proof and was not mutated in this follow-up.
+2. The failed startup-cancellation fixture retained runtime
+   `/home/jochi/.cache/cartulary/harness-scratch/suite-runtime/suite-summary-startup-116e32e4-9675-4864-85b9-f9c9a240241b`,
+   lease `06a2794e-dc45-4f71-8827-d418bf834c9b`, bound to
+   `.cartulary/test-results/pgcause-d008-closure-1/nested-cancellation/summary-startup`.
+   Its object-store journal records an ambiguous create with no returned container
+   identity. One pending suite and its resident allocation remain retained. A dead
+   helper or empty Docker search cannot prove absence. The fix prevents cooperative
+   cancellation from discarding future create responses; it does not invent the
+   historical result. No force release or speculative cleanup was performed.
+
+## D-007 implementation follow-up — endpoint evidence v4
+
+The NLSpec now defines readiness diagnostic v4. Typed producers, the service-scope
+projection and generated validators use v4; historical retained records remain
+immutable. The observer wraps the driver's existing resolver and dial functions,
+preserving their arguments, results, ordering and TLS configuration. It retains
+only bounded address-family/category facts and opaque per-attempt endpoint
+references, with lookup/dial relationships and normalized outcomes.
+
+The selected endpoint is compared with an adjacent initial Docker inspection and
+an exact-container failure-time inspection. This is not an atomic witness of
+Docker's earlier mapped-port selection. Complete snapshots report binding equality
+and selected-port publication; missing, foreign, malformed or truncated inspection
+cannot assert equality. Failure-time evidence separates a fixed internal TCP
+listener observation from connection reachability at the original published
+endpoint and from verified SQL readiness. No alternate host, TLS downgrade,
+readiness retry, capacity change or deadline increase was added.
+
+All failure observations share the existing independent two-second budget.
+Inspection, internal observation and published dialing have smaller child caps;
+streams and connections close before physical cleanup. Address/binding collections
+are capped at 32 and lookup/dial records at 128. Docker events preserve stream and
+within-stream line order. Cross-stream timestamp disorder no longer implies a
+clock regression; Docker wall time remains distinct from monotonic probe time.
+
+Validation:
+
+- `pgcause-d007-generate-1`, native 52977/0: Make generation passed (10,220 ms).
+- `pgcause-d007-format-2`, native 7823/0: formatting passed (7,896 ms).
+  The first format attempt caught Docker API type mismatches before testing;
+  projections now use the API's typed port and address accessors.
+- `CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=harness.browser
+  ROWS=harness.browser.unit.pgtest_helper_contract,harness.browser.unit.testservices_lifecycle_contract
+  HARNESS_DIAGNOSTICS=basic`, run `pgcause-d007-unit-1`, native 63546/0:
+  passed (4,128 ms).
+- `CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=platform.postgres
+  ROWS=platform.postgres.support_unit.certificate_fixture_lifecycle
+  HARNESS_DIAGNOSTICS=basic`, run `pgcause-d007-cert-2`, native 1013/0:
+  passed (1,302 ms). The preceding cert-1 run (native 74636/2) exposed a new test
+  fixture validating before setting its terminal cleanup outcome; repaired.
+  Cleanup completed in that failed run, with no physical service acquisition.
+- Regressions cover unchanged/changed/wrong/malformed/foreign and unavailable
+  mappings, bounded snapshots, IPv4/IPv6 lookup-to-dial identity, preserved driver
+  behavior and TLS, redaction/schema validity, internal-listener presence with
+  published refusal, exhausted budgets, and mixed-stream/fragmented log ordering.
+
+This receipt precedes D-003. It establishes diagnostic implementation, not the
+historical PostgreSQL cause or aggregate acceptance. The two D-008 proof gaps and
+the separate older recovery obligation remain explicit; no synthetic proof was
+introduced.
+
+## D-003 final follow-up — bounded validation and diagnostic handoff
+
+D-008 and D-007 implementation and focused validation are complete. The fresh
+aggregate stopped early at a new status-reader concurrency regression, before
+launching either full real-check reproduction. Overall acceptance and the exact
+historical PostgreSQL transport cause remain open. A passing readiness fixture is
+validation only and does not explain the earlier refused connections.
+
+### Finalization and source receipts
+
+The following public Make commands ran from the repository root. Run roots are
+`.cartulary/test-results/<run-id>`; cache was disabled for the test slice and
+aggregate reproduction.
+
+| Command | Run ID | Native session / exit | Result |
+| --- | --- | --- | --- |
+| `make agent-finalize` | `pgcause-d003-finalize-5` | 59457 / 0 | Pass, 26,151 ms; generated outputs unchanged; retained maintenance skipped because `RESULTS_DIR` was unset and no successful full warm-check root was available |
+| `make source-check CHECK=all` | `pgcause-d003-source-5` | 18459 / 0 | All nine source work units passed, 17,823 ms |
+| `make test-slice OWNER=harness.command_surface ROWS=harness.command_surface.behavior.public_registry_parity HARNESS_DIAGNOSTICS=basic` | `pgcause-d003-command-2` | 73850 / 0 | Pass, 67,743 ms; includes recovery exit-12 projection as `harness/cleanup_error` |
+| `make harness-contract SUITE=full HARNESS_DIAGNOSTICS=basic` | `pgcause-d002-aggregate-5` | 28730 / 130 | Stopped through the native owner on D-009; 633,605 ms; 33 passed, one failed and 28 cancelled work units |
+
+Exact reproduction command:
+
+```sh
+CARTULARY_TEST_RUN_ID=pgcause-d002-aggregate-5 CARTULARY_HARNESS_CACHE_MODE=off make harness-contract SUITE=full HARNESS_DIAGNOSTICS=basic
+```
+
+Source identity was commit `da5be03097c042bde9c263f558e2e172f1a69ee0`, dirty,
+source digest `sha256:11352936ade1462ee0627e2e96ca5d1a491975aa5ad688f0e64c80ef23a48edf`.
+Parent graph digest was
+`sha256:0ca41f006be3edc508c7931daca7f31cfb50573850a14fb288b40661d865be3a`.
+Toolchain digest was
+`sha256:f0968e3ace0b7282a384ecb609ccc16db0e9e49c646cf0b45ba457ed4669ae6c`;
+system digest was
+`sha256:008fe637b622cd8932b55cc1d8be5346bae02c09ab35d7518fc9f72b66eb6c21`.
+The source check, command-surface check and finalizer used the same source digest.
+
+### Exact retained failure chain and settlement
+
+The parent root is
+`/home/jochi/code/cartulary/.cartulary/test-results/pgcause-d002-aggregate-5`.
+Child paths below are relative to that exact parent:
+
+| Exact child root | Outcome and identity |
+| --- | --- |
+| `unit-artifacts/operation-harness.assurance_output_backend_unit/real-command-output/runs/real-backend-unit` | `test-slice` failed: 190 passed, one failed of 191 work units; 113,118 ms; graph `sha256:ee7d83e2abac7a7ef5930db5d299eadbe56b27344e49994801dc134e6aaf0ff5` |
+| `unit-artifacts/operation-harness.assurance_output_backend_unit/real-command-output/runs/real-backend-unit/native-engine/selected-graph-42604-basic` | One passed and one failed work unit; graph `sha256:c4b5577417a9681328e886ddea4af167ba5bf2be4ddbbfe16c680744c21e923c`; row `harness.evidence_accounting.behavior.current_epoch_evidence` failed |
+| `unit-artifacts/operation-harness.assurance_output_backend_unit_machine/real-command-output/runs/real-backend-unit-machine` | Cancelled by parent: 189 passed, two cancelled of 191; 66,332 ms; same graph as the human backend child |
+
+The failed backend unit is `go:e82ea1f7011e5219:503bb18d423f`, row
+`harness.command_surface.unit.native_runtime`. Its
+`TestRuntimeSelectedGraphExecution/basic` called the nested evidence row. That
+row's retained log is
+`unit-logs/row-harness.evidence_accounting.behavior.current_epoch_evidence/stderr.log`
+under `selected-graph-42604-basic`. It identifies
+`concurrent readers admit only complete atomic replacements`, authored at
+`tools/harness/diagnostics/tests/run-observation-cases.mjs:164`, failing after
+331.7 ms. A native reader returned `operation_exit_code=11`,
+`observation=invalid`, `artifact/artifact_error`, during a 3,000-unit snapshot
+replacement fixture. The exact rejected read/validation branch is not retained;
+this is not proof of a particular filesystem race or PostgreSQL fault.
+
+The parent preserves `product/test_assertion_failure` while reporting cancelled
+status; native exit 130 is independently observed. Cleanup ledgers report zero
+failed or blocked steps: parent 44, human backend child 202, machine backend child
+200, and the failed nested graph 11. All 15 retained secret scans passed, including
+both backend children and the startup-cancellation scenarios. No new unresolved
+runtime was reported by this aggregate's cleanup owners.
+
+The parent also passed the native selected-service, physical owned/borrowed
+fixture, graph-observation and nested-cancellation lifecycle rows. The latter
+retained terminal cancellation summaries for `nested-cancellation/summary`,
+`nested-cancellation/machine` and `nested-cancellation/summary-startup`.
+
+Read-only `make harness-observability-check RESULTS_DIR=<exact-parent>
+CHECK=events`, `CHECK=timing` and `CHECK=diagnostics` passed. `CHECK=all` and
+`CHECK=evidence` returned native Make exit 2 (inner artifact exit 11): evidence
+closure requires a passing invocation, as defined by
+`tools/harness/observability/retained-checks.mjs`. The cancelled, failed aggregate
+cannot satisfy that gate. This expected rejection is not another repair claim.
+No full evidence acceptance is asserted.
+
+### D-009 — atomic snapshot replacement regression
+
+**Areas:** implementation, tests and documentation; specification clarification
+only if the intended snapshot-read contract proves ambiguous. First retain a
+bounded, redacted rejection-stage reason and coordinate replacement at the exact
+read boundaries. Determine whether the reader, publisher or fixture violates the
+contract before changing behavior. Repair the owning boundary, rather than adding
+reader retries, sleeps, larger timeouts or disabling the contention scenario.
+
+**Rationale and benefit:** a public observer must accept a complete old or new
+atomic snapshot while rejecting unsafe content. A spurious artifact failure makes
+live diagnosis unreliable and prevents the aggregate from reaching its intended
+service reproduction. Preserve no-follow traversal, ownership/mode checks,
+immutable-evidence link checks, size bounds and identity/schema validation.
+Compatibility should stay within the current valid observation contract; any
+new retained diagnostic field needs an explicit version/migration decision.
+
+**Risks and exit criteria:** distinguish replacement from in-place mutation,
+foreign inode/identity, unsafe links and malformed content. Add deterministic
+boundary coverage, then pass the current evidence row and native-runtime row
+through Make with instrumentation off and basic, including the nested backend
+wrapper path that failed here. Do not treat a later incidental pass as proof of
+repair. Update this tracker after D-009 before beginning the next workstream.
+
+**Sequence:** D-009 repair and focused validation → finalization/source checks →
+fresh uncached equivalent aggregate → D-007 endpoint classification if the
+PostgreSQL failure recurs → D-003 evidence validation and final handoff. Stop the
+next run at another actionable defect under the same rule. The 15-second SQL
+window, 250-ms polling, five-second probe cap, TLS/checksum policy and capacity
+remain unchanged.
+
+### Remaining obligations and handoff boundary
+
+- PostgreSQL root cause remains unproved. Neither full real-check child started
+  in aggregate-5, so no new v4 failure observation can classify changed mappings,
+  resolver/dial disagreement or the published transport path.
+- Preserve the two D-008 insufficient-proof runtimes listed above. The older W5
+  `suite-real-check-machine-c0149ef6-b5f5-4b40-bee5-c7c53ebfab6d` obligation
+  (lease `ce924c85-30f5-4e77-8b89-2c79756a04ac`) is also unchanged. Do not infer
+  absence from dead helpers, missing leases or empty Docker searches.
+- Full aggregate acceptance, successful evidence closure and retained warm-run
+  maintenance are outstanding. Unexecuted later aggregate units are cancelled,
+  not passes. No speculative service tuning, reset or force release occurred.
+- Appendix A matches the committed historical appendix byte-for-byte. Markdown
+  validation is the final handoff operation; its receipt follows below.
+
+D-003 Markdown receipt: `CARTULARY_TEST_RUN_ID=pgcause-d003-markdown-5 make
+lint-markdown` passed, native 51808/0, 14,120 ms. Final receipt-only verification
+uses `pgcause-d003-markdown-final-5`; its summary is retained at
+`.cartulary/test-results/pgcause-d003-markdown-final-5/adhoc/lint-markdown/tool-run-summary.json`.
+`git diff --check` passed.
+
+## D-009A — contract and causal diagnostic receipt
+
+The requested sequence is D-009A → D-009B → D-007 equivalent reproduction →
+D-003 validation and handoff. This receipt closes the diagnostic workstream
+before changing any acceptance predicate. Appendix A and earlier changes remain
+preserved. Each subsequent workstream must record its outcome before the next.
+
+**Contract and implementation:** the NLSpec now distinguishes replacement of a
+snapshot name from mutation of the bytes obtained through one descriptor.
+Secure reads and observation boundaries retain typed internal rejection codes;
+the command emits one closed role/stage/reason line on stderr, at most 256 bytes.
+Observation JSON v3 and exit classifications are unchanged. Failing native reader
+tests retain the diagnostic. Package-private per-call barriers cover opening,
+initial metadata, reading and final metadata without environment switches or a
+second reader. The new catalog row is
+`harness.evidence_accounting.behavior.secure_snapshot_reads_preserve_atomic_replacemen_421c103fc2`.
+
+**Decision gate and responsible owner:** a bounded concurrent publication test
+with one writer and four readers failed at `final_metadata / ctime_changed` in
+`pgcause-d009a-contention-1`. Its only writer uses the existing secure atomic
+replacement owner; it never changes published content, mode or ownership, and
+creates no hard links. The rejection predicate requires the final link count to
+be nonzero. This demonstrates that the secure reader's assumption that a valid
+snapshot ctime change must coincide with observed unlinking is too restrictive.
+It does not recover the discarded reason from aggregate-5 or prove the exact
+kernel ordering of individual metadata fields. A deterministic stat-transition
+regression freezes the linked-inode ctime-only case and fails at that predicate
+in `pgcause-d009a-predicate-1`. All other final-metadata predicates precede it.
+The repair belongs to `harnesslocal`, not a timeout, retry or provider policy.
+
+**Receipts:** all roots below are `.cartulary/test-results/<run-id>`. Exact row
+selections use `make test-slice OWNER=harness.evidence_accounting ROWS=<rows>`
+with `CARTULARY_HARNESS_CACHE_MODE=off HARNESS_DIAGNOSTICS=basic`; each named run
+uses its matching explicit `CARTULARY_TEST_RUN_ID`.
+
+| Run ID | Native session / exit | Command scope and result |
+| --- | --- | --- |
+| `pgcause-d009a-reproduce-1` | 81158 / 0 | Current-epoch evidence, native observation and new secure-read row; passed, 12,508 ms |
+| `pgcause-d009a-nested-1` | 27538 / 0 | `make test-slice OWNER=harness.command_surface ROWS=harness.command_surface.unit.native_runtime HARNESS_DIAGNOSTICS=basic`; off/basic/basic-second nested variants passed, 55,604 ms |
+| `pgcause-d009a-backend-1` | 84808 / 0 | `make test-slice SUITE=backend-unit HARNESS_DIAGNOSTICS=basic`; 192 units passed, 119,196 ms |
+| `pgcause-d009a-contention-1` | 73046 / 2 | New secure-read row; bounded contention rejected `ctime_changed`, 708 ms; harness exit 10, outer Make exit 2 |
+| `pgcause-d009a-cause-1` | 96265 / 0 | Current-epoch evidence plus secure-read row after moving ctime diagnostic priority behind other checks; passed, 12,922 ms; acceptance unchanged |
+| `pgcause-d009a-boundary-1` | 74001 / 0 | Secure-read row with descriptor held across rename; passed, 769 ms; filesystem timestamp resolution makes this insufficient as a deterministic ctime regression |
+| `pgcause-d009a-predicate-1` | 31904 / 2 | Secure-read row with deterministic ctime-only transition; expected regression failure, 841 ms; harness exit 10, outer Make exit 2 |
+
+The decisive retained logs are
+`pgcause-d009a-contention-1/unit-logs/go-4c582ac963d01746-b226799fffa1/stderr.log`
+and the same relative log under `pgcause-d009a-predicate-1`. Both runs settled all
+ten cleanup steps. Contention source identity is
+`sha256:6acebfa076ffc298ffc49b6d8bbd39ec92d62b16fd9caa3c50b57c47c0366111`,
+graph `sha256:a298b613a7a43248bd788da002ca5b7fff181a4acc9e84fc08b36e3be6f1bbb7`.
+Earlier passing runs establish coverage, not causal repair.
+
+Authoring receipts: `make format` passed in `pgcause-d009a-format-1` and
+`pgcause-d009a-format-3`; the intermediate format/generation attempts rejected an
+unsorted authored catalog row. Sorting that input repaired the configuration;
+`make generate` then passed in `pgcause-d009a-generate-2` (34653/0, 10,280 ms).
+No generated file was hand-edited.
+
+**D-009B dependency, risk and exit:** separate snapshot and immutable metadata
+policies within the secure-file owner, admitting only the demonstrated ctime
+transition while preserving content/security predicates. Validate deterministic
+replacement/mutation boundaries, foreign identity, malformed/oversized content,
+cancellation, worker settlement and bounded diagnostics; exercise required rows
+off/basic, D-008 regressions, formatting/generation, finalization and all source
+checks. Record receipts before D-007. Snapshot acceptance and historical formats
+remain stable; immutable evidence must retain strict metadata checks. Leaving
+the defect unresolved makes valid live observations intermittently fail closed.
+
+## D-009B — structural repair and validation receipt
+
+This receipt closes D-009B before starting D-007. The secure-file owner now checks
+content length, size, mtime, inode/device, UID and mode identically for both read
+policies. Atomic snapshots permit only 1→1, 1→0 and 0→0 link transitions and do
+not treat ctime alone as proof that bytes changed. Immutable reads retain one
+link and unchanged ctime. No retry, delay, fallback parser, timeout increase or
+publication-format migration was introduced. The NLSpec states these policies.
+The existing descriptor-bound path traversal, initial ownership/permission/link
+checks, size bound, strict JSON, schema and identity validation remain in force.
+
+The deterministic linked-inode ctime regression that failed in D-009A now passes.
+Real filesystem barriers exercise replacement before/after open, after initial
+metadata, during reading and before final metadata, including three replacements
+while holding an old descriptor. Mutation/truncation/mode/link cases reject;
+metadata tests additionally reject changed owner, inode/device and mtime.
+Existing observation rows cover malformed/oversized documents, unsafe paths,
+foreign run identity and cancellation. The CLI diagnostic test verifies a single
+closed stderr line and unchanged valid v3 JSON. No raw path or payload is added
+to the new diagnostic. The native fixture now starts each concurrent writer/read
+round by acknowledgement and joins every worker before fixture deletion, on
+both success and failure; its contention assertion remains intact.
+
+**Compatibility, benefit and remaining risk:** existing public JSON, valid
+snapshot formats and immutable evidence remain supported. No historical artifact
+is rewritten. The separated metadata policies eliminate an observed false
+rejection while preserving explicit content/security checks. ctime alone cannot
+prove content mutation under concurrent namespace replacement; this is a defined
+snapshot policy, not permission to mutate published bytes. The original
+aggregate-5 diagnostic was discarded, so its exact syscall ordering cannot be
+reconstructed. The new contention failure and deterministic regression establish
+the repaired predicate, rather than relying on a later incidental pass.
+
+All roots below are `.cartulary/test-results/<run-id>`, using the named explicit
+`CARTULARY_TEST_RUN_ID`. Test invocations also set
+`CARTULARY_HARNESS_CACHE_MODE=off`.
+
+| Run ID | Native session / exit | Command and result |
+| --- | --- | --- |
+| `pgcause-d009b-off-1` | 74026 / 0 | Evidence-accounting current-epoch, native-observation and new secure-read rows, `HARNESS_DIAGNOSTICS=off`; four graph units passed, 12,093 ms |
+| `pgcause-d009b-basic-1` | 95737 / 0 | Same exact selection, `HARNESS_DIAGNOSTICS=basic`; four graph units passed, 12,103 ms |
+| `pgcause-d009b-nested-1` | 51597 / 0 | `make test-slice OWNER=harness.command_surface ROWS=harness.command_surface.unit.native_runtime HARNESS_DIAGNOSTICS=basic`; off/basic/basic-second selected graphs passed, 54,805 ms |
+| `pgcause-d009b-recovery-1` | 68237 / 0 | Native fixtures, test-services lifecycle, nested cancellation, selected services, owned physical and borrowed physical lifecycle rows; six units passed, 227,155 ms |
+| `pgcause-d009b-format-1` | 98544 / 0 | `make format`; 8,162 ms |
+| `pgcause-d009b-format-final` | 49685 / 0 | `make format`; 7,812 ms |
+| `pgcause-d009b-generate-final` | 90034 / 0 | `make generate`; 10,150 ms |
+| `pgcause-d009b-finalize` | 4238 / 0 | `make agent-finalize`; 25,606 ms |
+| `pgcause-d009b-source` | 44781 / 0 | `make source-check CHECK=all`; 16,546 ms |
+
+The exact recovery selection was `make test-slice OWNER=harness.browser
+ROWS=harness.browser.unit.native_fixtures,harness.browser.unit.testservices_lifecycle_contract,harness.browser.integration.native_nested_cancellation,harness.browser.integration.native_selected_service_lifecycle,harness.browser.integration.native_fixture_lifecycle,harness.browser.integration.native_borrowed_fixture_lifecycle
+HARNESS_DIAGNOSTICS=basic`. Its 15 cleanup steps completed; nested-runtime
+validation completed all ten parent cleanup steps. Both used source
+`sha256:129d7809e9b3d99bdf8f7262051477b0905c7343e094a688a61c7e6e3f82273e`;
+recovery graph is
+`sha256:e60f7f2c5dec7ef36b21e1b3eab2c34cd03a35b58bb562cee8a2f0824c1bd055`,
+native-runtime graph is
+`sha256:4a58c5ecc2eb986522e825b376403e93fce257569eee02d51e1830c3b7baac99`.
+
+Retained-run maintenance was skipped: `RESULTS_DIR` was unset because no
+qualifying successful full warm-check root was available. The two D-008
+insufficient-proof runtimes and the older W5 obligation remain unresolved; this
+validation does not release their authority. Appendix A still matches HEAD
+byte-for-byte. D-007 now depends only on a fresh equivalent run; stop at another
+proved necessary fix, retain terminal/cleanup/scan evidence, and finish D-003.
+
+## D-007 — aggregate-6 reproduction and early-stop receipt
+
+This receipt closes the bounded D-007 reproduction before D-003 evidence checks.
+The fresh uncached command was:
+
+```sh
+CARTULARY_TEST_RUN_ID=pgcause-d002-aggregate-6 CARTULARY_HARNESS_CACHE_MODE=off make harness-contract SUITE=full HARNESS_DIAGNOSTICS=basic
+```
+
+Native session **27153** received Ctrl-C through its owning session after the
+jobs supervisor assertion below was identified. Finalizers were allowed to drain.
+The native tool reported outer exit **1**; Make printed its cancellation error
+**130**. Preserve those observations separately rather than inferring the outer
+exit from the cancellation classification. Parent duration was **1,302,372 ms**.
+
+Parent root `P` is
+`.cartulary/test-results/pgcause-d002-aggregate-6`. All children below used source
+`sha256:129d7809e9b3d99bdf8f7262051477b0905c7343e094a688a61c7e6e3f82273e`,
+commit `da5be03097c042bde9c263f558e2e172f1a69ee0`, dirty state.
+Parent graph is
+`sha256:0ca41f006be3edc508c7931daca7f31cfb50573850a14fb288b40661d865be3a`.
+The native session and exact public `make test-run-status RESULTS_DIR=<root>
+JSON=1` observations were used; no private event staging was read.
+
+| Exact child root relative to P | Graph digest | Terminal result |
+| --- | --- | --- |
+| `unit-artifacts/operation-harness.assurance_output_backend_unit/real-command-output/runs/real-backend-unit` | `sha256:cf96d1422ef2d49949245d799ca6d076e5a8b61b1a14f2529dcc71cf3ef554f8` | 192 passed, 119,100 ms; 203 completed cleanup steps |
+| `unit-artifacts/operation-harness.assurance_output_backend_unit_machine/real-command-output/runs/real-backend-unit-machine` | `sha256:cf96d1422ef2d49949245d799ca6d076e5a8b61b1a14f2529dcc71cf3ef554f8` | 192 passed, 114,638 ms; 203 completed cleanup steps |
+| `unit-artifacts/operation-harness.assurance_output_check/real-command-output/runs/real-check` | `sha256:930d8f151989ede9ca2355fbe38a46405ecacfd104a3e4ef22c1ddd12b85bdf1` | Cancelled after 194 passed, one failed and 145 cancelled; primary `product/test_assertion_failure`; 591,801 ms; 444 completed cleanup steps |
+
+The parent reports 37 passed, zero failed and 25 cancelled units, with
+`interrupted/cancelled_or_interrupted`; all 47 parent cleanup steps completed.
+The child retains the product failure even though its outer wrapper was cancelled.
+All 21 retained-secret scans under P passed. The machine full-check child did not
+start. Within the two passing backend children, the exact nested roots are
+`native-engine/selected-graph-37307-{off,basic,basic-second}` and
+`native-engine/selected-graph-82936-{off,basic,basic-second}`, respectively.
+These are three literal suffixes in each case, not a root-selection heuristic.
+
+**PostgreSQL conclusion:** the first full check reached service-backed execution
+and did not reproduce the readiness failure before the required early stop.
+There is no new v4 endpoint-failure evidence supporting a changed mapping,
+resolver/dial mismatch, or published-transport-path diagnosis. No host-network
+cause is established. This is partial validation, not historical cause proof or
+aggregate acceptance. Deadlines, capacity, TLS and checksum policy were unchanged.
+
+### D-010 — jobs supervisor concurrent-attempt attribution and repair
+
+**Status:** separately recorded next workstream; not implemented or rerun here.
+Owner: `platform.jobs`, specifically the supervisor/attempt lifecycle and its
+integration fixture. Areas: tests and diagnostic attribution first;
+implementation and normative clarification only if the responsible boundary is
+proved. Core 01 REQ-01-453 remains authoritative: global capacity eight, exact attempt
+identity/lease fencing, neutral shutdown and single reservation release.
+
+**Evidence:** the real-check child failed
+`platform.jobs.integration.supervised_runner`, unit
+`go:f1279bd892fdb9f5:51120597e718`, normalized exit 10. Retained row receipt is
+`rows/platform.jobs.integration.supervised_runner.json`; bounded failure log is
+`unit-logs/go-f1279bd892fdb9f5-51120597e718/stderr.log`, both relative to that
+child. `TestSupervisedRunnerContract_Integration/concurrency_is_bounded_and_shutdown_releases_attempts_neutrally`
+reported `runner_supervision_test.go:352: maximum concurrency = 7, want 8`.
+The sibling worker-capacity/fairness test passed. The failure occurred before
+aggregate cancellation, so cancellation did not cause the assertion.
+
+**Demonstrated boundary and uncertainty:** the fixture counts eight distinct
+handler-entry notifications, then asserts a peak of eight active handlers.
+Handlers only return after their context is cancelled. An earlier handler can
+therefore leave before the eighth entry; entry count is not a simultaneous-live
+barrier. The fixture uses a 120-ms lease, 30-ms renewal cadence and 250-ms attempt
+operation bound. The retained failure does not identify the handler termination
+cause or prove a production runner defect. These shorter test values are context,
+not evidence that increasing them is the repair.
+
+**Remediation and sequence:** first preserve closed attempt start/end,
+cancellation/lease-loss and renewal outcomes, tied to opaque attempt references;
+coordinate the eight-live-handler phase explicitly. Establish whether an early
+termination is intended injected lifecycle behavior, an uncontrolled fixture
+clock/renewal interaction, or a runner reservation/lease defect. Repair that owner
+with deterministic synchronization or the demonstrated lifecycle correction.
+Keep capacity eight, exact execution fencing, retry/failure accounting and neutral
+shutdown semantics. Do not replace the assertion with a lower threshold, sleeps,
+longer deadlines, or retry-until-green execution.
+
+**Rationale, long-term benefit and compatibility:** separating capacity proof from
+uncontrolled lease timing makes the supervisor contract understandable and stable
+under aggregate load. A fixture-only repair needs no product migration; any
+proved product change must retain catalog, execution identity and persisted lease
+contracts. Leaving the gap open masks whether capacity or lifecycle guarantees
+actually hold and repeatedly blocks readiness reproduction.
+
+**Risks and exit criteria:** deterministic coverage must prove eight overlapping
+eligible attempts, never a ninth, worker-specific capacity, exact once reservation
+release, explicit renewal-loss disposition, and neutral concurrent shutdown that
+joins every handler. Preserve failure evidence on early handler exit. Run the
+public exact row, its worker-capacity sibling, required finalization/source checks
+and a representative aggregate. Update this tracker after attribution/repair and
+before resuming D-007. D-003 below completes only the current bounded handoff;
+overall acceptance and PostgreSQL causality remain open.
+
+## D-003 — D-009 final validation and handoff
+
+D-009 is implemented and causally validated. D-007 completed the requested single
+fresh reproduction with an evidence-backed early stop at D-010. No D-010 repair,
+retry or further aggregate was started. This completes the bounded handoff;
+overall remediation acceptance and the historical PostgreSQL cause remain open.
+
+**Public retained checks:** `P` and the child roots are exactly those in the
+preceding D-007 receipt. Commands were run after the native owner exited.
+
+| Exact public command | Result |
+| --- | --- |
+| `make harness-observability-check RESULTS_DIR=P CHECK=events` | PASS; canonical event closure valid |
+| `make harness-observability-check RESULTS_DIR=P CHECK=timing` | PASS; canonical timing valid |
+| `make harness-observability-check RESULTS_DIR=P CHECK=diagnostics` | FAIL; artifact exit 11 / Make exit 2, `invalid-retained-diagnostics`; combined native session 13404 ended 2 |
+| `make harness-observability-check RESULTS_DIR=<real-check child> CHECK=events` | PASS; native 61449/0 |
+| `make harness-observability-check RESULTS_DIR=<real-check child> CHECK=timing` | PASS; native 22582/0 |
+| `make harness-observability-check RESULTS_DIR=<real-check child> CHECK=diagnostics` | FAIL; artifact exit 11 / native 85474/2, `invalid-retained-diagnostics` |
+| `make harness-observability-check RESULTS_DIR=<real-backend-unit child> CHECK=all` | PASS, `full_validity=1`; native 26946/0 |
+| `make harness-observability-check RESULTS_DIR=<real-backend-unit-machine child> CHECK=all` | PASS, `full_validity=1`; native 64333/0 |
+| `make explain-run RESULTS_DIR=P DETAIL=performance JSON=1` | Succeeded as a bounded explanation; not a diagnostic-completeness or acceptance receipt |
+
+**Diagnostic failure disposition:** both execution indexes are complete with
+zero omitted records, but both resource indexes explicitly have `status=partial`.
+The parent reports 2,463 omitted observations and six discovery truncations; the
+real-check child reports 2,866 omissions and five truncations. Both report zero
+failed sweeps. `retained-checks.mjs` requires complete published indexes for the
+strict diagnostics check, so these states independently preclude its success.
+The CLI emits a generic rejection code and does not expose which check rejected
+first; do not infer an unreported malformed field. Partial coverage remains an
+explicit validation limitation, independent of the product failure and cleanup.
+No collector limits were increased and no complete-diagnostics claim is made.
+A later acceptance attempt must account for this coverage limitation; omitted
+observations must never be silently treated as complete evidence.
+
+All **21** published cleanup ledgers under P contain only completed outcomes.
+All **21** retained-secret scans passed. The six nested selected-graph runs in
+both backend children each passed both units, using graph
+`sha256:c4b5577417a9681328e886ddea4af167ba5bf2be4ddbbfe16c680744c21e923c`.
+The D-009 replacement scenario therefore passed in both original wrapper contexts.
+
+Full evidence closure for P and the real-check child was **skipped** because
+neither invocation passed; a cancelled run cannot satisfy that gate. Later
+aggregate units and 145 child units are cancelled, not passes. Retained warm-run
+maintenance remains **skipped** because `RESULTS_DIR` was unset during
+`make agent-finalize` and no qualifying successful full warm-check root exists.
+No post-stop product checks or source changes were introduced; the passing
+`make source-check CHECK=all` receipt remains `pgcause-d009b-source`.
+
+For exact focused reproduction, the D-009 evidence selection was:
+
+```sh
+CARTULARY_TEST_RUN_ID=pgcause-d009b-off-1 CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.current_epoch_evidence,harness.evidence_accounting.behavior.native_observation,harness.evidence_accounting.behavior.secure_snapshot_reads_preserve_atomic_replacemen_421c103fc2 HARNESS_DIAGNOSTICS=off
+CARTULARY_TEST_RUN_ID=pgcause-d009b-basic-1 CARTULARY_HARNESS_CACHE_MODE=off make test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.current_epoch_evidence,harness.evidence_accounting.behavior.native_observation,harness.evidence_accounting.behavior.secure_snapshot_reads_preserve_atomic_replacemen_421c103fc2 HARNESS_DIAGNOSTICS=basic
+```
+
+Those are historical receipts, not IDs to reuse. Any future run needs a fresh ID.
+
+### Remaining authority, risks and next actions
+
+No new unresolved runtime was reported by aggregate-6 cleanup. Three prior
+insufficient-proof obligations remain explicitly unresolved and were not mutated:
+
+| Runtime under `/home/jochi/.cache/cartulary/harness-scratch/suite-runtime/` | Runtime lease | Disposition |
+| --- | --- | --- |
+| `suite-real-check-c23d3848-2231-44dd-a57e-398babafefa8` | `4920e8c9-908b-4208-90a6-5cab49fd247f` | D-008 legacy pending startup: no journal/ready lease sufficient to settle; preserve residency and authority |
+| `suite-summary-startup-116e32e4-9675-4864-85b9-f9c9a240241b` | `06a2794e-dc45-4f71-8827-d418bf834c9b` | D-008 interrupted object-store acquisition with unknown returned identity; preserve pending authority |
+| `suite-real-check-machine-c0149ef6-b5f5-4b40-bee5-c7c53ebfab6d` | `ce924c85-30f5-4e77-8b89-2c79756a04ac` | Older W5 missing recovery environment and retained object-store residency; settlement unproved |
+
+A dead helper, missing lease or empty Docker search is not settlement proof.
+Supported recovery may run only when the existing authority permits it; no
+replacement journals/leases or force release are authorized by this receipt.
+
+Next sequence: D-010 attribution and owner repair with deterministic regression
+→ required finalization/source validation and tracker receipt → a fresh equivalent
+D-007 aggregate with unchanged PostgreSQL policy → D-003 event/timing/diagnostic
+and successful-run evidence checks, cleanup reconciliation and Markdown handoff.
+Stop again at a newly demonstrated necessary fix. Keep partial resource coverage,
+product failures, cleanup results and the native exit separately visible.
+No PostgreSQL transport repair is justified by the evidence in this reproduction.
+
+Appendix A remains byte-identical to HEAD after its heading; SHA-256
+`fb781abc040d653286aab0b90f004cc5f8b938a528d64c7bae4ad5c84d342154`.
+Existing implementation changes were preserved. No commit was made in this turn.
+Final Markdown and diff-check receipts follow after this tracker update.
+
+Final source-review scope note: the Node `secure-local-files.mjs` reader still
+has a ctime/unlink predicate for its opt-in `allowReplacement` report/checkpoint
+and observation-gate callers. D-009 repairs the native status-reader owner;
+it does not establish those other callers' publication contracts or reproduce a
+Node rejection. Audit those contracts and retain a causal regression before
+changing their acceptance rules. No Node reader repair or compatibility alias
+was introduced in this stopped run.
+
+D-003 Markdown receipt: `CARTULARY_TEST_RUN_ID=pgcause-d003-markdown-6 make
+lint-markdown` passed, native 59810/0, 13,620 ms. `git diff --check` passed and
+Appendix A's byte comparison passed. After recording this receipt, final
+Markdown validation uses `pgcause-d003-markdown-final-6`; its exact result is
+retained at
+`.cartulary/test-results/pgcause-d003-markdown-final-6/adhoc/lint-markdown/tool-run-summary.json`.
+
 ## Appendix A — Historical remediation record
 
 The following is the prior handoff, preserved as a historical record. Its original

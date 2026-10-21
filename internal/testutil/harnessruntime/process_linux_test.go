@@ -15,10 +15,172 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"golang.org/x/sys/unix"
 )
 
 func TestRuntimeProcessLifecycle(t *testing.T) {
+	if mode := os.Getenv("CARTULARY_NESTED_TEST_HELPER"); mode != "" {
+		ctx, finish, err := joinNested(context.Background(), os.Getenv(nestedContextKey))
+		if err != nil {
+			os.Exit(21)
+		}
+		defer finish(mode != "unresolved")
+		if err := os.WriteFile("ready", []byte("ready"), 0600); err != nil {
+			os.Exit(22)
+		}
+		<-ctx.Done()
+		if mode == "stalled" {
+			time.Sleep(time.Minute)
+			return
+		}
+		if mode == "abrupt" {
+			os.Exit(23)
+		}
+		// A finalizer longer than ordinary grace must survive parent cancellation.
+		time.Sleep(200 * time.Millisecond)
+		if err := os.WriteFile("settled", []byte("settled"), 0600); err != nil {
+			os.Exit(24)
+		}
+		return
+	}
+	t.Run("nested lifecycle settles before wrapper termination", func(t *testing.T) {
+		for _, mode := range []string{"normal", "watchdog", "unresolved", "abrupt", "stalled"} {
+			t.Run(mode, func(t *testing.T) {
+				binary, err := os.Executable()
+				if err != nil {
+					t.Fatal(err)
+				}
+				root := t.TempDir()
+				p := processRunner{Root: root, Environment: map[string]string{"PATH": "/usr/bin:/bin", "CARTULARY_NESTED_TEST_HELPER": mode}, KillGrace: 20 * time.Millisecond, NestedSettlement: time.Second}
+				u := engineUnit("test:nested", 1)
+				u.TimeoutMS = 10000
+				if mode == "watchdog" {
+					u.TimeoutMS = 1000
+				}
+				u.Command = command{Executable: binary, Args: []string{"-test.run=^TestRuntimeProcessLifecycle$"}, Environment: map[string]string{}}
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				result := make(chan unitResult, 1)
+				go func() { result <- p.Execute(ctx, executionRequest{Unit: u}) }()
+				deadline := time.After(5 * time.Second)
+				for {
+					if _, err := os.Stat(filepath.Join(root, "ready")); err == nil {
+						break
+					}
+					select {
+					case r := <-result:
+						t.Fatalf("child failed before registration: %+v stderr=%s", r, r.Stderr)
+					case <-deadline:
+						t.Fatal("child registration stalled")
+					case <-time.After(10 * time.Millisecond):
+					}
+				}
+				if mode != "watchdog" {
+					cancel()
+				}
+				select {
+				case r := <-result:
+					wantStatus, wantReason := "cancelled", "cancelled_or_interrupted"
+					if mode == "watchdog" {
+						wantStatus, wantReason = "failed", "timeout_failure"
+					}
+					if r.Status != wantStatus || r.Failure.Reason != wantReason {
+						t.Fatalf("primary lost: %+v", r)
+					}
+					if mode == "normal" || mode == "watchdog" {
+						if _, err := os.Stat(filepath.Join(root, "settled")); err != nil || len(r.Cleanup) != 0 {
+							t.Fatalf("finalizer interrupted: %+v, %v", r, err)
+						}
+					} else if len(r.Cleanup) == 0 {
+						t.Fatal("unacknowledged child settlement passed")
+					}
+				case <-time.After(5 * time.Second):
+					t.Fatal("nested cancellation exceeded bound")
+				}
+			})
+		}
+	})
+	t.Run("nested registration ownership fencing and multiple graphs", func(t *testing.T) {
+		s, err := newNestedScope()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.close()
+		proof, err := harnesssession.CaptureProcess(os.Getpid())
+		if err != nil {
+			t.Fatal(err)
+		}
+		s.bind(proof)
+		first, finishFirst, err := joinNested(context.Background(), s.environment())
+		if err != nil {
+			t.Fatal(err)
+		}
+		second, finishSecond, err := joinNested(context.Background(), s.environment())
+		if err != nil {
+			finishFirst(true)
+			t.Fatal(err)
+		}
+		drained := s.cancel()
+		for _, child := range []context.Context{first, second} {
+			select {
+			case <-child.Done():
+			case <-time.After(time.Second):
+				t.Fatal("cancellation not delivered")
+			}
+		}
+		if _, finish, err := joinNested(context.Background(), s.environment()); err == nil {
+			finish(true)
+			t.Fatal("late registration admitted")
+		}
+		finishFirst(true)
+		select {
+		case <-drained:
+			t.Fatal("settled before all children returned")
+		default:
+		}
+		finishSecond(true)
+		select {
+		case <-drained:
+		case <-time.After(time.Second):
+			t.Fatal("settlement not acknowledged")
+		}
+		if err := s.close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("nested foreign identity and malformed authority fail closed", func(t *testing.T) {
+		for _, mode := range []string{"foreign_launch", "foreign_owner", "duplicate", "unknown"} {
+			t.Run(mode, func(t *testing.T) {
+				s, err := newNestedScope()
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer s.close()
+				proof, _ := harnesssession.CaptureProcess(os.Getpid())
+				if mode == "foreign_launch" {
+					proof.Start = "0"
+				}
+				s.bind(proof)
+				binding := s.context
+				if mode == "foreign_owner" {
+					binding.Owner.Start = "0"
+				}
+				data, _ := json.Marshal(binding)
+				value := string(data)
+				if mode == "duplicate" {
+					value = strings.Replace(value, `"version":1`, `"version":1,"version":1`, 1)
+				}
+				if mode == "unknown" {
+					value = strings.Replace(value, `"version":1`, `"version":1,"unknown":1`, 1)
+				}
+				if _, finish, err := joinNested(context.Background(), value); err == nil {
+					finish(true)
+					t.Fatal("invalid registration admitted")
+				}
+			})
+		}
+	})
 	p := processRunner{Root: t.TempDir(), Environment: map[string]string{"PATH": "/usr/bin:/bin"}, KillGrace: 50 * time.Millisecond}
 	t.Run("host binding failure retains stage and successful child exit", func(t *testing.T) {
 		u := engineUnit("test:process", 1)

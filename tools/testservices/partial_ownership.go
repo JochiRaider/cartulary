@@ -8,6 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/startupproof"
 )
 
 type partialSuiteKey struct{}
@@ -21,6 +22,7 @@ type partialSuiteOwnership struct {
 	path     string
 	postgres postgresService
 	store    objectStoreService
+	journal  *startupproof.Journal
 }
 
 func publishPartialSuite(ctx context.Context, postgres postgresService, store objectStoreService) error {
@@ -30,6 +32,18 @@ func publishPartialSuite(ctx context.Context, postgres postgresService, store ob
 	}
 	pending.mu.Lock()
 	defer pending.mu.Unlock()
+	if pending.journal != nil {
+		if postgres.containerID != "" {
+			if err := pending.journal.Acquired(suiteservices.ServicePostgres, postgres.containerID); err != nil {
+				return err
+			}
+		}
+		if store.containerID != "" {
+			if err := pending.journal.Acquired(suiteservices.ServiceObjectStore, store.containerID); err != nil {
+				return err
+			}
+		}
+	}
 	if postgres.containerID != "" {
 		pending.postgres = postgres
 	}
@@ -58,4 +72,35 @@ func publishPartialSuite(ctx context.Context, postgres postgresService, store ob
 	}
 	defer runtime.ReleaseHandles()
 	return runtime.RecordResource("managed_suite", pending.path, "acquired", pending.postgres.cleanupFiles...)
+}
+
+func beginPartialSuite(ctx context.Context, service string, labels map[string]string, files []string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	pending, ok := ctx.Value(partialSuiteKey{}).(*partialSuiteOwnership)
+	if !ok || pending.journal == nil {
+		return nil
+	}
+	// Before create, the journal records paths but no SQL cleanup credential is
+	// required: no container has started. Acquired publication adds the live
+	// credential dependencies before Container.Start can expose the service.
+	return pending.journal.Begin(service, labels, files)
+}
+func settlePartialAttempt(ctx context.Context, service string, notSubmitted bool) error {
+	pending, ok := ctx.Value(partialSuiteKey{}).(*partialSuiteOwnership)
+	if !ok || pending.journal == nil {
+		return nil
+	}
+	if notSubmitted {
+		return pending.journal.NotSubmitted(service)
+	}
+	return pending.journal.Settled(service)
+}
+func settlePartialSuite(ctx context.Context, service string) error {
+	pending, ok := ctx.Value(partialSuiteKey{}).(*partialSuiteOwnership)
+	if !ok || pending.journal == nil {
+		return nil
+	}
+	return pending.journal.Settled(service)
 }

@@ -37,6 +37,16 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 			env[k] = v
 		}
 	}
+	ctx, settleNested, err := joinNested(ctx, env[nestedContextKey])
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil, 130, err
+		}
+		return nil, 2, failed("config", "configuration_error")
+	}
+	nestedClean := true
+	defer func() { settleNested(nestedClean) }()
+	delete(env, nestedContextKey)
 	mode := env["HARNESS_DIAGNOSTICS"]
 	if mode == "" {
 		mode = "off"
@@ -56,6 +66,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	if err != nil {
 		var lifecycle *failure
 		if errors.As(err, &lifecycle) && lifecycle.Reason == "cleanup_error" {
+			nestedClean = false
 			return nil, 12, err
 		}
 		if errors.Is(err, context.Canceled) {
@@ -98,6 +109,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		return nil, 11, err
 	}
 	defer runtime.ReleaseHandles()
+	nestedClean = false
 	admission := filepath.Join(os.TempDir(), fmt.Sprintf("cartulary-host-admission-%d", os.Getuid()))
 	// Admission's own transaction creates and validates this root. Collection
 	// may start before the first transaction and waits for that existing owner.
@@ -178,6 +190,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	var primary *failure
 	secrets := []string{}
 	var runtimeCloseErr error
+	var runtimeUnresolved bool
 	closeRuntime := func(unresolved bool) (closeErr error) {
 		defer func() { runtimeCloseErr = closeErr }()
 		diagnostics.execution.capture()
@@ -185,6 +198,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		secrets, secretErr = runtime.ForbiddenValues()
 		resources, err := runtime.Resources(4096)
 		unresolved = unresolved || err != nil || len(resources) > 0
+		runtimeUnresolved = unresolved
 		if unresolved {
 			return errors.Join(err, secretErr, runtime.PreserveRecovery())
 		}
@@ -203,6 +217,14 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 			secondary = append(secondary, diagnostics.scan(secrets))
 		}
 		diagnostics.wrapper.Complete()
+		// closeRuntime captured ownership before closing its descriptors. A
+		// post-close Resources query would mistake EBADF for unresolved work.
+		nestedClean = runtimeCloseErr == nil && !runtimeUnresolved
+		cleanupMu.Lock()
+		for _, record := range cleanup {
+			nestedClean = nestedClean && record.Outcome == "completed"
+		}
+		cleanupMu.Unlock()
 		if e := errors.Join(secondary...); e != nil {
 			resultErr = errors.Join(resultErr, e)
 			if primary != nil {
@@ -230,7 +252,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	for name, projection := range plan.facts.Projections {
 		commands[name] = projection.CommandID
 	}
-	processes := processRunner{Root: root, Environment: child, Commands: commands, RetireProducers: runtime.RetireDetailProducers, FailureScope: func(identity map[string]any) (failureScope, error) {
+	processes := processRunner{Root: root, Environment: child, Commands: commands, RegisterSecret: runtime.RegisterSecret, RetireProducers: runtime.RetireDetailProducers, FailureScope: func(identity map[string]any) (failureScope, error) {
 		return createFailureScope(runtime.Directory, identity)
 	}, Observe: diagnostics.execution.launch}
 	var parent *string

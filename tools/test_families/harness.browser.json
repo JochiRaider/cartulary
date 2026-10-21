@@ -1360,6 +1360,27 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.browser.integration.native_nested_cancellation",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [],
+      "verification_ids": ["harness.browser.verification.installed_lifecycle"],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/harnessruntime",
+        "tests": ["TestRuntimeNestedServiceCancellation"]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "harness_contract",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "harness.browser.integration.native_selected_service_lifecycle",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",

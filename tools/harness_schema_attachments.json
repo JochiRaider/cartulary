@@ -1246,8 +1246,16 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.postgres_readiness_diagnostic.v1",
-      "path": "tools/schemas/cartulary.postgres_readiness_diagnostic.v1.schema.json",
+      "schema_id": "cartulary.postgres_readiness_diagnostic.v3",
+      "path": "tools/schemas/cartulary.postgres_readiness_diagnostic.v3.schema.json",
+      "classification": "shared_component",
+      "producer": "PostgreSQL startup owner",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.postgres_readiness_diagnostic.v4",
+      "path": "tools/schemas/cartulary.postgres_readiness_diagnostic.v4.schema.json",
       "classification": "shared_component",
       "producer": "PostgreSQL startup owner",
       "validation": "harness.json_shape_check",
@@ -1527,6 +1535,14 @@
       "path": "tools/schemas/cartulary.test_services.start_result.v2.schema.json",
       "classification": "shared_component",
       "producer": "service suite broker",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
+      "schema_id": "cartulary.test_services.startup_journal.v1",
+      "path": "tools/schemas/cartulary.test_services.startup_journal.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "native managed service startup owner",
       "validation": "harness.json_shape_check",
       "foundation_runtime": true
     },

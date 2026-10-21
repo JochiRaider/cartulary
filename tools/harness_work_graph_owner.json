@@ -282,6 +282,9 @@
         "row_id": "harness.browser.integration.native_graph_observations"
       },
       {
+        "row_id": "harness.browser.integration.native_nested_cancellation"
+      },
+      {
         "row_id": "harness.browser.integration.native_selected_service_lifecycle"
       }
     ],

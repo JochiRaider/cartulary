@@ -44,7 +44,7 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 			env := map[string]string{}
 			for _, entry := range os.Environ() {
 				key, value, ok := strings.Cut(entry, "=")
-				if !ok || strings.HasPrefix(key, "CARTULARY_HARNESS_") || strings.HasPrefix(key, "CARTULARY_TEST_SERVICES_") || strings.HasPrefix(key, "CARTULARY_PGTEST_") || strings.HasPrefix(key, "CARTULARY_S3TEST_") {
+				if !ok || (strings.HasPrefix(key, "CARTULARY_HARNESS_") && key != "CARTULARY_HARNESS_NESTED_LIFECYCLE") || strings.HasPrefix(key, "CARTULARY_TEST_SERVICES_") || strings.HasPrefix(key, "CARTULARY_PGTEST_") || strings.HasPrefix(key, "CARTULARY_S3TEST_") {
 					continue
 				}
 				env[key] = value

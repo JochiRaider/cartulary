@@ -38,13 +38,15 @@ type failureScope interface {
 	Close() error
 }
 type processRunner struct {
-	Root            string
-	Environment     map[string]string
-	Commands        map[string]string
-	FailureScope    func(map[string]any) (failureScope, error)
-	Observe         func(map[string]any) processObservation
-	KillGrace       time.Duration
-	RetireProducers func(harnesssession.ProcessProof) error
+	Root             string
+	Environment      map[string]string
+	Commands         map[string]string
+	FailureScope     func(map[string]any) (failureScope, error)
+	Observe          func(map[string]any) processObservation
+	KillGrace        time.Duration
+	NestedSettlement time.Duration
+	RegisterSecret   func(string) error
+	RetireProducers  func(harnesssession.ProcessProof) error
 }
 type boundedTail struct {
 	bytes []byte
@@ -244,6 +246,28 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	}
 	cmd := exec.Command(executable, u.Command.Args...)
 	cmd.Dir = p.Root
+	nested, err := newNestedScope()
+	if err != nil {
+		fail(failed("harness", "scheduler_accounting_error"))
+		return
+	}
+	defer func() {
+		if err := nested.close(); err != nil {
+			secondary := failed("harness", "cleanup_error")
+			secondary.Lifecycle = "cleanup_finalizers"
+			result.Cleanup = append(result.Cleanup, secondary)
+			if result.Failure == nil {
+				fail(secondary)
+			}
+		}
+	}()
+	if p.RegisterSecret != nil {
+		if err := p.RegisterSecret(nested.context.Endpoint); err != nil {
+			fail(failed("artifact", "artifact_error"))
+			return
+		}
+	}
+	environment[nestedContextKey] = nested.environment()
 	keys := slices.Sorted(maps.Keys(environment))
 	for _, key := range keys {
 		cmd.Env = append(cmd.Env, key+"="+environment[key])
@@ -278,6 +302,7 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	}
 	signalGroup := func(signal syscall.Signal) { _ = syscall.Kill(-cmd.Process.Pid, signal) }
 	processProof, proofErr := harnesssession.CaptureProcess(cmd.Process.Pid)
+	nested.bind(processProof)
 	var diagnostic []byte
 	if request.Host != nil && request.Host.Bind != nil {
 		if err := request.Host.Bind(cmd.Process.Pid); err != nil {
@@ -309,19 +334,35 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 	cancelled, timedOut := false, false
 	cancellation := ctx.Done()
 	timeout := deadline.C
+	var nestedDone <-chan struct{}
+	var nestedTimer *time.Timer
+	var nestedTimeout <-chan time.Time
+	settling, leaderExited := false, false
+	var nestedErr error
 	terminate := func() {
-		signalGroup(syscall.SIGTERM)
-		if kill == nil {
-			kill = time.NewTimer(grace)
-			killC = kill.C
+		if settling {
+			return
 		}
+		settling = true
+		nestedDone = nested.cancel()
+		budget := p.NestedSettlement
+		if budget <= 0 {
+			budget = nestedSettlementBudget
+		}
+		nestedTimer = time.NewTimer(budget)
+		nestedTimeout = nestedTimer.C
 	}
 	var terminalErr error
 	waiting := true
 	for waiting {
 		select {
 		case terminalErr = <-terminal:
-			waiting = false
+			leaderExited = true
+			timeout = nil
+			terminate()
+			if nestedDone == nil {
+				waiting = false
+			}
 		case <-cancellation:
 			cancelled = true
 			cancellation = nil
@@ -333,10 +374,31 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 		case <-killC:
 			signalGroup(syscall.SIGKILL)
 			killC = nil
+		case <-nestedDone:
+			nestedDone = nil
+			nestedTimer.Stop()
+			nestedTimeout = nil
+			if leaderExited {
+				waiting = false
+			} else {
+				signalGroup(syscall.SIGTERM)
+				kill = time.NewTimer(grace)
+				killC = kill.C
+			}
+		case <-nestedTimeout:
+			nestedTimeout, nestedDone = nil, nil
+			nestedErr = errors.New("nested graph settlement deadline exceeded")
+			signalGroup(syscall.SIGKILL)
+			if leaderExited {
+				waiting = false
+			}
 		}
 	}
 	if kill != nil {
 		kill.Stop()
+	}
+	if nestedTimer != nil {
+		nestedTimer.Stop()
 	}
 	// WNOWAIT pins the leader until every signal has been issued. An ordinary
 	// exit also retires lingering group members before pipe collection and reap.
@@ -349,6 +411,7 @@ func (p *processRunner) Execute(ctx context.Context, request executionRequest) (
 		settleErr = p.RetireProducers(processProof)
 	}
 	settleCancel()
+	settleErr = errors.Join(settleErr, nestedErr)
 	cmd.WaitDelay = grace
 	waitErr := cmd.Wait()
 	// The child's stderr writer has settled; never write this tail concurrently.

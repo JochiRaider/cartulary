@@ -6,13 +6,16 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"os"
 	"os/exec"
 	"slices"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/startupproof"
 	"golang.org/x/sys/unix"
 )
 
@@ -47,10 +50,24 @@ func commandRunner(root string, runtime *harnesssession.Runtime, dependencies []
 		cmd.Dir = root
 		environment = maps.Clone(environment)
 		maps.Copy(environment, runtime.Environment())
+		var startupRead, startupWrite *os.File
+		if len(args) > 0 && args[0] == "start-suite" {
+			startupRead, startupWrite, err = os.Pipe()
+			if err != nil {
+				return result, err
+			}
+			defer startupRead.Close()
+			defer startupWrite.Close()
+			cmd.ExtraFiles = append(cmd.ExtraFiles, startupRead)
+			environment[startupproof.ControlEnv] = strconv.Itoa(3 + len(cmd.ExtraFiles) - 1)
+		}
 		for _, key := range slices.Sorted(maps.Keys(environment)) {
 			cmd.Env = append(cmd.Env, key+"="+environment[key])
 		}
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pdeathsig: syscall.SIGKILL}
+		if startupWrite != nil {
+			cmd.SysProcAttr.Pdeathsig = 0
+		}
 		cmd.WaitDelay = 2 * time.Second
 		output, diagnostic := &boundedOutput{maximum: 1048576}, &boundedOutput{maximum: 256 * 1024}
 		cmd.Stdout = output
@@ -72,6 +89,12 @@ func commandRunner(root string, runtime *harnesssession.Runtime, dependencies []
 		if proofErr == nil {
 			proofErr = runtime.RecordDependentResource("helper_process", target, "acquired", dependencies)
 		}
+		if startupWrite != nil {
+			startupRead.Close()
+			if proofErr == nil {
+				_, proofErr = startupWrite.Write([]byte{1})
+			}
+		}
 		if proofErr != nil {
 			signal()
 		}
@@ -91,8 +114,20 @@ func commandRunner(root string, runtime *harnesssession.Runtime, dependencies []
 		select {
 		case terminalErr = <-terminal:
 		case <-ctx.Done():
-			signal()
-			terminalErr = <-terminal
+			if startupWrite == nil {
+				signal()
+				terminalErr = <-terminal
+			} else {
+				startupWrite.Close()
+				timer := time.NewTimer(2 * time.Minute)
+				select {
+				case terminalErr = <-terminal:
+				case <-timer.C:
+					signal()
+					terminalErr = <-terminal
+				}
+				timer.Stop()
+			}
 		}
 		// Keep the zombie leader reserved until group signaling has finished.
 		settleCtx, settleCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)

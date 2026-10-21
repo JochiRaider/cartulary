@@ -5225,6 +5225,25 @@ and sibling runs can still affect execution. No zero-interference claim follows
 from read-only access, and no observer-overhead qualification is required.
 
 Use owner-only directories and mode-0600 files with secure atomic replacement.
+An overlapping reader MAY observe the complete old or complete new snapshot.
+It MUST read and validate one opened descriptor; replacement of the directory
+entry is distinct from mutation of that descriptor's published bytes. The
+mutable-snapshot policy MUST explicitly admit ordinary replacement without
+weakening immutable-evidence checks, ownership, permissions, no-follow traversal,
+hard-link rejection, content bounds or document/identity validation. Neither
+retries nor fallback evidence may conceal an unsafe or malformed publication.
+For an atomic snapshot, descriptor size, content modification time, inode/device,
+owner and permissions MUST remain unchanged. Permitted link-count transitions
+are 1→1, 1→0 and 0→0; additional links or relinking are rejected. Inode change
+time alone is not content-mutation proof: namespace publication can change it
+while a reader still observes one link. Immutable evidence additionally requires
+unchanged change time and a single link throughout the read.
+Reader rejection MUST retain a closed artifact-role, stage and reason code at
+the secure-read, decoding, schema, identity or projection boundary. The command
+emits at most one such diagnostic line to stderr, bounded to 256 bytes, without
+raw paths, payloads or provider error strings. Observation JSON remains v3 with
+its existing exit classifications. Native-reader regressions MUST retain that
+line on failure and coordinate replacement boundaries without timing sleeps.
 The serialized snapshot limit is 16 MiB, including LF. The secure writer and
 reader use that same bound; other callers retain their existing default limits.
 An oversized complete snapshot is replaced by the closed unavailable variant:
@@ -6302,7 +6321,11 @@ Verified by: TH-HARNESS-AC-108, TH-HARNESS-AC-111
 
 **TH-HARNESS-REQ-830**
 Graph-backed public targets MUST accept command-line-only
-`HARNESS_DIAGNOSTICS=off|basic`, default `off`. The immutable manifest MUST record
+`HARNESS_DIAGNOSTICS=off|basic`, default `off`. Harness-owned real-command output
+assertions MUST read the selected mode from the validated, identity-bound parent
+manifest and explicitly forward it as a Make command-line input to their nested
+graph invocations. Clearing inherited
+Make flags MUST NOT silently disable that selection. The immutable manifest MUST record
 mode and the semantic digest of `cartulary.harness_instrumentation_policy.v3`, authored at
 `tools/harness_instrumentation_policy.json`. The harness
 MUST strip this input from application and browser environments. Instrumentation
@@ -7369,12 +7392,94 @@ that diagnostic. A failed allocation MUST retain the validated service-scope
 reference even when no ready lease was published. Missing or contradictory
 evidence remains an artifact failure, not inferred success.
 
+The PostgreSQL readiness diagnostic v4 MUST preserve each failed probe as a
+bounded typed cause count and the final probe cause separately from window
+expiry. A valid SQLSTATE MAY be retained; provider error text MUST NOT be retained.
+Before failed-start cleanup, the owner MUST attempt a best-effort container
+inspection and bounded startup-log observation under one independent two-second
+diagnostic budget. It MUST retain observed state, exit code and OOM status, and
+only closed startup milestone/error categories from at most 64 KiB of log data.
+Log absence, read failure and truncation MUST remain explicit. Raw logs, paths,
+certificate contents and endpoint identities MUST NOT be published. Diagnostic
+failure MUST NOT replace the acquisition failure or prevent physical cleanup.
+These observations do not extend readiness, authorize retries, or change
+admission capacity. Historical v1 records remain historical evidence and MUST
+NOT be silently upgraded to v4; the same rule applies to historical v2 and v3 records.
+
+The diagnostic MUST preserve at most 128 ordered startup marker occurrences,
+including repeated server-ready events. Events MUST distinguish bootstrap,
+final-server and unknown phase using observed initialization boundaries, never
+the mere presence of a ready message. Docker-supplied UTC log timestamps and
+container-start timestamps MAY supply descriptive elapsed times in the explicitly
+labelled Docker wall clock. Missing, malformed, regressing or out-of-range clock
+evidence MUST NOT fabricate elapsed values. Log timestamps describe emission,
+not the start of an operation whose partial output was buffered. These values
+are not canonical monotonic timing and MUST NOT be silently aligned with it.
+The existing two-second observation budget, 64 KiB decoded log cap and exact
+container binding remain mandatory; framing and marker counts MUST also be
+bounded. Truncated partial lines MUST NOT yield complete markers. Failed probe
+observations and the first successful SQL connection MUST carry local monotonic
+elapsed times relative to acquisition start, with a 128-observation cap and
+explicit omission. Observation MUST NOT leave a reader running after cleanup.
+
+Diagnostic v4 MUST bind the selected endpoint, resolver results and actual dial
+attempts through bounded per-acquisition opaque references, address families and
+address categories. It MUST preserve selection equality, original versus fresh
+Docker binding comparisons and exact container identity agreement without retaining
+hostnames, addresses, ports, DSNs or provider error text. Resolver and dial observers
+MUST delegate the existing driver behavior, preserving order, TLS and errors.
+Initial binding observation is best effort, capped at 250 ms within endpoint
+resolution; it is an adjacent snapshot, not an atomic witness of port selection.
+
+Failure observation MAY inspect the exact container's internal TCP listener and
+attempt TCP transport to the original published endpoint. These are diagnostic
+facts, never SQL readiness or permission to substitute another endpoint. Fresh
+inspection (250 ms), internal listener observation (500 ms), published transport
+(250 ms), state and startup logs share the existing independent two-second budget.
+No diagnostic reader may survive cleanup. Address references and binding sets are
+capped at 32, resolver/dial observations at 128, and omission is explicit.
+
+Startup log events MUST preserve Docker stdout/stderr provenance and per-stream
+line sequence. Timestamp regressions are evaluated within each stream; merged
+stream arrival order is not evidence of wall-clock regression. Unknown provenance
+remains explicit. Raw stream content is discarded after closed-marker extraction.
+
 An acquired physical resource MUST remain represented by partial ownership or
 an explicit completed-settlement receipt on every failed-start path. The generic
 startup wrapper MUST NOT discard partial ownership. `startup_failed` describes
 the startup outcome and is not physical-settlement proof. Failed cleanup retains
 its exact recovery dependencies and resident claims, and cannot authorize another
 ordinary cleanup attempt or a replacement service.
+
+Managed startup MUST publish a private, schema-validated startup journal before
+helper launch. It binds the exact runtime lease, run, suite, selected services
+and resident dependencies. Helper registration, each physical acquisition intent,
+returned resource identity, ready publication and physical settlement are distinct
+durable states. Concurrent providers MUST serialize journal updates. Acquisition
+intent and required cleanup files MUST be recorded before invoking the provider;
+returned identity MUST be recorded before starting or exposing the resource.
+
+The startup helper MUST receive cancellation through a private inherited control
+channel and register before acquisition. Channel loss cancels startup. Cancellation
+fences ready publication and drains late acquisitions into the ordinary physical
+cleanup owner. The broker allows at most the existing two-minute cleanup bound
+before terminating the exact helper group. Other lifecycle commands retain their
+existing cancellation semantics. No ordinary cleanup retry is implied.
+
+Once a managed Docker create request is submitted, cooperative cancellation MUST
+drain its response within the original attempt deadline, recording returned identity
+before cleanup. Cancellation MUST prevent subsequently starting that container.
+A provider timeout with no returned identity remains ambiguous. Preservation MUST
+retain its validated bound startup journal even when the ready lease never existed;
+preserving this proof is not successful physical settlement.
+
+Recovery MUST validate the startup journal against the original ownership binding.
+After helper producers settle, an unstarted journal or explicit completed settlement
+can discharge a missing ready lease. An ambiguous provider request, missing lease,
+dead helper or empty Docker lookup alone MUST NOT release residency. Valid legacy
+leases remain usable; insufficient legacy pending proof remains unresolved.
+Cancellation/readiness and cleanup failures remain independent; recovery summaries
+MUST preserve the normalized cleanup-error classification.
 
 Browser owned-stack readiness is an ownership predicate, not only an HTTP availability predicate. The backend is ready only when all of the following hold before the deadline:
 
@@ -9122,6 +9227,36 @@ only its owned files and directory, never a borrowed suite root or shared captur
 parent. Capture/artifact failures use `artifact_error`; cleanup-only failures use
 `cleanup_error`. An earlier primary failure MUST remain primary under Section 9.1.
 Scheduler cancellation MUST reap child processes before suite-private cleanup.
+
+Nested native graphs MUST register with the enclosing unit's private lifecycle
+channel before preparation or resource acquisition. The channel MUST authenticate
+both peers using kernel credentials and exact process identity, and validate the
+child's ancestry against the enclosing launch. Each unit gets a fresh channel;
+the graph consumes inherited authority rather than forwarding it to its units.
+Registration is bounded to 64 simultaneous graphs per unit and fenced atomically
+with cancellation. Late or foreign registrations MUST NOT acquire resources.
+
+On cancellation, watchdog expiry, or enclosing wrapper exit, the process owner
+MUST first request cancellation through registered graph contexts and wait for
+their lifecycle settlement. Wrappers remain alive while child graphs stop
+admission, settle units and services, publish terminal evidence and finish the
+retained scan. Each graph acknowledges only after its Run lifecycle returns and
+includes whether cleanup succeeded. Failed child cleanup MUST remain a separate
+parent cleanup failure even when the primary result is interruption or timeout.
+Disconnect without acknowledgement is a cleanup failure, not proof of settlement.
+The parent keeps the original interruption/timeout or earlier primary failure
+and reports independent cleanup failure separately.
+
+Nested settlement has a five-minute hard bound per enclosing unit, independent
+of its cancelled work deadline; control handshakes and writes have a one-second
+bound. This allows the graph's existing two-minute service cleanup and terminal
+publication without extending ordinary process grace. After acknowledged
+settlement, wrappers and ordinary subprocesses retain the two-second TERM-to-KILL
+grace. Expiry forces proven process settlement, records cleanup failure and
+preserves unresolved private recovery authority; it MUST NOT fabricate terminal
+child evidence or infer resource release. Owner-channel loss also cancels the
+child context. No readiness, retry, admission or resource-cleanup policy changes
+follow from this cancellation protocol.
 
 Private files MUST be unlinked after their last consumer closes them and on
 setup failure, cancellation, signal, finalizer failure, and suite termination.

@@ -17,6 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -73,6 +74,7 @@ type Harness struct {
 	closeErr           error
 	readinessProbes    atomic.Int64
 	readinessConnected func(context.Context)
+	readinessFailed    func(error)
 
 	adminDSN    string
 	dsnTemplate string
@@ -116,6 +118,8 @@ type StartOptions struct {
 	Labels         map[string]string
 	Observer       testcontainersx.StartObserver
 	AttemptTimeout time.Duration
+	BeforeAcquire  func(*Harness) error
+	Settled        func(*Harness) error
 	// Acquired publishes private cleanup authority before starting the container.
 	// It must not publish a ready binding.
 	Acquired  func(*Harness) error
@@ -324,6 +328,7 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 		return nil, err
 	}
 	harness := &Harness{User: "cartulary", tlsDirectory: tlsDirectory, schemaHash: pgschema.MustHash(), suiteHash: resolveSuiteHash(), processHash: suiteservices.ProcessHash()}
+	intentRecorded, providerCalled := false, false
 	defer func() {
 		if retErr == nil {
 			diagnostic.advance(stage)
@@ -336,9 +341,13 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 			return
 		}
 		diagnostic.finish(stage, retErr)
+		diagnostic.observeContainer(harness.Container)
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		cleanupErr := harness.closeOwned(cleanupCtx)
 		cancel()
+		if cleanupErr == nil && (harness.Container != nil || (intentRecorded && !providerCalled)) && options.Settled != nil {
+			cleanupErr = options.Settled(harness)
+		}
 		diagnostic.CleanupOutcome = "completed"
 		partial = nil
 		if cleanupErr != nil {
@@ -347,10 +356,28 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 		}
 		retErr = &postgresStartupFailure{primary: retErr, cleanup: cleanupErr, diagnostic: diagnostic}
 	}()
-	container, err := startContainerFn(ctx, testcontainers.GenericContainerRequest{
+	if options.BeforeAcquire != nil {
+		if err := options.BeforeAcquire(harness); err != nil {
+			return nil, err
+		}
+	}
+	intentRecorded = options.BeforeAcquire != nil
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	providerCalled = true
+	createCtx, finishCreate := context.WithCancel(ctx)
+	if options.BeforeAcquire != nil {
+		if deadline, ok := ctx.Deadline(); ok {
+			finishCreate()
+			createCtx, finishCreate = context.WithDeadline(context.WithoutCancel(ctx), deadline)
+		}
+	}
+	container, err := startContainerFn(createCtx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          false,
 	})
+	finishCreate()
 	harness.Container = container
 	if container != nil && options.Acquired != nil {
 		if publicationErr := options.Acquired(harness); publicationErr != nil {
@@ -362,6 +389,9 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 	}
 	if container == nil {
 		return nil, errors.New("postgres provider returned no container")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	if err := container.Start(ctx); err != nil {
 		return nil, err
@@ -379,6 +409,7 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 	if err != nil {
 		return nil, fmt.Errorf("resolve postgres mapped port: %w", err)
 	}
+	diagnostic.endpoint.selectEndpoint(endpointCtx, container, host, port.Port())
 	cancelEndpoint()
 
 	harness.Host, harness.Port = host, port.Port()
@@ -387,13 +418,16 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 	stage = "sql_connectivity"
 	harness.readinessConnected = func(probeCtx context.Context) {
 		if stage == "sql_connectivity" {
+			ms := time.Since(diagnostic.start).Milliseconds()
+			diagnostic.FirstSQLConnectionMS = &ms
 			diagnostic.advance(stage)
 			stage = "security_capability"
 			diagnostic.phaseContext = probeCtx
 		}
 	}
-	defer func() { harness.readinessConnected = nil }()
-	if err := waitReadyFn(ctx, harness); err != nil {
+	harness.readinessFailed = diagnostic.recordProbeFailure
+	defer func() { harness.readinessConnected = nil; harness.readinessFailed = nil }()
+	if err := waitReadyFn(context.WithValue(ctx, endpointTraceKey{}, diagnostic.endpoint), harness); err != nil {
 		return nil, &postgresGenerationFailure{fmt.Errorf("wait for postgres readiness: %w", err)}
 	}
 	diagnostic.advance(stage)
@@ -479,6 +513,9 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 		attemptCancel()
 		if err == nil {
 			return nil
+		}
+		if h.readinessFailed != nil {
+			h.readinessFailed(err)
 		}
 		if isNonRetryablePostgresReadinessError(err) {
 			return &postgresReadinessError{Attempts: attempts, LastErr: err}
@@ -1286,7 +1323,18 @@ func postgresSetupEnvelope(defaultStage string, err error) testfailure.Envelope 
 }
 
 func pingAdminDSN(ctx context.Context, dsn string, connected func(context.Context)) error {
-	db, err := sql.Open("pgx", dsn)
+	var db *sql.DB
+	var err error
+	if trace, ok := ctx.Value(endpointTraceKey{}).(*endpointTrace); ok {
+		config, parseErr := pgx.ParseConfig(dsn)
+		if parseErr != nil {
+			return parseErr
+		}
+		trace.observeConfig(config)
+		db = stdlib.OpenDB(*config)
+	} else {
+		db, err = sql.Open("pgx", dsn)
+	}
 	if err != nil {
 		return err
 	}

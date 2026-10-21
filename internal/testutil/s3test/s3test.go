@@ -81,6 +81,8 @@ type StartOptions struct {
 	Labels         map[string]string
 	Observer       testcontainersx.StartObserver
 	AttemptTimeout time.Duration
+	BeforeAcquire  func(*Harness) error
+	Settled        func(*Harness) error
 	Acquired       func(*Harness) error
 }
 
@@ -281,6 +283,9 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		cleanupErr := harness.Close(cleanupCtx)
 		cancel()
+		if cleanupErr == nil && harness.Container != nil && options.Settled != nil {
+			cleanupErr = options.Settled(harness)
+		}
 		setOwnedLaneCleanupOutcome(err, cleanupErr)
 		if cleanupErr != nil {
 			return harness, &unsettledStartup{errors.Join(err, cleanupErr)}
@@ -321,6 +326,7 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 		return nil, err
 	}
 	harness := &Harness{AccessKey: objectStoreAccessKey, SecretKey: objectStoreSecretKey, Secure: true, tlsDirectory: directory, suiteHash: resolveSuiteHash(), processHash: suiteservices.ProcessHash()}
+	intentRecorded, providerCalled := false, false
 	defer func() {
 		if retErr == nil {
 			return
@@ -328,13 +334,34 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		cleanupErr := harness.Close(cleanupCtx)
 		cancel()
+		if cleanupErr == nil && (harness.Container != nil || (intentRecorded && !providerCalled)) && options.Settled != nil {
+			cleanupErr = options.Settled(harness)
+		}
 		partial = nil
 		if cleanupErr != nil {
 			partial = harness
 			retErr = &unsettledStartup{errors.Join(retErr, cleanupErr)}
 		}
 	}()
-	container, err := startContainerFn(ctx, testcontainers.GenericContainerRequest{ContainerRequest: req, Started: false})
+	if options.BeforeAcquire != nil {
+		if err := options.BeforeAcquire(harness); err != nil {
+			return nil, err
+		}
+	}
+	intentRecorded = options.BeforeAcquire != nil
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	providerCalled = true
+	createCtx, finishCreate := context.WithCancel(ctx)
+	if options.BeforeAcquire != nil {
+		if deadline, ok := ctx.Deadline(); ok {
+			finishCreate()
+			createCtx, finishCreate = context.WithDeadline(context.WithoutCancel(ctx), deadline)
+		}
+	}
+	container, err := startContainerFn(createCtx, testcontainers.GenericContainerRequest{ContainerRequest: req, Started: false})
+	finishCreate()
 	harness.Container = container
 	if container != nil && options.Acquired != nil {
 		if publicationErr := options.Acquired(harness); publicationErr != nil {
@@ -346,6 +373,9 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 	}
 	if container == nil {
 		return nil, errors.New("object-store provider returned no container")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	if err := container.Start(ctx); err != nil {
 		return nil, err

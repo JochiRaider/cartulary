@@ -277,7 +277,7 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		case <-done:
 		}
 	}()
-	result := Observe(ctx, in)
+	result, rejection := observe(ctx, in)
 	select {
 	case code := <-signalCode:
 		result = failObservation(result, context.Canceled, code)
@@ -291,12 +291,16 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		output = []byte(Render(result))
 	}
 	if err != nil {
-		fmt.Fprintln(stderr, "[ARTIFACT] invalid observation projection")
+		fmt.Fprint(stderr, rejectionLine(rejected("observation", "projection", "invalid_document")))
 		return 11
 	}
 	if _, err = stdout.Write(output); err != nil {
+		fmt.Fprint(stderr, rejectionLine(rejected("observation", "projection", "output_unavailable")))
 		return 11
 	}
 	code, _ := strconv.Atoi(fmt.Sprint(result["operation_exit_code"]))
+	if code == 11 {
+		fmt.Fprint(stderr, rejectionLine(rejection))
+	}
 	return code
 }

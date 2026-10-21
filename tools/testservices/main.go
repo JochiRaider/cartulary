@@ -41,6 +41,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/postgrescleanup"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/leaseproof"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices/startupproof"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/performancefixturelifecycle"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
@@ -603,9 +604,22 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	ownedEnv[suiteservices.SuiteIDEnv] = suiteID
 	ownedEnv[suiteservices.LifecycleModeEnv] = "owned"
 	ownedEnv[suiteservices.CallModeEnv] = "owned"
+	startupBase, journal, closeStartup, err := openStartup(context.Background(), ownedEnv, leaseFile, services)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "register suite startup:", err)
+		return 1
+	}
+	defer closeStartup()
+	delete(ownedEnv, startupproof.ControlEnv)
 	ready := false
 	recoveryFiles := []string{}
 	defer func() {
+		if journal != nil {
+			if err := journal.Finish(ready); err != nil {
+				fmt.Fprintln(os.Stderr, "finish startup proof:", err)
+				exitCode = 1
+			}
+		}
 		if !ready && exitCode == 1 {
 			exitCode = startSuiteFailureExitCode(ownedEnv)
 		}
@@ -627,7 +641,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	defer restoreRyuk()
 
 	preflightStart := time.Now().UTC()
-	preflightCtx, cancelPreflight := context.WithTimeout(context.Background(), suitePreflightTimeout)
+	preflightCtx, cancelPreflight := context.WithTimeout(startupBase, suitePreflightTimeout)
 	preflightResult, err := runConfiguredSuitePreflight(preflightCtx, deps, ownedEnv)
 	cancelPreflight()
 	preflightResult.RyukDisabledForSuiteStartup = true
@@ -643,7 +657,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 	var postgresSvc postgresService
 	var objectStoreSvc objectStoreService
 	var schemaHash, templateDB, generatedLeasePath string
-	startupCtx, cancelStartup := context.WithCancel(context.WithValue(context.Background(), partialSuiteKey{}, &partialSuiteOwnership{env: cloneEnv(ownedEnv), path: leaseFile}))
+	startupCtx, cancelStartup := context.WithCancel(context.WithValue(startupBase, partialSuiteKey{}, &partialSuiteOwnership{env: cloneEnv(ownedEnv), path: leaseFile, journal: journal}))
 	defer cancelStartup()
 	var objectStoreResultCh <-chan objectStoreStartResult
 	if slices.Contains(services, suiteservices.ServiceObjectStore) {
@@ -710,7 +724,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 		})
 		deps.refreshSummary(ownedEnv)
 
-		templateCtx, cancelTemplate := context.WithTimeout(context.Background(), templateStartupTimeout)
+		templateCtx, cancelTemplate := context.WithTimeout(startupCtx, templateStartupTimeout)
 		templateStart := time.Now().UTC()
 		err = deps.createTemplate(templateCtx, postgresSvc.adminDSN, templateDB)
 		recordTimingSpanStatus(deps, ownedEnv, bucketMigration, "test-services prepare postgres template database", templateStart, err)
@@ -753,7 +767,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 		return 1
 	}
 
-	janitorCtx, cancelJanitor := context.WithTimeout(context.Background(), staleFixtureJanitorTimeout)
+	janitorCtx, cancelJanitor := context.WithTimeout(startupCtx, staleFixtureJanitorTimeout)
 	janitorStart := time.Now().UTC()
 	err = cleanupStaleWebE2EFixtures(janitorCtx, deps, serviceBackedCleanupEnv(ownedEnv, postgresSvc, objectStoreSvc))
 	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services janitor stale browser fixtures", janitorStart, err)
@@ -767,6 +781,10 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 		return 1
 	}
 
+	if err := startupCtx.Err(); err != nil {
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "publish suite binding", err))
+		return 1
+	}
 	childEnv := cloneEnv(ownedEnv)
 	childEnv[suiteservices.PGAdminDSNEnv] = postgresSvc.adminDSN
 	childEnv[suiteservices.PGDSNTemplateEnv] = postgresSvc.dsnTemplate
@@ -793,6 +811,10 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) (exi
 		return 1
 	}
 	deps.refreshSummary(ownedEnv)
+	if err := startupCtx.Err(); err != nil {
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageChildStart, "publish suite binding", err))
+		return 1
+	}
 	ready = true
 	return 0
 }
@@ -1753,6 +1775,12 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 		Readiness: func(diagnostic suiteservices.PostgresReadinessDiagnostic) {
 			_ = suiteservices.RecordEvent(env, suiteservices.Event{Type: suiteservices.EventPostgresReady, Details: map[string]any{suiteservices.PostgresReadinessExtensionKey: diagnostic}})
 		},
+		BeforeAcquire: func(harness *pgtest.Harness) error {
+			return beginPartialSuite(ctx, suiteservices.ServicePostgres, labels, harness.CleanupFiles())
+		},
+		Settled: func(harness *pgtest.Harness) error {
+			return settlePartialAttempt(ctx, suiteservices.ServicePostgres, harness.ContainerID() == "")
+		},
 		Acquired: func(harness *pgtest.Harness) error {
 			return publishPartialSuite(ctx, postgresService{containerID: harness.ContainerID(), image: pgtest.ContainerImage(), labels: labels, cleanupFiles: harness.CleanupFiles()}, objectStoreService{})
 		},
@@ -1768,11 +1796,16 @@ func startPostgresService(ctx context.Context, env map[string]string) (postgresS
 		host:         harness.Host,
 		port:         harness.Port,
 		user:         harness.User,
-		close:        harness.Close,
-		containerID:  harness.ContainerID(),
-		name:         containerName(ctx, harness.Container),
-		image:        pgtest.ContainerImage(),
-		labels:       labels,
+		close: func(closeCtx context.Context) error {
+			if err := harness.Close(closeCtx); err != nil {
+				return err
+			}
+			return settlePartialSuite(ctx, suiteservices.ServicePostgres)
+		},
+		containerID: harness.ContainerID(),
+		name:        containerName(ctx, harness.Container),
+		image:       pgtest.ContainerImage(),
+		labels:      labels,
 	}, err
 }
 
@@ -1782,6 +1815,12 @@ func startObjectStoreService(ctx context.Context, env map[string]string) (object
 		Labels:         labels,
 		Observer:       suiteServiceStartObserver(env, suiteservices.ServiceObjectStore),
 		AttemptTimeout: suiteObjectStoreAttemptLimit,
+		BeforeAcquire: func(harness *s3test.Harness) error {
+			return beginPartialSuite(ctx, suiteservices.ServiceObjectStore, labels, nil)
+		},
+		Settled: func(harness *s3test.Harness) error {
+			return settlePartialAttempt(ctx, suiteservices.ServiceObjectStore, harness.ContainerID() == "")
+		},
 		Acquired: func(harness *s3test.Harness) error {
 			return publishPartialSuite(ctx, postgresService{}, objectStoreService{containerID: harness.ContainerID(), image: s3test.ContainerImage(), labels: labels})
 		},
@@ -1797,6 +1836,7 @@ func startObjectStoreService(ctx context.Context, env map[string]string) (object
 			closeErr := harness.Close(cleanupCtx)
 			cancel()
 			if closeErr == nil {
+				err = errors.Join(err, settlePartialSuite(ctx, suiteservices.ServiceObjectStore))
 				return objectStoreService{}, err
 			}
 			err = errors.Join(err, closeErr)
@@ -1817,7 +1857,12 @@ func startObjectStoreService(ctx context.Context, env map[string]string) (object
 			}
 			return harness.CleanupBucket(cleanupCtx, probeBucket)
 		},
-		close:       harness.Close,
+		close: func(closeCtx context.Context) error {
+			if err := harness.Close(closeCtx); err != nil {
+				return err
+			}
+			return settlePartialSuite(ctx, suiteservices.ServiceObjectStore)
+		},
 		containerID: harness.ContainerID(),
 		name:        containerName(ctx, harness.Container),
 		image:       s3test.ContainerImage(),
@@ -3156,6 +3201,9 @@ func classifyFailureReason(stage string, operation string, err error) string {
 		case "cancelled":
 			return "cancelled_or_interrupted"
 		}
+	}
+	if errors.Is(err, context.Canceled) {
+		return "cancelled_or_interrupted"
 	}
 	switch stage {
 	case stageStartupPreflight:

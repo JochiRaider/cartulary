@@ -284,7 +284,12 @@ function browserStartupDiagnosticFailureDetails(context) {
     : null;
 }
 
-function classifyShellFailureDetails(context, stdoutLines, stderrLines, message) {
+export function classifyShellFailureDetails(context, stdoutLines, stderrLines, message) {
+  // This public command has a closed native exit contract. Do not infer its
+  // cleanup outcome from provider text or collapse the native 12 into unknown.
+  if (context.target === "test-run-recover" && context.exitStatus === 12) {
+    return { failure_class: "harness", failure_reason: "cleanup_error" };
+  }
   const startupDiagnostic = browserStartupDiagnosticFailureDetails(context);
   if (startupDiagnostic) {
     return startupDiagnostic;
