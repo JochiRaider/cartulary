@@ -94,6 +94,142 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_a_a_577b9aa596",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/fixture-state.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_browser_fixture_state_a_after_b"
+        ],
+        "titles": [
+          "browser fixture A owns its state after B"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_a_b_e9fdc93f9d",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/fixture-state.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_browser_fixture_state_a_first"
+        ],
+        "titles": [
+          "browser fixture A owns its state before B"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_b_a_a194a3225b",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/fixture-state.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_browser_fixture_state_b_after_a"
+        ],
+        "titles": [
+          "browser fixture B owns its state after A"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_b_b_ab488bf040",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.boundary_support",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/fixture-state.spec.ts",
+        "project_id": "chromium",
+        "stage": "webserver_backed",
+        "scenario_ids": [
+          "scenario_browser_fixture_state_b_first"
+        ],
+        "titles": [
+          "browser fixture B owns its state before A"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_functional",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "harness.browser.boundary_support.cleanup_suite_9036a615b1",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.boundary_support",
@@ -1364,11 +1500,15 @@
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",
       "collaborator_ids": [],
-      "verification_ids": ["harness.browser.verification.installed_lifecycle"],
+      "verification_ids": [
+        "harness.browser.verification.installed_lifecycle"
+      ],
       "runner": "go",
       "selector": {
         "package": "./internal/testutil/harnessruntime",
-        "tests": ["TestRuntimeNestedServiceCancellation"]
+        "tests": [
+          "TestRuntimeNestedServiceCancellation"
+        ]
       },
       "evidence_class": "integration",
       "runtime_profile_id": "none",

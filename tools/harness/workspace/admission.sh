@@ -87,6 +87,18 @@ case "${1:-}" in
     shift
     [[ "${1:-}" == -- ]] && shift
     (($# > 0)) || admission_fail 'usage_error: missing managed command'
+    if [[ "${HARNESS_ACCOUNTING:-off}" != off && -n "${HARNESS_ACCOUNTING:-}" ]]; then
+      [[ "$HARNESS_ACCOUNTING" == required && "${HARNESS_DIAGNOSTICS:-off}" == basic && "${CARTULARY_HARNESS_CACHE_MODE:-}" == off ]] || admission_fail 'usage_error: required accounting needs basic diagnostics and disabled execution-result reuse'
+      admission_account_binary="$admission_root/.cache/cartulary/toolbin/cartulary-harness"
+      [[ -x "$admission_account_binary" ]] || admission_fail 'configuration_error: prepare the native harness before required accounting'
+      if ! admission_valid 2>/dev/null; then
+        [[ ! -L "$admission_lock" ]] || admission_fail 'configuration_error: symlinked admission lock'
+        (umask 077; : >>"$admission_lock")
+        exec 9<"$admission_lock"
+        flock --nonblock --shared 9 || admission_fail 'resource_conflict: cleanup is active' 4
+      fi
+      exec "$admission_account_binary" account -- "$@"
+    fi
     if ! admission_valid 2>/dev/null; then
       [[ ! -L "$admission_lock" ]] || admission_fail 'configuration_error: symlinked admission lock'
       # Never truncate or replace this inode: live descendants may still own it.

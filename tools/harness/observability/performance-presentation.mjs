@@ -12,6 +12,9 @@ export function formatPerformanceExplanation(value, { json = false, resourcesOnl
       const receipt = value.terminal_receipt;
       lines.push(`[INVOCATION] identity=${receipt.invocation_digest} outer_duration_ms=${receipt.outer_duration_ms} child_exit_code=${receipt.child_exit_code} outcome=${receipt.outcome} graphs=${receipt.graph_memberships.length} shared_outer_duration=1 publication_start_ms=${receipt.publication_start_ms}`);
     } else lines.push("[INVOCATION] terminal_receipt=unavailable");
+    if (value.invocation_accounting) lines.push(`[ACCOUNTING] ${JSON.stringify(value.invocation_accounting.metrics)}`);
+    else lines.push("[ACCOUNTING] unavailable");
+    lines.push(`[AGGREGATES] ${JSON.stringify(value.selected_aggregates)}`);
     if (!resourcesOnly) {
       lines.push(`phase_union_ms=${JSON.stringify(value.phase_union_ms)} uncovered_ms=${value.canonical_time_outside_selected_phases_ms} overlap_ms=${value.phase_overlap_ms}`);
       for (const id of value.not_launched_units) lines.push(`[UNIT] ${id} launch=not_launched`);

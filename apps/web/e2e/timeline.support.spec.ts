@@ -289,9 +289,33 @@ test("reviewed edit demotion refreshes the filtered query and renders the filter
     "reviewed",
   );
   await filterRequest;
-  const groupRequest = waitForTimelineQuery(page, incidentId);
+  const expectedPostEditQueryBody = {
+    limit: 100,
+    filters: [
+      {
+        arg: { value: "reviewed" },
+        field_key: "timeline.capture_state",
+        op: "eq",
+      },
+    ],
+    group_by: "timeline.capture_state",
+    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
+  };
+  const groupedQuery = waitForTimelineQueryResponse(
+    page,
+    incidentId,
+    expectedPostEditQueryBody,
+  );
   await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
-  await groupRequest;
+  expect((await groupedQuery).ok()).toBeTruthy();
+  const frame = page.locator(
+    `[data-workbook-view-schema-id="${timelineViewSchemaId}"]`,
+  );
+  await expect(frame).toHaveAttribute(
+    "data-workbook-query-group-field",
+    "timeline.capture_state",
+  );
+  await expect(frame).toHaveAttribute("data-workbook-query-pending", "false");
 
   await scrollGridCellIntoView({
     cellKey: "timeline.activity_synopsis_text",
@@ -309,18 +333,6 @@ test("reviewed edit demotion refreshes the filtered query and renders the filter
       response.request().method() === "PATCH" &&
       response.url().endsWith(`/api/v1/records/${betaRow.record_id}`),
   );
-  const expectedPostEditQueryBody = {
-    limit: 100,
-    filters: [
-      {
-        arg: { value: "reviewed" },
-        field_key: "timeline.capture_state",
-        op: "eq",
-      },
-    ],
-    group_by: "timeline.capture_state",
-    sort: [{ direction: "asc", field_key: "timeline.activity_synopsis_text" }],
-  };
   const postEditQuery = waitForTimelineQuery(
     page,
     incidentId,

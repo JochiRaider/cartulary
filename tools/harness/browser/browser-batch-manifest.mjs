@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { validateSchemaSync } from "../contract/harness-contract.mjs";
 
 import {
   readJsonObject,
@@ -11,7 +12,8 @@ import {
   validateObjectShape,
 } from "../contract/json-shape.mjs";
 
-export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v14";
+import { browserBatchManifestSchemaID, browserPartitionContract } from "./browser-compatibility.mjs";
+export { browserBatchManifestSchemaID };
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const browserBatchKeys = new Set(["schema_id", "runtime_profiles", "stages", "invocation_policy"]);
@@ -26,7 +28,7 @@ const browserStageKeys = new Set([
   "groups",
 ]);
 const browserGroupKeys = new Set([
-  "owner_id", "state_scope", "preparation_operations",
+  "fixture_capability", "state_scope", "preparation_operations",
   "name",
   "kind",
   "target",
@@ -128,6 +130,7 @@ export function validateBrowserBatchManifestShape(fileOrManifest, label = fileOr
       !Object.values(policy).every((value) => Number.isSafeInteger(value) && value >= 0)) {
     throw new Error("browser invocation policy requires bounded startup and cleanup costs");
   }
+  validateSchemaSync(browserBatchManifestSchemaID, manifest);
   return manifest;
 }
 
@@ -144,10 +147,11 @@ export function loadBrowserBatchStages(manifestPath) {
 }
 
 export function normalizeBrowserBatchStages(manifest) {
+  validateBrowserBatchManifestShape(manifest, "browser batch manifest");
   const runtimeProfiles = new Map(
     (manifest.runtime_profiles ?? []).map((profile) => [
       profile.id,
-      profile.service_requirement,
+      profile,
     ]),
   );
   if (!runtimeProfiles.has("default")) {
@@ -213,7 +217,7 @@ function normalizeStage(stage, index, runtimeProfiles) {
     throw new Error(`browser E2E batch stage ${stage.name} must declare groups[]`);
   }
   const normalizedGroups = groups.map((group, groupIndex) =>
-    normalizeGroup(stage.name, group, groupIndex + 1, runtimeProfiles),
+    normalizeGroup(stage, group, groupIndex + 1, runtimeProfiles),
   );
   const duplicateGroup = normalizedGroups.find(
     (group, groupIndex) => normalizedGroups.findIndex((candidate) => candidate.name === group.name) !== groupIndex,
@@ -290,7 +294,8 @@ function normalizeSchedulerNeeds(stage) {
   return needs;
 }
 
-function normalizeGroup(stageName, group, index, runtimeProfiles) {
+function normalizeGroup(stage, group, index, runtimeProfiles) {
+  const stageName = stage.name;
   if (!group || typeof group !== "object" || Array.isArray(group)) {
     throw new Error(`browser E2E batch stage ${stageName} group ${index} must be an object`);
   }
@@ -302,14 +307,13 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
   if (!allowedGroupKinds.has(group.kind)) {
     throw new Error(`browser E2E batch group ${group.name} has unsupported kind ${group.kind}`);
   }
-  const runtimeProfileID = normalizeOptionalString(group.runtime_profile_id) || "default";
+  const runtimeProfileID = group.runtime_profile_id;
   if (!runtimeProfiles.has(runtimeProfileID)) {
     throw new Error(
       `browser E2E batch group ${group.name} references unknown runtime profile ${runtimeProfileID}`,
     );
   }
   const resourceProfileID = normalizeOptionalString(group.resource_profile_id);
-  const fixtureProfileID = normalizeOptionalString(group.fixture_profile_id);
   if (!resourceProfileID) {
     throw new Error(`browser E2E batch group ${group.name} must declare resource_profile_id`);
   }
@@ -325,7 +329,7 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
       `browser E2E batch group ${group.name} must declare service_requirement none or test-services`,
     );
   }
-  if (serviceRequirement !== runtimeProfiles.get(runtimeProfileID)) {
+  if (serviceRequirement !== runtimeProfiles.get(runtimeProfileID).service_requirement) {
     throw new Error(
       `browser E2E batch group ${group.name} service requirement ${serviceRequirement} does not match runtime profile ${runtimeProfileID}`,
     );
@@ -359,35 +363,20 @@ function normalizeGroup(stageName, group, index, runtimeProfiles) {
     );
   }
   if (!["test_owned", "isolated", "measurement"].includes(group.state_scope) ||
-      typeof group.owner_id !== "string" || !group.owner_id ||
+      group.fixture_capability !== "browser_stack" ||
       typeof group.project !== "string" || !group.project || group.config !== "playwright.config.ts") {
-    throw new Error(`browser partition ${group.name} requires owner, project, config and explicit state scope`);
+    throw new Error(`browser partition ${group.name} requires browser fixture capability, project, config and explicit state scope`);
   }
   if (group.state_scope !== "test_owned" && group.selected_row_ids.length !== 1) {
     throw new Error(`browser partition ${group.name} requires singleton isolation`);
   }
+  normalizeCoverage(group);
   return {
-    stageName,
-    preparationOperations: [...group.preparation_operations],
-    ownerID: group.owner_id, stateScope: group.state_scope,
-    project: group.project, config: group.config,
+    ...browserPartitionContract(stage, group, runtimeProfiles.get(runtimeProfileID)),
     name: group.name.trim(),
-    target: group.target.trim(),
-    kind: group.kind.trim(),
-    coverage: normalizeCoverage(group),
-    executionDependency:
-      group.execution_dependency === undefined ? "" : String(group.execution_dependency).trim(),
-    workers: "1",
     selectedRowIDs: normalizeSelectedRowIDs(group),
     specs: normalizeSpecs(group),
-    browserSessionGroup,
     browserSessionIsolationReason,
-    runtimeProfileID,
-    resourceProfileID,
-    fixtureProfileID,
-    serviceDependencies,
-    postgresIsolation: group.postgres_isolation,
-    serviceRequirement,
   };
 }
 

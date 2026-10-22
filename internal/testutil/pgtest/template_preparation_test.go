@@ -20,19 +20,49 @@ func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
 	if suiteservices.LookupEnvValue(nil, suiteservices.PGAdminDSNEnv) != "" {
 		t.Fatal("self-owned lifecycle selection acquired an unused broker cluster")
 	}
+	for _, failure := range []struct {
+		name string
+		err  error
+	}{
+		{"seal_failure", errors.New("injected template sealing failure")},
+		{"seal_cancellation", context.Canceled},
+	} {
+		t.Run(failure.name, func(t *testing.T) {
+			h := startTemplatePreparationHarness(t)
+			original := sealTemplateDBFn
+			sealTemplateDBFn = func(ctx context.Context, adminDSN, name string) error {
+				if errors.Is(failure.err, context.Canceled) {
+					cancelled, cancel := context.WithCancel(ctx)
+					cancel()
+					return original(cancelled, adminDSN, name)
+				}
+				return failure.err
+			}
+			t.Cleanup(func() { sealTemplateDBFn = original })
+			clone, err := h.PrepareDatabase(t.Context(), "unpublished_template")
+			if !errors.Is(err, failure.err) || clone != nil || h.templateDB != "" {
+				t.Fatalf("failed sealing published a template or clone: clone=%v template=%q error=%v", clone, h.templateDB, err)
+			}
+			name := templateDatabaseName(h.suiteHash, h.schemaHash)
+			admin, err := sql.Open("pgx", h.AdminDSN())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer admin.Close()
+			var exists bool
+			if err := admin.QueryRowContext(t.Context(), `SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname=$1)`, name).Scan(&exists); err != nil {
+				t.Fatal(err)
+			}
+			// Ownership is historical proof retained for idempotent cleanup;
+			// physical absence, not removal of that proof, establishes settlement.
+			if exists {
+				t.Fatal("failed sealing did not settle its exact unpublished template")
+			}
+		})
+	}
 	// A separate physical cluster makes WAL publication and ownership assertions
 	// independent of other test processes and their template preparation.
-	h, err := StartOwned(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		if err := h.Close(ctx); err != nil {
-			t.Error(err)
-		}
-	})
+	h := startTemplatePreparationHarness(t)
 	ctx := t.Context()
 	clone := func(prefix string) *TestDatabase {
 		t.Helper()
@@ -43,14 +73,39 @@ func TestTemplatePreparationCompletesCopyBeforePublication(t *testing.T) {
 		h.registerDatabaseCleanupT(t, database.Name, suiteservices.FixtureReusePerTest, fixtureAttributionFor(t, "pgtest"))
 		return database
 	}
-	if err := h.ensureLocalTemplateDatabase(ctx); err != nil {
-		t.Fatal(err)
-	}
 	admin, err := sql.Open("pgx", h.AdminDSN())
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = admin.Close() })
+	originalSeal := sealTemplateDBFn
+	sealCalls := 0
+	sealTemplateDBFn = func(ctx context.Context, adminDSN, name string) error {
+		sealCalls++
+		var initializedThrough string
+		if err := admin.QueryRowContext(ctx, `SELECT pg_current_wal_insert_lsn()::text`).Scan(&initializedThrough); err != nil {
+			return err
+		}
+		if err := originalSeal(ctx, adminDSN, name); err != nil {
+			return err
+		}
+		var settled bool
+		if err := admin.QueryRowContext(ctx, `SELECT redo_lsn >= $1::pg_lsn FROM pg_control_checkpoint()`, initializedThrough).Scan(&settled); err != nil {
+			return err
+		}
+		if !settled {
+			t.Fatal("template was sealed before its initialization checkpoint completed")
+		}
+		return nil
+	}
+	t.Cleanup(func() { sealTemplateDBFn = originalSeal })
+	if err := h.ensureLocalTemplateDatabase(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var sealedCheckpoint string
+	if err := admin.QueryRowContext(ctx, `SELECT checkpoint_lsn::text FROM pg_control_checkpoint()`).Scan(&sealedCheckpoint); err != nil {
+		t.Fatal(err)
+	}
 	var durable bool
 	if err := admin.QueryRowContext(ctx, `SELECT current_setting('fsync') = 'on'
 AND current_setting('full_page_writes') = 'on' AND current_setting('synchronous_commit') = 'on'
@@ -73,6 +128,13 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 		t.Fatal("template copy was published without durable WAL progress")
 	}
 	second := clone("prepared_second")
+	var unchangedCheckpoint bool
+	if err := admin.QueryRowContext(ctx, `SELECT checkpoint_lsn = $1::pg_lsn FROM pg_control_checkpoint()`, sealedCheckpoint).Scan(&unchangedCheckpoint); err != nil {
+		t.Fatal(err)
+	}
+	if sealCalls != 1 || !unchangedCheckpoint {
+		t.Fatal("clone creation repeated template sealing or requested a checkpoint")
+	}
 	// Database ACLs are database-specific, not inherited template authority.
 	for _, name := range []string{first.Name, second.Name} {
 		for _, login := range []string{"cartulary_migration_login", "cartulary_runtime_login", "cartulary_recovery_login"} {
@@ -220,4 +282,20 @@ AND current_setting('data_checksums') = 'on'`).Scan(&durable); err != nil {
 	if exists || h.ownsDatabase(failedName) {
 		t.Fatalf("failed template copy was published: exists=%v owned=%v", exists, h.ownsDatabase(failedName))
 	}
+}
+
+func startTemplatePreparationHarness(t *testing.T) *Harness {
+	t.Helper()
+	h, err := StartOwned(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := h.Close(ctx); err != nil {
+			t.Error(err)
+		}
+	})
+	return h
 }

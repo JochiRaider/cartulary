@@ -8,6 +8,7 @@ import { analyzePerformance } from "./performance-analysis.mjs";
 import { validateCanonicalRun } from "./canonical-evidence.mjs";
 import { formatPerformanceExplanation } from "./performance-presentation.mjs";
 import { readTerminalReceipt, receiptDigest } from "./terminal-receipt.mjs";
+import { readInvocationAccounting } from "./invocation-accounting.mjs";
 import { readExecutionIndex } from "./execution-reader.mjs";
 
 function isCanonicalRun(dir) {
@@ -113,13 +114,15 @@ export async function loadRetainedObservability(runDir, { canonical } = {}) {
   const execution = readExecutionIndex(runDir, run);
   const loadedEnvelope = readEnvelope(runDir, run);
   const envelope = loadedEnvelope?.value ?? null;
-  const terminalReceipt = readTerminalReceipt(runDir, run, envelope, loadedEnvelope?.digest);
+  const loadedReceipt = readTerminalReceipt(runDir, run, envelope, loadedEnvelope?.digest);
+  const terminalReceipt = loadedReceipt?.value ?? null;
+  const invocationAccounting = readInvocationAccounting(runDir, run, terminalReceipt, loadedReceipt?.digest);
   let resourceIndex = null;
   const resources = resourceProjection(runDir, run, execution, { onValidatedIndex: (index) => { resourceIndex = index; } });
   const sourceDigests = [run.manifest.source_digest, run.manifest.toolchain_digest,
     run.manifest.system_digest, run.manifest.graph_digest];
   return immutableFacts({
-    run, execution, envelope, resources, resourceIndex, terminalReceipt, postgresCheckpoints: readPostgresCheckpoints(runDir, run),
+    run, execution, envelope, resources, resourceIndex, terminalReceipt, invocationAccounting, postgresCheckpoints: readPostgresCheckpoints(runDir, run),
     index: {
       schema_id: "cartulary.harness_canonical_observability.v1", status: "complete",
       invocations: [{ target: run.manifest.target, run_id: run.manifest.run_id, source_digests: sourceDigests }],
@@ -133,7 +136,7 @@ export async function performanceExplanation(runDir, target = "", { comparisonDi
     ? retained : await loadRetainedObservability(comparisonDir)) : null;
   const comparisonResult = reference ? compareRunMetadata(retained.run, reference.run, comparison) : null;
   return analyzePerformance(retained.run, target, { comparison: comparisonResult,
-    resources: retained.resources, envelope: retained.envelope, terminalReceipt: retained.terminalReceipt, execution: retained.execution });
+    resources: retained.resources, envelope: retained.envelope, terminalReceipt: retained.terminalReceipt, invocationAccounting: retained.invocationAccounting, execution: retained.execution });
 }
 
 export async function printObservabilityPerformance(runDir, target = "", options = {}) {

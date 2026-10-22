@@ -1894,6 +1894,34 @@
       "postgres_isolation": "none"
     },
     {
+      "row_id": "module.incidents.support_integration.authenticated_incident_creation_and_normalized_r_e2cd9c99b5",
+      "owner_id": "module.incidents",
+      "family_id": "module.incidents.support_integration",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "module.incidents.verification.behavior_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/modules/incidents",
+        "tests": [
+          "TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_dedicated",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.incidents.support_integration.control_boundary_incident_core_deployment_admin_9ba3db3d5f",
       "owner_id": "module.incidents",
       "family_id": "module.incidents.support_integration",
@@ -1937,7 +1965,6 @@
       "selector": {
         "package": "./internal/modules/incidents",
         "tests": [
-          "TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance",
           "TestIncidentCreateReturnsStableLocationHeaderHTTPConformance",
           "TestIncidentCreationBootstrapsCreatorAndWorkbookPreferencesHTTPConformance",
           "TestMembershipCreateRequiresOneSelectorClosedRolesAndNoInvitationFieldsHTTPConformance",

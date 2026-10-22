@@ -1485,14 +1485,17 @@ const claimedStatefulChain = compiler.compile({
   kind: "rows",
   row_ids: [
     "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
+    "module.networkflow.browser_stateful.pagination_recovery",
     "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
     "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
   ],
 });
 const claimedGroups = claimedStatefulChain.units.filter((unit) => unit.unit_id.startsWith("browser_group:stateful:"));
-assert.equal(claimedGroups.length, 2, "compatible Network Flow rows share one owner cohort; Extensions remains separate");
+assert.equal(claimedGroups.length, 2, "compatible owners share one cohort; declared isolation keeps its own cohort");
+assert.ok(claimedGroups.some((unit) => unit.row_bindings.length === 3));
 assert.deepEqual(claimedGroups.flatMap((unit) => unit.row_bindings.map((binding) => binding.row_id)).sort(), [
   "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
+  "module.networkflow.browser_stateful.pagination_recovery",
   "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
   "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
 ]);
@@ -1615,10 +1618,13 @@ const functionalRows = compiler.catalog.rows.filter((row) =>
   row.runner === "playwright" && row.selector.stage === "webserver_backed",
 );
 assert.ok(functionalGroups.length <= functionalRows.length);
+assert.ok(functionalGroups.some((unit) => new Set(unit.row_bindings.map((binding) =>
+  compiler.catalog.rowByID.get(binding.row_id).owner_id)).size > 1),
+  "compatible functional rows must combine across reporting owners");
 for (const unit of functionalGroups) {
   const rows = unit.row_bindings.map((binding) => compiler.catalog.rowByID.get(binding.row_id));
   assert.ok(rows.length > 0);
-  assert.equal(new Set(rows.map((row) => row.owner_id)).size, 1);
+  assert.equal(unit.owner_id, "harness.browser");
   assert.equal(new Set(rows.map((row) => row.runtime_profile_id)).size, 1);
   if (rows.length > 1) assert.ok(rows.every((row) => row.browser_state_scope === "test_owned"));
 }

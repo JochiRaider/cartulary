@@ -138,6 +138,7 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "", { evide
     notLaunched: [...notLaunched].sort(), evidenceAbsences: [...evidenceAbsences.values()],
     waits: eventState.waits, phases: eventState.phases, registrations: eventState.registrations, intervals,
     eventCount: eventState.eventCount,
+    cleanupStarted: eventState.cleanupStarted, cleanupCompleted: eventState.cleanupCompleted,
     manifest,
     summary,
     terminal,

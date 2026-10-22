@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessaccount"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesssession"
@@ -53,6 +54,29 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	}
 	if mode != "off" && mode != "basic" {
 		return nil, 2, failed("config", "configuration_error")
+	}
+	accountingParent, accountingErr := harnessaccount.ContainerParent()
+	if accountingErr != nil {
+		return nil, 2, failed("config", "configuration_error")
+	}
+	if env["HARNESS_ACCOUNTING"] == "required" || accountingParent != "" {
+		if accountingParent == "" {
+			return nil, 2, failed("config", "configuration_error")
+		}
+		if harnessaccount.VerifyRuntimeExecutable() != nil {
+			return nil, 2, failed("config", "configuration_error")
+		}
+		invocation, err := harnessaccount.InvocationRoot()
+		if err != nil {
+			return nil, 2, failed("config", "configuration_error")
+		}
+		env["CARTULARY_HARNESS_INVOCATION_ROOT"] = invocation
+		// Independent nested commands may deliberately clear the environment.
+		// The fenced kernel membership proves the outer measurement policy;
+		// ambient variables cannot opt a descendant out of that policy.
+		mode = "basic"
+		env["HARNESS_DIAGNOSTICS"] = mode
+		env["CARTULARY_HARNESS_CACHE_MODE"] = "off"
 	}
 	diagnostics := newGraphObservation(mode == "basic")
 	if env["CARTULARY_TEST_RUN_ID"] == "" {
@@ -113,10 +137,14 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	admission := filepath.Join(os.TempDir(), fmt.Sprintf("cartulary-host-admission-%d", os.Getuid()))
 	// Admission's own transaction creates and validates this root. Collection
 	// may start before the first transaction and waits for that existing owner.
-	diagnostics.start(binary, runRoot, admission, runtime, plan, policy, env)
+	if err = diagnostics.start(binary, runRoot, admission, runtime, plan, policy, env, accountingParent != ""); err != nil {
+		cleanupErr := runtime.Close()
+		nestedClean = cleanupErr == nil
+		return nil, 11, errors.Join(err, cleanupErr)
+	}
 	publication.Forbidden = runtime.ForbiddenValues
 	child := plan.unitEnvironment(env)
-	for _, k := range []string{"CARTULARY_TEST_SERVICES_MODE", "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER", "CARTULARY_TEST_SERVICES_SESSION_FILE", "HARNESS_DIAGNOSTICS", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS"} {
+	for _, k := range []string{"CARTULARY_TEST_SERVICES_MODE", "CARTULARY_TEST_SERVICES_PERSISTENT_BORROWER", "CARTULARY_TEST_SERVICES_SESSION_FILE", "HARNESS_DIAGNOSTICS", "HARNESS_ACCOUNTING", "MAKEFLAGS", "MAKEOVERRIDES", "MFLAGS"} {
 		delete(child, k)
 	}
 	target := plan.facts.Manifest["target"].(string)

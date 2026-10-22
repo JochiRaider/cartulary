@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessaccount"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesscollect"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessdiag"
@@ -25,6 +26,8 @@ func run() int {
 		return 2
 	}
 	switch os.Args[1] {
+	case "account":
+		return harnessaccount.Main(os.Args[2:], os.Stdout, os.Stderr)
 	case "recover":
 		if len(os.Args) != 2 {
 			return 2

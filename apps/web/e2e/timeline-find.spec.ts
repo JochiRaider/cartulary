@@ -679,12 +679,20 @@ test("Timeline Find collection summaries read-only values and supported geometry
   await input(page).fill("No items");
   await expect(status(page)).toHaveText("No matches in loaded rows.");
   await showField(page, "Recorded");
-  const committed = (
-    await queryViewRows(page, f.incident, timelineViewSchemaId)
-  )[0]?.cells["timeline.recorded_at"]?.value;
+  const committedRows = await queryViewRows(
+    page,
+    f.incident,
+    timelineViewSchemaId,
+  );
+  const committed = committedRows[0]?.cells["timeline.recorded_at"]?.value;
   if (typeof committed !== "string")
     throw new Error("Missing read-only timestamp");
-  await find(page, committed, 1);
+  // Concurrent creates may share a timestamp; Find counts committed cells,
+  // not distinct values. The existing query supplies the exact expected set.
+  const matchingRecordedCells = committedRows.filter(
+    (row) => row.cells["timeline.recorded_at"]?.value === committed,
+  );
+  await find(page, committed, matchingRecordedCells.length);
   await navigate(page);
   await expect(grid(page).locator('[role="gridcell"]:focus')).toHaveAttribute(
     "aria-readonly",

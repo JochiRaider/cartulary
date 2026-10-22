@@ -848,7 +848,7 @@ function assertGraphContract(context, kind) {
         assert.ok(ids.length > 0, "visual cohorts retain semantic row identities");
         const selectedRows = ids.map((id) => context.catalog.rowByID.get(id));
         if (ids.length > 1) assert.ok(selectedRows.every((row) => row.browser_state_scope === "test_owned"), "only explicitly test-owned visual rows may share a cohort");
-        assert.equal(new Set(selectedRows.map((row) => row.owner_id)).size, 1, "visual cohorts preserve owner partitions");
+        assert.equal(unit.owner_id, "harness.browser", "visual execution ownership is independent of reporting ownership");
         return ids;
       });
       assert.equal(new Set(selected).size, selected.length, "visual claims execute exactly once");

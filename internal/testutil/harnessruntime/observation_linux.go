@@ -57,11 +57,19 @@ func (d *graphObservation) mark(phase string) {
 	}
 	d.last = n
 }
-func (d *graphObservation) start(binary, runRoot, admission string, runtime *harnesssession.Runtime, plan *Plan, policy map[string]any, environment map[string]string) {
+func (d *graphObservation) start(binary, runRoot, admission string, runtime *harnesssession.Runtime, plan *Plan, policy map[string]any, environment map[string]string, accountingRequired bool) error {
 	d.manifest = plan.facts.Manifest
 	d.runRoot = runRoot
 	if d.enabled && environment["CARTULARY_HARNESS_INVOCATION_ROOT"] != "" {
-		d.wrapper = harnessdiag.RegisterGraph(environment["CARTULARY_HARNESS_INVOCATION_ROOT"], runRoot, plan.facts.Manifest)
+		if accountingRequired {
+			var err error
+			d.wrapper, err = harnessdiag.RegisterRequiredGraph(environment["CARTULARY_HARNESS_INVOCATION_ROOT"], runRoot, plan.facts.Manifest)
+			if err != nil {
+				return err
+			}
+		} else {
+			d.wrapper = harnessdiag.RegisterGraph(environment["CARTULARY_HARNESS_INVOCATION_ROOT"], runRoot, plan.facts.Manifest)
+		}
 	}
 	d.execution = newExecutionSession(runtime, runRoot, plan.facts.Manifest, policy, func(proof, record map[string]any) {
 		d.collector.register(proof, record["unit_id"], nil, record["invocation_id"])
@@ -70,6 +78,7 @@ func (d *graphObservation) start(binary, runRoot, admission string, runtime *har
 		d.collector = newCollector(binary, runRoot, admission, runtime, plan, policy, d.epoch, d.execution.record)
 	}
 	d.live = newLivePublisher(runRoot, plan, d.collector.snapshot)
+	return nil
 }
 func (d *graphObservation) pause(ctx context.Context) error {
 	d.live.pause()

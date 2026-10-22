@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.browser_e2e_batch_manifest.v14",
+  "$id": "cartulary.browser_e2e_batch_manifest.v15",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,7 +11,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.browser_e2e_batch_manifest.v14"
+      "const": "cartulary.browser_e2e_batch_manifest.v15"
     },
     "runtime_profiles": {
       "type": "array",
@@ -50,14 +50,31 @@
     "record": {
       "type": "object",
       "required": [
-        "id"
+        "id",
+        "kind",
+        "service_requirement"
       ],
       "properties": {
         "id": {
           "type": "string",
           "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "service_requirement": {
+          "enum": [
+            "none",
+            "test-services"
+          ]
+        },
+        "key_ring_manifest_path": {
+          "type": "string",
+          "minLength": 1
         }
-      }
+      },
+      "additionalProperties": false
     },
     "group": {
       "type": "object",
@@ -72,12 +89,13 @@
         "selected_row_ids",
         "specs",
         "browser_session_group",
-        "owner_id",
+        "fixture_capability",
         "state_scope",
         "project",
         "config",
         "preparation_operations",
-        "postgres_isolation"
+        "postgres_isolation",
+        "workers"
       ],
       "properties": {
         "name": {
@@ -133,9 +151,6 @@
           "type": "string",
           "minLength": 1
         },
-        "owner_id": {
-          "$ref": "cartulary.test_catalog_defs.v1#/$defs/owner_id"
-        },
         "state_scope": {
           "enum": [
             "test_owned",
@@ -159,13 +174,35 @@
           }
         },
         "postgres_isolation": {
+          "const": "exclusive"
+        },
+        "fixture_capability": {
+          "const": "browser_stack"
+        },
+        "workers": {
+          "const": "1"
+        },
+        "coverage": {
           "enum": [
-            "none",
-            "shared",
-            "exclusive"
+            "authoritative",
+            "supplemental",
+            "raw"
           ]
+        },
+        "execution_dependency": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dependency_target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "browser_session_isolation_reason": {
+          "type": "string",
+          "minLength": 1
         }
-      }
+      },
+      "additionalProperties": false
     },
     "stage": {
       "type": "object",
@@ -188,8 +225,37 @@
           "items": {
             "$ref": "#/$defs/group"
           }
+        },
+        "schedule_tags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "scheduler_needs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "frontend_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary_children": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
-      }
+      },
+      "additionalProperties": false
     }
   }
 }

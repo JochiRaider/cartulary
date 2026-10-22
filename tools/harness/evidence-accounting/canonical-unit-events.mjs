@@ -143,10 +143,18 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
   const fixtureAcquired = new Map();
   const cache = { hit: 0, miss: 0, bypass: 0 };
   let cleanupStarted = null;
+  let cleanupCompleted = null;
   for await (const event of readCanonicalUnitEvents(file, options)) {
     eventCount += 1;
     finalMonotonicMs = event.monotonic_ms;
-    if (event.event === "cleanup_started") cleanupStarted = event.monotonic_ms;
+    if (event.event === "cleanup_started") {
+      if (cleanupStarted !== null) throw new Error("duplicate run cleanup start");
+      cleanupStarted = event.monotonic_ms;
+    }
+    if (event.event === "cleanup_completed") {
+      if (cleanupStarted === null || cleanupCompleted !== null || event.monotonic_ms < cleanupStarted) throw new Error("invalid run cleanup completion");
+      cleanupCompleted = event.monotonic_ms;
+    }
     if (event.event === "run_started") {
       if (runStarted !== null) throw new Error(`${file} has duplicate run_started events`);
       runStarted = event;
@@ -302,7 +310,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
     intervals.set(id, { start, end: terminal.monotonic_ms, queue_ms: start - waits.get(id).start });
   }
   return {
-    intervals, waits, admissions, fixtureAcquired, cache, cleanupStarted,
+    intervals, waits, admissions, fixtureAcquired, cache, cleanupStarted, cleanupCompleted,
     eventCount,
     finalMonotonicMs,
     runStarted,

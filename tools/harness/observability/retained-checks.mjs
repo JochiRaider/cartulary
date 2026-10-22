@@ -57,6 +57,7 @@ export async function checkRetainedObservability(root, check = "all") {
       resource_omissions: retained.resourceIndex?.omitted_observations ?? null,
       envelope: retained.envelope ? "available" : "unavailable",
       terminal_receipt: retained.terminalReceipt ? "available" : "unavailable",
+      invocation_accounting: retained.invocationAccounting ? "available" : "unavailable",
       postgres_checkpoints: retained.postgresCheckpoints?.status ?? "unavailable",
     });
   }

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessaccount"
+	dockercontainer "github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 	testcontainers "github.com/testcontainers/testcontainers-go"
 )
@@ -21,6 +23,25 @@ func (installedClient) ImagePull(context.Context, string, client.ImagePullOption
 // uses the same provider with image acquisition disabled; the caller retains
 // the normal ownership and cleanup of any partially created container.
 func GenericContainer(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+	parent, err := harnessaccount.ContainerParent()
+	if err != nil {
+		return nil, err
+	}
+	if parent != "" {
+		if req.Reuse || os.Getenv("TESTCONTAINERS_RYUK_DISABLED") != "true" {
+			return nil, errors.New("invocation accounting requires owned containers and suite-managed cleanup")
+		}
+		modify := req.HostConfigModifier
+		req.HostConfigModifier = func(config *dockercontainer.HostConfig) {
+			if modify != nil {
+				modify(config)
+			}
+			config.CgroupParent = parent
+		}
+		req.LifecycleHooks = append(req.LifecycleHooks, testcontainers.ContainerLifecycleHooks{PostStarts: []testcontainers.ContainerHook{func(_ context.Context, container testcontainers.Container) error {
+			return harnessaccount.VerifyContainer(parent, container.GetContainerID())
+		}}})
+	}
 	if os.Getenv("CARTULARY_PREPARATION_POLICY") != "installed_only" {
 		return testcontainers.GenericContainer(ctx, req)
 	}

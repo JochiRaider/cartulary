@@ -9,6 +9,9 @@ import { once } from "node:events";
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
 import { readBootClock } from "../../runtime/boot-clock.mjs";
 import { loadRetainedObservability } from "../observability.mjs";
+import { readInvocationAccounting } from "../invocation-accounting.mjs";
+import { receiptDigest } from "../terminal-receipt.mjs";
+import { analyzePerformance } from "../performance-analysis.mjs";
 import { writeCanonicalFixture } from "./retained-fixture.mjs";
 const root = path.resolve(import.meta.dirname, "../../../..");
 const nativeBinary = path.join(root, ".cache/cartulary/toolbin/cartulary-harness");
@@ -18,6 +21,52 @@ function publishTerminalReceipts(directory) {
   return readdirSync(directory).filter((name) => /^graph-[a-f0-9]{64}\.json$/u.test(name)).length;
 }
 const wrapper = path.join(root, "tools/harness/workspace/admission.sh");
+
+test("accounting rejects missing, foreign, malformed and rebound whole-invocation facts", async (t) => {
+  const f = fixture(t), a = f.graph(); f.complete(); publishTerminalReceipts(f.privateRoot);
+  const retained = await loadRetainedObservability(a.runRoot);
+  assert.equal(retained.run.cleanupStarted, 9);
+  assert.equal(retained.run.cleanupCompleted, 10);
+  const receiptBytes = readFileSync(path.join(a.runRoot, "diagnostics/terminal-receipt.json"));
+  const receipt = retained.terminalReceipt, terminalDigest = receiptDigest(receiptBytes);
+  const file = path.join(a.runRoot, "diagnostics/invocation-accounting.json");
+  const value = { schema_id: "cartulary.harness_invocation_accounting.v1", invocation_digest: receipt.invocation_digest, source_digest: receipt.source_digest,
+    graph_memberships: [{ run_digest: receiptDigest(retained.run.manifest.run_id), graph_digest: retained.run.manifest.graph_digest, receipt_digest: terminalDigest }],
+    metrics: { duration_ms: 10, cpu_usage_us: 25000, memory_peak_bytes: 32768, initial_memory_peak_bytes: 4096, controller_setup_ms: 2, controller_publication_prefix_ms: 1,
+      child_exit_code: 0, signal: 0, scope: "invocation_cgroup", memory_semantics: "peak_cgroup_charge", settlement: "empty" } };
+  const read = (run = retained.run) => readInvocationAccounting(a.runRoot, run, receipt, terminalDigest);
+  assert.equal(read(), null);
+  assert.throws(() => read({ manifest: { ...retained.run.manifest, declared_inputs: { HARNESS_ACCOUNTING: "required" } } }));
+  f.write(file, value); assert.deepEqual(read(), value);
+  for (const mutate of [
+    (v) => { v.invocation_digest = `sha256:${"a".repeat(64)}`; },
+    (v) => { v.graph_memberships.push(v.graph_memberships[0]); },
+    (v) => { v.graph_memberships[0].receipt_digest = `sha256:${"a".repeat(64)}`; },
+    (v) => { v.metrics.memory_peak_bytes = -1; },
+    (v) => { v.metrics.initial_memory_peak_bytes = v.metrics.memory_peak_bytes + 1; },
+    (v) => { v.metrics.raw_path = "/private/sentinel"; },
+    (v) => { v.metrics.child_exit_code = 1; },
+    (v) => { v.metrics.duration_ms = 0; },
+    (v) => { v.metrics.duration_ms = receipt.outer_duration_ms + 100; },
+    (v) => { v.metrics.signal = 15; },
+  ]) {
+    const broken = structuredClone(value); mutate(broken); f.write(file, broken); assert.throws(read);
+  }
+});
+
+test("queue and cleanup aggregates use all selected units before display truncation", () => {
+  const ids = Array.from({ length: 50 }, (_, i) => `unit:${i}`);
+  const run = { manifest: { target: "fixture", run_id: "fixture" }, summary: { critical_path: [], wall_duration_ms: 200, resource_pressure: { blocked_units: [], resource_holders: [] } },
+    targetSummaries: new Map([["fixture", { target: "fixture", unit_ids: ids }]]),
+    registrations: new Map(ids.map((id) => [id, { kind: "runner" }])),
+    intervals: new Map(ids.map((id, i) => [id, { queue_ms: i, start: 50, end: 60 }])),
+    waits: new Map(ids.map((id) => [id, { by_reason: {}, count: 1 }])),
+    phases: new Map([["a", { unit_id: ids[0], phase: "fixture_release", start_ms: 10, end_ms: 30 }], ["b", { unit_id: ids[1], phase: "fixture_release", start_ms: 20, end_ms: 40 }]]),
+    cleanupStarted: 100, cleanupCompleted: 130 };
+  const value = analyzePerformance(run, "", { comparison: null, resources: {}, envelope: null });
+  assert.equal(value.units.length, 20); assert.equal(value.units_omitted, 30);
+  assert.deepEqual(value.selected_aggregates, { unit_count: 50, ready_to_start_p95_ms: 47, cleanup_union_ms: 60 });
+});
 function fixture(t) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "cartulary-receipt-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -29,6 +78,7 @@ function fixture(t) {
   const write = (file, value) => atomicLocalFile(file, JSON.stringify(value), { replace: true });
   const graph = (id = "graph1", scan = true) => {
     const runRoot = path.join(dir, id), { manifest } = writeCanonicalFixture(runRoot);
+    write(path.join(runRoot, "cleanup-results.json"), { schema_id: "cartulary.harness_cleanup_results.v2", run_id: manifest.run_id, results: [] });
     // Closed protocol data, not a replica of the registration lifecycle owner.
     const invocationDigest = `sha256:${createHash("sha256").update(owner.invocation_id).digest("hex")}`;
     const scanAt = readBootClock().monotonic_ms;

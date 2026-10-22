@@ -204,7 +204,7 @@ var (
 	rollbackMigrationsThrough = rollbackCanonicalMigrationsThrough
 	createDatabaseFn          = createDatabase
 	dropOwnedDatabaseFn       = postgrescleanup.DropOwnedDatabaseWithObservation
-	markTemplateDBFn          = markTemplateDatabase
+	sealTemplateDBFn          = SealTemplateDatabase
 	openMigrationDatabaseFn   = OpenPurposeDatabase
 )
 
@@ -719,6 +719,8 @@ func (h *Harness) prepareDatabase(ctx context.Context, prefix string, reuseScope
 }
 
 func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, TemplatePreparationTimeout)
+	defer cancel()
 	h.templateMu.Lock()
 	defer h.templateMu.Unlock()
 
@@ -761,9 +763,8 @@ func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
 		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
 		return fmt.Errorf("close local postgres template database: %w", err)
 	}
-	if err := markTemplateDBFn(ctx, h.adminDSN, name); err != nil {
-		_ = h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{})
-		return err
+	if err := sealTemplateDBFn(ctx, h.adminDSN, name); err != nil {
+		return errors.Join(err, h.dropDatabase(context.Background(), name, suiteservices.FixtureReuseSuiteTemplate, fixtureAttribution{}))
 	}
 
 	attribution := fixtureAttribution{PostgresFixturePolicy: "suite_template"}
@@ -1437,27 +1438,6 @@ func purposeDSN(dsn string, purpose postgres.Purpose) (string, error) {
 		return "", errors.New("unsupported test postgres purpose")
 	}
 	return purposeCertificateDSN(dsn, contract.login)
-}
-
-func markTemplateDatabase(ctx context.Context, adminDSN string, name string) error {
-	return postgrescatalog.WithMutation(
-		ctx,
-		adminDSN,
-		name,
-		postgresCatalogAdmissionTimeout,
-		func(admin *sql.Conn) error {
-			if _, err := admin.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, name); err != nil {
-				return fmt.Errorf("terminate template database connections: %w", err)
-			}
-			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH ALLOW_CONNECTIONS false`, name)); err != nil {
-				return fmt.Errorf("disable template database connections: %w", err)
-			}
-			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE true`, name)); err != nil {
-				return fmt.Errorf("mark template database as template: %w", err)
-			}
-			return nil
-		},
-	)
 }
 
 func templateDatabaseName(suiteHash string, schemaHash string) string {

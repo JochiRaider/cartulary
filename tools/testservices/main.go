@@ -54,7 +54,7 @@ const (
 	suitePostgresAttemptLimit     = 35 * time.Second
 	suiteObjectStoreAttemptLimit  = 2 * time.Minute
 	staleSuiteContainerRecheck    = 2 * time.Second
-	templateStartupTimeout        = 2 * time.Minute
+	templateStartupTimeout        = pgtest.TemplatePreparationTimeout
 	postgresCatalogAdmissionLimit = 15 * time.Second
 	cleanupTimeout                = 2 * time.Minute
 	webE2ELeakCheckTimeout        = 5 * time.Second
@@ -1980,24 +1980,7 @@ func createTemplateDatabase(ctx context.Context, adminDSN string, templateDB str
 		return fmt.Errorf("close template database handle: %w", err)
 	}
 
-	return postgrescatalog.WithMutation(
-		ctx,
-		adminDSN,
-		templateDB,
-		postgresCatalogAdmissionLimit,
-		func(admin *sql.Conn) error {
-			if _, err := admin.ExecContext(ctx, `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, templateDB); err != nil {
-				return fmt.Errorf("terminate template database connections: %w", err)
-			}
-			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH ALLOW_CONNECTIONS false`, templateDB)); err != nil {
-				return fmt.Errorf("disable template database connections: %w", err)
-			}
-			if _, err := admin.ExecContext(ctx, fmt.Sprintf(`ALTER DATABASE "%s" WITH IS_TEMPLATE true`, templateDB)); err != nil {
-				return fmt.Errorf("mark template database as template: %w", err)
-			}
-			return nil
-		},
-	)
+	return pgtest.SealTemplateDatabase(ctx, adminDSN, templateDB)
 }
 
 func createDatabase(ctx context.Context, adminDSN string, name string) error {

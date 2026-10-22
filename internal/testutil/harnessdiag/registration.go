@@ -15,6 +15,20 @@ type GraphRegistration struct {
 	owner, value object
 }
 
+// Required registration poisons the invocation if any graph cannot join it.
+// The closed sentinel intentionally prevents the wrapper roster from closing;
+// a nested caller cannot catch this failure and leave a partial success claim.
+func RegisterRequiredGraph(root, runRoot string, manifest map[string]any) (*GraphRegistration, error) {
+	g := RegisterGraph(root, runRoot, manifest)
+	if g != nil {
+		return g, nil
+	}
+	if _, err := wrapperOwner(root); err == nil {
+		_ = harnesslocal.PublishNew(filepath.Join(root, "registration-failed.json"), []byte(`{"incomplete":true}`))
+	}
+	return nil, errArtifact
+}
+
 func RegisterGraph(root, runRoot string, manifest map[string]any) *GraphRegistration {
 	owner, err := wrapperOwner(root)
 	if err != nil {

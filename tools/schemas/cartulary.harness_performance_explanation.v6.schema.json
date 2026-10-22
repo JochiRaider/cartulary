@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_performance_explanation.v5",
+  "$id": "cartulary.harness_performance_explanation.v6",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -28,11 +28,13 @@
     "not_launched_units",
     "not_launched_units_omitted",
     "evidence_absences",
-    "evidence_absences_omitted"
+    "evidence_absences_omitted",
+    "invocation_accounting",
+    "selected_aggregates"
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_performance_explanation.v5"
+      "const": "cartulary.harness_performance_explanation.v6"
     },
     "run_id": {
       "type": "string",
@@ -917,6 +919,54 @@
     "evidence_absences_omitted": {
       "type": "integer",
       "minimum": 0
+    },
+    "invocation_accounting": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "cartulary.harness_invocation_accounting.v1"
+        }
+      ]
+    },
+    "selected_aggregates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit_count",
+        "ready_to_start_p95_ms",
+        "cleanup_union_ms"
+      ],
+      "properties": {
+        "unit_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "ready_to_start_p95_ms": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            }
+          ]
+        },
+        "cleanup_union_ms": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            }
+          ]
+        }
+      }
     }
   }
 }

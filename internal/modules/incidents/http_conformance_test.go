@@ -266,6 +266,10 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 		httptestx.WithHeader(authn.CSRFHeaderName, firstActor.CSRFCookie.Value),
 	)
 	firstData := httptestx.RequireSuccessEnvelope(t, firstCreate, http.StatusCreated)["data"].(map[string]any)
+	expectedLocation := "/api/v1/incidents/" + firstData["incident_id"].(string)
+	if got := firstCreate.Header.Get("Location"); got != expectedLocation {
+		t.Fatalf("unexpected incident create Location header: got %q, want %q", got, expectedLocation)
+	}
 
 	replay := httptestx.DoJSON(
 		t,
@@ -280,6 +284,9 @@ func TestIncidentCreateIdempotencyUsesActorAndNormalizedReplayHTTPConformance(t 
 		httptestx.WithHeader(authn.CSRFHeaderName, firstActor.CSRFCookie.Value),
 	)
 	replayData := httptestx.RequireSuccessEnvelope(t, replay, http.StatusOK)["data"].(map[string]any)
+	if got := replay.Header.Get("Location"); got != expectedLocation {
+		t.Fatalf("unexpected incident replay Location header: got %q, want %q", got, expectedLocation)
+	}
 	if !reflect.DeepEqual(firstData, replayData) {
 		t.Fatalf("expected replayed incident payload to match original result: first=%#v replay=%#v", firstData, replayData)
 	}

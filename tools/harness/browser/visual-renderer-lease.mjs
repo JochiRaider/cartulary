@@ -7,6 +7,7 @@ import { redactString } from "../contract/index.mjs";
 import { stageBrowserTrust } from "./browser-trust.mjs";
 import { validateRendererProof, removeOwnedRenderer } from "../runtime/owned-renderer.mjs";
 import { CommandFailure } from "../runtime/command-failure.mjs";
+import { invocationContainerParent, verifyInvocationContainer } from "../runtime/invocation-accounting.mjs";
 
 import { resolvePlaywrightPackages } from "../readiness/playwright-packages.mjs";
 import { loadVisualRendererProfile, verifyRendererFonts, validateRendererAttestation, sha256 } from "./visual-renderer-profile.mjs";
@@ -149,6 +150,7 @@ function rendererStateBeforeCleanup(containerID, run) {
 export function recoverVisualRenderer(proof, run = docker) { removeOwnedRenderer(proof, run); }
 
 export async function startVisualRendererLease({ root, environment, diagnostics = false, onStage = () => {}, onOwnedResource = () => {}, run = docker, connect = verifyRemoteBrowser, endpointReady = waitForEndpoint, trust = stageBrowserTrust }) {
+  const accountingParent = invocationContainerParent(root);
   onStage("configuration");
   assertVisualRendererEnvironmentIsPrivate(environment);
   const profile = loadVisualRendererProfile(root);
@@ -186,6 +188,7 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
     onStage("container");
     containerID = run([
       "create",
+      ...(accountingParent ? ["--cgroup-parent", accountingParent] : []),
       "--name",
       containerName,
       "--label",
@@ -225,6 +228,7 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
     onStage("trust");
     const stagedTrust = trust({ root, environment, containerID, run });
     run(["start", containerID]);
+    verifyInvocationContainer(root, accountingParent, containerID);
     const ports = rendererPublishedPorts(JSON.parse(run(["inspect", containerID, "--format", "{{json .NetworkSettings.Ports}}"])), diagnostics);
     stagedTrust.initialize();
     const observed = JSON.parse(run(["exec", containerID, "node", "-e", `const p=require('/home/pwuser/playwright/package.json'); const c=require('/home/pwuser/playwright-core/package.json'); const b=require('/home/pwuser/playwright-core/browsers.json').browsers.find(x=>x.name==='chromium'); process.stdout.write(JSON.stringify({playwright:p.version,core:c.version,revision:b.revision,version:b.browserVersion}));`]));

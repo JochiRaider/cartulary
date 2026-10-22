@@ -18,6 +18,14 @@
       "allowed_consumers": []
     },
     {
+      "key": "browser_compatibility",
+      "boundary_group": "browser",
+      "paths": [
+        "tools/harness/browser/browser-compatibility.mjs"
+      ],
+      "allowed_consumers": []
+    },
+    {
       "key": "browser_lifecycle_adapter",
       "boundary_group": "browser",
       "paths": [

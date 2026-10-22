@@ -58,8 +58,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.browser_e2e_batch_manifest.v14",
-      "path": "tools/schemas/cartulary.browser_e2e_batch_manifest.v14.schema.json",
+      "schema_id": "cartulary.browser_e2e_batch_manifest.v15",
+      "path": "tools/schemas/cartulary.browser_e2e_batch_manifest.v15.schema.json",
       "classification": "public_contract",
       "producer": "execution topology generator",
       "validation": "harness.json_shape_check"
@@ -489,6 +489,14 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_invocation_accounting.v1",
+      "path": "tools/schemas/cartulary.harness_invocation_accounting.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "native invocation accounting",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.harness_invocation_envelope.v2",
       "path": "tools/schemas/cartulary.harness_invocation_envelope.v2.schema.json",
       "classification": "public_contract",
@@ -534,8 +542,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_performance_explanation.v5",
-      "path": "tools/schemas/cartulary.harness_performance_explanation.v5.schema.json",
+      "schema_id": "cartulary.harness_performance_explanation.v6",
+      "path": "tools/schemas/cartulary.harness_performance_explanation.v6.schema.json",
       "classification": "public_contract",
       "producer": "harness local instrumentation",
       "validation": "harness.json_shape_check",

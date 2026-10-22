@@ -222,50 +222,50 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make package-release                assemble one immutable local archive with exact image inventories' \
 	'  make package-inspect                install and inspect the exact archive without a checkout or build tools' \
 	'' \
-	'test-fast inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), BROWSER_LANES=positive_integer (default 4)' \
+	'test-fast inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), BROWSER_LANES=positive_integer (default 4)' \
+	'check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'ci inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), BROWSER_LANES=positive_integer (default 4)' \
+	'ci inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'release-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), BROWSER_LANES=positive_integer (default 4)' \
+	'release-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'test-slice inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), JSON=exact_1_bool (default false), OWNER=owner_id (optional), ROWS=row_ids (optional), VITEST_MAX_WORKERS=positive_integer (default 4), HARNESS_DIAGNOSTICS=off|basic (default off), SUITE=backend-unit|backend-store|backend-integration|backend-process|frontend-unit (optional), SCOPE=all|services (default all), CARTULARY_TEST_SERVICES_MODE=owned|attach (default \
-	  owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4), GO_SHUFFLE_SEED=positive_integer (optional)' \
+	'test-slice inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), JSON=exact_1_bool (default false), OWNER=owner_id (optional), ROWS=row_ids (optional), VITEST_MAX_WORKERS=positive_integer (default 4), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=backend-unit|backend-store|backend-integration|backend-process|frontend-unit (optional), SCOPE=all|services (default all), \
+	  CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4), GO_SHUFFLE_SEED=positive_integer (optional)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'browser-e2e inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), SUITE=functional|stateful|measurement|accessibility|visual|support (required), CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4)' \
+	'browser-e2e inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=functional|stateful|measurement|accessibility|visual|support (required), CARTULARY_TEST_SERVICES_MODE=owned|attach (default owned), CARTULARY_TEST_SERVICES_SESSION_FILE=path (optional), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'browser-e2e-visual-update inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), BROWSER_LANES=positive_integer (default 4)' \
+	'browser-e2e-visual-update inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), BROWSER_LANES=positive_integer (default 4)' \
 	'  side effects: retained_artifacts, authored_source_write, service_start, service_resource_mutation, runtime_reset' \
-	'harness-contract inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), SUITE=contract|smoke|execution|regression|lifecycle|full|runtime|fixtures|runtime-boundary|artifact-consumers|ui-review (default contract)' \
+	'harness-contract inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), SUITE=contract|smoke|execution|regression|lifecycle|full|runtime|fixtures|runtime-boundary|artifact-consumers|ui-review (default contract)' \
 	'  side effects: retained_artifacts' \
-	'lint inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), CHECK=standard|go|types|frontend|scripts|shell|frontend-boundary|backend-boundary|protocol (default standard)' \
+	'lint inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=standard|go|types|frontend|scripts|shell|frontend-boundary|backend-boundary|protocol (default standard)' \
 	'  side effects: retained_artifacts' \
 	'lint-markdown inputs: none' \
 	'  side effects: retained_artifacts' \
-	'source-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), CHECK=generated|schema|catalog|surface|identity|toolchain|migration-input|all (default all)' \
+	'source-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=generated|schema|catalog|surface|identity|toolchain|migration-input|all (default all)' \
 	'  side effects: retained_artifacts' \
-	'migration-drift inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'migration-drift inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, service_resource_mutation' \
-	'openapi-compatibility-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'openapi-compatibility-check inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'otel-conformance inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'otel-conformance inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation, runtime_reset' \
-	'go-vulncheck inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), GOVULNCHECK_DB=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'go-vulncheck inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), GOVULNCHECK_DB=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'go-gosec-targeted inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'go-gosec-targeted inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'go-gosec-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'go-gosec-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'frontend-fallow-static inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'frontend-fallow-static inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
 	'generate inputs: none' \
 	'  side effects: retained_artifacts, generated_artifacts' \
-	'agent-finalize inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), ALLOW_OLDER_RESULTS_DIR=exact_1_bool (optional), RESULTS_DIR=result_selector (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'agent-finalize inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), ALLOW_OLDER_RESULTS_DIR=exact_1_bool (optional), RESULTS_DIR=result_selector (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, generated_artifacts' \
-	'format inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'format inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, authored_source_write' \
-	'build inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), COMPONENT=production|server|server-harness|migrate|operator|web|web-measurement|report-renderer (default production), SERVER_HARNESS_BIN=path (default $(CURDIR)/build/bin/server-harness), OPERATOR_BIN=path (default $(CURDIR)/build/bin/operator)' \
+	'build inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), COMPONENT=production|server|server-harness|migrate|operator|web|web-measurement|report-renderer (default production), SERVER_HARNESS_BIN=path (default $(CURDIR)/build/bin/server-harness), OPERATOR_BIN=path (default $(CURDIR)/build/bin/operator)' \
 	'  side effects: retained_artifacts, build_outputs' \
 	'frontend-lockfile-update inputs: none' \
 	'  side effects: retained_artifacts, authored_source_write' \
@@ -305,25 +305,25 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: none' \
 	'test-run-status inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=target_name (optional), JSON=exact_1_bool (default false), AFTER_REVISION=positive_integer (optional), WAIT_SECONDS=positive_integer (default 0)' \
 	'  side effects: none' \
-	'test-evidence-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), OWNER=owner_id (required), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'test-evidence-audit inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), OWNER=owner_id (required), EVIDENCE_ROOTS_FILE=path (required), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
 	'harness-observability-check inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), CHECK=all|events|timing|evidence|diagnostics (default all)' \
 	'  side effects: none' \
 	'harness-otel-export inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), HARNESS_OTLP_ENDPOINT=url (required), HARNESS_OTLP_HEADERS_FILE=path (optional)' \
 	'  side effects: external_network' \
-	'benchmark-claim-check inputs: BENCHMARK_MANIFEST=path (default .cartulary/benchmark/benchmark_manifest.json), CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'benchmark-claim-check inputs: BENCHMARK_MANIFEST=path (default .cartulary/benchmark/benchmark_manifest.json), CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'package-release inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'package-release inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, build_outputs, service_start, service_resource_mutation' \
-	'package-inspect inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), CHECK=archive|startup|reference-pack|recovery|all (default archive)' \
+	'package-inspect inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off), CHECK=archive|startup|reference-pack|recovery|all (default archive)' \
 	'  side effects: retained_artifacts, build_outputs, service_start, service_resource_mutation' \
-	'seaweedfs-compatibility inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'seaweedfs-compatibility inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, service_start, service_resource_mutation' \
-	'seaweedfs-release-gate inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'seaweedfs-release-gate inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'cryptographic-policy-assessment inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'cryptographic-policy-assessment inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts' \
-	'credential-capacity-assessment inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off)' \
+	'credential-capacity-assessment inputs: CARTULARY_HARNESS_CACHE_MODE=normal|cold|off (default normal), CARTULARY_HARNESS_CAPACITY_OVERRIDE=path (optional), HARNESS_DIAGNOSTICS=off|basic (default off), HARNESS_ACCOUNTING=off|required (default off)' \
 	'  side effects: retained_artifacts, build_outputs, service_start, service_resource_mutation' \
 	'browser-design-review inputs: REVIEW_PROFILE=default|network_flow_claimed (default network_flow_claimed)' \
 	'  side effects: service_start' \
@@ -355,8 +355,8 @@ test-fast:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-fast)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection aggregate --target test-fast
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target test-fast
 
 check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 check: export CARTULARY_TEST_TARGET ?= check
@@ -364,8 +364,8 @@ check:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,check)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection aggregate --target check
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target check
 
 ci: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 ci: export CARTULARY_TEST_TARGET ?= ci
@@ -374,8 +374,8 @@ ci:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,ci)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection aggregate --target ci
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target ci
 
 release-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 release-check: export CARTULARY_TEST_TARGET ?= release-check
@@ -383,8 +383,8 @@ release-check:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,release-check)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection aggregate --target release-check
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection aggregate --target release-check
 
 test-slice: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-slice: export CARTULARY_TEST_TARGET ?= test-slice
@@ -393,7 +393,8 @@ test-slice:
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-slice)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
 	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,GO_SHUFFLE_SEED JSON OWNER ROWS SCOPE SUITE) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" \
-	  HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE GO_SHUFFLE_SEED HARNESS_DIAGNOSTICS JSON OWNER ROWS SCOPE SUITE VITEST_MAX_WORKERS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target test-slice
+	  HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" VITEST_MAX_WORKERS="$(VITEST_MAX_WORKERS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE GO_SHUFFLE_SEED HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS JSON OWNER ROWS SCOPE SUITE VITEST_MAX_WORKERS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command \
+	  --target test-slice
 
 browser-e2e: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e: export CARTULARY_TEST_TARGET ?= browser-e2e
@@ -401,8 +402,8 @@ browser-e2e:
 	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,SUITE) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" \
-	  CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE HARNESS_DIAGNOSTICS SUITE)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target browser-e2e
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,SUITE) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" CARTULARY_TEST_SERVICES_MODE="$(CARTULARY_TEST_SERVICES_MODE)" CARTULARY_TEST_SERVICES_SESSION_FILE="$(CARTULARY_TEST_SERVICES_SESSION_FILE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" \
+	  HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CARTULARY_TEST_SERVICES_MODE CARTULARY_TEST_SERVICES_SESSION_FILE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS SUITE)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target browser-e2e
 
 browser-e2e-visual-update: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 browser-e2e-visual-update: export CARTULARY_TEST_TARGET ?= browser-e2e-visual-update
@@ -410,8 +411,8 @@ browser-e2e-visual-update:
 	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,browser-e2e-visual-update)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection command --target browser-e2e-visual-update
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) BROWSER_LANES="$(BROWSER_LANES)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BROWSER_LANES CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target browser-e2e-visual-update
 
 harness-contract: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 harness-contract: export CARTULARY_TEST_TARGET ?= harness-contract
@@ -419,8 +420,8 @@ harness-contract:
 	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,harness-contract)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,SUITE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS SUITE)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection command --target harness-contract
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,SUITE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING \
+	  HARNESS_DIAGNOSTICS SUITE)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target harness-contract
 
 lint: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 lint: export CARTULARY_TEST_TARGET ?= lint
@@ -428,8 +429,8 @@ lint:
 	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,lint)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,CHECK) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CHECK HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection command --target lint
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,CHECK) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CHECK \
+	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target lint
 
 lint-markdown: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 lint-markdown:
@@ -444,8 +445,8 @@ source-check:
 	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,source-check)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,CHECK) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CHECK HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection command --target source-check
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,CHECK) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CHECK \
+	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target source-check
 
 migration-drift: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 migration-drift: export CARTULARY_TEST_TARGET ?= migration-drift
@@ -453,7 +454,8 @@ migration-drift:
 	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,migration-drift)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target migration-drift
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target migration-drift
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 openapi-compatibility-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -462,9 +464,9 @@ openapi-compatibility-check:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,openapi-compatibility-check)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(SQLC_BIN))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "openapi-compatibility-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
-	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" $(GO) run ./tools/openapi-compatibility -quiet -report \
-	  $(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/openapi-compatibility-check/openapi-compatibility-report.json
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "openapi-compatibility-check" -- env \
+	  $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" $(GO) run ./tools/openapi-compatibility -quiet -report $(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/openapi-compatibility-check/openapi-compatibility-report.json
 	$(call RUN_TARGET_SUMMARY,openapi-compatibility-check,pass)
 else
 openapi-compatibility-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -473,8 +475,8 @@ openapi-compatibility-check:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,openapi-compatibility-check)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  openapi-compatibility-check
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target openapi-compatibility-check
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -483,8 +485,9 @@ otel-conformance:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,otel-conformance)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(CURDIR)/apps/web/dist/index.html $(HARNESS_RUNTIME_BIN))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "otel-conformance" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/otel/check-otel-conformance.mjs
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "otel-conformance" -- env \
+	  $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(NODE_BIN) \
+	  ./tools/otel/check-otel-conformance.mjs
 	$(call RUN_TARGET_SUMMARY,otel-conformance,pass)
 else
 otel-conformance: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -492,7 +495,8 @@ otel-conformance:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,otel-conformance)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target otel-conformance
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target otel-conformance
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -502,9 +506,9 @@ go-vulncheck:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-vulncheck)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(GOVULNCHECK_BIN))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "go vulncheck" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
-	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" \
-	  GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOVULNCHECK_BIN="$(GOVULNCHECK_BIN)" GOVULNCHECK_FLAGS="-test -json" GOVULNCHECK_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..." bash ./tools/harness/static-analysis/go-govulncheck.sh
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "go vulncheck" -- env \
+	  $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB \
+	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOVULNCHECK_BIN="$(GOVULNCHECK_BIN)" GOVULNCHECK_FLAGS="-test -json" GOVULNCHECK_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..." bash ./tools/harness/static-analysis/go-govulncheck.sh
 else
 go-vulncheck: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 go-vulncheck: export CARTULARY_TEST_TARGET ?= go-vulncheck
@@ -512,8 +516,8 @@ go-vulncheck:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-vulncheck)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection target --target go-vulncheck
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" GOVULNCHECK_DB="$(GOVULNCHECK_DB)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE GOVULNCHECK_DB \
+	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-vulncheck
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -523,9 +527,9 @@ go-gosec-targeted:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-targeted)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(GOSEC_BIN))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "go gosec targeted" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOSEC_BIN="$(GOSEC_BIN)" \
-	  GOSEC_RULES="G602,G124,G112,G114" GOSEC_FLAGS="-exclude-generated" GOSEC_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..." GOSEC_TARGETED_RUNTIME_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_TARGETED_RUNTIME_PATTERNS="./cmd/... ./internal/..." NODE_BIN="$(NODE_BIN)" bash ./tools/harness/static-analysis/go-gosec-targeted.sh
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "go gosec targeted" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
+	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" \
+	  GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOSEC_BIN="$(GOSEC_BIN)" GOSEC_RULES="G602,G124,G112,G114" GOSEC_FLAGS="-exclude-generated" GOSEC_PATTERNS="./cmd/... ./internal/... ./db/... ./tools/..." GOSEC_TARGETED_RUNTIME_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_TARGETED_RUNTIME_PATTERNS="./cmd/... ./internal/..." NODE_BIN="$(NODE_BIN)" bash ./tools/harness/static-analysis/go-gosec-targeted.sh
 else
 go-gosec-targeted: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 go-gosec-targeted: export CARTULARY_TEST_TARGET ?= go-gosec-targeted
@@ -533,7 +537,8 @@ go-gosec-targeted:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-targeted)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-gosec-targeted
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-gosec-targeted
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -543,9 +548,9 @@ go-gosec-audit:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-audit)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(GOSEC_BIN))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "go gosec audit" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOSEC_BIN="$(GOSEC_BIN)" \
-	  GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -quiet" GOSEC_AUDIT_SUPPORT_PATTERNS="./tools/..." bash ./tools/harness/static-analysis/go-gosec-audit.sh
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "go gosec audit" -- env \
+	  $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" GO="$(GO)" \
+	  GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" GOSEC_BIN="$(GOSEC_BIN)" GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -quiet" GOSEC_AUDIT_SUPPORT_PATTERNS="./tools/..." bash ./tools/harness/static-analysis/go-gosec-audit.sh
 	$(call RUN_TARGET_SUMMARY,go-gosec-audit,pass)
 else
 go-gosec-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -554,7 +559,8 @@ go-gosec-audit:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,go-gosec-audit)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-gosec-audit
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target go-gosec-audit
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -563,14 +569,15 @@ frontend-fallow-static:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-fallow-static)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(FRONTEND_INSTALL_STAMP))
-	$(Q)$(call RUN_MAKE_NODE_TOOL,frontend-fallow-static,CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)",frontend-fallow-static)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,frontend-fallow-static,CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)" NODE_BIN="$(NODE_BIN)" NODE_RUNTIME_DIR="$(NODE_RUNTIME_DIR)" PNPM="$(PNPM)",frontend-fallow-static)
 else
 frontend-fallow-static: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 frontend-fallow-static:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,frontend-fallow-static)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target frontend-fallow-static
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target frontend-fallow-static
 endif
 
 generate: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -587,9 +594,9 @@ agent-finalize: export CARTULARY_TEST_TARGET ?= agent-finalize
 agent-finalize:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,agent-finalize)
-	$(Q)ALLOW_OLDER_RESULTS_DIR="$(ALLOW_OLDER_RESULTS_DIR)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ALLOW_OLDER_RESULTS_DIR CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS RESULTS_DIR)" $(RUN_STEP_SCRIPT) "agent-finalize" -- \
-	  env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ALLOW_OLDER_RESULTS_DIR="$(ALLOW_OLDER_RESULTS_DIR)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ALLOW_OLDER_RESULTS_DIR CARTULARY_HARNESS_CACHE_MODE \
-	  CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS RESULTS_DIR)" MAKE="$(MAKE)" $(NODE_BIN) ./tools/harness/finalization/agent-finalize-cli.mjs
+	$(Q)ALLOW_OLDER_RESULTS_DIR="$(ALLOW_OLDER_RESULTS_DIR)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ALLOW_OLDER_RESULTS_DIR CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING \
+	  HARNESS_DIAGNOSTICS RESULTS_DIR)" $(RUN_STEP_SCRIPT) "agent-finalize" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ALLOW_OLDER_RESULTS_DIR="$(ALLOW_OLDER_RESULTS_DIR)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" RESULTS_DIR="$(RESULTS_DIR)" \
+	  CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ALLOW_OLDER_RESULTS_DIR CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS RESULTS_DIR)" MAKE="$(MAKE)" $(NODE_BIN) ./tools/harness/finalization/agent-finalize-cli.mjs
 else
 agent-finalize: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 agent-finalize: export CARTULARY_TEST_TARGET ?= agent-finalize
@@ -597,8 +604,8 @@ agent-finalize:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,agent-finalize)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ALLOW_OLDER_RESULTS_DIR="$(ALLOW_OLDER_RESULTS_DIR)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ALLOW_OLDER_RESULTS_DIR CARTULARY_HARNESS_CACHE_MODE \
-	  CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS RESULTS_DIR)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target agent-finalize
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) ALLOW_OLDER_RESULTS_DIR="$(ALLOW_OLDER_RESULTS_DIR)" CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" RESULTS_DIR="$(RESULTS_DIR)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,ALLOW_OLDER_RESULTS_DIR \
+	  CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS RESULTS_DIR)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target agent-finalize
 endif
 
 format: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -607,7 +614,8 @@ format:
 	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,format)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target format
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target format
 
 build: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 build: export CARTULARY_TEST_TARGET ?= build
@@ -615,8 +623,8 @@ build:
 	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,build)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,COMPONENT) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" OPERATOR_BIN="$(OPERATOR_BIN)" SERVER_HARNESS_BIN="$(SERVER_HARNESS_BIN)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE \
-	  CARTULARY_HARNESS_CAPACITY_OVERRIDE COMPONENT HARNESS_DIAGNOSTICS OPERATOR_BIN SERVER_HARNESS_BIN)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target build
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,COMPONENT) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" OPERATOR_BIN="$(OPERATOR_BIN)" SERVER_HARNESS_BIN="$(SERVER_HARNESS_BIN)" CARTULARY_MAKE_INPUT_SOURCES="$(call \
+	  TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE COMPONENT HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS OPERATOR_BIN SERVER_HARNESS_BIN)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target build
 
 frontend-lockfile-update: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 frontend-lockfile-update: export CARTULARY_TEST_TARGET ?= frontend-lockfile-update
@@ -759,15 +767,15 @@ test-evidence-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-evidence-audit:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-evidence-audit)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,test-evidence-audit,$(call TASK_SURFACE_ARGV_ENV,OWNER EVIDENCE_ROOTS_FILE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)",test-evidence-audit)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,test-evidence-audit,$(call TASK_SURFACE_ARGV_ENV,OWNER EVIDENCE_ROOTS_FILE) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)",test-evidence-audit)
 else
 test-evidence-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 test-evidence-audit:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,test-evidence-audit)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,EVIDENCE_ROOTS_FILE OWNER) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE EVIDENCE_ROOTS_FILE HARNESS_DIAGNOSTICS \
-	  OWNER)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target test-evidence-audit
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,EVIDENCE_ROOTS_FILE OWNER) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
+	  EVIDENCE_ROOTS_FILE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS OWNER)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target test-evidence-audit
 endif
 
 harness-observability-check:
@@ -786,9 +794,9 @@ benchmark-claim-check: export CARTULARY_TEST_TARGET ?= benchmark-claim-check
 benchmark-claim-check:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,benchmark-claim-check)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" BENCHMARK_MANIFEST=$(call task_surface_shell_quote_raw,BENCHMARK_MANIFEST) CARTULARY_MAKE_INPUT_SOURCES="$(call \
-	  TASK_SURFACE_INPUT_SOURCES,BENCHMARK_MANIFEST)" $(RUN_STEP_SCRIPT) "benchmark-claim-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE \
-	  HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/release-evidence/check-benchmark-claim.mjs "$(BENCHMARK_MANIFEST)"
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" BENCHMARK_MANIFEST=$(call task_surface_shell_quote_raw,BENCHMARK_MANIFEST) \
+	  CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BENCHMARK_MANIFEST)" $(RUN_STEP_SCRIPT) "benchmark-claim-check" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call \
+	  TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/release-evidence/check-benchmark-claim.mjs "$(BENCHMARK_MANIFEST)"
 else
 benchmark-claim-check: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 benchmark-claim-check: export CARTULARY_TEST_TARGET ?= benchmark-claim-check
@@ -796,8 +804,8 @@ benchmark-claim-check:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,benchmark-claim-check)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,BENCHMARK_MANIFEST) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BENCHMARK_MANIFEST CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" \
-	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target benchmark-claim-check
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,BENCHMARK_MANIFEST) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,BENCHMARK_MANIFEST CARTULARY_HARNESS_CACHE_MODE \
+	  CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target benchmark-claim-check
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -807,8 +815,9 @@ package-release:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,package-release)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(MIGRATE_BIN) $(OPERATOR_BIN) $(REPORT_RENDERER_RECEIPT) $(SERVER_BIN) $(SYFT_BIN))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "package-release" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" SYFT_BIN="$(SYFT_BIN)" $(NODE_BIN) ./tools/release-evidence/package-release.mjs produce
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(RUN_STEP_SCRIPT) "package-release" -- env \
+	  $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" SYFT_BIN="$(SYFT_BIN)" \
+	  $(NODE_BIN) ./tools/release-evidence/package-release.mjs produce
 	$(call RUN_TARGET_SUMMARY,package-release,pass)
 else
 package-release: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -817,7 +826,8 @@ package-release:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,package-release)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target package-release
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target package-release
 endif
 
 package-inspect: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -826,8 +836,8 @@ package-inspect:
 	$(Q)test -x "$(NODE_BIN)" || { echo "installed Node runtime required; run make bootstrap PART=node" >&2; exit 2; }
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,package-inspect)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,CHECK) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CHECK HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) \
-	  --selection command --target package-inspect
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) $(call TASK_SURFACE_ARGV_ENV,CHECK) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE CHECK \
+	  HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection command --target package-inspect
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 seaweedfs-compatibility: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
@@ -836,9 +846,9 @@ seaweedfs-compatibility:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-compatibility)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(TEST_SERVICES_BIN))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "seaweedfs-compatibility" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" GO="$(GO)" GOCACHE="$(GO_CACHE_DIR)" GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" GO_CACHE_DIR="$(GO_CACHE_DIR)" \
-	  GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" OBJECT_STORE_PROFILE_ID="local_dev" OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)" $(GO) run ./tools/objectstoreprobe
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "seaweedfs-compatibility" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
+	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" GO="$(GO)" GOCACHE="$(GO_CACHE_DIR)" \
+	  GOMODCACHE="$(GO_MOD_CACHE_DIR)" GOTMPDIR="$(GO_TMP_DIR)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" GO_TMP_DIR="$(GO_TMP_DIR)" OBJECT_STORE_PROFILE_ID="local_dev" OBJECT_STORE_BUCKET="$(OBJECT_STORE_BUCKET)" $(GO) run ./tools/objectstoreprobe
 else
 seaweedfs-compatibility: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 seaweedfs-compatibility: export CARTULARY_TEST_TARGET ?= seaweedfs-compatibility
@@ -846,7 +856,8 @@ seaweedfs-compatibility:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-compatibility)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target seaweedfs-compatibility
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target seaweedfs-compatibility
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -857,9 +868,9 @@ seaweedfs-release-gate:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-release-gate)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(LICENSE_REPORT_ARTIFACT) $(SBOM_ARTIFACT) $(TEST_SERVICES_BIN) tools/release-evidence/seaweedfs-release-evidence.mjs tools/seaweedfs_occurrence_classifications.json)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "seaweedfs-release-gate" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" SBOM_ARTIFACT="$(SBOM_ARTIFACT)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" \
-	  SEAWEEDFS_RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)/seaweedfs" SEAWEEDFS_COMPATIBILITY_REPORT="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json" $(NODE_BIN) ./tools/release-evidence/seaweedfs-release-evidence.mjs --enforce-release-gate
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "seaweedfs-release-gate" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) \
+	  $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)" \
+	  SBOM_ARTIFACT="$(SBOM_ARTIFACT)" LICENSE_REPORT_ARTIFACT="$(LICENSE_REPORT_ARTIFACT)" SEAWEEDFS_RELEASE_ARTIFACT_DIR="$(RELEASE_ARTIFACT_DIR)/seaweedfs" SEAWEEDFS_COMPATIBILITY_REPORT="$(CARTULARY_TEST_RESULTS_DIR)/$(CARTULARY_TEST_RUN_ID)/seaweedfs-compatibility/object-store-compatibility-report.json" $(NODE_BIN) ./tools/release-evidence/seaweedfs-release-evidence.mjs --enforce-release-gate
 else
 seaweedfs-release-gate: export CARTULARY_TEST_TARGET ?= seaweedfs-release-gate
 seaweedfs-release-gate: export CARTULARY_ALLOW_EXISTING_RUN_ROOT := 1
@@ -868,7 +879,8 @@ seaweedfs-release-gate:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,seaweedfs-release-gate)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target seaweedfs-release-gate
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target seaweedfs-release-gate
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -877,8 +889,9 @@ cryptographic-policy-assessment: export CARTULARY_TEST_TARGET ?= cryptographic-p
 cryptographic-policy-assessment:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,cryptographic-policy-assessment)
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "cryptographic-policy-assessment" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(NODE_BIN) ./tools/harness/readiness/cryptographic-policy-assessment.mjs
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "cryptographic-policy-assessment" -- env \
+	  $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(NODE_BIN) \
+	  ./tools/harness/readiness/cryptographic-policy-assessment.mjs
 else
 cryptographic-policy-assessment: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 cryptographic-policy-assessment: export CARTULARY_TEST_TARGET ?= cryptographic-policy-assessment
@@ -886,8 +899,8 @@ cryptographic-policy-assessment:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,cryptographic-policy-assessment)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  cryptographic-policy-assessment
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target cryptographic-policy-assessment
 endif
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
@@ -897,8 +910,9 @@ credential-capacity-assessment:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,credential-capacity-assessment)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(MIGRATE_BIN) $(OPERATOR_BIN) $(REPORT_RENDERER_RECEIPT) $(SERVER_BIN) $(SYFT_BIN))
-	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "credential-capacity-assessment" -- env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) \
-	  CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" env CARTULARY_PACKAGE_QUALIFICATION=credential-capacity ./tools/release-evidence/check-standup-package-smoke.sh
+	$(Q)CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" $(RUN_STEP_SCRIPT) "credential-capacity-assessment" -- env \
+	  $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" env \
+	  CARTULARY_PACKAGE_QUALIFICATION=credential-capacity ./tools/release-evidence/check-standup-package-smoke.sh
 else
 credential-capacity-assessment: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)
 credential-capacity-assessment: export CARTULARY_TEST_TARGET ?= credential-capacity-assessment
@@ -906,8 +920,8 @@ credential-capacity-assessment:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,credential-capacity-assessment)
 	+$(Q)$(call RUN_MAKE_PREREQUISITES,$(TASK_SURFACE_PREREQUISITES_NEEDED),$(HARNESS_RUNTIME_BIN))
-	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_DIAGNOSTICS)" $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target \
-	  credential-capacity-assessment
+	$(Q)env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) $(TASK_SURFACE_MACHINE_STATE_ENV) CARTULARY_HARNESS_CACHE_MODE="$(CARTULARY_HARNESS_CACHE_MODE)" CARTULARY_HARNESS_CAPACITY_OVERRIDE="$(CARTULARY_HARNESS_CAPACITY_OVERRIDE)" HARNESS_ACCOUNTING="$(HARNESS_ACCOUNTING)" HARNESS_DIAGNOSTICS="$(HARNESS_DIAGNOSTICS)" CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,CARTULARY_HARNESS_CACHE_MODE CARTULARY_HARNESS_CAPACITY_OVERRIDE HARNESS_ACCOUNTING HARNESS_DIAGNOSTICS)" \
+	  $(TASK_SURFACE_GRAPH_RUNTIME) --selection target --target credential-capacity-assessment
 endif
 
 browser-design-review:

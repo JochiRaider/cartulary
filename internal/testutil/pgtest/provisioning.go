@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -113,10 +114,19 @@ ALTER DEFAULT PRIVILEGES FOR ROLE cartulary_schema_owner REVOKE USAGE ON TYPES F
 const databaseGrantsSQL = `REVOKE CONNECT, TEMPORARY ON DATABASE %s FROM PUBLIC;
 GRANT CONNECT ON DATABASE %s TO cartulary_migration_login, cartulary_runtime_login, cartulary_recovery_login;`
 
+const templateTerminateSQL = `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`
+const templateDisableConnectionsSQL = `ALTER DATABASE %s WITH ALLOW_CONNECTIONS false`
+const templateMarkSQL = `ALTER DATABASE %s WITH IS_TEMPLATE true`
+const templateCheckpointSQL = `CHECKPOINT`
+
+// TemplatePreparationTimeout is the existing physical-owner provisioning bound,
+// shared by broker and native template preparation. Caller deadlines still clamp it.
+const TemplatePreparationTimeout = 2 * time.Minute
+
 // ProvisioningDigest binds exactly the prerequisites executed by this binary.
 // It is independent of repository paths and never reads documentation.
 func ProvisioningDigest() string {
-	sum := sha256.Sum256([]byte(strings.Join([]string{postgresImage, postgresInitdbArgs, postgresHBA, postgresDisablePasswordSQL, strings.Join(postgresServerCommand(), "\x00"), clusterPrerequisitesSQL, freshDatabasePrerequisitesSQL, databaseGrantsSQL}, "\x00")))
+	sum := sha256.Sum256([]byte(strings.Join([]string{postgresImage, postgresInitdbArgs, postgresHBA, postgresDisablePasswordSQL, strings.Join(postgresServerCommand(), "\x00"), clusterPrerequisitesSQL, freshDatabasePrerequisitesSQL, databaseGrantsSQL, templateTerminateSQL, templateDisableConnectionsSQL, templateMarkSQL, templateCheckpointSQL}, "\x00")))
 	return hex.EncodeToString(sum[:])
 }
 
@@ -192,6 +202,35 @@ func finalizeClone(ctx context.Context, admin *sql.Conn, name string) error {
 	quoted := pgx.Identifier{name}.Sanitize()
 	_, err := admin.ExecContext(ctx, fmt.Sprintf(databaseGrantsSQL, quoted, quoted))
 	return err
+}
+
+// SealTemplateDatabase finishes the unpublished physical owner's initialization.
+// The caller owns the generation and has closed its migration handles; no
+// borrower may be admitted until this succeeds. Settling initialization here
+// keeps its file-sync backlog out of the first borrower's bounded DROP. Clones
+// still use their synchronous WAL commit without an additional checkpoint.
+func SealTemplateDatabase(ctx context.Context, adminDSN, name string) error {
+	if ctx == nil {
+		return errors.New("template sealing requires a parent context")
+	}
+	ctx, cancel := context.WithTimeout(ctx, TemplatePreparationTimeout)
+	defer cancel()
+	return postgrescatalog.WithMutation(ctx, adminDSN, name, postgresCatalogAdmissionTimeout, func(admin *sql.Conn) error {
+		if _, err := admin.ExecContext(ctx, templateTerminateSQL, name); err != nil {
+			return fmt.Errorf("terminate template database connections: %w", err)
+		}
+		quoted := pgx.Identifier{name}.Sanitize()
+		if _, err := admin.ExecContext(ctx, fmt.Sprintf(templateDisableConnectionsSQL, quoted)); err != nil {
+			return fmt.Errorf("disable template database connections: %w", err)
+		}
+		if _, err := admin.ExecContext(ctx, fmt.Sprintf(templateMarkSQL, quoted)); err != nil {
+			return fmt.Errorf("mark template database as template: %w", err)
+		}
+		if _, err := admin.ExecContext(ctx, templateCheckpointSQL); err != nil {
+			return fmt.Errorf("settle template initialization checkpoint: %w", err)
+		}
+		return nil
+	})
 }
 
 // CloneDatabase finalizes database-specific grants under the creation lock.

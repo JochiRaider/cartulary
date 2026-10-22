@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { WorkGraphCompiler } from "../../scheduler/work-graph/compiler.mjs";
 import { planBrowserFunctionalLanes } from "../../scheduler/work-graph/browser-functional-lanes.mjs";
 import { resolveCommandInputs, validateSchemaSync } from "../../contract/index.mjs";
@@ -9,6 +10,64 @@ import { loadSchedulerResourceRegistry } from "../../scheduler/scheduler-resourc
 
 const root = new URL("../../../../", import.meta.url).pathname;
 const rowIDs = (graph) => graph.units.flatMap((unit) => unit.row_bindings ?? []).map((row) => row.row_id).sort();
+
+test("v15 rejects ownership partitions and preserves exact cross-owner selection", async () => {
+  const { normalizeBrowserBatchStages } = await import("../browser-batch-manifest.mjs");
+  const { browserCohort } = await import("../browser-cohorts.mjs");
+  const manifest = JSON.parse(readFileSync(new URL("../../../browser_e2e_batch_manifest.json", import.meta.url), "utf8"));
+  assert.equal(manifest.schema_id, "cartulary.browser_e2e_batch_manifest.v15");
+  validateSchemaSync(manifest.schema_id, manifest);
+  assert.throws(() => normalizeBrowserBatchStages({ ...manifest, schema_id: "cartulary.browser_e2e_batch_manifest.v14" }), /schema/);
+  const legacyOwner = structuredClone(manifest);
+  legacyOwner.stages[0].groups[0].owner_id = "harness.browser";
+  assert.throws(() => normalizeBrowserBatchStages(legacyOwner), /owner_id/);
+  assert.throws(() => validateSchemaSync(manifest.schema_id, legacyOwner));
+  const stages = normalizeBrowserBatchStages(manifest);
+  const compiler = new WorkGraphCompiler(root);
+  const stage = stages.get("support");
+  const partition = stage.groups.find((group) => new Set(group.selectedRowIDs.map((id) => compiler.catalog.rowByID.get(id).owner_id)).size > 1);
+  assert.ok(partition);
+  assert.equal(Object.hasOwn(partition, "ownerID"), false);
+  const all = partition.selectedRowIDs.map((id) => compiler.catalog.rowByID.get(id));
+  const selected = [all[0], all.find((row) => row.owner_id !== all[0].owner_id)];
+  const cohort = browserCohort(partition, selected, stage.invocationPolicy);
+  assert.deepEqual(cohort.selectedRowIDs, selected.map((row) => row.row_id).sort());
+  assert.equal(cohort.name, browserCohort(partition, [...selected].reverse(), stage.invocationPolicy).name);
+  const graph = compiler.compile({ kind: "rows", row_ids: cohort.selectedRowIDs });
+  assert.deepEqual(rowIDs(graph), cohort.selectedRowIDs);
+  const units = graph.units.filter((unit) => unit.row_bindings?.length);
+  assert.equal(units.length, 1);
+  assert.equal(units[0].owner_id, "harness.browser");
+  const alone = compiler.compile({ kind: "rows", row_ids: [selected[0].row_id] });
+  assert.deepEqual(rowIDs(alone), [selected[0].row_id]);
+  assert.equal(alone.units.some((unit) => unit.unit_id.startsWith("browser_reset:")), false);
+  for (const group of stages.values()) for (const partition of group.groups) {
+    const rows = partition.selectedRowIDs.map((id) => compiler.catalog.rowByID.get(id));
+    // Admission uses the exact same tuple as the generator for every catalog row.
+    for (const row of rows) browserCohort(partition, [row], group.invocationPolicy);
+    if (partition.stateScope !== "test_owned") assert.equal(rows.length, 1);
+  }
+});
+
+test("browser manifest admission rejects missing and mistyped execution metadata", async () => {
+  const { normalizeBrowserBatchStages, validateBrowserBatchManifestShape } = await import("../browser-batch-manifest.mjs");
+  const manifest = JSON.parse(readFileSync(new URL("../../../browser_e2e_batch_manifest.json", import.meta.url), "utf8"));
+  for (const field of ["runtime_profile_id", "resource_profile_id", "fixture_capability", "project", "config",
+    "state_scope", "postgres_isolation", "workers", "preparation_operations", "selected_row_ids", "specs",
+    "service_requirement", "service_dependencies", "browser_session_group"]) {
+    const missing = structuredClone(manifest);
+    delete missing.stages[0].groups[0][field];
+    assert.throws(() => validateBrowserBatchManifestShape(missing, "missing execution metadata"), /validation failed/, field);
+    assert.throws(() => normalizeBrowserBatchStages(missing), /validation failed/, field);
+  }
+  for (const [field, value] of [["runtime_profile_id", null], ["resource_profile_id", 12],
+    ["project", ["chromium"]], ["workers", 1], ["preparation_operations", {}],
+    ["service_dependencies", "postgres"], ["selected_row_ids", []], ["specs", []]]) {
+    const malformed = structuredClone(manifest);
+    malformed.stages[0].groups[0][field] = value;
+    assert.throws(() => validateBrowserBatchManifestShape(malformed, "mistyped execution metadata"), /validation failed/, field);
+  }
+});
 
 test("host-bounded defaults admit six functional lanes plus shared resident services", () => {
   const registry = loadSchedulerResourceRegistry();
@@ -130,15 +189,21 @@ test("explicit-only rows stay outside aggregates and broad selections", () => {
   assert.throws(() => compiler.compileAggregate("ci"), /explicit-only/);
 });
 
-test("browser cohorts bind exact selections, owner/state partitions and once-only lifecycle cost", async () => {
+test("browser cohorts bind exact cases and execution compatibility independently of reporting ownership", async () => {
   const { browserCohort, packBrowserCohorts } = await import("../browser-cohorts.mjs");
-  const rows = ["a", "b", "c"].map((id) => ({ row_id: `fixture.${id}`, owner_id: "fixture.owner",
+  const rows = ["a", "b", "c"].map((id) => ({ row_id: `fixture.${id}`, owner_id: `fixture.owner_${id}`,
     runner: "playwright", browser_state_scope: "test_owned", runtime_profile_id: "default",
+    fixture_capability: "browser_stack", postgres_isolation: "exclusive",
     resource_profile_id: "browser_functional", service_dependencies: ["postgres"], evidence_class: "browser",
-    selector: { file: `apps/web/e2e/${id}.spec.ts`, project_id: "chromium", titles: ["repeated title"] } }));
-  const partition = { name: "fixture", ownerID: "fixture.owner", stateScope: "test_owned",
-    project: "chromium", runtimeProfileID: "default", resourceProfileID: "browser_functional",
-    fixtureProfileID: "", serviceDependencies: ["postgres"], selectedRowIDs: rows.map((row) => row.row_id),
+    selector: { file: `apps/web/e2e/${id}.spec.ts`, project_id: "chromium", stage: "webserver_backed", titles: ["repeated title"] } }));
+  const partition = { name: "fixture", stateScope: "test_owned", stageName: "webserver-backed",
+    stageTarget: "browser-e2e-webserver-backed", frontendArtifactID: "production", stageScheduleTags: [], stageSchedulerNeeds: [],
+    target: "browser-e2e-webserver-backed", kind: "duration_balanced_specs", coverage: "authoritative",
+    executionDependency: "browser_functional", dependencyTarget: "", workers: "1", config: "playwright.config.ts",
+    project: "chromium", runtimeProfileID: "default", runtimeKind: "default", keyRingManifestPath: "",
+    resourceProfileID: "browser_functional", fixtureCapability: "browser_stack", postgresIsolation: "exclusive",
+    fixtureProfileID: "", serviceRequirement: "test-services", serviceDependencies: ["postgres"], preparationOperations: [],
+    browserSessionGroup: "fixture-session", selectedRowIDs: rows.map((row) => row.row_id),
     specs: rows.map((row) => row.selector.file) };
   const catalog = { rowByID: new Map(rows.map((row) => [row.row_id, row])) };
   const policy = { startup_ms: 20, cleanup_ms: 10 }, owner = {
@@ -151,20 +216,40 @@ test("browser cohorts bind exact selections, owner/state partitions and once-onl
   assert.deepEqual(packBrowserCohorts([{ ...partition, selectedRowIDs: [...partition.selectedRowIDs].reverse() }], catalog, policy, owner, () => 130), packed);
   assert.deepEqual(packBrowserCohorts([partition], catalog, policy, owner, () => 110)
     .map((cohort) => cohort.selectedRowIDs.length), [1, 1, 1], "allocation headroom cannot enlarge the existing envelope");
+  assert.deepEqual(packBrowserCohorts([], catalog, policy, owner, () => 130), []);
   const subset = browserCohort(partition, [rows[1]], policy);
-  for (const key of ["stageName", "browserSessionGroup", "config", "executionDependency"]) {
-    assert.notEqual(subset.name, browserCohort({ ...partition, [key]: "changed" }, [rows[1]], policy).name);
+  for (const key of ["stageName", "stageTarget", "frontendArtifactID", "target", "coverage", "browserSessionGroup", "config",
+    "executionDependency", "dependencyTarget", "runtimeKind", "keyRingManifestPath", "serviceRequirement"]) {
+    assert.notEqual(subset.name, browserCohort({ ...partition, [key]: "changed" }, [rows[1]], policy).name, key);
+  }
+  for (const key of ["stageScheduleTags", "stageSchedulerNeeds"]) {
+    assert.notEqual(subset.name, browserCohort({ ...partition, [key]: ["changed"] }, [rows[1]], policy).name, key);
   }
   assert.deepEqual(subset.specs, [rows[1].selector.file]);
   assert.notEqual(subset.name, packed[0].name);
-  assert.notEqual(subset.name, browserCohort(partition, [rows[1]], { ...policy, startup_ms: 21 }).name);
+  for (const key of ["startup_ms", "cleanup_ms"]) {
+    assert.notEqual(subset.name, browserCohort(partition, [rows[1]], { ...policy, [key]: 21 }).name);
+  }
+  assert.equal(subset.name, browserCohort({ ...partition, name: "another-label", selectedRowIDs: ["unselected", ...partition.selectedRowIDs].reverse(),
+    specs: ["apps/web/e2e/unselected.spec.ts", ...partition.specs].reverse() }, [{ ...rows[1], owner_id: "changed.owner" }], policy).name);
   for (const changed of [
     { ...rows[0], preparation_operations: ["harness.frontend_install"] },
-    { ...rows[0], owner_id: "other" }, { ...rows[0], browser_state_scope: "isolated" },
+    { ...rows[0], fixture_capability: "postgres_dedicated" }, { ...rows[0], fixture_profile_id: "changed_v1" },
+    { ...rows[0], postgres_isolation: "shared" }, { ...rows[0], browser_state_scope: "isolated" },
     { ...rows[0], selector: { ...rows[0].selector, project_id: "other" } },
+    { ...rows[0], selector: { ...rows[0].selector, stage: "support" } },
     { ...rows[0], service_dependencies: [] }, { ...rows[0], resource_profile_id: "browser_isolated" },
     { ...rows[0], runtime_profile_id: "network_flow_claimed" },
   ]) assert.throws(() => browserCohort(partition, [changed], policy), /compatibility/);
-  assert.throws(() => browserCohort({ ...partition, stateScope: "isolated" }, rows, policy), /compatibility/);
+  for (const scope of ["isolated", "measurement"]) {
+    assert.throws(() => browserCohort({ ...partition, stateScope: scope }, rows, policy), /compatibility/);
+  }
   assert.throws(() => browserCohort(partition, [rows[0], rows[0]], policy), /compatibility/);
+  assert.throws(() => browserCohort(partition, [], policy), /compatibility/);
+  const paired = { ...rows[0], selector: { ...rows[0].selector, titles: ["z", "a"], scenario_ids: ["scenario.z", "scenario.a"] } };
+  const identity = browserCohort(partition, [paired], policy).name;
+  assert.equal(identity, browserCohort(partition, [{ ...paired, selector: { ...paired.selector,
+    titles: [...paired.selector.titles].reverse(), scenario_ids: [...paired.selector.scenario_ids].reverse() } }], policy).name);
+  assert.notEqual(identity, browserCohort(partition, [{ ...paired, selector: { ...paired.selector,
+    scenario_ids: [...paired.selector.scenario_ids].reverse() } }], policy).name, "scenario/title associations remain bound");
 });

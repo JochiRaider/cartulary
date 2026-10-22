@@ -107,6 +107,24 @@ readers; older schemas are historical evidence, not silently translated inputs.
 Live status includes the last resource sample when available, its graph-process
 clock, age and staleness. Keep using the native session during measurement pause.
 
+For explicitly requested invocation resource accounting, graph targets accept
+`HARNESS_ACCOUNTING=required` together with `HARNESS_DIAGNOSTICS=basic` and
+`CARTULARY_HARNESS_CACHE_MODE=off`. The prepared native harness requires a fresh
+delegated cgroup v2 scope and provable local placement of owned service containers.
+Prepare and execute with consistent native build settings. Workloads containing
+nested ordinary Go-runner commands use `CGO_ENABLED=0` for preparation and the
+outer command, matching the runner's existing cgo-disabled profile. A different
+or stale controller executable fails required accounting before graph work.
+Nested graphs inherit the proven outer accounting scope's basic diagnostics and
+disabled execution-result reuse, including after an independent command clears
+inherited environment variables. Unaccounted commands keep their normal defaults.
+Unavailable prerequisites fail the request; do not enable privileges or change
+host settings merely to obtain a measurement. The performance view reports
+cumulative charged CPU and peak cgroup memory, with controller and shared-host
+exclusions stated. These differ from sampled CPU lower bounds and sampled RSS.
+`CHECK=all` requires a passing run. Use `CHECK=diagnostics` for deliberately
+failed or cancelled runs; that check does not establish passing test assurance.
+
 Compare two exact runs without selecting newer directories implicitly:
 
 ```sh

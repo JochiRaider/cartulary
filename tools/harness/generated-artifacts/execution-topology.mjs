@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { normalizeRuntimeBinaryEntries } from "../runtime-binary-registry.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
+import { browserBatchManifestSchemaID, browserCompatibility, browserPartitionContract, browserSelectorStage } from "../browser/browser-compatibility.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -14,7 +15,6 @@ import { projectOperationBindings, readOperationOwner } from "../scheduler/work-
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v4";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v16";
 const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v3";
-const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v14";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
@@ -225,20 +225,10 @@ function runtimeProfileByID(raw) {
 export function renderBrowserBatchManifest(topology) {
   const globalRuntimeProfiles = runtimeProfileByID(topology.raw);
   const catalogRows = loadTestCatalog(topology.root).rows;
-  const selectorStageByKind = new Map([
-    ["webserver-backed", "webserver_backed"],
-    ["duration_balanced_specs", "webserver_backed"],
-    ["support", "support"],
-    ["stateful", "stateful"],
-    ["stateful_partition", "stateful"],
-    ["measurement", "measurement"],
-    ["a11y", "accessibility"],
-    ["visual", "visual"],
-  ]);
   const stages = topology.browserBatch.stages.map((stage) => ({
     ...clone(stage),
     groups: stage.groups.flatMap((policyGroup) => {
-      const selectorStage = selectorStageByKind.get(policyGroup.kind);
+      const selectorStage = browserSelectorStage(policyGroup.kind);
       if (!selectorStage) throw new Error(`browser group ${policyGroup.name} has no selector-stage mapping`);
       const runtimeProfileID = policyGroup.runtime_profile_id ?? "default";
       const runtimeProfile = globalRuntimeProfiles.get(runtimeProfileID);
@@ -254,42 +244,41 @@ export function renderBrowserBatchManifest(topology) {
         .sort((left, right) => compareASCII(left.row_id, right.row_id));
       if (rows.length === 0) throw new Error(`browser group ${policyGroup.name} selects no catalog rows`);
       const partitions = new Map();
+      const browserRuntime = {
+        ...topology.browserBatch.runtime_profiles.find((profile) => profile.id === runtimeProfileID),
+        service_requirement: runtimeProfile.serviceRequirement,
+      };
       for (const row of rows) {
-        const key = JSON.stringify([
-          row.owner_id, row.selector.project_id, row.runtime_profile_id,
-          row.resource_profile_id, row.fixture_capability, row.postgres_isolation, row.fixture_profile_id ?? null,
-          row.service_dependencies, row.preparation_operations ?? [], row.browser_state_scope,
-          row.browser_state_scope === "test_owned" ? null : row.row_id,
-        ]);
-        const partition = partitions.get(key) ?? [];
-        partition.push(row);
-        partitions.set(key, partition);
-      }
-      return [...partitions.entries()].sort(([a], [b]) => compareASCII(a, b)).map(([key, partition]) => {
-        const first = partition[0];
-        const identity = createHash("sha256").update(key).digest("hex");
-        return {
+        const group = {
           ...clone(policyGroup),
-          name: `${policyGroup.name}-${identity}`,
-          owner_id: first.owner_id,
-          state_scope: first.browser_state_scope,
-          project: first.selector.project_id,
+          state_scope: row.browser_state_scope,
+          project: row.selector.project_id,
           config: "playwright.config.ts",
-          selected_row_ids: partition.map((row) => row.row_id),
-          specs: [...new Set(partition.map((row) => row.selector.file))].sort(compareASCII),
           runtime_profile_id: runtimeProfileID,
-          resource_profile_id: first.resource_profile_id,
+          resource_profile_id: row.resource_profile_id,
+          fixture_capability: row.fixture_capability,
           service_requirement: runtimeProfile.serviceRequirement,
-          service_dependencies: [...first.service_dependencies],
-          postgres_isolation: first.postgres_isolation,
-          preparation_operations: [...(first.preparation_operations ?? [])],
+          service_dependencies: [...row.service_dependencies],
+          postgres_isolation: row.postgres_isolation,
+          preparation_operations: [...(row.preparation_operations ?? [])],
           browser_session_group: [
             policyGroup.browser_session_group ?? `${stage.target}-${runtimeProfileID}`,
-            first.browser_state_scope === "measurement" ? identity : "",
+            row.browser_state_scope === "measurement" ? row.row_id : "",
           ].filter(Boolean).join("-"),
-          ...(first.fixture_profile_id ? { fixture_profile_id: first.fixture_profile_id } : {}),
+          ...(row.fixture_profile_id ? { fixture_profile_id: row.fixture_profile_id } : {}),
         };
-      });
+        const contract = { ...browserPartitionContract(stage, group, browserRuntime), selectedRowIDs: [row.row_id] };
+        const key = JSON.stringify(browserCompatibility(contract, topology.browserBatch.invocation_policy, row));
+        const partition = partitions.get(key) ?? { group, rows: [] };
+        partition.rows.push(row);
+        partitions.set(key, partition);
+      }
+      return [...partitions.entries()].sort(([a], [b]) => compareASCII(a, b)).map(([key, { group, rows }]) => ({
+        ...group,
+        name: `${policyGroup.name}-${createHash("sha256").update(key).digest("hex")}`,
+        selected_row_ids: rows.map((row) => row.row_id),
+        specs: [...new Set(rows.map((row) => row.selector.file))].sort(compareASCII),
+      }));
     }),
   }));
   return {

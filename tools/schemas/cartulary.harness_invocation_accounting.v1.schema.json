@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_invocation_accounting.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "invocation_digest",
+    "source_digest",
+    "graph_memberships",
+    "metrics"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "cartulary.harness_invocation_accounting.v1"
+    },
+    "invocation_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "graph_memberships": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "run_digest",
+          "graph_digest",
+          "receipt_digest"
+        ],
+        "properties": {
+          "run_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "graph_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "receipt_digest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "duration_ms",
+        "cpu_usage_us",
+        "memory_peak_bytes",
+        "controller_setup_ms",
+        "controller_publication_prefix_ms",
+        "child_exit_code",
+        "signal",
+        "scope",
+        "memory_semantics",
+        "settlement",
+        "initial_memory_peak_bytes"
+      ],
+      "properties": {
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cpu_usage_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "memory_peak_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "controller_setup_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "controller_publication_prefix_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "child_exit_code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "signal": {
+          "enum": [
+            0,
+            2,
+            15
+          ]
+        },
+        "scope": {
+          "const": "invocation_cgroup"
+        },
+        "memory_semantics": {
+          "const": "peak_cgroup_charge"
+        },
+        "settlement": {
+          "const": "empty"
+        },
+        "initial_memory_peak_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  }
+}

@@ -8,9 +8,10 @@ export const receiptDigest = (value) => `sha256:${createHash("sha256").update(va
 // This reader is installed with the format cutover, before any wrapper can
 // publish a receipt. The receipt is structural evidence, never scan authority.
 export function readTerminalReceipt(runRoot, run, envelope, envelopeDigest) {
-  let receipt;
+  let receipt, receiptBytes;
   try {
-    receipt = parseStrictJSON(readLocalFile(path.join(runRoot, "diagnostics/terminal-receipt.json"), { maximum: 65536 }).toString("utf8"));
+    receiptBytes = readLocalFile(path.join(runRoot, "diagnostics/terminal-receipt.json"), { maximum: 65536 });
+    receipt = parseStrictJSON(receiptBytes.toString("utf8"));
   } catch (error) { if (error.code === "ENOENT") return null; throw error; }
   validateSchemaSync("cartulary.harness_terminal_receipt.v1", receipt);
   if (!envelope?.invocation_digest || receipt.invocation_digest !== envelope.invocation_digest || receipt.source_digest !== run.manifest.source_digest) throw new Error("receipt invocation mismatch");
@@ -27,5 +28,5 @@ export function readTerminalReceipt(runRoot, run, envelope, envelopeDigest) {
   validateSchemaSync("cartulary.harness_retained_secret_scan.v1", scan);
   if (member.scan_digest !== receiptDigest(scanBytes) || member.scan_outcome !== "passed") throw new Error("receipt scan mismatch");
   if (receipt.outcome === "passed" && (receipt.child_exit_code !== 0 || run.summary.status !== "pass" || receipt.graph_memberships.some((entry) => entry.scan_outcome !== "passed"))) throw new Error("receipt success contradicts retained evidence");
-  return receipt;
+  return { value: receipt, digest: receiptDigest(receiptBytes) };
 }
