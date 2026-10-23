@@ -1532,10 +1532,8 @@ const byAffinity = Map.groupBy(
   (unit) => unit.affinity_key,
 );
 for (const [affinity, units] of byAffinity) {
-  const terminal = units.filter((unit) =>
-    unit.command.environment.CARTULARY_BROWSER_RELEASE_AFFINITY === "1",
-  );
-  assert.equal(terminal.length, 1, `${affinity} must have one terminal stack releaser`);
+  assert.ok(units.every((unit) => !("CARTULARY_BROWSER_RELEASE_AFFINITY" in unit.command.environment)),
+    `${affinity} must defer retirement to exact terminal consumer accounting`);
   const resets = units.filter((unit) => unit.unit_id.startsWith("browser_reset:"));
   const chainedResets = resets.filter((unit) =>
     unit.needs.some((dependency) => dependency.startsWith("browser_reset:")),
@@ -1671,7 +1669,7 @@ for (const unit of functionalGroups) {
     unit.estimated_work_ms,
     selectedCost + invocation.startup_ms + invocation.cleanup_ms +
       (unit.command.environment.CARTULARY_BROWSER_GROUP_GENERATION === "1" ? compiler.owner.lifecycle_estimates_ms.browser_allocation_acquire : 0) +
-      (unit.command.environment.CARTULARY_BROWSER_RELEASE_AFFINITY === "1" ? compiler.owner.lifecycle_estimates_ms.browser_allocation_release : 0),
+      (!functionalGroups.some((next) => next.affinity_key === unit.affinity_key && Number(next.command.environment.CARTULARY_BROWSER_GROUP_GENERATION) > Number(unit.command.environment.CARTULARY_BROWSER_GROUP_GENERATION)) ? compiler.owner.lifecycle_estimates_ms.browser_allocation_release : 0),
     `${unit.unit_id} cost must charge selected tests and one invocation overhead`,
   );
   assert.match(unit.command.environment.CARTULARY_BROWSER_FUNCTIONAL_LANE_ID, /^webserver-backed-/u);
@@ -1712,13 +1710,8 @@ for (const affinity of new Set(functionalGroups.map((unit) => unit.affinity_key)
     laneUnits.map((unit) => unit.command.environment.CARTULARY_BROWSER_RUNTIME_PROFILE_ID),
   );
   assert.equal(runtimeProfiles.size, 1, `${affinity} must retain immutable runtime identity`);
-  assert.equal(
-    laneUnits.filter((unit) =>
-      unit.command.environment.CARTULARY_BROWSER_RELEASE_AFFINITY === "1",
-    ).length,
-    1,
-    `${affinity} must have one terminal stack releaser`,
-  );
+  assert.ok(laneUnits.every((unit) => !("CARTULARY_BROWSER_RELEASE_AFFINITY" in unit.command.environment)),
+    `${affinity} must not encode static cleanup authority`);
 }
 
 // The compiler must preserve failure continuation; actual execution, no retry,

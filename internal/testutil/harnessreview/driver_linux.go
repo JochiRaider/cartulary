@@ -295,7 +295,7 @@ func (d *productionDriver) Close(ctx context.Context) []error {
 	}
 	if d.fixtureLease != nil {
 		attempt("browser_renderer", func(ctx context.Context) error {
-			_, err := d.fixtureLease.Release(ctx, false, false)
+			_, err := d.fixtureLease.Release(ctx, false)
 			return err
 		}, time.Duration(LimitDrain)*time.Millisecond)
 	}

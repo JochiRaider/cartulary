@@ -30,6 +30,7 @@ type executionSession struct {
 	records                                          map[string]map[string]any
 	missing                                          map[string]bool
 	lifecycle                                        allocationLifecycleSection
+	hostAdmission                                    admissionSection
 	proof                                            func(map[string]any, map[string]any)
 }
 
@@ -223,15 +224,15 @@ func (s *executionSession) publish(clock any) error {
 		omissions = nil
 	}
 	b, _ := json.Marshal(records)
-	index := map[string]any{"schema_id": "cartulary.harness_execution_index.v3", "run_id": s.manifest["run_id"], "source_digest": s.manifest["source_digest"], "graph_digest": s.manifest["graph_digest"], "policy_digest": s.manifest["instrumentation"].(map[string]any)["policy_digest"], "status": status, "omitted_records": omissions, "graph_clock": clock, "omitted_refs": append([]string{}, slices.Sorted(maps.Keys(s.missing))...), "records": records, "records_digest": bytesDigest(b), "allocation_lifecycle": s.lifecycle.document()}
-	encoded, err := documentBytes("cartulary.harness_execution_index.v3", index)
+	index := map[string]any{"schema_id": "cartulary.harness_execution_index.v5", "run_id": s.manifest["run_id"], "source_digest": s.manifest["source_digest"], "graph_digest": s.manifest["graph_digest"], "policy_digest": s.manifest["instrumentation"].(map[string]any)["policy_digest"], "status": status, "omitted_records": omissions, "graph_clock": clock, "omitted_refs": append([]string{}, slices.Sorted(maps.Keys(s.missing))...), "records": records, "records_digest": bytesDigest(b), "allocation_lifecycle": s.lifecycle.document(), "host_admission": s.hostAdmission.document()}
+	encoded, err := documentBytes("cartulary.harness_execution_index.v5", index)
 	if err != nil {
 		return err
 	}
-	if len(encoded)+1 > s.limit("maximum_metadata_bytes")+s.limit("maximum_allocation_lifecycle_bytes") {
+	if len(encoded)+1 > s.limit("maximum_metadata_bytes")+s.limit("maximum_allocation_lifecycle_bytes")+s.limit("maximum_host_admission_bytes") {
 		return harnesslocal.ErrUnsafe
 	}
-	return writeEvidence(s.runRoot, "diagnostics/execution-index.json", "cartulary.harness_execution_index.v3", index, false)
+	return writeEvidence(s.runRoot, "diagnostics/execution-index.json", "cartulary.harness_execution_index.v5", index, false)
 }
 func (s *executionSession) fixture(v harnessfixtures.Observation) {
 	if v.Kind == "allocation_lifecycle" {

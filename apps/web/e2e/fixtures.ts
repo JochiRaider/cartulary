@@ -26,7 +26,10 @@ import {
   loadWorkerAdminManifest,
   markWorkerAdminCleaned,
 } from "./support/auth/workerAdmin";
-import { OwnedSessionTracker } from "./support/runtime/cleanup";
+import {
+  closeOwnedBrowserContext,
+  OwnedSessionTracker,
+} from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 
 type SessionTracker = {
@@ -177,8 +180,11 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
         viewport,
         ...(deviceScaleFactor === undefined ? {} : { deviceScaleFactor }),
       });
-      await use(context);
-      await context.close();
+      try {
+        await use(context);
+      } finally {
+        await closeOwnedBrowserContext(context);
+      }
     },
 
     page: async ({ context }, use) => {

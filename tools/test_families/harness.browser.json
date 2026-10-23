@@ -248,7 +248,11 @@
           "OwnedSessionTracker does not register or revoke borrowed sessions",
           "OwnedSessionTracker fails cleanup when revocation verification fails",
           "OwnedSessionTracker revokes each owned user once and verifies every tracked snapshot",
-          "buildWorkerAdminBlueprints creates one distinct admin blueprint per parallel index"
+          "buildWorkerAdminBlueprints creates one distinct admin blueprint per parallel index",
+          "closeOwnedBrowserContext drains every page and context before disposing fetched responses",
+          "closeOwnedBrowserContext preserves all drain and close failures in ownership order",
+          "closeOwnedBrowserContext preserves close failure when no pages remain",
+          "closeOwnedBrowserContext settles other drains and closes after a synchronous drain failure"
         ],
         "project_id": "harness-node"
       },

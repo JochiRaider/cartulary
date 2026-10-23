@@ -4395,7 +4395,8 @@
             "values": [
               "units",
               "waits",
-              "allocations"
+              "allocations",
+              "host-admission"
             ]
           },
           {

@@ -41,6 +41,124 @@ func apply(t *testing.T, r Request, expected bool) {
 	}
 }
 func TestAdmissionWeightedTree(t *testing.T) {
+	t.Run("exact_release_retains_replacements_and_rejects_stale_sets", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		owner := request(t, root, "a", 1, 4)
+		owner.Capacities["memory_mb"] = 1024
+		first := Resident{Token: strings.Repeat("b", 32), Reference: filepath.Join(root, "first.json"), Claims: testQuantities(0), Capacities: owner.Capacities}
+		first.Claims["memory_mb"] = 300
+		second := first
+		second.Token = strings.Repeat("c", 32)
+		second.Reference = filepath.Join(root, "second.json")
+		owner.Residents = []Resident{first, second}
+		apply(t, owner, true)
+		apply(t, Request{Root: root, Operation: "release", Token: owner.Token}, false)
+		pending := request(t, root, "d", 1, 4)
+		pending.Capacities = owner.Capacities
+		pending.Claims["memory_mb"] = 500
+		pending.Residents = []Resident{first}
+		apply(t, pending, false)
+		query := Request{Root: root, Operation: "retirement_required", Token: pending.Token, Residents: []Resident{first}, retirementDiagnostic: &RetirementDecision{}}
+		apply(t, query, false)
+		if query.retirementDiagnostic.Before["memory_mb"] != 76 || query.retirementDiagnostic.After["memory_mb"] != 76 {
+			t.Fatal(query.retirementDiagnostic)
+		}
+		query.Residents = []Resident{second}
+		apply(t, query, true)
+		if len(query.retirementDiagnostic.After) != 0 {
+			t.Fatal(query.retirementDiagnostic)
+		}
+		stale := second
+		stale.Token = strings.Repeat("e", 32)
+		for _, residents := range [][]Resident{nil, {stale}, {second, second}} {
+			query.Residents = residents
+			if _, err := Transact(t.Context(), query); !errors.Is(err, ErrConflict) {
+				t.Fatal("invalid set accepted", err)
+			}
+		}
+		query.Residents = []Resident{second}
+		query.Claims = second.Claims
+		if _, err := Transact(t.Context(), query); !errors.Is(err, ErrConflict) {
+			t.Fatal("quantity query accepted", err)
+		}
+		if err := ReleaseResident(t.Context(), root, second); err != nil {
+			t.Fatal(err)
+		}
+		query.Claims = nil
+		if _, err := Transact(t.Context(), query); !errors.Is(err, ErrConflict) {
+			t.Fatal("settled generation accepted", err)
+		}
+		apply(t, pending, true)
+	})
+	t.Run("ancestor_envelope_masks_apparent_retirement_savings", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		parent := request(t, root, "a", 1, 4)
+		parent.Claims["memory_mb"] = 800
+		parent.Capacities["memory_mb"] = 1200
+		apply(t, parent, true)
+		child := request(t, root, "b", 1, 4)
+		child.Parent = &parent.Token
+		child.Capacities = parent.Capacities
+		nested := Resident{Token: strings.Repeat("c", 32), Reference: filepath.Join(root, "nested.json"), Claims: testQuantities(0), Capacities: parent.Capacities, Parent: &parent.Token}
+		nested.Claims["memory_mb"] = 200
+		child.Residents = []Resident{nested}
+		apply(t, child, true)
+		unrelated := request(t, root, "d", 1, 4)
+		unrelated.Capacities = parent.Capacities
+		outside := Resident{Token: strings.Repeat("e", 32), Reference: filepath.Join(root, "outside.json"), Claims: testQuantities(0), Capacities: parent.Capacities}
+		outside.Claims["memory_mb"] = 300
+		unrelated.Residents = []Resident{outside}
+		apply(t, unrelated, true)
+		apply(t, Request{Root: root, Operation: "release", Token: child.Token}, false)
+		apply(t, Request{Root: root, Operation: "release", Token: unrelated.Token}, false)
+		pending := request(t, root, "f", 1, 4)
+		pending.Parent = &parent.Token
+		pending.Capacities = testQuantities(4)
+		pending.Capacities["memory_mb"] = 1000
+		pending.diagnostic = &Decision{}
+		apply(t, pending, false)
+		if pending.diagnostic.PersistentDeficits["memory_mb"] != 100 {
+			t.Fatal(pending.diagnostic)
+		}
+		// The parent envelope masks all released memory; overlap alone is not relief.
+		apply(t, Request{Root: root, Operation: "retirement_required", Token: pending.Token, Residents: []Resident{nested}}, false)
+	})
+	t.Run("diagnostic_facts_come_from_admission_and_do_not_disclose_capabilities", func(t *testing.T) {
+		root := filepath.Join(t.TempDir(), "admission")
+		holder := request(t, root, "a", 2, 2)
+		holder.Capacities["memory_mb"] = 512
+		apply(t, holder, true)
+		candidate := request(t, root, "b", 1, 2)
+		candidate.Capacities = holder.Capacities
+		var records []Observation
+		clock := float64(0)
+		ctx := WithObservation(t.Context(), "unit", func() float64 { clock++; return clock }, func(o Observation) { records = append(records, o) })
+		granted, err := observedTransaction(ctx, candidate)
+		if err != nil || granted || len(records) != 1 {
+			t.Fatal(granted, err, records)
+		}
+		d := records[0].Decision
+		if d == nil || d.Deficits["cpu"] != 1 || len(d.PersistentDeficits) != 0 || len(d.Holders) != 1 || d.QueuePosition != 1 {
+			t.Fatalf("wrong transient facts: %+v", d)
+		}
+		encoded, _ := json.Marshal(records)
+		if strings.Contains(string(encoded), holder.Token) || strings.Contains(string(encoded), root) {
+			t.Fatal("private identity leaked")
+		}
+		apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
+		granted, err = observedTransaction(ctx, candidate)
+		if err != nil || !granted || !records[1].Decision.Granted || len(records[1].Decision.Deficits) != 0 {
+			t.Fatal(granted, err, records)
+		}
+		end := Phase(ctx, "admission_wait")
+		end()
+		refs := []Resident{{Token: holder.Token}}
+		Retirement(ctx, refs, "capacity_pressure")(errors.New("private recovery path"))
+		if records[2].DurationMS != 1 || records[3].Outcome != "unresolved" || records[3].DurationMS != 1 {
+			t.Fatal(records)
+		}
+		apply(t, Request{Root: root, Operation: "release", Token: candidate.Token}, false)
+	})
 	t.Run("independent_retirement_invalidates_broad_snapshot_not_scoped_cleanup", func(t *testing.T) {
 		root := filepath.Join(t.TempDir(), "admission")
 		initial := request(t, root, "a", 1, 2)
@@ -151,7 +269,16 @@ func TestAdmissionWeightedTree(t *testing.T) {
 		work := request(t, root, "d", 1, 4)
 		work.Capacities = first.Capacities
 		work.Claims["memory_mb"], work.Claims["volume"] = 600, 1
+		work.diagnostic = &Decision{}
 		apply(t, work, false)
+		if work.diagnostic.Deficits["memory_mb"] != 88 || work.diagnostic.PersistentDeficits["memory_mb"] != 88 || work.diagnostic.Deficits["volume"] != 0 || len(work.diagnostic.Residents) != 2 {
+			t.Fatalf("resident decision facts: %+v", work.diagnostic)
+		}
+		evaluation := &RetirementDecision{}
+		apply(t, Request{Root: root, Operation: "retirement_required", Token: work.Token, Residents: []Resident{first.Residents[0]}, retirementDiagnostic: evaluation}, true)
+		if evaluation.Before["volume"] != 0 || evaluation.After["volume"] != 0 || evaluation.Before["memory_mb"] != 88 || evaluation.After["memory_mb"] != 0 {
+			t.Fatal("capability resource became additive", evaluation)
+		}
 		if err := ReleaseResident(t.Context(), root, first.Residents[0]); err != nil {
 			t.Fatal(err)
 		}
@@ -178,7 +305,11 @@ func TestAdmissionWeightedTree(t *testing.T) {
 			}
 			apply(t, older, false)
 			later := request(t, root, "d", 1, 4)
+			later.diagnostic = &Decision{}
 			apply(t, later, false) // Fits now, but must not starve the older request.
+			if len(later.diagnostic.Deficits) != 0 || len(later.diagnostic.PriorityBlockers) != 1 || len(later.diagnostic.ExclusiveBlockers) != 0 {
+				t.Fatalf("priority confused with capacity: %+v", later.diagnostic)
+			}
 			apply(t, Request{Root: root, Operation: "release", Token: holder.Token}, false)
 			apply(t, later, false) // Priority persists until the waiter takes admission.
 			apply(t, older, true)
@@ -198,8 +329,12 @@ func TestAdmissionWeightedTree(t *testing.T) {
 		child.Parent = &parent.Token
 		child.Claims["memory_mb"] = 120
 		child.Capacities["memory_mb"] = 512
+		child.diagnostic = &Decision{}
 		apply(t, child, false)
-		apply(t, Request{Root: root, Operation: "retirement_required", Token: child.Token, Claims: resident.Claims}, true)
+		if child.diagnostic.PersistentDeficits["memory_mb"] != 68 || len(child.diagnostic.Ancestors) != 1 || child.diagnostic.Ancestors[0].Claims["memory_mb"] != 500 {
+			t.Fatalf("ancestor envelope omitted: %+v", child.diagnostic)
+		}
+		apply(t, Request{Root: root, Operation: "retirement_required", Token: child.Token, Residents: []Resident{resident}}, true)
 		if err := ReleaseResident(t.Context(), root, resident); err != nil {
 			t.Fatal(err)
 		}
@@ -215,13 +350,15 @@ func TestAdmissionWeightedTree(t *testing.T) {
 		owner.Claims["memory_mb"] = 400
 		resident := Resident{Token: strings.Repeat("b", 32), Reference: filepath.Join(root, "retained.json"), Claims: testQuantities(0), Capacities: owner.Capacities}
 		resident.Claims["memory_mb"], resident.Claims["port_lane"] = 80, 14
-		owner.Residents = []Resident{resident}
+		unrelated := Resident{Token: strings.Repeat("e", 32), Reference: filepath.Join(root, "unrelated.json"), Claims: testQuantities(0), Capacities: owner.Capacities}
+		unrelated.Claims["memory_mb"] = 16
+		owner.Residents = []Resident{resident, unrelated}
 		apply(t, owner, true)
 		pending := request(t, root, "c", 1, 2)
 		pending.Capacities = owner.Capacities
 		pending.Claims["memory_mb"] = 120
 		apply(t, pending, false)
-		query := Request{Root: root, Operation: "retirement_required", Token: pending.Token, Claims: resident.Claims}
+		query := Request{Root: root, Operation: "retirement_required", Token: pending.Token, Residents: []Resident{resident}}
 		apply(t, query, false) // Completing the active work frees enough memory.
 		apply(t, Request{Root: root, Operation: "release", Token: pending.Token}, false)
 		pending.Token = strings.Repeat("d", 32)
@@ -229,18 +366,19 @@ func TestAdmissionWeightedTree(t *testing.T) {
 		apply(t, pending, false)
 		query.Token = pending.Token
 		apply(t, query, true) // The physical port shortage survives active work.
-		query.Claims = testQuantities(0)
-		query.Claims["memory_mb"] = 80
+		query.Residents = []Resident{unrelated}
 		apply(t, query, false) // Retiring unrelated memory cannot free a port.
 		apply(t, Request{Root: root, Operation: "resident_granted", Token: resident.Token, Reference: resident.Reference}, true)
 		apply(t, Request{Root: root, Operation: "release", Token: owner.Token}, false)
 		if err := ReleaseResident(t.Context(), root, resident); err != nil {
 			t.Fatal(err)
 		}
-		query.Claims = resident.Claims
-		apply(t, query, false)
+		query.Residents = []Resident{resident}
+		if _, err := Transact(t.Context(), query); !errors.Is(err, ErrConflict) {
+			t.Fatal("stale retirement identity accepted", err)
+		}
 		apply(t, pending, true)
-		if _, err := (&Lease{root: root, Token: pending.Token}).NeedsRetirement(t.Context(), resident.Claims); !errors.Is(err, ErrConflict) {
+		if _, err := (&Lease{root: root, Token: pending.Token}).NeedsRetirement(t.Context(), []Resident{resident}); !errors.Is(err, ErrConflict) {
 			t.Fatal("granted activity used as a pending eviction decision", err)
 		}
 	})

@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_execution_index.v3",
+  "$id": "cartulary.harness_execution_index.v5",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_execution_index.v3"
+      "const": "cartulary.harness_execution_index.v5"
     },
     "run_id": {
       "type": "string",
@@ -177,6 +177,40 @@
         "records",
         "records_digest"
       ]
+    },
+    "host_admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "complete",
+            "partial",
+            "truncated"
+          ]
+        },
+        "omitted_records": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "records": {
+          "type": "array",
+          "maxItems": 16384,
+          "items": {
+            "$ref": "cartulary.harness_host_admission_record.v2"
+          }
+        },
+        "records_digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "status",
+        "omitted_records",
+        "records",
+        "records_digest"
+      ]
     }
   },
   "required": [
@@ -191,6 +225,7 @@
     "records",
     "records_digest",
     "graph_clock",
-    "allocation_lifecycle"
+    "allocation_lifecycle",
+    "host_admission"
   ]
 }

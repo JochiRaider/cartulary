@@ -91,6 +91,23 @@ async function openPin(page: Page) {
   await work(page);
   await page.getByRole("button", { name: title, exact: true }).press("Enter");
 }
+async function openTaskRequestsFromWork(page: Page) {
+  await work(page);
+  await page
+    .getByRole("button", { name: "Task Requests", exact: true })
+    .press("Enter");
+  const grid = page.getByTestId(gridShellTestId(taskRequestsViewSchemaId));
+  await expect(grid).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Close Work", exact: true }),
+  ).toHaveCount(0);
+  // A mounted destination can still have a pending focus handoff.
+  await expect
+    .poll(async () =>
+      grid.evaluate((element) => element.contains(document.activeElement)),
+    )
+    .toBe(true);
+}
 async function returnToOrigin(page: Page, inspect = false) {
   if (
     !(await page
@@ -166,33 +183,11 @@ async function exerciseHandoff(
   await expect(
     page.getByRole("button", { name: "Close Work", exact: true }),
   ).toHaveCount(0);
-  await work(page);
-  await page
-    .getByRole("button", { name: "Task Requests", exact: true })
-    .press("Enter");
-  await expect(
-    page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Close Work", exact: true }),
-  ).toHaveCount(0);
-  await expect
-    .poll(async () =>
-      page
-        .getByTestId(gridShellTestId(taskRequestsViewSchemaId))
-        .evaluate((element) => element.contains(document.activeElement)),
-    )
-    .toBe(true);
+  await openTaskRequestsFromWork(page);
   await work(page);
   await returnToOrigin(page);
   await navigationCell(page, recordId, activityField);
-  await work(page);
-  await page
-    .getByRole("button", { name: "Task Requests", exact: true })
-    .press("Enter");
-  await expect(
-    page.getByTestId(gridShellTestId(taskRequestsViewSchemaId)),
-  ).toBeVisible();
+  await openTaskRequestsFromWork(page);
   await work(page);
   await returnToOrigin(page, true);
   await expect(

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"maps"
 	"os"
 	"path/filepath"
@@ -299,9 +300,12 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	for _, unit := range plan.facts.Graph.Units {
 		requirements = append(requirements, workRequirement(unit))
 	}
-	production.ConfigureAdmission(admission, parent, plan.facts.Capacities, requirements)
+	production.ConfigureAdmission(admission, parent, plan.facts.Capacities)
+	if err := production.RegisterConsumers(requirements); err != nil {
+		return nil, 4, err
+	}
 
-	ports := enginePorts{Now: func() time.Duration { return time.Duration(monotonicNS() - diagnostics.canonicalEpoch) }, Execute: func(ctx context.Context, r executionRequest) unitResult {
+	ports := enginePorts{ConsumerTerminal: production.ConsumerTerminal, Now: func() time.Duration { return time.Duration(monotonicNS() - diagnostics.canonicalEpoch) }, Execute: func(ctx context.Context, r executionRequest) unitResult {
 		artifact := filepath.Join(runRoot, "unit-artifacts", safeUnitName.ReplaceAllString(r.Unit.ID, "-"))
 		d, err := harnesslocal.PrivateDirectory(artifact)
 		if err != nil {
@@ -320,7 +324,12 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		}
 		r.Environment["CARTULARY_HARNESS_UNIT_EVENT_PREFIX"] = prefix
 		return processes.Execute(ctx, r)
-	}, Fixtures: fixtures, Cache: cache, Admit: nativeAdmission(plan.facts.Capacities, parent, admission, production), Terminal: publication.Terminal,
+	}, Fixtures: fixtures, Cache: cache, Admit: func(ctx context.Context, u unit) (*hostLease, error) {
+		if diagnostics.enabled {
+			ctx = harnessadmission.WithObservation(ctx, u.ID, func() float64 { return float64(monotonicNS()-diagnostics.canonicalEpoch) / 1e6 }, diagnostics.execution.admission)
+		}
+		return nativeAdmission(plan.facts.Capacities, parent, admission, production)(ctx, u)
+	}, Terminal: publication.Terminal,
 		Cleanup: recordCleanup, CleanupServices: production.Close, Finalize: func(_ context.Context, unresolved bool, _ []cleanupRecord) error {
 			err := closeRuntime(unresolved)
 			finalized = true

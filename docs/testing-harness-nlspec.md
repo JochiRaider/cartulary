@@ -404,8 +404,10 @@ require active admission through the existing native owner. Owner-process death
 alone MUST NOT retire a resident container reservation. Allocation identity and
 durable recovery proof MUST survive until settlement. Admission transactions
 MUST NOT invoke Docker or other external operations while holding their mutex.
-An idle allocation with no remaining consumer is retired first; other necessary
-evictions use stable slot-ID order. Cleanup retains bounded drain entitlement.
+An idle allocation with no remaining compatible consumer is retired first; other
+necessary evictions use stable logical allocation keys across renderers and
+application stacks. Random allocation identifiers MUST NOT determine ordering.
+Cleanup retains bounded drain entitlement.
 Admission MUST leave capacity for the bounded cleanup process after active work
 drains; resident memory and process occupancy cannot consume that entitlement.
 Persistent local services retain their own durable reservation. Attaching runs
@@ -445,8 +447,31 @@ Ordinary admission MUST distinguish temporary active-work contention from a
 capacity shortage that remains after independent active work drains, retaining
 required ancestor activity claims under the same weighted accounting. It MUST NOT retire a
 reusable renderer for a shortage that its resident resources cannot relieve.
-Capacity-driven eviction retires one eligible allocation, then re-evaluates admission;
-slot exhaustion likewise retires only the slot needed for the next allocation.
+Capacity-driven eviction retires one eligible allocation, awaits exact settlement,
+then re-evaluates admission; slot exhaustion likewise retires only the slot needed
+for the next allocation. The internal retirement query SHALL identify the exact
+resident records that the proposed cleanup releases, including generation identity,
+claims and ownership reference. Quantity-only queries are unsupported. The native
+owner SHALL evaluate persistent deficits twice with the same weighted algorithm:
+with the current residents, and with only that exact set removed. Both evaluations
+retain required ancestors and every prospective allocation the pending request
+would still acquire. Eligibility requires a strict reduction in at least one
+persistent deficit and no increase in any deficit; eliminating every deficit is
+not required. Volume retains its non-additive semantics. Unknown, duplicate,
+changed, or stale resident identities SHALL fail validation. Evaluation grants no
+cleanup authority and releases no capacity.
+
+The fixture owner SHALL include an exclusive PostgreSQL generation in a stack's
+release set only when that exact stack cleanup settles it. Shared, measurement-owned
+and unrelated service generations SHALL NOT appear in pressure release sets.
+Idle renderer and stack candidates SHALL be considered together: first those with
+zero compatible remaining consumers, then pressure-relieving reusable candidates
+ordered by stable logical allocation key. Renderer-slot exhaustion remains a
+separate renderer-only constraint. Before cleanup, borrower exclusion, provisional
+pins and the exact generation SHALL be revalidated. Successful cleanup releases
+only its exact claims; failure retains claims, recovery authority and quarantine.
+No capacity, resource-profile quantity, ranking, fairness or browser-lane change
+is implied by this retirement policy.
 Idle ordinary application stacks are also eligible when their physical claims
 relieve persistent pressure. Retirement MUST preserve borrower exclusion and
 force fresh database and leaf-key acquisition for subsequent consumers.
@@ -507,6 +532,12 @@ nonoverlapping segments MUST exactly cover eligibility through admission or
 terminal cancellation. Eligibility occurs once. Canonical accounting, live views
 and retained readers MUST agree; initial holders MUST NOT be attributed to later
 intervals without evidence. Existing output bounds and explicit truncation remain.
+Host-admission observations MUST distinguish graph reservations, granted active
+host claims, charged resident allocations, ungranted prospective allocations,
+and measured consumption. The native admission evaluator is the sole producer
+of decision facts; diagnostic readers MUST NOT duplicate its accounting policy.
+REQ-857 defines the optional bounded observation contract. Diagnostic failure
+MUST NOT affect admission decisions, product outcomes or cleanup authority.
 Verified by: TH-HARNESS-AC-085
 
 **TH-HARNESS-REQ-804**
@@ -615,7 +646,50 @@ renderer/image/package identity, immutable public trust digest and launch option
 it excludes suite name. A slot has at most one group borrower. Every borrow binds
 run, unit, allocation and generation and emits independent row evidence. Physical
 ownership is journaled before creation. The group owns its clients, never the
-shared container. A successful borrow may return only after bounded proof that
+shared container. The compiled graph SHALL register every selected unit with the fixture owner before
+admission, including units with no fixture requirements. The owner SHALL derive
+consumer keys from the same compatibility functions used for allocation reuse;
+reporting owner and unrelated catalog rows SHALL NOT influence them. Stack identity
+SHALL bind capability, PostgreSQL scope, affinity, runtime profile, browser stage,
+fixture profile, snapshot/builder identity and declared services. Renderer identity
+SHALL bind the run-owned immutable renderer/trust configuration, runtime profile,
+lifetime policy and diagnostics mode. Dedicated physical renderers have no future
+reusers; unstarted provisional slots retain their existing reassignment contract.
+
+| Terminal notification | Required accounting |
+| --- | --- |
+| passed / failed, including failure before runner launch | Consume the unit once after any active borrow has settled or quarantined; do not invent a borrow for pre-launch failure. |
+| skipped / cached, runner not started | Consume the selected unit without inventing a borrow. |
+| cancelled, started or never started | Consume the unit exactly once; cancellation does not release physical ownership. |
+| Identical duplicate | Return the original accounting result without decrementing again. |
+| Unknown unit, invalid disposition, contradictory duplicate | Fail required lifecycle validation; do not change counts. |
+
+Terminal accounting SHALL occur for every selected graph unit, including dependency
+failure, cache hit, cancellation before host admission and required-publication
+failure. Remaining consumers SHALL never be negative. A healthy idle allocation
+MAY remain while compatible consumers remain and capacity permits. Zero-consumer
+idle allocations SHALL promptly enter admitted cleanup. Terminal notification MUST
+NOT block the graph event owner on physical cleanup. The existing fixture owner
+SHALL own bounded cleanup dispatch and join its outstanding cleanup before final
+resource reconciliation; this introduces no scheduling policy or admission bypass.
+Cleanup failures SHALL reach the required finalization result and preserve earlier
+product failures. Shared service dependencies and measurement generations may
+retire only after their complete consumer roster and dependent allocations settle.
+External persistent owners retain their independent authority. A standalone dedicated
+review owner SHALL have no future-consumer roster and SHALL retain no reusable
+allocation after its sole borrow. Graph execution SHALL require exactly one
+immutable registration before admission. Cleanup dispatch SHALL use one worker
+and a coalesced wake signal; finalization SHALL join that worker before inventory
+reconciliation and reject any registered nonterminal consumer.
+
+The compiler's static release-affinity environment marker and runtime-profile-only
+future-consumer counters are retired without fallback or compatibility toggles.
+The compiler MAY retain deterministic lifecycle estimates; an estimate is not
+cleanup authority. Reset units, reset boundaries, fresh contexts, isolation,
+measurement quietness and existing failure policies remain unchanged. No TTL,
+cross-run retention or owner-name exception is admitted.
+
+A successful borrow may return only after bounded proof that
 the server is alive and client connections, connection-owned browsers and
 forwarding listeners have settled. Failure, interruption or uncertain cleanup
 quarantines and retires the generation without retrying product work. Physical
@@ -1064,7 +1138,19 @@ readiness directly; every later group follows an explicit reset unit, and every
 reset follows the preceding group even when that product group failed.
 
 Each cohort MUST receive its own output root and reset generation, and each test
-receives a fresh context. Resets occur between cohorts reusing a lane, not between
+receives a fresh context. The owner of each test context MUST unregister its
+page and context HTTP route handlers and await active handlers before closing
+the context and disposing its request client. It MUST begin draining every owned
+page and the context before awaiting their collective settlement; one delayed
+handler MUST NOT prevent the other owners from stopping new handler dispatch.
+Test code MUST finish route registration and page creation before returning
+ownership to teardown. Teardown MUST attempt context close after the drain
+operations settle, including failed drains, and MUST preserve each drain/close
+failure without suppressing the primary test outcome. This protocol uses the
+existing fixture and native cleanup deadlines; a nonsettling handler MUST NOT
+be reported as clean or extend those deadlines. Actor session revocation follows
+context settlement. No retry, ignored route error or additional wait allowance
+is introduced by this protocol. Resets occur between cohorts reusing a lane, not between
 superseded file groups within a cohort. Before a retained stack serves the next
 cohort, reset MUST
 restore the exact validated lane database to its proved migrated-template
@@ -6670,7 +6756,7 @@ projections; no duplicate timer is introduced solely for diagnostics. Required
 reset evidence retains its existing failure consequences.
 
 **TH-HARNESS-REQ-844 — Secure execution projection.**
-`diagnostics/execution-index.json`, schema `cartulary.harness_execution_index.v3`,
+`diagnostics/execution-index.json`, schema `cartulary.harness_execution_index.v5`,
 is optional terminal evidence under basic mode. Its closed records are launch,
 allocation, lease, relationship and activity observations. The envelope binds
 run/source/graph/policy identity, records digest, completeness, omitted count
@@ -6679,8 +6765,10 @@ references, closed kinds/outcomes and catalog identities only; raw process IDs,
 names, arguments, environment, paths, URLs, SQL, test titles and errors are
 forbidden. The instrumentation policy owns a separate 4,096 execution-record
 limit. Record/pending/ordinary-record metadata bounds remain 64 KiB/1 MiB/4 MiB.
-REQ-857 adds an independently bounded browser allocation lifecycle section;
-the combined execution index SHALL be bounded to 8 MiB.
+REQ-857 adds independently bounded browser allocation lifecycle (4 MiB) and
+host-admission observation (16 MiB) sections. The combined execution index SHALL
+be bounded to 24 MiB; each section retains its own count, record-size and byte
+limits. Verbose record truncation SHALL NOT consume either independent budget.
 Private staging is bounded by record count times record size, with exclusive
 slot reservation and one owner per record; it is never a public read surface.
 
@@ -6708,9 +6796,9 @@ Verified by: TH-HARNESS-AC-138–141.
 
 ### 10.9 Diagnostic coverage and integrity (instrumentation-3)
 
-These diagnostic requirements remain independent of implementation completion. The current cutover uses execution record/index v2,
-resource sample v2/index v3, surrounding envelope v2, explanation v3 and
-instrumentation policy v3. Terminal receipt uses v1. Qualification plans,
+These diagnostic requirements remain independent of implementation completion. The current cutover uses execution record v2/index v5,
+resource sample v2/index v3, surrounding envelope v2, explanation v3,
+critical-path response v3, host-admission record v2 and instrumentation policy v5. Terminal receipt uses v1. Qualification plans,
 results and measurement traces are retired. Retired
 diagnostic-plan/manifest v2 and detail/lifetime v1 remain historical only. Producers, minimum readers, attachments
 and generated validators MUST migrate together; current readers MUST reject
@@ -6941,7 +7029,7 @@ interpreter of events. Executable readers SHALL NOT consume Markdown.
 | Input | Default | Admitted values and boundaries |
 | --- | --- | --- |
 | TARGET | Invocation root target | Exact target in validated retained target summaries, including internal projections; no path traversal |
-| VIEW | units | Closed enum: units, waits, allocations |
+| VIEW | units | Closed enum: units, waits, allocations, host-admission |
 | UNIT_ID | Omitted: complete path | Exact unit on the selected target's reconstructed critical path |
 | OFFSET | 0 | Nonnegative safe integer |
 | LIMIT | 20 | Integer 1 through 100 inclusive |
@@ -6954,7 +7042,7 @@ with artifact_error (normalized exit 11). Missing optional diagnostics SHALL rem
 unavailability, not an artifact failure. Existing comparison admission remains
 unchanged; this view SHALL NOT accept comparison inputs.
 
-Response schema `cartulary.harness_critical_path.v1` SHALL bind run, source,
+Response schema `cartulary.harness_critical_path.v3` SHALL bind run, source,
 graph, selected target, normalized query and coverage. It SHALL report total
 filtered records, returned records and nullable next_offset. Units SHALL follow
 the reconstructed target-local dependency path and its existing tie rules.
@@ -7040,6 +7128,70 @@ projections SHALL migrate atomically, without legacy translation readers.
 Rationale (non-normative): complete pages allow diagnosis of long paths without
 unbounded output. Independent allocation coverage preserves lifecycle evidence
 when detailed activity records reach their separate cap.
+
+The `host-admission` view SHALL page the selected path's native admission
+observations using the same TARGET, UNIT_ID, OFFSET, LIMIT and output bounds.
+The default VIEW remains units. An independently bounded `host_admission` section
+of execution diagnostics SHALL allow 16,384 records, 16 MiB including section
+metadata, and the existing 65,536-byte record ceiling. It SHALL remain independent
+of verbose execution and allocation-lifecycle truncation. Basic diagnostics
+collect it; off diagnostics do not. Missing optional evidence is unavailable,
+not an empty proof of no waiting. Limit exhaustion and conflicting records
+SHALL disclose coverage and omissions; no oversized record may be truncated.
+
+Each record SHALL bind a validated unit, opaque request identity when assigned,
+and graph-monotonic clock. Native decisions SHALL expose queue position and mode,
+requested active claims, effective capacities, charged residents and prospective additions,
+current and persistent resource deficits, required ancestors, relevant holders,
+and independent queue-priority/exclusive-fence blockers. Persistent deficits
+retain required ancestor claims while removing independent active work. Decision
+facts SHALL be captured by the same transaction/evaluator that grants or denies
+admission, then published outside the admission mutex. Opaque diagnostic
+references SHALL NOT disclose private lease capabilities or recovery paths.
+
+Host-admission phases SHALL distinguish logical_slot, admission_transaction,
+admission_wait, pressure_retirement and uncovered time. Repeated phase operations
+MAY aggregate disjoint durations with explicit observation count and first/last
+bounds; their span MUST NOT be reported as continuously occupied phase time.
+Consecutive identical decisions for a request SHALL coalesce with first/last
+observation bounds and count. They describe observations, not continuous evidence
+between transactions. Simultaneous blockers SHALL NOT be summed as exclusive
+wall-clock causes. Retirement observations SHALL record the owning trigger,
+proposed resident references and settlement, without changing cleanup authority.
+A retirement-evaluation observation SHALL bind the pending request, exact proposed
+resident references, before/after persistent deficits, active referencing holders,
+transaction outcome and capacity eligibility. Active references describe claim
+ownership, not proof of an active logical borrower; borrower exclusion remains
+the physical owner's separate required gate. The native counterfactual evaluator supplies
+these facts; readers validate their declared consistency without independently
+reconstructing weighted admission. Failed transactions establish no eligibility.
+Execution index v5 and critical-path response v3 reference admission-record v2;
+prior incompatible diagnostic shapes remain historical only.
+Complete path totals and filtered totals remain independent of pagination.
+The response SHALL label native disjoint phase totals as `host_phase_ms` and
+canonical host phase totals as `host_admission_ms`. `host_uncovered_ms` SHALL sum,
+per unit, the nonnegative difference between its canonical host phase and retained
+native phase durations. Canonical event timestamps have one-millisecond rounding;
+readers SHALL allow at most one millisecond per unit when reconciling native
+submillisecond observations. Missing records SHALL remain uncovered. A record's
+`requested_claims` describes the pending request; `active_holders` describes
+admitted activity. Neither is a utilization measurement. Resident/prospective
+references SHALL be disjoint within a decision. `request_ref` SHALL be null for
+phase and retirement records because those operations can precede assignment or
+span subordinate admission requests. Decision records SHALL bind the request's
+opaque identity, stable sequence and mode. Their `outcome` SHALL distinguish a
+committed admission transaction from a failed transaction; `granted` is true only
+when the native transaction returns a successful grant. Diagnostic decisions
+convey no independent ownership authority. Retirement reasons in this admission
+section SHALL be `capacity_pressure`, `exclusive_admission`,
+`terminal_borrower_release`, or `renderer_slot_pressure`; the last denotes a
+logical renderer-slot constraint, not a host capacity deficit. Retirement records
+SHALL include an explicit proposed resident set, including an empty set for a
+logical-only slot, and `settled` or `unresolved` outcome. No failure detail or
+private path is admitted into these public records.
+Schemas, producers and readers SHALL migrate atomically without translation of
+older retained evidence. Missing/truncated diagnostics cannot establish complete
+attribution; malformed, unsafe or contradictory evidence is an artifact error.
 
 Verified by: TH-HARNESS-AC-153.
 
@@ -10268,7 +10420,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-085 | Section 2.1 | Capacity closure | CPU, memory, process, IO, port, service, missing-data, override, resident ownership and dead-owner fixtures | Capability resolver and native admission validation | Resolved capacity is the safe multidimensional minimum; physical allocations remain charged once until proven cleanup; idle residents do not hold activity; drain and exclusive work progress | Bounded capability summary | Configuration diagnostic | Capability snapshot, allocation references and active grants | PID death frees resident capacity, borrowing double-charges, or cleanup bypasses capacity | no unaccounted child work |
 | TH-HARNESS-AC-086 | Section 2.1 | Fixture broker | Transaction, dedicated, migration, object, process, browser, contamination and borrowed-resource fixtures; empty/single/multi-page/multi-batch cleanup, per-object failure, repeated tokens, cancellation, missing bucket, sibling prefix and failed reuse | Broker lifecycle, one-time cluster initialization, clone grants and failure isolation, renderer reuse/context isolation/interruption, scoped trust, object-store admission and affected owner slices | Explicit leases preserve isolation; templates complete WAL-backed publication; ordinary clones perform only database finalization; compatible groups share one renderer generation; owned cleanup never deletes borrowed services; empty-state and mutation proof precede reuse; uncertain cleanup cannot readmit a generation | Bounded lease and safe stage summary | Fixture/cleanup diagnostic, with earlier readiness failure retained as primary | Logical borrow/settlement, shared physical attestations, provisioning identity and terminal cleanup | Implicit fallback, contamination, repeated clone role DDL, premature capacity release, post-readiness replacement or borrowed deletion passes | unhealthy generations retired; unresolved ownership and capacity retained |
 | TH-HARNESS-AC-087 | Section 2.1 | Runner grouping and incremental evidence | Compatible cross-owner/cross-file and incompatible project/setup cohorts; exact owner subsets; repeated titles; excluded, missing, duplicate and skipped tests; suite/global teardown; uncertain worker termination; interruption between durable checkpoint and row publication; foreign/malformed/unsafe checkpoint identities; redaction and evidence-volume scaling | Deterministic Go shard/Vitest cohort planning, explicit compatibility, worker claims, per-file public-API selection and atomic settled-file evidence | Bounded cohorts preserve isolated file lifetimes and exact per-owner attribution; completed files survive interruption; global failures supersede provisional success; incremental processing avoids cumulative rewrites and unchanged rows retain settlement timestamps | Bounded shard summary | Row/shard diagnostic | Plan digest, native reports, row outcomes and immutable file checkpoints | Owner-only fragmentation, incompatible merge, false completion, lost settled evidence, repeated cumulative publication or stale success | ordinary test cleanup |
-| TH-HARNESS-AC-088 | Section 2.1 | Browser group scheduling | Exact, partial, owner-specific, mixed-owner and empty legal selections; tuple separation; unselected-row and enumeration invariance; declared-state cohorts alone/reordered/concurrent; predecessor/reset failure, cancellation, owner loss, measurement, visual/accessibility and snapshot-write fixtures | Browser graph and lifecycle tests | Reporting owners retain attribution without partitioning execution; v15 admission binds one compatibility tuple and exact selected cases; cohorts share only proved control-plane state; contexts and observed actors/sessions are test-owned; resets follow cohort boundaries; completed outcomes survive failures; conflicting writes never overlap and every lane settles | Bounded browser summary | Lifecycle diagnostic | Group events, leases, and target projections | Owner-dependent identity, v14 admission, unproved state sharing, widened selection, lost completed outcomes, reset drift, or lane leak passes | all lanes cleaned |
+| TH-HARNESS-AC-088 | Section 2.1 | Browser group scheduling | Exact, partial, owner-specific, mixed-owner and empty legal selections; tuple separation; unselected-row and enumeration invariance; declared-state cohorts alone/reordered/concurrent; predecessor/reset failure, cancellation, owner loss, measurement, visual/accessibility and snapshot-write fixtures | Browser graph and lifecycle tests | Reporting owners retain attribution without partitioning execution; v15 admission binds one compatibility tuple and exact selected cases; cohorts share only proved control-plane state; contexts and observed actors/sessions are test-owned; page/context route handlers drain before request-client disposal, failures remain visible and existing cleanup deadlines bound nonsettlement; resets follow cohort boundaries; completed outcomes survive failures; conflicting writes never overlap and every lane settles | Bounded browser summary | Lifecycle diagnostic | Group events, leases, and target projections | Owner-dependent identity, v14 admission, unproved state sharing, widened selection, lost completed outcomes, reset drift, or lane leak passes | all lanes cleaned |
 | TH-HARNESS-AC-089 | Section 2.1 | Aggregate and cache closure | Five aggregate graphs plus hit, miss, cold, off, mutation, corruption, and stale-security fixtures | Aggregate graph/cache validation | No phase barrier or nested scheduler remains; units deduplicate and reuse only closed work | Bounded aggregate/cache summary | Cache or graph diagnostic | Current-run unit and target evidence | Stateful reuse, stale finding, or duplicate unit passes | cache scratch proof-gated |
 | TH-HARNESS-AC-090 | Section 2.1 | Canonical retained artifacts | Direct and aggregate runs plus old, malformed, overlapping, and unattributed fixtures | Schema and event-projection validation | Event unions close material wall time once, changing wait segments close exactly, and all projections agree | Bounded evidence summary | Artifact/accounting diagnostic | V3 run manifest, events, run summary, and target summaries | Old reader, dual write, dispatch timing, or duplicate attribution passes | retained v3 artifacts follow cleanup policy |
 | TH-HARNESS-AC-091 | Section 2.1 | Atomic v3 cutover | Current tree plus old target, variable, schema, reader, writer, alias, and wrapper fixtures | Task-surface, source-reference, schema, generation, focused, aggregate, and release gates | Public names remain, removed internal surfaces are absent, changed IDs version once, and no compatibility path survives | Existing bounded summaries | Exact compatibility diagnostic | V3 owner/projection and validation ledger | Partial cutover, alias, dual reader/writer, or fixed global timing gate passes | generated outputs refreshed through Make |
@@ -10286,6 +10438,15 @@ closure. Every historical failure remains visible in the accumulated ledger.
 
 The resource and routing acceptance cases above additionally require:
 
+- AC-085/086: exact retirement counterfactuals preserve required ancestors,
+  replacement allocations, shared references and non-additive capabilities;
+  multi-resource deficits strictly improve without regression. Unified selection
+  proves unused-first and stable-key ordering, borrower exclusion, generation
+  fencing, failed-cleanup ownership and exclusive progress. Terminal consumer
+  accounting covers direct/partial/owner/aggregate/empty graphs, cache hits,
+  dependency skips, cancellation, publication failure, contradictory duplicates,
+  last-consumer races and incompatible profiles; cleanup dispatch joins before
+  finalization and does not block the graph event owner.
 - AC-085: topology default four and requested six resolve consistently; malformed
   limits and insufficient profile partitions reject before provisioning. Six
   synthetic borrowers may occupy six slots; a seventh waits. Host admission may
@@ -10368,7 +10529,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-148 | REQ-853/854/855, REQ-416/502/616 | Graph/review ownership, partial acquisition, concurrency, reset/recovery, owner loss before diagnostic PID publication, foreign-scope recovery, explicit/unknown/contradictory/cyclic resource dependencies, allocation/finalization races, stale clients, fresh recovery attempts, hostile frames, repeated close and immutable terminal outcomes | Direct native fixture coordination; Go review admission/registry/terminal ownership; exact proof, ordered cleanup and unchanged physical owners | Duplicate policy, forged requests, borrowed-resource termination, leaked resources, legacy fixture transport or hidden cleanup failure fails. |
 | TH-HARNESS-AC-149 | REQ-851 | Command/import closure, retired attachments and completion reporting | Experimental collection and qualification validation retired; historical evidence unchanged | Active retired probes, qualification commands or historical relabelling fails. |
 | TH-HARNESS-AC-152 | REQ-856 | Fresh hierarchy, short-lived descendants, nested Make including independently cleared environment, exact container placement, incompatible hosts, cancellation, orphan work, OOM, counter faults, publication faults and hostile retained records | Complete charged resource accounting, precise scope, inherited measurement policy after kernel/owner proof, validated source/run binding and full queue/cleanup aggregates | Partial sampling presented as total cost, sum of memory peaks, unproved service membership, lost cleanup authority, changed scheduling, false success or changed-source equivalent admission fails. |
-| TH-HARNESS-AC-153 | REQ-857/835/844 | Paths longer than 20 units, target ties/filter/empty/byte-bound pages, queue reconciliation and overlaps; all retirement reasons, absent triggers, repeated/conflicting identities, failed settlement and limit exhaustion | Complete ordered pagination, independent path totals, explicit coverage/uncovered time, actual retirement attribution and human/JSON parity | Missing/duplicate records, concealed omissions, host/graph wait conflation, unsafe evidence, mutation during reading or diagnostic changes to cleanup authority fail. |
+| TH-HARNESS-AC-153 | REQ-857/835/844/803 | Host decision/phase paging, nested deficits/ancestors and independent blockers, opaque references, coalescing/limits/missing coverage; paths longer than 20 units, target ties/filter/empty/byte-bound pages, queue reconciliation and overlaps; all retirement reasons, absent triggers, repeated/conflicting identities, failed settlement and limit exhaustion | Complete ordered pagination, independent path totals, explicit coverage/uncovered time, actual retirement attribution and human/JSON parity | Missing/duplicate records, concealed omissions, host/graph wait conflation, unsafe evidence, mutation during reading or diagnostic changes to cleanup authority fail. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

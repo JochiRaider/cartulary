@@ -5,7 +5,7 @@ plan. The implementation request supersedes the earlier planning-only action
 boundary; historical receipts E-001–E-017 retain their original scope.
 
 Document date: 2026-10-21, America/New_York. Original execution through E-073: **COMPLETE**.
-Continuation execution: **COMPLETE — E-166/E-167**. WF-09 diagnostics are accepted. E-149–E-157 complete Section 7.7 stability qualification, the common test repair and experiment 10 freeze. E-160/E-161 reject the lifecycle optimization: browser improves 1.57% / 1.33%; CI improves 1.55% / regresses 2.65% against the user-assumed 60-minute reference. Both workloads fail the first-two-observation 5% gate. WF-11 / S-011 is complete with coordinated restoration of the lifecycle owner, implementation and projections. Accepted diagnostics and common stability repairs remain. E-162 preserves a test-only latency assertion failure; E-163 completes corrective WF-07f. E-164 preserves the required-accounting UI-review fixture failure; E-165 completes corrective WF-07g, including explicit suites and independent evidence audits. E-166 records passing final CI, independent audit, settled cleanup and retained scans. WF-07e / S-007e final validation and handoff are complete under E-167, subject to its registered closing lint succeeding after this final update. Historical failures and the completed E-073 handoff retain their original meaning.
+Previous continuation execution: **COMPLETE — E-166/E-167**. WF-09 diagnostics are accepted. E-149–E-157 complete Section 7.7 stability qualification, the common test repair and experiment 10 freeze. E-160/E-161 reject the lifecycle optimization: browser improves 1.57% / 1.33%; CI improves 1.55% / regresses 2.65% against the user-assumed 60-minute reference. Both workloads fail the first-two-observation 5% gate. WF-11 / S-011 is complete with coordinated restoration of the lifecycle owner, implementation and projections. Accepted diagnostics and common stability repairs remain. E-162 preserves a test-only latency assertion failure; E-163 completes corrective WF-07f. E-164 preserves the required-accounting UI-review fixture failure; E-165 completes corrective WF-07g, including explicit suites and independent evidence audits. E-166 records passing final CI, independent audit, settled cleanup and retained scans. WF-07e / S-007e final validation and handoff are complete under E-167, subject to its registered closing lint succeeding after this final update. Historical failures and the completed E-073 handoff retain their original meaning.
 The continuation follows **WF-00e → WF-09 → WF-10 → WF-11 → WF-07e**.
 Each boundary requires a tracker update and successful `make lint-markdown`
 before the next workstream begins. Original receipts remain historical.
@@ -34,6 +34,12 @@ cleanup, evidence integrity and S-007 final validation remain required.
 Specification, documentation and lint repairs require correctness, not speedup.
 Existing behavior is retained only when its contract and evidence justify it.
 
+Reservation/retention continuation: **IN_PROGRESS — WF-16a repair passed; full CI remains unverified, E-199**.
+The user authorized Section 7.8 implementation on 2026-10-23. Execution is
+WF-00f → WF-12 → WF-13 → WF-14 → WF-15 → WF-16. Each boundary requires a tracker
+receipt and passing `make lint-markdown`. Lifecycle correctness and optional
+Go-budget performance acceptance remain separate. No speedup is established.
+
 ## 1. Scope and Source Posture
 
 ### 1.1 Target, output and authorized actions
@@ -55,7 +61,7 @@ tracker or other Markdown as behavior, configuration or acceptance evidence.
 | Statement class | Meaning and authority | Required interpretation |
 | --- | --- | --- |
 | Adopted requirement | Named clause in the adopted/current [Testing Harness NLSpec](../testing-harness-nlspec.md), or a product primary owner allocated by [Core 00](../spec/00_document_set_status_and_precedence.md) | The source clause governs. This handoff is a subordinate reference, not a new owner. |
-| Proposed requirement | R03-001 through R03-034 in Section 7 | MUST/MUST NOT describe conditions of a later authorized change. A proposal cannot override an adopted requirement before adoption. |
+| Proposed requirement | R03-001 through R03-041 in Section 7 | MUST/MUST NOT describe conditions of a later authorized change. A proposal cannot override an adopted requirement before adoption. |
 | Handoff procedure | Source qualification, entry gates, evidence and completion rules in this document | MUST/MUST NOT constrain this roadmap and its future acceptance records; they do not authorize execution. |
 | Observed behavior | Directly inspected implementation or parsed metadata with an E-ID | Describes the inspected baseline; neither requirements completeness nor successful execution follows. |
 | Rationale / hypothesis | Explanation of benefit or risk | Is not normative; an unmeasured opportunity cannot become a measured result by repetition. |
@@ -301,6 +307,23 @@ unchanged. Longer cohorts also change load balance and the number of selected
 rows left unexecuted after failure. Equal metadata alone does not prove
 cross-owner state independence; R03-002 remains an entry gate.
 
+### Reservation continuation inventory (E-168)
+
+The clean entry is `f7b917026e1174661a9bdf9118d18120bbd225b0`. The 7,502-file
+tracked/nonignored universe was enumerated and preserved in
+`.cartulary/remediation03/reservations/entry-source.json`. Executable source
+matches the E-166 retained manifest; only the tracker differs. Historical
+`r03-s007e-ci-01` remains motivation, not a fresh acceptance sample.
+
+| Scope | Inspection / responsibility | Decision |
+| --- | --- | --- |
+| Native admission, fixture work/broker/renderer/residency/services and runtime lifecycle | Direct inspection of weighted claims, pressure retirement, consumer counts and release markers | Keep owners; correct their interfaces in S-012/S-013 |
+| Go planner/compiler/row runner and authored topology/resource registry | Direct inspection of group-count CPU allocation, authored profiles and child arguments | S-014 profile-owned candidate; keep numeric non-CPU claims |
+| Instrumentation owner/shapes, critical-path reader, task surface and native observations | Direct inspection of bounded diagnostic and generated projection seams | Extend existing diagnostic surface in S-012 |
+| Native admission/fixture/runtime tests and catalog routing | Relevant assertions inspected; remaining cases are required characterization, not claimed passes | V-023–025 |
+| Generated outputs and remaining repository files | Metadata-only; no whole-repository behavioral review | Regenerate projections through Make; no unrelated product change |
+| Ignored retained evidence | Explicit E-166 exports and preservation manifest only | Never read private event staging; no historical result reclassification |
+
 ## 3. Module Boundary Diagnosis
 
 The target is a coordinated orchestration/lifecycle seam, not an unstructured
@@ -354,6 +377,10 @@ remain attributed to E-001. Proposed changes are not current conformance violati
 | C-007 Product assurance | Full HTTP incident scenarios overlap in setup but have distinct assertions; E-009 | Core 01 REQ-01-157, 160, 162–167; Core 00 REQ-00-035 owner allocation | Preserve; add missing replay-header assertion while consolidating setup | Named survivor, unchanged route/status/envelope/auth/storage behavior, exact catalog update; S-002, V-004 |
 | C-008 Documentation and projection boundary | Generated schemas/Make are downstream; lint does not select this file; prior receipt posture differs by section; E-001/E-011/E-012 | Harness REQ-001/003; root and tooling instructions | Preserve; documentation-only audit evidence | No runtime Markdown input, stale-pass claim, new compatibility layer or unauthorized linter change; V-006/V-008 |
 | C-009 Invocation accounting | Existing diagnostics are partial; fresh cgroup and exact Docker placement probes succeeded, E-024/E-025 | REQ-856/AC-152 adopted for user-authorized S-008; REQ-847/849/851 retain their existing boundaries | Implement required accounting through public Make, native ownership and validated readers | Missing or malformed accounting blocks required acceptance; no changed-source equivalent admission or privileged tracing requirement; V-009 |
+| C-010 Admission explanation | Host phase lacks decision-level causes | REQ-803/857; adopted amendment before S-012 | Separate graph, active, resident, prospective and measured quantities | R03-035; V-023 |
+| C-011 Go execution budget | Selected group count overwrites profile CPU | REQ-379/805/803; candidate tested and restored | NO_CHANGE after performance rejection; selection coupling remains a future investigation | R03-038; S-014/V-025; E-194 |
+| C-012 Retirement and consumer lifecycle | Quantity overlap and incomplete future-consumer counts | REQ-803/804; correction/amendment before S-013 | Exact releasable sets, weighted counterfactual, terminal consumer accounting | R03-036/037; V-024 |
+| C-013 Performance and claim sizing | No per-dimension proof from idle utilization | REQ-353/803/856; Section 7.8 user acceptance | Preserve non-CPU quantities; isolate optional Go tuning | R03-039–041; V-026/027 |
 
 HTTP/WebSocket, row/query/mutation, authorization, revisions, projections,
 saved views, view schemas and UI selectors remain production-owner contracts.
@@ -391,6 +418,12 @@ limited to their named source and workload receipts.
 | F-017 / must_fix | Space discovery test advances the shared page clock without proving linked metadata admission; failed metadata correctly disables its later Preview action | Core 03 REQ-03-248a and REQ-03-220; browser test owner | ASSURANCE PASSED, E-135/E-136; both-source exact/containing/owner checks; historical callback order remains unavailable | WF-11h; V-018 |
 | F-018 / must_fix | Two owned forced drops exceed the 20-second operation cap while waiting for checkpoint file sync; later setup is rejected after quarantine | Harness NLSpec Section 11.4 and AC-007; PostgreSQL cleanup owner | IMPLEMENTED, E-137–E-141; shared bounded deadline and both-source focused assurance pass; current full-CI gate remains required | WF-11i; V-019 |
 | F-019 / must_fix | PostgreSQL reaches internal readiness while its selected published host endpoint fails SQL connectivity and later refuses TCP connections | Harness NLSpec Section 11.4; PostgreSQL acquisition and endpoint ownership | OPEN for final integration; E-150 retains publication and E-152 qualifies 192/192 lifetimes; historical cause remains uncertain | WF-11j; V-020 |
+| F-020 / must_fix for attribution | E-166 path has 1,650,220 ms host admission without detailed native deficits | C-010; native admission/evidence owners | Bounded decision observations, no second evaluator | S-012; V-023 |
+| F-021 / should_fix | 192 ordinary CI Go units claim four CPUs although standard profile authors one | C-011; compiler/Go runner | Candidate rejected; prior budgets restored after two slower matched pairs. NO_CHANGE for this scope; future coupled admission design may revisit | S-014; V-025/026; E-194 |
+| F-022 / must_fix | Retirement checks overlapping quantities rather than exact weighted relief | C-012; native admission/fixture owner | Counterfactual exact release set; preserve uncertain claims | S-013; V-024 |
+| F-023 / must_fix | Static stack release marker and renderer profile counts omit terminal selection state | C-012; fixture/runtime owners | Exact compatible consumer registry, idempotent terminal notifications | S-013; V-024 |
+| F-024 / intentional/no_action for numeric sizing | Low observed utilization does not prove safe non-CPU reductions | C-013; topology/capability owner | NO_CHANGE memory/process/port/service and host capacity values; register new evidence separately | S-012; V-023/026 |
+| F-025 / must_fix | Second serial Task Requests handoff checks grid visibility without dock closure or destination focus before Work activation | Core 03 REQ-03-314/315; workbook browser test projection | REPAIRED; shared completion assertions, unchanged deliberate supersession coverage; focused assurance passed | S-016a; V-027a; E-198/E-199 |
 
 No production module movement, vendor abstraction replacement or direct-storage
 decoupling is justified by this audit. Finding classifications do not authorize
@@ -447,6 +480,18 @@ No replacement scheduler, broker, resident test daemon, compatibility mode or
 parallel agent execution is part of this effort. Additional conversions under
 S-004 receive separate child workstream IDs and serial boundary receipts.
 
+### Reservation continuation execution graph
+
+| Workflow / slice | Dependency | Required result | Binary exit |
+| --- | --- | --- | --- |
+| WF-00f registration | E-167 historical completion; current user authorization | Section 7.8 traceability and preserved entry source | E-168 and registration lint |
+| WF-12 / S-012 admission diagnostics | WF-00f | Adopt owner, implement bounded explanations, audit claims, focused pilots | V-023 and diagnostic baseline preserved |
+| WF-13 / S-013 retention correctness | WF-12 | Exact release evaluation and complete consumer accounting | V-024, no unresolved ownership |
+| WF-14 / S-014 Go budget candidate | WF-13 | Profile-owned CPU and migrated consumers | V-025; candidate pending performance |
+| WF-15 / S-015 performance decisions | WF-14 | Test-fast benefit, browser guardrails, assumed CI elapsed comparison | V-026; accepted/rejected/inconclusive disposition and rollback |
+| WF-16 / S-016 final handoff | WF-15 | Finalization, required checks, final CI/audit/settlement | V-027, final tracker receipt and closing lint |
+| WF-16a / S-016a handoff test repair | E-198 user cancellation, settlement and entry lint | Repair incomplete serial handoff assertions under existing Core 03 owner | V-027a, E-199 focused assurance and closing lint; does not close incomplete WF-16 |
+
 ## 7. Proposed Refactor Slice Plan
 
 ### 7.1 Proposed normative contracts and binary acceptance
@@ -493,6 +538,13 @@ is binary; an absent proof is unmet, not presumed true.
 | R03-032 | Endpoint investigation SHALL distinguish container startup, internal listener readiness, published bindings, host transport and SQL readiness. A repair SHALL preserve exact ownership, bounded acquisition, failure attribution and physical settlement. It SHALL NOT treat internal readiness as successful client connectivity or mask unexplained failure with retry or increased deadlines. | V-020; any behavioral amendment precedes projections and implementation. |
 | R03-033 | Successful-child cleanup assurance SHALL observe exact delegation and service-close behavior directly. Filesystem or journal elapsed time SHALL NOT substitute for proof of service termination. Runtime cleanup authority, deadlines and failure policy SHALL remain unchanged. | V-021; existing NLSpec Sections 11.5 and 13.5; test-only correction and atomic selector rename, no behavioral amendment. |
 | R03-034 | Renderer acquisition SHALL use one explicit accounting dependency boundary with native proof resolution and exact-container verification as the production defaults. Fake Docker fixtures SHALL supply matching fake accounting dependencies. Required placement failure SHALL prevent browser use and retain exact cleanup; no public option, environment bypass or policy relaxation is permitted. | V-022; existing REQ-856 invocation-accounting ownership and renderer acquisition/cleanup contracts; internal dependency injection only. |
+| R03-035 | Native admission SHALL emit bounded, redacted decision and phase observations from its own evaluator; public critical-path host-admission paging SHALL preserve existing bounds/defaults and explicit coverage. | C-010; S-012/V-023 |
+| R03-036 | Pressure retirement SHALL identify exact released residents and strictly reduce a persistent deficit without increasing another under identical weighted accounting. Claims remain until exact cleanup. | C-012; S-013/V-024 |
+| R03-037 | All compiled consumers SHALL receive exact compatibility registration and idempotent terminal accounting; zero-consumer idle allocations retire promptly, otherwise useful compatible residency may remain. | C-012; S-013/V-024 |
+| R03-038 | Historical S-014 candidate: profile/admitted/PostgreSQL minimum CPU with exact qualification budgets and matching claims/GOMAXPROCS/parallelism. REJECTED under E-194; its owner amendments, implementation and projections are restored together. This is not retained runtime behavior. | C-011; S-014/V-025; E-194 |
+| R03-039 | Memory, process, port, service and host capacity quantities SHALL remain unchanged; utilization alone does not establish safe calibration. | C-013; S-012/V-023 |
+| R03-040 | Test-fast benefit and browser non-regression SHALL use matched sources; CI SHALL run once for final correctness; elapsed time against the assumed 3,600,000 ms reference is descriptive only, without formal CI performance acceptance. Section 7.8 gates apply. | C-013; S-015/V-026 |
+| R03-041 | Finalization, explicit selections, final CI, evidence audits, physical settlement, secret scans and final tracker lint SHALL precede completion. | C-013; S-016/V-027 |
 
 ### 7.2 S-001 interface and compatibility definition
 
@@ -920,6 +972,160 @@ handoff. The historical transport failure remains causally unresolved; no
 environment repair or zero-future-failure guarantee is claimed.
 
 
+### 7.8 Reservation sizing and idle-stack retention continuation
+
+This user-authorized continuation preserves all earlier decisions, including the
+rejected fused reset/cohort optimization. NLSpec adoption precedes changed
+projections. Runtime tooling MUST NOT consume Markdown. The scheduler ranking,
+fairness, browser lanes/workers/retries, isolation eligibility, PostgreSQL pooling,
+measurement quietness and public test commands remain unchanged.
+
+#### 7.8.1 Admission observations and claim audit — S-012
+
+`make explain-run RESULTS_DIR=<exact-run> DETAIL=critical-path
+VIEW=host-admission JSON=1` extends the existing reader. TARGET defaults to the
+invocation target, UNIT_ID omission selects the complete path, OFFSET defaults
+to zero, LIMIT defaults to 20 and permits 1..100. Existing exact-run selection,
+usage/artifact errors, 262,144-byte machine limit, bounded human output and
+record-boundary pagination apply. Version changed schemas atomically; no legacy
+translation reader or new executable diagnostic command.
+
+The native evaluator SHALL expose opaque request/unit identity, queue position,
+mode/clock, active claims, effective capacities, resident/prospective allocations,
+current and persistent deficits, required ancestors, relevant holders, priority
+and exclusive blockers, and retirement proposal/settlement. Host phases distinguish
+logical-slot waiting, transaction, admission waiting, pressure retirement and
+uncovered time. Decision snapshots are not continuous causal knowledge. Concurrent
+blockers and overlapping phases MUST NOT be summed as exclusive causes.
+
+Use an independently bounded section: 16,384 records, 16 MiB, 65,536 bytes per
+record. Identical consecutive decisions coalesce. Omission, truncation and
+unavailable coverage are explicit. Diagnostics do not change product outcomes
+or cleanup authority; public records contain no lease capabilities, credentials
+or recovery paths. No eBPF collector, automatic tuner or historical discovery.
+Map every claim to its lifetime owner. Numeric non-CPU quantities are NO_CHANGE.
+
+#### 7.8.2 Exact retirement and terminal consumers — S-013
+
+Evaluate the pending request with current residents and again after removing
+exact proposed residents, retaining required ancestors and replacement demand.
+An eligible pressure retirement strictly reduces at least one persistent deficit
+and increases none. Preserve non-additive volume capability semantics. Include
+an exclusive PostgreSQL generation only when this cleanup settles it; exclude
+shared services, measurement generations and unrelated allocations.
+
+Consider idle renderers and application stacks together: no remaining compatible
+consumer first, then useful pressure relief with stable logical-key ties. Slot
+exhaustion remains renderer-specific. Revalidate idle/generation identity; retire
+one candidate, settle, then reevaluate. Uncertainty retains claims and recovery.
+Register exact compiled compatibility; terminal notifications cover passed,
+failed, skipped, cached, cancelled and never-started work, are idempotent, and
+reject unknown/contradictory facts. Zero-consumer idle allocations retire through
+admitted cleanup. Others may remain when capacity permits. Remove static release
+markers and incomplete counters; add no TTL, cross-run cache or owner exception.
+Separate reset units and all reset/state/measurement boundaries remain mandatory.
+
+#### 7.8.3 Go budget candidate — S-014
+
+**Disposition: REJECTED / RESTORED, E-194.** The following describes the historical
+candidate design, not an adopted requirement for the retained implementation.
+Its correctness tests passed, but both initial matched performance pairs were
+slower. The prior Go owner and projections were restored together.
+
+Resolve ordinary CPU as min(authored profile CPU, admitted Go budget, applicable
+PostgreSQL bound). Positive/infeasible validation precedes child execution.
+Standard therefore normally uses one CPU; larger authored profiles retain their
+budget. Explicit qualification contexts retain exact owner-required budgets or
+fail feasibility; no silent clamp. CPU claims, GOMAXPROCS and test parallelism
+agree; package-build parallelism respects the budget and existing package cap.
+Unrelated selection splitting/order/count MUST NOT change a group's budget.
+Preserve exact selectors, compatibility, isolation and Go JSON ownership. Remove
+global execution worker/GOMAXPROCS fields; publication workers remain separate.
+Version/migrate all affected consumers; budgets bind semantic/cache identity.
+
+#### 7.8.4 Assurance, measurement and rollback — S-015
+
+Characterization SHALL cover diagnostic pagination/bounds/malformed/private data;
+transient/persistent/nested/multidimensional pressure and masked or replaced
+savings; direct/owner/partial/aggregate/empty selections; terminal duplicates,
+skips/caches/cancellation and last-consumer races; active borrowers, stale tokens,
+owner loss, publication/cleanup failure, quarantine and exclusive progress;
+Go parent/host/service bounds, explicit contexts, selector and identity invariance.
+
+Discover exact rows through public task-guide for harness.browser,
+harness.command_surface, harness.test_catalog and harness.evidence_accounting.
+Before a new S-015 source freeze, each changed Go treatment SHALL pass
+`make lint CHECK=go` after finalization, in addition to its affected assurance and
+projection checks. This execution entry gate follows the E-184 late static-analysis
+failure; it does not replace final CI or alter runtime semantics.
+Measured baseline contains diagnostics and mandatory lifecycle repairs; candidate
+adds only Go budgeting. Earlier CI is motivation, not an acceptance sample.
+Freeze sources, selections, allowed differences, toolchain/storage/environment,
+run order and coverage. Use CGO_ENABLED=0, CARTULARY_HARNESS_CACHE_MODE=off,
+HARNESS_DIAGNOSTICS=basic, HARNESS_ACCOUNTING=required. Warm build/dependency caches;
+exclude one warm-up per measured treatment. No intentional competing workload or
+polling during quiet measurement.
+
+| Workload | Acceptance |
+| --- | --- |
+| make test-fast | Four matched pairs maximum; first two both below 5% reject; either at least 20% permits early exit after both; otherwise 95% benefit lower bound exceeds 5% |
+| make browser-e2e SUITE=functional | Four matched pairs; correctness/cleanup and all five 99% non-regression upper bounds at most 5%; no benefit minimum |
+| make ci | One final correctness invocation against the retained source, after all cheaper gates. No baseline, warm-up or formal CI performance gate. Elapsed time against assumed 3,600,000 ms and other metrics are descriptive only |
+
+The user-approved E-191 amendment supersedes earlier CI sampling requirements for
+this continuation only. Complete focused correctness and projection checks first,
+then test-fast warm-ups and benefit pairs. Run browser performance warm-ups and
+four pairs only if the Go treatment survives the fast gate. Rejecting that gate
+SHALL omit remaining optional performance sampling, restore the Go treatment
+atomically and proceed to retained-source final assurance. Neither focused
+repairs nor failed prior warm-ups authorize another CI warm-up. Final CI failure
+SHALL remain open, be diagnosed and repaired through focused routes before any
+necessary repeat; one planned invocation does not waive correctness.
+
+Matched pairs alternate baseline-first odd and candidate-first even. Full analysis
+uses 10,000 paired bootstrap resamples, seed 20261021 and existing decimal rules.
+Measured guardrails are elapsed, charged CPU, kernel peak memory, p95 ready delay
+and cleanup duration. Required correctness and cleanup never become optional.
+Missing coverage is inconclusive. Every attempt is independently validated;
+changed-source evidence is never COMPARISON=equivalent; failed/omitted attempts
+remain recorded and repairs require a fresh freeze. Report attribution and claim
+scope honestly. Reject optional Go tuning if a required performance gate fails;
+restore owner/code/projections together. Mandatory lifecycle correctness repairs
+and accepted diagnostics remain; do not reintroduce defects for historical timing.
+
+#### 7.8.5 Final completion — S-016
+
+Run make agent-finalize before broader final verification, then generated/schema/
+catalog and owner checks, explicit browser support/visual and UI-review contracts,
+one final make ci, independent evidence audits, final secret scans and physical
+settlement. No golden refresh. RESULTS_DIR maintenance requires a compatible
+successful full warm-check root; otherwise record skipped because RESULTS_DIR
+was unset. Every receipt records source, traceability, commands/selections/roots,
+native exits, cleanup, separate assurance/performance decisions, rollback and
+next entry. Final tracker update plus passing Markdown lint closes this scope.
+
+#### 7.8.6 Focused repair after user cancellation — S-016a
+
+User instruction at E-198 stops the current CI and authorizes the identified
+fixes. WF-16a SHALL follow the settled cancellation receipt and boundary lint.
+Core 03 REQ-03-314/315 already own destination presentation and focus completion;
+no behavioral amendment is needed for this test-projection correction. The test
+SHALL await destination visibility, Work dock closure, and focus inside the
+destination before issuing the next serial navigation. Both repeated transitions
+SHALL use one local helper. Deliberate supersession tests SHALL remain separate
+and SHALL NOT acquire that serial wait. Defaults, timeouts, selectors, assertions,
+production behavior, capacity and retry policy SHALL remain unchanged.
+
+V-027a SHALL run the failing 768-pixel row alone, then all six destination-handoff
+rows plus the three other rows skipped in its CI cohort. Finalization SHALL
+precede broader source type/lint/generated/catalog checks. Each run SHALL have
+independent evidence validation, successful cleanup and retained-secret scanning.
+The repair receipt SHALL record source identity, exact selections and native
+exits, update this tracker, and pass Markdown lint. This repair does not close
+S-016's incomplete full-CI assurance or establish CI performance acceptance.
+No automatic CI restart is part of the focused repair after this cancellation.
+
+
 ## 8. Validation Plan
 
 ### 8.1 Future canonical validation
@@ -955,6 +1161,12 @@ separately from summaries, and retain exact source/environment identities.
 | V-020 endpoint acquisition | R03-032; F-019 | Existing pgtest/testcontainers and affected module.extensions owner routes; exact selections frozen before execution | Deterministic causal regression where possible, successful selected endpoint SQL handshake, cancellation and failed-start settlement; common B/C source fidelity; required full-CI assurance remains open |
 | V-021 cleanup-delegation assurance | R03-033; WF-07f | Exact `harness.browser.unit.testservices_lifecycle_contract` row, containing browser owner, catalog/generated/schema and final CI | Successful child returns 0; exactly one reaper receives the exact two-service lease; neither direct close callback runs; cleanup remains cleaning until its owner settles; no elapsed-time acceptance threshold. |
 | V-022 renderer accounting boundary | R03-034; WF-07g | Exact `harness.browser.boundary_support.ui_review_contract`, containing UI-review contracts, explicit visual execution under required accounting, and current projection/owner checks | Accounted/unaccounted fake matrices are independent of ambient host membership; parent is passed at create; verification occurs after start and before browser use; verification failure cleans the exact allocation; production defaults retain native proof. |
+| V-023 admission observations | F-020/F-024; R03-035/039 | Native admission/runtime and retained-reader contract routes, followed by focused pilots | Complete redacted decision model, bounded paging and scoped claim audit |
+| V-024 retention correctness | F-022/F-023; R03-036/037 | Native weighted admission, fixture and runtime lifecycle rows plus installed boundary tests | Exact useful eviction, complete terminal consumers, settlement and exclusive progress |
+| V-025 Go budget | F-021; R03-038 | Compiler/Go runner/catalog and affected owner routes | Stable profile budget, selectors, nested bounds and migrated identities |
+| V-026 performance | R03-040; Section 7.8.4 | test-fast, browser functional and CI with frozen sources | Applicable benefit/guardrail decisions, independent evidence and rollback |
+| V-027 final handoff | R03-041 | agent-finalize, source checks, owner/explicit selections, final CI/audits/lint | Retained source fully verified, settled, scanned and resumable |
+| V-027a serial handoff repair | F-025; Core 03 REQ-03-314/315; R03-041 | Exact failed row, nine-row containing selection, finalization/types/frontend/generated/catalog and tracker lint | Both serial transitions assert presentation completion; supersession unchanged; audits/cleanup/scans pass; full CI explicitly incomplete |
 
 V-003's independence matrix MUST bind every newly combinable row/helper to a
 reviewed state-effect class. Runtime representatives may cover several rows only
@@ -1171,6 +1383,13 @@ investigation may have a no-change result; implementation acceptance is separate
 | T-033 | Make cleanup-delegation assurance causal | WF-07f | DONE | E-163; direct delegation, exact lease and no direct-close assertions; focused/containing/projection/lint checks pass; no runtime change |
 | T-034 | Complete renderer accounting fixture boundary | WF-07g | DONE | E-165; R03-034/V-022; focused/containing/real visual and owner/projection checks pass; required accounting remains fail closed |
 | T-017 | Continuation validation and handoff | WF-07e / S-007e | DONE | E-165/E-166 current owner/projection/explicit checks, 600/600 final CI, audits and settlement pass; E-167 final tracker closure; R03-024 |
+| T-035 | Register reservation continuation | WF-00f | DONE | E-168; source/traceability and registration lint pass; closing lint gates WF-12 |
+| T-036 | Explain native admission pressure | WF-12 / S-012 | DONE | R03-035/039; V-023 |
+| T-037 | Correct retention and exact eviction | WF-13 / S-013 | DONE | R03-036/037; V-024; E-174 |
+| T-038 | Implement profile-owned Go budget candidate | WF-14 / S-014 | REJECTED / RESTORED | R03-038; V-025; E-177 assurance; E-194 performance rejection and coordinated restoration |
+| T-039 | Decide optional tuning performance | WF-15 / S-015 | DONE / REJECTED | R03-040; V-026; E-194; fourteen dependent attempts omitted; closing lint gates WF-16 |
+| T-040 | Final validation and handoff | WF-16 / S-016 | IN_PROGRESS | R03-041; V-027; E-198 user-cancelled CI; focused repair WF-16a required; complete CI assurance remains unestablished |
+| T-041 | Repair serial browser handoff assurance | WF-16a / S-016a | DONE | Core 03 REQ-03-314/315; R03-041; V-027a; E-199/E-200; completion lint passed and final closing lint registered |
 
 ## 10. Session Handoff Log
 
@@ -7909,6 +8128,1563 @@ working tree at the recorded HEAD; no commit, external publication or golden
 refresh is claimed. `s007e-validation-ledger.json` retains the final native exits,
 audit outcome, diagnostic coverage and source-preservation references.
 
+### E-168 — Reservation continuation registration
+
+2026-10-23: user-authorized implementation begins at clean HEAD
+`f7b917026e1174661a9bdf9118d18120bbd225b0`. Entry source manifest preserves 7,502
+tracked/nonignored files under `.cartulary/remediation03/reservations/entry-source.json`.
+No pre-existing changes. `make help ALL=1` exits 0 and confirms public discovery,
+reader, validation and execution surfaces. Applicable root/tools/backend
+instructions and test-operations skill reloaded. Section 7.8 and F-020–024,
+C-010–013, R03-035–041, S-012–016, V-023–027 and T-035–040 register the approved
+serial execution. Historical E-167 remains complete; this scope is separate.
+No implementation, test pass or performance benefit is yet claimed.
+Registration lint `r03-wf00f-register-lint-01` passed native **72407/0**,
+17,810 ms. This receipt closes WF-00f assurance, with no runtime/performance
+claim and no source migration. The four owner routes were discovered through
+public Make. Closing lint `r03-wf00f-close-lint-01` MUST pass after this update
+before WF-12 owner adoption and implementation begin.
+
+### E-169 — WF-12 owner adoption
+
+WF-00f closing lint passed native **58478/0**, 9,900 ms, root
+`r03-wf00f-close-lint-01`. All four public task-guide commands exit 0.
+Before projection/implementation changes, REQ-803/857 and AC-153 adopt the
+host-admission observation boundary, defaults, independently bounded section,
+coalesced decision observations and disjoint phase aggregates. Source claims and
+admission behavior remain unchanged in this slice. F-020/F-024 → C-010/C-013 →
+R03-035/039 → S-012/V-023. Numeric non-CPU sizing is NO_CHANGE, not calibration.
+
+### E-170 — WF-12 implementation and focused assurance (open)
+
+Native admission captures decision facts inside its existing evaluator and emits
+observations after releasing its mutex. Graph queue reservations remain canonical
+scheduler events. `VIEW=host-admission` consumes a separately bounded section,
+with opaque references, explicit coverage, coalesced snapshots, disjoint phase
+durations and record-boundary pagination. Index v4, policy v5, critical-path v2,
+and admission-record v1 replace current readers atomically; runtime-plan v6's
+unchanged clock shape references index v4. No historical translation is added.
+
+| Resource | Authored claim / capacity owner | Lifetime and decision |
+| --- | --- | --- |
+| CPU / I/O | Topology resource profiles; resource registry host/CPU-derived capacities | Active admission and graph reservations only. Residents carry neither; CPU budget treatment waits for S-014. I/O unchanged. |
+| Memory / processes | Topology active and physical profiles; host/cgroup/process-limit-bounded registry capacities | Active claim plus weighted resident claims through exact cleanup. Values unchanged; low utilization supplies no sizing proof. |
+| Ports / browser stacks | Topology physical profiles; port-lane-derived capacities | Physical residency through settlement, including idle stacks. Values unchanged. |
+| PostgreSQL / object store | Topology service/physical profiles; bounded registry lanes | Active requirements and exact resident service generations; borrowed/persistent owners retain their own claims. Values unchanged. |
+| Service stack / volume | Runtime profile and writable-root capability | Service residency; volume remains non-additive capability. Values unchanged. |
+| Host admission / ancestors | Native weighted admission owner | Effective capacities retain governing ancestor envelopes; private ownership cannot be inferred from public diagnostic names. Algorithm unchanged in S-012. |
+
+Canonical command receipts so far (all roots under `.cartulary/test-results`):
+
+| Command / selection | Root / native handle | Exit / outcome |
+| --- | --- | --- |
+| `make generate`, first attempt | No run emitted | 2; stale runtime-plan reference to index v3; corrected before retry |
+| `make generate` | `20261023T122627Z-p79564`, 82106 | 0; 11,930 ms |
+| `make format RUN_ID=r03-s012-format-01` | No run emitted | 2; format does not declare RUN_ID; no execution |
+| `CARTULARY_TEST_RUN_ID=r03-s012-format-02 make format` | `r03-s012-format-02`, 44064 | 0; graph 8,042 ms |
+| `make test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.observation_admission,harness.evidence_accounting.behavior.current_epoch_evidence HARNESS_DIAGNOSTICS=basic` | `r03-s012-admission-evidence-01`, 35627 | 0; graph 13,613 ms |
+| `make test-slice OWNER=harness.command_surface ROWS=harness.command_surface.unit.native_runtime HARNESS_DIAGNOSTICS=basic` | `r03-s012-native-runtime-01`, 6128 | 0; graph 54,731 ms |
+| `make explain-run RESULTS_DIR=.cartulary/test-results/r03-s012-admission-evidence-01 DETAIL=critical-path VIEW=host-admission JSON=1` | Exact preceding run | 0; complete admission coverage, zero omissions, six path records |
+
+Execution receipts use `CGO_ENABLED=0`, fresh `CARTULARY_TEST_RUN_ID`, and
+`CARTULARY_HARNESS_CACHE_MODE=off` for test slices. Passing focused tests do not
+close S-012: subsequent bounded-failure/rounding refinements, finalize, focused
+physical pilot, generated checks, evidence audits and closing lint remain due.
+No performance benefit is claimed. No active test process remains from these
+receipts. Final candidate resource settlement still requires retained audits.
+
+### E-171 — WF-12 completion and reservation-sizing disposition
+
+**S-012 implemented; focused assurance passed; no performance benefit claimed.**
+REQ-803/844/857 and AC-153 own the behavior. Native admission captures weighted
+decisions and transaction outcomes; fixture owners report actual retirement
+sets/triggers/settlement; runtime admission owns bounded observations; the
+canonical reader supplies host intervals and the retained reader validates the
+independent section. Critical-path v2 projects the same validated model for
+human/JSON pagination. V-023 covers these routes and the exact claim audit in
+E-170. F-020/F-024 and R03-035/039 are satisfied for this workstream; F-021–023
+remain assigned to their subsequent slices.
+
+Post-refinement commands all use repository-root public Make, `CGO_ENABLED=0`,
+fresh environment `CARTULARY_TEST_RUN_ID`, and execution-cache off for tests.
+`HARNESS_DIAGNOSTICS=basic` applies to the three test selections below; only the
+service pilot additionally uses `HARNESS_ACCOUNTING=required`.
+
+| Exact public command / selection | Run ID / native session | Exit; graph/tool duration |
+| --- | --- | --- |
+| `make generate` | `r03-s012-generate-02` / 74829 | 0; 11,240 ms |
+| `make format` | `r03-s012-format-03` / 25033 | 0; 7,934 ms |
+| `make agent-finalize` | `r03-s012-finalize-01` / 56982 | 0; 28,215 ms |
+| `make source-check CHECK=generated` | `r03-s012-generated-01` / 86841 | 0; 16,938 ms |
+| `make source-check CHECK=schema` | `r03-s012-schema-01` / 17851 | 0; 6,589 ms |
+| `make source-check CHECK=catalog` | `r03-s012-catalog-01` / 8275 | 0; 1,780 ms |
+| E-170 exact two-row evidence/admission selection | `r03-s012-admission-evidence-02` / 8107; `r03-s012-admission-evidence-03` / 84003 | 0 / 0; 13,491 / 29,130 ms |
+| E-170 exact native-runtime selection | `r03-s012-native-runtime-02` / 96118 | 0; 55,369 ms |
+| `make test-slice OWNER=harness.browser ROWS=harness.browser.integration.native_graph_observations` | `r03-s012-service-pilot-01` / 34263 | 0; 105,543 ms |
+| `make format` | `r03-s012-format-04` / 10621 | 0; 7,815 ms |
+| `make test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.observation_admission` | `r03-s012-admission-facts-01` / 86416 | 0; 2,313 ms |
+
+The retained executable source for finalize, generated/schema/catalog checks,
+final evidence/runtime assurance and the physical pilot is
+`sha256:e799f7b221a696eea0f5a98157309c3d33a240359bb978079ba72e85b8700702`.
+The last facts-only run adds diagnostic assertions to existing weighted-tree
+cases for ancestor envelopes, persistent memory deficits, non-additive volume
+and priority-versus-capacity attribution. It changes no executable behavior.
+Its exact manifest and `.cartulary/remediation03/reservations/s012-source.json`
+preserve the post-assurance source; `s012-source.tar.gz` preserves authored and
+generated files together. These internal authoring snapshots are not runtime
+inputs and introduce no Markdown dependency.
+
+`make harness-observability-check RESULTS_DIR=<exact-root>` exits 0 for evidence
+03, native-runtime 02, service-pilot 01 and both nested pilot roots
+`native-boundary/native-observation-postgres` and
+`native-boundary/native-observation-https`. The pilot roots contain complete
+host-admission coverage with respectively 3, 21 and 36 records and zero omissions;
+the HTTPS path view exposes 18 records with paging. The nested runs independently
+validate PostgreSQL checkpoint observations and required invocation accounting.
+Outer/pilot PostgreSQL/pilot HTTPS cleanup closes 10/18/23 obligations, all
+`completed`; secret scans pass 163/47/97 files respectively. Evidence/runtime
+checks likewise settle all recorded cleanup and pass scans (26/74 files).
+`make explain-run RESULTS_DIR=<exact-root> DETAIL=critical-path
+VIEW=host-admission JSON=1 LIMIT=1` passes for evidence 03 and the nested HTTPS
+pilot, preserves complete-path totals and returns `next_offset=1`.
+
+**Disposition and boundaries.** Memory, process, port, PostgreSQL, object-store,
+service and host capacity quantities remain **NO_CHANGE**. The audit establishes
+ownership/lifetime, not that current values are optimal. Historical low container
+utilization does not prove excess reservations. No eBPF collector, tuning,
+capacity relaxation, scheduling change or lifetime correction ships in S-012.
+Pilots are excluded from acceptance. Early prototype runs remain source-bound
+historical evidence; current readers do not translate earlier draft shapes.
+Migration is atomic and no live invocation spans the source cutover. No
+candidate-owned resource from this slice is unresolved. Agent-finalize retained
+maintenance was skipped because `RESULTS_DIR` was unset; no compatible successful
+full warm-check root exists.
+
+WF-13 may begin only after this receipt and `r03-s012-close-lint-01` pass. Its
+first action SHALL adopt exact retirement evaluation and complete consumer
+accounting in REQ-803/804; optional Go budgeting remains blocked by S-013.
+
+### E-172 — WF-13 entry and owner adoption
+
+S-012 closing Markdown lint passed, native **63059/0**, 16,360 ms, root
+`r03-s012-close-lint-01`. Its preserved post-assurance source contains 7,506 files,
+archive 55,086,449 bytes, and executable source digest
+`sha256:1346f609a8a1b26cf7f40735de928a4212c5716132bacca6eeecedd4554754a6`.
+S-013 now adopts REQ-803/804 and AC-085/086 before changing projections or code:
+exact counterfactual retirement, unified stable idle selection, graph-complete
+idempotent terminal accounting, exact compatibility keys and joined fixture-owned
+cleanup dispatch. The graph event owner must not wait on physical cleanup. This
+is a required lifecycle correction, independent of S-014 performance acceptance.
+F-021/F-022 → C-011/C-012 → R03-036/037 → S-013/V-024. S-012's unchanged admission
+and real-service pilot provide characterization; existing weighted-tree, renderer,
+broker and runtime rows remain the narrow validation owners. No implementation
+or performance acceptance is yet claimed for S-013.
+
+Pre-change characterization `r03-s013-characterization-01` passes native
+85075/0 (2,485 ms) after format 14016/0 (8,027 ms). The exact selection is
+`make test-slice OWNER=harness.evidence_accounting
+ROWS=harness.evidence_accounting.behavior.observation_admission
+HARNESS_DIAGNOSTICS=basic`, with CGO disabled and execution-cache off. A newly
+added weighted-tree case demonstrates the defect: an 800 MiB ancestor envelope
+masks a 200 MiB nested resident, so retiring that resident cannot reduce the
+pending request's 100 MiB deficit; the old quantity-only query nevertheless
+returns true. S-013 SHALL change that assertion to require false under exact
+counterfactual evaluation, while preserving the rest of the weighted accounting.
+
+
+
+### E-173 — S-013 counterfactual assurance and consumer implementation
+
+The native retirement request now names exact immutable resident records. The
+same weighted evaluator runs before/after removal, reintroduces prospective
+replacements and retains required ancestors. Its decision joins independently
+bounded admission observations; execution index v5, host record v2 and critical
+path v3 migrate together through `make generate`. No quantity fallback remains.
+
+| Command / selection | Run ID / native handle | Outcome |
+| --- | --- | --- |
+| `make generate` | `r03-s013-generate-01` / 21313 | 0; 12,300 ms |
+| `make format` | `r03-s013-format-01` / 56433 | 0; 8,075 ms |
+| `make test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.observation_admission,harness.evidence_accounting.behavior.current_epoch_evidence HARNESS_DIAGNOSTICS=basic` | `r03-s013-exact-retirement-01` / 16410 | 2; 14,865 ms; stale quantity-only test request rejected |
+| `make format` | `r03-s013-format-02` / 46382 | 0; 8,052 ms |
+| Same evidence selection after exact-record fixture repair | `r03-s013-exact-retirement-02` / native handle unavailable | Terminal summary pass; 15,348 ms; outer exit observation lost during tool-output truncation |
+| `make format` | `r03-s013-format-03` / 33509 | 0; 7,989 ms |
+| `make test-slice OWNER=harness.browser ROWS=harness.browser.unit.native_fixtures,harness.browser.unit.fixture_broker_smoke HARNESS_DIAGNOSTICS=basic` | `r03-s013-fixtures-01` / 43695 | 2; 17,706 ms; dedicated provisional-slot pressure loop |
+| `make format` | `r03-s013-format-04` / 34535 | 2 before graph creation; incomplete Go field edit failed native bootstrap |
+| `make format` after field repair | `r03-s013-format-05` / 75232 | 0; 7,988 ms |
+| `make format` after runtime terminal matrix | `r03-s013-format-06` / 37543 | 0; 8,000 ms |
+
+All execution commands use `CGO_ENABLED=0`; test selections also disable execution
+cache. Roots use `.cartulary/test-results/<run-id>`. Failed attempts remain intact.
+Exact-retirement-02 source is
+`sha256:2148b0532cc13e50c089a9f63e50adca680374a9567b3de8994bdfdae831304c`;
+`make harness-observability-check RESULTS_DIR=<that-root>` independently passed
+with full validity and complete diagnostics. It is focused assurance, never a
+performance sample or proof of its unobserved outer command exit.
+
+The new consumer registry registers selected graph units, centralizes stack and
+renderer compatibility, records idempotent terminal dispositions and dispatches
+cleanup through one joined fixture worker. Compiler cleanup markers are removed;
+separate reset units remain. The first fixture run caught a provisional renderer
+slot repeatedly winning pressure selection without releasing physical capacity.
+The repair excludes unallocated slots from capacity-pressure candidates while
+preserving bounded provisional reassignment. Its rerun and additional terminal
+matrices are pending. Fixture-01 cleanup reported 13 completed steps, none failed
+or blocked. S-013 remains IN_PROGRESS; no performance claim or successor entry.
+
+S-013 follow-up assurance (same public selections as above): fixtures-02
+**53884/0**, 69,075 ms; exact-retirement-03 **93268/0**, 79,722 ms;
+runtime-01 **77338/2**, 69,079 ms. Fixture/evidence readers passed independent
+`CHECK=all`; failed runtime diagnostics passed `CHECK=diagnostics`. These
+correctness runs shared the host and their durations are not comparative samples.
+The runtime failure was the synthetic continuation fixture's missing consumer
+registration: its adapter now uses the registered graph owner, preserving the
+required two generations across the injected failure. Format-07 **66607/0**,
+8,050 ms. The new terminal matrix itself passed, including failure before launch,
+publication failure, cancelled/never-started units, cached and skipped units.
+
+Two attempted combined commands, native-assurance-01 (comma-separated OWNER)
+and native-assurance-02 (ROWS without OWNER/SUITE), failed usage validation with
+native exit 2 before run creation. They executed no tests. Required reruns use
+the documented single-owner routes; no selector or public interface changed.
+
+After repair, fixtures-03 **24530/0** (115,611 ms), runtime-02 **78265/0**
+(116,931 ms), and catalog-01 **79812/0** (51,540 ms) pass. The catalog route is
+`make test-slice OWNER=harness.test_catalog
+ROWS=harness.test_catalog.behavior.routing_contract HARNESS_DIAGNOSTICS=basic`.
+The other selections match their prior owner routes. Format-08 **87281/0**,
+7,935 ms, adds explicit failed asynchronous settlement/claim retention, actual
+terminal-trigger attribution and non-additive volume retirement assertions.
+Those new assertions require their own pass before S-013 closes.
+
+Traceability correction: E-172's final finding label refers to **F-022/F-023**
+(retirement and consumer lifecycle). F-021 belongs to the still-pending Go-budget
+candidate. This corrects the label without changing the preserved receipt or IDs.
+
+
+### E-174 — WF-13 completion and mandatory retention baseline
+
+F-022/F-023 → REQ-803/804, AC-085/086 → exact native retirement evaluation,
+fixture-owned terminal registry/cleanup dispatcher and graph terminal transitions
+→ V-024. Mandatory correctness is **PASS**; implementation is **ACCEPTED**.
+Performance is **NOT ESTABLISHED**. S-014 optional Go budgeting remains unchanged
+and may begin only after this receipt's closing Markdown lint passes.
+
+The registry freezes every selected graph unit before admission. Stack reuse and
+consumer registration now use one exact compatibility identity; renderer counts
+bind profile, lifetime and diagnostics within immutable run/trust ownership.
+Terminal accounting covers cache, dependency skip, pre-launch failure, cancellation
+and publication failure. Identical duplicates are idempotent; unknown, conflicting
+or active-borrow notifications fail. A bounded, coalesced fixture worker performs
+admitted cleanup and joins before inventory reconciliation. It cannot start a
+second sweep after shutdown begins. Shared and measurement services wait for
+all consumers and dependent allocations; external persistent owners remain separate.
+
+Renderer/stack pressure selection is joint, unused-first and stable by logical
+key. A reusable pressure candidate must improve exact persistent deficits;
+provisional slots release no physical capacity and are excluded from pressure
+selection. The pinned stack retirement decision rechecks zero-consumer state so
+a concurrent last-terminal notification produces the actual mandatory retirement
+reason and trigger instead of an unsupported capacity-relief claim. Failed cleanup
+retains native resident claims and prevents reuse. Static release markers and
+profile-only counters are removed. Separate reset units and boundaries remain.
+
+| Public command / selection | Run ID / native handle | Exit; duration |
+| --- | --- | --- |
+| E-173 fixture selection with failed-dispatch and trigger tests | `r03-s013-fixtures-04` / 90827 | 0; 12,066 ms |
+| `make test-slice OWNER=harness.browser ROWS=harness.browser.integration.native_fixture_lifecycle,harness.browser.integration.native_borrowed_fixture_lifecycle,harness.browser.integration.native_graph_observations,harness.browser.integration.native_nested_cancellation,harness.browser.integration.native_selected_service_lifecycle HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=required` | `r03-s013-boundary-01` / 88970 | 0; 166,254 ms |
+| `make generate` | `r03-s013-generate-02` / 34057 | 0; 11,270 ms |
+| `make format` | `r03-s013-format-09` / 85875 | 0; 8,048 ms |
+| E-173 fixture selection after shutdown and stable-key assertions | `r03-s013-fixtures-05` / 75794 | 0; 20,105 ms |
+| `make test-slice OWNER=harness.evidence_accounting ROWS=harness.evidence_accounting.behavior.observation_admission HARNESS_DIAGNOSTICS=basic` | `r03-s013-admission-final` / 58298 | 0; 2,761 ms |
+| `make source-check CHECK=generated HARNESS_DIAGNOSTICS=basic` | `r03-s013-generated-01` / 13053 | 0; 35,344 ms |
+| `make source-check CHECK=schema` | `r03-s013-schema-02` / 39762 | 0; 6,668 ms |
+| `make source-check CHECK=catalog` | `r03-s013-catalog-02` / 55059 | 0; 1,819 ms |
+| `make format` | `r03-s013-format-10` / 75833 | 0; 7,932 ms |
+| E-173 fixture selection with deterministic terminal/pressure race | `r03-s013-fixtures-06` / 59827 | 0; 20,384 ms |
+
+All execution uses `CGO_ENABLED=0` and test execution-cache off. The earlier
+`make schema-check` attempt returned usage exit 2 (no such target, no run root);
+the canonical replacement above passed. Exact roots are
+`.cartulary/test-results/<run-id>`. Final fixture source is `sha256:496b69d59ce04a644f34a3d23cf3ce80ece293b78dceab4531c11f8eedf337fa`.
+
+Independent `make harness-observability-check RESULTS_DIR=<root>` passed for
+fixtures-04/05, runtime-02, catalog-01 and boundary-01. Both nested boundary roots,
+`native-boundary/native-observation-postgres` and `native-observation-https`, also
+passed independently with invocation accounting and PostgreSQL checkpoints.
+The boundary outer invocation has 14 completed cleanup records, zero failed or
+blocked, and a passing 504-file retained-secret scan. Fixtures-04 has 13 completed
+and a passing 33-file scan; runtime-02 has 13 completed/90 scanned; catalog-01
+has 11 completed/24 scanned. The final fixture run has 13 completed, zero failed
+or blocked and a passing 33-file scan. Injected failure tests preserve their
+expected failures inside the assurance outcome; no candidate-owned physical
+resource remains unresolved.
+
+The diagnostics and mandatory lifecycle corrections form the measured baseline
+for S-014/S-015. Preserve this source under
+`.cartulary/remediation03/reservations/s013-source.{json,tar.gz}` after closing
+lint. This archive is an authoring preservation artifact, never runtime input.
+Rollback of optional Go tuning SHALL retain these mandatory fixes. Non-CPU
+quantities, scheduler policy, browser workers/lanes, PostgreSQL lifetimes and
+isolation eligibility remain unchanged. Maintenance remains skipped because
+`RESULTS_DIR` is unset: no compatible full warm-check root has been established.
+
+
+### E-175 — WF-14 entry and Go budget owner adoption
+
+S-013 closing lint **20987/0**, 17,650 ms, passed at
+`r03-s013-close-lint-01`. Its preservation manifest/archive contain 7,509 files
+and 48,204,551 compressed bytes, with executable source
+`sha256:496b69d59ce04a644f34a3d23cf3ce80ece293b78dceab4531c11f8eedf337fa`.
+Final fixtures-06 independently passed `harness-observability-check CHECK=all`.
+No live invocation remains at cutover.
+
+Before implementation, REQ-379/805 adopt per-group profile-owned CPU budgets,
+explicit qualification feasibility, matching CPU/GOMAXPROCS/Go parallelism and
+independent publication workers. REQ-354's older equality between PostgreSQL and
+CPU claims is reconciled: PostgreSQL reservations remain separately bounded by
+authored quantity, captured PostgreSQL capacity and admitted Go entitlement;
+lowering an ordinary CPU profile does not lower that PostgreSQL reservation.
+Current authored non-CPU quantities and host capacities remain untouched. A
+before/after compiled-population check SHALL prove non-CPU claims remain equal
+for the frozen test-fast/browser/CI workloads. Explicit contexts retain their
+exact owner budget and reject infeasibility rather than clamp.
+
+Characterization is the preserved S-013 source plus the passing catalog graph
+contract (E-173/E-174), whose old `go_lpt_budget` case explicitly establishes
+selection-count-derived global worker/GOMAXPROCS fields. The current planner
+computes `min(group_count, min(8, floor(available/4)))` workers and assigns each
+child `floor(available/workers)` CPU tokens; profile CPU is overwritten. This
+is the sole optional performance treatment. S-014 implementation and S-015
+performance acceptance remain pending; mandatory S-013 fixes cannot be rolled
+back to recover historical timing. F-021 → REQ-379/805/354/803 → S-014/V-025.
+
+### E-176 — S-014 candidate implementation and initial assurance
+
+The v3 Go plan removes global child worker/GOMAXPROCS fields and binds each
+resolved CPU budget into group identity. One resolver owns profile/host/parent/
+PostgreSQL bounds and explicit-context feasibility. The compiler projects its
+claims and matching environment; the runner validates declared binding and emits
+explicit `-parallel` plus bounded package-build `-p`. Publication workers are
+unchanged. No non-CPU authored quantity or public command changed.
+
+`make generate`, root `r03-s014-generate-01`, **17322/0**, 11,270 ms;
+`make format`, `r03-s014-format-01`, **74807/0**, 8,122 ms. Both owner routes use
+CGO disabled, cache off and basic diagnostics. Catalog graph assurance
+`make test-slice OWNER=harness.test_catalog
+ROWS=harness.test_catalog.behavior.routing_contract` passed at
+`r03-s014-catalog-01`, **51300/0**, 57,187 ms. It covers direct/owner/partial/
+aggregate/empty selections, profile bounds, exact-context rejection, unchanged
+membership, ordering invariance and semantic identity changes.
+
+Runner/public-surface assurance `make test-slice OWNER=harness.command_surface
+ROWS=harness.command_surface.behavior.public_registry_parity` failed at
+`r03-s014-runner-01`, **28395/2**, 66,480 ms. The sole failure was an old literal
+argv expectation that omitted the newly required `-parallel=2`; 46 of 47 Node
+tests passed. Cleanup completed all 11 steps. The expected argv is corrected;
+the failed attempt remains retained. Actual scheduled Go-child checks now also
+compare native GOMAXPROCS and the live Go test parallel flag with the declared
+CPU budget, under existing scheduler/runtime assurance rows. Further validation
+and performance acceptance remain pending.
+
+### E-177 — WF-14 assurance completion; performance remains pending
+
+F-021 → REQ-354/379/803/805 → Go claim resolver, compiler, plan v3 and
+runner → V-025 catalog, runner and actual-child budget checks. The candidate
+is implemented and focused correctness passes; acceptance remains conditional
+on S-015. Original S-013 behavior is preserved for coordinated optional rollback.
+No mandatory lifecycle correction is subject to that rollback.
+
+Commands below run from the repository root with `CGO_ENABLED=0` and unique
+`CARTULARY_TEST_RUN_ID`; focused tests also disable execution cache and enable
+basic diagnostics. Roots are `.cartulary/test-results/<run-id>`.
+
+| Command / selection | Run ID / native handle | Outcome |
+| --- | --- | --- |
+| `make format` | `r03-s014-format-02` / 24990 | 0; 8,007 ms |
+| `make test-slice OWNER=harness.command_surface ROWS=harness.command_surface.behavior.public_registry_parity` | `r03-s014-runner-02` / 85159 | 0; 68,129 ms |
+| `make test-slice OWNER=harness.command_surface ROWS=harness.command_surface.unit.native_runtime,harness.command_surface.unit.scheduler_smoke` | `r03-s014-runtime-01` / 49971 | 0; 61,520 ms |
+| `make agent-finalize` | `r03-s014-finalize-01` / 61778 | Terminal fail; outer exit unavailable after native session loss; graph 4,170 ms |
+| `make generate` | `r03-s014-generate-02` / 28747 | 0; 11,340 ms |
+| `make agent-finalize` | `r03-s014-finalize-02` / 23661 | 0; 26,360 ms; no generated rewrites |
+| `make source-check CHECK=generated HARNESS_DIAGNOSTICS=basic` | `r03-s014-generated-01` / 23825 | 0; 17,402 ms |
+| `make source-check CHECK=schema HARNESS_DIAGNOSTICS=basic` | `r03-s014-schema-01` / 15643 | 0; 6,677 ms |
+| `make source-check CHECK=catalog HARNESS_DIAGNOSTICS=basic` | `r03-s014-source-catalog-01` / 58684 | 0; 1,731 ms |
+
+Finalization-01 rejected a stale topology digest after the final planner edit.
+Its ten cleanup steps completed; regeneration repaired the projection before
+finalization-02. A source-catalog invocation accidentally reused the existing
+`r03-s014-catalog-01` ID and was rejected with usage exit 2 before execution;
+the original evidence was preserved. The fresh source-catalog root above passes.
+Independent `make harness-observability-check RESULTS_DIR=<root>` passed for
+catalog-01, runner-02 and runtime-01 with full validity. Failed runner-01 remains
+retained under E-176. No unresolved candidate-owned resource is reported.
+Retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+
+The final generated source is
+`sha256:07f571ee9eec012940dbd98fa4ac0accbe4efe1d16e597afbbe9ee98bec75543`.
+Its predecessor focused runtime source was
+`sha256:98a2717d1947d2fe0455a1bd26b8e93114586508f07a4c4a73b52d5337c2737c`;
+the difference is the regenerated topology digest, not changed runtime behavior.
+S-015 entry requires this boundary's Markdown lint, immutable candidate
+preservation, exact workload/non-CPU-claim comparison and a new frozen protocol.
+No measured benefit or guardrail result is claimed.
+
+### E-178 — WF-15 frozen comparison entry
+
+WF-14 closing `make lint-markdown` passed at `r03-s014-close-lint-01`,
+**90772/0**, 17,160 ms, before WF-15 began. The candidate preservation contains
+7,509 files / 48,209,427 compressed bytes; archive SHA-256
+`e040718aa00a6fd85f71eb056166b9485aa0de06d5f4cc93a2ece3ee87df5428`.
+Both immutable sources reside under `.cartulary/remediation03/reservations/`:
+S-013 baseline and S-014 candidate. Restoration verifies every preserved source
+hash, adopts the destination NLSpec before its projections, and preserves this
+tracker. The 17 differing paths contain only the Go budget treatment and its
+necessary owner/contracts/projections/tests. No live invocation crosses cutover.
+
+| Frozen workload | Rows / units | Changed CPU claims | Non-CPU reservations |
+| --- | --- | --- | --- |
+| `make test-fast` | 1,112 / 158 | 150 units: 4 → 1 | Identical per corresponding unit |
+| `make browser-e2e SUITE=functional` | 383 / 137 | None; identical graph | Identical per corresponding unit |
+| `make ci` | 2,279 / 600 | 201 units: 4 → 1 | Identical per corresponding unit |
+
+All three baseline/candidate projections were exported through `make target-plan
+TARGET=<target> INPUTS=<exp01-workload-inputs.json> DETAIL=graph JSON=1`, exit 0.
+Membership, fixture capability, service dependencies, owner, estimate and cache
+policy are equal. Baseline source restoration then passed `make generate`,
+`r03-s015-prepare-b-01`, **63631/0**, 11,010 ms, and `make source-check
+CHECK=catalog`, `r03-s015-source-catalog-b-01`, **35105/0**, 1,639 ms.
+
+`performance-experiment-exp01-freeze.json` binds both executable sources
+(E-175/E-177), exact populations/graphs, allowed differences, environment,
+toolchain/storage identities, analysis hash and the ordered 25-attempt roster.
+Captured host and admitted Go capacity are both 19 CPU tokens. Settings are
+`CGO_ENABLED=0 CARTULARY_HARNESS_CACHE_MODE=off HARNESS_DIAGNOSTICS=basic
+HARNESS_ACCOUNTING=required`. Native PTYs own timing commands. Execution-result
+reuse is disabled; dependency/build caches stay warm. Public generation/catalog
+preparation follows each drained source switch before required accounting.
+
+One warm-up per measured treatment is excluded; CI has one candidate warm-up
+and no measured baseline. Baseline fast/browser warm-ups precede candidate
+fast/browser/CI warm-ups. Each subsequent odd pair is baseline-first and each
+even pair candidate-first; within a treatment fast precedes browser, with CI
+following candidate browser. Optional fast/CI pairs 3–4 follow Section 7.8.4;
+browser always requires four matched pairs. CI compares elapsed only against
+the assumed 3,600,000 ms. Decimal precision 28, half-even rounding, Python
+MT19937 seed 20261021, 10,000 whole-run resamples and nearest-rank quantiles are
+frozen. Measured guardrails use one-sided 99% upper bounds; full benefit uses a
+one-sided 95% lower bound. Zero baseline admits only a zero candidate value.
+
+Metrics cover the delegated Linux invocation and proven owned containers;
+controller, unrelated/shared host work and Windows-host totals are excluded.
+Every attempt requires independent evidence validation, successful cleanup and
+secret scan, separately captured outer exit and source/graph binding. No
+changed-source equivalent-comparison admission is used. Warm-ups and runtime
+graph confirmation remain pending; no performance conclusion is established.
+
+### E-179 — WF-15a common browser-readiness repair; experiment 01 closed
+
+Freeze lint passed **83756/0**, 10,320 ms. Excluded baseline fast warm-up
+`r03-s015-exp01-fast-warm-b` passed **86968/0**, 158/158 units, graph 216,822 ms,
+owning-command 224,956.675213 ms, CPU 717,641,172 µs, kernel peak 4,642,394,112
+bytes, p95 queue 90,894 ms and cleanup union 62 ms. All 167 cleanup steps and
+the 2,007-file secret scan passed. Independent observability audit **4545/0**
+reported full validity and complete diagnostics. It remains an excluded warm-up.
+
+Excluded baseline browser warm-up `r03-s015-exp01-browser-warm-b` ended
+**11034/2**, normalized product exit 10, graph 1,038,831 ms. Of 137 units, 135
+passed; one cohort and its aggregate finalizer failed. The exact failing row
+is `module.tasksdecisions.browser.task_lifecycle_patch_recovery`; two subsequent
+same-file cases were unexecuted and remained explicitly accounted for.
+All 277 cleanup steps completed. Diagnostic-only audit passed, full validity 0.
+
+The retained Playwright trace establishes the test's missing precondition:
+reopening the owner picker started a membership read at trace time 95,064.687 ms
+that took 39.553 ms. Space removal began at 95,081.560 ms and completed before
+the candidate list appeared at 95,106.627 ms. The prior snapshot showed
+“Loading references”. The focus helper therefore selected its existing labelled
+group fallback; a later background read correctly did not replay that intention.
+The test assumed the loaded-candidate branch without awaiting its readiness.
+
+WF-15a SHALL repair this shared assurance precondition in both treatments by
+awaiting the enabled candidate control before removal. Existing exact focus,
+keyboard, cancellation, payload and durable-state assertions SHALL remain.
+No product focus behavior, deadline, retry, selector population or golden changes
+are authorized by this repair. Existing Core 03 keyboard/retained-intent and
+design §8.5 behavior remain authoritative. Validate the exact row alone, then regenerate/finalize and preserve both repaired
+sources before a fresh freeze. The excluded functional warm-ups SHALL also
+validate the original containing cohort before acceptance samples begin; the
+public owner slice cannot select its mixed-owner population independently. V-026 correctness entry remains open meanwhile.
+
+Experiment 01 is closed without acceptance samples. Every remaining planned
+attempt is recorded as omitted after the correctness failure in
+`performance-experiment-exp01-closed.json`; the successful fast warm-up cannot
+be reused by a repaired-source experiment. S-013 lifecycle correctness and
+S-014 focused assurance remain recorded at their actual sources. Performance
+acceptance is inconclusive until the new experiment completes.
+
+### E-180 — WF-15a completion and experiment 02 freeze
+
+The shared repair adds `await expect(ownerCandidates).toBeEnabled()` before
+the existing Space-removal interaction. It admits the intended loaded-list
+branch without weakening its focus assertion, adding a sleep or changing
+product behavior. All five existing task-lifecycle scenarios remain selected.
+
+| Public command / exact selection | Run ID / native handle | Outcome |
+| --- | --- | --- |
+| `make format` | `r03-s015-readiness-format-01` / 28801 | 0; 8,234 ms |
+| `make generate` baseline | `r03-s015-readiness-generate-b-01` / 29379 | 0; 11,200 ms |
+| `make test-slice OWNER=module.tasksdecisions ROWS=module.tasksdecisions.browser.task_lifecycle_patch_recovery HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=required` | `r03-s015-readiness-alone-b-01` / 19236 | 0; 96,179 ms; 12/12 units |
+| `make agent-finalize` baseline | `r03-s015-readiness-finalize-b-01` / 47592 | 0; 26,836 ms |
+| `make generate` candidate | `r03-s015-readiness-generate-c-01` / 24366 | 0; 11,220 ms |
+| `make agent-finalize` candidate | `r03-s015-readiness-finalize-c-01` / 43873 | 0; 27,059 ms |
+
+All commands use `CGO_ENABLED=0`; the browser slice also disables result reuse.
+Independent observability audit passed with full validity; all 23 cleanup steps
+and the 97-file secret scan passed. The failed E-179 warm-up's accounting also
+settled empty and its 2,319-file secret scan passed. The failed assertion remains
+a correctness failure, not a cleanup failure or an accepted sample. An attempted
+`target-plan TARGET=test-slice` without required owner/suite returned usage exit
+2 without running tests; no unsupported mixed-owner selector was introduced.
+Retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+
+Both repaired sources are preserved as `s013-source-exp02` and
+`s014-source-exp02` under the reservation evidence directory. Baseline executable
+identity is `sha256:f1efa9e051e901ad9841bdb5a776c7b74128c7dd8c00d47d987f4e399bb86aa8`;
+candidate is `sha256:10fd1d1b5b7adee3a5712442f6f3fc76ad85d6a6a3177bf841015b39d14332e6`.
+Their archives contain 7,509 files each, with SHA-256
+`20d0650e619664eb9e7243f469442ad94cb741a9256222527fe70d7b65471451` and
+`edc5cbcdee1bb017621e59a2c38035922f2edbacaad13ef500936590beb3f55a`.
+The sentinel source is byte-identical across treatments. Public graph exports
+and the new `performance-experiment-exp02-freeze.json` confirm E-178's exact
+populations, non-CPU parity and the same 17 permitted differing paths.
+
+WF-15a correctness repair and source migration are complete. Experiment 02
+retains E-178's protocol, run ordering, limits and environment; all 25 attempt
+IDs use `r03-s015-exp02-*`. No experiment-01 observation is reused. The excluded
+functional warm-ups must pass the original containing cohort before sampling.
+Boundary Markdown lint gates resumption. No performance benefit is established.
+
+### E-181 — Experiment 02 baseline warm-ups validated
+
+WF-15a closing lint passed at `r03-s015-readiness-close-lint-01`, **29174/0**,
+10,020 ms. Baseline restoration passed `make generate` at
+`r03-s015-exp02-prepare-b-01`, **49639/0**, 11,090 ms, and `make source-check
+CHECK=catalog` at `r03-s015-exp02-source-catalog-b-01`, **3522/0**, 1,625 ms.
+
+The following excluded warm-ups use E-178/E-180 settings and source B2.
+Independent full observability audits and public performance/critical-path
+exports passed for both. All accounting scopes settled empty; no diagnostic
+omission or unresolved cleanup was reported.
+
+| Run ID / command | Native exit | Units | Owning elapsed ms | CPU µs | Kernel peak bytes | p95 queue / cleanup union ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| `r03-s015-exp02-fast-warm-b` / `make test-fast` | 52705/0 | 158/158 | 222,800.251439 | 573,893,851 | 4,034,801,664 | 77,623 / 62 |
+| `r03-s015-exp02-browser-warm-b` / `make browser-e2e SUITE=functional` | 92648/0 | 137/137 | 1,163,296.527143 | 3,988,741,135 | 8,156,327,936 | 1 / 47,846 |
+
+Fast cleanup completed 167 steps; browser cleanup completed 276. Browser's
+2,296-file secret scan passed. The original nine-row cohort, including the
+repaired task-lifecycle row and both previously unexecuted rows, passed fully.
+Its 80-unit critical path reports graph queue 25 ms, host admission 2,409 ms,
+fixture acquisition 27,356 ms, runner 1,090,942 ms and release 25,196 ms.
+Phase sums are descriptive and can overlap. Four observed stack allocations
+all retired for terminal borrower release; no reset-only generation occurred.
+These are current workload observations, not a controlled comparison with
+historical CI or a lifecycle speedup claim. Both runs remain excluded warm-ups.
+
+Runtime graph identities match the frozen public projections. Candidate
+fast/browser/CI warm-ups and every acceptance sample remain pending.
+
+### E-182 — Experiment 02 candidate focused warm-ups validated
+
+Candidate restoration passed `make generate`, `r03-s015-exp02-prepare-c-01`,
+**82900/0**, 11,150 ms, and `make source-check CHECK=catalog`,
+`r03-s015-exp02-source-catalog-c-01`, **51856/0**, 1,640 ms. The following
+excluded warm-ups use the frozen C2 identity and required accounting settings.
+
+| Run ID / command | Native exit | Units | Owning elapsed ms | CPU µs | Kernel peak bytes | p95 queue / cleanup union ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| `r03-s015-exp02-fast-warm-c` / `make test-fast` | 48792/0 | 158/158 | 227,869.721680 | 653,489,737 | 5,014,781,952 | 20,498 / 61 |
+| `r03-s015-exp02-browser-warm-c` / `make browser-e2e SUITE=functional` | 44368/0 | 137/137 | 1,156,567.039805 | 4,015,310,877 | 8,102,240,256 | 1 / 47,562 |
+
+Both independent full observability audits passed; all public exports succeeded.
+Runtime graphs match their frozen projections. Fast/browser cleanup completed
+167/276 steps; secret scans passed for 2,007/2,296 files; accounting settled
+empty. Complete allocation/admission coverage reports no omissions. Browser
+again observed four stack generations, all terminal-borrower retirement, zero
+reset-only generations, and a passing original containing cohort. Its path host
+admission is 2,279 ms and graph queue is 17 ms. These observations are descriptive
+and excluded from acceptance. Candidate CI warm-up and all acceptance samples
+remain pending; no benefit or non-regression decision is established.
+
+### E-183 — Candidate CI warm-up resource observation
+
+At the user's request, the excluded `r03-s015-exp02-ci-warm-c` warm-up was
+observed while native session **7809** remained running. This is observation
+activity, not acceptance sampling or authorization to change capacities. Source
+C2 and graph `sha256:26d07527f3291358b6364e2704091a0510266d43437117a8493ebea13612f3b4`
+remain frozen. No executable-source, service, lane or scheduling change was made.
+
+Public `make test-run-status RESULTS_DIR=.cartulary/test-results/r03-s015-exp02-ci-warm-c
+JSON=1` returned exit 0. Revision 327, graph elapsed 972,706 ms, reported
+121 passed, 15 running and 464 pending units, with no failure observed. The
+complete running list contained two executing and thirteen waiting units.
+Mapping those exact IDs to the frozen public target-plan export gives:
+
+| Graph reservations | Executing units | Waiting units | Combined / graph capacity |
+| --- | --- | --- | --- |
+| CPU | 4 | 15 | 19 / 19 |
+| PostgreSQL | 4 | 12 | 16 / 16 |
+| Object store | 2 | 6 | 8 / 8 |
+
+These are graph reservations, not granted host claims or utilization. The live
+reader truncates the pending-wait list and does not yet establish the native
+admission cause. The retained decision view must distinguish actual deficits,
+queue-priority/exclusive blockers and logical-slot waits before attribution.
+
+Read-only `vmstat 1 6`, `free -m`, `/proc/pressure/{cpu,memory,io}` and
+`docker stats --no-stream --format '{{json .}}'` snapshots completed successfully.
+The five interval samples, excluding vmstat's since-boot first line, showed
+85–89% Linux CPU idle, 0–1% I/O wait, no swap-out, approximately 22.3 GiB available
+memory, and zero ten-second CPU/memory pressure. These host observations have
+different scope from required invocation accounting and do not establish
+whole-run guardrails. The supplied Windows screenshot was read through its
+WSL path; its host graphs are likewise not invocation attribution.
+
+Evidence is retained under `.cartulary/remediation03/reservations/` as
+`ci-warm-observation-01.json`, `ci-warm-observer-activity.json`,
+`ci-warm-vmstat-01.txt` and `ci-warm-containers-01.jsonl`. The initial interactive
+resource snapshot precedes the saved snapshots; their intervals must not be
+represented as simultaneous or continuous monitoring. Observation remains
+bounded and SHALL stop during any declared quiet measurement interval.
+
+The supported finding is idle hardware alongside fully occupied graph
+reservations. A future coordination/fairness investigation is plausible, not an
+adopted change: prove whether fitting independent work is obstructed by pending
+host requests, and preserve starvation bounds, exclusive measurement fences,
+physical ownership and cleanup entitlement in any proposal. Current S-015
+continues unchanged; non-CPU quantities retain their NO_CHANGE disposition.
+No current CI correctness, cleanup or performance conclusion is available yet.
+
+A second bounded observation, revision 415 at graph elapsed 1,247,348 ms,
+reported 147 passed, 17 running and 436 pending, with no observed failure. Its
+running list omitted one unit, so no complete reservation total is inferred.
+Seven visible Go groups were executing, three preparing, one finalizing and five
+waiting. Subsequent five-second Linux samples showed 57–68% idle and 8–20% I/O
+wait with no swap traffic. This is evidence of phase-dependent contention, not
+proof that every delay has the same cause. Device-specific latency was not
+collected (`iostat` is unavailable; no prerequisite was installed). Saved public
+status and resource snapshots use the corresponding `-02` filenames. Terminal
+fixture and admission evidence is still required to attribute the I/O activity.
+
+Revision 589 at graph elapsed 1,512,372 ms reported 324 passed, 17 running
+and 259 pending units, with no failure observed. Its running list omitted one
+unit; the visible list again contained many host-admission waiters. This does
+not establish a constant run-wide utilization level. The native command remains
+running; no timing sample or terminal pass is inferred from live progress.
+REQ-353's existing 25% CPU safety margin explains the 19-token capacity, but
+cannot alone explain the earlier 85–89% Linux CPU-idle intervals.
+
+At revision 845, graph elapsed 2,127,091 ms, CI reported 442 passed, one failed,
+seven running and 150 pending units. All seven running IDs were visible: one
+browser runner and six host-admission waiters. Two waiters selected
+`harness.browser.integration.native_nested_cancellation` and
+`harness.browser.integration.native_graph_observations`; each retains its authored
+four-CPU/twenty-process reservation. These larger profiles are unchanged by the
+ordinary Go-budget treatment. A subsequent five-second sample showed 88–92%
+CPU idle and 0–2% I/O wait; the corresponding saved resource files use `-03`.
+This identifies candidates for reservation-lifetime analysis, not permission to
+lower their peak entitlements or change current capacities.
+
+### E-184 — Experiment 02 CI warm-up correctness failure; repair pending drain
+
+Public live revision 752 at graph elapsed 1,801,663 ms reported a failed
+`operation:harness.lint_go_staticcheck`, 429 passed units and nine running units.
+The native CI session **7809** remained active; its outer exit and final cleanup
+are not yet known. The published unit result reports exit **1**,
+`product/test_assertion_failure`. Its bounded published stdout contains one
+Staticcheck diagnostic: `internal/testutil/harnessfixtures/consumers_linux_test.go:37:3`,
+**SA4006**, an assigned `key` value that is never read. Stderr is empty.
+This is a test-source defect introduced in S-013, common to both treatments,
+not evidence of a product failure or a Go-budget performance result.
+
+WF-15b SHALL remove the redundant assignment in both source treatments after the
+current invocation drains. It SHALL preserve the exercised consumer-key behavior,
+run the canonical static-analysis route and affected fixture assurance, finalize
+and regenerate projections as required, and freeze a new experiment before
+sampling. No deadline, isolation, capacity, fairness, golden or product behavior
+change is required by this diagnostic. Experiment 02 cannot provide accepted CI
+performance evidence; its failed attempt and unused scheduled attempts SHALL
+remain recorded. The native owner SHALL retain cleanup authority while draining.
+No executable-source edit, cancellation, retry or experiment restart occurred in this receipt.
+
+At revision 1182, elapsed 3,093,567 ms, 506 units had passed and the same single
+Staticcheck failure remained. Five browser units were preparing, executing or
+waiting; 88 units remained pending. Optional process sampling reported stale
+coverage (last sample age 207,307 ms, 2,852 omitted observations). That sample
+MUST NOT be presented as current host or invocation utilization. Required
+cgroup accounting and terminal canonical timing have separate coverage contracts
+and still await validation.
+An independent subsequent `vmstat` sample (`-04`, native **56530/0**) showed
+72–77% CPU idle and 1–2% I/O wait; it is not a replacement for the omitted
+invocation samples. Revision 1282 at elapsed 3,321,666 ms reported 534 passed,
+one failed, three running and 62 pending units. All three running units were
+executing browser cohorts; no host-admission waiter appeared in that complete
+running list. This later phase has a different parallelism constraint from the
+earlier fully reserved graph with waiting units. Structured observations `-05` through `-09` are
+preserved alongside the earlier bounded snapshots.
+
+### E-185 — CI warm-up closed; scoped utilization diagnosis
+
+**Correctness: FAIL. Cleanup/evidence integrity: PASS. Performance: excluded.**
+Native CI **7809/2** ended with normalized exit 10 at frozen C2 source. All
+600 units settled: 599 passed and only `operation:harness.lint_go_staticcheck`
+failed. Graph duration was **3,683,426 ms**; owning-command duration was
+**3,757,370.700701 ms** (62m37s). All **1,160 cleanup steps** completed, required
+invocation accounting settled empty, and the retained-secret scan passed across
+**9,738 files**. No candidate-owned resource remains unresolved from this run.
+
+Public `make explain-run RESULTS_DIR=.cartulary/test-results/r03-s015-exp02-ci-warm-c`
+passed. Independent `make harness-observability-check` checks `diagnostics`,
+`events` and `timing` passed, native **73156/0**, **30670/0**, **17989/0**, each
+with `full_validity=0`; they do not turn the failed test run into a pass.
+Performance and critical-path exports passed. Changed-source comparisons were
+not submitted as equivalent. Experiment 02 is closed in
+`performance-experiment-exp02-closed.json`; all twenty unexecuted acceptance
+attempts are marked omitted. Zero acceptance samples ran. An initial internal
+receipt-collation attempt selected a nonexistent JSON field and failed before
+writing; the corrected collation used the retained run manifest.
+
+| Observation | Exact value and scope |
+| --- | --- |
+| Charged CPU | 12,531,059,629 µs; about 3.335 mean cores over owning-command duration; invocation cgroup and proven containers only |
+| Kernel peak memory | 14,584,365,056 bytes, about 13.58 GiB; charged peak, not simultaneous Windows-host usage |
+| Graph ready-to-start p95 | 1,581,411 ms across the declared unit population |
+| Cleanup union | 163,790 ms; all required cleanup succeeded |
+| Complete critical path | 80 units; 634,413 ms graph queue plus 3,046,171 ms unit lifetime |
+| Path host admission | 1,665,758 ms (27m46s), distinct from graph queue |
+| Path runner / acquisition / release phase sums | 1,078,163 / 272,932 / 25,093 ms; these are canonical phase observations |
+| Path queue reasons | Resources 553,634 ms; exclusive barrier 80,463 ms; rank 316 ms |
+| Whole-run application stacks | 82 generations; 69 capacity-pressure and 13 terminal-borrower retirements; 31 reset-only generations |
+| Path-associated stacks | 30 generations; 29 capacity-pressure retirements; 15 reset-only generations |
+
+The phase view reports zero phase overlap on this path and seven milliseconds
+outside unit lifetime from cache-lookup placement; phase sums are not additional
+wall time to add to queue-plus-lifetime. Other targets share units and are not
+additive. The earlier E-166 counts have different source/workload conditions and
+MUST NOT be treated as a controlled before/after comparison. This warm-up does
+not establish either speedup or regression acceptance.
+
+**Coverage limitation.** Canonical timing and all allocation lifecycle records
+are complete. Optional execution/resource diagnostics are truncated. The separate
+host-admission section retained 3,317 records, exhausted its 16 MiB byte budget,
+and disclosed **1,725,059 omitted observations**. Its last retained observation
+ends at graph elapsed 752,318.990611 ms, approximately 12m32s. Consequently,
+1,507,923.953157 ms of path host-admission time lacks the detailed phase breakdown;
+uncovered time is explicit. The complete path's host-admission total remains
+valid, but its later causes cannot be reconstructed from the missing samples.
+
+The retained native decisions contain 86,929 denied observations, including
+40,143 with current process deficits, 15,054 with current object-store deficits,
+186 with current PostgreSQL deficits, and zero with current CPU deficits.
+75,836 show priority blockers; 41,235 have no current capacity deficit but still
+have priority blockers. These categories overlap, represent recorded decision
+counts rather than durations, and cover only the retained early portion.
+They support investigation of process reservations and queue priority, not a
+whole-run causal percentage or permission to reduce resource claims.
+
+**Recommendations, not adopted behavioral amendments.** First improve bounded
+admission retention so compact per-unit phase/denial summaries survive detailed
+record saturation without exceeding existing limits. Then audit process-slot
+claims against exact nested/fixture lifetimes and distinguish logical reservation
+pressure from measured processes. If complete evidence confirms avoidable
+head-of-line blocking, design coordinated graph/host admission with explicit
+starvation bounds, exclusive fences and cleanup entitlement before changing
+fairness. Separately investigate remaining browser-chain imbalance. The present
+continuation's non-CPU sizing, fairness and lane NO_CHANGE boundaries remain.
+Current mandatory retirement corrections remain; observed turnover does not
+justify restoring an incorrect counterfactual or terminal-consumer model.
+
+The authored un-nested footprint illustrates this cross-resource constraint:
+PostgreSQL, application stack and renderer declare 8 + 4 + 2 resident process
+slots; an active browser unit declares four additional process slots and two CPU
+tokens. Four such lanes plus one shared two-process object store account for
+74 nominal process slots against the captured capacity of 76, with only eight
+browser CPU tokens. This is an illustrative profile sum, not a second admission
+algorithm or a reconstruction of a particular live state; native weighted
+accounting, shared identities and actual resident sets remain authoritative.
+A future process-capacity/footprint investigation MUST validate real peak nested
+work and cleanup headroom before proposing numeric changes. Current values
+remain unchanged under F-024.
+
+WF-15b has removed only the overwritten test assignment after the invocation
+settled. Candidate `make agent-finalize`, `r03-s015-lintrepair-finalize-c-01`,
+passed **84330/0**, 27,595 ms. Candidate `make lint CHECK=go`,
+`r03-s015-lintrepair-lint-c-01`, passed **3633/0**, 8,310 ms. Affected fixture
+assurance, baseline repair, source preservation and fresh freeze remain pending.
+`RESULTS_DIR` was unset for finalization; retained-run maintenance was skipped
+because no compatible successful full warm-check root exists.
+
+### E-186 — WF-15b complete; experiment 03 frozen
+
+**Corrective assurance: PASS. Performance: PENDING.** The common fixture test now
+computes its compatibility key once, after restoring the intended service list.
+All mutation-alias, service-order, compatibility, terminal-disposition and cleanup
+assertions remain. No runtime/owner semantics, capacity, profile, fairness,
+deadline, selector or golden changed. F-021/F-022 → R03-036/037 → consumer-key
+regression → V-024 fixture assurance and Go lint supplies the corrective trace.
+
+Both treatments ran `make agent-finalize` before broader verification with
+`CGO_ENABLED=0`. Lint and fixture checks disabled execution-result reuse; fixture
+checks used basic diagnostics and required accounting. Exact roots are
+`.cartulary/test-results/r03-s015-lintrepair-<label>-<b|c>-01`.
+
+| Label / public command | Baseline native/exit; graph ms | Candidate native/exit; graph ms |
+| --- | --- | --- |
+| `finalize` / `make agent-finalize` | 72191/0; 26,401 | 84330/0; 27,595 |
+| `lint` / `make lint CHECK=go` | 8902/0; 8,087 | 3633/0; 8,310 |
+| `fixtures` / `make test-slice OWNER=harness.browser ROWS=harness.browser.unit.native_fixtures HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=required` | 40039/0; 14,589 | 64120/0; 14,695 |
+| `generated` / `make source-check CHECK=generated` | 47870/0; 17,064 | 28444/0; 17,531 |
+| `schema` / `make source-check CHECK=schema` | 45819/0; 6,713 | 29403/0; 6,732 |
+| `catalog` / `make source-check CHECK=catalog` | 54297/0; 1,770 | 90328/0; 1,796 |
+
+Baseline restoration also ran `make generate`,
+`r03-s015-lintrepair-generate-b-01`, **33209/0**, 11,220 ms. Both fixture invocations
+passed independent full observability audits, exit 0 / `full_validity=1`, with
+complete required coverage and empty accounting scopes. Every listed graph
+completed cleanup and passed its retained-secret scan. No resource remains
+unresolved. `RESULTS_DIR` was unset; maintenance was skipped because no compatible
+successful full warm-check root exists.
+
+| Treatment | Executable source digest | Immutable archive SHA-256 |
+| --- | --- | --- |
+| B3 | `e79809d7980b80ef65d4bbb3b4b898577ff4a2889c776a1c9b970558e18684a4` | `0d14dd26b2d0f77aaf80e9e80637ec9900df504dffe31d318e596e56bfcedf37` |
+| C3 | `92fda6e5b496b2bfa44e41d5034503c00b5e2d4721c2b8812b31ff1134010c19` | `b5cdcb36edede142afb836c9353a5f0034ed0d24bfc2fd906720a7921350b515` |
+
+Archives `s013-source-exp03.*` / `s014-source-exp03.*` each preserve 7,509 files
+at unchanged HEAD `f7b917026e1174661a9bdf9118d18120bbd225b0`. Excluding this tracker,
+the sole change from each experiment 02 treatment is the common
+`internal/testutil/harnessfixtures/consumers_linux_test.go` repair. Both treatments
+retain identical repaired consumer tests and the E-180 browser-readiness fix.
+Their difference remains the same seventeen Go-budget owner/code/test/projection
+paths. Fresh public target plans preserve exact rows, non-CPU claims and graph
+identities: fast 1,112 rows / 158 units, browser 383 / 137, CI 2,279 / 600.
+
+`performance-experiment-exp03-freeze.json` freezes the same protocol, settings,
+source treatment map, environment and twenty-five-attempt roster as E-178/E-180,
+with prefix **r03-s015-exp03**. Five excluded warm-ups precede acceptance sampling;
+CI still has no measured baseline and uses assumed 3,600,000 ms. Four browser
+pairs and the existing first-two/full-protocol benefit rules remain unchanged.
+Every failed/omitted earlier attempt remains preserved. New timings SHALL NOT
+reuse the failed CI warm-up or reinterpret historical evidence.
+
+E-185's bounded-detail limitation remains explicit: optional host-admission and
+process observations can exhaust their budgets; they cannot establish complete
+causal/resource attribution. Required canonical timing, allocation settlement,
+invocation accounting, cleanup and scans retain their independent acceptance
+requirements. No detail-limit increase or unproved whole-run attribution is
+included in this test-only repair.
+
+WF-15b is complete; its source migration is preserved and reversible. The next
+entry condition is this tracker's successful boundary `make lint-markdown`, then
+the first excluded baseline fast warm-up. S-015 performance decisions and S-016
+final validation/handoff remain open.
+
+### E-187 — Experiment 03 warm-ups entered
+
+WF-15b boundary Markdown lint passed at `r03-s015-lintrepair-close-lint-01`,
+**44353/0**, 9,920 ms. Unaccounted controller preparation with `CGO_ENABLED=0`,
+`make source-check CHECK=catalog`, `r03-s015-exp03-prepare-b-01`, passed
+**81623/0**, 1,657 ms, before required-accounting measurements resumed.
+
+The first excluded warm-up, `r03-s015-exp03-fast-warm-b`, used frozen B3 and
+`CGO_ENABLED=0 CARTULARY_HARNESS_CACHE_MODE=off`, public `make test-fast
+HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=required`. Native **36472/0** passed
+158/158 units in 211,806 ms graph execution. Owning elapsed was
+219,974.211495 ms; charged CPU 569,903,861 µs; peak memory 4,158,492,672 bytes;
+p95 queue 79,026 ms; cleanup union 62 ms. All 167 cleanup steps completed,
+accounting settled empty and the secret scan passed. Independent full audit
+**80864/0** returned `full_validity=1`; public performance and critical-path
+exports passed with complete canonical, allocation and host-admission coverage.
+The runtime graph matches the frozen baseline fast projection. This is an
+excluded warm-up, not a performance acceptance sample. Remaining warm-ups and
+all acceptance attempts remain pending.
+
+### E-188 — Experiment 03 baseline warm-ups complete
+
+The excluded B3 browser warm-up `r03-s015-exp03-browser-warm-b` passed native
+**2085/0**, 137/137 units, graph duration 1,147,116 ms. Owning elapsed was
+1,159,666.996709 ms; charged CPU 3,973,787,516 µs; kernel peak memory
+8,124,256,256 bytes; p95 graph-ready delay 1 ms; cleanup union 48,131 ms.
+All 276 cleanup steps completed; invocation accounting settled empty and the
+retained-secret scan passed. Independent public full audit exited 0 with
+`full_validity=1`; public performance and complete critical-path unit exports
+exited 0. Canonical, allocation and host-admission coverage are complete.
+Four browser-stack generations settled. No performance acceptance claim follows.
+
+One read-only status checkpoint exited 0 during this excluded warm-up:
+
+```sh
+make test-run-status RESULTS_DIR=.cartulary/test-results/r03-s015-exp03-browser-warm-b JSON=1
+```
+
+Its preserved `exp03-browser-warm-b-status-01.json` observed 129 passed,
+one executing and seven dependency-waiting units, without an observed failure.
+This observer activity is recorded in the experiment ledger and is not an
+acceptance-sample observation. Both B3 warm-ups and their audits are complete;
+the next entry is drained switch to frozen C3, public generation and unaccounted
+catalog preparation, then the frozen candidate warm-up sequence. Acceptance
+samples and the optional Go-budget decision remain pending.
+
+### E-189 — Experiment 03 candidate fast warm-up passed
+
+After the drained B3 → C3 switch, `CGO_ENABLED=0 make generate` passed at
+`r03-s015-exp03-generate-c-01`, **41900/0**, 11,100 ms; unaccounted
+`CGO_ENABLED=0 make source-check CHECK=catalog` passed at
+`r03-s015-exp03-prepare-c-01`, **42514/0**, 1,571 ms. Tracker changes remain
+outside executable identity; C3 is unchanged from E-186's frozen source.
+
+The excluded `r03-s015-exp03-fast-warm-c` used the frozen environment and public
+`make test-fast HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=required`.
+Native **3774/0** passed 158/158 units, graph duration 216,383 ms. Owning elapsed
+was 224,969.991507 ms; charged CPU 636,506,706 µs; kernel peak memory
+4,861,554,688 bytes; p95 graph-ready delay 19,843 ms; cleanup union 67 ms.
+All 167 cleanup steps completed, invocation accounting settled empty and the
+secret scan passed. Independent full audit **67749/0** returned
+`full_validity=1`; public performance **90395/0** and complete critical-path
+units **58370/0** exports passed. Canonical, allocation and host-admission
+coverage are complete. No allocation generation was required by this workload.
+
+The candidate browser warm-up `r03-s015-exp03-browser-warm-c` is active under
+native handle **84755**; its result is pending. CI candidate warm-up and all
+acceptance attempts remain pending. Warm-up differences are descriptive only:
+the lower graph-ready percentile is not evidence of end-to-end benefit, and no
+performance acceptance decision is established.
+
+### E-190 — Experiment 03 focused warm-ups complete; CI warm-up entry
+
+The excluded C3 browser warm-up `r03-s015-exp03-browser-warm-c` passed native
+**84755/0**, 137/137 units, graph duration 1,142,353 ms. It used the frozen
+source/environment and public `make browser-e2e SUITE=functional
+HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=required`. Owning elapsed was
+1,154,965.367339 ms; charged CPU 3,973,233,238 µs; kernel peak memory
+8,288,608,256 bytes; p95 graph-ready delay 1 ms; cleanup union 48,323 ms.
+All 276 cleanup steps completed; invocation accounting settled empty and the
+secret scan passed. Independent public full audit and both public performance /
+complete critical-path unit exports exited 0; audit returned `full_validity=1`.
+Canonical, allocation and host-admission coverage are complete; all four
+browser-stack generations settled. No speedup or non-regression conclusion is
+established by excluded warm-ups.
+
+Both treatments' fast and browser warm-ups are now independently validated.
+The next frozen attempt is candidate-only excluded CI warm-up
+`r03-s015-exp03-ci-warm-c` under the same four environment settings and public
+`make ci HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=required`. No CI baseline
+execution is authorized or planned; the acceptance reference remains the user's
+assumed 3,600,000 ms. All acceptance samples remain pending. Known bounded-detail
+limitations and the complete canonical/accounting requirements remain as E-186.
+
+**In-progress observation — not an acceptance sample.** Native CI handle **9013**
+remains active. A public status checkpoint at graph elapsed 488,438 ms, revision
+183, reported 85 passed, 503 pending and 12 running units, with zero observed
+failures and no omitted running records. Of those 12 admitted units, two were
+executing and ten waiting. Summing their declared claims from the identical
+frozen graph gives CPU 19, PostgreSQL 16 and object-store 8, exhausting those
+graph capacities. Waiting units held CPU 15, PostgreSQL 12 and object-store 6;
+executing units held CPU 4, PostgreSQL 4 and object-store 2. These are graph
+reservations, not native host grants or measured consumption. This instantaneous
+association cannot assign exclusive causal durations to blockers.
+
+After active publication was confirmed, one bounded `vmstat 1 6` sample
+(**88392/0**, first since-boot row excluded) observed 81–87% Linux CPU idle,
+0–1% I/O wait and no interval swap-in/out. A separate `free -m` snapshot reported
+23,469 MiB available; CPU/memory pressure avg10 was zero. `docker stats
+--no-stream --format '{{json .}}'` (**23014/0**) showed the two active browser
+containers at about 100.54% and 118.00% CPU; this is the Docker percentage scale,
+not whole-host saturation. Host and container samples are adjacent, not
+synchronized or invocation-attributed. They do not include Windows host totals.
+
+All commands were read-only and exited 0. Evidence is retained in
+`exp03-ci-warm-status-01.json`, `exp03-ci-warm-vmstat-01.txt`,
+`exp03-ci-warm-containers-01.jsonl`, `exp03-ci-warm-memory-01.txt`,
+`exp03-ci-warm-pressure-01.txt` and `exp03-ci-warm-observer-activity.json` under
+the continuation evidence directory. Observation overhead is excluded with this
+warm-up. This reinforces E-185's future admission-coordination investigation;
+it does not authorize fairness/capacity changes or establish a numeric sizing
+reduction. No service control or executable-source mutation occurred.
+
+A second excluded warm-up checkpoint at 1,686,477 ms, revision 655, reported
+331 passed, 250 pending and 19 running units with no observed failure. The
+bounded running list omitted three units; the reported entries included one
+executing Go unit, two preparing Go units and thirteen waiting units. No complete
+activity distribution or reservation total is claimed for this snapshot.
+`vmstat 1 6` (**98966/0**, first row excluded) observed 47–75% CPU idle,
+1–5% I/O wait and no interval swap-in/out. Available memory was 23,902 MiB;
+CPU pressure avg10 0.35%, memory pressure avg10 zero. Docker stats **65682/0**
+included one unavailable row, which is not interpreted as zero utilization.
+The `exp03-ci-warm-*-02` files and observer ledger preserve these adjacent,
+scoped observations; they are not a whole-run average or acceptance sample.
+
+A third excluded checkpoint at 2,839,771 ms, revision 1089, reported 483 passed,
+111 pending and six running units with no observed failure. The complete running
+list contained one executing accessibility cohort, one preparing stateful reset,
+and four waiting units (two webserver cohorts, a webserver reset and the scheduler
+contract row). The optional live resource sampler disclosed 2,118 omissions and
+two discovery truncations; its partial RSS is not a whole-run memory guarantee.
+The subsequent bounded `vmstat 1 6` (**51600/0**, first row excluded) observed
+90–92% CPU idle, zero interval I/O wait and no interval swap-in/out. Available
+memory was 26,009 MiB; CPU/memory pressure avg10 was zero. Docker stats
+**89071/0** and the `exp03-ci-warm-*-03` files preserve the separate host/daemon
+scope. This late-phase snapshot supports investigating browser critical-path and
+admission delays; it does not establish their continuous duration or a speedup.
+
+### E-191 — Experiment 03 failed and settled; WF-15c and reduced CI policy
+
+`r03-s015-exp03-ci-warm-c` completed native **9013/2**, normalized product exit
+**10**, graph **3,730,897 ms**, owning-command elapsed **3,804,872.133992 ms**.
+C3 remains `sha256:92fda6e5b496b2bfa44e41d5034503c00b5e2d4721c2b8812b31ff1134010c19`.
+Of 600 units, 598 passed; one accessibility cohort failed and its target summary
+reported that failure. All **1,164 cleanup steps completed**, accounting settled
+empty and the secret scan passed **9,800 files**. There are no unresolved owned
+resources. Diagnostic/events/timing audits passed **27121/0**, **69615/0** and
+**76623/0**, with `full_validity=0` as required for failed assurance. Performance
+and complete critical-path units exports passed **68332/0** and **86148/0**.
+These reader successes do not make the invocation pass.
+
+The failed exact row is
+`web.design.accessibility.membership_management_accessibility`; public
+`make task-guide OWNER=web.design JSON=1` confirmed its route. The retained
+Playwright report classifies `route.fulfill: Fetch response has been disposed`
+as `product/test_assertion_failure`. The referenced trace shows the last focus
+assertion complete at 6466.205 ms, context teardown starting at 6466.999 ms,
+upstream fetch completing at 6470.092 ms and fulfillment failing at 6473.856 ms.
+Pinned Playwright 1.63.0 disposes the context request client at the start of
+context close, before its channel-close log. This supports a fixture teardown
+ordering defect, not a failed UI assertion or a demonstrated 60-second timeout.
+A secondary teardown timeout message remains retained without that causal claim.
+The sanitized call/timing/error excerpt is
+`exp03-ci-route-failure-trace-excerpt.json` in the continuation evidence directory.
+No request bodies, cookies or browser storage were exported.
+
+WF-15c SHALL adopt REQ-806/AC-088 teardown ordering, then repair the shared
+owned-context fixture to unregister and drain page/context route handlers before
+request-client disposal. It SHALL preserve cleanup failures and existing
+deadlines, fresh contexts and session revocation order. It SHALL NOT suppress
+route errors, add sleeps/retries or widen timeouts. Deterministic support tests,
+the exact failed accessibility row, relevant shared-fixture assurance and
+projection/type checks SHALL precede a new source freeze. The repair is common
+to baseline and candidate; optional Go tuning is unchanged. Exit requires those
+focused checks, both source snapshots, traceability and Markdown lint.
+
+The user explicitly selected **one final CI run**, with timing descriptive
+against the assumed **3,600,000 ms**, and **no formal CI performance acceptance**.
+Section 7.8.4 now orders cheap correctness checks, test-fast benefit screening,
+conditional browser non-regression, then final retained-source CI. No additional
+CI warm-up is planned. The mandatory correctness and cleanup gates remain.
+Historical CI experiments and E-167 completion retain their original meaning.
+Experiment 03's failed attempt and twenty unexecuted acceptance attempts are
+preserved in `performance-experiment-exp03-closed.json`; zero acceptance samples
+were collected. Source repairs require a new experiment and cannot erase this
+failure. WF-15 and WF-16 remain open; performance is unestablished.
+
+### E-192 — WF-15c implementation and focused repair evidence
+
+REQ-806/AC-088 was amended before implementation. The shared fixture now calls
+`closeOwnedBrowserContext` in teardown. The helper begins all page/context HTTP
+route drains with `behavior: wait`, waits for settlement, then closes the context;
+it preserves single failures or aggregates multiple drain/close failures. Four
+routed deterministic tests cover pending fetched responses, concurrent drain
+initiation, synchronous drain failure, close failure and error preservation.
+The existing support row owns those exact titles. No test timeout, renderer
+worker, resource capacity, retry, reset boundary or product contract changed.
+
+Authoring initially appended unsorted catalog titles: format-01 failed plan
+admission and task-guide exited 2. Sorting the exact selector list repaired that
+configuration failure before execution. `r03-s015-route-repair-format-02`
+passed **97785/0**, 8,053 ms; generate-01 passed **89254/0**, 11,930 ms.
+The public browser task-guide then passed **62929/0**.
+
+All roots below are `.cartulary/test-results/r03-s015-route-repair-<label>`.
+Commands used `CGO_ENABLED=0`; focused execution disabled result reuse and used
+basic diagnostics. Source was
+`sha256:829d5e67807a907ff6bb290e21f357e0a18a9b469bcb7e376126dc85eb2c98ac`.
+
+| Label | Public command | Native/exit; result |
+| --- | --- | --- |
+| support-01 | make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.cleanup_suite_9036a615b1 HARNESS_DIAGNOSTICS=basic | 7115/0; 2/2 units; 1,527 ms; 11 cleanup steps completed; scan pass, 26 files |
+| a11y-01 | make test-slice OWNER=web.design ROWS=web.design.accessibility.membership_management_accessibility HARNESS_DIAGNOSTICS=basic | 2175/0; 12/12 units; 100,782 ms; 23 cleanup steps completed; scan pass, 97 files |
+| finalize-c-01 | make agent-finalize | 40366/0; 27,636 ms; maintenance skipped because RESULTS_DIR was unset |
+| types-c-01 | make lint CHECK=types | 23351/2; 20,778 ms; TS2532 in new support test at mock.results[0]; all 11 cleanup steps settled |
+
+Both focused invocations passed independent full observability audits, exit 0.
+The types failure concerns unchecked optional mock-array access, not the runtime
+repair; optional access now follows the already asserted exact invocation count.
+The failed check remains retained. Finalization, focused support and types checks
+will be repeated on that corrected source before preservation. No additional CI
+or performance attempt has run, and WF-15c remains open.
+
+### E-193 — WF-15c assurance complete; experiment 04 frozen
+
+**Implementation and focused assurance: PASS. Performance: PENDING.** REQ-806/
+AC-088 → owned-context cleanup helper/shared fixture → exact support row and
+membership accessibility row supplies the repair trace. The support row retains
+its original eight selectors and adds four lifecycle assertions. E-192's failed
+sort/type attempts remain retained; no CI rerun was used to repair them.
+
+All commands below use `CGO_ENABLED=0`; verification disables execution-result
+reuse. Roots are `.cartulary/test-results/r03-s015-route-repair-<label>`.
+
+| Label / public command | Native/exit; graph ms |
+| --- | --- |
+| finalize-c-02 / make agent-finalize | 57716/0; 26,706 |
+| types-c-02 / make lint CHECK=types | 93519/0; 21,940 |
+| frontend-c-01 / make lint CHECK=frontend | 77824/0; 2,262 |
+| go-c-01 / make lint CHECK=go | 25953/0; 9,045 |
+| support-02 / make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.cleanup_suite_9036a615b1 HARNESS_DIAGNOSTICS=basic | 60910/0; 1,831; independent full audit exit 0 |
+| generated-c-01 / make source-check CHECK=generated | 32148/0; 18,411 |
+| schema-c-01 / make source-check CHECK=schema | 48563/0; 7,224 |
+| catalog-c-01 / make source-check CHECK=catalog | 67564/0; 2,285 |
+| generate-b-01 / make generate | 41869/0; 11,250 |
+| finalize-b-01 / make agent-finalize | 87614/0; 27,868 |
+| go-b-01 / make lint CHECK=go | 98201/0; 9,715 |
+| generated-b-01 / make source-check CHECK=generated | 56784/0; 19,013 |
+| schema-b-01 / make source-check CHECK=schema | 36986/0; 8,365 |
+| catalog-b-01 / make source-check CHECK=catalog | 56096/0; 2,054 |
+
+Every listed graph passed its final secret scan and completed all cleanup steps;
+`route-repair-validation-receipts.json` retains counts and exact source identities.
+No owned resource remains unresolved. Maintenance was skipped because RESULTS_DIR
+was unset; no compatible successful full warm-check root exists. Candidate type,
+frontend and support assurance applies to byte-identical common browser sources
+in B4. E-192's real accessibility pass uses identical fixture/cleanup production
+code; only the support test's nullable mock access changed afterward. It remains
+an earlier-source focused receipt, not a fabricated B4/C4 full-run pass.
+
+| Treatment | Executable source digest | Archive SHA-256 |
+| --- | --- | --- |
+| B4, mandatory diagnostics/retention and common repairs | `6b58080ae0d6f13b75aa1fc9b10cf17a28643739af299a91caf4bef3770369a7` | `ba191f629b6747ee41b482d19c3c27eb5155373171068ee010ecc6f87f567502` |
+| C4, same plus optional Go budgets | `02d796280f47c02ed0734f009457f76414483734dddc045baf5ffe0ac8dc239e` | `6ad031db4bc40a8518e9729280a48e1ccdd875b6717e29c5008b5c9791a0323d` |
+
+Both archives contain 7,509 files at unchanged HEAD `f7b917026`. Their only
+non-tracker differences remain the approved seventeen Go-treatment paths.
+The NLSpec was restored before authored Go projections; generated outputs were
+regenerated through Make. No compatibility fallback or unrelated edit was added.
+The immutable freeze is `performance-experiment-exp04-freeze.json`.
+Public target-plan graph exports for fast/browser/CI passed on both sources:
+C4 **70369/0**, **75361/0**, **80313/0**; B4 **96995/0**, **58305/0**, **30264/0**.
+These are read-only plans, not CI executions. Row populations and all non-CPU
+claims match. Host/toolchain/storage/Docker identities were revalidated in
+`exp04-environment-revalidation.json`; authored non-CPU capacities remain unchanged.
+
+The new freeze has twenty conditional fast/browser attempts and **zero CI timing
+attempts**. First run one excluded fast warm-up per treatment, then matched fast
+pairs (B→C on odd pairs, C→B on even pairs). Apply the first-two-pair rejection/
+early-acceptance rules; complete four only when required. Browser warm-ups and
+four non-regression pairs occur only if fast passes. Rejection omits dependent
+performance attempts and restores optional Go owner/code/projections together.
+WF-16 then performs retained-source final assurance and **one final CI**; its
+elapsed comparison with assumed 60 minutes is descriptive, without a confidence
+bound or formal CI performance acceptance. Earlier freezes are immutable.
+
+Required accounting/basic diagnostics/cache-off/CGO-disabled settings, independent
+run audits, all five measured guardrails, matched run ordering and decimal
+bootstrap rules are unchanged. `analyze-exp04.py` preserves measured-workload
+arithmetic and removes CI acceptance analysis. No intentional competing workload
+or polling is allowed during acceptance measurements. WF-15c closing Markdown lint `r03-s015-route-repair-lint-01` passed
+**99940/0**, 18,640 ms. This completion receipt is checked by
+`r03-s015-route-repair-lint-02` before the next workstream begins. WF-15c is
+complete; optional Go tuning remains unaccepted pending the frozen fast gate.
+
+### E-194 — WF-15 Go performance rejection and coordinated restoration
+
+**S-014 tuning: REJECTED. S-015 decision: COMPLETE. Final assurance: PENDING.**
+Experiment 04's two matched fast pairs show elapsed improvements of
+**-2.5023392755%** and **-3.8813706578%**. Both are strictly below 5%, triggering
+the agreed early rejection. No four-pair confidence bounds or guardrail acceptance
+are claimed. Baseline B4 is now the retained implementation. Its behavioral
+owner, compiler/runner, contracts and generated projections were restored
+together; there is no dual reader or tuning toggle. Mandatory diagnostic and
+retention corrections, and the common browser teardown repair, remain.
+
+All six executed attempts used CGO_ENABLED=0, cache off, basic diagnostics and
+required accounting. Roots are `.cartulary/test-results/<run-id>`. Each native
+exit and independent full audit was 0; every run passed **158/158 units**, all
+**167 cleanup steps**, its final secret scan and empty accounting settlement.
+Canonical, host-admission and allocation coverage are complete. No allocation
+generation was needed. Public performance/critical-path exports all exited 0.
+
+| Run ID suffix after r03-s015-exp04- | Command | Native/exit | Owning elapsed ms | Charged CPU µs | Kernel peak bytes | p95 queue / cleanup union ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| fast-warm-b | make test-fast | 78927/0 | 225688.405975 | 577550525 | 5040623616 | 79062 / 67 |
+| fast-warm-c | make test-fast | 83323/0 | 223597.494320 | 619934232 | 5038977024 | 27137 / 46 |
+| fast-p01-b | make test-fast | 93431/0 | 224340.061199 | 578020659 | 4196003840 | 78225 / 64 |
+| fast-p01-c | make test-fast | 43032/0 | 229953.810661 | 634400228 | 5116846080 | 22699 / 63 |
+| fast-p02-c | make test-fast | 24587/0 | 228062.297381 | 640622145 | 5056049152 | 25635 / 69 |
+| fast-p02-b | make test-fast | 59554/0 | 219541.093785 | 569938143 | 4320157696 | 75047 / 47 |
+
+Warm-ups are excluded; pair one is B→C and pair two C→B. The audited public
+exports and raw arithmetic are retained in `performance-decision.json`;
+`performance-disposition-exp04.json` records the final conditional-workload
+outcomes. Browser non-regression is **NOT ESTABLISHED / OMITTED** because its fast
+prerequisite failed. Four remaining fast attempts and ten browser attempts
+(including two browser warm-ups) are recorded as omitted, fourteen in total.
+CI formal performance acceptance is **NOT REQUESTED**, per E-191; one final
+correctness invocation remains required in WF-16, with descriptive timing only.
+The immutable freeze and closed ledger remain separate; failed experiments 01–03
+are unchanged. No changed-source run used equivalent comparison admission.
+
+**Diagnostic observation, not another acceptance metric.** Every fast sample's
+critical path ends in the same frontend Vitest cohort. Baseline path queue is
+0/1 ms; candidate queue is 8,911/3,159 ms, mainly resource waiting for that cohort
+(8,900/3,136 ms). Cohort lifetimes remain approximately 211–216 seconds. Path host
+admission is only 6/6 ms baseline and 13/40 ms candidate. Thus the lower overall
+ready-delay percentile did not shorten the long frontend path; it also concealed
+increased waiting on that path. This supports future critical-path-aware admission
+and frontend cohort-balance investigation, not a capacity increase or a claim
+that Go execution alone caused every elapsed difference. CI's distinct host-wait
+and browser-chain opportunity remains E-185/E-190; no CI speedup is established.
+
+Between drained source switches, public CGO-disabled generation/catalog preparation
+passed. Roots use `r03-s015-exp04-<label>`:
+generate-c-01 **68179/0**, 11,030 ms; prepare-c-01 **13574/0**, 1,689 ms;
+generate-b-01 **83180/0**, 10,940 ms; prepare-b-01 **47686/0**, 1,634 ms;
+generate-c-02 **63230/0**, 11,300 ms; prepare-c-02 **58284/0**, 1,709 ms;
+generate-b-02 **79151/0**, 11,260 ms; prepare-b-02 **8225/0**, 1,681 ms.
+WF-15c final receipt lint-02 passed **57374/0**, 10,300 ms before these runs.
+No intentional competing workload or resource polling occurred during samples.
+The bounded route-gate source inspection occurred only after a sample drained;
+`route-gate-audit.json` states its limited scope and found no additional justified
+source repair. It does not replace final browser assurance.
+
+F-021 → R03-038/040 → frozen seventeen-path treatment → V-025 correctness and
+V-026 matched measurements supplies the decision trace. Retained B4 source is
+`sha256:6b58080ae0d6f13b75aa1fc9b10cf17a28643739af299a91caf4bef3770369a7`.
+`exp04-retained-source-verification.json` confirms all 7,508 non-tracker snapshot
+files match; candidate C4 remains archived for historical investigation. There
+are no unresolved candidate-owned resources. Risks remaining are unchanged
+selection-dependent Go budgets, incomplete long-CI detailed diagnostic coverage
+and unoptimized graph/host admission; these are not represented as fixed tuning.
+WF-16 entry requires this tracker update and successful boundary Markdown lint.
+
+### E-195 — WF-16 retained-source validation entry
+
+WF-15 boundary lint `r03-s015-decision-lint-01` passed **60593/0**, 10,170 ms,
+after E-194's rejection/restoration update and before this workstream. Retained
+source remains B4; no further Go tuning or optional performance sampling is
+admitted. All four principal public task-guides were refreshed successfully:
+browser **92369/0**, command surface **25646/0**, catalog **60270/0** and evidence
+accounting **92097/0**. `final-owner-selections.json` records the exact rows.
+
+WF-16 SHALL run CGO-disabled `make agent-finalize` first, with RESULTS_DIR unset
+because no compatible successful full warm-check root exists. Broader retained-
+source validation then consists of generated/schema/catalog checks; native
+fixture lifecycle/observations; runtime/scheduler/public-surface contracts;
+catalog routing; and current-epoch evidence/admission contracts through their
+owner routes. It SHALL also run `make browser-e2e SUITE=support`,
+`make browser-e2e SUITE=visual`, and `make harness-contract SUITE=ui-review`.
+No golden refresh or capacity change is authorized.
+
+Only after those prerequisites pass SHALL the single planned `make ci` start,
+with CGO_ENABLED=0, cache off, basic diagnostics and required accounting. Every
+execution SHALL settle, pass its retained-secret scan and receive applicable
+independent evidence validation. CI elapsed time is descriptive against the
+assumed 60 minutes; no CI baseline, warm-up or performance acceptance experiment
+will run. Physical settlement, a resumable handoff and closing tracker lint
+remain mandatory. This entry receipt makes no final-assurance pass claim.
+
+### E-196 — WF-16 pre-CI assurance passed; single CI entry
+
+All checks below ran on retained B4 source
+`sha256:6b58080ae0d6f13b75aa1fc9b10cf17a28643739af299a91caf4bef3770369a7`.
+Finalization preserved every non-tracker snapshot file. All runs used CGO_ENABLED=0;
+verification disabled execution-result reuse. Owner and explicit suite runs also
+used basic diagnostics and required accounting. Roots are
+`.cartulary/test-results/r03-s016-<label>-01`.
+
+| Label / public route | Native/exit | Graph ms | Passed units | Completed cleanup | Secret-scan files |
+| --- | --- | --- | --- | --- | --- |
+| finalize / make agent-finalize | 47653/0 | 27113 | 1 | 10 | 12 |
+| generated / make source-check CHECK=generated | 62971/0 | 17306 | 5 | 14 | 29 |
+| schema / make source-check CHECK=schema | 79506/0 | 6693 | 3 | 12 | 19 |
+| catalog / make source-check CHECK=catalog | 30180/0 | 1764 | 2 | 11 | 15 |
+| command / make test-slice OWNER=harness.command_surface | 33685/0 | 177550 | 5 | 14 | 247 |
+| catalog-owner / make test-slice OWNER=harness.test_catalog | 85520/0 | 54201 | 2 | 11 | 21 |
+| evidence / make test-slice OWNER=harness.evidence_accounting | 95044/0 | 122323 | 3 | 12 | 26 |
+| browser-owner / make test-slice OWNER=harness.browser | 23653/0 | 137383 | 3 | 12 | 264 |
+| support / make browser-e2e SUITE=support | 66698/0 | 124478 | 14 | 27 | 142 |
+| visual / make browser-e2e SUITE=visual | 7687/0 | 621283 | 37 | 74 | 545 |
+| ui-review / make harness-contract SUITE=ui-review | 11085/0 | 110495 | 10 | 19 | 61 |
+
+Owner commands supplied these exact comma-separated ROWS values; the table above
+does not claim unrestricted owner coverage:
+
+| Owner | Exact selected rows |
+| --- | --- |
+| harness.command_surface | harness.command_surface.unit.native_runtime, harness.command_surface.unit.scheduler_smoke, harness.command_surface.behavior.public_registry_parity |
+| harness.test_catalog | harness.test_catalog.behavior.routing_contract |
+| harness.evidence_accounting | harness.evidence_accounting.behavior.current_epoch_evidence, harness.evidence_accounting.behavior.observation_admission |
+| harness.browser | harness.browser.unit.native_fixtures, harness.browser.integration.native_fixture_lifecycle, harness.browser.integration.native_graph_observations |
+
+All seven owner/explicit runs passed independent full observability audits and
+public performance exports, exit 0, with accounting settlement **empty** and child
+exit 0. Every listed graph completed cleanup and passed its secret scan. Exact
+identities/counts are in `s016-pre-ci-validation-receipts.json`; no owned resource
+remains unresolved. No golden, capacity, isolation or retry changed. Maintenance
+was skipped because RESULTS_DIR was unset, not replaced with a CI or partial root.
+
+**Assurance: pre-CI PASS. Implementation: mandatory corrections retained; Go tuning
+restored. Performance: E-194 rejection unchanged.** This covers R03-035–041 through
+their admitted diagnostic, retirement, consumer, schema/routing and explicit
+browser owners. It does not yet establish final containing CI assurance.
+
+The next and sole planned CI command is:
+
+```sh
+CGO_ENABLED=0 CARTULARY_HARNESS_CACHE_MODE=off \
+CARTULARY_TEST_RUN_ID=r03-s016-ci-01 \
+make ci HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=required
+```
+
+`r03-s016-pre-ci-lint-01` checks this tracker before CI entry. There is no CI
+baseline or warm-up. Elapsed comparison against assumed 3,600,000 ms remains
+descriptive. Bounded resource observations may support the user's utilization
+question outside known quiet measurement intervals; their scope and timing SHALL
+be recorded and SHALL NOT be presented as continuous invocation utilization.
+The final CI native exit, audit, scan, physical settlement, handoff and closing
+Markdown lint remain open. No rerun is authorized by observation alone.
+
+### E-197 — Single final CI active; identity bound
+
+Pre-CI tracker lint `r03-s016-pre-ci-lint-01` passed **47286/0**, 9,970 ms.
+The E-196 exact command started at **2026-10-23 20:02:14 UTC** under native
+handle **64360**, root `.cartulary/test-results/r03-s016-ci-01`. Its published
+source matches retained B4 exactly:
+`sha256:6b58080ae0d6f13b75aa1fc9b10cf17a28643739af299a91caf4bef3770369a7`.
+The actual runtime graph is
+`sha256:839598de81121cba3d6e8e24bac7478ca9df65b414f102d7b122ce6255e22e08`.
+This actual runtime identity is not relabeled as the earlier static target-plan
+graph or an equivalent performance comparison; CI is final correctness with
+descriptive timing only.
+
+The initial exact-root public status observation exited 0 and reported active
+execution: **28 passed, 554 pending, 18 running, zero observed failures**, out of
+600 units. It does not establish final outcome or physical settlement. The native
+session remains authoritative for the outer command exit. The observation and
+its scope are retained in `s016-ci-status-00.json` and
+`s016-ci-observer-activity.json`. No CI baseline, warm-up or second CI was launched.
+Final outcome, independent audit, retained scan, settlement, handoff and closing
+tracker lint remain pending.
+
+At graph elapsed **609,475 ms**, a bounded public status checkpoint reported
+**67 passed, 522 pending and 11 running units**, no observed failures and no
+omitted running entries. Two webserver-backed cohorts were executing; nine
+admitted units were waiting. Adjacent host samples were read-only:
+`vmstat 1 6` **83582/0**, excluding its since-boot first row, recorded **80–85% CPU
+idle**, **0–2% I/O wait** and zero interval swap-in/out. `free -m` reported
+**23,626 MiB available**. CPU/memory PSI avg10 was zero. Docker stats **38826/0**
+showed two browser containers at **115.93%/131.85% CPU**, where 100% is one core.
+The daemon-wide/container and Linux host views are adjacent, not synchronized or
+invocation-attributed; they do not include Windows host totals. These observations
+support admission/dependency investigation, not numeric memory/process cuts or a
+whole-run utilization percentage.
+
+Read-only target-plan probes **50254/0** and **48458/0** retained the static graph,
+even with CGO_ENABLED=0 and the exact published declared inputs. Source inspection
+identified different compiler contexts: `buildTargetPlan` uses constructor
+Go/PostgreSQL lane defaults **4/4**; runtime preparation captures the published
+**19/16** capacities. No live reservation totals were inferred from the
+nonmatching static plan. Public runtime evidence remains authoritative, and no
+changed-source or changed-context equivalent comparison is claimed. The scope,
+commands and native exits are in `s016-ci-observer-activity.json`; the
+`s016-ci-*-01` samples and `s016-ci-graph-reservations-01.json` retain the limits.
+No source or capacity mutation occurred.
+
+At graph elapsed **1,719,659 ms**, the second bounded checkpoint reported
+**230 passed, 360 pending, nine running and one failed unit**, with active
+publication in draining phase. The observed failure is classified
+**product / test_assertion_failure**, in webserver-backed cohort
+`4c02b087bc125a226729ee92bff00096eb1539e403ba6f3bb8ad5d49682b3837`.
+This is not a terminal result; the native invocation continues independent work
+and settlement. Final correctness is not established and the exact failure
+requires terminal diagnosis before any repair or repeated verification.
+
+Adjacent `vmstat 1 6` **61037/0** recorded **72–86% CPU idle**, **1–5% I/O wait**
+and no interval swapping; `free -m` reported **24,757 MiB available**. Docker
+stats **50207/0** was a later daemon-wide snapshot and is not synchronized with
+the listed running units. CPU/memory/I/O PSI avg10 some values were
+**0.31/0.01/3.17%**. Scope remains bounded Linux-host context; these samples do
+not prove reservation overstatement or identify the browser assertion's cause.
+The `s016-ci-*-02` files and observer ledger preserve the exact observations.
+
+A bounded read of this already completed cohort's public unit/group results and
+referenced Playwright report identifies row
+`module.workbook.browser.destination_handoff_768_8f85fa718d`: **40 passed, one
+failed and six dependency-skipped rows**. Its `Work` heading focus assertion
+failed because the heading was absent; this was not a fixture-startup or cleanup
+classification. The referenced trace shows the second Task Requests grid-visibility
+assertion completing at 586,630.177 ms, followed by Work key activation starting
+at 586,632.235 ms. The test's first such navigation also waits for dock closure
+and destination focus; the second omits both. Core 03 REQ-03-314 distinguishes
+accepted/mounted destinations from completed presentation. This establishes a
+test sequencing gap, not direct instrumentation of the internal focus race.
+`s016-ci-destination-handoff-diagnosis.json` preserves the bounded evidence and
+proposed common serial-handoff assertion helper. No executable source was changed,
+no test was rerun, and whole-invocation terminal diagnosis remains required.
+
+### E-198 — User cancellation settled; focused handoff repair registered
+
+The user explicitly instructed: **end the CI test run early and apply the fixes**.
+At **2026-10-23 20:38:30 UTC**, Ctrl-C was delivered once to verified native
+handle **64360**. It exited **1** at **20:39:33 UTC**; the owning child reported
+exit **130 / signal 2**. CI status is **cancelled**, with **255 passed, one failed
+and 344 cancelled units** of 600. Its primary classification remains
+**product / test_assertion_failure** from the E-197 workbook row. No failure is
+erased by cancellation. Graph time was **2,179,526 ms**; owning-command accounting
+time was **2,239,176.837118 ms**. Interrupted timing is not a completed CI timing
+or an improvement against the assumed baseline.
+
+All **617 cleanup steps completed**, accounting settlement is **empty**, and
+the final retained-secret scan passed **6,461 files**. Independent public
+`make harness-observability-check RESULTS_DIR=.cartulary/test-results/r03-s016-ci-01
+CHECK=diagnostics` passed **8377/0**, explicitly **full_validity=0**. The public
+performance reader passed **53811/0**. Diagnostic resource coverage remains
+partial with 552 omissions; this is not whole-run sampled utilization assurance.
+The exact-root cancellation status reader exited 0. These outputs are retained
+as `s016-ci-cancel-audit.json`, `s016-ci-performance.json` and
+`s016-ci-status-cancel.json`. No candidate-owned resource remains unresolved.
+
+WF-16a/S-016a now addresses the E-197 serial handoff test gap. The authoritative
+Core 03 REQ-03-314/315 already distinguish visible/accepted destinations from
+completed presentation; implementation SHALL consolidate the two Task Requests
+transitions in `apps/web/e2e/workbook-destination-handoff.spec.ts` around those
+existing completion assertions. This changes tests and tracker documentation,
+not product requirements or runtime behavior. No timeout, retry, sleep, golden,
+resource-profile or selector change is admitted. The causal limit remains:
+the trace proves the incomplete test synchronization, not the internal focus
+event ordering.
+
+`make task-guide OWNER=module.workbook JSON=1` passed **64160/0** and confirms
+the exact routes retained in `s016-repair-workbook-guide.json`. V-027a selects
+the failed 768 row alone, then six destination-handoff rows (1440, 1024, 768,
+hidden, supersession and viewer variants as enumerated by the guide) and the
+three other dependency-skipped rows (startup, reference queries, filter focus).
+The exact nine-row combined selection SHALL be checked before execution. Existing earlier source
+and experiment receipts remain historical, including the rejected Go treatment.
+
+Assurance: **CI INCOMPLETE / CANCELLED**. Performance: **no CI claim**.
+Implementation: mandatory diagnostics/retention and B4 common fixes retained;
+Go tuning remains restored. This child repair does not close WF-16, and no
+automatic full CI restart is part of the requested focused repair. Boundary
+`r03-s016a-entry-lint-01` SHALL pass before the source edit.
+
+### E-199 — WF-16a focused repair passed; resumable validation handoff
+
+Entry lint `r03-s016a-entry-lint-01` passed **37705/0**, **9,010 ms**, before
+editing executable source. `openTaskRequestsFromWork` now owns the repeated
+serial navigation in `apps/web/e2e/workbook-destination-handoff.spec.ts`. Both
+transitions require the destination grid to be visible, Work to be detached,
+and focus to be inside that grid before the next action. This removes duplicated
+partial synchronization and preserves every prior assertion. The deliberate
+supersession scenario remains independent and unchanged. No product code,
+requirement, test title, routing selector, timeout, retry or golden changed.
+
+Traceability is **F-025 → Core 03 REQ-03-314/315 → local serial-handoff helper →
+V-027a**. The existing owner requires presentation completion independently of
+accepted/mounted state; this is a test projection correction and requires no
+new behavioral amendment. The retained trace does not directly instrument the
+internal focus race. A passing focused run does not erase the interrupted CI
+failure or establish that every possible timing defect is repaired.
+
+The repaired executable source is
+`sha256:a81b80320b89cd193ab69312e22da1849114c433ca03ae64452424b3f321ef68`
+at unchanged HEAD `f7b917026e1174661a9bdf9118d18120bbd225b0`. Comparing all
+7,509 tracked/nonignored files against preserved B4 finds only the test file and
+this tracker changed. `s016a-source-delta.json` records the comparison, and
+`s016a-repair.patch` preserves the test delta against the B4 file. The accepted
+mandatory harness corrections and restored Go budgets remain byte-identical.
+No schema migration or runtime rollback is involved; earlier treatment archives
+and failed attempts are preserved.
+
+All roots below are `.cartulary/test-results/r03-s016a-<label>`. All commands use
+CGO_ENABLED=0; checks disable execution-result reuse. Both browser selections
+use basic diagnostics and required accounting.
+
+| Label / public command | Native/exit | Graph ms | Passed units | Completed cleanup | Scan files |
+| --- | --- | --- | --- | --- | --- |
+| handoff-alone-01 / make test-slice OWNER=module.workbook | 11547/0 | 92677 | 12 | 23 | 97 |
+| handoff-combined-01 / make test-slice OWNER=module.workbook | 59747/0 | 100989 | 12 | 23 | 105 |
+| finalize-01 / make agent-finalize | 58429/0 | 26691 | 1 | 10 | 12 |
+| generated-01 / make source-check CHECK=generated | 98257/0 | 17442 | 5 | 14 | 29 |
+| catalog-01 / make source-check CHECK=catalog | 78171/0 | 1742 | 2 | 11 | 15 |
+| frontend-02 / make lint CHECK=frontend | 11896/0 | 2068 | 2 | 11 | 18 |
+| types-02 / make lint CHECK=types | 46402/0 | 21215 | 2 | 11 | 15 |
+
+The alone command's ROWS is
+`module.workbook.browser.destination_handoff_768_8f85fa718d`. The combined
+command uses the following nine exact rows as one comma-separated ROWS argument;
+all nine terminal row results passed:
+
+```text
+module.workbook.browser.browser_startup_honors_explicit_sheet_home_defau_ee3b02ee01
+module.workbook.browser.destination_handoff_1024_963c4de116
+module.workbook.browser.destination_handoff_1440_920aaf64d5
+module.workbook.browser.destination_handoff_768_8f85fa718d
+module.workbook.browser.destination_handoff_hidden_a9564ecda1
+module.workbook.browser.destination_handoff_supersession_62c776e360
+module.workbook.browser.destination_handoff_viewer_64fc8d19e2
+module.workbook.browser.existing_task_reference_queries_stage_typed_time_f92c8c967a
+module.workbook.browser.filter_editor_keyboard_focus
+```
+
+`make harness-observability-check RESULTS_DIR=<each browser root>` passed exit
+0 with **full_validity=1** for both runs. Their public performance exports also
+exited 0 and establish empty accounting settlement and child exit 0, not a
+performance acceptance claim. Every listed run completed all cleanup and passed
+its final retained-secret scan. `s016a-validation-receipts.json` records exact
+source/graph identities and counts; `s016a-selections.json` freezes the rows.
+No candidate-owned resources remain unresolved.
+
+Two mistaken `make source-check CHECK=types` / `CHECK=frontend` invocations
+were rejected before execution with **config / usage_error, exit 2**; their
+intended `r03-s016a-types-01` / `frontend-01` roots were not created. Public
+`make help ALL=1` confirmed those selectors belong to `make lint`; the corrected
+fresh runs above passed. These command-selection errors are recorded separately
+from product failures and are not successful checks.
+
+**Implementation: repair accepted. Focused assurance: PASS. Performance: no
+new claim; E-194 Go rejection unchanged. Full CI: INCOMPLETE after user
+cancellation.** Agent-finalize preceded the broader source checks and preserved
+the repaired source. Retained-run maintenance was skipped because RESULTS_DIR
+was unset; no compatible successful full warm-check root exists.
+
+Closing `r03-s016a-completion-lint-01` SHALL validate this completion receipt.
+WF-16a then closes; WF-16 remains open for complete containing CI assurance and
+its final evidence/settlement/handoff boundary. There is no active invocation
+and no automatic CI restart in this repair. When final validation resumes,
+revalidate the retained source, use a fresh explicit run ID with the unchanged
+E-196 CI environment, and retain the failed/cancelled root. Do not relabel B4
+CI or the interrupted duration as a repaired-source pass or an elapsed benefit.
+
+### E-200 — WF-16a completion lint and final repair handoff
+
+`CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=r03-s016a-completion-lint-01 make
+lint-markdown` passed **48628/0**, **9,870 ms**, after E-199's workstream update.
+WF-16a/V-027a is complete: source repair, focused assertions, independent audits,
+finalization, types/frontend/generated/catalog checks, cleanup and secret scans
+passed. The final authored receipt is checked by
+`CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=r03-s016a-closing-lint-01 make lint-markdown`;
+that closing command MUST pass before delivery.
+
+WF-16 and the reservation continuation remain **IN_PROGRESS**, because the user
+cancelled the only final CI attempt. No additional CI was launched, no complete
+CI timing or performance acceptance is claimed, and no resource remains owned
+by the stopped invocation or focused repair. Next work is the outstanding
+containing-validation boundary described in E-199, not another tuning experiment.
+The current repair is a test-only delta; prior accepted harness behavior, rejected
+Go tuning and all historical receipts remain intact. Maintenance was skipped
+because RESULTS_DIR was unset.
+
 ## 11. Open Questions and Blockers
 
 | ID | Blocker / why it matters | Owner and required evidence | Affected work / status |
@@ -8003,3 +9779,13 @@ MUST NOT satisfy those implementation gates.
 | Resumable source and handoff | E-166 final archive/digest and five-path correction map; E-167 future entry boundary and unresolved historical uncertainty |
 | Final tracker validation | E-167 completion lint passed; registered closing lint MUST pass after this final update |
 | Maintenance prerequisite | Skipped because RESULTS_DIR was unset; no successful full warm-check root was substituted |
+
+### Reservation continuation completion boundary
+
+Status: IN_PROGRESS, E-199. WF-00f and S-012/013 are complete. S-014 Go tuning
+is rejected and restored after S-015 measured rejection; common repairs remain.
+The sole final CI attempt was user-cancelled after one assertion failure.
+WF-16a has repaired the narrow test projection and passed V-027a; complete S-016
+CI assurance remains unestablished. No test invocation is active. Mandatory
+correctness, optional Go tuning and measured performance have separate decisions.
+Completion requires Section 7.8.5 and V-027, followed by closing Markdown lint.

@@ -91,10 +91,6 @@ func (r *residency) reference(key string) []string {
 	}
 	return []string{ref}
 }
-func stackKey(request Request) string {
-	return "stack:" + request.Affinity + ":" + request.FixtureProfile + ":" + request.SnapshotKey
-}
-
 func readResident(file string) (*residentRecord, error) {
 	data, err := harnesslocal.ReadFile(file, 65536, false)
 	if err != nil {

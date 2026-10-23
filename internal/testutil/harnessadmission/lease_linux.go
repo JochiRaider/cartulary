@@ -82,14 +82,35 @@ func AcquireWithPreparedResidents(ctx context.Context, root string, claims, capa
 	return acquire(ctx, root, claims, capacities, parent, mode, nil, prepare, waiting)
 }
 
-// NeedsRetirement reports whether releasing a resident with these claims can
-// relieve a capacity shortage that remains after currently active work drains.
-// It neither grants activity nor releases capacity; exact cleanup still owns it.
-func (l *Lease) NeedsRetirement(ctx context.Context, claims Quantities) (bool, error) {
-	return Transact(ctx, Request{Root: l.root, Operation: "retirement_required", Token: l.Token, Claims: claims})
+// NeedsRetirement evaluates the exact proposed release set. It neither grants
+// cleanup activity nor releases capacity; the physical owner must pin the
+// generation, settle it and then reevaluate admission.
+func (l *Lease) NeedsRetirement(ctx context.Context, residents []Resident) (bool, error) {
+	request := Request{Root: l.root, Operation: "retirement_required", Token: l.Token, Residents: residents}
+	o, _ := ctx.Value(observationKey{}).(*observer)
+	if o == nil {
+		return Transact(ctx, request)
+	}
+	decision := &RetirementDecision{}
+	request.retirementDiagnostic = decision
+	start := o.clock()
+	eligible, err := Transact(ctx, request)
+	end := o.clock()
+	if decision.RequestRef != "" {
+		outcome := "committed"
+		if err != nil {
+			outcome = "failed"
+		}
+		decision.Eligible = eligible && err == nil
+		o.emit(Observation{UnitID: o.unit, RequestRef: &decision.RequestRef, Clock: "graph-monotonic", Kind: "retirement_evaluation", StartMS: start, EndMS: end, Count: 1, Outcome: outcome, Evaluation: decision})
+	}
+	return eligible, err
 }
 
 func acquire(ctx context.Context, root string, claims, capacities Quantities, parent *string, mode string, residents []Resident, prepare func(context.Context) ([]Resident, error), waiting func(context.Context, *Lease) error) (*Lease, error) {
+	if mode == "drain" {
+		ctx = context.WithValue(ctx, phasesSuppressedKey{}, true)
+	}
 	if root == "" {
 		root = DefaultRoot()
 	}
@@ -114,13 +135,19 @@ func acquire(ctx context.Context, root string, claims, capacities Quantities, pa
 		var admitted bool
 		err := ctx.Err()
 		if err == nil && prepare != nil {
+			done := Phase(ctx, "logical_slot")
 			request.Residents, err = prepare(ctx)
+			done()
 		}
 		if err == nil {
-			admitted, err = Transact(ctx, request)
+			done := Phase(ctx, "admission_transaction")
+			admitted, err = observedTransaction(ctx, request)
+			done()
 		}
 		if err == nil && !admitted && waiting != nil {
+			done := Phase(ctx, "pressure_retirement")
 			err = waiting(ctx, lease)
+			done()
 		}
 		if err == nil && admitted && ctx.Err() == nil {
 			return lease, nil
@@ -137,11 +164,13 @@ func acquire(ctx context.Context, root string, claims, capacities Quantities, pa
 			}
 			return nil, err
 		}
+		done := Phase(ctx, "admission_wait")
 		timer := time.NewTimer(50 * time.Millisecond)
 		select {
 		case <-ctx.Done():
 		case <-timer.C:
 		}
 		timer.Stop()
+		done()
 	}
 }

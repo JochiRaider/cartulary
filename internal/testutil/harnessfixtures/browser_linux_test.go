@@ -19,6 +19,7 @@ import (
 
 func TestFixtureBrowserAdapter(t *testing.T) {
 	testRendererOwnership(t)
+	testConsumerAccounting(t)
 	for _, uncertain := range []bool{false, true} {
 		t.Run(fmt.Sprintf("failed_service_generation_uncertain_%t", uncertain), func(t *testing.T) {
 			runtime, root, run := runtimeFixture(t)

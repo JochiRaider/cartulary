@@ -204,7 +204,10 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 				for _, unit := range []string{"suite-a:one", "suite-b:two", "suite-c:interrupted"} {
 					works = append(works, harnessfixtures.WorkRequirement{Request: harnessfixtures.Request{PostgresIsolation: "none", UnitID: unit, Capability: "none", RuntimeProfile: "default"}, Renderer: "pooled", Physical: map[string]map[string]int64{"renderer": {"browser_stack": 1, "memory_mb": 512, "process": 2, "port_lane": 1}}, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}})
 				}
-				owner.ConfigureAdmission("", parent, capacities, works)
+				owner.ConfigureAdmission("", parent, capacities)
+				if err := owner.RegisterConsumers(works); err != nil {
+					t.Fatal(err)
+				}
 				generation := ""
 				for index, work := range works {
 					host, finish, err := owner.Admit(ctx, work)
@@ -236,7 +239,7 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 						}
 						t.Fatal(err)
 					}
-					retained, err := borrow.Release(ctx, index != 2, false)
+					retained, err := borrow.Release(ctx, index != 2)
 					if err != nil || retained != (index < 2) {
 						t.Fatal("renderer settlement", retained, err)
 					}
@@ -245,6 +248,9 @@ func testNativeFixturePhysicalLifecycle(t *testing.T, variants []string) {
 					}
 					if err := host.Release(ctx); err != nil {
 						t.Fatal("activity release", err)
+					}
+					if err := owner.ConsumerTerminal(work.Request.UnitID, "passed"); err != nil {
+						t.Fatal(err)
 					}
 				}
 				for _, key := range []string{"CARTULARY_RENDERER_ATTACHMENT", "CARTULARY_VISUAL_RENDERER_ATTESTED", "CARTULARY_VISUAL_RENDERER_PROFILE_ID", "CARTULARY_VISUAL_RENDERER_PROFILE_JSON", "CARTULARY_VISUAL_RENDERER_WS_ENDPOINT", "CARTULARY_RENDERER_RESOURCE_REF"} {

@@ -43,7 +43,7 @@ type rendererOwner struct {
 	options   ProductionOptions
 	slots     []*rendererSlot
 	changed   chan struct{}
-	remaining map[string]int
+	remaining func(rendererConsumerKey, string) int
 	closed    bool
 }
 
@@ -67,7 +67,7 @@ func (r *rendererOwner) reserve(ctx context.Context, unit, profile, policy strin
 			return nil, context.Canceled
 		}
 		for _, slot := range r.slots {
-			if policy == "pooled" && slot.policy == policy && slot.profile == profile && slot.diagnostics == diagnostics && slot.borrower == "" && (slot.state == "ready" || slot.state == "unallocated") {
+			if policy == "pooled" && slot.compatibility() == rendererCompatibility(profile, policy, diagnostics) && slot.borrower == "" && (slot.state == "ready" || slot.state == "unallocated") {
 				slot.borrower = unit
 				slot.state = "reserved"
 				r.mu.Unlock()
@@ -102,7 +102,7 @@ func (r *rendererOwner) reserve(ctx context.Context, unit, profile, policy strin
 		changed := r.changed
 		r.mu.Unlock()
 		// No host activity claim is held while waiting for a logical slot.
-		if _, err := r.retireIdle(ctx, nil, false, nil, 1); err != nil {
+		if _, err := r.retireIdle(ctx, nil, false, nil, 1, "renderer_slot_pressure"); err != nil {
 			return nil, err
 		}
 		select {
@@ -241,8 +241,7 @@ func (r *rendererOwner) borrow(ctx context.Context, slot *rendererSlot, environm
 			}
 			closeErr = errors.Join(closeErr, removePrivate(file))
 			r.mu.Lock()
-			r.remaining[slot.profile]--
-			keep := healthy && closeErr == nil && slot.policy == "pooled" && r.remaining[slot.profile] > 0 && !r.closed
+			keep := healthy && closeErr == nil && slot.policy == "pooled" && r.future(slot, slot.borrower) > 0 && !r.closed
 			if keep {
 				closeErr = errors.Join(closeErr, r.evidence(slot, "ready", slot.borrower, borrow))
 				retained = closeErr == nil
@@ -259,8 +258,6 @@ func (r *rendererOwner) borrow(ctx context.Context, slot *rendererSlot, environm
 				}
 				closeErr = errors.Join(closeErr, r.retire(ctx, slot))
 			}
-			_, idleErr := r.retireIdle(ctx, nil, true, nil, 0)
-			closeErr = errors.Join(closeErr, idleErr)
 		})
 		return retained, closeErr
 	}
@@ -304,12 +301,8 @@ func (r *rendererOwner) retire(ctx context.Context, slot *rendererSlot) error {
 	return nil
 }
 func (r *rendererOwner) evictIdle(ctx context.Context, exclude *rendererSlot) error {
-	_, err := r.retireIdle(ctx, exclude, false, nil, 0)
+	_, err := r.retireIdle(ctx, exclude, false, nil, 0, "exclusive_admission")
 	return err
-}
-
-func (r *rendererOwner) evictForAdmission(ctx context.Context, exclude *rendererSlot, pending *harnessadmission.Lease) (int, error) {
-	return r.retireIdle(ctx, exclude, false, pending, 1)
 }
 
 func (r *rendererOwner) unreserve(slot *rendererSlot) {
@@ -323,53 +316,78 @@ func (r *rendererOwner) unreserve(slot *rendererSlot) {
 	r.signal()
 }
 
-func (r *rendererOwner) retireIdle(ctx context.Context, exclude *rendererSlot, unusedOnly bool, pending *harnessadmission.Lease, maximum int) (int, error) {
+func (r *rendererOwner) future(slot *rendererSlot, exclude string) int {
+	if r.remaining == nil {
+		return 0
+	}
+	return r.remaining(slot.compatibility(), exclude)
+}
+
+func (r *rendererOwner) retireIdle(ctx context.Context, exclude *rendererSlot, unusedOnly bool, pending *harnessadmission.Lease, maximum int, reason string) (int, error) {
+	r.mu.Lock()
+	slots := slices.Clone(r.slots)
+	r.mu.Unlock()
+	slices.SortFunc(slots, func(a, b *rendererSlot) int { return a.id - b.id })
 	retired := 0
-	for {
-		r.mu.Lock()
-		var slot *rendererSlot
-		for _, candidate := range r.slots {
-			if candidate != exclude && candidate.borrower == "" && (candidate.state == "ready" || candidate.state == "unallocated") && (!unusedOnly || r.remaining[candidate.profile] <= 0) {
-				if pending != nil && r.remaining[candidate.profile] > 0 {
-					if candidate.physical == nil || candidate.resident == nil {
-						continue
-					}
-					needed, err := pending.NeedsRetirement(ctx, candidate.resident.Allocation.Claims)
-					if err != nil {
-						r.mu.Unlock()
-						return retired, err
-					}
-					if !needed {
-						continue
-					}
-				}
-				if slot == nil {
-					slot = candidate
-				}
-				if r.remaining[candidate.profile] <= 0 {
-					slot = candidate
-					break
-				}
-			}
+	for _, slot := range slots {
+		if slot == exclude {
+			continue
 		}
-		if slot != nil {
-			slot.state = "retiring"
-		}
-		r.mu.Unlock()
-		if slot == nil {
-			return retired, nil
-		}
-		operation := func(ctx context.Context) error { return r.retire(ctx, slot) }
-		if token, _ := ctx.Value(activityKey{}).(string); token != "" || slot.resident == nil || slot.physical == nil {
-			if err := operation(ctx); err != nil {
-				return retired, err
-			}
-		} else if err := r.options.residency.drain(ctx, []*residentRecord{slot.resident}, operation); err != nil {
+		did, err := r.retireSlotIfIdle(ctx, slot, unusedOnly, pending, reason)
+		if err != nil {
 			return retired, err
 		}
-		retired++
+		if did {
+			retired++
+		}
 		if maximum > 0 && retired >= maximum {
-			return retired, nil
+			break
 		}
 	}
+	return retired, nil
+}
+
+func (r *rendererOwner) retireSlotIfIdle(ctx context.Context, slot *rendererSlot, unusedOnly bool, pending *harnessadmission.Lease, reason string) (bool, error) {
+	r.mu.Lock()
+	if !slices.Contains(r.slots, slot) || slot.borrower != "" || (slot.state != "ready" && slot.state != "unallocated") {
+		r.mu.Unlock()
+		return false, nil
+	}
+	unused := r.future(slot, "") == 0
+	if unusedOnly && !unused {
+		r.mu.Unlock()
+		return false, nil
+	}
+	prior := slot.state
+	slot.state = "retiring" // Pin identity and exclude borrowers before evaluation.
+	r.mu.Unlock()
+	restore := func() { r.mu.Lock(); slot.state = prior; r.signal(); r.mu.Unlock() }
+	if pending != nil && !unused {
+		if slot.physical == nil || slot.resident == nil {
+			restore()
+			return false, nil
+		}
+		useful, err := pending.NeedsRetirement(ctx, []harnessadmission.Resident{slot.resident.Allocation})
+		if err != nil || !useful {
+			restore()
+			return false, err
+		}
+	}
+	if unused && reason == "capacity_pressure" {
+		reason = "terminal_borrower_release"
+	}
+	residents := []harnessadmission.Resident{}
+	if slot.resident != nil && slot.physical != nil {
+		residents = append(residents, slot.resident.Allocation)
+	}
+	observe := harnessadmission.Retirement(ctx, residents, reason)
+	operation := func(ctx context.Context) error { return r.retire(ctx, slot) }
+	var err error
+	if token, _ := ctx.Value(activityKey{}).(string); token != "" || slot.resident == nil || slot.physical == nil {
+		err = operation(ctx)
+	} else {
+		err = r.options.residency.drain(ctx, []*residentRecord{slot.resident}, operation)
+	}
+	observe(err)
+	return err == nil, err
 }

@@ -59,6 +59,49 @@ func observationFixture(t *testing.T) (*Plan, *harnesssession.Runtime, string, m
 	return plan, r, run, policy
 }
 func TestRuntimeObservations(t *testing.T) {
+	t.Run("admission_failure_is_optional_and_discloses_lost_coverage", func(t *testing.T) {
+		s := &executionSession{enabled: true, policy: map[string]any{}}
+		phase := harnessadmission.Observation{UnitID: "u", Clock: "graph-monotonic", Kind: "phase", Phase: "admission_wait", StartMS: 1, EndMS: 2, DurationMS: 1, Count: 1}
+		// A malformed diagnostic policy must not panic through the product owner.
+		s.admission(phase)
+		if s.hostAdmission.document()["status"] != "partial" || s.hostAdmission.omissions != 1 {
+			t.Fatal(s.hostAdmission.document())
+		}
+	})
+	t.Run("admission_aggregates_durations_without_claiming_continuous_observation", func(t *testing.T) {
+		p, r, run, policy := observationFixture(t)
+		s := newExecutionSession(r, run, p.facts.Manifest, policy, nil)
+		phase := harnessadmission.Observation{UnitID: "u", Clock: "graph-monotonic", Kind: "phase", Phase: "admission_wait", StartMS: 1, EndMS: 3, DurationMS: 2, Count: 1}
+		s.admission(phase)
+		phase.StartMS = 10
+		phase.EndMS = 12
+		s.admission(phase)
+		doc := s.hostAdmission.document()
+		if len(s.hostAdmission.records) != 1 || doc["status"] != "complete" {
+			t.Fatal(doc)
+		}
+		got := s.hostAdmission.records[0]
+		if got.StartMS != 1 || got.EndMS != 12 || got.DurationMS != 4 || got.Count != 2 {
+			t.Fatal(got)
+		}
+		policy["maximum_host_admission_records"] = float64(1)
+		phase.Phase = "logical_slot"
+		s.admission(phase)
+		if s.hostAdmission.document()["status"] != "truncated" || s.hostAdmission.omissions != 1 {
+			t.Fatal(s.hostAdmission.document())
+		}
+		// Independent verbose limits cannot remove admission observations.
+		policy["maximum_execution_records"] = float64(0)
+		if len(s.hostAdmission.records) != 1 {
+			t.Fatal("admission section coupled to verbose records")
+		}
+		s.enabled = false
+		phase.UnitID = "disabled"
+		s.admission(phase)
+		if s.hostAdmission.omissions != 1 {
+			t.Fatal("off diagnostics recorded a unit")
+		}
+	})
 	testAllocationObservationBounds(t)
 	t.Run("admission_preserves_typed_owner_failure", func(t *testing.T) {
 		for _, tc := range []struct {

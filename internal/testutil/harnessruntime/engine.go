@@ -80,7 +80,7 @@ type fixtureRequest struct {
 type fixtureLease struct {
 	ID          string
 	Environment map[string]string
-	Release     func(context.Context, bool, bool) (bool, error)
+	Release     func(context.Context, bool) (bool, error)
 }
 type fixtureOwner interface {
 	Acquire(context.Context, fixtureRequest) (*fixtureLease, error)
@@ -117,20 +117,21 @@ type graphResult struct {
 	Cleanup           []cleanupRecord
 }
 type enginePorts struct {
-	Cleanup         func(cleanupRecord)
-	RetainEvents    bool
-	Now             func() time.Duration
-	Execute         func(context.Context, executionRequest) unitResult
-	Cache           graphCache
-	Fixtures        fixtureOwner
-	Admit           func(context.Context, unit) (*hostLease, error)
-	Event           func(map[string]any) error
-	Terminal        func(unit, *unitResult) error
-	CleanupServices func(context.Context) error
-	Finalize        func(context.Context, bool, []cleanupRecord) error
-	Pause           func(context.Context) error
-	Resume          func()
-	Observe         func(engineSnapshot)
+	ConsumerTerminal func(string, string) error
+	Cleanup          func(cleanupRecord)
+	RetainEvents     bool
+	Now              func() time.Duration
+	Execute          func(context.Context, executionRequest) unitResult
+	Cache            graphCache
+	Fixtures         fixtureOwner
+	Admit            func(context.Context, unit) (*hostLease, error)
+	Event            func(map[string]any) error
+	Terminal         func(unit, *unitResult) error
+	CleanupServices  func(context.Context) error
+	Finalize         func(context.Context, bool, []cleanupRecord) error
+	Pause            func(context.Context) error
+	Resume           func()
+	Observe          func(engineSnapshot)
 }
 type engineSnapshot struct {
 	Phase     string
@@ -609,6 +610,7 @@ func (e *graphEngine) admit(u unit) {
 	if c.Outcome == "hit" {
 		e.result.States[u.ID] = "passed"
 		e.result.Units[u.ID] = unitResult{Status: "passed", Cache: c}
+		e.consumerTerminal(u.ID, "cached")
 		e.emit(at, "completed", u.ID, "passed", map[string]any{"output_digest": c.OutputDigest})
 		return
 	}
@@ -643,6 +645,7 @@ func (e *graphEngine) settleDependencies() {
 			e.closeWait(u.ID, at)
 			e.result.States[u.ID] = "skipped"
 			e.result.Units[u.ID] = unitResult{Status: "skipped"}
+			e.consumerTerminal(u.ID, "skipped")
 			e.emit(at, "skipped", u.ID, "skipped", map[string]any{"failure_reason": "dependency_failure"})
 			changed = true
 		}
@@ -660,6 +663,7 @@ func (e *graphEngine) stopPending() {
 		f := failed("interrupted", "cancelled_or_interrupted")
 		e.result.States[u.ID] = "cancelled"
 		e.result.Units[u.ID] = unitResult{Status: "cancelled", Failure: f}
+		e.consumerTerminal(u.ID, "cancelled")
 		e.emit(at, "cancelled", u.ID, "cancelled", failureFields(f))
 	}
 }
@@ -704,6 +708,7 @@ func (e *graphEngine) complete(m engineMessage) {
 	r := *m.Result
 	e.result.States[m.ID] = r.Status
 	e.result.Units[m.ID] = r
+	e.consumerTerminal(m.ID, r.Status)
 	if r.RetainedFixture {
 		e.deferredCache = append(e.deferredCache, u)
 	}
@@ -882,5 +887,13 @@ func (e *graphEngine) recordCleanup(r cleanupRecord) {
 	e.result.Cleanup = append(e.result.Cleanup, r)
 	if e.ports.Cleanup != nil {
 		e.ports.Cleanup(r)
+	}
+}
+
+func (e *graphEngine) consumerTerminal(id, disposition string) {
+	if e.ports.ConsumerTerminal != nil {
+		if err := e.ports.ConsumerTerminal(id, disposition); err != nil {
+			e.requiredError(err)
+		}
 	}
 }

@@ -446,7 +446,7 @@ func Main(input io.Reader, output io.Writer) int {
 		return fail()
 	}
 	rawPolicy, ok := config["policy"].(object)
-	if !ok || harnessdiag.Validate("cartulary.harness_instrumentation_policy.v4", rawPolicy) != nil {
+	if !ok || harnessdiag.Validate("cartulary.harness_instrumentation_policy.v5", rawPolicy) != nil {
 		return fail()
 	}
 	p := policy{}

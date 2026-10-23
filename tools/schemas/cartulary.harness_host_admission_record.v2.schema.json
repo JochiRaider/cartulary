@@ -1,0 +1,919 @@
+{
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unit_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "request_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^request:[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clock_identity": {
+          "const": "graph-monotonic"
+        },
+        "start_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "observations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "const": "phase"
+        },
+        "phase": {
+          "enum": [
+            "logical_slot",
+            "admission_transaction",
+            "admission_wait",
+            "pressure_retirement"
+          ]
+        }
+      },
+      "required": [
+        "unit_id",
+        "request_ref",
+        "clock_identity",
+        "start_ms",
+        "end_ms",
+        "duration_ms",
+        "observations",
+        "kind",
+        "phase"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unit_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "request_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^request:[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clock_identity": {
+          "const": "graph-monotonic"
+        },
+        "start_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "observations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "const": "decision"
+        },
+        "decision": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "request_ref": {
+              "type": "string",
+              "pattern": "^request:[a-f0-9]{64}$"
+            },
+            "sequence": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "queue_position": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "mode": {
+              "enum": [
+                "shared",
+                "exclusive",
+                "observation",
+                "drain"
+              ]
+            },
+            "granted": {
+              "type": "boolean"
+            },
+            "requested_claims": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "io": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "memory_mb": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "process": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "browser_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "postgres": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "object_store": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "port_lane": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "service_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "volume": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": []
+            },
+            "effective_capacities": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "io": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "memory_mb": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "process": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "browser_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "postgres": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "object_store": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "port_lane": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "service_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "volume": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": []
+            },
+            "current_deficits": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "io": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "memory_mb": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "process": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "browser_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "postgres": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "object_store": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "port_lane": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "service_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "volume": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": []
+            },
+            "persistent_deficits": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "io": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "memory_mb": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "process": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "browser_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "postgres": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "object_store": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "port_lane": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "service_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "volume": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": []
+            },
+            "required_ancestors": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "reference": {
+                    "type": "string",
+                    "pattern": "^(request|resident):[a-f0-9]{64}$"
+                  },
+                  "claims": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "cpu": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "io": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "memory_mb": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "process": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "browser_stack": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "postgres": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "object_store": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "port_lane": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "service_stack": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "volume": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": []
+                  }
+                },
+                "required": [
+                  "reference",
+                  "claims"
+                ]
+              }
+            },
+            "active_holders": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "reference": {
+                    "type": "string",
+                    "pattern": "^(request|resident):[a-f0-9]{64}$"
+                  },
+                  "claims": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "cpu": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "io": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "memory_mb": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "process": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "browser_stack": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "postgres": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "object_store": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "port_lane": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "service_stack": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "volume": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": []
+                  }
+                },
+                "required": [
+                  "reference",
+                  "claims"
+                ]
+              }
+            },
+            "residents": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "reference": {
+                    "type": "string",
+                    "pattern": "^(request|resident):[a-f0-9]{64}$"
+                  },
+                  "claims": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "cpu": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "io": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "memory_mb": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "process": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "browser_stack": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "postgres": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "object_store": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "port_lane": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "service_stack": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "volume": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": []
+                  }
+                },
+                "required": [
+                  "reference",
+                  "claims"
+                ]
+              }
+            },
+            "prospective": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "reference": {
+                    "type": "string",
+                    "pattern": "^(request|resident):[a-f0-9]{64}$"
+                  },
+                  "claims": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "cpu": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "io": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "memory_mb": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "process": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "browser_stack": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "postgres": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "object_store": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "port_lane": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "service_stack": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "volume": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": []
+                  }
+                },
+                "required": [
+                  "reference",
+                  "claims"
+                ]
+              }
+            },
+            "priority_blockers": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "pattern": "^request:[a-f0-9]{64}$"
+              }
+            },
+            "exclusive_blockers": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "pattern": "^request:[a-f0-9]{64}$"
+              }
+            }
+          },
+          "required": [
+            "request_ref",
+            "sequence",
+            "queue_position",
+            "mode",
+            "granted",
+            "requested_claims",
+            "effective_capacities",
+            "current_deficits",
+            "persistent_deficits",
+            "required_ancestors",
+            "active_holders",
+            "residents",
+            "prospective",
+            "priority_blockers",
+            "exclusive_blockers"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "committed",
+            "failed"
+          ]
+        }
+      },
+      "required": [
+        "unit_id",
+        "request_ref",
+        "clock_identity",
+        "start_ms",
+        "end_ms",
+        "duration_ms",
+        "observations",
+        "kind",
+        "decision",
+        "outcome"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unit_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "request_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^request:[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clock_identity": {
+          "const": "graph-monotonic"
+        },
+        "start_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "observations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "const": "retirement"
+        },
+        "resident_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "pattern": "^(request|resident):[a-f0-9]{64}$"
+          }
+        },
+        "reason": {
+          "enum": [
+            "capacity_pressure",
+            "exclusive_admission",
+            "terminal_borrower_release",
+            "renderer_slot_pressure"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "settled",
+            "unresolved"
+          ]
+        }
+      },
+      "required": [
+        "unit_id",
+        "request_ref",
+        "clock_identity",
+        "start_ms",
+        "end_ms",
+        "duration_ms",
+        "observations",
+        "kind",
+        "resident_refs",
+        "reason",
+        "outcome"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unit_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[A-Za-z0-9_.:/-]+$"
+        },
+        "request_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^request:[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clock_identity": {
+          "const": "graph-monotonic"
+        },
+        "start_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "end_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "observations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "const": "retirement_evaluation"
+        },
+        "outcome": {
+          "enum": [
+            "committed",
+            "failed"
+          ]
+        },
+        "evaluation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "request_ref": {
+              "type": "string",
+              "pattern": "^request:[a-f0-9]{64}$"
+            },
+            "resident_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^resident:[a-f0-9]{64}$"
+              }
+            },
+            "before_deficits": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "io": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "memory_mb": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "process": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "browser_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "postgres": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "object_store": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "port_lane": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "service_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "volume": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": []
+            },
+            "after_deficits": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cpu": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "io": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "memory_mb": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "process": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "browser_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "postgres": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "object_store": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "port_lane": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "service_stack": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "volume": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": []
+            },
+            "active_references": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "string",
+                "pattern": "^request:[a-f0-9]{64}$"
+              }
+            },
+            "eligible": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "request_ref",
+            "resident_refs",
+            "before_deficits",
+            "after_deficits",
+            "active_references",
+            "eligible"
+          ]
+        }
+      },
+      "required": [
+        "unit_id",
+        "request_ref",
+        "clock_identity",
+        "start_ms",
+        "end_ms",
+        "duration_ms",
+        "observations",
+        "kind",
+        "outcome",
+        "evaluation"
+      ]
+    }
+  ],
+  "$id": "cartulary.harness_host_admission_record.v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

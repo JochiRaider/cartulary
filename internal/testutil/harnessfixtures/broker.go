@@ -4,6 +4,7 @@ package harnessfixtures
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -232,9 +233,17 @@ func New(options Options) *Broker {
 	return &Broker{epoch: options.Clock(), options: options, shared: map[string]*entry{}, pending: map[string]chan struct{}{}, reserved: map[string]int{}, active: map[*Lease]bool{}, life: life, cancel: cancel}
 }
 
+// stackKey is shared by physical residency, reuse and consumer accounting.
+// The run owner fixes engine/trust configuration independently of this tuple.
+func stackKey(request Request) string {
+	services := slices.Clone(request.Services)
+	slices.Sort(services)
+	data, _ := json.Marshal([]any{request.Capability, request.PostgresIsolation, request.Affinity, request.RuntimeProfile, request.BrowserStage, request.FixtureProfile, request.SnapshotKey, request.BuilderUnit, services})
+	return fmt.Sprintf("stack:%x", sha256.Sum256(data))
+}
 func sharedKey(request Request) string {
 	if request.Capability == "browser_stack" {
-		return request.Capability + ":" + request.PostgresIsolation + ":" + request.Affinity + ":" + request.FixtureProfile + ":" + request.SnapshotKey
+		return stackKey(request)
 	}
 	return ""
 }
@@ -664,28 +673,32 @@ func (b *Broker) retireIdle(ctx context.Context, maximum int, needed func(Reques
 		}
 	}
 	b.mu.Unlock()
-	slices.SortFunc(entries, func(a, b *entry) int { return strings.Compare(a.request.AllocationRef, b.request.AllocationRef) })
+	slices.SortFunc(entries, func(a, b *entry) int { return strings.Compare(a.key, b.key) })
 	var result error
 	retired := 0
 	for _, e := range entries {
-		if needed != nil {
-			match, err := needed(e.request)
-			if err != nil {
-				return retired, errors.Join(result, err)
-			}
-			if !match {
-				continue
-			}
-		}
 		b.mu.Lock()
-		// Selection runs outside the broker lock. Recheck the borrower boundary
-		// before revoking this allocation and blocking a concurrent acquisition.
-		if e.refs != 0 || b.reserved[e.key] != 0 || e.settled || b.shared[e.key] != e {
+		if e.refs != 0 || b.reserved[e.key] != 0 || e.settled || b.shared[e.key] != e || b.pending[e.key] != nil {
 			b.mu.Unlock()
 			continue
 		}
-		b.unshare(e)
 		b.pending[e.key] = make(chan struct{})
+		b.mu.Unlock()
+		match, evaluationErr := true, error(nil)
+		if needed != nil {
+			match, evaluationErr = needed(e.request)
+		}
+		b.mu.Lock()
+		if evaluationErr != nil || !match {
+			close(b.pending[e.key])
+			delete(b.pending, e.key)
+			b.mu.Unlock()
+			if evaluationErr != nil {
+				return retired, errors.Join(result, evaluationErr)
+			}
+			continue
+		}
+		b.unshare(e)
 		b.mu.Unlock()
 		result = errors.Join(result, cleanup(ctx, e))
 		b.mu.Lock()

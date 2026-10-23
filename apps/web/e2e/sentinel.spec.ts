@@ -1834,6 +1834,7 @@ test("Task lifecycle binds selected rows and atomically blocks completes and reo
   const removeOwner = ownerPicker.getByRole("button", {
     name: /^Remove selected /,
   });
+  await expect(ownerCandidates).toBeEnabled();
   await removeOwner.focus();
   await removeOwner.press("Space");
   await expect(removeOwner).toHaveCount(0);

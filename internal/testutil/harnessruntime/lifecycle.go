@@ -106,7 +106,7 @@ func (e *graphEngine) work(u unit, c cacheResult) {
 		defer cancel()
 		err := e.workerPhase(u, "fixture_release", func() error {
 			var err error
-			r.RetainedFixture, err = owned.Release(ctx, e.ctx.Err() == nil && (u.Fixture != "browser_stack" || r.Status == "passed"), u.Command.Environment["CARTULARY_BROWSER_RELEASE_AFFINITY"] != "1")
+			r.RetainedFixture, err = owned.Release(ctx, e.ctx.Err() == nil && (u.Fixture != "browser_stack" || r.Status == "passed"))
 			return err
 		})
 		cleanup("fixture_release", owned.ID, err)

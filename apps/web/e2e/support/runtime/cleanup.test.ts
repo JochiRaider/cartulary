@@ -3,7 +3,121 @@
 import { describe, expect, it, vi } from "vitest";
 import type { StorageState } from "../auth/storageState";
 import { buildWorkerAdminBlueprints } from "../auth/workerAdmin";
-import { OwnedSessionTracker } from "./cleanup";
+import { closeOwnedBrowserContext, OwnedSessionTracker } from "./cleanup";
+
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+}
+
+describe("closeOwnedBrowserContext", () => {
+  it("drains every page and context before disposing fetched responses", async () => {
+    const pageGate = deferred();
+    const contextGate = deferred();
+    const pendingResponse = { disposed: false, fulfilled: false };
+    const firstPage = {
+      unrouteAll: vi.fn(async () => {
+        await pageGate.promise;
+        if (pendingResponse.disposed) throw new Error("response disposed");
+        pendingResponse.fulfilled = true;
+      }),
+    };
+    const secondPage = { unrouteAll: vi.fn(async () => {}) };
+    const context = {
+      pages: () => [firstPage, secondPage],
+      unrouteAll: vi.fn(() => contextGate.promise),
+      close: vi.fn(async () => {
+        expect(pendingResponse.fulfilled).toBe(true);
+        pendingResponse.disposed = true;
+      }),
+    };
+    const closing = closeOwnedBrowserContext(context);
+    for (const owner of [firstPage, secondPage, context]) {
+      expect(owner.unrouteAll).toHaveBeenCalledExactlyOnceWith({
+        behavior: "wait",
+      });
+    }
+    expect(context.close).not.toHaveBeenCalled();
+    pageGate.resolve();
+    await firstPage.unrouteAll.mock.results[0]?.value;
+    expect(pendingResponse.fulfilled).toBe(true);
+    expect(context.close).not.toHaveBeenCalled();
+    contextGate.resolve();
+    await closing;
+    expect(context.close).toHaveBeenCalledTimes(1);
+    expect(pendingResponse.disposed).toBe(true);
+  });
+
+  it("settles other drains and closes after a synchronous drain failure", async () => {
+    const gate = deferred();
+    const failure = new Error("page drain failed");
+    const context = {
+      pages: () => [
+        {
+          unrouteAll: () => {
+            throw failure;
+          },
+        },
+      ],
+      unrouteAll: vi.fn(() => gate.promise),
+      close: vi.fn(async () => {}),
+    };
+    const closing = closeOwnedBrowserContext(context);
+    const rejected = expect(closing).rejects.toBe(failure);
+    expect(context.unrouteAll).toHaveBeenCalledExactlyOnceWith({
+      behavior: "wait",
+    });
+    expect(context.close).not.toHaveBeenCalled();
+    gate.resolve();
+    await rejected;
+    expect(context.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves all drain and close failures in ownership order", async () => {
+    const pageFailure = new Error("page drain failed");
+    const contextFailure = new Error("context drain failed");
+    const closeFailure = new Error("context close failed");
+    const context = {
+      pages: () => [
+        {
+          unrouteAll: async () => {
+            throw pageFailure;
+          },
+        },
+      ],
+      unrouteAll: async () => {
+        throw contextFailure;
+      },
+      close: vi.fn(async () => {
+        throw closeFailure;
+      }),
+    };
+    await expect(closeOwnedBrowserContext(context)).rejects.toMatchObject({
+      name: "AggregateError",
+      errors: [pageFailure, contextFailure, closeFailure],
+    });
+    expect(context.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves close failure when no pages remain", async () => {
+    const failure = new Error("context close failed");
+    const context = {
+      pages: () => [],
+      unrouteAll: vi.fn(async () => {}),
+      close: vi.fn(async () => {
+        throw failure;
+      }),
+    };
+    await expect(closeOwnedBrowserContext(context)).rejects.toBe(failure);
+    expect(context.unrouteAll).toHaveBeenCalledExactlyOnceWith({
+      behavior: "wait",
+    });
+    expect(context.close).toHaveBeenCalledTimes(1);
+  });
+});
 
 function storageState(sessionValue: string, csrfValue = "csrf-token") {
   return {

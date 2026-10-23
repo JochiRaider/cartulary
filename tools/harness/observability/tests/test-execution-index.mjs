@@ -20,7 +20,7 @@ function fixture(t) {
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const manifest = { run_id: "execution", source_digest: digest, graph_digest: digest, instrumentation: { mode: "basic", policy_digest: digest } };
   const run = { manifest, registrations: new Map([["u", { row_ids: ["r"] }]]) };
-  const index = { schema_id: "cartulary.harness_execution_index.v3", allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null, run_id: "execution", source_digest: digest, graph_digest: digest,
+  const index = { schema_id: "cartulary.harness_execution_index.v5", host_admission: { status: "complete", omitted_records: 0, records: [], records_digest: executionRecordsDigest([]) }, allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null, run_id: "execution", source_digest: digest, graph_digest: digest,
     policy_digest: digest, status: "complete", omitted_records: 0, omitted_refs: [], records: [structuredClone(launch)] };
   const file = path.join(root, "diagnostics/execution-index.json");
   const save = () => atomicLocalFile(file, JSON.stringify({ ...index, records_digest: executionRecordsDigest(index.records) }), { replace: true });
@@ -148,4 +148,27 @@ test("allocation lifecycle rejects conflicts, chronology, missing coverage and u
     f.index.allocation_lifecycle.records_digest=executionRecordsDigest(f.index.allocation_lifecycle.records);f.save();
     assert.throws(()=>readExecutionIndex(f.root,f.run));
   }
+});
+
+test("admission observations validate bounded facts, identities and canonical clocks",(t)=>{
+ const f=fixture(t);
+ f.run.phases=new Map([["host",{unit_id:"u",phase:"host_admission",start_ms:0,end_ms:20}]]);
+ const phase={unit_id:"u",request_ref:null,clock_identity:"graph-monotonic",kind:"phase",phase:"admission_wait",start_ms:1,end_ms:10,duration_ms:4,observations:2};
+ const save=(records,status="complete",omitted_records=0)=>{f.index.host_admission={records,status,omitted_records,records_digest:executionRecordsDigest(records)};f.save()};
+ save([phase]);assert.equal(readExecutionIndex(f.root,f.run).host_admission.records[0].duration_ms,4);
+ for(const change of [r=>r.unit_id="foreign",r=>r.end_ms=0,r=>r.duration_ms=30,r=>r.end_ms=40,r=>r.request_ref=`request:${"a".repeat(64)}`,r=>r.clock_identity="other",r=>r.private_path="/private/lease"]){const r=structuredClone(phase);change(r);save([r]);assert.throws(()=>readExecutionIndex(f.root,f.run));}
+ save([phase,phase]);assert.throws(()=>readExecutionIndex(f.root,f.run),/overlapping/u);
+ save([phase],"complete",1);assert.throws(()=>readExecutionIndex(f.root,f.run),/omissions/u);
+ save([phase],"truncated",1);assert.equal(readExecutionIndex(f.root,f.run).host_admission.status,"truncated");
+ const request_ref=`request:${"a".repeat(64)}`;
+ const decision={...phase,kind:"decision",outcome:"committed",request_ref,duration_ms:0,decision:{request_ref,sequence:1,queue_position:1,mode:"shared",granted:false,requested_claims:{cpu:2},effective_capacities:{cpu:2},current_deficits:{cpu:1},persistent_deficits:{},required_ancestors:[],active_holders:[],residents:[],prospective:[],priority_blockers:[],exclusive_blockers:[]}};delete decision.phase;
+ save([decision]);assert.equal(readExecutionIndex(f.root,f.run).host_admission.records.length,1);
+ decision.decision.granted=true;save([decision]);assert.throws(()=>readExecutionIndex(f.root,f.run),/blockers/u);
+ const ref=`resident:${"b".repeat(64)}`;
+ const evaluation={...decision,kind:"retirement_evaluation",evaluation:{request_ref,resident_refs:[ref],before_deficits:{memory_mb:100},after_deficits:{memory_mb:80},active_references:[],eligible:true}};delete evaluation.decision;
+ save([evaluation]);assert.equal(readExecutionIndex(f.root,f.run).host_admission.records[0].evaluation.eligible,true);
+ for(const mutate of [r=>r.evaluation.eligible=false,r=>r.evaluation.after_deficits.process=1,r=>r.evaluation.resident_refs.push(ref),r=>r.evaluation.request_ref=`request:${"c".repeat(64)}`]) { const r=structuredClone(evaluation); mutate(r); save([r]); assert.throws(()=>readExecutionIndex(f.root,f.run)); }
+ const noRelief=structuredClone(evaluation);noRelief.evaluation.after_deficits={memory_mb:100};noRelief.evaluation.eligible=false;save([noRelief]);assert.equal(readExecutionIndex(f.root,f.run).host_admission.records[0].evaluation.eligible,false);
+ const retirement={...phase,kind:"retirement",duration_ms:9,observations:1,resident_refs:[],reason:"renderer_slot_pressure",outcome:"unresolved"};delete retirement.phase;
+ save([retirement]);assert.equal(readExecutionIndex(f.root,f.run).host_admission.records[0].outcome,"unresolved");
 });

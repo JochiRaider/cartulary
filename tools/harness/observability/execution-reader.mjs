@@ -6,9 +6,9 @@ import { executionRecordsDigest } from "../runtime/execution-observations.mjs";
 
 export function readExecutionIndex(runRoot, run) {
   let index;
-  try { index = parseStrictJSON(readLocalFile(path.join(runRoot, "diagnostics/execution-index.json"), { maximum: 8 * 1024 ** 2 }).toString("utf8")); }
+  try { index = parseStrictJSON(readLocalFile(path.join(runRoot, "diagnostics/execution-index.json"), { maximum: 24 * 1024 ** 2 }).toString("utf8")); }
   catch (error) { if (error.code === "ENOENT") return null; throw error; }
-  validateSchemaSync("cartulary.harness_execution_index.v3", index);
+  validateSchemaSync("cartulary.harness_execution_index.v5", index);
   if (run.manifest.instrumentation.mode !== "basic") throw new Error("execution evidence requires basic diagnostics");
   for (const key of ["run_id", "source_digest", "graph_digest"]) if (index[key] !== run.manifest[key]) throw new Error("execution identity mismatch");
   if (index.policy_digest !== run.manifest.instrumentation.policy_digest || index.records_digest !== executionRecordsDigest(index.records)) throw new Error("execution digest mismatch");
@@ -78,12 +78,13 @@ export function readExecutionIndex(runRoot, run) {
     }
   }
   validateAllocationLifecycles(index, run);
+  validateHostAdmission(index.host_admission, run);
   return index;
 }
 
 function validateAllocationLifecycles(index, run) {
   const section = index.allocation_lifecycle;
-  const { allocation_lifecycle: _, ...ordinary } = index;
+  const { allocation_lifecycle: _, host_admission: __, ...ordinary } = index;
   if (Buffer.byteLength(JSON.stringify(ordinary)) > 4 * 1024 ** 2) throw new Error("ordinary execution metadata exceeds bound");
   if (Buffer.byteLength(JSON.stringify(section)) > 4 * 1024 ** 2 || section.records_digest !== executionRecordsDigest(section.records)) throw new Error("allocation lifecycle size or digest mismatch");
   if (section.status === "complete" && (section.omitted_records || section.omitted_refs.length)) throw new Error("complete allocation lifecycle has omissions");
@@ -108,5 +109,46 @@ function validateAllocationLifecycles(index, run) {
   }
   if (section.status === "complete") {
     for (const record of index.records) if (record.kind === "allocation" && record.capability === "browser_stack" && !allocations.has(record.allocation_ref)) throw new Error("complete lifecycle misses observed browser allocation");
+  }
+}
+
+// This validates producer facts and their clock/identity bindings. It deliberately
+// does not recompute weighted admission or infer a blocker between observations.
+export function validateHostAdmission(section, run) {
+  if (Buffer.byteLength(JSON.stringify(section)) > 16 * 1024 ** 2 || section.records_digest !== executionRecordsDigest(section.records)) throw new Error("host admission size or digest mismatch");
+  if (section.status === "complete" && section.omitted_records !== 0) throw new Error("complete host admission has omissions");
+  const requests = new Map(), previous = new Map(), durations = new Map();
+  for (const r of section.records) {
+    if (Buffer.byteLength(JSON.stringify(r)) > 65536 || !run.registrations.has(r.unit_id)) throw new Error("unknown or oversized host admission record");
+    if (r.end_ms < r.start_ms || r.duration_ms > r.end_ms - r.start_ms + 1e-6) throw new Error("invalid host admission duration");
+    const host = [...(run.phases?.values() ?? [])].find((p) => p.unit_id === r.unit_id && p.phase === "host_admission");
+    if (!host || r.start_ms < host.start_ms - 1 || r.end_ms > host.end_ms + 1) throw new Error("host admission observation outside canonical phase");
+    if (r.kind === "decision") {
+      if (r.request_ref !== r.decision.request_ref || r.duration_ms !== 0) throw new Error("invalid admission decision identity or duration");
+      const old = requests.get(r.request_ref);
+      if (old && (old.unit_id !== r.unit_id || old.sequence !== r.decision.sequence || old.mode !== r.decision.mode)) throw new Error("admission request identity conflict");
+      requests.set(r.request_ref, { unit_id:r.unit_id, sequence:r.decision.sequence, mode:r.decision.mode });
+      if (r.decision.granted && (r.outcome !== "committed" || Object.keys(r.decision.current_deficits).length || r.decision.priority_blockers.length || r.decision.exclusive_blockers.length)) throw new Error("granted admission has blockers");
+      for (const key of ["required_ancestors", "active_holders", "residents", "prospective"]) {
+        const refs = r.decision[key].map((h) => h.reference);
+        if (new Set(refs).size !== refs.length) throw new Error("duplicate admission holder");
+      }
+      if (r.decision.residents.some((h) => r.decision.prospective.some((p) => p.reference === h.reference))) throw new Error("resident is also prospective");
+    } else if(r.kind==="retirement_evaluation") {
+      const e=r.evaluation;
+      if(r.request_ref!==e.request_ref || r.duration_ms!==0) throw new Error("invalid retirement evaluation identity or duration");
+      const resources=new Set([...Object.keys(e.before_deficits),...Object.keys(e.after_deficits)]);
+      const relief=[...resources].some(k=>(e.after_deficits[k]??0)<(e.before_deficits[k]??0));
+      const increase=[...resources].some(k=>(e.after_deficits[k]??0)>(e.before_deficits[k]??0));
+      if(e.eligible!==(r.outcome==="committed" && relief && !increase)) throw new Error("retirement eligibility contradicts declared deficits");
+    } else if (r.request_ref !== null) throw new Error("unassigned admission record has request identity");
+    if (r.kind === "phase") {
+      durations.set(r.unit_id, (durations.get(r.unit_id) ?? 0) + r.duration_ms);
+      if (durations.get(r.unit_id) > host.end_ms - host.start_ms + 1) throw new Error("host phase duration exceeds canonical interval");
+    }
+    if (r.kind === "retirement" && (new Set(r.resident_refs).size !== r.resident_refs.length || r.observations !== 1 || Math.abs(r.duration_ms - (r.end_ms-r.start_ms)) > 1e-6)) throw new Error("invalid retirement observation");
+    const key = `${r.unit_id}:${r.kind}:${r.phase ?? (r.kind==="retirement_evaluation" ? `${r.request_ref}:${r.evaluation.resident_refs.join(",")}` : r.request_ref) ?? r.resident_refs.join(",")}`;
+    if (previous.has(key) && r.start_ms < previous.get(key)) throw new Error("overlapping or reordered admission observations");
+    previous.set(key, r.end_ms);
   }
 }

@@ -578,7 +578,6 @@ export function compileBrowserStageGraph(root, owner, stage, { mode = "validatio
 
   for (const terminalUnitID of previousByLifecycle.values()) {
     const terminalUnit = units.find((unit) => unit.unit_id === terminalUnitID);
-    terminalUnit.command.environment.CARTULARY_BROWSER_RELEASE_AFFINITY = "1";
     terminalUnit.estimated_work_ms += owner.lifecycle_estimates_ms.browser_allocation_release;
   }
 

@@ -5,15 +5,24 @@ import { validateCanonicalRun } from "./canonical-evidence.mjs";
 
 const usage = (message) => Object.assign(new Error(message), { exit_code: 2 });
 export function criticalPathQuery({ view = "units", unitID = null, offset = 0, limit = 20 } = {}) {
-  if (!["units", "waits", "allocations"].includes(view)) throw usage("unknown critical-path VIEW");
+  if (!["units", "waits", "allocations", "host-admission"].includes(view)) throw usage("unknown critical-path VIEW");
   const integer = (value) => /^(0|[1-9][0-9]*)$/u.test(String(value)) && Number.isSafeInteger(Number(value));
   if (!integer(offset) || !integer(limit) || Number(limit) < 1 || Number(limit) > 100) throw usage("invalid critical-path OFFSET or LIMIT");
   if (unitID !== null && (typeof unitID !== "string" || !/^[A-Za-z0-9_.:/-]{1,255}$/u.test(unitID))) throw usage("invalid UNIT_ID");
   return { view, unit_id: unitID, offset: Number(offset), limit: Number(limit) };
 }
-const totals = (run, ids) => ({ unit_count: ids.length,
-  queue_ms: ids.reduce((sum, id) => sum + (run.intervals.get(id)?.queue_ms ?? 0), 0),
-  lifetime_ms: ids.reduce((sum, id) => { const i = run.intervals.get(id); return sum + (i ? i.end - i.start : 0); }, 0) });
+const hostPhases = ["logical_slot", "admission_transaction", "admission_wait", "pressure_retirement"];
+const totals = (run, ids, admission) => {
+  const host = [...run.phases.values()].filter((p) => ids.includes(p.unit_id) && p.phase === "host_admission");
+  const observed = (admission?.records ?? []).filter((r) => ids.includes(r.unit_id) && r.kind === "phase");
+  const hostTime = host.reduce((sum, p) => sum + p.end_ms - p.start_ms, 0);
+  const phaseTime = Object.fromEntries(hostPhases.map((phase) => [phase, observed.filter((r) => r.phase === phase).reduce((sum, r) => sum + r.duration_ms, 0)]));
+  return { unit_count: ids.length,
+    queue_ms: ids.reduce((sum, id) => sum + (run.intervals.get(id)?.queue_ms ?? 0), 0),
+    lifetime_ms: ids.reduce((sum, id) => { const i = run.intervals.get(id); return sum + (i ? i.end - i.start : 0); }, 0),
+    host_admission_ms: hostTime, host_phase_ms: phaseTime,
+    host_uncovered_ms: host.reduce((sum, p) => sum + Math.max(0, p.end_ms - p.start_ms - observed.filter((r) => r.unit_id === p.unit_id).reduce((total, r) => total + r.duration_ms, 0)), 0) };
+};
 
 export function criticalPathModel(run, execution, target, query) {
   const summary = run.targetSummaries.get(target || run.manifest.target);
@@ -26,6 +35,7 @@ export function criticalPathModel(run, execution, target, query) {
   const selected = ids.filter((id) => query.unit_id === null || id === query.unit_id);
   const positions = new Map(ids.map((id, index) => [id, index]));
   const lifecycle = execution?.allocation_lifecycle;
+  const admission = execution?.host_admission;
   let records;
   if (query.view === "units") records = selected.map((unit_id) => {
     const i = run.intervals.get(unit_id);
@@ -44,15 +54,19 @@ export function criticalPathModel(run, execution, target, query) {
     if (!pathUnits.some((id) => selected.includes(id))) return [];
     return [{ path_index: positions.get(pathUnits[0]), path_unit_ids: pathUnits, lifecycle: record }];
   }).sort((a, b) => a.path_index - b.path_index || a.lifecycle.allocation_ref.localeCompare(b.lifecycle.allocation_ref));
+  else if (query.view === "host-admission") records = (admission?.records ?? [])
+    .filter((r) => selected.includes(r.unit_id))
+    .map((observation) => ({ unit_id: observation.unit_id, path_index: positions.get(observation.unit_id), observation }))
+    .sort((a, b) => a.path_index - b.path_index || a.observation.start_ms - b.observation.start_ms || a.observation.kind.localeCompare(b.observation.kind) || (a.observation.phase ?? "").localeCompare(b.observation.phase ?? ""));
   else records = [];
   const total = query.view === "waits" ? selected.reduce((sum, id) => sum + (run.waits.get(id)?.count ?? 0), 0) : records.length;
   return { ids, selected, positions, model: {
-    schema_id: "cartulary.harness_critical_path.v1", run_id: run.manifest.run_id, source_digest: run.manifest.source_digest,
+    schema_id: "cartulary.harness_critical_path.v3", run_id: run.manifest.run_id, source_digest: run.manifest.source_digest,
     graph_digest: run.manifest.graph_digest, target: summary.target, query,
-    coverage: { canonical: "complete", allocation_lifecycle: lifecycle?.status ?? "unavailable", allocation_omissions: lifecycle?.omitted_records ?? null },
-    path_totals: totals(run, ids), filtered_totals: totals(run, selected), total_count: total,
+    coverage: { canonical: "complete", allocation_lifecycle: lifecycle?.status ?? "unavailable", allocation_omissions: lifecycle?.omitted_records ?? null, host_admission: admission?.status ?? "unavailable", host_admission_omissions: admission?.omitted_records ?? null },
+    path_totals: totals(run, ids, admission), filtered_totals: totals(run, selected, admission), total_count: total,
     returned_count: 0, next_offset: null, records: records.slice(query.offset, query.offset + query.limit),
-    limitations: ["graph_queue_excludes_host_admission", "phases_and_blockers_may_overlap", "claims_are_not_utilization", "allocation_clock_is_independent"] } };
+    limitations: ["graph_queue_excludes_host_admission", "phases_and_blockers_may_overlap", "claims_are_not_utilization", "allocation_clock_is_independent", "admission_decisions_are_samples", "phase_spans_may_include_gaps", "host_uncovered_includes_unobserved_operations", "canonical_phase_rounding_is_one_millisecond"] } };
 }
 
 export async function criticalPathExplanation(runDir, options = {}) {

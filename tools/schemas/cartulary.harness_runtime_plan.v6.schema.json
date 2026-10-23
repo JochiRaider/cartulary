@@ -181,7 +181,7 @@
       ],
       "properties": {
         "clock": {
-          "$ref": "cartulary.harness_execution_index.v3#/properties/graph_clock"
+          "$ref": "cartulary.harness_execution_index.v5#/properties/graph_clock"
         },
         "intervals": {
           "type": "array",

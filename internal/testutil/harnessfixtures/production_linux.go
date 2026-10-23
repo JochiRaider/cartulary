@@ -16,15 +16,16 @@ import (
 // Production owns the dependency graph from leases to physical allocations
 // and independently owned services. Shared dependencies outlive their consumers.
 type Production struct {
-	renderers        *rendererOwner
-	workMu           sync.Mutex
-	work             map[string]*admittedWork
-	servicesMu       sync.Mutex
-	clusters         map[string]*SuiteOwner
-	clusterRemaining map[string]int
-	Broker           *Broker
-	Suite            *SuiteOwner
-	Options          ProductionOptions
+	renderers  *rendererOwner
+	workMu     sync.Mutex
+	work       map[string]*admittedWork
+	servicesMu sync.Mutex
+	clusters   map[string]*SuiteOwner
+	consumers  consumerRegistry
+	retireMu   sync.Mutex
+	Broker     *Broker
+	Suite      *SuiteOwner
+	Options    ProductionOptions
 }
 
 func NewProduction(p ProductionOptions, options Options) *Production {
@@ -38,7 +39,7 @@ func NewProduction(p ProductionOptions, options Options) *Production {
 	if p.Environment["CARTULARY_TEST_SERVICES_MODE"] == "attach" {
 		suite.Acquire = p.AttachSuite
 	}
-	production := &Production{Suite: suite, Options: p, clusters: map[string]*SuiteOwner{}, clusterRemaining: map[string]int{}, work: map[string]*admittedWork{}, renderers: &rendererOwner{options: p, changed: make(chan struct{}), remaining: map[string]int{}}}
+	production := &Production{Suite: suite, Options: p, clusters: map[string]*SuiteOwner{}, work: map[string]*admittedWork{}, renderers: &rendererOwner{options: p, changed: make(chan struct{})}}
 	providers := map[string]Provider{}
 	for _, capability := range []string{"postgres_transaction", "postgres_dedicated", "postgres_migration", "managed_process"} {
 		providers[capability] = &ProviderFuncs{AcquireFunc: func(ctx context.Context, request Request) (*Allocation, error) {
@@ -72,13 +73,16 @@ func NewProduction(p ProductionOptions, options Options) *Production {
 		}
 	}
 	production.Broker = New(options)
+	production.renderers.remaining = production.rendererConsumers
 	return production
 }
 func (p *Production) Close(ctx context.Context) error {
-	return p.Options.withResidentActivity(ctx, p.close)
+	joinErr := p.joinConsumerCleanup()
+	return errors.Join(joinErr, p.Options.withResidentActivity(ctx, p.close))
 }
 func (p *Production) CloseFixtures(ctx context.Context) error {
-	return p.Options.withResidentActivity(ctx, func(ctx context.Context) error {
+	joinErr := p.joinConsumerCleanup()
+	return errors.Join(joinErr, p.Options.withResidentActivity(ctx, func(ctx context.Context) error {
 		var rendererErr error
 		if p.renderers != nil {
 			p.renderers.mu.Lock()
@@ -88,7 +92,7 @@ func (p *Production) CloseFixtures(ctx context.Context) error {
 			rendererErr = p.renderers.evictIdle(ctx, nil)
 		}
 		return errors.Join(rendererErr, p.Broker.Close(ctx))
-	})
+	}))
 }
 func (p *Production) close(ctx context.Context) error {
 	err := p.CloseFixtures(ctx)

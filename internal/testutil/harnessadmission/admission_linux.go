@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -51,17 +52,19 @@ type Resident struct {
 	Parent     *string    `json:"parent"`
 }
 type Request struct {
-	Residents  []Resident `json:"residents,omitempty"`
-	Reference  string     `json:"reference,omitempty"`
-	Root       string     `json:"root"`
-	Operation  string     `json:"operation"`
-	Token      string     `json:"token"`
-	Owner      Proof      `json:"owner"`
-	Mode       string     `json:"mode"`
-	Claims     Quantities `json:"claims"`
-	Capacities Quantities `json:"capacities"`
-	Parent     *string    `json:"parent"`
-	Guard      Proof      `json:"guard"`
+	retirementDiagnostic *RetirementDecision
+	diagnostic           *Decision  // Native-only transient capture; never part of the admission protocol or state.
+	Residents            []Resident `json:"residents,omitempty"`
+	Reference            string     `json:"reference,omitempty"`
+	Root                 string     `json:"root"`
+	Operation            string     `json:"operation"`
+	Token                string     `json:"token"`
+	Owner                Proof      `json:"owner"`
+	Mode                 string     `json:"mode"`
+	Claims               Quantities `json:"claims"`
+	Capacities           Quantities `json:"capacities"`
+	Parent               *string    `json:"parent"`
+	Guard                Proof      `json:"guard"`
 }
 type lease struct {
 	Residents  []Resident `json:"residents"`
@@ -355,7 +358,7 @@ func mutate(s *state, r Request) (bool, error) {
 		}
 		return nil
 	}
-	capacityFor := func(candidate *lease, active []*lease) (Quantities, []Resident) {
+	capacityFor := func(candidate *lease, active []*lease, removed map[string]bool) (Quantities, []Resident, Quantities) {
 		included := map[string]bool{candidate.Token: true}
 		charged := map[string]bool{candidate.Token: true}
 		for _, entry := range active {
@@ -369,7 +372,7 @@ func mutate(s *state, r Request) (bool, error) {
 				}
 			}
 		}
-		allocations := slices.Clone(s.Residents)
+		allocations := slices.DeleteFunc(slices.Clone(s.Residents), func(r Resident) bool { return removed[r.Token] })
 		for _, candidate := range candidate.Residents {
 			found := false
 			for _, existing := range allocations {
@@ -406,6 +409,7 @@ func mutate(s *state, r Request) (bool, error) {
 			return math.Max(claim, sum)
 		}
 		deficits := Quantities{}
+		effective := maps.Clone(candidate.Capacities)
 		for _, key := range resources {
 			if candidate.Mode == "observation" {
 				break
@@ -448,6 +452,7 @@ func mutate(s *state, r Request) (bool, error) {
 					}
 				}
 			}
+			effective[key] = capacity
 			if sum > capacity {
 				deficits[key] = sum - capacity
 			}
@@ -457,7 +462,7 @@ func mutate(s *state, r Request) (bool, error) {
 				deficits[key] = math.Max(deficits[key], residentTotal+cleanupHeadroom(key)-capacity)
 			}
 		}
-		return deficits, allocations
+		return deficits, allocations, effective
 	}
 	// Independent active work can drain; a waiting descendant must still
 	// account for the ancestors whose entitlement it needs to execute.
@@ -475,18 +480,42 @@ func mutate(s *state, r Request) (bool, error) {
 	switch r.Operation {
 	case "retirement_required":
 		pending := find(r.Token)
-		if pending == nil || pending.Granted || pending.Released || !quantities(r.Claims) {
+		if pending == nil || pending.Granted || pending.Released || r.Claims != nil || len(r.Residents) == 0 || len(r.Residents) > 64 {
 			return false, ErrConflict
 		}
-		// Ancestors retain their activity entitlement while this request waits;
-		// independent active work can finish without retiring infrastructure.
-		deficits, _ := capacityFor(pending, requiredAncestors(pending))
+		removed := map[string]bool{}
+		refs := []string{}
+		for _, proposed := range r.Residents {
+			if removed[proposed.Token] || !slices.ContainsFunc(s.Residents, func(current Resident) bool { return reflect.DeepEqual(current, proposed) }) {
+				return false, ErrConflict
+			}
+			removed[proposed.Token] = true
+			refs = append(refs, ObservationReference("resident", proposed.Token))
+		}
+		// Both evaluations use the very same weighted tree. Prospective demand
+		// is re-added by capacityFor, including a selected resident the pending
+		// request would still need to replace. Ancestor envelopes stay charged.
+		ancestors := requiredAncestors(pending)
+		before, _, _ := capacityFor(pending, ancestors, nil)
+		after, _, _ := capacityFor(pending, ancestors, removed)
+		improved, increased := false, false
 		for _, key := range resources {
-			if r.Claims[key] > 0 && deficits[key] > 0 {
-				return true, nil
+			improved = improved || after[key] < before[key]
+			increased = increased || after[key] > before[key]
+		}
+		activeRefs := []string{}
+		for _, entry := range s.Leases {
+			if entry.Granted && (!entry.Released || guarded(entry)) && slices.ContainsFunc(entry.Residents, func(value Resident) bool { return removed[value.Token] }) {
+				activeRefs = append(activeRefs, ObservationReference("request", entry.Token))
 			}
 		}
-		return false, nil
+		eligible := improved && !increased
+		if d := r.retirementDiagnostic; d != nil {
+			slices.Sort(refs)
+			slices.Sort(activeRefs)
+			*d = RetirementDecision{RequestRef: ObservationReference("request", pending.Token), Residents: refs, Before: before, After: after, ActiveReferences: activeRefs, Eligible: eligible}
+		}
+		return eligible, nil
 	case "resident_granted":
 		for _, allocation := range s.Residents {
 			if allocation.Token == r.Token {
@@ -689,10 +718,6 @@ func mutate(s *state, r Request) (bool, error) {
 		// Preserve priority while independent active work drains. Only durable
 		// resident pressure permits backfill: its consumers may need to run
 		// before those allocations can release capacity.
-		fitsFor := func(candidate *lease) (bool, []Resident) {
-			deficits, allocations := capacityFor(candidate, active)
-			return len(deficits) == 0, allocations
-		}
 		blocks := func(entry *lease) bool {
 			if entry.Mode == "exclusive" {
 				return true
@@ -700,10 +725,23 @@ func mutate(s *state, r Request) (bool, error) {
 			if entry.Mode == "observation" {
 				return false
 			}
-			deficits, _ := capacityFor(entry, requiredAncestors(entry))
+			deficits, _, _ := capacityFor(entry, requiredAncestors(entry), nil)
 			return len(deficits) == 0
 		}
 		compatible := true
+		priorityBlockers, exclusiveBlockers := []string{}, []string{}
+		block := func(entry *lease, exclusive bool) {
+			compatible = false
+			if r.diagnostic == nil {
+				return
+			}
+			ref := ObservationReference("request", entry.Token)
+			if exclusive {
+				exclusiveBlockers = append(exclusiveBlockers, ref)
+			} else {
+				priorityBlockers = append(priorityBlockers, ref)
+			}
+		}
 		if l.Parent != nil {
 			for _, entry := range predecessors {
 				// An admitted parent retains its entitlement to drain. A
@@ -712,12 +750,12 @@ func mutate(s *state, r Request) (bool, error) {
 				// Siblings preserve transient wait priority; the weighted tree
 				// still checks every request against host capacity.
 				if r.Mode != "drain" && entry.Parent != nil && *entry.Parent == *l.Parent && blocks(entry) {
-					compatible = false
+					block(entry, entry.Mode == "exclusive")
 				}
 			}
 			for _, entry := range active {
 				if r.Mode == "exclusive" && !ancestors[entry.Token] || (r.Mode == "shared" || r.Mode == "drain") && entry.Mode == "exclusive" && !ancestors[entry.Token] {
-					compatible = false
+					block(entry, true)
 				}
 			}
 		} else if r.Mode == "observation" {
@@ -726,24 +764,54 @@ func mutate(s *state, r Request) (bool, error) {
 			// pending exclusive request fences even an earlier observer retry.
 			for _, entry := range s.Leases {
 				if entry.Mode == "exclusive" && !entry.Released {
-					compatible = false
+					block(entry, true)
 				}
 			}
 		} else if r.Mode == "exclusive" {
-			compatible = len(roots) == 0 && len(predecessors) == 0
+			for _, entry := range roots {
+				block(entry, true)
+			}
+			for _, entry := range predecessors {
+				block(entry, entry.Mode == "exclusive")
+			}
 		} else {
 			for _, entry := range active {
 				if entry.Mode == "exclusive" {
-					compatible = false
+					block(entry, true)
 				}
 			}
 			for _, entry := range predecessors {
 				if r.Mode != "drain" && (entry.Parent == nil || rootOf(entry) != root) && blocks(entry) {
-					compatible = false
+					block(entry, entry.Mode == "exclusive")
 				}
 			}
 		}
-		fits, allocations := fitsFor(l)
+		deficits, allocations, effective := capacityFor(l, active, nil)
+		fits := len(deficits) == 0
+		if d := r.diagnostic; d != nil {
+			persistent, _, _ := capacityFor(l, requiredAncestors(l), nil)
+			*d = Decision{RequestRef: ObservationReference("request", l.Token), Sequence: l.Sequence, QueuePosition: len(predecessors) + 1, Mode: l.Mode, Granted: l.Granted || fits && compatible,
+				RequestedClaims: maps.Clone(l.Claims), Capacities: effective, Deficits: deficits, PersistentDeficits: persistent,
+				Ancestors: []ObservedHolder{}, Holders: []ObservedHolder{}, Residents: []ObservedHolder{}, Prospective: []ObservedHolder{}, PriorityBlockers: priorityBlockers, ExclusiveBlockers: exclusiveBlockers}
+			for _, entry := range requiredAncestors(l) {
+				d.Ancestors = append(d.Ancestors, observedLease(entry))
+			}
+			for _, entry := range active {
+				d.Holders = append(d.Holders, observedLease(entry))
+			}
+			for _, allocation := range allocations {
+				h := ObservedHolder{ObservationReference("resident", allocation.Token), maps.Clone(allocation.Claims)}
+				if slices.ContainsFunc(s.Residents, func(r Resident) bool { return r.Token == allocation.Token }) {
+					d.Residents = append(d.Residents, h)
+				} else {
+					d.Prospective = append(d.Prospective, h)
+				}
+			}
+			slices.Sort(d.PriorityBlockers)
+			d.PriorityBlockers = slices.Compact(d.PriorityBlockers)
+			slices.Sort(d.ExclusiveBlockers)
+			d.ExclusiveBlockers = slices.Compact(d.ExclusiveBlockers)
+		}
 		if fits && compatible {
 			l.Granted = true
 			s.Residents = allocations

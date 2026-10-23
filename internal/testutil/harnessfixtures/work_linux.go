@@ -35,12 +35,12 @@ type admittedWork struct {
 type WorkLease struct {
 	ID          string
 	Environment map[string]string
-	Release     func(context.Context, bool, bool) (bool, error)
+	Release     func(context.Context, bool) (bool, error)
 }
 
 // ConfigureAdmission binds this invocation to the existing host admission
 // owner. Profile quantities come from the compiled graph, not fixture guesses.
-func (p *Production) ConfigureAdmission(root string, parent *string, capacities map[string]int64, requirements []WorkRequirement) {
+func (p *Production) ConfigureAdmission(root string, parent *string, capacities map[string]int64) {
 	r := p.Options.residency
 	if root == "" {
 		root = harnessadmission.DefaultRoot()
@@ -48,26 +48,25 @@ func (p *Production) ConfigureAdmission(root string, parent *string, capacities 
 	r.root = root
 	r.parent = parent
 	r.capacities = quantities(capacities)
-	for _, work := range requirements {
-		if key := clusterKey(work.Request); key != "" {
-			p.clusterRemaining[key]++
-		}
-		if work.Renderer != "none" && work.Renderer != "" {
-			p.renderers.remaining[work.Request.RuntimeProfile]++
-		}
-	}
+
 }
 
 func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*harnessadmission.Lease, func(context.Context) error, error) {
 	if err := validateServiceRequest(requirement.Request); err != nil {
 		return nil, nil, err
 	}
+	if err := p.validateConsumer(requirement); err != nil {
+		return nil, nil, err
+	}
 	r := p.Options.residency
 	work := &admittedWork{requirement: requirement}
 	if requirement.Exclusive {
-		rendererErr := p.renderers.evictIdle(ctx, nil)
-		_, stackErr := p.retireIdleStacks(ctx, Retirement{"exclusive_admission", requirement.Request.UnitID}, 0, nil)
-		if err := errors.Join(rendererErr, stackErr); err != nil {
+		endObservation := harnessadmission.Phase(ctx, "pressure_retirement")
+		p.retireMu.Lock()
+		_, err := p.retireAllocations(ctx, nil, false, Retirement{"exclusive_admission", requirement.Request.UnitID})
+		p.retireMu.Unlock()
+		endObservation()
+		if err != nil {
 			return nil, nil, err
 		}
 	}
@@ -133,32 +132,12 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 		// Pending priority survives, but logical reservations must not prevent
 		// pressure retirement or another waiter from reacquiring a slot.
 		yieldReservations()
-		retired, err := p.renderers.evictForAdmission(ctx, work.slot, pending)
-		if err != nil || retired > 0 {
-			return err
-		}
-		// Retained stacks occupy ports even when every renderer has retired.
-		// Release only an idle stack whose own claims relieve persistent pressure.
-		_, err = p.retireIdleStacks(ctx, Retirement{"capacity_pressure", requirement.Request.UnitID}, 1, func(request Request) (bool, error) {
-			r.mu.Lock()
-			record := r.allocations[stackKey(request)]
-			r.mu.Unlock()
-			if record == nil {
-				return false, nil
-			}
-			claims := maps.Clone(record.Allocation.Claims)
-			r.mu.Lock()
-			cluster := r.allocations[clusterKey(request)]
-			r.mu.Unlock()
-			if cluster != nil {
-				for key, value := range cluster.Allocation.Claims {
-					claims[key] += value
-				}
-			}
-			return pending.NeedsRetirement(ctx, claims)
-		})
+		p.retireMu.Lock()
+		defer p.retireMu.Unlock()
+		_, err := p.retireAllocations(ctx, pending, false, Retirement{"capacity_pressure", requirement.Request.UnitID})
 		return err
 	}
+
 	var err error
 	work.host, err = harnessadmission.AcquireWithPreparedResidents(ctx, r.root, quantities(requirement.Active), r.capacities, r.parent, requirement.Exclusive, func(context.Context) ([]harnessadmission.Resident, error) {
 		if err := reserve(); err != nil {
@@ -166,7 +145,6 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 		}
 		return residents, nil
 	}, waiting)
-	clusterFinished := false
 	finish := func(ctx context.Context) error {
 		defer releaseStack()
 		work.mu.Lock()
@@ -180,16 +158,6 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 		}
 		if !work.preservedStack && requirement.Request.Capability == "browser_stack" {
 			result = errors.Join(result, r.close(ctx, stackKey(requirement.Request)))
-		}
-		if key := clusterKey(requirement.Request); key != "" && !clusterFinished {
-			clusterFinished = true
-			p.servicesMu.Lock()
-			p.clusterRemaining[key]--
-			last := p.clusterRemaining[key] == 0
-			p.servicesMu.Unlock()
-			if last {
-				result = errors.Join(result, p.retireCluster(ctx, key))
-			}
 		}
 		p.workMu.Lock()
 		delete(p.work, requirement.Request.UnitID)
@@ -256,7 +224,7 @@ func (p *Production) Acquire(ctx context.Context, request Request) (*WorkLease, 
 	var once sync.Once
 	var retained bool
 	var closeErr error
-	release := func(ctx context.Context, healthy, retain bool) (bool, error) {
+	release := func(ctx context.Context, healthy bool) (bool, error) {
 		once.Do(func() {
 			if work != nil {
 				ctx = WithActivity(ctx, work.host.Token)
@@ -267,7 +235,7 @@ func (p *Production) Acquire(ctx context.Context, request Request) (*WorkLease, 
 			}
 			var err error
 			if lease != nil {
-				retained, err = lease.Release(ctx, healthy && closeErr == nil, retain)
+				retained, err = lease.Release(ctx, healthy && closeErr == nil, p.stackConsumers(sharedKey(request), request.UnitID) > 0)
 			}
 			closeErr = errors.Join(closeErr, err)
 			if work != nil {
@@ -303,7 +271,7 @@ func (p *Production) ConfigureDedicated(parent *string, capacities map[string]in
 		return WorkRequirement{}, err
 	}
 	work := WorkRequirement{Request: request, Renderer: "dedicated", Diagnostics: diagnostics, Physical: physical, Active: map[string]int64{"cpu": 1, "io": 1, "memory_mb": 512, "process": 1}}
-	p.ConfigureAdmission("", parent, capacities, []WorkRequirement{work})
+	p.ConfigureAdmission("", parent, capacities)
 	return work, nil
 }
 
@@ -313,13 +281,25 @@ func (p *Production) ConfigureDedicated(parent *string, capacities map[string]in
 // admission owner, but independent retirement cannot invalidate this request.
 func (p *Production) retireIdleStacks(ctx context.Context, retirement Retirement, maximum int, needed func(Request) (bool, error)) (int, error) {
 	return p.Broker.retireIdle(ctx, maximum, needed, func(ctx context.Context, e *entry) error {
+		// Terminal notifications may arrive between candidate selection and
+		// the pinned eligibility decision. Attribute mandatory retirement at
+		// that boundary rather than reporting unproved capacity relief.
+		decision := retirement
+		if decision.Reason == "capacity_pressure" && p.stackConsumers(e.key, "") == 0 {
+			decision = Retirement{"terminal_borrower_release", p.lastTerminal(func(v fixtureConsumer) bool { return v.stack == e.key })}
+		}
 		r := p.Options.residency
-		r.mu.Lock()
-		record := r.allocations[stackKey(e.request)]
-		r.mu.Unlock()
-		if record == nil {
+		records := p.stackRetirementRecords(e.request)
+		if len(records) == 0 {
 			return harnesssession.AtCleanupStage("resource_inventory", harnesslocal.ErrUnsafe)
 		}
-		return r.drain(ctx, []*residentRecord{record}, func(ctx context.Context) error { return p.Broker.clean(ctx, e, retirement) })
+		released := []harnessadmission.Resident{}
+		for _, record := range records {
+			released = append(released, record.Allocation)
+		}
+		observe := harnessadmission.Retirement(ctx, released, decision.Reason)
+		err := r.drain(ctx, records, func(ctx context.Context) error { return p.Broker.clean(ctx, e, decision) })
+		observe(err)
+		return err
 	})
 }

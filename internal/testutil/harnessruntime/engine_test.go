@@ -37,6 +37,7 @@ func boundedGraph(t *testing.T, p *Plan, ports enginePorts) graphResult {
 	return r
 }
 func TestRuntimeScheduling(t *testing.T) {
+	testConsumerTerminalTransitions(t)
 	t.Run("writable_root_is_shared_while_cpu_and_settlement_remain_accounted", func(t *testing.T) {
 		a, b, c := engineUnit("a", 3), engineUnit("b", 2), engineUnit("c", 1, "a", "b")
 		for _, u := range []unit{a, b, c} {
@@ -334,7 +335,7 @@ func TestRuntimeLifecycle(t *testing.T) {
 		if err != nil || !acquired || lease.Environment["PORT"] != "1234" || lease.ID == "" {
 			t.Fatal(lease, err)
 		}
-		if _, err := lease.Release(context.Background(), false, false); err != nil || !released {
+		if _, err := lease.Release(context.Background(), false); err != nil || !released {
 			t.Fatal(err)
 		}
 		if err := bridge.Close(context.Background()); err != nil {
@@ -386,7 +387,7 @@ func TestRuntimeLifecycle(t *testing.T) {
 		cache := &testCache{}
 		closed := false
 		fixtures := &testFixtures{acquire: func(context.Context, fixtureRequest) (*fixtureLease, error) {
-			return &fixtureLease{ID: "lease", Release: func(context.Context, bool, bool) (bool, error) { return true, nil }}, nil
+			return &fixtureLease{ID: "lease", Release: func(context.Context, bool) (bool, error) { return true, nil }}, nil
 		}, close: func(context.Context) error {
 			if len(cache.stored) != 0 {
 				t.Error("cache published before physical cleanup")
@@ -505,5 +506,78 @@ func TestRuntimeFailurePrecedence(t *testing.T) {
 	}
 	if failureExitCode(failed("interrupted", "cancelled_or_interrupted"), "SIGTERM") != 143 || failureExitCode(failed("artifact", "artifact_error"), "") != 11 {
 		t.Fatal("exit mapping")
+	}
+}
+
+func testConsumerTerminalTransitions(t *testing.T) {
+	t.Run("consumer_terminal_covers_cache_skip_failure_and_pass", func(t *testing.T) {
+		units := []unit{engineUnit("cached", 100), engineUnit("failed", 90), engineUnit("skipped", 80, "failed"), engineUnit("passed", 10)}
+		notifications := map[string]string{}
+		launches := []string{}
+		result := boundedGraph(t, enginePlan(units...), enginePorts{Cache: &testCache{hits: map[string]bool{"cached": true}}, ConsumerTerminal: func(id, status string) error {
+			if _, ok := notifications[id]; ok {
+				t.Errorf("duplicate terminal %s", id)
+			}
+			notifications[id] = status
+			return nil
+		}, Execute: func(_ context.Context, r executionRequest) unitResult {
+			launches = append(launches, r.Unit.ID)
+			if r.Unit.ID == "failed" {
+				return unitResult{Status: "failed", Failure: failed("product", "test_assertion_failure")}
+			}
+			return unitResult{Status: "passed"}
+		}})
+		for _, id := range []string{"cached", "failed", "skipped", "passed"} {
+			if notifications[id] != id {
+				t.Fatal("incomplete terminal accounting", notifications, result.States)
+			}
+		}
+		if !slices.Equal(launches, []string{"failed", "passed"}) {
+			t.Fatal("invented runner", launches)
+		}
+	})
+	for _, fault := range []string{"admission", "publication", "cancel_before", "cancel_running", "notification"} {
+		t.Run("consumer_terminal_"+fault, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if fault == "cancel_before" {
+				cancel()
+			}
+			notifications := map[string]string{}
+			ports := enginePorts{ConsumerTerminal: func(id, status string) error {
+				if _, ok := notifications[id]; ok {
+					t.Error("duplicate terminal")
+				}
+				notifications[id] = status
+				if fault == "notification" {
+					return failed("harness", "fixture_error")
+				}
+				return nil
+			}, Execute: func(context.Context, executionRequest) unitResult {
+				if fault == "cancel_running" {
+					cancel()
+					return unitResult{Status: "cancelled", Failure: failed("interrupted", "cancelled_or_interrupted")}
+				}
+				return unitResult{Status: "passed"}
+			}}
+			if fault == "admission" {
+				ports.Admit = func(context.Context, unit) (*hostLease, error) { return nil, failed("infra", "resource_conflict") }
+			}
+			if fault == "publication" {
+				ports.Terminal = func(unit, *unitResult) error { return failed("artifact", "artifact_error") }
+			}
+			result, _ := executeGraph(ctx, enginePlan(engineUnit("first", 10), engineUnit("next", 1, "first")), ports)
+			if len(notifications) != 2 {
+				t.Fatal("missing terminal", notifications, result.States)
+			}
+			for id, status := range result.States {
+				if notifications[id] != status {
+					t.Fatal("terminal differs", id, status, notifications)
+				}
+			}
+			if result.Status == "passed" {
+				t.Fatal("fault hidden", fault)
+			}
+		})
 	}
 }

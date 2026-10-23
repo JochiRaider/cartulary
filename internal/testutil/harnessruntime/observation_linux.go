@@ -38,7 +38,7 @@ func readInstrumentationPolicy(root string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = harnessschema.Validate("cartulary.harness_instrumentation_policy.v4", v); err != nil {
+	if err = harnessschema.Validate("cartulary.harness_instrumentation_policy.v5", v); err != nil {
 		return nil, err
 	}
 	return v.(map[string]any), nil

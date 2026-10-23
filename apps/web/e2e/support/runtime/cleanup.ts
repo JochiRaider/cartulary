@@ -1,8 +1,34 @@
+import type { BrowserContext, Page } from "@playwright/test";
 import type { StorageState } from "../auth/storageState";
 import {
   cookieValueFromStorageState,
   sessionCookieName,
 } from "../auth/storageState";
+
+type OwnedBrowserContext = Pick<BrowserContext, "unrouteAll" | "close"> & {
+  pages(): Pick<Page, "unrouteAll">[];
+};
+
+export async function closeOwnedBrowserContext(context: OwnedBrowserContext) {
+  // Stop dispatch on all owners before waiting. Context.close disposes the
+  // request client, so fetched responses must be fulfilled before that call.
+  const drains = [...context.pages(), context].map(async (owner) => {
+    await owner.unrouteAll({ behavior: "wait" });
+  });
+  const outcomes = await Promise.allSettled(drains);
+  const failures = outcomes.flatMap((outcome) =>
+    outcome.status === "rejected" ? [outcome.reason] : [],
+  );
+  try {
+    await context.close();
+  } catch (error) {
+    failures.push(error);
+  }
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) {
+    throw new AggregateError(failures, "Owned browser context cleanup failed");
+  }
+}
 
 export type TrackedSessionSnapshot = {
   createdBy: string;

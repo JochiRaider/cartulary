@@ -56,7 +56,9 @@ func TestRuntimeBrowserFailureContinuation(t *testing.T) {
 					return &harnessfixtures.Allocation{Ownership: "owned", ResourceIDs: []string{"browser:" + id}, Environment: map[string]string{"ALLOCATION": id}, Release: func(context.Context, bool) error { released++; return nil }}, nil
 				}},
 			}})
-			fixtures := &nativeFixtures{production: &harnessfixtures.Production{Broker: broker, Options: harnessfixtures.ProductionOptions{Runtime: runtime}}}
+			production := harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{Runtime: runtime}, harnessfixtures.Options{})
+			production.Broker = broker
+			fixtures := &nativeFixtures{production: production}
 			group, reset, next := engineUnit("group", 1), engineUnit("reset", 1, "group"), engineUnit("next", 1, "reset")
 			reset.Kind = "lifecycle"
 			for _, u := range []*unit{&group, &reset, &next} {
@@ -66,9 +68,12 @@ func TestRuntimeBrowserFailureContinuation(t *testing.T) {
 				u.Affinity = "lane"
 				u.FailurePolicy.BlockDescendants = false
 			}
-			next.Command.Environment["CARTULARY_BROWSER_RELEASE_AFFINITY"] = "1"
+			requirements := []harnessfixtures.WorkRequirement{workRequirement(group), workRequirement(reset), workRequirement(next)}
+			if err := production.RegisterConsumers(requirements); err != nil {
+				t.Fatal(err)
+			}
 			var executions []string
-			result := boundedGraph(t, enginePlan(group, reset, next), enginePorts{Fixtures: fixtures, Execute: func(_ context.Context, r executionRequest) unitResult {
+			result := boundedGraph(t, enginePlan(group, reset, next), enginePorts{ConsumerTerminal: production.ConsumerTerminal, Fixtures: fixtures, Execute: func(_ context.Context, r executionRequest) unitResult {
 				executions = append(executions, r.Unit.ID)
 				if r.Unit.ID == "next" && r.Environment["ALLOCATION"] != "2" {
 					t.Error("later work did not receive a fresh allocation")
