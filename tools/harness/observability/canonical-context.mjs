@@ -44,7 +44,7 @@ export function validateExecutionContext(context, canonical, cleanup) {
   if (policyInput?.kind !== "file") throw new Error("retained instrumentation input is missing");
   same(bytesDigest(context.instrumentation_policy_bytes), policyInput.byte_digest, "instrumentation bytes");
   const policy = parseStrictJSON(context.instrumentation_policy_bytes);
-  validateSchemaSync("cartulary.harness_instrumentation_policy.v3", policy);
+  validateSchemaSync("cartulary.harness_instrumentation_policy.v4", policy);
   same(digest(policy), manifest.instrumentation.policy_digest, "instrumentation policy");
   const { snapshot_digest, ...capability } = manifest.capability_snapshot;
   same(digest(capability), snapshot_digest, "capability snapshot");

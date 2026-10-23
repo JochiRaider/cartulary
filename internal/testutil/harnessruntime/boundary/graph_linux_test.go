@@ -4,15 +4,18 @@ package boundary
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
 )
 
 // This separate Make-owned route exercises real service/browser boundaries.
@@ -46,7 +49,8 @@ func TestNativeGraphServiceObservations(t *testing.T) {
 				delete(env, k)
 			}
 			env["CARTULARY_TEST_RESULTS_DIR"] = results
-			env["CARTULARY_TEST_RUN_ID"] = selection.id
+			probeID := "native-observation-" + selection.id
+			env["CARTULARY_TEST_RUN_ID"] = probeID
 			env["HARNESS_DIAGNOSTICS"] = "basic"
 			env["OWNER"] = selection.owner
 			env["ROWS"] = selection.row
@@ -63,14 +67,8 @@ func TestNativeGraphServiceObservations(t *testing.T) {
 			if binary == "" {
 				binary = filepath.Join(root, ".cache/cartulary/toolbin/cartulary-harness")
 			}
-			summary, code, err := harnessruntime.Run(ctx, root, binary, []string{"--selection", "command", "--target", "test-slice"}, input)
-			run := filepath.Join(results, selection.id)
-			if summary != nil && summary.CleanupDiagnostic != nil {
-				t.Log(summary.CleanupDiagnostic)
-			}
-			if err != nil || code != 0 || summary == nil || summary.Summary["status"] != "pass" {
-				t.Fatalf("native service graph failed: exit=%d error=%v retained=%s", code, err, run)
-			}
+			run := filepath.Join(results, probeID)
+			runInstalledGraph(t, ctx, root, binary, []string{"--selection", "command", "--target", "test-slice"}, input, run)
 			node := env["NODE_BIN"]
 			if !filepath.IsAbs(node) {
 				node = filepath.Join(root, node)
@@ -82,5 +80,31 @@ func TestNativeGraphServiceObservations(t *testing.T) {
 			}
 			t.Logf("native service graph and retained validation passed: %s", run)
 		})
+	}
+}
+
+// Exercise the prepared executable, including its source-identity check, under
+// the enclosing admission and accounting lifetime. This is test composition;
+// execution and settlement remain owned by the native graph command.
+func runInstalledGraph(t *testing.T, ctx context.Context, root, binary string, args, environment []string, run string) {
+	t.Helper()
+	child := exec.CommandContext(ctx, binary, append([]string{"graph"}, args...)...)
+	child.Dir, child.Env = root, environment
+	child.Cancel = func() error { return child.Process.Signal(syscall.SIGTERM) }
+	child.WaitDelay = 2 * time.Minute
+	closeDescriptors, err := harnessadmission.InheritWorkspace(child)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeDescriptors()
+	if out, err := child.CombinedOutput(); err != nil {
+		t.Fatalf("installed native graph: %v %.4096s retained=%s", err, out, run)
+	}
+	data, err := harnesslocal.ReadFile(filepath.Join(run, "run-summary.json"), 16*1024*1024, false)
+	var summary struct {
+		Status string `json:"status"`
+	}
+	if err != nil || json.Unmarshal(data, &summary) != nil || summary.Status != "pass" {
+		t.Fatalf("installed native graph lacks a passing summary: %v retained=%s", err, run)
 	}
 }

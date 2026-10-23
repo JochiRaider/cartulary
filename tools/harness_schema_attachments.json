@@ -329,6 +329,14 @@
       "validation": "harness.json_shape_check"
     },
     {
+      "schema_id": "cartulary.harness_allocation_lifecycle.v1",
+      "path": "tools/schemas/cartulary.harness_allocation_lifecycle.v1.schema.json",
+      "classification": "shared_component",
+      "producer": "harness critical-path diagnostics",
+      "validation": "harness.json_shape_check",
+      "foundation_runtime": true
+    },
+    {
       "schema_id": "cartulary.harness_artifact_ref.v1",
       "path": "tools/schemas/cartulary.harness_artifact_ref.v1.schema.json",
       "classification": "shared_component",
@@ -391,6 +399,13 @@
       "foundation_runtime": true
     },
     {
+      "schema_id": "cartulary.harness_critical_path.v1",
+      "path": "tools/schemas/cartulary.harness_critical_path.v1.schema.json",
+      "classification": "public_contract",
+      "producer": "harness critical-path diagnostics",
+      "validation": "harness.json_shape_check"
+    },
+    {
       "schema_id": "cartulary.harness_detail_authority.v2",
       "path": "tools/schemas/cartulary.harness_detail_authority.v2.schema.json",
       "classification": "shared_component",
@@ -421,8 +436,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_execution_index.v2",
-      "path": "tools/schemas/cartulary.harness_execution_index.v2.schema.json",
+      "schema_id": "cartulary.harness_execution_index.v3",
+      "path": "tools/schemas/cartulary.harness_execution_index.v3.schema.json",
       "classification": "public_contract",
       "producer": "harness execution diagnostics",
       "validation": "harness.json_shape_check",
@@ -481,8 +496,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.harness_instrumentation_policy.v3",
-      "path": "tools/schemas/cartulary.harness_instrumentation_policy.v3.schema.json",
+      "schema_id": "cartulary.harness_instrumentation_policy.v4",
+      "path": "tools/schemas/cartulary.harness_instrumentation_policy.v4.schema.json",
       "classification": "owner_input",
       "producer": "harness local instrumentation",
       "validation": "harness.json_shape_check",
@@ -1240,8 +1255,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.postgres_cleanup_observation.v2",
-      "path": "tools/schemas/cartulary.postgres_cleanup_observation.v2.schema.json",
+      "schema_id": "cartulary.postgres_cleanup_observation.v3",
+      "path": "tools/schemas/cartulary.postgres_cleanup_observation.v3.schema.json",
       "classification": "shared_component",
       "producer": "PostgreSQL cleanup owner",
       "validation": "harness.json_shape_check"
@@ -1262,8 +1277,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.postgres_readiness_diagnostic.v4",
-      "path": "tools/schemas/cartulary.postgres_readiness_diagnostic.v4.schema.json",
+      "schema_id": "cartulary.postgres_readiness_diagnostic.v6",
+      "path": "tools/schemas/cartulary.postgres_readiness_diagnostic.v6.schema.json",
       "classification": "shared_component",
       "producer": "PostgreSQL startup owner",
       "validation": "harness.json_shape_check",

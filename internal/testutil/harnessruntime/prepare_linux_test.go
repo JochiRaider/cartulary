@@ -59,6 +59,23 @@ func TestRuntimeCompilerProcessHelper(t *testing.T) {
 	os.Exit(0)
 }
 func TestRuntimeCompilerLifetime(t *testing.T) {
+	for _, fixture := range []struct {
+		stage string
+		env   []string
+	}{
+		{"nested_lifecycle", []string{nestedContextKey + "=invalid private context"}},
+		{"diagnostic_mode", []string{"HARNESS_DIAGNOSTICS=invalid private mode"}},
+	} {
+		t.Run(fixture.stage, func(t *testing.T) {
+			root := t.TempDir()
+			report, code, err := Run(context.Background(), root, "", nil, fixture.env)
+			class, reason := PublicFailure(err)
+			entries, readErr := os.ReadDir(root)
+			if report != nil || code != 2 || class != "config" || reason != "configuration_error" || PublicFailureStage(err) != fixture.stage || readErr != nil || len(entries) != 0 {
+				t.Fatal("startup rejection lost its stage, classification, or no-publication boundary")
+			}
+		})
+	}
 	for _, mode := range []string{"wait", "failure", "linger", "oversized", "descendant"} {
 		t.Run(mode, func(t *testing.T) {
 			timeout := 3 * time.Second

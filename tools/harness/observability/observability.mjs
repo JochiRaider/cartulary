@@ -30,7 +30,7 @@ export function resolveExactRunDir(resultsDir, runID = "") {
     return candidate;
   }
   if (isCanonicalRun(selected)) return selected;
-  throw new Error("RUN_ID is required when RESULTS_DIR names a result root");
+  throw Object.assign(new Error("RUN_ID is required when RESULTS_DIR names a result root"), { exit_code: 2 });
 }
 
 // Freeze normalized facts only after every published component has closed. Maps

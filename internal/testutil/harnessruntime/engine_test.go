@@ -2,6 +2,7 @@ package harnessruntime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessfixtures"
 	"slices"
@@ -442,6 +443,24 @@ func TestRuntimeLifecycle(t *testing.T) {
 	})
 }
 func TestRuntimeFailurePrecedence(t *testing.T) {
+	t.Run("bounded_entry_stage_preserves_failure", func(t *testing.T) {
+		private := errors.New("private path and credential must not be exposed")
+		for _, stage := range []string{"nested_lifecycle", "diagnostic_mode", "accounting_membership", "accounting_required_scope", "accounting_executable_identity", "accounting_invocation_identity", "runtime_plan"} {
+			for _, cause := range []error{errors.Join(failed("config", "configuration_error"), private), context.Canceled, context.DeadlineExceeded, failed("harness", "cleanup_error")} {
+				wrapped := fmt.Errorf("private wrapper: %w", entryFailureAt(stage, cause))
+				beforeClass, beforeReason := PublicFailure(cause)
+				class, reason := PublicFailure(wrapped)
+				if PublicFailureStage(wrapped) != stage || class != beforeClass || reason != beforeReason || !errors.Is(wrapped, cause) || failureExitCode(failureOf(wrapped), "") != failureExitCode(failureOf(cause), "") {
+					t.Fatal("stage attribution changed the failure contract")
+				}
+			}
+		}
+		for _, err := range []error{nil, private, entryFailureAt(private.Error(), private)} {
+			if PublicFailureStage(err) != "unavailable" {
+				t.Fatal("unattributed or unknown stage escaped the closed vocabulary")
+			}
+		}
+	})
 	for _, productFirst := range []bool{false, true} {
 		t.Run(fmt.Sprintf("concurrent_failures_product_first_%v", productFirst), func(t *testing.T) {
 			p := enginePlan(engineUnit("infra", 1), engineUnit("product", 1))

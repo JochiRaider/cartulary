@@ -29,7 +29,7 @@ func (o DropAttempt) Validate() error {
 		return errors.New("invalid PostgreSQL service generation")
 	}
 	if o.DurationMS < 0 || o.DurationMS > 86400000 || o.AdmissionMS < 0 || o.AdmissionMS > o.DurationMS ||
-		o.OperationMS < 0 || o.OperationMS > o.DurationMS || o.AdmissionBudgetMS < 0 || o.AdmissionBudgetMS > 15000 || o.OperationBudgetMS < 0 || o.OperationBudgetMS > 20000 {
+		o.OperationMS < 0 || o.OperationMS > o.DurationMS || o.AdmissionBudgetMS < 0 || o.AdmissionBudgetMS > databaseDropAdmissionLimit.Milliseconds() || o.OperationBudgetMS < 0 || o.OperationBudgetMS > databaseDropOwnerLimit.Milliseconds() {
 		return errors.New("invalid PostgreSQL cleanup timing")
 	}
 	switch o.Admission {

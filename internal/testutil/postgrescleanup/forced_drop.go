@@ -20,7 +20,7 @@ import (
 
 const (
 	databaseDropAdmissionLimit = 15 * time.Second
-	databaseDropOperationLimit = 20 * time.Second
+	databaseDropOwnerLimit     = 35 * time.Second
 )
 
 type databaseDropExecutor func(context.Context, string) error
@@ -58,7 +58,8 @@ func withDropAdmission(ctx context.Context, adminDSN, name string, operation fun
 
 // DropOwnedDatabase performs one bounded atomic forced drop after target
 // admission. The caller must prove exact ownership and stop its runtime, jobs,
-// pools and handles first. A shorter parent deadline clamps both phase caps.
+// pools and handles first. Admission, drop and settlement consume one bounded
+// owner lifetime, clamped by a shorter parent deadline.
 // A timeout is uncertain settlement, never authority to retry or release proof.
 func DropOwnedDatabase(ctx context.Context, adminDSN, name string) error {
 	return dropOwnedDatabase(ctx, adminDSN, name, productionDropOperations)
@@ -82,13 +83,10 @@ func dropOwnedDatabase(ctx context.Context, adminDSN, name string, operations dr
 	if adminDSN == "" {
 		return errors.New("database drop requires an administrator DSN")
 	}
-	// Callers without an enclosing cleanup deadline still receive one bounded
-	// lifetime. Existing owner deadlines remain authoritative across both phases.
-	if _, bounded := ctx.Deadline(); !bounded {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, databaseDropAdmissionLimit+databaseDropOperationLimit)
-		defer cancel()
-	}
+	// Bound even a longer parent, and never restart this budget after admission.
+	// The catalog owner also clamps lock settlement to this exact deadline.
+	ctx, cancel := context.WithTimeout(ctx, databaseDropOwnerLimit)
+	defer cancel()
 	started := time.Now()
 	observation := DropAttempt{Admission: "not_attempted", AdmissionBudgetMS: effectiveBudget(ctx, databaseDropAdmissionLimit).Milliseconds(), Wait: DropObservation{Status: "not_observed"}}
 	defer func() {
@@ -124,13 +122,11 @@ func dropOwnedDatabase(ctx context.Context, adminDSN, name string, operations dr
 		observation.AdmissionMS = time.Since(started).Milliseconds()
 		operationStarted := time.Now()
 		defer func() { observation.OperationMS = time.Since(operationStarted).Milliseconds() }()
-		operationCtx, cancel := context.WithTimeout(ctx, databaseDropOperationLimit)
-		defer cancel()
-		observation.OperationBudgetMS = effectiveBudget(operationCtx, databaseDropOperationLimit).Milliseconds()
-		if err := operationCtx.Err(); err != nil {
+		observation.OperationBudgetMS = effectiveBudget(ctx, databaseDropOwnerLimit).Milliseconds()
+		if err := ctx.Err(); err != nil {
 			return err
 		}
-		err := drop(operationCtx, name)
+		err := drop(ctx, name)
 		var observed *observedDropError
 		if errors.As(err, &observed) {
 			observation.Wait = observed.observation

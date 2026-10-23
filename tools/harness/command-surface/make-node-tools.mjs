@@ -17,6 +17,7 @@ const retiredPublicPassthroughEnvNames = Object.freeze([
   "EXECUTION_TOPOLOGY_MANIFEST",
   "GOCACHE",
   "GOMODCACHE",
+  "GOROOT",
   "GOTMPDIR",
   "SCHEDULER_MANIFEST",
   "TASK_SURFACE_MANIFEST",
@@ -151,11 +152,11 @@ const makeNodeTools = {
     },
   },
   "explain-run": {
-    inputs: ["DETAIL", "RUN_ID", "TARGET", "JSON", "COMPARE_RESULTS_DIR", "COMPARISON", "FIXTURE_THRESHOLD_MS", "FIXTURE_TOP"],
+    inputs: ["DETAIL", "RUN_ID", "TARGET", "JSON", "COMPARE_RESULTS_DIR", "COMPARISON", "FIXTURE_THRESHOLD_MS", "FIXTURE_TOP", "VIEW", "UNIT_ID", "OFFSET", "LIMIT"],
     script: "./tools/harness/diagnostics/explain-run-cli.mjs",
     resultDir: { mode: "required", flag: "--results-dir" },
     usage:
-      "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress|accounting|performance|fixtures] [JSON=1] [COMPARE_RESULTS_DIR=<exact-run-dir> COMPARISON=equivalent|instrumentation]",
+      "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress|accounting|performance|fixtures|critical-path] [JSON=1] [COMPARE_RESULTS_DIR=<exact-run-dir> COMPARISON=equivalent|instrumentation]",
     buildArgs(env) {
       const args = ["--detail", value(env, "DETAIL") || "summary"];
       if (value(env, "JSON") === "1") args.push("--json");
@@ -163,8 +164,11 @@ const makeNodeTools = {
       optionalFlag(args, env, "TARGET", "--target");
       optionalFlag(args, env, "COMPARE_RESULTS_DIR", "--compare-results-dir");
       optionalFlag(args, env, "COMPARISON", "--comparison");
-      optionalFlag(args, env, "FIXTURE_THRESHOLD_MS", "--fixture-threshold-ms");
-      optionalFlag(args, env, "FIXTURE_TOP", "--fixture-top");
+      if (value(env, "DETAIL") !== "critical-path") {
+        optionalFlag(args, env, "FIXTURE_THRESHOLD_MS", "--fixture-threshold-ms");
+        optionalFlag(args, env, "FIXTURE_TOP", "--fixture-top");
+      }
+      for (const name of ["VIEW", "UNIT_ID", "OFFSET", "LIMIT"]) optionalFlag(args, env, name, `--${name.toLowerCase().replaceAll("_", "-")}`);
       return args;
     },
   },

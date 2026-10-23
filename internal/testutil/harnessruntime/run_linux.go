@@ -41,9 +41,9 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	ctx, settleNested, err := joinNested(ctx, env[nestedContextKey])
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			return nil, 130, err
+			return nil, 130, entryFailureAt("nested_lifecycle", err)
 		}
-		return nil, 2, failed("config", "configuration_error")
+		return nil, 2, entryFailureAt("nested_lifecycle", failed("config", "configuration_error"))
 	}
 	nestedClean := true
 	defer func() { settleNested(nestedClean) }()
@@ -53,22 +53,22 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		mode = "off"
 	}
 	if mode != "off" && mode != "basic" {
-		return nil, 2, failed("config", "configuration_error")
+		return nil, 2, entryFailureAt("diagnostic_mode", failed("config", "configuration_error"))
 	}
 	accountingParent, accountingErr := harnessaccount.ContainerParent()
 	if accountingErr != nil {
-		return nil, 2, failed("config", "configuration_error")
+		return nil, 2, entryFailureAt("accounting_membership", failed("config", "configuration_error"))
 	}
 	if env["HARNESS_ACCOUNTING"] == "required" || accountingParent != "" {
 		if accountingParent == "" {
-			return nil, 2, failed("config", "configuration_error")
+			return nil, 2, entryFailureAt("accounting_required_scope", failed("config", "configuration_error"))
 		}
 		if harnessaccount.VerifyRuntimeExecutable() != nil {
-			return nil, 2, failed("config", "configuration_error")
+			return nil, 2, entryFailureAt("accounting_executable_identity", failed("config", "configuration_error"))
 		}
 		invocation, err := harnessaccount.InvocationRoot()
 		if err != nil {
-			return nil, 2, failed("config", "configuration_error")
+			return nil, 2, entryFailureAt("accounting_invocation_identity", failed("config", "configuration_error"))
 		}
 		env["CARTULARY_HARNESS_INVOCATION_ROOT"] = invocation
 		// Independent nested commands may deliberately clear the environment.
@@ -77,6 +77,9 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		mode = "basic"
 		env["HARNESS_DIAGNOSTICS"] = mode
 		env["CARTULARY_HARNESS_CACHE_MODE"] = "off"
+		// Every accounted container, including self-owned test fixtures, has an
+		// exact owner finalizer. An unscoped auxiliary reaper is not admissible.
+		env["TESTCONTAINERS_RYUK_DISABLED"] = "true"
 	}
 	diagnostics := newGraphObservation(mode == "basic")
 	if env["CARTULARY_TEST_RUN_ID"] == "" {
@@ -91,15 +94,15 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 		var lifecycle *failure
 		if errors.As(err, &lifecycle) && lifecycle.Reason == "cleanup_error" {
 			nestedClean = false
-			return nil, 12, err
+			return nil, 12, entryFailureAt("runtime_plan", err)
 		}
 		if errors.Is(err, context.Canceled) {
-			return nil, 130, err
+			return nil, 130, entryFailureAt("runtime_plan", err)
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, 13, err
+			return nil, 13, entryFailureAt("runtime_plan", err)
 		}
-		return nil, 2, errors.Join(failed("config", "configuration_error"), err)
+		return nil, 2, entryFailureAt("runtime_plan", errors.Join(failed("config", "configuration_error"), err))
 	}
 	// This is an externally measured preparation interval in the graph clock.
 	// Compiler subphases have a different clock and are never fabricated as
@@ -200,7 +203,7 @@ func Run(ctx context.Context, root, binary string, args, environment []string) (
 	var fixtureCleanupDiagnostic *harnesssession.CleanupDiagnostic
 	cleanup := []cleanupRecord{}
 	recordCleanup := func(r cleanupRecord) { cleanupMu.Lock(); defer cleanupMu.Unlock(); cleanup = append(cleanup, r) }
-	production := harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{BrowserLaneLimit: plan.facts.BrowserLaneLimit, Root: root, RunRoot: runRoot, Target: target, Runtime: runtime, Environment: fixtureEnv, ContainerProof: diagnostics.collector.containers}, harnessfixtures.Options{Observe: diagnostics.execution.fixture, Cleanup: func(r harnessfixtures.CleanupRecord) {
+	production := harnessfixtures.NewProduction(harnessfixtures.ProductionOptions{BrowserLaneLimit: plan.facts.BrowserLaneLimit, Root: root, RunRoot: runRoot, Target: target, Runtime: runtime, Environment: fixtureEnv, ContainerProof: diagnostics.collector.containers}, harnessfixtures.Options{Cancelled: func() bool { return ctx.Err() != nil }, Observe: diagnostics.execution.fixture, Cleanup: func(r harnessfixtures.CleanupRecord) {
 		v := cleanupRecord{Operation: r.Operation, UnitID: r.UnitID, LeaseID: r.LeaseID, Outcome: "completed", Cause: r.Err}
 		if r.Err != nil {
 			v.Outcome = "failed"

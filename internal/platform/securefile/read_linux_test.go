@@ -4,7 +4,6 @@ package securefile
 
 import (
 	"errors"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,7 +44,12 @@ func TestSecureFileRead_Unit(t *testing.T) {
 }
 
 func TestSecureFileRejectsUnsafeObjectsAndRedactsPaths_Unit(t *testing.T) {
-	root := t.TempDir()
+	// Filesystem object rejection must not depend on the shorter AF_UNIX
+	// address limit. This directory remains a valid filesystem pathname.
+	root := filepath.Join(t.TempDir(), strings.Repeat("long-path-", 16))
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	regular := filepath.Join(root, "regular")
 	if err := os.WriteFile(regular, []byte("safe"), 0o600); err != nil {
 		t.Fatal(err)
@@ -63,11 +67,9 @@ func TestSecureFileRejectsUnsafeObjectsAndRedactsPaths_Unit(t *testing.T) {
 		t.Fatal(err)
 	}
 	socket := filepath.Join(root, "socket")
-	listener, err := net.Listen("unix", socket)
-	if err != nil {
+	if err := unix.Mknod(socket, unix.S_IFSOCK|0o600, 0); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = listener.Close() })
 
 	for name, path := range map[string]string{
 		"final symlink":  finalLink,

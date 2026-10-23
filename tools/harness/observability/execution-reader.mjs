@@ -6,9 +6,9 @@ import { executionRecordsDigest } from "../runtime/execution-observations.mjs";
 
 export function readExecutionIndex(runRoot, run) {
   let index;
-  try { index = parseStrictJSON(readLocalFile(path.join(runRoot, "diagnostics/execution-index.json"), { maximum: 4 * 1024 ** 2 }).toString("utf8")); }
+  try { index = parseStrictJSON(readLocalFile(path.join(runRoot, "diagnostics/execution-index.json"), { maximum: 8 * 1024 ** 2 }).toString("utf8")); }
   catch (error) { if (error.code === "ENOENT") return null; throw error; }
-  validateSchemaSync("cartulary.harness_execution_index.v2", index);
+  validateSchemaSync("cartulary.harness_execution_index.v3", index);
   if (run.manifest.instrumentation.mode !== "basic") throw new Error("execution evidence requires basic diagnostics");
   for (const key of ["run_id", "source_digest", "graph_digest"]) if (index[key] !== run.manifest[key]) throw new Error("execution identity mismatch");
   if (index.policy_digest !== run.manifest.instrumentation.policy_digest || index.records_digest !== executionRecordsDigest(index.records)) throw new Error("execution digest mismatch");
@@ -77,5 +77,36 @@ export function readExecutionIndex(runRoot, run) {
       parent = launches.get(parent).parent_invocation_id;
     }
   }
+  validateAllocationLifecycles(index, run);
   return index;
+}
+
+function validateAllocationLifecycles(index, run) {
+  const section = index.allocation_lifecycle;
+  const { allocation_lifecycle: _, ...ordinary } = index;
+  if (Buffer.byteLength(JSON.stringify(ordinary)) > 4 * 1024 ** 2) throw new Error("ordinary execution metadata exceeds bound");
+  if (Buffer.byteLength(JSON.stringify(section)) > 4 * 1024 ** 2 || section.records_digest !== executionRecordsDigest(section.records)) throw new Error("allocation lifecycle size or digest mismatch");
+  if (section.status === "complete" && (section.omitted_records || section.omitted_refs.length)) throw new Error("complete allocation lifecycle has omissions");
+  if (section.omitted_records < section.omitted_refs.length) throw new Error("allocation omissions contradict identities");
+  const allocations = new Set(), leases = new Set();
+  for (const record of section.records) {
+    if (Buffer.byteLength(JSON.stringify(record)) > 65536 || allocations.has(record.allocation_ref) || section.omitted_refs.includes(record.allocation_ref)) throw new Error("duplicate or oversized allocation lifecycle");
+    allocations.add(record.allocation_ref);
+    if (record.triggering_unit_id !== null && !run.registrations.has(record.triggering_unit_id)) throw new Error("unknown retirement trigger unit");
+    for (const interval of [record.acquisition, record.retirement]) {
+      if (interval.end_ms < interval.start_ms || Math.abs(interval.duration_ms - (interval.end_ms - interval.start_ms)) > 1e-6) throw new Error("invalid allocation interval");
+    }
+    if (record.retirement.start_ms < record.acquisition.end_ms) throw new Error("allocation retired before acquisition");
+    for (const borrow of record.borrows) {
+      if (leases.has(borrow.lease_ref) || !run.registrations.has(borrow.unit_id)) throw new Error("invalid allocation borrow identity");
+      leases.add(borrow.lease_ref);
+      const observed = index.records.find((r) => r.kind === "lease" && r.lease_ref === borrow.lease_ref);
+      if (observed && (observed.allocation_ref !== record.allocation_ref || observed.unit_id !== borrow.unit_id)) throw new Error("allocation borrow contradicts lease observation");
+    }
+    const observed = index.records.find((r) => r.kind === "allocation" && r.allocation_ref === record.allocation_ref);
+    if (observed && observed.capability !== "browser_stack") throw new Error("lifecycle belongs to non-browser allocation");
+  }
+  if (section.status === "complete") {
+    for (const record of index.records) if (record.kind === "allocation" && record.capability === "browser_stack" && !allocations.has(record.allocation_ref)) throw new Error("complete lifecycle misses observed browser allocation");
+  }
 }

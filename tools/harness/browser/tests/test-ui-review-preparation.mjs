@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { browserReadiness, coreReadiness, goReadiness, nodeReadiness, publishFrontendInstallation, serviceImageReadiness, validateFrontendInstallation } from "../../readiness/installed-readiness.mjs";
 import { createRuntime } from "../../runtime/session-client.mjs";
+import { recipeEnvironment } from "../review-recipes.mjs";
 import { reviewChild } from "../review-child.mjs";
 import { failureRecord, preparationFailure, failureFromRecord, ReviewFailure } from "../ui-review/failure.mjs";
 import { repoRoot } from "../ui-review/policy.mjs";
@@ -99,4 +100,14 @@ test("Go readiness validates only review producer dependencies with network and 
   for (const [key, value] of Object.entries({ GOTOOLCHAIN: "local", GOPROXY: "off", GONOPROXY: "none", GOSUMDB: "off" })) assert.equal(calls[1].env[key], value);
   let invocation = 0;
   assert.throws(() => goReadiness({}, repoRoot, () => ({ status: 0, stdout: ++invocation === 1 ? "/installed/go" : "MISSING" })), (error) => error.subject_id === "go" && error.condition === "missing");
+});
+
+
+test("review preparation resolves the selected executable without an inherited Go root", () => {
+  for (const preparation_policy of ["installed_only", "ensure"]) {
+    const environment = recipeEnvironment(repoRoot, "/review/run", { runID: "fixture", root: "/private/runtime", leaseID: "fixture" },
+      { preparation_policy, presentation: "design" }, { ...process.env, GO: "/selected/go", GOROOT: "/foreign/toolchain" });
+    assert.equal(environment.GO, "/selected/go");
+    assert.equal(Object.hasOwn(environment, "GOROOT"), false);
+  }
 });

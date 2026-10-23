@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { parseStrictJSON } from "../contract/strict-json.mjs";
 import { closeSync, constants, createReadStream, fstatSync, openSync, readSync } from "node:fs";
 import { createInterface } from "node:readline";
@@ -122,6 +123,7 @@ export async function* readCanonicalUnitEvents(file, options = {}) {
 }
 
 export async function reduceCanonicalUnitIntervals(file, options = {}) {
+  const digest = createHash("sha256");
   const selected = options.unitIDs === undefined ? null : new Set(options.unitIDs);
   const starts = new Map();
   const terminals = new Map();
@@ -145,6 +147,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
   let cleanupStarted = null;
   let cleanupCompleted = null;
   for await (const event of readCanonicalUnitEvents(file, options)) {
+    digest.update(JSON.stringify(event)).update("\n");
     eventCount += 1;
     finalMonotonicMs = event.monotonic_ms;
     if (event.event === "cleanup_started") {
@@ -231,6 +234,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
       opened.end = event.monotonic_ms;
       const summary = waits.get(event.unit_id);
       summary.end = opened.end;
+      options.onWaitSegment?.({ unit_id: event.unit_id, ...opened });
       summary.by_reason[opened.wait_reason] += opened.end - opened.start;
       if (opened.wait_reason === "resources") {
         for (const holder of opened.blocking_unit_ids) summary.resource_holders.add(holder);
@@ -310,6 +314,7 @@ export async function reduceCanonicalUnitIntervals(file, options = {}) {
     intervals.set(id, { start, end: terminal.monotonic_ms, queue_ms: start - waits.get(id).start });
   }
   return {
+    eventDigest: `sha256:${digest.digest("hex")}`,
     intervals, waits, admissions, fixtureAcquired, cache, cleanupStarted, cleanupCompleted,
     eventCount,
     finalMonotonicMs,

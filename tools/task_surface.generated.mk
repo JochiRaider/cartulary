@@ -301,7 +301,8 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  side effects: none' \
 	'target-plan inputs: TARGET=target_name (required), INPUTS=path (optional), DETAIL=summary|graph|rows|artifacts (default summary), JSON=exact_1_bool (default false)' \
 	'  side effects: none' \
-	'explain-run inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=target_name (optional), DETAIL=summary|children|logs|progress|accounting|performance|fixtures (default summary), JSON=exact_1_bool (default false), COMPARE_RESULTS_DIR=result_selector (optional), COMPARISON=equivalent|instrumentation (optional), FIXTURE_THRESHOLD_MS=positive_integer (default 30000), FIXTURE_TOP=positive_integer (default 5)' \
+	'explain-run inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=retained_target_name (optional), DETAIL=summary|children|logs|progress|accounting|performance|fixtures|critical-path (default summary), JSON=exact_1_bool (default false), COMPARE_RESULTS_DIR=result_selector (optional), COMPARISON=equivalent|instrumentation (optional), FIXTURE_THRESHOLD_MS=positive_integer (default 30000), FIXTURE_TOP=positive_integer (default 5), VIEW=units|waits|allocations \
+	  (optional), UNIT_ID=semantic_text (optional), OFFSET=nonnegative_integer (optional), LIMIT=positive_integer (optional)' \
 	'  side effects: none' \
 	'test-run-status inputs: RESULTS_DIR=result_selector (required), RUN_ID=run_id (optional), TARGET=target_name (optional), JSON=exact_1_bool (default false), AFTER_REVISION=positive_integer (optional), WAIT_SECONDS=positive_integer (default 0)' \
 	'  side effects: none' \
@@ -760,7 +761,7 @@ target-plan:
 explain-run:
 	$(Q)$(TASK_SURFACE_NODE_READINESS)
 	$(Q)$(call RUN_PUBLIC_PREFLIGHT,explain-run)
-	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-run,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUN_ID TARGET DETAIL JSON COMPARE_RESULTS_DIR COMPARISON FIXTURE_THRESHOLD_MS FIXTURE_TOP),explain-run)
+	$(Q)$(call RUN_MAKE_NODE_TOOL,explain-run,$(call TASK_SURFACE_ARGV_ENV,RESULTS_DIR RUN_ID TARGET DETAIL JSON COMPARE_RESULTS_DIR COMPARISON FIXTURE_THRESHOLD_MS FIXTURE_TOP VIEW UNIT_ID OFFSET LIMIT),explain-run)
 
 ifeq ($(CARTULARY_HARNESS_GRAPH_CHILD),1)
 test-evidence-audit: export CARTULARY_TEST_RUN_ID := $(CARTULARY_TEST_RUN_ID)

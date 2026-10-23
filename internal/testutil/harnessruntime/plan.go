@@ -170,7 +170,7 @@ func decodePlan(data []byte) (*Plan, error) {
 	}
 	document := value.(map[string]any)
 	policy, err := harnessschema.Decode([]byte(document["instrumentation_policy_bytes"].(string)))
-	if err != nil || harnessschema.Validate("cartulary.harness_instrumentation_policy.v3", policy) != nil {
+	if err != nil || harnessschema.Validate("cartulary.harness_instrumentation_policy.v4", policy) != nil {
 		return nil, errPlan
 	}
 	policyDigest, err := semanticDigest(policy)

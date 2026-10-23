@@ -20,6 +20,8 @@ const validInputTypes = new Set([
   "semantic_text",
   "task_surface_report_args",
   "target_name",
+  "retained_target_name",
+  "nonnegative_integer",
   "url",
 ]);
 const validEmptyStringRules = new Set(["invalid", "omitted", "false"]);

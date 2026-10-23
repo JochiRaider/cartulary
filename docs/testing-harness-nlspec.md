@@ -6670,7 +6670,7 @@ projections; no duplicate timer is introduced solely for diagnostics. Required
 reset evidence retains its existing failure consequences.
 
 **TH-HARNESS-REQ-844 — Secure execution projection.**
-`diagnostics/execution-index.json`, schema `cartulary.harness_execution_index.v2`,
+`diagnostics/execution-index.json`, schema `cartulary.harness_execution_index.v3`,
 is optional terminal evidence under basic mode. Its closed records are launch,
 allocation, lease, relationship and activity observations. The envelope binds
 run/source/graph/policy identity, records digest, completeness, omitted count
@@ -6678,7 +6678,9 @@ run/source/graph/policy identity, records digest, completeness, omitted count
 references, closed kinds/outcomes and catalog identities only; raw process IDs,
 names, arguments, environment, paths, URLs, SQL, test titles and errors are
 forbidden. The instrumentation policy owns a separate 4,096 execution-record
-limit. Record/pending/terminal-metadata bounds remain 64 KiB/1 MiB/4 MiB.
+limit. Record/pending/ordinary-record metadata bounds remain 64 KiB/1 MiB/4 MiB.
+REQ-857 adds an independently bounded browser allocation lifecycle section;
+the combined execution index SHALL be bounded to 8 MiB.
 Private staging is bounded by record count times record size, with exclusive
 slot reservation and one owner per record; it is never a public read surface.
 
@@ -6832,6 +6834,36 @@ product work; required accounting MUST NOT silently degrade to sampled evidence.
 The prepared accounting controller and graph runtime MUST execute the same
 native binary content. A stale or replaced controller binary invalidates required
 accounting; preparation with accounting off restores the current binary.
+Native integration probes that execute a graph SHALL launch the prepared native
+graph executable; embedding that runtime in a test executable SHALL NOT bypass
+the content-identity check. A nested probe inside an accounted invocation SHALL
+use the outer receipt owner and SHALL NOT publish or close that owner's receipt.
+Their run IDs SHALL be unique within that shared invocation, including probes
+whose retained directories have different parents. Directory separation SHALL
+NOT authorize ambiguous graph membership.
+
+Before graph publication, the native graph failure diagnostic SHALL retain its
+existing failure class, reason and exit status and SHALL add `failure_stage`.
+This field SHALL identify the check that rejected startup using the closed
+values below. It SHALL default to `unavailable` when no listed check owns the
+failure. Stage attribution SHALL NOT be inferred from duration or error text.
+
+| Stage | Rejected boundary |
+| --- | --- |
+| `nested_lifecycle` | Joining the inherited native lifecycle |
+| `diagnostic_mode` | Diagnostic mode validation |
+| `accounting_membership` | Resolving fenced accounting membership |
+| `accounting_required_scope` | Required accounting without a proven scope |
+| `accounting_executable_identity` | Controller/runtime executable-content identity |
+| `accounting_invocation_identity` | Resolving the proven invocation owner |
+| `runtime_plan` | Source-aware runtime-plan preparation |
+| `unavailable` | No listed check supplies stage attribution |
+
+Only the closed stage value SHALL be exposed; private errors, filesystem paths,
+environment values, owner capabilities and credentials SHALL NOT be included.
+Stage reporting SHALL NOT alter admission, retries, outcomes or cleanup authority.
+Tests SHALL reject unknown stage values and verify classification and exit-status
+preservation, including wrapped errors and cancellation during preparation.
 
 The existing native harness and workspace admission entry MUST establish one
 fresh delegated cgroup v2 hierarchy for the complete measured child Make command.
@@ -6841,6 +6873,9 @@ and terminal exit are included. Every owned PostgreSQL, object-store and rendere
 container MUST join the same hierarchy at creation, with exact local membership
 proved before use. Unsupported service creation paths MUST reject required
 accounting. The existing owners retain acquisition, leases, recovery and cleanup;
+this includes explicitly self-owned test containers. The accounted native graph
+SHALL disable the unscoped Testcontainers reaper for its descendants; exact
+fixture finalizers and existing recovery authority SHALL retain cleanup ownership.
 the accounting controller acquires no authority to kill or remove their resources.
 Nested commands share the outer accounting lifetime and MUST NOT create another
 measurement. A graph that proves membership in the live fenced accounting
@@ -6894,6 +6929,119 @@ Invocation-wide accounting counts once, including when several graphs register.
 Existing source/graph comparison admission remains unchanged. No retired REQ-851
 experiment, privileged tracing prerequisite or alternative test runner is added.
 Verified by: TH-HARNESS-AC-152
+
+
+**TH-HARNESS-REQ-857 — Complete critical-path and allocation diagnostics.**
+The public `make explain-run` interface SHALL support `DETAIL=critical-path`.
+Existing detail defaults and behavior SHALL remain unchanged. The view SHALL
+require an exact retained run directory or explicit parent plus RUN_ID; it SHALL
+NOT select the newest run. The canonical evidence reader SHALL remain the sole
+interpreter of events. Executable readers SHALL NOT consume Markdown.
+
+| Input | Default | Admitted values and boundaries |
+| --- | --- | --- |
+| TARGET | Invocation root target | Exact target in validated retained target summaries, including internal projections; no path traversal |
+| VIEW | units | Closed enum: units, waits, allocations |
+| UNIT_ID | Omitted: complete path | Exact unit on the selected target's reconstructed critical path |
+| OFFSET | 0 | Nonnegative safe integer |
+| LIMIT | 20 | Integer 1 through 100 inclusive |
+| JSON | Existing false convention | Existing exact-1 boolean convention |
+
+VIEW, UNIT_ID, OFFSET and LIMIT SHALL be valid only for critical-path detail.
+Unknown selectors and invalid combinations SHALL fail with usage_error (normalized exit 2).
+Malformed, unsafe, contradictory or unsupported retained evidence SHALL fail
+with artifact_error (normalized exit 11). Missing optional diagnostics SHALL remain explicit
+unavailability, not an artifact failure. Existing comparison admission remains
+unchanged; this view SHALL NOT accept comparison inputs.
+
+Response schema `cartulary.harness_critical_path.v1` SHALL bind run, source,
+graph, selected target, normalized query and coverage. It SHALL report total
+filtered records, returned records and nullable next_offset. Units SHALL follow
+the reconstructed target-local dependency path and its existing tie rules.
+Waits SHALL follow path-unit order, then canonical interval order. Allocations
+SHALL follow first associated path position, then opaque allocation identity.
+UNIT_ID SHALL filter records only; complete path queue and unit-lifetime totals
+SHALL be computed before filtering/pagination. Filtered totals SHALL be labeled
+separately. An exhausted offset SHALL return an empty page and null next_offset.
+
+Human and JSON outputs SHALL derive from one validated model. JSON SHALL be at
+most 262,144 bytes; human output SHALL remain at most 120 lines and 8,000 bytes.
+Either bound SHALL shorten pages only at record boundaries and expose the next
+unread offset. No record may be silently truncated. A record that cannot fit by
+itself SHALL fail explicitly. Total counts SHALL NOT conceal omitted pages.
+
+Units SHALL expose queue totals partitioned by the existing closed reason
+vocabulary. The sum of reason durations SHALL equal the canonical queue total;
+a nonclosing partition SHALL fail as contradictory evidence. Units SHALL expose lifetime, canonical phase intervals/durations (including host
+admission, acquisition, runner, release and publication) and uncovered lifetime.
+Phase coverage SHALL use interval union within unit lifetime; overlaps SHALL be
+reported separately. Wait records SHALL retain simultaneous blocking resources
+and units. Graph queue and host admission SHALL remain separate. Simultaneous
+blockers and overlapping phases SHALL NOT be summed as exclusive wall-clock
+causes. Resource claims SHALL NOT be represented as measured utilization.
+
+
+| Timing field | Required calculation and interpretation |
+| --- | --- |
+| queue_ms | Canonical ready-to-start duration; equals the sum of queue_by_reason_ms values |
+| lifetime_ms | Canonical unit terminal time minus start time; cached/unstarted units retain the canonical zero-lifetime convention |
+| phases | All canonical intervals for that unit in start/end/name order; duration is end minus start |
+| phase_union_ms | Union of phase intervals clipped to unit lifetime |
+| phase_outside_lifetime_ms | Full phase union minus the clipped union; includes pre-start cache work where present |
+| phase_overlap_ms | Sum of individual phase durations minus their full interval union |
+| uncovered_lifetime_ms | Unit lifetime minus the clipped phase union |
+
+Allocation association SHALL include a path unit when it borrows the allocation
+or is the recorded retirement trigger. Path-local allocation counts SHALL NOT be
+presented as whole-invocation generation counts. Allocation acquisition timing
+SHALL bracket provider acquisition. Retirement timing SHALL bracket the owner's
+settlement operation, including its required publication. The fixture-broker
+monotonic clock SHALL remain independent of the graph clock; readers SHALL NOT
+subtract timestamps from those different epochs.
+
+The native fixture observation owner SHALL publish one terminal lifecycle record
+per browser_stack allocation in a separately bounded execution-index section,
+independent of ordinary execution-record truncation. Each record SHALL contain
+opaque allocation identity, logical borrow identities and borrowing unit IDs,
+acquisition and retirement intervals, declared monotonic clock identity,
+retirement reason, nullable triggering unit and settlement outcome. All values
+that cannot be observed SHALL be explicitly unavailable. The owner SHALL record
+the actual retirement trigger; readers SHALL NOT infer it from names or timing.
+The observer SHALL register each allocation when acquisition begins, independently
+of the ordinary record quota. At publication, every registered allocation SHALL
+have a terminal record or an explicitly disclosed omission. A missing terminal
+observation SHALL make coverage incomplete; it SHALL NOT synthesize a retirement
+reason, interval or settlement outcome. Registration and omission identities
+SHALL obey the lifecycle section's authored record and metadata bounds.
+
+| Retirement reason | Actual owner decision |
+| --- | --- |
+| acquisition_failure | Allocation acquisition or initial ownership/publication failed |
+| unhealthy_borrower | An unhealthy borrower or failed release publication prevents reuse |
+| terminal_borrower_release | Healthy borrower releases without retaining the allocation |
+| capacity_pressure | Admission owner retires an idle allocation to satisfy resource pressure |
+| exclusive_admission | Admission owner retires idle allocations for exclusive work |
+| invocation_cancellation | Invocation cancellation causes retirement |
+| run_finalization | Normal run closure retires remaining ownership |
+
+The lifecycle section SHALL allow at most 4,096 records, 4 MiB including its
+metadata, and 65,536 bytes per record. Limits SHALL be authored instrumentation
+policy inputs. Limit exhaustion SHALL disclose incomplete coverage, known
+omission counts and bounded omitted identities. Repeated identical observations
+SHALL be idempotent; conflicting allocation identities or terminal observations
+SHALL mark diagnostic coverage partial and SHALL NOT overwrite accepted facts.
+Readers SHALL reject contradictory published records. A failed retirement SHALL
+remain unsettled; no observation can release physical ownership or capacity.
+Optional observation, collection or publication failure SHALL NOT alter product
+outcomes, failure precedence or cleanup authority. Records SHALL retain existing
+privacy and safe-reference rules under REQ-844. Producers/readers/schema
+projections SHALL migrate atomically, without legacy translation readers.
+
+Rationale (non-normative): complete pages allow diagnosis of long paths without
+unbounded output. Independent allocation coverage preserves lifecycle evidence
+when detailed activity records reach their separate cap.
+
+Verified by: TH-HARNESS-AC-153.
 
 ### 10.10 Graph runtime and fixture ownership
 
@@ -7282,16 +7430,53 @@ remain independent. PostgreSQL lock wait ordering supplies admission; polling,
 try-lock loops, service-global quiescence and hash-derived stripes are forbidden.
 Global concurrency belongs exclusively to typed graph resource claims.
 
-The common cleanup owner caps target admission at 15 seconds and the one drop at
-20 seconds, consolidating the retired 5-second ordinary and 15-second forced
-budgets. Lock release retains its separate bounded 2-second settlement allowance.
-An owning cleanup deadline is authoritative: phase limits are caps, not promises
-beyond the parent deadline. Effective budgets and cancellation MUST be explicit.
+The common cleanup owner SHALL establish one deadline after validating inputs
+and before target admission. Its deadline SHALL be the earlier of the supplied
+parent deadline, when present, and 35 seconds after establishing the cleanup
+context. A parent without a deadline SHALL receive the same 35-second default;
+a longer parent SHALL NOT extend it. The deadline SHALL remain unchanged through
+admission, the one drop and settlement. A phase transition SHALL NOT restart or
+replenish the cleanup budget.
+
+| Cleanup boundary | Effective allowance | Required behavior |
+| --- | --- | --- |
+| Target admission | The lesser of 15 seconds and remaining owner time | Acquire the target lock on the mutation connection; expiry or cancellation permits no destructive statement. |
+| One forced drop | Remaining owner time after admission | Execute at most one owned atomic drop; no independent 20-second cutoff, retry, replacement connection or checkpoint bypass. |
+| Lock release | The lesser of 2 seconds and remaining owner time | Cancellation may be detached solely to attempt settlement; the owner's deadline remains authoritative. A retired connection does not authorize reuse of uncertain resources. |
+| Connection close and physical settlement | Existing owner-finalization contract | Preserve failures and cleanup authority; deadline expiry or a returned client call does not prove server-side settlement. |
+
+Effective admission and operation budgets SHALL be reported separately from
+elapsed durations. The shared cleanup-observation contract SHALL use version 3,
+with `operation_budget_ms` in `0..35000`; the admission bound remains
+`0..15000`. Unadmitted operations SHALL retain zero operation duration and budget.
+The old version-2 component SHALL be removed from current schema attachments;
+all references and generated validators SHALL migrate atomically. No translation
+reader or compatibility setting SHALL be introduced. Retained records remain
+bound to their actual source and contract epoch.
+
 Failed acquisition receives fresh bounded cleanup independent of cancelled setup,
-but acquired resources cannot escape their owning cleanup lifetime through an
+but acquired resources MUST NOT escape their owning cleanup lifetime through an
 unbounded background context. Timeout means uncertain cleanup, not proof that
 the server stopped or the resource disappeared. Operation, admission, unlock,
-connection-close and prior owner-close failures remain independently attributable.
+connection-close and prior owner-close failures SHALL remain independently
+attributable. Failed eager cleanup SHALL retain its original failure even if later
+service retirement completes. Scheduler claims, isolation and admission ordering
+remain unchanged.
+
+Acceptance under TH-HARNESS-AC-007 SHALL prove absent, longer, shorter, expired
+and cancelled parent contexts; one unchanged owner deadline across admission and
+drop; operation use of remaining owner time rather than a reset allowance;
+pre-operation cancellation with no statement; exactly one drop on success or
+failure; preserved operation/unlock/close causes; and native/schema rejection of
+negative, oversized or unadmitted operation budgets. Live fixtures SHALL cover
+idempotent owned deletion, active connections, same-target exclusion, unrelated
+target progress, delayed barrier observations and the affected eager finalizers.
+
+Rationale (non-normative): admission and execution compete for one finite cleanup
+lifetime. A separate operation cap discarded unused admission time even when a
+checkpoint could settle within that existing lifetime. Sharing the deadline
+removes that unnecessary cutoff without extending the owner's overall allowance
+or changing database durability.
 
 Recovery browser cleanup MUST stop both owned HTTP/runtime/background chains,
 close pools/handles, then delete the two independent owned databases concurrently
@@ -7484,28 +7669,64 @@ Lease files MUST be written before child work starts, MUST be redacted before re
 
 ### 11.4 Readiness Deadlines
 
-Owned PostgreSQL acquisition distinguishes container startup, mapped-endpoint
+Owned PostgreSQL acquisition SHALL distinguish container startup, mapped-endpoint
 resolution, SQL readiness, security/capability validation, generation initialization
-and ready-binding publication.
-The outer startup cap is 180 seconds and each startup attempt is capped at
-35 seconds. Mapped-port resolution is capped at 15 seconds. After endpoint
-resolution, SQL readiness has one 15-second window, with 250 ms polling and
-individual probes capped at 5 seconds. Every phase is bounded by its remaining
-parent deadline; these caps do not add time to that deadline. Authentication,
-security-policy and required-capability rejection are terminal. Reaching SQL
-readiness excludes a replacement startup attempt. Generation initialization and
-template migration are distinct from connectivity; a ready binding is published
-only after its required prerequisites succeed.
+and ready-binding publication. The startup owner SHALL impose an outer cap of
+180 seconds and one deadline of at most 35 seconds per attempt. Every owned
+acquisition entry point, including direct helper callers, SHALL impose these caps.
+The PostgreSQL acquisition owner SHALL own the attempt cap; suite composition
+SHALL NOT supply a separate attempt-timeout option. Callers MAY supply an earlier
+context deadline, which SHALL bound both caps. A nil acquisition context SHALL
+fail before provider preflight or acquisition. Endpoint resolution SHALL have a 15-second cap within
+that attempt. After endpoint resolution, SQL readiness SHALL consume the remaining
+attempt budget; it SHALL NOT start an independent readiness window or extend the
+attempt deadline. Polling SHALL use a 250 ms interval. Each SQL probe, including
+its security/capability checks, SHALL have a cap of 5 seconds bounded by the
+remaining attempt deadline. Admission waiting SHALL NOT consume these allowances.
+
+The readiness operation SHALL require a non-nil context with a finite parent
+deadline. It SHALL reject a missing or unbounded parent before launching any
+probe. An already cancelled or expired parent SHALL retain that cancellation or
+expiry outcome, with zero probes, including when the cancelled parent has no
+deadline. This interface SHALL NOT supply an implicit replacement timeout.
+Authentication, security-policy and required-capability rejection SHALL remain
+terminal. Entering SQL readiness SHALL exclude a replacement startup attempt.
+Generation initialization and template migration are distinct from connectivity;
+the owner SHALL publish a ready binding only after its required prerequisites
+succeed.
+
+**Rationale — non-normative:** A published Docker port can precede completion of
+PostgreSQL bootstrap. One attempt-owned readiness budget avoids a second deadline
+that begins before SQL can become ready, while preserving the total startup cap.
 
 PostgreSQL startup failures MUST retain bounded normalized phase, probe counts,
 configured and effective budgets, limiting deadline, elapsed time and cleanup
 outcome through the existing service-scope diagnostic extension boundary.
+The v6 diagnostic SHALL omit the retired `sql_window_ms` field. For each phase,
+`configured_ms` SHALL denote an independent phase cap; zero SHALL mean no such
+cap. `effective_ms` SHALL record the available budget at phase entry, clamped to
+zero for an already expired parent. `limiting_deadline` SHALL identify the
+boundary supplying that budget. The following mapping SHALL apply:
+
+| Phase | `configured_ms` | Effective budget and limiting boundary |
+| --- | ---: | --- |
+| `container_start` | `0` | Remaining attempt budget; `parent` |
+| `endpoint_resolution` | `15000` | Minimum of phase cap and remaining attempt budget; `phase` unless the parent is earlier |
+| `sql_connectivity` | `0` | Remaining attempt budget; `parent` |
+| `security_capability` | `5000` | Remaining current probe budget, bounded by the attempt; `parent` when earlier than the phase cap |
+| `generation_initialization` | `0` | Remaining attempt budget; `parent` |
+
+A SQL-readiness phase claiming a nonzero independent cap or a non-parent limiting
+boundary SHALL be rejected as contradictory evidence. The schema, producer and
+all current consumers SHALL migrate atomically; no v4 translation reader or
+compatibility fallback SHALL be introduced.
+
 Transport text, endpoints, credentials and raw provider errors MUST NOT enter
 that diagnostic. A failed allocation MUST retain the validated service-scope
 reference even when no ready lease was published. Missing or contradictory
 evidence remains an artifact failure, not inferred success.
 
-The PostgreSQL readiness diagnostic v4 MUST preserve each failed probe as a
+The PostgreSQL readiness diagnostic v6 MUST preserve each failed probe as a
 bounded typed cause count and the final probe cause separately from window
 expiry. A valid SQLSTATE MAY be retained; provider error text MUST NOT be retained.
 Before failed-start cleanup, the owner MUST attempt a best-effort container
@@ -7517,7 +7738,7 @@ certificate contents and endpoint identities MUST NOT be published. Diagnostic
 failure MUST NOT replace the acquisition failure or prevent physical cleanup.
 These observations do not extend readiness, authorize retries, or change
 admission capacity. Historical v1 records remain historical evidence and MUST
-NOT be silently upgraded to v4; the same rule applies to historical v2 and v3 records.
+NOT be silently upgraded to v6; the same rule applies to historical v2, v3, v4 and v5 records.
 
 The diagnostic MUST preserve at most 128 ordered startup marker occurrences,
 including repeated server-ready events. Events MUST distinguish bootstrap,
@@ -7535,7 +7756,7 @@ observations and the first successful SQL connection MUST carry local monotonic
 elapsed times relative to acquisition start, with a 128-observation cap and
 explicit omission. Observation MUST NOT leave a reader running after cleanup.
 
-Diagnostic v4 MUST bind the selected endpoint, resolver results and actual dial
+Diagnostic v5 MUST bind the selected endpoint, resolver results and actual dial
 attempts through bounded per-acquisition opaque references, address families and
 address categories. It MUST preserve selection equality, original versus fresh
 Docker binding comparisons and exact container identity agreement without retaining
@@ -7556,6 +7777,23 @@ Startup log events MUST preserve Docker stdout/stderr provenance and per-stream
 line sequence. Timestamp regressions are evaluated within each stream; merged
 stream arrival order is not evidence of wall-clock regression. Unknown provenance
 remains explicit. Raw stream content is discarded after closed-marker extraction.
+
+On owned PostgreSQL startup failure before ready-binding publication, the exact
+acquired allocation has no admitted borrower. Its physical owner SHALL request
+zero graceful-stop allowance and perform termination and removal within one fresh
+10-second cleanup context, independent of startup cancellation. The zero allowance
+SHALL apply only to this unpublished failed-start allocation. Ordinary shutdown
+of a successfully published harness SHALL retain its existing graceful-stop
+policy. The owner SHALL publish completed settlement only after exact physical
+cleanup succeeds. Failed cleanup SHALL preserve the primary acquisition failure,
+its separate cleanup outcome, partial ownership, recovery dependencies and resident
+claims. This rule SHALL NOT authorize another ordinary cleanup attempt, wider
+resource discovery or a replacement startup after SQL readiness has begun.
+
+**Rationale — non-normative:** The container library's ordinary graceful-stop
+allowance can exhaust the entire failed-start cleanup budget before removal. An
+unpublished allocation has no borrower durability obligation; its bounded cleanup
+budget belongs to termination, removal and settlement proof.
 
 An acquired physical resource MUST remain represented by partial ownership or
 an explicit completed-settlement receipt on every failed-start path. The generic
@@ -7707,13 +7945,64 @@ and its declared report is complete.
 | Resource                     | Deadline | Poll interval | Failure reason                       |
 | ---------------------------- | -------: | ------------: | ------------------------------------ |
 | Docker preflight             |    `15s` |          `1s` | `preflight_error`                    |
-| Postgres SQL readiness      |    `15s` |       `250ms` | `service_readiness_timeout`          |
+| Postgres SQL readiness      | Remaining bounded startup attempt | `250ms` | `service_readiness_timeout` |
 | local object-store readiness |   `120s` |       `500ms` | `service_readiness_timeout`          |
 | Template DB migration        |   `180s` |           n/a | `fixture_error`                      |
 | Browser backend readiness    |   `120s` |       `500ms` | `service_readiness_timeout`          |
 | Browser frontend readiness   |   `120s` |       `500ms` | `service_readiness_timeout`          |
 | Destructive database reset   |    `30s` |           n/a | `fixture_error` or `timeout_failure` |
 | Replacement backend readiness | `120s` |       `500ms` | `service_readiness_timeout` or `timeout_failure` |
+
+Acceptance under TH-HARNESS-AC-007 SHALL include virtual-clock scenarios proving
+successful readiness after 15 seconds but before the 35-second parent deadline;
+expiry at that parent deadline; earlier-parent and per-probe clamping; immediate
+cancellation; missing/unbounded-parent rejection before any probe; and terminal
+capability rejection without replacement startup. Failed-start cleanup scenarios
+SHALL verify the zero graceful-stop allowance, fresh bounded cleanup context,
+exact ownership, one physical attempt, preserved primary and cleanup failures,
+and unchanged graceful shutdown after successful publication. Current diagnostic
+validation SHALL reject v4 and contradictory v5 readiness-budget fields.
+
+The v6 readiness diagnostic SHALL additionally contain `publication`, a bounded
+observation of the final `ContainerCreate` options passed to the Docker client,
+after provider request normalization. It SHALL NOT rewrite those options or infer
+that publication succeeded. Omission of an observer SHALL mean no observation;
+the diagnostic default SHALL be `status=not_observed`, empty port/binding arrays
+and `publish_all_ports=null`. The provider observer SHALL be optional, in-process,
+and share the existing creation and cleanup owner; it SHALL add no Docker request,
+startup retry, deadline or alternative runtime configuration.
+
+| Publication field | Contract |
+| --- | --- |
+| `status` | `not_observed`, `observed`, or `unavailable`; unavailable includes malformed or over-limit options; partial publication records SHALL NOT be represented as complete |
+| `requested_ports` | Sorted unique authored container ports; at most 16 canonical `number/tcp` or `number/udp` values |
+| `effective_ports` | Sorted unique container ports in final create configuration; the same bound and syntax |
+| `bindings` | At most 32 entries ordered by container port, host-address category and port kind; each contains `container_port`, `address_scope` (`unspecified`, `loopback`, `specific`) and `port_kind` (`ephemeral`, `fixed`); raw addresses and host-port values SHALL NOT be retained |
+| `publish_all_ports` | The actual final boolean when observed; null otherwise |
+
+An unavailable record SHALL retain empty arrays and a null boolean; unknown values
+SHALL NOT be treated as false, empty publication or successful binding. The
+observer SHALL copy only these normalized nonsecret values before delegating the
+unchanged request. The returned container and primary provider error SHALL be
+preserved. Image-exposure and actual binding checks remain separate observations;
+no request observation substitutes for authenticated SQL readiness or physical
+settlement. Current readers SHALL accept v6 only; no legacy translation is added.
+
+Explicit PostgreSQL transport qualification SHALL retain one existing suite-service
+journal and summary per declared lifetime, independently of bounded native log
+output. The lifetime's stable suite identity SHALL derive from its selected test
+and subtest identity; its journal SHALL retain the actual allocation reference,
+startup attempt count, readiness diagnostic and terminal cleanup outcome. A
+qualification invocation SHALL declare at most 64 lifetimes and SHALL account for
+each without replacing failed attempts. Successful readiness SHALL be evaluated
+from the initial binding observation and authenticated readiness outcome; nullable
+failure-only reinspection fields SHALL NOT be required on success. Exact removal
+verification SHALL use a live read-only Docker client and the captured allocation
+ID, within the existing cleanup allowance. A provider client already closed by
+termination SHALL NOT establish absence. Qualification SHALL fail on missing
+records, incomplete required diagnostics, failed removal or unproved absence.
+The fixture test SHALL use the existing journal writer, summary reducer and
+schema validators; it SHALL NOT introduce a second execution or event reader.
 
 ### 11.5 Retry and Teardown Rules
 
@@ -7754,7 +8043,7 @@ Destructive reset, cleanup, attach-mode service mutation, and non-idempotent ope
 | Resource operation          | `max_attempts` | Backoff | Retryable failure reasons                                  | Overall deadline | Safe retry scope                                  |
 | --------------------------- | -------------: | ------- | ---------------------------------------------------------- | ---------------- | ------------------------------------------------- |
 | Docker preflight            |            `1` | none    | none                                                       | `15s`            | none                                              |
-| Postgres owned startup      |            `3` | `500ms` | transient Docker startup or transport failure before readiness polling begins | `180s` outer startup, `35s` per attempt; SQL readiness is Section 11.4 `15s` | Failed attempt container is proved settled first. |
+| Postgres owned startup      |            `3` | `500ms` | transient Docker startup or transport failure before readiness polling begins | `180s` outer startup, `35s` per attempt; SQL readiness consumes the remaining attempt budget (Section 11.4) | Failed attempt container is proved settled first. |
 | object-store owned startup  |            `2` | `250ms` | transient Docker startup or transport failure before readiness polling begins | attempt startup only; readiness deadline is Section 11.4 `120s` | Failed attempt container is terminated first.     |
 | Template DB migration       |            `1` | none    | none                                                       | `180s`           | none                                              |
 | Browser backend startup     |            `1` | none    | none                                                       | `120s`           | readiness polling only                            |
@@ -9102,6 +9391,18 @@ probing them mutably. `ensure` creates missing directories, verifies they are
 writable, and passes them to all Make-owned Go work as `GOCACHE`, `GOMODCACHE`,
 and `GOTMPDIR`. No helper may restore a literal `/tmp/cartulary-go-*` fallback
 or treat native Go variables as a second public configuration interface.
+Graph-selected Go runners MUST apply these same resolved path projections at
+process launch, including when public command admission has stripped inherited
+native aliases. Static selector discovery MUST remain independent of machine
+cache paths. An inherited `GOROOT` MUST NOT select a different toolchain tree:
+public Make entry and review preparation MUST remove it, and the Go runner MUST
+supply an empty `GOROOT` so that the selected executable resolves its own root.
+`GOROOT` is not a public override; a Make command-line assignment MUST fail with
+`usage_error`, exit `2`. The empty child value means executable-owned resolution,
+not an empty filesystem path. Explicit `GO` remains the executable selector.
+Nested preparation using the same source and build profile MUST preserve the
+prepared native runtime's executable content identity. A mismatch MUST continue
+to fail required accounting under REQ-856; no fallback identity is permitted.
 `doctor` MUST report each resolved path, its backing filesystem identity, and
 available capacity without enforcing an arbitrary minimum. Existing legacy
 `/tmp/cartulary-go-*` directories MAY produce a manual-cleanup advisory but
@@ -9888,7 +10189,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-004 | Sections 7, 8      | Machine output accepted          | Toolchain ready; explicit result root/run ID                                 | `CARTULARY_OUTPUT_MODE=machine make test-slice SUITE=backend-unit`; `... make test-fast`; `... make check` | Target status                                                  | Exactly one JSON object plus LF                        | Empty after wrapper starts                                   | `cartulary.tool_run_summary.v5` and target artifacts                                               | Progress prose or duplicate JSON fails                                       | normal target cleanup                                   |
 | TH-HARNESS-AC-005 | Section 7          | Machine output rejected          | No child work                                                                | `CARTULARY_OUTPUT_MODE=machine make clean`; `... make dev`; `... make help`               | `2`                                                            | Empty                                                  | Bounded `usage_error` diagnostic                             | None required                                                                                      | Child work starts despite rejection                                          | no deletion or service start                            |
 | TH-HARNESS-AC-006 | Section 10         | Scheduler determinism and contract-test lifetime | Controlled manifest with simultaneous child completions, browser groups, inert helper imports and named child diagnostic/deadline cases | Run scheduler fixture twice; validate generated browser worker-admin slots; run contract import, lifetime and direct/aggregate claim checks | `0`                                                            | Bounded summary or machine object                      | Empty on success                                             | Byte-identical scheduler events after allowed timestamp normalization; explicit non-overlapping browser slots; one contract file worker with bounded child fanout; named failures and awaited finalization | Event ordering differs; slots overlap; imports execute work; asynchronous work outlives its case; direct/aggregate worker bounds or claims differ | finalizers reap children and remove settled private captures |
-| TH-HARNESS-AC-007 | Section 11         | Service modes and eager resource lifetime | Owned and attach fixtures, object-store mutation-probe faults, dedicated and migration database finalizers, active-connection and drop-failure injection, interruption, stale recovery, and package-scoped object-store reuse | Owned service target; attach target missing one required var; controlled owner slice; focused single-forced-drop, parent-deadline, cleanup-failure, interruption, stale-recovery, bucket, and prefix fixtures | owned success; attach failure `2`; readiness expiry `3`; zero successful per-test databases at suite teardown; owned per-test resources released at their completed owner boundary | Bounded normalized stage, cause, attempt, timeout, cleanup, lane-state, peak-live, and exact success/failure count summary | Empty on owned success; config, readiness, ownership, or cleanup diagnostic | Owned lease before child work; one atomic forced deletion after exact ownership and owner shutdown; failed cleanup remains in the private ledger; same-lane object probe succeeds with zero residue; package bucket reuse remains active | Attach mode deletes unrelated resources, successful per-test resources survive to terminal sweep, forced cleanup runs without exact ownership, retries after timeout, or hides owner-close failure, capability rejection polls, readiness expiry replaces lane, raw service data is retained, or package-scoped object-store reuse is removed | owner finalizers close runtimes, jobs, pools, handles, buckets, and prefixes before eager deletion; suite teardown and stale recovery remain idempotent fallback |
+| TH-HARNESS-AC-007 | Section 11         | Service modes and eager resource lifetime | Owned and attach fixtures, object-store mutation-probe faults, dedicated and migration database finalizers, active-connection and drop-failure injection, interruption, stale recovery, and package-scoped object-store reuse | Owned service target; attach target missing one required var; controlled owner slice; focused single-forced-drop, shared-cleanup-deadline and parent-clamp, cleanup-failure, interruption, stale-recovery, bucket, and prefix fixtures | owned success; attach failure `2`; readiness expiry `3`; zero successful per-test databases at suite teardown; owned per-test resources released at their completed owner boundary | Bounded normalized stage, cause, attempt, timeout, cleanup, lane-state, peak-live, and exact success/failure count summary | Empty on owned success; config, readiness, ownership, or cleanup diagnostic | Owned lease before child work; one atomic forced deletion after exact ownership and owner shutdown; failed cleanup remains in the private ledger; same-lane object probe succeeds with zero residue; package bucket reuse remains active | Attach mode deletes unrelated resources, successful per-test resources survive to terminal sweep, forced cleanup runs without exact ownership, retries after timeout, or hides owner-close failure, capability rejection polls, readiness expiry replaces lane, raw service data is retained, or package-scoped object-store reuse is removed | owner finalizers close runtimes, jobs, pools, handles, buckets, and prefixes before eager deletion; suite teardown and stale recovery remain idempotent fallback |
 | TH-HARNESS-AC-008 | Section 12         | Test-only harness routes         | Browser test runtime with test route token and saved-view fixture inputs     | Runtime identity, retired reset-path not-found, saved-view fixture success, auth rejection, and origin/host rejection fixtures | Expected HTTP statuses from Section 12 | HTTP JSON response | n/a | Identity validates schema; reset path is absent; saved-view response is a normal system-scoped resource; no permissive CORS | Default runtime exposes a test route, reset endpoint exists, wrong host/origin reaches mutation, product auth bypasses token, saved-view accepts owned fields, or wildcard CORS appears | owned backend terminated on fixture completion |
 | TH-HARNESS-AC-009 | Section 13         | Cleanup and destructive reset guard | Disposable Git checkouts with complete directory inventory, absent runtimes, active lock holders, symlinks, unreadable trees, injected enumeration/I/O failure; fake service commands | Public shell cleanup fixtures through `make test-slice OWNER=harness.command_surface`; exact/whitespace/invalid preview inputs; dry-run and missing-confirmation invocations for `services-down`, `db-reset`, and `object-store-reset` | `0` for safe dry-run; nonzero for unsafe synthetic path or missing destructive confirmation | Dry-run lines match format                             | Bounded guard or confirmation diagnostic before mutation      | Candidate list, guard evidence, and command-shape evidence for confirmed local resets                              | Empty path, `/`, `.`, `..`, traversal, protected root, outside-repo path, symlink-following, inherited-env-only destructive confirmation, object-store reset touching another bucket, or `services-down` removing volumes accepted | zero content/permission/installation/report writes in preview or validation rejection; live descendants block deletion; repeated cleanup is idempotent  |
 | TH-HARNESS-AC-010 | Section 13         | Stale janitor proof gates        | Fake DB, bucket, container, and browser fixtures with/without proof          | Focused stale-janitor tests                                                               | `0`                                                            | Bounded summary                                        | Empty on success                                             | Evidence that unproven resources retained and proven stale fixtures deleted only outside dry-run   | Resource lacking generated name/proof deleted                                | unproven resources retained                             |
@@ -9971,7 +10272,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-089 | Section 2.1 | Aggregate and cache closure | Five aggregate graphs plus hit, miss, cold, off, mutation, corruption, and stale-security fixtures | Aggregate graph/cache validation | No phase barrier or nested scheduler remains; units deduplicate and reuse only closed work | Bounded aggregate/cache summary | Cache or graph diagnostic | Current-run unit and target evidence | Stateful reuse, stale finding, or duplicate unit passes | cache scratch proof-gated |
 | TH-HARNESS-AC-090 | Section 2.1 | Canonical retained artifacts | Direct and aggregate runs plus old, malformed, overlapping, and unattributed fixtures | Schema and event-projection validation | Event unions close material wall time once, changing wait segments close exactly, and all projections agree | Bounded evidence summary | Artifact/accounting diagnostic | V3 run manifest, events, run summary, and target summaries | Old reader, dual write, dispatch timing, or duplicate attribution passes | retained v3 artifacts follow cleanup policy |
 | TH-HARNESS-AC-091 | Section 2.1 | Atomic v3 cutover | Current tree plus old target, variable, schema, reader, writer, alias, and wrapper fixtures | Task-surface, source-reference, schema, generation, focused, aggregate, and release gates | Public names remain, removed internal surfaces are absent, changed IDs version once, and no compatibility path survives | Existing bounded summaries | Exact compatibility diagnostic | V3 owner/projection and validation ledger | Partial cutover, alias, dual reader/writer, or fixed global timing gate passes | generated outputs refreshed through Make |
-| TH-HARNESS-AC-092 | Sections 4.1A, 4.5, 5, 13, 14 | Exact bootstrap and durable machine-state readiness | Clean checkout without Node or frontend dependencies; controlled `HOME`/`XDG_CACHE_HOME`; exact or older Go launcher; valid, absent, overlapping, repo-contained, read-only, capacity-exhausted, and legacy `/tmp` cache fixtures; failed and successful tool installs; read-only cleanup trees and external symlinks; scheduler children with Node-free or competing-Node `PATH` and missing or non-executable `NODE_BIN` | Scratch-only public-wrapper, cleanup, fake Go, isolated cache/install, foundational-schema, pin-drift, and scheduler launch validation | Public Node-backed preflight obtains pinned Node first; cleanup runs with Bash/Git/Linux utilities alone and inert previews; logical graph `node` launches use selected `NODE_BIN`, managed-suite and graph-child `PATH` selects it for descendants, invalid runtime fails as configuration before service startup; Node bootstrap summary validates without `node_modules`; defaults resolve outside `/tmp` and the repository; diagnose is read-only; ensure passes exact `GOCACHE`, `GOMODCACHE`, and `GOTMPDIR`; cleanup removes only owned paths and handles read-only descendants; exact pin selection and failure-atomic install hold | Bounded readiness or cleanup summary | Bounded configuration or resource-conflict diagnostic with exact path, filesystem capacity, or repair scope | Global-input projection, generated validator drift, pin projection, normalized paths, isolated filesystem observations, and scheduler child invocation evidence | Bootstrap depends on frontend AJV, global inputs are implementation-only, literal `/tmp` fallback survives, paths overlap or enter the repo, doctor mutates, symlink target changes, unrelated `.cache` content is removed, `ENOSPC` is unknown, corruption reaches child work, failed install removes the old executable, or graph launch falls back to `PATH` | isolated scratch removed; borrowed machine state and symlink targets unchanged |
+| TH-HARNESS-AC-092 | Sections 4.1A, 4.5, 5, 13, 14 | Exact bootstrap and durable machine-state readiness | Clean checkout without Node or frontend dependencies; controlled `HOME`/`XDG_CACHE_HOME`; exact or older Go launcher; valid, absent, overlapping, repo-contained, read-only, capacity-exhausted, and legacy `/tmp` cache fixtures; failed and successful tool installs; read-only cleanup trees and external symlinks; scheduler children with Node-free or competing-Node `PATH` and missing or non-executable `NODE_BIN` | Scratch-only public-wrapper, cleanup, fake Go, isolated cache/install, foundational-schema, pin-drift, and scheduler launch validation | Public Node-backed preflight obtains pinned Node first; cleanup runs with Bash/Git/Linux utilities alone and inert previews; logical graph `node` launches use selected `NODE_BIN`, managed-suite and graph-child `PATH` selects it for descendants, invalid runtime fails as configuration before service startup; Node bootstrap summary validates without `node_modules`; defaults resolve outside `/tmp` and the repository; diagnose is read-only; ensure and graph Go runners pass exact `GOCACHE`, `GOMODCACHE`, and `GOTMPDIR`; inherited aliases and `GOROOT` cannot select another toolchain tree; nested same-profile preparation preserves native executable identity; cleanup removes only owned paths and handles read-only descendants; exact pin selection and failure-atomic install hold | Bounded readiness or cleanup summary | Bounded configuration or resource-conflict diagnostic with exact path, filesystem capacity, or repair scope | Global-input projection, generated validator drift, pin projection, normalized paths, isolated filesystem observations, and scheduler child invocation evidence | Bootstrap depends on frontend AJV, global inputs are implementation-only, literal `/tmp` fallback survives, paths overlap or enter the repo, doctor mutates, symlink target changes, unrelated `.cache` content is removed, `ENOSPC` is unknown, corruption reaches child work, failed install removes the old executable, or graph launch falls back to `PATH` | isolated scratch removed; borrowed machine state and symlink targets unchanged |
 | TH-HARNESS-AC-093 | Sections 4, 5 | Negative-fixture determinism | Prewarmed successful graph-cache entry followed by a fake failing tool; empty and valid artifact fixtures behind ordinary and phony producer prerequisites; repeated and reordered invocations | Owner-controlled lint-shell and release-task-surface smoke fixtures | Success only when the nested failing tool executes with cache reuse disabled at its public invocation, every injected artifact reaches validation byte-identically without producer execution, and warm or reordered execution cannot change the fixture verdict | Existing bounded smoke summary | Exact fake-tool, cache-mode, artifact-mutation, or validation diagnostic | Fake-tool invocation log, nested run manifest, seeded artifact bytes, and ordinary target summaries | Cached success bypasses the fake tool, producer regeneration replaces an injected artifact, parent-only cache control is treated as sufficient, prerequisite enumeration substitutes for artifact isolation, or repeated execution changes the verdict | isolated scratch removed; shared production cache and generated artifacts unchanged |
 | TH-HARNESS-AC-094 | Sections 2.1, 9 | Disposable targeted migration capability | Harness-issued migration scratch databases; arbitrary database/source construction attempts; apply targets `-1`, `0`, and positive versions; rollback targets `-1`, `0`, and positive versions; preparation success/failure/cleanup | pgtest capability unit and service-backed fixtures plus affected source-owner slices | Only the opaque harness-issued capability performs canonical-source targeted execution; invalid targets fail before source/database access; preparation events exactly describe the outcome | Existing bounded row and lease summaries | Exact capability, target-validation, fixture, or cleanup diagnostic | Migration lease identity, preparation lifecycle events, and selected row outcomes | A free production helper survives, an arbitrary handle/source is accepted, invalid input touches source/database state, duplicate status conflicts with events, or borrowed state is closed | owned scratch database destroyed; borrowed database unchanged |
 | TH-HARNESS-AC-095 | Sections 2.1, 9 | Production DDL Rebaseline v2 isolation and residue | Pristine, contaminated, prerequisite, lineage, purpose, role, ACL/default, recycled-connection, profile-claim, stale-volume, and rollback-through-zero exact PostgreSQL 18.6 fixtures ; independent actor records, concurrent lazy credential preparation, real credential/capacity workflows and rollback poisoning | Database Migrations, PostgreSQL, Recovery, pgtest, testservices, dev-stack, and owner-routed unit/service-backed slices | Versions 1..40 apply with immutable boundary 29; incompatible engine, checksums-off, stale PostgreSQL 16 state, or incompatible database state fails before v2 DDL; exact roles and purpose credentials are isolated; runtime and Recovery positive/negative operations match the object manifest; rollback residue is exact; physical extension state does not claim a profile ; prepared actor credentials never replace authentication behavior and uncertain transaction settlement prevents reuse | Existing bounded row, run, and lease summaries | Closed engine, checksum, migration, binding, role, ACL, prerequisite, claim-state, or residue diagnostic | Exact engine/checksum identity, manifest parity, PostgreSQL catalog facts, role identity, allow/deny/default matrices, remediation object, and cleanup evidence | PostgreSQL 16 default, legacy SQL, compatibility credential, wrong extension, contamination, mixed role, excess privilege, incomplete Recovery, claimed-by-table profile, or undeclared rollback residue passes | owned scratch database destroyed; borrowed database unchanged |
@@ -10067,6 +10368,7 @@ expected behavior. Failure codes below are normalized wrapper codes.
 | TH-HARNESS-AC-148 | REQ-853/854/855, REQ-416/502/616 | Graph/review ownership, partial acquisition, concurrency, reset/recovery, owner loss before diagnostic PID publication, foreign-scope recovery, explicit/unknown/contradictory/cyclic resource dependencies, allocation/finalization races, stale clients, fresh recovery attempts, hostile frames, repeated close and immutable terminal outcomes | Direct native fixture coordination; Go review admission/registry/terminal ownership; exact proof, ordered cleanup and unchanged physical owners | Duplicate policy, forged requests, borrowed-resource termination, leaked resources, legacy fixture transport or hidden cleanup failure fails. |
 | TH-HARNESS-AC-149 | REQ-851 | Command/import closure, retired attachments and completion reporting | Experimental collection and qualification validation retired; historical evidence unchanged | Active retired probes, qualification commands or historical relabelling fails. |
 | TH-HARNESS-AC-152 | REQ-856 | Fresh hierarchy, short-lived descendants, nested Make including independently cleared environment, exact container placement, incompatible hosts, cancellation, orphan work, OOM, counter faults, publication faults and hostile retained records | Complete charged resource accounting, precise scope, inherited measurement policy after kernel/owner proof, validated source/run binding and full queue/cleanup aggregates | Partial sampling presented as total cost, sum of memory peaks, unproved service membership, lost cleanup authority, changed scheduling, false success or changed-source equivalent admission fails. |
+| TH-HARNESS-AC-153 | REQ-857/835/844 | Paths longer than 20 units, target ties/filter/empty/byte-bound pages, queue reconciliation and overlaps; all retirement reasons, absent triggers, repeated/conflicting identities, failed settlement and limit exhaustion | Complete ordered pagination, independent path totals, explicit coverage/uncovered time, actual retirement attribution and human/JSON parity | Missing/duplicate records, concealed omissions, host/graph wait conflation, unsafe evidence, mutation during reading or diagnostic changes to cleanup authority fail. |
 
 The numerical image cases MUST include transparent pixels, alpha-only differences,
 one-pixel boundaries, and zero/full changed area. Interface fixtures MUST include

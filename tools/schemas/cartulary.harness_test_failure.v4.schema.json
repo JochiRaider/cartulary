@@ -121,7 +121,7 @@
             ]
           },
           "postgres": {
-            "$ref": "cartulary.postgres_cleanup_observation.v2"
+            "$ref": "cartulary.postgres_cleanup_observation.v3"
           }
         }
       }

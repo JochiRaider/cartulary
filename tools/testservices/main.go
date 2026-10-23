@@ -51,7 +51,6 @@ import (
 const (
 	postgresStartupTimeout        = 3 * time.Minute
 	suitePreflightTimeout         = 3 * time.Second
-	suitePostgresAttemptLimit     = 35 * time.Second
 	suiteObjectStoreAttemptLimit  = 2 * time.Minute
 	staleSuiteContainerRecheck    = 2 * time.Second
 	templateStartupTimeout        = pgtest.TemplatePreparationTimeout
@@ -1769,9 +1768,8 @@ func (ioDiscard) Write(p []byte) (int, error) {
 func startPostgresService(ctx context.Context, env map[string]string) (postgresService, error) {
 	labels := suiteServiceLabels(env, suiteservices.ServicePostgres)
 	harness, err := startPostgresHarnessWithOptions(ctx, pgtest.StartOptions{
-		Labels:         labels,
-		Observer:       suiteServiceStartObserver(env, suiteservices.ServicePostgres),
-		AttemptTimeout: suitePostgresAttemptLimit,
+		Labels:   labels,
+		Observer: suiteServiceStartObserver(env, suiteservices.ServicePostgres),
 		Readiness: func(diagnostic suiteservices.PostgresReadinessDiagnostic) {
 			_ = suiteservices.RecordEvent(env, suiteservices.Event{Type: suiteservices.EventPostgresReady, Details: map[string]any{suiteservices.PostgresReadinessExtensionKey: diagnostic}})
 		},

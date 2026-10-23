@@ -11,7 +11,7 @@ function readJSON(file) {
   return parseStrictJSON(readRetainedArtifactBytes(path.dirname(file), path.basename(file), 16 * 1024 * 1024).toString("utf8"), "canonical evidence");
 }
 
-export async function validateCanonicalRun(runRoot, expectedTarget = "", { evidence = true } = {}) {
+export async function validateCanonicalRun(runRoot, expectedTarget = "", { evidence = true, onWaitSegment } = {}) {
   const files = {
     manifest: path.join(runRoot, "run-manifest.json"),
     summary: path.join(runRoot, "run-summary.json"),
@@ -27,7 +27,7 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "", { evide
   if (expectedTarget && manifest.target !== expectedTarget) {
     throw new Error(`${runRoot} target ${manifest.target} does not match ${expectedTarget}`);
   }
-  const eventState = await reduceCanonicalUnitIntervals(files.events);
+  const eventState = await reduceCanonicalUnitIntervals(files.events, { onWaitSegment });
   const terminal = eventState.terminals;
   const started = eventState.starts;
   const runStarted = eventState.runStarted;
@@ -137,7 +137,7 @@ export async function validateCanonicalRun(runRoot, expectedTarget = "", { evide
   return {
     notLaunched: [...notLaunched].sort(), evidenceAbsences: [...evidenceAbsences.values()],
     waits: eventState.waits, phases: eventState.phases, registrations: eventState.registrations, intervals,
-    eventCount: eventState.eventCount,
+    eventCount: eventState.eventCount, eventDigest: eventState.eventDigest,
     cleanupStarted: eventState.cleanupStarted, cleanupCompleted: eventState.cleanupCompleted,
     manifest,
     summary,

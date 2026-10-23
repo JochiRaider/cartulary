@@ -282,9 +282,9 @@ func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T
 	requireTimingEvent(t, events, bucketTeardown, "test-services schedule service reaper")
 }
 
-func TestRunReturnsBeforeSlowServiceTerminationAfterChildSuccess(t *testing.T) {
+func TestRunDelegatesServiceTerminationAfterChildSuccess(t *testing.T) {
 	deps := defaultTestDependencies(t)
-	closeCalled := make(chan struct{}, 2)
+	closeCalled := make(chan string, 2)
 	deps.startPostgres = func(context.Context, map[string]string) (postgresService, error) {
 		return postgresService{
 			adminDSN:    "postgres://cartulary:cartulary@127.0.0.1:5432/postgres?sslmode=disable",
@@ -293,7 +293,7 @@ func TestRunReturnsBeforeSlowServiceTerminationAfterChildSuccess(t *testing.T) {
 			image:       "postgres:test",
 			labels: suiteServiceLabels(map[string]string{suiteservices.SuiteIDEnv: "suite-redaction", suiteservices.PGIsolationEnv: "exclusive", suiteservices.PGAllocationRefEnv: "testservices-unit-fixture",
 				"CARTULARY_TEST_RUN_ID": "wrapper-tests"}, suiteservices.ServicePostgres),
-			close: func(context.Context) error { closeCalled <- struct{}{}; time.Sleep(time.Second); return nil },
+			close: func(context.Context) error { closeCalled <- suiteservices.ServicePostgres; return nil },
 		}, nil
 	}
 	deps.startObjectStore = func(context.Context, map[string]string) (objectStoreService, error) {
@@ -305,30 +305,49 @@ func TestRunReturnsBeforeSlowServiceTerminationAfterChildSuccess(t *testing.T) {
 			image:       "object-store:test",
 			labels: suiteServiceLabels(map[string]string{suiteservices.SuiteIDEnv: "suite-redaction", suiteservices.PGIsolationEnv: "exclusive", suiteservices.PGAllocationRefEnv: "testservices-unit-fixture",
 				"CARTULARY_TEST_RUN_ID": "wrapper-tests"}, suiteservices.ServiceObjectStore),
-			close: func(context.Context) error { closeCalled <- struct{}{}; time.Sleep(time.Second); return nil },
+			close: func(context.Context) error { closeCalled <- suiteservices.ServiceObjectStore; return nil },
 		}, nil
 	}
-	reaperScheduled := false
-	deps.startReaper = func(string, map[string]string) error {
-		reaperScheduled = true
+	reaperCalls := 0
+	reaperLease := ""
+	deps.startReaper = func(leasePath string, _ map[string]string) error {
+		reaperCalls++
+		reaperLease = leasePath
 		return nil
 	}
 
-	start := time.Now()
+	// Delegation is an ownership contract; journal latency does not prove termination.
 	status := run([]string{"run", "--", "ignored"}, deps.env, deps.dependencies)
 	if status != 0 {
 		t.Fatalf("unexpected exit status: got %d want 0", status)
 	}
-	if elapsed := time.Since(start); elapsed > 500*time.Millisecond {
-		t.Fatalf("successful run waited on service termination: %v", elapsed)
-	}
-	if !reaperScheduled {
-		t.Fatal("expected detached service reaper to be scheduled")
+	if reaperCalls != 1 {
+		t.Fatalf("expected exactly one service reaper delegation, got %d", reaperCalls)
 	}
 	select {
-	case <-closeCalled:
-		t.Fatal("service close must not run synchronously on successful child completion")
+	case service := <-closeCalled:
+		t.Fatalf("service %s must be terminated by the reaper, not the successful wrapper", service)
 	default:
+	}
+	lease, err := readServiceLease(reaperLease)
+	if err != nil {
+		t.Fatalf("read delegated service lease: %v", err)
+	}
+	if lease.LeaseID == "" || lease.SuiteID != "suite-redaction" || len(lease.Resources) != 2 || lease.CleanupState != "not_started" {
+		t.Fatalf("unexpected delegated service lease: %#v", lease)
+	}
+	resources := make(map[string]string, len(lease.Resources))
+	for _, resource := range lease.Resources {
+		resources[resource.Service] = resource.ContainerID
+	}
+	if len(resources) != 2 || resources[suiteservices.ServicePostgres] != "postgres-container" || resources[suiteservices.ServiceObjectStore] != "object-store-container" {
+		t.Fatalf("reaper must receive both exact service identities: %#v", resources)
+	}
+	lifecycleEnv := cloneEnv(deps.env)
+	lifecycleEnv[suiteservices.SuiteIDEnv] = lease.SuiteID
+	state, ok, err := suiteservices.CurrentLifecycleState(lifecycleEnv)
+	if err != nil || !ok || state != "cleaning" {
+		t.Fatalf("delegated cleanup must remain cleaning until its owner settles: state=%q ok=%t err=%v", state, ok, err)
 	}
 }
 
@@ -420,11 +439,16 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 		bootstrapObjectStoreProbeBucket = previousProbeBootstrap
 	}()
 
-	var postgresAttemptTimeout time.Duration
+	caller, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	postgresCalled := false
 	var objectStoreAttemptTimeout time.Duration
 
 	startPostgresHarnessWithOptions = func(ctx context.Context, options pgtest.StartOptions) (*pgtest.Harness, error) {
-		postgresAttemptTimeout = options.AttemptTimeout
+		postgresCalled = true
+		if ctx != caller {
+			t.Fatal("suite composition replaced the PostgreSQL caller context")
+		}
 		return &pgtest.Harness{
 			Host: "127.0.0.1",
 			Port: "5432",
@@ -444,21 +468,18 @@ func TestSuiteServiceStartupUsesServiceSpecificAttemptTimeouts(t *testing.T) {
 	}
 
 	env := map[string]string{suiteservices.SuiteIDEnv: "suite-attempt-timeouts"}
-	if _, err := startPostgresService(context.Background(), env); err != nil {
+	if _, err := startPostgresService(caller, env); err != nil {
 		t.Fatalf("start postgres service: %v", err)
 	}
 	if _, err := startObjectStoreService(context.Background(), env); err != nil {
 		t.Fatalf("start object-store service: %v", err)
 	}
 
-	if postgresAttemptTimeout != 35*time.Second {
-		t.Fatalf("unexpected postgres attempt timeout: got %v want %v", postgresAttemptTimeout, 35*time.Second)
+	if !postgresCalled {
+		t.Fatal("PostgreSQL acquisition owner was not called")
 	}
 	if objectStoreAttemptTimeout != 2*time.Minute {
 		t.Fatalf("unexpected object-store attempt timeout: got %v want %v", objectStoreAttemptTimeout, 2*time.Minute)
-	}
-	if postgresAttemptTimeout == objectStoreAttemptTimeout {
-		t.Fatal("postgres and object-store suite startup attempts must not share one timeout budget")
 	}
 
 	resultRoot := t.TempDir()

@@ -65,32 +65,46 @@ type PostgresProbeObservation struct {
 	ElapsedMS int64  `json:"elapsed_ms"`
 	Cause     string `json:"cause"`
 }
+type PostgresPublicationBinding struct {
+	ContainerPort string `json:"container_port"`
+	AddressScope  string `json:"address_scope"`
+	PortKind      string `json:"port_kind"`
+}
+
+type PostgresPublicationObservation struct {
+	Status          string                       `json:"status"`
+	RequestedPorts  []string                     `json:"requested_ports"`
+	EffectivePorts  []string                     `json:"effective_ports"`
+	Bindings        []PostgresPublicationBinding `json:"bindings"`
+	PublishAllPorts *bool                        `json:"publish_all_ports"`
+}
+
 type PostgresReadinessDiagnostic struct {
-	Endpoint                   PostgresEndpointDiagnostic `json:"endpoint"`
-	SchemaID                   string                     `json:"schema_id"`
-	Stage                      string                     `json:"stage"`
-	Outcome                    string                     `json:"outcome"`
-	ElapsedMS                  int64                      `json:"elapsed_ms"`
-	SQLWindowMS                int64                      `json:"sql_window_ms"`
-	PollMS                     int64                      `json:"poll_ms"`
-	ProbeCapMS                 int64                      `json:"probe_cap_ms"`
-	ProbeCount                 int                        `json:"probe_count"`
-	CleanupOutcome             string                     `json:"cleanup_outcome"`
-	ContainerState             string                     `json:"container_state"`
-	Phases                     []PostgresReadinessPhase   `json:"phases"`
-	ProbeFailures              map[string]int             `json:"probe_failures"`
-	LastProbeFailure           string                     `json:"last_probe_failure,omitempty"`
-	LastSQLState               string                     `json:"last_sqlstate,omitempty"`
-	ContainerExitCode          *int                       `json:"container_exit_code,omitempty"`
-	ContainerOOMKilled         *bool                      `json:"container_oom_killed,omitempty"`
-	StartupLogStatus           string                     `json:"startup_log_status"`
-	StartupLogSignals          []string                   `json:"startup_log_signals"`
-	StartupLogClock            string                     `json:"startup_log_clock"`
-	StartupLogEvents           []PostgresStartupLogEvent  `json:"startup_log_events"`
-	ContainerStartedAt         *string                    `json:"container_started_at"`
-	ProbeObservations          []PostgresProbeObservation `json:"probe_observations"`
-	ProbeObservationsTruncated bool                       `json:"probe_observations_truncated"`
-	FirstSQLConnectionMS       *int64                     `json:"first_sql_connection_ms"`
+	Publication                PostgresPublicationObservation `json:"publication"`
+	Endpoint                   PostgresEndpointDiagnostic     `json:"endpoint"`
+	SchemaID                   string                         `json:"schema_id"`
+	Stage                      string                         `json:"stage"`
+	Outcome                    string                         `json:"outcome"`
+	ElapsedMS                  int64                          `json:"elapsed_ms"`
+	PollMS                     int64                          `json:"poll_ms"`
+	ProbeCapMS                 int64                          `json:"probe_cap_ms"`
+	ProbeCount                 int                            `json:"probe_count"`
+	CleanupOutcome             string                         `json:"cleanup_outcome"`
+	ContainerState             string                         `json:"container_state"`
+	Phases                     []PostgresReadinessPhase       `json:"phases"`
+	ProbeFailures              map[string]int                 `json:"probe_failures"`
+	LastProbeFailure           string                         `json:"last_probe_failure,omitempty"`
+	LastSQLState               string                         `json:"last_sqlstate,omitempty"`
+	ContainerExitCode          *int                           `json:"container_exit_code,omitempty"`
+	ContainerOOMKilled         *bool                          `json:"container_oom_killed,omitempty"`
+	StartupLogStatus           string                         `json:"startup_log_status"`
+	StartupLogSignals          []string                       `json:"startup_log_signals"`
+	StartupLogClock            string                         `json:"startup_log_clock"`
+	StartupLogEvents           []PostgresStartupLogEvent      `json:"startup_log_events"`
+	ContainerStartedAt         *string                        `json:"container_started_at"`
+	ProbeObservations          []PostgresProbeObservation     `json:"probe_observations"`
+	ProbeObservationsTruncated bool                           `json:"probe_observations_truncated"`
+	FirstSQLConnectionMS       *int64                         `json:"first_sql_connection_ms"`
 }
 
 func postgresReadinessDiagnosticDetail(details map[string]any) (PostgresReadinessDiagnostic, bool, error) {
@@ -104,7 +118,7 @@ func postgresReadinessDiagnosticDetail(details map[string]any) (PostgresReadines
 		var value any
 		value, err = harnessschema.Decode(payload)
 		if err == nil {
-			err = harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v4", value)
+			err = harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v6", value)
 		}
 	}
 	if err == nil {

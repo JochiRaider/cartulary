@@ -164,7 +164,7 @@ try {
     resolved.variables.global_inputs.GO_TMP_DIR.source,
     "make_command_line",
   );
-  for (const nativeAlias of ["GOCACHE", "GOMODCACHE", "GOTMPDIR"]) {
+  for (const nativeAlias of ["GOCACHE", "GOMODCACHE", "GOTMPDIR", "GOROOT"]) {
     assertConfigError(
       () =>
         resolveHarnessConfig(

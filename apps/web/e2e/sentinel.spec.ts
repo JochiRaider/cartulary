@@ -85,6 +85,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import {
   createViewRow,
@@ -1134,6 +1135,13 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
     uniqueIncidentKey("ASSESSMENT-WORKFLOW"),
     "Workbook inspector assessment-workflow assessment workflow",
   );
+  const fixtureSocket = installIncidentSocketMonitor(page, incidentId);
+  await page.goto(
+    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
+      assessmentsViewSchemaId,
+    )}`,
+  );
+  await fixtureSocket.waitForAcceptedSocket();
   const subjectA = await createViewRow(page, incidentId, hostsViewSchemaId, {
     client_txn_id: uniqueTxn("e905-host-a"),
     "host.display_name": "Workbook inspector Assessment Host A",
@@ -1150,11 +1158,16 @@ test("assessment workflow keeps invalid timestamp drafts local", async ({
       "Workbook inspector assessment support event",
   });
 
-  await page.goto(
-    `/?incident_id=${incidentId}&view_schema_id=${encodeURIComponent(
-      assessmentsViewSchemaId,
-    )}`,
-  );
+  // Commit does not establish collaboration publication. Finish fixture effects
+  // before opening a draft whose selected candidates require explicit review
+  // after a relevant record_changed observation.
+  for (const row of [subjectA, subjectB, support]) {
+    await fixtureSocket.waitForMessage("record_changed", {
+      matches: (message) =>
+        message.payload.record_id === row.record_id &&
+        message.payload.row_version === row.row_version,
+    });
+  }
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await page
     .getByTestId(workbookAddRowButtonTestId(assessmentsViewSchemaId))

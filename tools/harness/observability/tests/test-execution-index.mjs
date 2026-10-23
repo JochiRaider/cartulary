@@ -20,7 +20,7 @@ function fixture(t) {
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const manifest = { run_id: "execution", source_digest: digest, graph_digest: digest, instrumentation: { mode: "basic", policy_digest: digest } };
   const run = { manifest, registrations: new Map([["u", { row_ids: ["r"] }]]) };
-  const index = { schema_id: "cartulary.harness_execution_index.v2", graph_clock: null, run_id: "execution", source_digest: digest, graph_digest: digest,
+  const index = { schema_id: "cartulary.harness_execution_index.v3", allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null, run_id: "execution", source_digest: digest, graph_digest: digest,
     policy_digest: digest, status: "complete", omitted_records: 0, omitted_refs: [], records: [structuredClone(launch)] };
   const file = path.join(root, "diagnostics/execution-index.json");
   const save = () => atomicLocalFile(file, JSON.stringify({ ...index, records_digest: executionRecordsDigest(index.records) }), { replace: true });
@@ -128,4 +128,24 @@ test("spawn proof survives a short launch privately without retroactive retained
   assert.equal(value.record.invocation_id,child.identity.invocation_id);
   assert.equal(value.record.outcome,"passed");
   assert.equal(JSON.stringify(value.record).includes('"process_proof"'),false);
+});
+
+test("allocation lifecycle rejects conflicts, chronology, missing coverage and unsafe borrows", (t) => {
+  const lifecycle = () => ({ allocation_ref:"allocation:a", borrows:[{lease_ref:"lease-a",unit_id:"u"}],clock_identity:"fixture-broker-monotonic",
+    acquisition:{start_ms:0,end_ms:1,duration_ms:1},retirement:{start_ms:3,end_ms:5,duration_ms:2},retirement_reason:"run_finalization",triggering_unit_id:null,settlement:"settled",coverage:"complete" });
+  for (const reason of ["acquisition_failure","unhealthy_borrower","terminal_borrower_release","capacity_pressure","exclusive_admission","invocation_cancellation","run_finalization"]) {
+    const f=fixture(t);const record=lifecycle();record.retirement_reason=reason;record.settlement="unresolved";
+    f.index.allocation_lifecycle.records=[record];f.index.allocation_lifecycle.records_digest=executionRecordsDigest([record]);f.save();
+    assert.equal(readExecutionIndex(f.root,f.run).allocation_lifecycle.records[0].retirement_reason,reason);
+  }
+  for (const mutate of [
+    s=>s.records.push(s.records[0]), s=>{s.records[0].triggering_unit_id="foreign";},
+    s=>{s.records[0].borrows[0].unit_id="foreign";},s=>{s.records[0].acquisition.duration_ms=9;},
+    s=>{s.records[0].retirement.start_ms=0;s.records[0].retirement.duration_ms=5;},
+    s=>{s.omitted_records=1;},s=>{s.records[0].retirement_reason="guess";},
+  ]) {
+    const f=fixture(t);f.index.allocation_lifecycle.records=[lifecycle()];mutate(f.index.allocation_lifecycle);
+    f.index.allocation_lifecycle.records_digest=executionRecordsDigest(f.index.allocation_lifecycle.records);f.save();
+    assert.throws(()=>readExecutionIndex(f.root,f.run));
+  }
 });

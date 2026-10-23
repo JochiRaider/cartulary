@@ -66,7 +66,7 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 	work := &admittedWork{requirement: requirement}
 	if requirement.Exclusive {
 		rendererErr := p.renderers.evictIdle(ctx, nil)
-		_, stackErr := p.retireIdleStacks(ctx, 0, nil)
+		_, stackErr := p.retireIdleStacks(ctx, Retirement{"exclusive_admission", requirement.Request.UnitID}, 0, nil)
 		if err := errors.Join(rendererErr, stackErr); err != nil {
 			return nil, nil, err
 		}
@@ -139,7 +139,7 @@ func (p *Production) Admit(ctx context.Context, requirement WorkRequirement) (*h
 		}
 		// Retained stacks occupy ports even when every renderer has retired.
 		// Release only an idle stack whose own claims relieve persistent pressure.
-		_, err = p.retireIdleStacks(ctx, 1, func(request Request) (bool, error) {
+		_, err = p.retireIdleStacks(ctx, Retirement{"capacity_pressure", requirement.Request.UnitID}, 1, func(request Request) (bool, error) {
 			r.mu.Lock()
 			record := r.allocations[stackKey(request)]
 			r.mu.Unlock()
@@ -311,7 +311,7 @@ func (p *Production) ConfigureDedicated(parent *string, capacities map[string]in
 // The broker pins its retirement before this callback, so its resident identity
 // cannot be replaced by another borrower. Other residents stay charged by the
 // admission owner, but independent retirement cannot invalidate this request.
-func (p *Production) retireIdleStacks(ctx context.Context, maximum int, needed func(Request) (bool, error)) (int, error) {
+func (p *Production) retireIdleStacks(ctx context.Context, retirement Retirement, maximum int, needed func(Request) (bool, error)) (int, error) {
 	return p.Broker.retireIdle(ctx, maximum, needed, func(ctx context.Context, e *entry) error {
 		r := p.Options.residency
 		r.mu.Lock()
@@ -320,6 +320,6 @@ func (p *Production) retireIdleStacks(ctx context.Context, maximum int, needed f
 		if record == nil {
 			return harnesssession.AtCleanupStage("resource_inventory", harnesslocal.ErrUnsafe)
 		}
-		return r.drain(ctx, []*residentRecord{record}, func(ctx context.Context) error { return p.Broker.clean(ctx, e) })
+		return r.drain(ctx, []*residentRecord{record}, func(ctx context.Context) error { return p.Broker.clean(ctx, e, retirement) })
 	})
 }

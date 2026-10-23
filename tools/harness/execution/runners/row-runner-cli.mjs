@@ -10,7 +10,7 @@ import { createLaunchContext } from "../../runtime/launch-context.mjs";
 import { beginActivity } from "../../runtime/local-activity.mjs";
 import { createCommandFailureContext, reportCommandFailure } from "../../runtime/command-failure.mjs";
 import { runPrivateCapturedProcess } from "../../runtime/private-child-process.mjs";
-import { adaptGoInvocationFile, buildGoInvocations } from "./go.mjs";
+import { adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment } from "./go.mjs";
 import { adaptShellInvocation, buildShellInvocations } from "./shell.mjs";
 import { publishRowResult } from "./row-results.mjs";
 import { readUnitSelection } from "./unit-selection.mjs";
@@ -96,7 +96,7 @@ function invocationsForRows(rows) {
       invocations: buildGoInvocations(rows, workers, process.env.GO || "go", { ...goRunnerBuildContext(root), goRace: process.env.CARTULARY_GO_RACE === "1", goShuffleSeed: process.env.CARTULARY_GO_SHUFFLE_SEED || undefined }).map((invocation) => ({
         ...invocation,
         // Explicit test credentials: production key loading has no default.
-        environment: { ...invocation.environment, CARTULARY_AUTH_MASTER_KEY: readFileSync(path.join(root, "internal/testutil/fixtures/auth/master-key.base64"), "utf8").trim() },
+        environment: { ...goExecutionEnvironment(root), ...invocation.environment, CARTULARY_AUTH_MASTER_KEY: readFileSync(path.join(root, "internal/testutil/fixtures/auth/master-key.base64"), "utf8").trim() },
       })),
       adapt: adaptGoInvocationFile,
     };

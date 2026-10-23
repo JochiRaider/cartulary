@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_instrumentation_policy.v3",
+  "$id": "cartulary.harness_instrumentation_policy.v4",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_instrumentation_policy.v3"
+      "const": "cartulary.harness_instrumentation_policy.v4"
     },
     "process_cadence_ms": {
       "const": 2000
@@ -69,6 +69,12 @@
     },
     "maximum_graph_memberships": {
       "const": 64
+    },
+    "maximum_allocation_lifecycle_records": {
+      "const": 4096
+    },
+    "maximum_allocation_lifecycle_bytes": {
+      "const": 4194304
     }
   },
   "required": [
@@ -93,6 +99,8 @@
     "maximum_live_containers",
     "maximum_lifetime_containers",
     "maximum_receipt_bytes",
-    "maximum_graph_memberships"
+    "maximum_graph_memberships",
+    "maximum_allocation_lifecycle_records",
+    "maximum_allocation_lifecycle_bytes"
   ]
 }

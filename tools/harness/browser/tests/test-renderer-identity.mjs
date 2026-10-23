@@ -117,8 +117,18 @@ for (const [result, reason] of [
   [{ stderr: "secret payload: unknown error" }, "command_failed"],
 ]) assert.equal(rendererLifecycleFailureReason(result), reason);
 
-for (const diagnostics of [false, true]) for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "ports", "browser", "package", "revision", "connect", "state_unavailable", "invalid_state", "cleanup"]) {
+for (const accountingParent of ["", "/fixture/accounting-parent"]) for (const diagnostics of [false, true]) for (const failAt of [null, "create", "cp", "start", "exec", "inspect", "ports", "browser", "package", "revision", "connect", "state_unavailable", "invalid_state", "cleanup", ...(accountingParent ? ["accounting"] : [])]) {
   calls = []; present = false;
+  let verified = 0;
+  const accounting = {
+    containerParent: (repository) => { assert.equal(repository, root); return accountingParent; },
+    verifyContainer: (repository, parent, id) => {
+      assert.equal(repository, root); assert.equal(parent, accountingParent); assert.equal(id, "owned-id");
+      assert.deepEqual(calls.at(-1), ["start", id], "placement must be verified immediately after start and before browser use");
+      verified++;
+      if (failAt === "accounting") throw new Error("injected accounting failure");
+    },
+  };
   const run = (args) => {
     calls.push(args);
     if (args[0] === "create" && failAt === "create") { present = true; throw new Error("injected acquisition failure"); }
@@ -140,7 +150,7 @@ for (const diagnostics of [false, true]) for (const failAt of [null, "create", "
     return "";
   };
   const resources = [];
-  const start = () => startVisualRendererLease({ root, environment: {}, diagnostics, onOwnedResource: (resource) => resources.push(resource), run, trust: () => ({ attestation: { schema_id: "cartulary.browser_tls_trust.v1" }, initialize() {} }), endpointReady: async (_containerID, binding) => { assert.deepEqual(binding, { containerPort: 3000, hostPort: 43121 }); return "ws://127.0.0.1:43121/private"; }, connect: async (_packages, endpoint) => { assert.equal(endpoint, "ws://127.0.0.1:43121/private"); if (["connect", "state_unavailable", "invalid_state", "cleanup"].includes(failAt)) throw new Error("browserType.connect: private ws://127.0.0.1:43121/private"); return failAt === "browser" ? "0.0.0.0" : profile.chromium_version; } });
+  const start = () => startVisualRendererLease({ root, environment: {}, diagnostics, accounting, onOwnedResource: (resource) => resources.push(resource), run, trust: () => ({ attestation: { schema_id: "cartulary.browser_tls_trust.v1" }, initialize() {} }), endpointReady: async (_containerID, binding) => { assert.deepEqual(binding, { containerPort: 3000, hostPort: 43121 }); return "ws://127.0.0.1:43121/private"; }, connect: async (_packages, endpoint) => { assert.equal(endpoint, "ws://127.0.0.1:43121/private"); if (["connect", "state_unavailable", "invalid_state", "cleanup"].includes(failAt)) throw new Error("browserType.connect: private ws://127.0.0.1:43121/private"); return failAt === "browser" ? "0.0.0.0" : profile.chromium_version; } });
   if (["connect", "state_unavailable", "invalid_state", "cleanup"].includes(failAt)) {
     await assert.rejects(start, (error) => {
       assert.equal(error.failure_class, "infra");
@@ -155,7 +165,7 @@ for (const diagnostics of [false, true]) for (const failAt of [null, "create", "
     });
     assert.equal(calls.filter(args => args[0] === "inspect" && args.at(-1) === "{{json .State}}").length, 1);
   }
-  else if (failAt) await assert.rejects(start, /injected acquisition failure|mismatch|renderer.*port/u);
+  else if (failAt) await assert.rejects(start, /injected (?:acquisition|accounting) failure|mismatch|renderer.*port/u);
   else {
     const lease = await start(); assert.equal(lease.attestation.observed.chromium_version, profile.chromium_version); assert.ok(lease.attestation.observed.font_files.length);
     assert.deepEqual(lease.diagnosticBinding, diagnostics ? { containerPort: 3001, hostPort: 43122 } : null);
@@ -172,6 +182,13 @@ for (const diagnostics of [false, true]) for (const failAt of [null, "create", "
   assert.equal(resources[0].state, "pending");
   assert.equal(resources.at(-1).state, failAt === "cleanup" ? "acquired" : "released");
   const create = calls.find((args) => args[0] === "create");
+  assert.equal(create.includes("--cgroup-parent"), Boolean(accountingParent));
+  if (accountingParent) assert.equal(create[create.indexOf("--cgroup-parent") + 1], accountingParent);
+  assert.equal(verified, ["create", "cp", "start"].includes(failAt) ? 0 : 1);
+  if (failAt === "accounting") {
+    assert.equal(calls.some((args) => args[0] === "exec" || (args[0] === "inspect" && args.at(-1) === "{{json .NetworkSettings.Ports}}")), false, "failed placement must prevent browser use");
+    assert.deepEqual(calls.find((args) => args[0] === "rm"), ["rm", "--force", "owned-id"]);
+  }
   assert.equal(create[create.indexOf("--publish") + 1], "127.0.0.1::3000");
   assert.equal(create.includes("127.0.0.1::3001"), diagnostics);
   assert.equal(create[create.indexOf("--port") + 1], "3000");

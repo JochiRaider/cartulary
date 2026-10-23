@@ -21,6 +21,7 @@ export const visualRendererEnvironmentKeys = Object.freeze([
 
 const rendererContainerPort = 3000;
 const diagnosticContainerPort = 3001;
+const nativeContainerAccounting = Object.freeze({ containerParent: invocationContainerParent, verifyContainer: verifyInvocationContainer });
 
 export function rendererLifecycleFailureReason(result) {
   if (result.error?.code === "ETIMEDOUT") return "command_timeout";
@@ -149,8 +150,8 @@ function rendererStateBeforeCleanup(containerID, run) {
 
 export function recoverVisualRenderer(proof, run = docker) { removeOwnedRenderer(proof, run); }
 
-export async function startVisualRendererLease({ root, environment, diagnostics = false, onStage = () => {}, onOwnedResource = () => {}, run = docker, connect = verifyRemoteBrowser, endpointReady = waitForEndpoint, trust = stageBrowserTrust }) {
-  const accountingParent = invocationContainerParent(root);
+export async function startVisualRendererLease({ root, environment, diagnostics = false, onStage = () => {}, onOwnedResource = () => {}, run = docker, connect = verifyRemoteBrowser, endpointReady = waitForEndpoint, trust = stageBrowserTrust, accounting = nativeContainerAccounting }) {
+  const accountingParent = accounting.containerParent(root);
   onStage("configuration");
   assertVisualRendererEnvironmentIsPrivate(environment);
   const profile = loadVisualRendererProfile(root);
@@ -228,7 +229,7 @@ export async function startVisualRendererLease({ root, environment, diagnostics 
     onStage("trust");
     const stagedTrust = trust({ root, environment, containerID, run });
     run(["start", containerID]);
-    verifyInvocationContainer(root, accountingParent, containerID);
+    accounting.verifyContainer(root, accountingParent, containerID);
     const ports = rendererPublishedPorts(JSON.parse(run(["inspect", containerID, "--format", "{{json .NetworkSettings.Ports}}"])), diagnostics);
     stagedTrust.initialize();
     const observed = JSON.parse(run(["exec", containerID, "node", "-e", `const p=require('/home/pwuser/playwright/package.json'); const c=require('/home/pwuser/playwright-core/package.json'); const b=require('/home/pwuser/playwright-core/browsers.json').browsers.find(x=>x.name==='chromium'); process.stdout.write(JSON.stringify({playwright:p.version,core:c.version,revision:b.revision,version:b.browserVersion}));`]));

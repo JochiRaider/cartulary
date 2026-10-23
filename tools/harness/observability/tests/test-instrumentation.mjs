@@ -263,7 +263,7 @@ test("retained validation reconstructs path and target fields and rejects tamper
   const records = [{ kind: "activity", local_start_ms: null, local_end_ms: null, anchors: [], ref: "activity:example", activity: "report_parse", unit_id: "a", invocation_id: null,
     allocation_ref: null, clock: "node_monotonic", clock_identity: "clock:example", resolution_ms: 0.000001, duration_ms: 5,
     availability: "available", outcome: "failed" }];
-  atomicLocalFile(path.join(dir, "diagnostics/execution-index.json"), JSON.stringify({ schema_id: "cartulary.harness_execution_index.v2", graph_clock: null,
+  atomicLocalFile(path.join(dir, "diagnostics/execution-index.json"), JSON.stringify({ schema_id: "cartulary.harness_execution_index.v3", allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
     run_id: manifest.run_id, source_digest: digest, graph_digest: digest, policy_digest: digest, status: "complete", omitted_records: 0,
     omitted_refs: [], records, records_digest: executionRecordsDigest(records) }));
   await validateCanonicalRun(dir);
@@ -663,7 +663,7 @@ test("optional completeness is reported independently while every published reco
         f.write("diagnostics/resource-index.json", index);
         if (status !== "collector_failed") atomicLocalFile(path.join(dir, "diagnostics/resource-samples.ndjson"), readFileSync(path.join(sampled.dir, "diagnostics/resource-samples.ndjson")));
         f.write("diagnostics/execution-index.json", {
-          schema_id: "cartulary.harness_execution_index.v2", graph_clock: null,
+          schema_id: "cartulary.harness_execution_index.v3", allocation_lifecycle: { status: "complete", omitted_records: 0, omitted_refs: [], records: [], records_digest: executionRecordsDigest([]) }, graph_clock: null,
           run_id: f.manifest.run_id, source_digest: f.manifest.source_digest, graph_digest: f.manifest.graph_digest,
           policy_digest: f.manifest.instrumentation.policy_digest, status: "partial", omitted_records: 1,
           omitted_refs: [], records: [], records_digest: executionRecordsDigest([]),

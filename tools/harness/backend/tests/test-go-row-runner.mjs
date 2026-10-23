@@ -8,8 +8,9 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import {
   WorkGraphCompiler,
 } from "../../scheduler/work-graph/index.mjs";
-import { adaptGoInvocation, adaptGoInvocationFile, buildGoInvocations } from "../../execution/runners/go.mjs";
+import { adaptGoInvocation, adaptGoInvocationFile, buildGoInvocations, goExecutionEnvironment } from "../../execution/runners/go.mjs";
 import { goRunnerBuildContext } from "../../test-catalog/index.mjs";
+import { foundationSchemaValidators } from "../../contract/generated/foundation-schema-validators.cjs";
 
 const invocation = {
   rows: [{ row_id: "row-a", selectors: ["TestA"] }],
@@ -146,6 +147,27 @@ const observedCleanup = { ...cleanupEnvelope, cleanup_diagnostics: [{ stage: "fo
 const retainedWait = withCleanup([{ envelope: observedCleanup }]);
 assert.equal(retainedWait.exit_code, 12);
 assert.deepEqual(retainedWait.failure_diagnostic.cleanup, [observedCleanup]);
+
+assert.equal(Object.hasOwn(foundationSchemaValidators, "cartulary.postgres_cleanup_observation.v2"), false);
+assert.equal(typeof foundationSchemaValidators["cartulary.postgres_cleanup_observation.v3"], "function");
+for (const [label, changes, valid] of [
+  ["remaining owner budget", { operation_budget_ms: 25000 }, true],
+  ["maximum owner budget", { operation_budget_ms: 35000 }, true],
+  ["negative operation budget", { operation_budget_ms: -1 }, false],
+  ["oversized operation budget", { operation_budget_ms: 35001 }, false],
+  ["oversized admission budget", { admission_budget_ms: 15001 }, false],
+  ["negative admission budget", { admission_budget_ms: -1 }, false],
+  ["unadmitted operation", { admission: "rejected" }, false],
+  ["unadmitted budget", { admission: "rejected", operation_ms: 0 }, false],
+  ["unadmitted sampled operation", { admission: "rejected", operation_ms: 0, operation_budget_ms: 0 }, false],
+  ["unadmitted zero values", { admission: "rejected", operation_ms: 0, operation_budget_ms: 0, wait: { status: "not_observed", first: null, last: null } }, true],
+]) {
+  const envelope = { ...observedCleanup, cleanup_diagnostics: [{ ...observedCleanup.cleanup_diagnostics[0],
+    postgres: { ...observedCleanup.cleanup_diagnostics[0].postgres, ...changes } }] };
+  const result = withCleanup([{ envelope }]);
+  assert.equal(result.exit_code, valid ? 12 : 11, label);
+  assert.deepEqual(result.failure_diagnostic, valid ? { schema_id: "cartulary.harness_go_failure_diagnostic.v3", setup: null, cleanup: [envelope] } : null, label);
+}
 
 // go test -json can split one logical diagnostic line across Output events.
 const diagnosticLine = `    pgtest.go:676: CARTULARY_HARNESS_TEST_FAILURE=${JSON.stringify(observedCleanup)}\n`;
@@ -301,6 +323,22 @@ assert.equal(malformed[0].exit_code, 11);
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const buildContext = goRunnerBuildContext(root);
+const machineEnvironment = {
+  HOME: "/runner-home", XDG_CACHE_HOME: "/runner-cache",
+  GO_CACHE_DIR: "/declared/build", GO_MOD_CACHE_DIR: "/declared/mod", GO_TMP_DIR: "/declared/tmp",
+  GOCACHE: "/foreign/build", GOMODCACHE: "/foreign/mod", GOTMPDIR: "/foreign/tmp", GOROOT: "/foreign/toolchain",
+};
+assert.deepEqual(goExecutionEnvironment(root, machineEnvironment), {
+  GOCACHE: "/declared/build", GOMODCACHE: "/declared/mod", GOTMPDIR: "/declared/tmp", GOROOT: "",
+});
+assert.deepEqual(goExecutionEnvironment(root, { HOME: "/runner-home" }), {
+  GOCACHE: "/runner-home/.cache/cartulary/go/build", GOMODCACHE: "/runner-home/.cache/cartulary/go/mod",
+  GOTMPDIR: "/runner-home/.cache/cartulary/go/tmp", GOROOT: "",
+});
+for (const invalid of [{ GO_MOD_CACHE_DIR: root }, { GO_TMP_DIR: "/declared/mod/overlap" }, { GO_CACHE_DIR: "relative" }, { GO_MOD_CACHE_DIR: "" }]) {
+  assert.throws(() => goExecutionEnvironment(root, { ...machineEnvironment, ...invalid }));
+}
+
 const [ordinaryInvocation] = buildGoInvocations([
   { row_id: "fixture", selector: { package: "./internal/fixture", tests: ["TestActive"] } },
 ], 2, "pinned-go", buildContext);

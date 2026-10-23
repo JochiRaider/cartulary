@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.harness_instrumentation_policy.v3",
+  "schema_id": "cartulary.harness_instrumentation_policy.v4",
   "process_cadence_ms": 2000,
   "context_cadence_ms": 5000,
   "sweep_budget_ms": 50,
@@ -20,5 +20,7 @@
   "maximum_live_containers": 32,
   "maximum_lifetime_containers": 256,
   "maximum_receipt_bytes": 65536,
-  "maximum_graph_memberships": 64
+  "maximum_graph_memberships": 64,
+  "maximum_allocation_lifecycle_records": 4096,
+  "maximum_allocation_lifecycle_bytes": 4194304
 }

@@ -1155,6 +1155,13 @@ test("bounds mixed-link Space discovery and leaves explicit linked actions usabl
     await page.keyboard.press("Space");
     await expect(page.getByText("Checking linked previews…")).toBeVisible();
     await heldObserved;
+    // Metadata admission has its own deadline. Establish it before advancing
+    // the clock so this scenario expires only the held preview discovery.
+    await expect(
+      page
+        .getByRole("list", { name: "Linked Evidence" })
+        .locator('[data-evidence-metadata-state="ready"]'),
+    ).toHaveCount(2);
     await page.clock.fastForward(30_000);
     await expect(
       page.getByText(/Preview availability could not be fully checked/u),

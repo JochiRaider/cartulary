@@ -1791,6 +1791,37 @@
       "postgres_isolation": "shared"
     },
     {
+      "row_id": "harness.browser.integration.published_postgre_sql_transport_qualification_ac_38acf197c9",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.integration",
+      "collaborator_ids": [
+        "module.database_migrations",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "harness.browser.verification.support_contract"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/testutil/pgtest",
+        "tests": [
+          "TestPublishedPostgresTransportQualification"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "postgres_catalog_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "explicit_only",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "exclusive",
+      "process_isolation": "exclusive"
+    },
+    {
       "row_id": "harness.browser.integration.recovery_drop_observation",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.integration",
@@ -2643,6 +2674,7 @@
           "TestPreviousSuiteContainerCleanupRequiresTerminalOwnershipProofRegardlessOfAge",
           "TestResetWebE2ERequiresActiveSuiteAndUsesOnlyPaths",
           "TestRunCleansUpObjectStoreWhenPostgresStartupFails",
+          "TestRunDelegatesServiceTerminationAfterChildSuccess",
           "TestRunDisablesRyukOnlyForSuiteStartup",
           "TestRunFailsFastWhenSuitePreflightFails",
           "TestRunPassThroughModeStartsNoServices",
@@ -2650,7 +2682,6 @@
           "TestRunRecordsObjectStoreStartupFailureWithStructuredSummary",
           "TestRunRecordsPostgresTemplateFailureWithStructuredSummary",
           "TestRunRedactsCredentialsInDiagnostics",
-          "TestRunReturnsBeforeSlowServiceTerminationAfterChildSuccess",
           "TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus",
           "TestRunStartsObjectStoreWhilePostgresTemplateIsPreparing",
           "TestServiceStartupAttemptTimingSummarizesRetries",

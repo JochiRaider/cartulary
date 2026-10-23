@@ -54,6 +54,7 @@ export const retiredPublicMakeVariables = Object.freeze([
   "CHECK_RESULTS_DIR",
   "GOCACHE",
   "GOMODCACHE",
+  "GOROOT",
   "GOTMPDIR",
 ]);
 

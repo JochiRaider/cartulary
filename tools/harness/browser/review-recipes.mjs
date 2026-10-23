@@ -19,6 +19,8 @@ const preparationBuilds = Object.freeze([
 ]);
 export function recipeEnvironment(root, runRoot, runtime, input, environment = process.env) {
   const base = { ...environment };
+  // A Go test parent may export its own toolchain root. Resolve from GO instead.
+  delete base.GOROOT;
   const topology = JSON.parse(readFileSync(path.join(root, "tools/execution_topology_manifest.json")));
   for (const binary of topology.runtime_binaries) base[binary.output_make_variable] = path.resolve(root, base[binary.output_make_variable] || binary.default_output_path);
   for (const name of Object.keys(base)) if (/^(?:MAKEFLAGS|MAKEOVERRIDES|MFLAGS|REVIEW_PROFILE|UI_|OTEL_|CARTULARY_(?:MAKE_|TEST_|WEB_E2E_|BROWSER_|HARNESS_|PGTEST_|S3_)|CARTULARY__)/u.test(name)) delete base[name];

@@ -48,7 +48,8 @@ type startupDiagnostic struct {
 func newStartupDiagnostic(ctx context.Context) *startupDiagnostic {
 	now := time.Now()
 	d := &startupDiagnostic{PostgresReadinessDiagnostic: suiteservices.PostgresReadinessDiagnostic{
-		SchemaID: "cartulary.postgres_readiness_diagnostic.v4", SQLWindowMS: postgresClientReadyTimeout.Milliseconds(), PollMS: postgresHealthPollInterval.Milliseconds(), ProbeCapMS: postgresClientAttemptTimeout.Milliseconds(), ContainerState: "unavailable", Phases: []suiteservices.PostgresReadinessPhase{}, ProbeFailures: map[string]int{}, StartupLogStatus: "not_collected", StartupLogSignals: []string{}, StartupLogClock: "docker_wall", StartupLogEvents: []suiteservices.PostgresStartupLogEvent{}, ProbeObservations: []suiteservices.PostgresProbeObservation{},
+		Publication: emptyPublication("not_observed"),
+		SchemaID:    "cartulary.postgres_readiness_diagnostic.v6", PollMS: postgresHealthPollInterval.Milliseconds(), ProbeCapMS: postgresClientAttemptTimeout.Milliseconds(), ContainerState: "unavailable", Phases: []suiteservices.PostgresReadinessPhase{}, ProbeFailures: map[string]int{}, StartupLogStatus: "not_collected", StartupLogSignals: []string{}, StartupLogClock: "docker_wall", StartupLogEvents: []suiteservices.PostgresStartupLogEvent{}, ProbeObservations: []suiteservices.PostgresProbeObservation{},
 	}, ctx: ctx, start: now, stageStart: now}
 	d.endpoint = newEndpointTrace(&d.Endpoint, now)
 	return d
@@ -337,8 +338,6 @@ func (d *startupDiagnostic) phase(stage string, outcome string) {
 	switch stage {
 	case "endpoint_resolution":
 		configured = postgresPortMappingTimeout.Milliseconds()
-	case "sql_connectivity":
-		configured = postgresClientReadyTimeout.Milliseconds()
 	case "security_capability":
 		configured = postgresClientAttemptTimeout.Milliseconds()
 	}

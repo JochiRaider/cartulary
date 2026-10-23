@@ -8,7 +8,59 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessschema"
 )
+
+func testCleanupBudgetProjection(t *testing.T) {
+	base := DropAttempt{DurationMS: 1000, AdmissionBudgetMS: 15000, OperationMS: 1000, OperationBudgetMS: 35000, Admission: "acquired", Outcome: "failed", Wait: DropObservation{Status: "not_observed"}}
+	for _, test := range []struct {
+		name   string
+		mutate func(*DropAttempt)
+		valid  bool
+	}{
+		{"maximum_owner_budget", func(*DropAttempt) {}, true},
+		{"remaining_owner_budget", func(v *DropAttempt) { v.OperationBudgetMS = 25000 }, true},
+		{"negative_operation_budget", func(v *DropAttempt) { v.OperationBudgetMS = -1 }, false},
+		{"oversized_operation_budget", func(v *DropAttempt) { v.OperationBudgetMS = 35001 }, false},
+		{"negative_admission_budget", func(v *DropAttempt) { v.AdmissionBudgetMS = -1 }, false},
+		{"oversized_admission_budget", func(v *DropAttempt) { v.AdmissionBudgetMS = 15001 }, false},
+		{"unadmitted_operation", func(v *DropAttempt) { v.Admission = "rejected" }, false},
+		{"unadmitted_budget", func(v *DropAttempt) { v.Admission = "rejected"; v.OperationMS = 0 }, false},
+		{"unadmitted_zero_values", func(v *DropAttempt) {
+			v.Admission, v.Outcome, v.OperationMS, v.OperationBudgetMS = "rejected", "cancelled", 0, 0
+		}, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			value := base
+			test.mutate(&value)
+			// Shared components are reached through the native reader's public
+			// diagnostic root, not registered as standalone native roots.
+			envelope := map[string]any{
+				"schema_id": "cartulary.harness_go_failure_diagnostic.v3",
+				"setup":     nil,
+				"cleanup": []any{map[string]any{
+					"schema_id":     "cartulary.harness_test_failure.v4",
+					"failure_class": "harness", "failure_reason": "cleanup_error",
+					"setup_source": "pgtest", "service": "postgres", "readiness_stage": "delete",
+					"attempt_count": 1, "cleanup_outcome": "failed", "phase": "cleanup", "prior_failure": false,
+					"cleanup_diagnostics": []any{map[string]any{"stage": "forced_drop", "cause": "unknown", "postgres": value}},
+				}},
+			}
+			encoded, err := json.Marshal(envelope)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoded, err := harnessschema.Decode(encoded)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if nativeValid, schemaValid := value.Validate() == nil, harnessschema.Validate("cartulary.harness_go_failure_diagnostic.v3", decoded) == nil; nativeValid != test.valid || schemaValid != test.valid {
+				t.Fatalf("budget contract differs: native=%v schema=%v want=%v", nativeValid, schemaValid, test.valid)
+			}
+		})
+	}
+}
 
 func testCheckpointDiagnostics(t *testing.T) {
 	stamp := time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC)

@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -188,7 +189,11 @@ func TestOwnedPostgresAppliesContainerLabels(t *testing.T) {
 	}
 
 	var gotRequest testcontainers.ContainerRequest
-	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest, _ testcontainersx.CreateObserver) (testcontainers.Container, error) {
+		deadline, bounded := ctx.Deadline()
+		if remaining := time.Until(deadline); !bounded || remaining <= 30*time.Second || remaining > 35*time.Second {
+			t.Fatalf("direct acquisition lost its attempt cap: bounded=%v remaining=%v", bounded, remaining)
+		}
 		gotRequest = req.ContainerRequest
 		return fakePostgresContainer{
 			host: "127.0.0.1",
@@ -242,6 +247,72 @@ func mustPurposeKey(t *testing.T, purpose postgres.Purpose) string {
 }
 
 func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T) {
+	t.Run("nil_context_rejected_before_preflight", func(t *testing.T) {
+		stubOwnedPostgresStartup(t)
+		startPreflightFn = func(context.Context) (string, error) { t.Fatal("nil context reached preflight"); return "", nil }
+		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest, testcontainersx.CreateObserver) (testcontainers.Container, error) {
+			t.Fatal("nil context reached provider")
+			return nil, nil
+		}
+		//lint:ignore SA1012 This contract test intentionally exercises the public nil-context guard before acquisition.
+		if _, err := StartOwned(nil); err == nil {
+			t.Fatal("nil acquisition context accepted")
+		}
+	})
+	t.Run("owner_caps_and_earlier_caller_bound_every_attempt", func(t *testing.T) {
+		for _, earlier := range []bool{false, true} {
+			t.Run(fmt.Sprint(earlier), func(t *testing.T) {
+				stubOwnedPostgresStartup(t)
+				ctx := context.Background()
+				var callerDeadline time.Time
+				if earlier {
+					var cancel context.CancelFunc
+					ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+					defer cancel()
+					callerDeadline, _ = ctx.Deadline()
+				}
+				attempts, sleeps := 0, 0
+				var outerDeadline time.Time
+				startSleepFn = func(ctx context.Context, delay time.Duration) error {
+					sleeps++
+					deadline, bounded := ctx.Deadline()
+					if !bounded || delay != 500*time.Millisecond {
+						t.Fatal("retry lost its outer deadline or backoff", bounded, delay)
+					}
+					if earlier {
+						if !deadline.Equal(callerDeadline) {
+							t.Fatal("outer cap extended caller deadline")
+						}
+					} else if remaining := time.Until(deadline); remaining <= 175*time.Second || remaining > 180*time.Second {
+						t.Fatal("wrong outer cap", remaining)
+					}
+					if !outerDeadline.IsZero() && !deadline.Equal(outerDeadline) {
+						t.Fatal("retry renewed outer deadline")
+					}
+					outerDeadline = deadline
+					return nil
+				}
+				startContainerFn = func(ctx context.Context, _ testcontainers.GenericContainerRequest, _ testcontainersx.CreateObserver) (testcontainers.Container, error) {
+					attempts++
+					deadline, bounded := ctx.Deadline()
+					if !bounded {
+						t.Fatal("unbounded startup attempt")
+					}
+					if earlier {
+						if !deadline.Equal(callerDeadline) {
+							t.Fatal("attempt extended caller deadline")
+						}
+					} else if remaining := time.Until(deadline); remaining <= 30*time.Second || remaining > 35*time.Second {
+						t.Fatal("wrong attempt cap", remaining)
+					}
+					return fakePostgresContainer{}, errors.New("mapped port 5432: context deadline exceeded")
+				}
+				if _, err := StartOwned(ctx); err == nil || attempts != 3 || sleeps != 2 {
+					t.Fatal("startup retry ownership changed", err, attempts, sleeps)
+				}
+			})
+		}
+	})
 	t.Run("endpoint_evidence", testEndpointDiagnostic)
 	t.Run("cancel_drains_create_before_settlement", func(t *testing.T) {
 		stubOwnedPostgresStartup(t)
@@ -249,7 +320,7 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 		defer cancel()
 		deadline, _ := ctx.Deadline()
 		acquired, settled := 0, 0
-		startContainerFn = func(create context.Context, _ testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		startContainerFn = func(create context.Context, _ testcontainers.GenericContainerRequest, _ testcontainersx.CreateObserver) (testcontainers.Container, error) {
 			cancel()
 			if create.Err() != nil {
 				t.Fatal("cancel discarded in-flight create")
@@ -355,7 +426,7 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 			return h.WaitReady(probeCtx)
 		}
 		terminated, inspected, logged := false, false, false
-		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest, testcontainersx.CreateObserver) (testcontainers.Container, error) {
 			return fakePostgresContainer{host: "127.0.0.1", port: network.MustParsePort("5432/tcp"),
 				state: func(ctx context.Context) (*dockercontainer.State, error) {
 					deadline, ok := ctx.Deadline()
@@ -380,6 +451,10 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 		if h != nil || !ok || !terminated || !inspected || !logged || d.Outcome != "deadline_expired" || d.ProbeCount != 1 || d.ProbeFailures["connection_refused"] != 1 || d.LastProbeFailure != "connection_refused" || d.CleanupOutcome != "completed" || d.ContainerState != "exited" || d.ContainerExitCode == nil || *d.ContainerExitCode != 1 || d.ContainerOOMKilled == nil || *d.ContainerOOMKilled || d.StartupLogStatus != "complete" || !reflect.DeepEqual(d.StartupLogSignals, []string{"storage_exhausted"}) {
 			t.Fatal("causal observation lost", d, err)
 		}
+		lastPhase := d.Phases[len(d.Phases)-1]
+		if lastPhase.Stage != "sql_connectivity" || lastPhase.ConfiguredMS != 0 || lastPhase.LimitingDeadline != "parent" || lastPhase.EffectiveMS <= 0 || lastPhase.EffectiveMS > 35000 {
+			t.Fatal("readiness budget attribution is not owned by the attempt", lastPhase)
+		}
 		encoded, err := json.Marshal(d)
 		if err != nil || strings.Contains(string(encoded), "secret") || strings.Contains(string(encoded), "private") {
 			t.Fatal("sensitive diagnostic", err)
@@ -388,8 +463,30 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v4", value); err != nil {
+		if err := harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v6", value); err != nil {
 			t.Fatal(err)
+		}
+		object := value.(map[string]any)
+		object["schema_id"] = "cartulary.postgres_readiness_diagnostic.v4"
+		if err := harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v6", object); err == nil {
+			t.Fatal("historical readiness diagnostic accepted as current")
+		}
+		object["schema_id"] = "cartulary.postgres_readiness_diagnostic.v6"
+		object["sql_window_ms"] = 15000
+		if err := harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v6", object); err == nil {
+			t.Fatal("retired independent readiness window accepted")
+		}
+		delete(object, "sql_window_ms")
+		phases := object["phases"].([]any)
+		phase := phases[len(phases)-1].(map[string]any)
+		phase["configured_ms"] = float64(15000)
+		if err := harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v6", object); err == nil {
+			t.Fatal("contradictory independent SQL phase cap accepted")
+		}
+		phase["configured_ms"] = float64(0)
+		phase["limiting_deadline"] = "phase"
+		if err := harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v6", object); err == nil {
+			t.Fatal("SQL phase reported a non-parent deadline")
 		}
 	})
 	t.Run("probe_classification_keeps_safe_causes_only", func(t *testing.T) {
@@ -417,7 +514,7 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 	t.Run("observation_is_bounded_and_cannot_replace_primary_failure", func(t *testing.T) {
 		stubOwnedPostgresStartup(t)
 		cleanupErr := errors.New("cleanup receipt")
-		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest, testcontainersx.CreateObserver) (testcontainers.Container, error) {
 			return fakePostgresContainer{
 				state: func(context.Context) (*dockercontainer.State, error) {
 					return nil, errors.New("secret-inspect-failure")
@@ -446,7 +543,7 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 		}
 		waitReadyFn = func(ctx context.Context, h *Harness) error { return h.WaitReady(ctx) }
 		starts := 0
-		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest, testcontainersx.CreateObserver) (testcontainers.Container, error) {
 			starts++
 			return fakePostgresContainer{host: "127.0.0.1", port: network.MustParsePort("5432/tcp")}, nil
 		}
@@ -464,7 +561,7 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 		stubOwnedPostgresStartup(t)
 		acquired, starts, terminations := false, 0, 0
 		publicationErr := errors.New("injected ownership publication failure")
-		startContainerFn = func(_ context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		startContainerFn = func(_ context.Context, req testcontainers.GenericContainerRequest, _ testcontainersx.CreateObserver) (testcontainers.Container, error) {
 			if req.Started {
 				t.Fatal("container started before cleanup authority publication")
 			}
@@ -481,12 +578,68 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 			t.Fatal("failed publication lost ownership or started the container", starts, terminations, err)
 		}
 	})
+	t.Run("failed_start_reserves_the_cleanup_budget_for_exact_removal", func(t *testing.T) {
+		stubOwnedPostgresStartup(t)
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		primary := errors.New("injected readiness failure")
+		waitReadyFn = func(context.Context, *Harness) error { cancel(); return primary }
+		terminations, settlements := 0, 0
+		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest, testcontainersx.CreateObserver) (testcontainers.Container, error) {
+			return fakePostgresContainer{
+				host: "127.0.0.1", port: network.MustParsePort("5432/tcp"),
+				terminateOptions: func(ctx context.Context, options []testcontainers.TerminateOption) error {
+					terminations++
+					deadline, bounded := ctx.Deadline()
+					stop := testcontainers.NewTerminateOptions(ctx, options...).StopTimeout()
+					if ctx.Err() != nil || !bounded || time.Until(deadline) <= 0 || time.Until(deadline) > 10*time.Second || stop == nil || *stop != 0 {
+						t.Fatal("failed start spent the independent removal budget on graceful stop")
+					}
+					return nil
+				},
+			}, nil
+		}
+		h, err := StartOwnedWithOptions(ctx, StartOptions{Settled: func(*Harness) error { settlements++; return nil }})
+		if h != nil || !errors.Is(err, primary) || terminations != 1 || settlements != 1 {
+			t.Fatal("failed-start ownership or primary outcome lost", h, err, terminations, settlements)
+		}
+	})
+	t.Run("published_harness_retains_ordinary_graceful_shutdown", func(t *testing.T) {
+		stubOwnedPostgresStartup(t)
+		waitReadyFn = func(context.Context, *Harness) error { return nil }
+		terminations := 0
+		startContainerFn = func(context.Context, testcontainers.GenericContainerRequest, testcontainersx.CreateObserver) (testcontainers.Container, error) {
+			return fakePostgresContainer{
+				host: "127.0.0.1", port: network.MustParsePort("5432/tcp"),
+				terminateOptions: func(ctx context.Context, options []testcontainers.TerminateOption) error {
+					terminations++
+					stop := testcontainers.NewTerminateOptions(ctx, options...).StopTimeout()
+					if stop == nil || *stop != 10*time.Second {
+						t.Fatal("ordinary shutdown was changed by failed-start policy")
+					}
+					return nil
+				},
+			}, nil
+		}
+		h, err := StartOwned(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for range 2 {
+			if err := h.Close(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if terminations != 1 {
+			t.Fatal("ordinary cleanup repeated", terminations)
+		}
+	})
 	t.Run("partial_container_cleanup_failure_preserves_one_attempt", func(t *testing.T) {
 		stubOwnedPostgresStartup(t)
 		starts, terminations := 0, 0
 		cleanupErr := errors.New("injected cleanup failure")
 		var directory string
-		startContainerFn = func(_ context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+		startContainerFn = func(_ context.Context, req testcontainers.GenericContainerRequest, _ testcontainersx.CreateObserver) (testcontainers.Container, error) {
 			starts++
 			directory = filepath.Dir(req.Files[0].HostFilePath)
 			return fakePostgresContainer{terminate: func(context.Context) error { terminations++; return cleanupErr }}, errors.New("connection reset by peer")
@@ -519,7 +672,7 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 			starts, terminations, initializations := 0, 0, 0
 			var directory string
 			injected := errors.New("injected generation failure at 5432: context deadline exceeded")
-			startContainerFn = func(_ context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+			startContainerFn = func(_ context.Context, req testcontainers.GenericContainerRequest, _ testcontainersx.CreateObserver) (testcontainers.Container, error) {
 				starts++
 				directory = filepath.Dir(req.Files[0].HostFilePath)
 				return fakePostgresContainer{host: "127.0.0.1", port: network.MustParsePort("5432/tcp"), terminate: func(context.Context) error { terminations++; return nil }}, nil
@@ -539,7 +692,7 @@ func TestOwnedPostgresReadinessAndInitializationFailuresAreTerminal(t *testing.T
 				t.Fatal("failed generation retained keys", err)
 			}
 			diagnostic, ok := ReadinessDiagnosticFromError(err)
-			if !ok || diagnostic.CleanupOutcome != "completed" || diagnostic.SQLWindowMS != 15000 || diagnostic.PollMS != 250 || diagnostic.ProbeCapMS != 5000 {
+			if !ok || diagnostic.CleanupOutcome != "completed" || diagnostic.SchemaID != "cartulary.postgres_readiness_diagnostic.v6" || diagnostic.PollMS != 250 || diagnostic.ProbeCapMS != 5000 {
 				t.Fatal("readiness evidence missing", diagnostic)
 			}
 		})
@@ -551,7 +704,7 @@ func TestOwnedPostgresDoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
 
 	starts := 0
 	terminations := 0
-	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+	startContainerFn = func(ctx context.Context, req testcontainers.GenericContainerRequest, _ testcontainersx.CreateObserver) (testcontainers.Container, error) {
 		starts++
 		return fakePostgresContainer{
 			host: "127.0.0.1",
@@ -593,6 +746,60 @@ func TestOwnedPostgresDoesNotRetryAuthenticationReadinessFailure(t *testing.T) {
 }
 
 func TestPostgresWaitReadyRespectsContextCancellation(t *testing.T) {
+	t.Run("readiness_uses_the_bounded_parent_after_slow_bootstrap", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			oldPing := pingAdminDSNFn
+			t.Cleanup(func() { pingAdminDSNFn = oldPing })
+			started := time.Now()
+			ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
+			defer cancel()
+			calls := 0
+			pingAdminDSNFn = func(probe context.Context, _ string, _ func(context.Context)) error {
+				calls++
+				deadline, ok := probe.Deadline()
+				if !ok || time.Until(deadline) > 5*time.Second || deadline.After(started.Add(35*time.Second)) {
+					t.Fatal("probe exceeded the existing attempt or probe cap")
+				}
+				if time.Since(started) < 16*time.Second {
+					return syscall.ECONNRESET
+				}
+				return nil
+			}
+			if err := (&Harness{}).WaitReady(ctx); err != nil || time.Since(started) != 16*time.Second || calls < 2 {
+				t.Fatal("mapped endpoint incorrectly restarted the readiness deadline", err, time.Since(started), calls)
+			}
+		})
+	})
+	t.Run("parent_expiry_ends_readiness_without_a_new_window", func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
+			oldPing := pingAdminDSNFn
+			t.Cleanup(func() { pingAdminDSNFn = oldPing })
+			pingAdminDSNFn = func(context.Context, string, func(context.Context)) error { return syscall.ECONNRESET }
+			started := time.Now()
+			ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
+			defer cancel()
+			err := (&Harness{}).WaitReady(ctx)
+			var readiness *postgresReadinessError
+			if !errors.As(err, &readiness) || !readiness.DeadlineExpired || !errors.Is(err, context.DeadlineExceeded) || time.Since(started) != 35*time.Second {
+				t.Fatal("readiness lost its owning deadline", err, time.Since(started))
+			}
+		})
+	})
+	t.Run("unbounded_or_missing_parent_cannot_launch_a_probe", func(t *testing.T) {
+		oldPing := pingAdminDSNFn
+		t.Cleanup(func() { pingAdminDSNFn = oldPing })
+		pingAdminDSNFn = func(context.Context, string, func(context.Context)) error {
+			t.Fatal("unbounded probe launched")
+			return nil
+		}
+		for _, ctx := range []context.Context{nil, context.Background()} {
+			err := (&Harness{}).WaitReady(ctx)
+			var readiness *postgresReadinessError
+			if !errors.As(err, &readiness) || readiness.Attempts != 0 || readiness.DeadlineExpired {
+				t.Fatal("invalid parent was not rejected before execution", err)
+			}
+		}
+	})
 	t.Run("success_caps_each_probe", func(t *testing.T) {
 		oldPing := pingAdminDSNFn
 		t.Cleanup(func() { pingAdminDSNFn = oldPing })
@@ -1515,13 +1722,14 @@ func stubOwnedPostgresStartup(t testing.TB) {
 
 type fakePostgresContainer struct {
 	testcontainers.Container
-	host      string
-	port      network.Port
-	start     func(context.Context) error
-	terminate func(context.Context) error
-	state     func(context.Context) (*dockercontainer.State, error)
-	logs      func(context.Context) (io.ReadCloser, error)
-	inspect   func(context.Context) (*dockercontainer.InspectResponse, error)
+	host             string
+	port             network.Port
+	start            func(context.Context) error
+	terminate        func(context.Context) error
+	terminateOptions func(context.Context, []testcontainers.TerminateOption) error
+	state            func(context.Context) (*dockercontainer.State, error)
+	logs             func(context.Context) (io.ReadCloser, error)
+	inspect          func(context.Context) (*dockercontainer.InspectResponse, error)
 }
 
 func (c fakePostgresContainer) GetContainerID() string { return "fixture-container" }
@@ -1562,6 +1770,9 @@ func (c fakePostgresContainer) MappedPort(context.Context, string) (network.Port
 }
 
 func (c fakePostgresContainer) Terminate(ctx context.Context, opts ...testcontainers.TerminateOption) error {
+	if c.terminateOptions != nil {
+		return c.terminateOptions(ctx, opts)
+	}
 	if c.terminate == nil {
 		return nil
 	}

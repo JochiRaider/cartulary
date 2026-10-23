@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
@@ -53,7 +52,8 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 				delete(env, key)
 			}
 			env["CARTULARY_TEST_RESULTS_DIR"] = results
-			env["CARTULARY_TEST_RUN_ID"] = selection.id
+			probeID := "native-selection-" + selection.id
+			env["CARTULARY_TEST_RUN_ID"] = probeID
 			env["HARNESS_DIAGNOSTICS"] = "off"
 			if selection.id == "mixed" {
 				env["HARNESS_DIAGNOSTICS"] = "basic"
@@ -71,11 +71,8 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
-			summary, code, err := harnessruntime.Run(ctx, root, binary, []string{"--selection", "rows", "--target", "harness-contract", "--rows", strings.Join(selection.rows, ",")}, input)
-			run := filepath.Join(results, selection.id)
-			if err != nil || code != 0 || summary == nil || summary.Summary["status"] != "pass" {
-				t.Fatalf("installed selected graph: exit=%d error=%v retained=%s", code, err, run)
-			}
+			run := filepath.Join(results, probeID)
+			runInstalledGraph(t, ctx, root, binary, []string{"--selection", "rows", "--target", "harness-contract", "--rows", strings.Join(selection.rows, ",")}, input, run)
 			budget, err := strconv.Atoi(env["CARTULARY_UNIT_CPU_TOKENS"])
 			if err != nil || budget < 1 || env["CARTULARY_HOST_ADMISSION_LEASE"] == "" {
 				t.Fatal("selected lifecycle test requires its actual parent CPU reservation")
@@ -146,7 +143,7 @@ func TestNativeSelectedServiceLifecycle(t *testing.T) {
 			for _, file := range files {
 				var part suiteservices.ServiceScope
 				readSelectedBoundaryJSON(t, file, &part)
-				if part.RunID != selection.id || part.Wrapper.OwnedCount != 1 || part.Failure != nil || part.Cleanup.Status != "succeeded" {
+				if part.RunID != probeID || part.Wrapper.OwnedCount != 1 || part.Failure != nil || part.Cleanup.Status != "succeeded" {
 					t.Fatal("physical service identity or cleanup did not settle")
 				}
 				if len(part.StartedNames.Names) != 1 {

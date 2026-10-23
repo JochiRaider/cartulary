@@ -8054,7 +8054,7 @@
         "raw_stream_policy": "explicit_detail_only",
         "summary_schema": null
       },
-      "command_id": "cartulary.harness.command.explain_run.v2",
+      "command_id": "cartulary.harness.command.explain_run.v3",
       "semantic_behaviors": [
         {
           "behavior": "diagnostic_synthesis",
@@ -8120,7 +8120,7 @@
               "makefile_default"
             ],
             "required": false,
-            "type": "target_name",
+            "type": "retained_target_name",
             "default": null,
             "empty_string": "omitted",
             "normalization": "trim",
@@ -8151,7 +8151,8 @@
               "progress",
               "accounting",
               "performance",
-              "fixtures"
+              "fixtures",
+              "critical-path"
             ]
           },
           {
@@ -8242,6 +8243,75 @@
             "child_forwarding": "argv",
             "min": 1,
             "max": 999999999
+          },
+          {
+            "name": "VIEW",
+            "type": "enum",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv",
+            "values": [
+              "units",
+              "waits",
+              "allocations"
+            ]
+          },
+          {
+            "name": "UNIT_ID",
+            "type": "semantic_text",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv"
+          },
+          {
+            "name": "OFFSET",
+            "type": "nonnegative_integer",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv",
+            "min": 0,
+            "max": 9007199254740991
+          },
+          {
+            "name": "LIMIT",
+            "type": "positive_integer",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line"
+            ],
+            "required": false,
+            "default": null,
+            "empty_string": "omitted",
+            "normalization": "trim",
+            "invalid_reason": "usage_error",
+            "summary_emission": "value",
+            "child_forwarding": "argv",
+            "min": 1,
+            "max": 100
           }
         ]
       }

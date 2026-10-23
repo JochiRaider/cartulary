@@ -12,13 +12,14 @@ import {
 import { readCanonicalUnitEvents } from "../evidence-accounting/index.mjs";
 import { resolveExactRunDir, printObservabilityPerformance } from "../observability/observability.mjs";
 import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
+import { criticalPathExplanation, formatCriticalPath } from "../observability/critical-path.mjs";
 import { fixtureExplanation } from "../observability/fixture-explanation.mjs";
 import { buildFixtureReport, fixtureSummaryLine, fixtureSummaryLines } from "./fixture-reporting.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
-const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance", "resources", "measurement", "fixtures"]);
+const validDetails = new Set(["summary", "children", "logs", "progress", "accounting", "performance", "resources", "measurement", "fixtures", "critical-path"]);
 const coverageBuckets = [
   "authoritative",
   "support",
@@ -31,7 +32,7 @@ const toolRunSummarySchemaID = "cartulary.tool_run_summary.v5";
 
 function usage() {
   process.stderr.write(
-    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance|resources|measurement|fixtures] [--json] [--compare-results-dir <exact-run-dir> --comparison equivalent|instrumentation]\n",
+    "usage: print-explain-run.mjs --results-dir <root|run-dir> [--run-id <id>] [--target <target>] [--detail summary|children|logs|progress|accounting|performance|resources|measurement|fixtures|critical-path] [--json] [--compare-results-dir <exact-run-dir> --comparison equivalent|instrumentation]\n",
   );
   process.exit(2);
 }
@@ -46,6 +47,10 @@ function parseArgs(argv) {
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (["--view", "--unit-id", "--offset", "--limit"].includes(arg)) {
+      options[{ "--view": "view", "--unit-id": "unitID", "--offset": "offset", "--limit": "limit" }[arg]] = argv[++index] ?? "";
+      continue;
+    }
     if (["--fixture-threshold-ms", "--fixture-top"].includes(arg)) {
       const raw = argv[++index] ?? "";
       if (!/^[1-9][0-9]{0,8}$/u.test(raw)) throw Object.assign(new Error("invalid fixture filter"), { exit_code: 2 });
@@ -85,6 +90,8 @@ function parseArgs(argv) {
   }
   if (options.comparison && !["equivalent", "instrumentation"].includes(options.comparison)) usage();
   if ((options.comparisonDir || options.comparison) && (!["performance", "resources"].includes(options.detail) || !options.comparisonDir)) usage();
+  if (options.detail !== "critical-path" && ["view", "unitID", "offset", "limit"].some((key) => Object.hasOwn(options, key))) usage();
+  if (options.detail === "critical-path" && argv.some((arg) => ["--fixture-top", "--fixture-threshold-ms"].includes(arg))) usage();
   return options;
 }
 
@@ -1031,6 +1038,13 @@ function writeCanonicalDetail(runDir, options, runSummary, targetSummary) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  if (options.detail === "critical-path") {
+    try {
+      const model = await criticalPathExplanation(resolveExactRunDir(options.resultsDir, options.runId), options);
+      process.stdout.write(formatCriticalPath(model, { json: options.json }));
+    } catch (error) { error.exit_code ??= 11; throw error; }
+    return;
+  }
   if (options.detail === "fixtures") {
     const runDir = resolveExactRunDir(options.resultsDir, options.runId);
     const view = await fixtureExplanation(runDir, options.target);
@@ -1105,7 +1119,7 @@ async function main() {
     writeHelperLines(runSummary, target);
     return;
   }
-  if (runSummary?.schema_id === "cartulary.harness_run_summary.v1" && !["performance", "resources", "measurement", "fixtures"].includes(options.detail)) {
+  if (runSummary?.schema_id === "cartulary.harness_run_summary.v1" && !["performance", "resources", "measurement", "fixtures", "critical-path"].includes(options.detail)) {
     writeCanonicalDetail(runDir, { ...options, target }, runSummary, targetSummary);
     return;
   }

@@ -37,8 +37,9 @@ import (
 const postgresImage = "docker.io/library/postgres:18.6-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2"
 
 const (
+	postgresStartupTimeout          = 180 * time.Second
+	postgresStartupAttemptTimeout   = 35 * time.Second
 	postgresPortMappingTimeout      = 15 * time.Second
-	postgresClientReadyTimeout      = 15 * time.Second
 	postgresHealthPollInterval      = 250 * time.Millisecond
 	postgresClientAttemptTimeout    = 5 * time.Second
 	postgresCatalogAdmissionTimeout = 15 * time.Second
@@ -115,11 +116,10 @@ var issuedMigrationDatabaseIdentity = &migrationDatabaseIdentity{}
 var errGenerationQuarantined = errors.New("postgres cluster generation is quarantined after fixture settlement failure")
 
 type StartOptions struct {
-	Labels         map[string]string
-	Observer       testcontainersx.StartObserver
-	AttemptTimeout time.Duration
-	BeforeAcquire  func(*Harness) error
-	Settled        func(*Harness) error
+	Labels        map[string]string
+	Observer      testcontainersx.StartObserver
+	BeforeAcquire func(*Harness) error
+	Settled       func(*Harness) error
 	// Acquired publishes private cleanup authority before starting the container.
 	// It must not publish a ready binding.
 	Acquired  func(*Harness) error
@@ -191,7 +191,7 @@ var (
 	initializeClusterFn        = initializeCluster
 	inspectClusterGenerationFn = inspectClusterGeneration
 	finalizeCloneFn            = finalizeClone
-	startContainerFn           = testcontainersx.GenericContainer
+	startContainerFn           = testcontainersx.GenericContainerObserved
 	waitReadyFn                = func(ctx context.Context, harness *Harness) error {
 		return harness.WaitReady(ctx)
 	}
@@ -288,6 +288,11 @@ func StopShared(ctx context.Context) error {
 }
 
 func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harness, error) {
+	if ctx == nil {
+		return nil, errors.New("postgres acquisition requires a context")
+	}
+	ctx, cancel := context.WithTimeout(ctx, postgresStartupTimeout)
+	defer cancel()
 	req := testcontainers.ContainerRequest{
 		Image:        postgresImage,
 		ExposedPorts: []string{"5432/tcp"},
@@ -308,7 +313,7 @@ func startHarnessWithOptions(ctx context.Context, options StartOptions) (*Harnes
 		Service:        "postgres testcontainer",
 		Image:          postgresImage,
 		MaxAttempts:    3,
-		AttemptTimeout: options.AttemptTimeout,
+		AttemptTimeout: postgresStartupAttemptTimeout,
 		RetryBackoff:   500 * time.Millisecond,
 		Preflight:      startPreflightFn,
 		Retryable:      isRetryablePostgresStartupFailure,
@@ -343,7 +348,9 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 		diagnostic.finish(stage, retErr)
 		diagnostic.observeContainer(harness.Container)
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		cleanupErr := harness.closeOwned(cleanupCtx)
+		// No ready binding or borrower exists. Do not spend the removal budget
+		// waiting for graceful shutdown of an unpublished failed allocation.
+		cleanupErr := harness.closeOwned(cleanupCtx, testcontainers.StopTimeout(0))
 		cancel()
 		if cleanupErr == nil && (harness.Container != nil || (intentRecorded && !providerCalled)) && options.Settled != nil {
 			cleanupErr = options.Settled(harness)
@@ -376,7 +383,7 @@ func startHarnessAttempt(ctx context.Context, req testcontainers.ContainerReques
 	container, err := startContainerFn(createCtx, testcontainers.GenericContainerRequest{
 		ContainerRequest: req,
 		Started:          false,
-	})
+	}, diagnostic.publicationObserver(req.ExposedPorts))
 	finishCreate()
 	harness.Container = container
 	if container != nil && options.Acquired != nil {
@@ -493,9 +500,18 @@ func startAttachedHarness(ctx context.Context) (*Harness, bool, error) {
 	return harness, true, nil
 }
 
+// WaitReady consumes the caller's bounded acquisition budget. Port publication
+// does not mean bootstrap has finished, so it must not start another deadline.
 func (h *Harness) WaitReady(ctx context.Context) error {
-	readyCtx, cancel := context.WithTimeout(ctx, postgresClientReadyTimeout)
-	defer cancel()
+	if ctx == nil {
+		return &postgresReadinessError{LastErr: errors.New("postgres readiness requires a bounded context")}
+	}
+	if err := ctx.Err(); err != nil {
+		return &postgresReadinessError{LastErr: err, DeadlineExpired: errors.Is(err, context.DeadlineExceeded)}
+	}
+	if _, bounded := ctx.Deadline(); !bounded {
+		return &postgresReadinessError{LastErr: errors.New("postgres readiness requires a bounded context")}
+	}
 
 	ticker := time.NewTicker(postgresHealthPollInterval)
 	defer ticker.Stop()
@@ -503,12 +519,12 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 	attempts := 0
 	var lastErr error
 	for {
-		if err := readyCtx.Err(); err != nil {
+		if err := ctx.Err(); err != nil {
 			return &postgresReadinessError{Attempts: attempts, LastErr: errors.Join(lastErr, err), DeadlineExpired: errors.Is(err, context.DeadlineExceeded)}
 		}
 		attempts++
 		h.readinessProbes.Store(int64(attempts))
-		attemptCtx, attemptCancel := context.WithTimeout(readyCtx, postgresClientAttemptTimeout)
+		attemptCtx, attemptCancel := context.WithTimeout(ctx, postgresClientAttemptTimeout)
 		err := pingAdminDSNFn(attemptCtx, h.adminDSN, h.readinessConnected)
 		attemptCancel()
 		if err == nil {
@@ -523,14 +539,14 @@ func (h *Harness) WaitReady(ctx context.Context) error {
 
 		lastErr = err
 		select {
-		case <-readyCtx.Done():
+		case <-ctx.Done():
 			if lastErr == nil {
-				lastErr = readyCtx.Err()
+				lastErr = ctx.Err()
 			}
 			return &postgresReadinessError{
 				Attempts:        attempts,
-				LastErr:         errors.Join(lastErr, readyCtx.Err()),
-				DeadlineExpired: errors.Is(readyCtx.Err(), context.DeadlineExceeded),
+				LastErr:         errors.Join(lastErr, ctx.Err()),
+				DeadlineExpired: errors.Is(ctx.Err(), context.DeadlineExceeded),
 			}
 		case <-ticker.C:
 		}
@@ -1112,10 +1128,10 @@ func (h *Harness) Close(ctx context.Context) error {
 	return h.closeOwned(ctx)
 }
 
-func (h *Harness) closeOwned(ctx context.Context) error {
+func (h *Harness) closeOwned(ctx context.Context, options ...testcontainers.TerminateOption) error {
 	h.closeOnce.Do(func() {
 		if h.Container != nil {
-			h.closeErr = h.Container.Terminate(ctx)
+			h.closeErr = h.Container.Terminate(ctx, options...)
 		}
 		if h.closeErr == nil && h.tlsDirectory != "" {
 			h.closeErr = os.RemoveAll(h.tlsDirectory)

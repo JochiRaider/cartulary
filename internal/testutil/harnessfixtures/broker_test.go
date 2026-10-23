@@ -18,6 +18,7 @@ func testRequest() Request {
 	return Request{PostgresIsolation: "exclusive", Services: []string{"object_store", "postgres"}, Capability: "browser_stack", UnitID: "unit:a", Affinity: "browser"}
 }
 func TestFixtureBrokerOwnership(t *testing.T) {
+	testAllocationLifecycleObservations(t)
 	t.Run("pressure_retires_one_eligible_idle_stack_and_reacquires_fresh_state", func(t *testing.T) {
 		released := []string{}
 		b := New(Options{Providers: map[string]Provider{"browser_stack": &ProviderFuncs{AcquireFunc: func(_ context.Context, request Request) (*Allocation, error) {
@@ -46,7 +47,7 @@ func TestFixtureBrokerOwnership(t *testing.T) {
 		}
 		defer unpin()
 		needed := func(request Request) (bool, error) { return request.Affinity != "unrelated", nil }
-		count, err := b.retireIdle(t.Context(), 1, needed, b.clean)
+		count, err := b.retireIdle(t.Context(), 1, needed, func(ctx context.Context, e *entry) error { return b.clean(ctx, e, Retirement{"capacity_pressure", ""}) })
 		if err != nil || count != 1 || !slices.Equal(released, []string{"idle-b"}) {
 			t.Fatal("pressure retirement crossed its borrower or selection boundary", count, released, err)
 		}
@@ -56,7 +57,7 @@ func TestFixtureBrokerOwnership(t *testing.T) {
 		if err != nil || replacement.AllocationRef() == leases[released[0]].AllocationRef() {
 			t.Fatal("retired state reused", err)
 		}
-		if _, err := b.retireIdle(t.Context(), 1, func(Request) (bool, error) { return false, nil }, b.clean); err != nil || len(released) != 1 {
+		if _, err := b.retireIdle(t.Context(), 1, func(Request) (bool, error) { return false, nil }, func(ctx context.Context, e *entry) error { return b.clean(ctx, e, Retirement{"capacity_pressure", ""}) }); err != nil || len(released) != 1 {
 			t.Fatal("unrelated pressure retired a stack", err)
 		}
 		if err := b.Close(t.Context()); err != nil {

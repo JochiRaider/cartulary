@@ -62,7 +62,7 @@ func run() int {
 		}
 		if err != nil {
 			class, reason := harnessruntime.PublicFailure(err)
-			fmt.Fprintf(os.Stderr, "[GRAPH-FAIL] failure_class=%s failure_reason=%s\n", class, reason)
+			fmt.Fprintf(os.Stderr, "[GRAPH-FAIL] failure_class=%s failure_reason=%s failure_stage=%s\n", class, reason, harnessruntime.PublicFailureStage(err))
 			return code
 		}
 		if report != nil {

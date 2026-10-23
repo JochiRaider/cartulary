@@ -203,6 +203,7 @@ const retiredPublicMakeVariables = Object.freeze([
   "CHECK_RESULTS_DIR",
   "GOCACHE",
   "GOMODCACHE",
+  "GOROOT",
   "GOTMPDIR",
 ]);
 const makeInputSourcesEnv = "CARTULARY_MAKE_INPUT_SOURCES";
@@ -984,6 +985,14 @@ function validateTargetInputValue(name, value, input, manifest) {
     }
     return tokens.sort().join(",");
   }
+  if (input.type === "retained_target_name") {
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$/u.test(value)) throw new HarnessConfigError(`${name} must name a retained target`, { reason: input.invalid_reason });
+    return value;
+  }
+  if (input.type === "nonnegative_integer") {
+    if (!/^(0|[1-9][0-9]*)$/u.test(value) || !Number.isSafeInteger(Number(value))) throw new HarnessConfigError(`${name} must be a nonnegative safe integer`, { reason: input.invalid_reason });
+    return value;
+  }
   if (input.type === "target_name") {
     const knownTargets = new Set((manifest.targets ?? []).map((entry) => entry.name));
     if (!knownTargets.has(value)) {
@@ -1125,6 +1134,12 @@ export function resolveDeclaredTargetInputs(target, entry, manifest, env) {
       if (present(constraint.input) && !present(constraint.required_input)) throw new HarnessConfigError(
         `${constraint.input} requires ${constraint.required_input}`, { reason: "usage_error" });
     } else throw new HarnessConfigError(`unknown input constraint for ${target}`);
+  }
+  if (target === "explain-run") {
+    const critical = resolved.DETAIL?.value === "critical-path";
+    if (!critical && ["VIEW", "UNIT_ID", "OFFSET", "LIMIT"].some((name) => resolved[name])) throw new HarnessConfigError("critical-path query inputs require DETAIL=critical-path", { reason: "usage_error" });
+    if (!critical && resolved.TARGET && !(manifest.targets ?? []).some((entry) => entry.name === resolved.TARGET.value)) throw new HarnessConfigError("TARGET must name a declared target", { reason: "usage_error" });
+    if (critical && ["COMPARE_RESULTS_DIR", "COMPARISON", "FIXTURE_THRESHOLD_MS", "FIXTURE_TOP"].some((name) => resolved[name] && resolved[name].source !== "default")) throw new HarnessConfigError("incompatible critical-path inputs", { reason: "usage_error" });
   }
   return resolved;
 }

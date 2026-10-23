@@ -2,6 +2,18 @@ import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
 
 import { validateSchemaSync } from "../../contract/index.mjs";
+import { resolveMachineStatePaths } from "../../contract/harness-contract.mjs";
+
+// Machine paths belong to execution, not static Go selector discovery.
+export function goExecutionEnvironment(root, environment = process.env) {
+  const paths = resolveMachineStatePaths(environment, { root });
+  return {
+    GOCACHE: paths.GO_CACHE_DIR.value,
+    GOMODCACHE: paths.GO_MOD_CACHE_DIR.value,
+    GOTMPDIR: paths.GO_TMP_DIR.value,
+    GOROOT: "",
+  };
+}
 
 function asciiCompare(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;

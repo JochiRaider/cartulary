@@ -59,6 +59,7 @@ func observationFixture(t *testing.T) (*Plan, *harnesssession.Runtime, string, m
 	return plan, r, run, policy
 }
 func TestRuntimeObservations(t *testing.T) {
+	testAllocationObservationBounds(t)
 	t.Run("admission_preserves_typed_owner_failure", func(t *testing.T) {
 		for _, tc := range []struct {
 			err           error

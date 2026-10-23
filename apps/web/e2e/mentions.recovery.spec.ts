@@ -73,14 +73,17 @@ async function runRecovery(
     receipts: ResolveEntityMentionResponse[] = [];
   let created: CreateViewRowResponse | null = null;
   let failRefresh = false;
+  let blockedRefreshes = 0;
   let failEntityRefresh = false;
   await page.route(`**/views/${hostsViewSchemaId}/query`, async (route) => {
     if (failEntityRefresh) await route.abort("failed");
     else await route.continue();
   });
   await page.route(`**/views/${timelineViewSchemaId}/query`, async (route) => {
-    if (failRefresh) await route.abort("failed");
-    else await route.continue();
+    if (failRefresh) {
+      blockedRefreshes += 1;
+      await route.abort("failed");
+    } else await route.continue();
   });
   await page.route(`**/views/${hostsViewSchemaId}/rows`, async (route) => {
     creates.push(route.request().postData() ?? "");
@@ -113,7 +116,10 @@ async function runRecovery(
     if (outcome === "uncertain" && resolves.length === 1)
       await route.abort("failed");
     else {
-      if (outcome === "uncertain") failRefresh = true;
+      // Acknowledgement and presentation acceptance are separate obligations.
+      // Exercise read-only recovery in both branches instead of depending on
+      // automatic refresh winning against collaboration-triggered queries.
+      if (response.ok()) failRefresh = true;
       await route.fulfill({ response });
     }
   });
@@ -219,6 +225,7 @@ async function runRecovery(
     await expect(recovery).toContainText(
       "Mention action completed; refresh is still required.",
     );
+    expect(blockedRefreshes).toBeGreaterThan(0);
     failRefresh = false;
     await recovery
       .getByRole("button", { name: "Refresh mention result" })
@@ -240,6 +247,17 @@ async function runRecovery(
       .click();
     await expect.poll(() => resolves.length).toBe(2);
     await expect.poll(() => receipts.length).toBe(1);
+    const status = page.getByRole("region", {
+      name: "Mention operation status",
+    });
+    await expect(status).toContainText(
+      "Mention action completed; refresh is still required.",
+    );
+    expect(blockedRefreshes).toBeGreaterThan(0);
+    failRefresh = false;
+    await status
+      .getByRole("button", { name: "Refresh mention result" })
+      .click();
     await expect(
       page.getByRole("region", { name: "Mention operation status" }),
     ).toContainText("Mention action completed.");
@@ -248,6 +266,7 @@ async function runRecovery(
     );
   }
   expect(creates).toHaveLength(1);
+  expect(resolves).toHaveLength(2);
   const entities = await queryViewRows(page, incidentId, hostsViewSchemaId);
   expect(entities).toHaveLength(1);
   const saved = created as CreateViewRowResponse | null;

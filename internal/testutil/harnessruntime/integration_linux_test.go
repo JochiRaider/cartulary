@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/JochiRaider/cartulary/internal/testutil/harnessaccount"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessadmission"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnessdiag"
 	"github.com/JochiRaider/cartulary/internal/testutil/harnesslocal"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -75,6 +77,10 @@ func TestRuntimeSelectedGraphExecution(t *testing.T) {
 	// Go row compilation intentionally scales to host capacity; use the existing
 	// one-token shell row for graph/receipt proof, with Go covered independently.
 	rowID := "harness.evidence_accounting.behavior.current_epoch_evidence"
+	accountingParent, err := harnessaccount.ContainerParent()
+	if err != nil {
+		t.Fatal("accounting membership", err)
+	}
 	for _, mode := range []string{"off", "basic", "basic-second"} {
 		if !t.Run(mode, func(t *testing.T) {
 			diagnosticMode := mode
@@ -88,10 +94,18 @@ func TestRuntimeSelectedGraphExecution(t *testing.T) {
 			for k, v := range environment {
 				input = append(input, k+"="+v)
 			}
-			summary, code, err := Run(ctx, root, binary, []string{"--selection", "owner", "--target", "test-slice", "--owner", "harness.evidence_accounting", "--rows", rowID}, input)
 			run := filepath.Join(results, id+"-"+mode)
-			if err != nil || code != 0 || summary == nil || summary.Summary["status"] != "pass" {
-				t.Fatalf("native graph: code=%d err=%v; retained %s", code, err, run)
+			child := exec.CommandContext(ctx, binary, "graph", "--selection", "owner", "--target", "test-slice", "--owner", "harness.evidence_accounting", "--rows", rowID)
+			child.Dir, child.Env = root, input
+			child.Cancel = func() error { return child.Process.Signal(syscall.SIGTERM) }
+			child.WaitDelay = 2 * time.Minute
+			closeDescriptors, err := harnessadmission.InheritWorkspace(child)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer closeDescriptors()
+			if out, err := child.CombinedOutput(); err != nil {
+				t.Fatalf("native graph: %v %.4096s; retained %s", err, out, run)
 			}
 			if err := checkRegularEvidence(filepath.Join(run, "rows/"+rowID+".json")); err != nil {
 				t.Fatal(err)
@@ -100,7 +114,10 @@ func TestRuntimeSelectedGraphExecution(t *testing.T) {
 			if !filepath.IsAbs(node) {
 				node = filepath.Join(root, node)
 			}
-			reader := exec.CommandContext(ctx, node, "--input-type=module", "-e", `import {readFileSync} from 'node:fs';import {validateLiveSnapshot} from './tools/harness/contract/live-observation.mjs';import {loadRetainedObservability} from './tools/harness/observability/observability.mjs';const r=await loadRetainedObservability(process.argv[1]);validateLiveSnapshot(JSON.parse(readFileSync(process.argv[1]+'/diagnostics/live-status.json')),r.run.manifest);if(process.argv[2]==='basic'&&(!r.execution||!r.envelope||!r.resourceIndex))throw Error('missing native observations');`, run, diagnosticMode)
+			if accountingParent != "" {
+				diagnosticMode = "basic"
+			}
+			reader := exec.CommandContext(ctx, node, "--input-type=module", "-e", `import {readFileSync} from 'node:fs';import {validateLiveSnapshot} from './tools/harness/contract/live-observation.mjs';import {loadRetainedObservability} from './tools/harness/observability/observability.mjs';const r=await loadRetainedObservability(process.argv[1]);if(r.run.summary.status!=='pass')throw Error('graph did not pass');validateLiveSnapshot(JSON.parse(readFileSync(process.argv[1]+'/diagnostics/live-status.json')),r.run.manifest);if(process.argv[2]==='basic'&&(!r.execution||!r.envelope||!r.resourceIndex))throw Error('missing native observations');`, run, diagnosticMode)
 			reader.Dir = root
 			if out, err := reader.CombinedOutput(); err != nil {
 				t.Fatalf("independent Node retained reader: %v %s; retained %s", err, out, run)
@@ -109,6 +126,11 @@ func TestRuntimeSelectedGraphExecution(t *testing.T) {
 		}) {
 			return // Keep the first failed graph as the primary test evidence.
 		}
+	}
+	if accountingParent != "" {
+		// The enclosing accounted command owns the shared receipt and closes it
+		// only after this test and every other nested graph have settled.
+		return
 	}
 	_, end, err := bootReading()
 	if err != nil {

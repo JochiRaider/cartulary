@@ -133,14 +133,15 @@ type CleanupRecord struct {
 	Published                  bool
 }
 type Observation struct {
-	Kind          string `json:"kind"`
-	Ref           string `json:"ref"`
-	AllocationRef string `json:"allocation_ref"`
-	LeaseRef      string `json:"lease_ref"`
-	UnitID        string `json:"unit_id"`
-	Capability    string `json:"capability"`
-	Ownership     string `json:"ownership"`
-	Outcome       string `json:"outcome"`
+	Lifecycle     *AllocationLifecycle `json:"-"`
+	Kind          string               `json:"kind"`
+	Ref           string               `json:"ref"`
+	AllocationRef string               `json:"allocation_ref"`
+	LeaseRef      string               `json:"lease_ref"`
+	UnitID        string               `json:"unit_id"`
+	Capability    string               `json:"capability"`
+	Ownership     string               `json:"ownership"`
+	Outcome       string               `json:"outcome"`
 }
 type Options struct {
 	Providers    map[string]Provider
@@ -149,10 +150,12 @@ type Options struct {
 	AllocationID func() string
 	Publish      func(LeaseRecord) error
 	Observe      func(Observation)
+	Cancelled    func() bool
 	Cleanup      func(CleanupRecord)
 }
 type entry struct {
 	allocation *Allocation
+	lifecycle  AllocationLifecycle
 	request    Request
 	key        string
 	refs       int
@@ -214,6 +217,7 @@ type Broker struct {
 	closeOnce      sync.Once
 	closeErr       error
 	providerFailed bool
+	epoch          time.Time
 	sequence       uint64
 }
 
@@ -225,7 +229,7 @@ func New(options Options) *Broker {
 		options.Publish = func(LeaseRecord) error { return nil }
 	}
 	life, cancel := context.WithCancel(context.Background())
-	return &Broker{options: options, shared: map[string]*entry{}, pending: map[string]chan struct{}{}, reserved: map[string]int{}, active: map[*Lease]bool{}, life: life, cancel: cancel}
+	return &Broker{epoch: options.Clock(), options: options, shared: map[string]*entry{}, pending: map[string]chan struct{}{}, reserved: map[string]int{}, active: map[*Lease]bool{}, life: life, cancel: cancel}
 }
 
 func sharedKey(request Request) string {
@@ -404,6 +408,7 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 		notify := func(outcome, ownership string) {
 			b.observe(Observation{Kind: "allocation", Ref: request.AllocationRef, AllocationRef: request.AllocationRef, UnitID: request.UnitID, Capability: request.Capability, Ownership: ownership, Outcome: outcome})
 		}
+		acquisitionStart := b.elapsed()
 		notify("incomplete", "")
 		provider := b.options.Providers[request.Capability]
 		var allocation *Allocation
@@ -418,6 +423,7 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 		// Register returned ownership before any validation or retained publication.
 		if allocation != nil {
 			e = &entry{allocation: allocation, request: request, key: key}
+			e.lifecycle = b.newLifecycle(request, acquisitionStart)
 			allocation.Environment = maps.Clone(allocation.Environment)
 			allocation.ResourceIDs = append([]string{}, allocation.ResourceIDs...)
 			slices.Sort(allocation.ResourceIDs)
@@ -441,9 +447,13 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 				e.tainted = true
 				b.mu.Unlock()
 				cleanupCtx, done := context.WithTimeout(context.Background(), 2*time.Minute)
-				cleanup := b.clean(cleanupCtx, e)
+				cleanup := b.clean(cleanupCtx, e, Retirement{"acquisition_failure", request.UnitID})
 				done()
 				err = errors.Join(err, cleanup)
+			}
+			if e == nil {
+				v := b.newLifecycle(request, acquisitionStart)
+				b.observeLifecycle(request, &v, b.elapsed(), b.retirementDecision(Retirement{"acquisition_failure", request.UnitID}), "unresolved")
 			}
 			return nil, err
 		}
@@ -456,6 +466,7 @@ func (b *Broker) Acquire(ctx context.Context, request Request) (lease *Lease, re
 	if creator {
 		e.refs++
 	}
+	e.lifecycle.Borrows = append(e.lifecycle.Borrows, AllocationBorrow{LeaseRef: record.ID, UnitID: request.UnitID})
 	e.last = lease
 	b.active[lease] = true
 	if key != "" {
@@ -485,8 +496,10 @@ func (b *Broker) unshare(e *entry) {
 		delete(b.shared, e.key)
 	}
 }
-func (b *Broker) clean(ctx context.Context, e *entry) error {
+func (b *Broker) clean(ctx context.Context, e *entry, retirement Retirement) error {
 	e.cleanOnce.Do(func() {
+		retirementStart := b.elapsed()
+		retirement = b.retirementDecision(retirement)
 		b.mu.Lock()
 		lease := e.last
 		tainted := e.tainted
@@ -540,6 +553,11 @@ func (b *Broker) clean(ctx context.Context, e *entry) error {
 			errs = append(errs, b.publish(lease))
 		}
 		e.cleanErr = errors.Join(errs...)
+		settlement := "settled"
+		if physical != nil {
+			settlement = "unresolved"
+		}
+		b.observeLifecycle(e.request, &e.lifecycle, retirementStart, retirement, settlement)
 		if e.request.Capability != "none" {
 			operation := "fixture_release"
 			if e.allocation.Ownership == "borrowed" {
@@ -568,6 +586,7 @@ func (b *Broker) release(ctx context.Context, l *Lease, healthy, retain bool) (r
 	}
 	retained = e.refs == 0 && !e.tainted && retain && e.request.Capability == "browser_stack" && !b.closed
 	clean := e.refs == 0 && !retained
+	tainted, closed, published := e.tainted, b.closed, l.published
 	if clean {
 		b.unshare(e)
 	} else {
@@ -579,7 +598,18 @@ func (b *Broker) release(ctx context.Context, l *Lease, healthy, retain bool) (r
 	}
 	b.mu.Unlock()
 	if clean {
-		result = b.clean(ctx, e)
+		reason := "terminal_borrower_release"
+		if tainted {
+			reason = "unhealthy_borrower"
+		}
+		if !published {
+			reason = "acquisition_failure"
+		}
+		trigger := l.request.UnitID
+		if closed {
+			reason, trigger = "run_finalization", ""
+		}
+		result = b.clean(ctx, e, Retirement{reason, trigger})
 	} else {
 		result = b.publish(l)
 	}
@@ -590,7 +620,7 @@ func (b *Broker) release(ctx context.Context, l *Lease, healthy, retain bool) (r
 		unreferenced := e.refs == 0
 		b.mu.Unlock()
 		if unreferenced {
-			result = errors.Join(result, b.clean(ctx, e))
+			result = errors.Join(result, b.clean(ctx, e, Retirement{"unhealthy_borrower", l.request.UnitID}))
 		}
 		retained = false
 	}
@@ -617,7 +647,9 @@ func (b *Broker) Unresolved() bool {
 // Future consumers acquire a fresh database or their sealed fixture snapshot;
 // existing reset operations and group boundaries still execute unchanged.
 func (b *Broker) RetireIdle(ctx context.Context) error {
-	_, err := b.retireIdle(ctx, 0, nil, b.clean)
+	_, err := b.retireIdle(ctx, 0, nil, func(ctx context.Context, e *entry) error {
+		return b.clean(ctx, e, Retirement{"exclusive_admission", ""})
+	})
 	return err
 }
 
@@ -698,7 +730,7 @@ func (b *Broker) Close(ctx context.Context) error {
 			b.mu.Lock()
 			b.unshare(e)
 			b.mu.Unlock()
-			errs = append(errs, b.clean(ctx, e))
+			errs = append(errs, b.clean(ctx, e, Retirement{"run_finalization", ""}))
 		}
 		capabilities := slices.Sorted(maps.Keys(b.options.Providers))
 		seen := map[Provider]bool{}

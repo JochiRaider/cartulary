@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,7 +93,9 @@ func TestRootedFSRemoveEmptyDirectoryFailsClosed_Unit(t *testing.T) {
 
 func TestRootedFSOperationContainment_Unit(t *testing.T) {
 	t.Run("directory ownership and bounded traversal", testDirectoryLeases)
-	rootPath := filepath.Join(t.TempDir(), "storage")
+	// These are filesystem objects, so cover paths beyond the AF_UNIX
+	// listener address limit without introducing a listening service.
+	rootPath := filepath.Join(t.TempDir(), strings.Repeat("storage-", 20))
 	if err := os.Mkdir(rootPath, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -188,11 +189,9 @@ func TestRootedFSOperationContainment_Unit(t *testing.T) {
 		t.Fatal("FIFO read succeeded")
 	}
 	socketPath := filepath.Join(rootPath, "socket")
-	listener, err := net.Listen("unix", socketPath)
-	if err != nil {
+	if err := unix.Mknod(socketPath, unix.S_IFSOCK|0o600, 0); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = listener.Close() })
 	if _, _, err := root.ReadRegular(MustParseReference("socket"), 1024); err == nil {
 		t.Fatal("socket read succeeded")
 	}

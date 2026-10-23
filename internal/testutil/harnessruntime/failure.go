@@ -2,10 +2,38 @@ package harnessruntime
 
 import (
 	"cmp"
+	"errors"
 	"math"
 	"slices"
 	"strings"
 )
+
+type entryFailure struct {
+	stage string
+	cause error
+}
+
+func (e *entryFailure) Error() string { return e.cause.Error() }
+func (e *entryFailure) Unwrap() error { return e.cause }
+
+func entryFailureAt(stage string, cause error) error {
+	return &entryFailure{stage: stage, cause: cause}
+}
+
+// PublicFailureStage exposes only an attributed, closed startup check. It never
+// derives a stage from private error text or changes the primary classification.
+func PublicFailureStage(err error) string {
+	var entry *entryFailure
+	if errors.As(err, &entry) {
+		switch entry.stage {
+		case "nested_lifecycle", "diagnostic_mode", "accounting_membership",
+			"accounting_required_scope", "accounting_executable_identity",
+			"accounting_invocation_identity", "runtime_plan":
+			return entry.stage
+		}
+	}
+	return "unavailable"
+}
 
 // PublicFailure exposes only the closed public classification, never private
 // paths, credentials or arbitrary helper diagnostics from a boundary error.

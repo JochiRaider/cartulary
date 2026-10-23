@@ -23,6 +23,27 @@ func (installedClient) ImagePull(context.Context, string, client.ImagePullOption
 // uses the same provider with image acquisition disabled; the caller retains
 // the normal ownership and cleanup of any partially created container.
 func GenericContainer(ctx context.Context, req testcontainers.GenericContainerRequest) (testcontainers.Container, error) {
+	return GenericContainerObserved(ctx, req, nil)
+}
+
+// CreateObserver observes final provider-normalized options without modifying
+// them. It does not own the request, the returned container, or its cleanup.
+type CreateObserver func(client.ContainerCreateOptions)
+
+type observedClient struct {
+	client.APIClient
+	observe CreateObserver
+}
+
+func (c observedClient) ContainerCreate(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
+	c.observe(options)
+	return c.APIClient.ContainerCreate(ctx, options)
+}
+
+// GenericContainerObserved uses the existing provider/client boundary to observe
+// publication after Testcontainers has normalized ports. Observation never
+// introduces another allocation attempt or changes the provider's result.
+func GenericContainerObserved(ctx context.Context, req testcontainers.GenericContainerRequest, observe CreateObserver) (testcontainers.Container, error) {
 	parent, err := harnessaccount.ContainerParent()
 	if err != nil {
 		return nil, err
@@ -42,18 +63,30 @@ func GenericContainer(ctx context.Context, req testcontainers.GenericContainerRe
 			return harnessaccount.VerifyContainer(parent, container.GetContainerID())
 		}}})
 	}
-	if os.Getenv("CARTULARY_PREPARATION_POLICY") != "installed_only" {
+	installedOnly := os.Getenv("CARTULARY_PREPARATION_POLICY") == "installed_only"
+	if !installedOnly && observe == nil {
 		return testcontainers.GenericContainer(ctx, req)
 	}
-	if req.Reuse || req.Image == "" || os.Getenv("TESTCONTAINERS_RYUK_DISABLED") != "true" {
-		return nil, errors.New("installed-only preparation requires an owned image container with suite-managed cleanup")
+	if req.Reuse || req.Image == "" || os.Getenv("TESTCONTAINERS_RYUK_DISABLED") != "true" || (req.ProviderType != testcontainers.ProviderDefault && req.ProviderType != testcontainers.ProviderDocker) {
+		return nil, errors.New("observed or installed-only preparation requires an owned Docker image container with suite-managed cleanup")
 	}
-	provider, err := testcontainers.NewDockerProvider()
+	providerOptions := []testcontainers.DockerProviderOption{}
+	if req.Logger != nil {
+		providerOptions = append(providerOptions, testcontainers.WithLogger(req.Logger))
+	}
+	provider, err := testcontainers.NewDockerProvider(providerOptions...)
 	if err != nil {
 		return nil, err
 	}
 	defer provider.Close()
-	provider.SetClient(installedClient{provider.Client()})
+	var api client.APIClient = provider.Client()
+	if installedOnly {
+		api = installedClient{api}
+	}
+	if observe != nil {
+		api = observedClient{api, observe}
+	}
+	provider.SetClient(api)
 	container, err := provider.CreateContainer(ctx, req.ContainerRequest)
 	if err == nil && req.Started && !container.IsRunning() {
 		err = container.Start(ctx)

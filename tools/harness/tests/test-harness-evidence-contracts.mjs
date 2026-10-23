@@ -1,3 +1,4 @@
+import "../observability/tests/test-critical-path.mjs";
 import "../observability/tests/test-execution-index.mjs";
 import "../observability/tests/test-owner-evidence-audit.mjs";
 import { runContractSuite } from "./contract-suite-support.mjs";

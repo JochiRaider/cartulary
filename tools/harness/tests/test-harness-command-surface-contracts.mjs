@@ -234,3 +234,13 @@ test("planning and execution reject oversized exact row inputs before selection"
   assert.throws(() => resolveDeclaredTargetInputs("test-slice", manifest.targets.find((entry) => entry.name === "test-slice"), manifest,
     { OWNER: "harness.browser", ROWS: rows, CARTULARY_MAKE_INPUT_SOURCES: "OWNER=cli ROWS=cli" }), /exceeds 4096/u);
 });
+
+test("critical-path public inputs preserve defaults and reject incompatible selectors", async () => {
+  const { resolveCommandInputs } = await import("../contract/index.mjs");
+  const manifest = JSON.parse(readFileSync(path.resolve(import.meta.dirname, "../../../tools/task_surface_manifest.json"), "utf8"));
+  const base = { RESULTS_DIR: ".cartulary/test-results/exact", DETAIL: "critical-path" };
+  const value = resolveCommandInputs("explain-run", {...base,TARGET:"browser-e2e-webserver-backed",VIEW:"waits",OFFSET:"0",LIMIT:"100",UNIT_ID:"browser:unit"},manifest);
+  assert.equal(value.TARGET,"browser-e2e-webserver-backed");assert.equal(value.OFFSET,"0");
+  for(const extra of [{VIEW:"bad"},{OFFSET:"-1"},{LIMIT:"101"},{TARGET:"../ci"},{COMPARISON:"equivalent"},{FIXTURE_TOP:"2"}]) assert.throws(()=>resolveCommandInputs("explain-run",{...base,...extra},manifest));
+  for(const extra of [{VIEW:"units"},{OFFSET:"0"},{TARGET:"browser-e2e-webserver-backed"}]) assert.throws(()=>resolveCommandInputs("explain-run",{RESULTS_DIR:base.RESULTS_DIR,...extra},manifest));
+});

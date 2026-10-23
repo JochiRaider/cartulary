@@ -29,12 +29,13 @@ type executionSession struct {
 	omissions, bytes                                 int
 	records                                          map[string]map[string]any
 	missing                                          map[string]bool
+	lifecycle                                        allocationLifecycleSection
 	proof                                            func(map[string]any, map[string]any)
 }
 
 func newExecutionSession(runtime *harnesssession.Runtime, runRoot string, manifest, policy map[string]any, proof func(map[string]any, map[string]any)) *executionSession {
 	root, pathErr := runtime.PrivatePath("execution-observations")
-	s := &executionSession{root: root, runRoot: runRoot, manifest: manifest, policy: policy, records: map[string]map[string]any{}, missing: map[string]bool{}, proof: proof, enabled: manifest["instrumentation"].(map[string]any)["mode"] == "basic", partial: pathErr != nil}
+	s := &executionSession{lifecycle: newAllocationLifecycleSection(), root: root, runRoot: runRoot, manifest: manifest, policy: policy, records: map[string]map[string]any{}, missing: map[string]bool{}, proof: proof, enabled: manifest["instrumentation"].(map[string]any)["mode"] == "basic", partial: pathErr != nil}
 	if pathErr != nil {
 		return s
 	}
@@ -222,17 +223,24 @@ func (s *executionSession) publish(clock any) error {
 		omissions = nil
 	}
 	b, _ := json.Marshal(records)
-	index := map[string]any{"schema_id": "cartulary.harness_execution_index.v2", "run_id": s.manifest["run_id"], "source_digest": s.manifest["source_digest"], "graph_digest": s.manifest["graph_digest"], "policy_digest": s.manifest["instrumentation"].(map[string]any)["policy_digest"], "status": status, "omitted_records": omissions, "graph_clock": clock, "omitted_refs": append([]string{}, slices.Sorted(maps.Keys(s.missing))...), "records": records, "records_digest": bytesDigest(b)}
-	encoded, err := documentBytes("cartulary.harness_execution_index.v2", index)
+	index := map[string]any{"schema_id": "cartulary.harness_execution_index.v3", "run_id": s.manifest["run_id"], "source_digest": s.manifest["source_digest"], "graph_digest": s.manifest["graph_digest"], "policy_digest": s.manifest["instrumentation"].(map[string]any)["policy_digest"], "status": status, "omitted_records": omissions, "graph_clock": clock, "omitted_refs": append([]string{}, slices.Sorted(maps.Keys(s.missing))...), "records": records, "records_digest": bytesDigest(b), "allocation_lifecycle": s.lifecycle.document()}
+	encoded, err := documentBytes("cartulary.harness_execution_index.v3", index)
 	if err != nil {
 		return err
 	}
-	if len(encoded)+1 > s.limit("maximum_metadata_bytes") {
+	if len(encoded)+1 > s.limit("maximum_metadata_bytes")+s.limit("maximum_allocation_lifecycle_bytes") {
 		return harnesslocal.ErrUnsafe
 	}
-	return writeEvidence(s.runRoot, "diagnostics/execution-index.json", "cartulary.harness_execution_index.v2", index, false)
+	return writeEvidence(s.runRoot, "diagnostics/execution-index.json", "cartulary.harness_execution_index.v3", index, false)
 }
 func (s *executionSession) fixture(v harnessfixtures.Observation) {
+	if v.Kind == "allocation_lifecycle" {
+		s.recordLifecycle(v.Lifecycle)
+		return
+	}
+	if v.Kind == "allocation" && v.Capability == "browser_stack" && v.Outcome == "incomplete" {
+		s.beginLifecycle(v.AllocationRef)
+	}
 	r := map[string]any{"kind": v.Kind, "ref": v.Ref, "allocation_ref": v.AllocationRef, "unit_id": nullableString(v.UnitID), "capability": v.Capability, "ownership": nullableString(v.Ownership)}
 	if v.Kind == "lease" {
 		r["ref"] = "lease:" + v.LeaseRef

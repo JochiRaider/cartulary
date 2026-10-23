@@ -21,11 +21,14 @@ import (
 )
 
 func testEndpointDiagnostic(t *testing.T) {
+	t.Run("publication_request", testPublicationDiagnostic)
 	binding := func(port string) *dockercontainer.InspectResponse {
 		return &dockercontainer.InspectResponse{ID: "fixture-container", NetworkSettings: &dockercontainer.NetworkSettings{Ports: network.PortMap{network.MustParsePort("5432/tcp"): {{HostIP: netip.MustParseAddr("0.0.0.0"), HostPort: port}}}}}
 	}
 	t.Run("driver_observation_preserves_selection_and_redacts_identity", func(t *testing.T) {
-		d := newStartupDiagnostic(t.Context())
+		ctx, cancel := context.WithTimeout(t.Context(), 35*time.Second)
+		defer cancel()
+		d := newStartupDiagnostic(ctx)
 		e := d.endpoint
 		c := fakePostgresContainer{inspect: func(context.Context) (*dockercontainer.InspectResponse, error) { return binding("45678"), nil }}
 		e.selectEndpoint(t.Context(), c, "sensitive-host.example", "45678")
@@ -74,7 +77,7 @@ func testEndpointDiagnostic(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v4", value); err != nil {
+		if err := harnessschema.Validate("cartulary.postgres_readiness_diagnostic.v6", value); err != nil {
 			t.Fatal(err)
 		}
 		for _, secret := range []string{"sensitive-host", "45678", "192.0.2.11", "2001:db8", "password", "0.0.0.0"} {
