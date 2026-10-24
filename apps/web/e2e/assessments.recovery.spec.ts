@@ -17,10 +17,15 @@ import {
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
@@ -69,24 +74,27 @@ async function recovery(
     receipts: CreateViewRowResponse[] = [];
   let failedReads = false,
     release: (() => void) | null = null;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/views/${assessmentsViewSchemaId}/query`,
     async (route) => {
       if (failedReads) await route.abort("failed");
       else await route.continue();
     },
   );
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/views/${assessmentsViewSchemaId}/rows`,
     async (route) => {
       requests.push(route.request().postData() ?? "");
       const response = await route.fetch();
       expect(response.ok()).toBeTruthy();
       receipts.push(await response.json());
-      if (mode === "late")
-        await new Promise<void>((resolve) => {
-          release = resolve;
-        });
+      if (mode === "late") {
+        const heldResponse = responseBarrier(page);
+        release = heldResponse.release;
+        if (!(await awaitResponseBarrier(route, heldResponse.promise))) return;
+      }
       if (mode === "lost" && requests.length === 1) await route.abort("failed");
       else {
         if (mode === "refresh") failedReads = true;
@@ -309,7 +317,8 @@ test("Assessment support rejection preserves the editable draft with no partial 
     client_txn_id: uniqueTxn("foreign-support"),
     "timeline.activity_synopsis_text": "Foreign support",
   });
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/views/${assessmentsViewSchemaId}/rows`,
     async (route) => {
       const request = route.request().postDataJSON();

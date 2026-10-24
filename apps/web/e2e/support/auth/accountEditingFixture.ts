@@ -1,6 +1,11 @@
 import type { Page, Route } from "@playwright/test";
 import { expect } from "@playwright/test";
+import { responseBarrier } from "../runtime/cleanup";
 import { apiBase } from "../runtime/configuration";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "../transport/requestInterception";
 import {
   readSessionPresentationResponse,
   rewriteSessionPresentation,
@@ -12,13 +17,6 @@ import {
 
 type Kind = "profile" | "appearance";
 type Fault = "conflict" | "lost" | "transaction";
-export function accountResponseGate() {
-  let release: () => void = () => {};
-  const promise = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return { promise, release };
-}
 
 /** Browser-only deterministic resources and response gates; never used by production. */
 export async function installAccountEditingFixture(
@@ -51,8 +49,8 @@ export async function installAccountEditingFixture(
   const holds = new Map<
     Kind,
     {
-      received: ReturnType<typeof accountResponseGate>;
-      release: ReturnType<typeof accountResponseGate>;
+      received: ReturnType<typeof responseBarrier>;
+      release: ReturnType<typeof responseBarrier>;
     }
   >();
   const requests: Record<Kind, Record<string, unknown>[]> = {
@@ -63,7 +61,7 @@ export async function installAccountEditingFixture(
     string,
     { request: Record<string, unknown>; resource: unknown }
   >();
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     const displayName = profile.display_name;
     if (options.profileOnly) {
       await rewriteSessionPresentation(route, (current) => ({
@@ -86,7 +84,7 @@ export async function installAccountEditingFixture(
     });
   });
   if (!options.profileOnly)
-    await page.route("**/api/v1/incidents?*", (route) =>
+    await installOwnedRoute(page, "**/api/v1/incidents?*", (route) =>
       route.fulfill({
         json: {
           data: { incidents: [] },
@@ -118,7 +116,7 @@ export async function installAccountEditingFixture(
       if (hold) {
         holds.delete(kind);
         hold.received.release();
-        await hold.release.promise;
+        if (!(await awaitResponseBarrier(route, hold.release.promise))) return;
       }
       const replay = committed.get(`${kind}:${request.client_txn_id}`);
       if (replay) {
@@ -178,7 +176,7 @@ export async function installAccountEditingFixture(
       });
     };
     if (kind === "appearance") preferences.handleWrites(handler);
-    else await page.route(`**/api/v1/account/${path}`, handler);
+    else await installOwnedRoute(page, `**/api/v1/account/${path}`, handler);
   }
   return {
     requests,
@@ -186,8 +184,8 @@ export async function installAccountEditingFixture(
       faults.set(kind, fault);
     },
     hold: (kind: Kind) => {
-      const received = accountResponseGate();
-      const release = accountResponseGate();
+      const received = responseBarrier(page);
+      const release = responseBarrier(page);
       holds.set(kind, { received, release });
       return { received: received.promise, release: release.release };
     },

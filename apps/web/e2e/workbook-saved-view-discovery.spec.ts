@@ -14,16 +14,13 @@ import {
 } from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { uniqueIncidentKey } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createSavedView } from "./support/workbook/savedViews";
-
-function gate() {
-  let release = () => {};
-  const ready = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return { ready, release };
-}
 
 test("Saved-view discovery publishes bounded pages and preserves addressed selection through delayed reads and retry", async ({
   page,
@@ -77,17 +74,18 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
       }),
     ),
   );
-  const first = gate();
-  const nextRead = gate();
-  const retryFailure = gate();
-  const later = gate();
+  const first = responseBarrier(page);
+  const nextRead = responseBarrier(page);
+  const retryFailure = responseBarrier(page);
+  const later = responseBarrier(page);
   let firstPending = false;
   let nextPending = false;
   let retryFailurePending = false;
   let laterPending = false;
   let continuationAttempts = 0;
   const requests: URL[] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     new RegExp(`/api/v1/incidents/${incident}/saved-views(?:\\?|$)`),
     async (route) => {
       if (route.request().method() !== "GET") {
@@ -101,7 +99,7 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
       if (requests.length === 1) {
         const response = await route.fetch();
         firstPending = true;
-        await first.ready;
+        if (!(await awaitResponseBarrier(route, first.promise))) return;
         await route.fulfill({ response });
         return;
       }
@@ -109,7 +107,7 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
         continuationAttempts++;
         if (continuationAttempts === 1) {
           nextPending = true;
-          await nextRead.ready;
+          if (!(await awaitResponseBarrier(route, nextRead.promise))) return;
           await route.fulfill({
             status: 500,
             contentType: "application/json",
@@ -128,7 +126,8 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
         }
         if (continuationAttempts === 2) {
           retryFailurePending = true;
-          await retryFailure.ready;
+          if (!(await awaitResponseBarrier(route, retryFailure.promise)))
+            return;
           await route.fulfill({
             status: 500,
             contentType: "application/json",
@@ -148,7 +147,7 @@ test("Saved-view discovery publishes bounded pages and preserves addressed selec
         if (continuationAttempts === 3) {
           const response = await route.fetch();
           laterPending = true;
-          await later.ready;
+          if (!(await awaitResponseBarrier(route, later.promise))) return;
           await route.fulfill({ response });
           return;
         }

@@ -1433,13 +1433,6 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.test.public_error_fault.v1",
-      "path": "tools/schemas/cartulary.test.public_error_fault.v1.schema.json",
-      "classification": "public_contract",
-      "producer": "public-error test route",
-      "validation": "harness.json_shape_check"
-    },
-    {
       "schema_id": "cartulary.test.runtime_identity.v1",
       "path": "tools/schemas/cartulary.test.runtime_identity.v1.schema.json",
       "classification": "public_contract",

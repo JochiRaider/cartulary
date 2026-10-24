@@ -56,21 +56,29 @@ import {
 import type { Locator, Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
-import { readCurrentSession } from "./support/auth/sessions";
 import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import {
+  type BarrierOutcome,
+  responseBarrier,
+} from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { TestClock } from "./support/runtime/testClock";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest,
+  installOwnedRoute,
+  installPublicErrorResponse,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   authorLiteralMembers,
   expectLiteralMembership,
@@ -477,7 +485,8 @@ test("Timestamp drafts correct locally and fractional ranges select exact popula
   // A genuine failed read still retains its accepted row and chips.
   await chip.click();
   await upper.fill("2026-04-18T00:00:00.2Z");
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${taskRequestsViewSchemaId}/query`,
     (route) => route.abort("failed"),
     { times: 1 },
@@ -625,8 +634,8 @@ test("Timestamp saved queries reload and reopen without losing fractional instan
             : envelope.data;
     await route.fulfill({ response, json: { ...envelope, data } });
   };
-  await page.route(savedReads, olderRead);
-  await page.route(startupRead, olderRead);
+  await installOwnedRoute(page, savedReads, olderRead);
+  await installOwnedRoute(page, startupRead, olderRead);
   const rejected = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
@@ -657,8 +666,8 @@ test("Timestamp saved queries reload and reopen without losing fractional instan
   await expect(
     page.getByRole("group", { name: "Workbook browsing" }),
   ).toContainText("3 records loaded");
-  await page.unroute(savedReads, olderRead);
-  await page.unroute(startupRead, olderRead);
+  await removeOwnedRoute(page, savedReads, olderRead);
+  await removeOwnedRoute(page, startupRead, olderRead);
   const updated = page.waitForResponse(
     (response) =>
       response.request().method() === "PATCH" &&
@@ -802,7 +811,8 @@ test("Boolean filters preserve typed saved and accepted operands across matching
   await chip.click();
   await falseChoice.uncheck();
   await trueChoice.check();
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
     (route) => route.abort("failed"),
     { times: 1 },
@@ -931,7 +941,7 @@ test("Enum equality choices remain explicit and preserve custom queries", async 
   const requests: QueryWorkbookViewRequest[] = [];
   const accepted: QueryWorkbookViewResponse[] = [];
   let failNext = false;
-  await page.route(`**${endpoint}`, async (route) => {
+  await installOwnedRoute(page, `**${endpoint}`, async (route) => {
     requests.push(route.request().postDataJSON() as QueryWorkbookViewRequest);
     if (failNext) {
       failNext = false;
@@ -1303,21 +1313,11 @@ async function seed(
   return fixture;
 }
 
-const queryObserverCleanup = new WeakMap<Page, Array<() => Promise<void>>>();
-
-test.afterEach(async ({ page }) => {
-  // Finish only this observer's work before Playwright disposes fetched bodies.
-  // Deliberately held routes in other scenarios keep their own lifecycle.
-  for (const dispose of queryObserverCleanup.get(page) ?? []) await dispose();
-  queryObserverCleanup.delete(page);
-});
-
 async function observeQuery(page: Page, incident: string, view: string) {
   const reads: {
     request: QueryWorkbookViewRequest;
     response: QueryWorkbookViewResponse;
   }[] = [];
-  const pending = new Set<Promise<void>>();
   const path = `**/incidents/${incident}/views/${view}/query`;
   const read = async (route: Route) => {
     const response = await route.fetch();
@@ -1328,22 +1328,7 @@ async function observeQuery(page: Page, incident: string, view: string) {
       });
     await route.fulfill({ response });
   };
-  const handler = async (route: Route) => {
-    const completion = read(route);
-    pending.add(completion);
-    try {
-      await completion;
-    } finally {
-      pending.delete(completion);
-    }
-  };
-  await page.route(path, handler);
-  const cleanup = queryObserverCleanup.get(page) ?? [];
-  cleanup.push(async () => {
-    await page.unroute(path, handler);
-    await Promise.all(pending);
-  });
-  queryObserverCleanup.set(page, cleanup);
+  await installOwnedRoute(page, path, read);
   return reads;
 }
 
@@ -1572,16 +1557,17 @@ test("Workbook Group retains requested keyboard choice during delayed replacemen
   await expect(acceptedGroup).toBeVisible();
   let releaseOlder = () => {};
   let releaseLatest = () => {};
-  const olderGate = new Promise<void>((resolve) => {
-    releaseOlder = resolve;
-  });
-  const latestGate = new Promise<void>((resolve) => {
-    releaseLatest = resolve;
-  });
+  const olderGateBarrier = responseBarrier(page);
+  releaseOlder = olderGateBarrier.release;
+  const olderGate = olderGateBarrier.promise;
+  const latestGateBarrier = responseBarrier(page);
+  releaseLatest = latestGateBarrier.release;
+  const latestGate = latestGateBarrier.promise;
   const held = new Set<string>();
   const settled = new Set<string>();
   const requested: QueryWorkbookViewRequest[] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       const request = route
@@ -1598,11 +1584,15 @@ test("Workbook Group retains requested keyboard choice during delayed replacemen
       requested.push(request);
       const response = await route.fetch();
       held.add(groupBy);
-      await (groupBy === "timeline.has_evidence" ? olderGate : latestGate);
+      if (
+        !(await awaitResponseBarrier(
+          route,
+          groupBy === "timeline.has_evidence" ? olderGate : latestGate,
+        ))
+      )
+        return;
       try {
         await route.fulfill({ response });
-      } catch (error) {
-        if (route.request().failure() === null) throw error;
       } finally {
         settled.add(groupBy);
       }
@@ -1672,9 +1662,12 @@ test("Workbook Group retains requested keyboard choice during delayed replacemen
     await grouping.press("Escape");
     await expect(latestChip).toBeFocused();
     await expect(grouping).toHaveValue("timeline.has_unresolved_mentions");
-  } finally {
+
     releaseLatest();
     releaseOlder();
+  } finally {
+    latestGateBarrier.cancel();
+    olderGateBarrier.cancel();
   }
 });
 
@@ -1711,10 +1704,11 @@ test("Workbook Group retains requested keyboard choice after failed replacement"
   let failEvidence = true;
   let failNone = false;
   let releaseNone = () => {};
-  const noneGate = new Promise<void>((resolve) => {
-    releaseNone = resolve;
-  });
-  await page.route(
+  const noneGateBarrier = responseBarrier(page);
+  releaseNone = noneGateBarrier.release;
+  const noneGate = noneGateBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       const request = route
@@ -1728,7 +1722,7 @@ test("Workbook Group retains requested keyboard choice after failed replacement"
       }
       if (request.group_by === undefined && failNone) {
         failNone = false;
-        await noneGate;
+        if (!(await awaitResponseBarrier(route, noneGate))) return;
         await route.abort("failed");
         return;
       }
@@ -1804,8 +1798,10 @@ test("Workbook Group retains requested keyboard choice after failed replacement"
         gridGroupRowsSelector(timelineViewSchemaId, "timeline.has_evidence"),
       ),
     ).not.toHaveCount(0);
-  } finally {
+
     releaseNone();
+  } finally {
+    noneGateBarrier.cancel();
   }
   await expect(retry).toBeVisible();
   await expect(grouping).toHaveValue("");
@@ -1839,7 +1835,8 @@ test("Workbook Group pointer selection stays scoped to Hosts", async ({
   await seed(page, incident, hostsViewSchemaId, 2, testActor.user_id);
   await seed(page, incident, timelineViewSchemaId, 1, testActor.user_id);
   const requests: QueryWorkbookViewRequest[] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${hostsViewSchemaId}/query`,
     async (route) => {
       requests.push(route.request().postDataJSON() as QueryWorkbookViewRequest);
@@ -2337,9 +2334,9 @@ test("Workbook real-route recovery preserves accepted labels and reconciles live
     "normal";
   let held = false;
   let release: () => void = () => {};
-  let gate = Promise.resolve();
+  let gate: Promise<BarrierOutcome> = Promise.resolve("released");
   const path = `**/incidents/${incident}/views/${view}/query`;
-  await page.route(path, async (route) => {
+  await installOwnedRoute(page, path, async (route) => {
     const request = route.request().postDataJSON() as QueryWorkbookViewRequest;
     const behavior = mode;
     mode = "normal";
@@ -2363,7 +2360,7 @@ test("Workbook real-route recovery preserves accepted labels and reconciles live
     reads.push(read);
     if (behavior === "hold") {
       held = true;
-      await gate;
+      if (!(await awaitResponseBarrier(route, gate))) return;
     }
     if (behavior === "malformed") {
       delete payload.meta.paging;
@@ -2466,9 +2463,7 @@ test("Workbook real-route recovery preserves accepted labels and reconciles live
   await expect(
     page.getByTestId(rowCellTestId(inserted.record_id, "note.title")),
   ).toHaveText("Live inserted");
-  gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  ({ promise: gate, release: release } = responseBarrier(page));
   mode = "hold";
   await controls.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect.poll(() => held).toBe(true);
@@ -2516,14 +2511,18 @@ test("Workbook query recovery retains keyboard focus through Timeline replacemen
   const reads: QueryWorkbookViewRequest[] = [];
   let next: "ordinary" | "fail" | "hold_failure" | "hold_success" = "ordinary";
   let release = () => {};
-  let gate = Promise.resolve();
+  let cancel = () => {};
+  let gate: Promise<BarrierOutcome> = Promise.resolve("released");
   const hold = (outcome: "hold_failure" | "hold_success") => {
-    gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    ({
+      promise: gate,
+      release: release,
+      cancel: cancel,
+    } = responseBarrier(page));
     next = outcome;
   };
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       const request = route
@@ -2538,7 +2537,7 @@ test("Workbook query recovery retains keyboard focus through Timeline replacemen
       }
       const response = await route.fetch();
       if (behavior === "hold_failure" || behavior === "hold_success") {
-        await gate;
+        if (!(await awaitResponseBarrier(route, gate))) return;
         if (behavior === "hold_failure") {
           await route.abort("failed");
           return;
@@ -2655,7 +2654,7 @@ test("Workbook query recovery retains keyboard focus through Timeline replacemen
     await expect(revert).toHaveCount(0);
     expect(writes).toEqual([]);
   } finally {
-    release();
+    cancel();
   }
 });
 
@@ -2676,9 +2675,11 @@ test("Workbook query recovery keeps keyboard focus with accepted-empty Notes", a
   );
   let next: "ordinary" | "fail" | "hold" = "ordinary";
   let release = () => {};
-  let gate = Promise.resolve();
+  let cancel = () => {};
+  let gate: Promise<BarrierOutcome> = Promise.resolve("released");
   const reads: QueryWorkbookViewRequest[] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${notesViewSchemaId}/query`,
     async (route) => {
       const request = route
@@ -2692,7 +2693,8 @@ test("Workbook query recovery keeps keyboard focus with accepted-empty Notes", a
         return;
       }
       const response = await route.fetch();
-      if (behavior === "hold") await gate;
+      if (behavior === "hold")
+        if (!(await awaitResponseBarrier(route, gate))) return;
       await route.fulfill({ response });
     },
   );
@@ -2710,9 +2712,11 @@ test("Workbook query recovery keeps keyboard focus with accepted-empty Notes", a
     expect(failed?.cursor_token).toBeUndefined();
     await expect(controls).toContainText("0 records loaded");
     await reachButtonByTab(page, retry);
-    gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    ({
+      promise: gate,
+      release: release,
+      cancel: cancel,
+    } = responseBarrier(page));
     next = "hold";
     const count = reads.length;
     await page.keyboard.press("Enter");
@@ -2730,7 +2734,7 @@ test("Workbook query recovery keeps keyboard focus with accepted-empty Notes", a
     await page.keyboard.press("Tab");
     await expect(retry).toHaveCount(0);
   } finally {
-    release();
+    cancel();
   }
 });
 
@@ -2802,16 +2806,17 @@ test("Workbook continuation revalidates role and membership and fences a late au
   expect(deniedWrite.status).toBe(403);
   let release: () => void = () => {};
   let held = false;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${view}/query`,
     async (route) => {
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       held = true;
-      await gate;
+      if (!(await awaitResponseBarrier(route, gate))) return;
       await route.fulfill({ response });
     },
     { times: 1 },
@@ -2838,98 +2843,105 @@ test("Workbook expiry clears continuation and account replacement starts a reada
   sessionTracker,
 }) => {
   test.setTimeout(180_000);
-  const clock = new TestClock(page);
-  await clock.reset();
-  try {
-    const view = notesViewSchemaId;
-    const incident = await createIncident(
-      page,
-      uniqueIncidentKey("WQC-SESSION"),
-      "Workbook paging session lifetime",
+  const view = notesViewSchemaId;
+  const incident = await createIncident(
+    page,
+    uniqueIncidentKey("WQC-SESSION"),
+    "Workbook paging session lifetime",
+  );
+  await seed(page, incident, view, 305, testActor.user_id);
+  const members = [];
+  for (const label of ["first", "replacement"])
+    members.push(
+      await createIncidentMemberUser(page, incident, {
+        email: uniqueEmail(`wqc-${label}`),
+        display_name: `Workbook ${label}`,
+        initial_password: "WorkbookPaging1!",
+        role: "viewer",
+        is_deployment_admin: false,
+        mfa_required: false,
+      }),
     );
-    await seed(page, incident, view, 305, testActor.user_id);
-    const members = [];
-    for (const label of ["first", "replacement"])
-      members.push(
-        await createIncidentMemberUser(page, incident, {
-          email: uniqueEmail(`wqc-${label}`),
-          display_name: `Workbook ${label}`,
-          initial_password: "WorkbookPaging1!",
-          role: "viewer",
-          is_deployment_admin: false,
-          mfa_required: false,
-        }),
-      );
-    const before = await currentLifecycle(page, incident);
-    expect(
-      (
-        await lifecycleAction(page, incident, "closeIncident", {
-          client_txn_id: uniqueTxn("wqc-close"),
-          base_incident_version: before.incident_version,
-          reason: "Closed readable continuation evidence",
-        })
-      ).ok,
-    ).toBe(true);
-    const first = members[0],
-      second = members[1];
-    if (!first || !second) throw new Error("Missing account fixtures");
-    await sessionTracker.loginTrackedUser(page, {
-      createdBy: "wqc-session",
-      email: first.email,
-      password: first.initial_password,
-      purpose: "closed workbook browsing",
-      userId: first.user_id,
-    });
-    const reads = await observeQuery(page, incident, view);
+  const before = await currentLifecycle(page, incident);
+  expect(
+    (
+      await lifecycleAction(page, incident, "closeIncident", {
+        client_txn_id: uniqueTxn("wqc-close"),
+        base_incident_version: before.incident_version,
+        reason: "Closed readable continuation evidence",
+      })
+    ).ok,
+  ).toBe(true);
+  const first = members[0],
+    second = members[1];
+  if (!first || !second) throw new Error("Missing account fixtures");
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "wqc-session",
+    email: first.email,
+    password: first.initial_password,
+    purpose: "closed workbook browsing",
+    userId: first.user_id,
+  });
+  const reads = await observeQuery(page, incident, view);
+  await page.goto(
+    `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(view)}`,
+  );
+  const controls = page.getByRole("group", { name: "Workbook browsing" });
+  await expect(controls).toContainText("100 records loaded; more available.");
+  await controls
+    .getByRole("button", { name: "Load more", exact: true })
+    .click();
+  await expect(controls).toContainText("200 records loaded; more available.");
+  const sessionExpiry = await installPublicErrorResponse(page, {
+    method: "GET",
+    path: "/api/v1/auth/session",
+    code: "session_required",
+    status: 401,
+  });
+  const expiry = await installPublicErrorResponse(page, {
+    method: "POST",
+    path: `/api/v1/incidents/${incident}/views/${view}/query`,
+    code: "session_required",
+    status: 401,
+  });
+  // The local response exercises retirement; actual expiry has its own HTTP case.
+  if (await controls.isVisible())
+    await controls
+      .getByRole("button", { name: "Refresh", exact: true })
+      .click();
+  await expect(page.getByTestId(authTestId("shell"))).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(controls).toHaveCount(0);
+  await expect(page.getByTestId(gridShellTestId(view))).toHaveCount(0);
+  expect(expiry.hitCount()).toBe(1);
+  expect(sessionExpiry.hitCount()).toBe(1);
+  await expiry.dispose();
+  await sessionExpiry.dispose();
+  const beforeReplacement = reads.length;
+  await sessionTracker.loginTrackedUser(page, {
+    createdBy: "wqc-session",
+    email: second.email,
+    password: second.initial_password,
+    purpose: "replacement account browsing",
+    userId: second.user_id,
+    recovery: true,
+  });
+  // Account replacement may return to landing; enter the same readable incident explicitly.
+  if (!new URL(page.url()).searchParams.has("incident_id"))
     await page.goto(
       `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(view)}`,
     );
-    const controls = page.getByRole("group", { name: "Workbook browsing" });
-    await expect(controls).toContainText("100 records loaded; more available.");
-    await controls
-      .getByRole("button", { name: "Load more", exact: true })
-      .click();
-    await expect(controls).toContainText("200 records loaded; more available.");
-    const session = await readCurrentSession(page);
-    await clock.setAfter(session.session_expires_at);
-    // Closed incidents terminate their collaboration stream; an explicit read observes expiry.
-    if (await controls.isVisible())
-      await controls
-        .getByRole("button", { name: "Refresh", exact: true })
-        .click();
-    await expect(page.getByTestId(authTestId("shell"))).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(controls).toHaveCount(0);
-    await expect(page.getByTestId(gridShellTestId(view))).toHaveCount(0);
-    await clock.reset();
-    const beforeReplacement = reads.length;
-    await sessionTracker.loginTrackedUser(page, {
-      createdBy: "wqc-session",
-      email: second.email,
-      password: second.initial_password,
-      purpose: "replacement account browsing",
-      userId: second.user_id,
-      recovery: true,
-    });
-    // Account replacement may return to landing; enter the same readable incident explicitly.
-    if (!new URL(page.url()).searchParams.has("incident_id"))
-      await page.goto(
-        `/?incident_id=${incident}&view_schema_id=${encodeURIComponent(view)}`,
-      );
-    await expect(controls).toContainText("100 records loaded; more available.");
-    expect(
-      reads
-        .slice(beforeReplacement)
-        .every((read) => read.request.cursor_token === undefined),
-    ).toBe(true);
-    await controls
-      .getByRole("button", { name: "Load more", exact: true })
-      .click();
-    await expect(controls).toContainText("200 records loaded; more available.");
-  } finally {
-    await clock.reset();
-  }
+  await expect(controls).toContainText("100 records loaded; more available.");
+  expect(
+    reads
+      .slice(beforeReplacement)
+      .every((read) => read.request.cursor_token === undefined),
+  ).toBe(true);
+  await controls
+    .getByRole("button", { name: "Load more", exact: true })
+    .click();
+  await expect(controls).toContainText("200 records loaded; more available.");
 });
 
 async function dateFilterCorrection(page: Page, view: string) {
@@ -2969,7 +2981,7 @@ async function dateFilterCorrection(page: Page, view: string) {
       requests.push(request.postDataJSON() as QueryWorkbookViewRequest);
   });
   let failNext = false;
-  await page.route(`**${endpoint}`, async (route) => {
+  await installOwnedRoute(page, `**${endpoint}`, async (route) => {
     if (failNext) {
       failNext = false;
       await route.abort("failed");
@@ -2989,7 +3001,7 @@ async function dateFilterCorrection(page: Page, view: string) {
   await expect(firstRow).toBeVisible();
   await expect(secondRow).toBeVisible();
   let heldDraft: Awaited<ReturnType<typeof holdBrowserRequest>> | undefined;
-  try {
+  {
     if (view === timelineViewSchemaId) {
       heldDraft = await holdBrowserRequest(page, {
         method: "POST",
@@ -3165,7 +3177,7 @@ async function dateFilterCorrection(page: Page, view: string) {
     await lower.press("Escape");
     await expect(chip).toBeFocused();
     await expect(page.getByRole("dialog")).toHaveCount(0);
-  } finally {
+
     await heldDraft?.dispose();
   }
 }

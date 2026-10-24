@@ -47,17 +47,24 @@ import {
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import { csrfHeaders, loginLocalSession } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import {
+  type BarrierOutcome,
+  responseBarrier,
+} from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 import {
@@ -1630,14 +1637,18 @@ test("Timeline requested Filters remain editable during held and failed replacem
   const requests: QueryWorkbookViewRequest[] = [];
   let outcome: "hold" | "fail" | "ordinary" = "ordinary";
   let release = () => {};
-  let held = Promise.resolve();
+  let cancel = () => {};
+  let held: Promise<BarrierOutcome> = Promise.resolve("released");
   const holdNext = () => {
-    held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    ({
+      promise: held,
+      release: release,
+      cancel: cancel,
+    } = responseBarrier(page));
     outcome = "hold";
   };
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       const request = route
@@ -1652,12 +1663,8 @@ test("Timeline requested Filters remain editable during held and failed replacem
         return;
       }
       const response = await route.fetch();
-      if (selectedGate !== null) await selectedGate;
-      try {
-        await route.fulfill({ response });
-      } catch (error) {
-        if (selectedGate === null) throw error;
-      }
+      if (!(await awaitResponseBarrier(route, selectedGate))) return;
+      await route.fulfill({ response });
     },
   );
   const trigger = page.getByTestId(
@@ -1800,7 +1807,7 @@ test("Timeline requested Filters remain editable during held and failed replacem
     await expect(trigger).not.toContainText("Unapplied");
     expect(writes).toEqual([]);
   } finally {
-    release();
+    cancel();
   }
 });
 
@@ -1846,10 +1853,11 @@ test("Notes canonical Filters reconcile pending clear, Revert and Retry", async 
   const reads: QueryWorkbookViewRequest[] = [];
   let outcome: "hold" | "fail" | "ordinary" = "ordinary";
   let release = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/incidents/${incidentId}/views/${notesViewSchemaId}/query`,
     async (route) => {
       reads.push(route.request().postDataJSON() as QueryWorkbookViewRequest);
@@ -1860,7 +1868,8 @@ test("Notes canonical Filters reconcile pending clear, Revert and Retry", async 
         return;
       }
       const response = await route.fetch();
-      if (selected === "hold") await gate;
+      if (selected === "hold")
+        if (!(await awaitResponseBarrier(route, gate))) return;
       await route.fulfill({ response });
     },
   );
@@ -1928,8 +1937,10 @@ test("Notes canonical Filters reconcile pending clear, Revert and Retry", async 
     await expect(chip).toHaveCount(0);
     await expect(trigger).not.toContainText("Unapplied");
     expect(writes).toEqual([]);
-  } finally {
+
     release();
+  } finally {
+    gateBarrier.cancel();
   }
 });
 
@@ -2544,19 +2555,23 @@ test("Saved-view authoring retains uncertain committed creates and requires a de
   const endpoint = `/api/v1/incidents/${id}/saved-views`;
   let writes = 0;
   let failRefresh = false;
-  await page.route(new RegExp(`${endpoint}(?:/|\\?|$)`), async (route) => {
-    if (route.request().method() === "POST") {
-      writes += 1;
-      const response = await route.fetch();
-      expect(response.status()).toBe(201);
-      if (writes === 1) await route.abort("failed");
-      else {
-        failRefresh = true;
-        await route.fulfill({ response });
-      }
-    } else if (failRefresh) await route.abort("failed");
-    else await route.continue();
-  });
+  await installOwnedRoute(
+    page,
+    new RegExp(`${endpoint}(?:/|\\?|$)`),
+    async (route) => {
+      if (route.request().method() === "POST") {
+        writes += 1;
+        const response = await route.fetch();
+        expect(response.status()).toBe(201);
+        if (writes === 1) await route.abort("failed");
+        else {
+          failRefresh = true;
+          await route.fulfill({ response });
+        }
+      } else if (failRefresh) await route.abort("failed");
+      else await route.continue();
+    },
+  );
   await setSavedViewDraftName(page, timelineViewSchemaId, "Retained creation");
   await page
     .getByRole("button", {
@@ -2622,22 +2637,25 @@ test("Saved-view authoring accepts delayed receipts after navigation without cha
   );
   await page.goto(`/?incident_id=${id}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
-  let release: (() => void) | undefined;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const gateBarrier = responseBarrier(page);
+  const release = gateBarrier.release;
+  const gate = gateBarrier.promise;
   let committed = false;
-  await page.route(`**/api/v1/incidents/${id}/saved-views`, async (route) => {
-    if (route.request().method() !== "POST") {
-      await route.continue();
-      return;
-    }
-    const response = await route.fetch();
-    expect(response.status()).toBe(201);
-    committed = true;
-    await gate;
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/incidents/${id}/saved-views`,
+    async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      expect(response.status()).toBe(201);
+      committed = true;
+      if (!(await awaitResponseBarrier(route, gate))) return;
+      await route.fulfill({ response });
+    },
+  );
   await setSavedViewDraftName(page, timelineViewSchemaId, "Delayed creation");
   await page
     .getByRole("button", {

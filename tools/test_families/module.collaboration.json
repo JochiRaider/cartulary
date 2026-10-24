@@ -74,7 +74,7 @@
         "object_store",
         "postgres"
       ],
-      "browser_state_scope": "isolated",
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {
@@ -111,7 +111,7 @@
         "object_store",
         "postgres"
       ],
-      "browser_state_scope": "isolated",
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {
@@ -185,7 +185,7 @@
         "object_store",
         "postgres"
       ],
-      "browser_state_scope": "isolated",
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {
@@ -245,7 +245,7 @@
           "scenario_f645b23950cc"
         ],
         "titles": [
-          "preserves unsaved local work after socket revocation and re-authentication"
+          "preserves unsaved local work after socket idle expiry and re-authentication"
         ]
       },
       "evidence_class": "browser",
@@ -260,6 +260,80 @@
         "postgres"
       ],
       "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.collaboration.browser_stateful.session_recovery_logout",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/session-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "collaboration_session_recovery_logout"
+        ],
+        "titles": [
+          "preserves and replays local work after current-session logout"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
+      "postgres_isolation": "exclusive"
+    },
+    {
+      "row_id": "module.collaboration.browser_stateful.session_recovery_revoke_all",
+      "owner_id": "module.collaboration",
+      "family_id": "module.collaboration.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.collaboration"
+      ],
+      "verification_ids": [
+        "module.collaboration.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/session-recovery.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "collaboration_session_recovery_revoke_all"
+        ],
+        "titles": [
+          "preserves and replays local work after owned-user revoke-all"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {
@@ -297,7 +371,7 @@
         "object_store",
         "postgres"
       ],
-      "browser_state_scope": "isolated",
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {

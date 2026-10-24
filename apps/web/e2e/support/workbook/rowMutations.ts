@@ -140,40 +140,11 @@ export async function clickTimelineRowAction(
 }
 
 export function waitForTimelinePatch(page: Page, recordId: string) {
-  const responsePromise = page.waitForResponse(
+  return page.waitForResponse(
     (response) =>
       response.request().method() === "PATCH" &&
       response.url().endsWith(`/api/v1/records/${recordId}`),
   );
-  return Promise.race([
-    responsePromise,
-    waitForPendingQueueAuthPause(page, `timeline PATCH ${recordId}`),
-  ]);
-}
-
-async function waitForPendingQueueAuthPause(
-  page: Page,
-  context: string,
-): Promise<Response> {
-  const notice = page
-    .getByTestId(workbookShellSlotTestId("status-strip"))
-    .filter({ hasText: "Authentication is required before queued edits" });
-  return notice
-    .waitFor({ state: "visible", timeout: 60_000 })
-    .then(async () => {
-      throw new Error(
-        formatPendingQueueAuthPause(
-          context,
-          await pendingQueueDiagnosticSnapshot(page),
-        ),
-      );
-    })
-    .catch((error: unknown) => {
-      if (String(error).includes("Timeout")) {
-        return new Promise<Response>(() => undefined);
-      }
-      throw error;
-    });
 }
 
 async function pendingQueueDiagnosticSnapshot(page: Page) {

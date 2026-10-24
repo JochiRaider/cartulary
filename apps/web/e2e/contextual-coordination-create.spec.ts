@@ -17,8 +17,14 @@ import {
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { uniqueEmail, uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   coordinationMatrix,
   fillCoordinationMinimum,
@@ -203,7 +209,7 @@ test("Coordination response loss after server commit recovers the exact request 
   expect(
     await queryViewRows(page, f.incident, f.target.viewSchemaId),
   ).toHaveLength(1);
-  await page.unroute(path);
+  await removeOwnedRoute(page, path);
   const response = page.waitForResponse(
     (r) =>
       r.request().method() === "POST" &&
@@ -233,11 +239,12 @@ test("Accepted coordination refresh recovery sends reads only and keeps the sour
   let committed = false,
     creates = 0;
   const query = `**/incidents/${f.incident}/views/${f.target.viewSchemaId}/query`;
-  await page.route(query, async (route) => {
+  await installOwnedRoute(page, query, async (route) => {
     if (committed) await route.abort("failed");
     else await route.continue();
   });
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${f.incident}/views/${f.target.viewSchemaId}/rows`,
     async (route) => {
       creates++;
@@ -264,7 +271,7 @@ test("Accepted coordination refresh recovery sends reads only and keeps the sour
     exact: true,
   });
   await expect(recovery).toContainText("views need refresh");
-  await page.unroute(query);
+  await removeOwnedRoute(page, query);
   await recovery
     .getByRole("button", { name: "Retry refresh", exact: true })
     .press("Enter");
@@ -318,17 +325,21 @@ test("Incident revocation conceals coordination drafts and late acceptance while
   await fillCoordinationMinimum(f);
   let committed = false;
   let release: () => void = () => {};
-  const delayed = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const delayedBarrier = responseBarrier(page);
+  release = delayedBarrier.release;
+  const delayed = delayedBarrier.promise;
   const suffix = `/views/${f.target.viewSchemaId}/rows`;
-  await page.route(`**/incidents/${f.incident}${suffix}`, async (route) => {
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    committed = true;
-    await delayed;
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/incidents/${f.incident}${suffix}`,
+    async (route) => {
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      committed = true;
+      if (!(await awaitResponseBarrier(route, delayed))) return;
+      await route.fulfill({ response });
+    },
+  );
   await f.form
     .getByTestId(genericCreateSubmitTestId(f.target.viewSchemaId))
     .click();

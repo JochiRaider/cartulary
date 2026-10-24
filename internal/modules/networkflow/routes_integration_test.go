@@ -75,8 +75,17 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 	}
 	AssertLiveSQLKeysetBoundaries(t, store, incidentID, table.TableID)
 	root := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow"
+	readerEmail := "pagination-reader@example.test"
+	createdReader := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/users", map[string]any{
+		"client_txn_id": "pagination-reader", "auth_kind": "local", "email": readerEmail,
+		"display_name": "Pagination reader", "initial_password": "PaginationReader1!", "mfa_required": false,
+	}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	readerID := httptestx.RequireSuccessEnvelope(t, createdReader, http.StatusCreated)["data"].(map[string]any)["user_id"].(string)
+	scenariotest.CreateMembershipForUser(t, harness.Server, login, incidentID.String(), readerID, readerEmail, "viewer")
+	reader, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, readerEmail, "PaginationReader1!", nil)
+	otherSession, _ := flowtest.LoginLocalUser(t, http.DefaultClient, harness.Server.HTTP.URL, readerEmail, "PaginationReader1!", nil)
 	query := func(path string, body map[string]any) map[string]any {
-		response := httptestx.DoJSON(t, http.MethodPost, root+path, body, httptestx.WithCookies(login.SessionCookie))
+		response := httptestx.DoJSON(t, http.MethodPost, root+path, body, httptestx.WithCookies(reader))
 		return httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)["data"].(map[string]any)
 	}
 	t.Run("module generated cursor entropy", func(t *testing.T) {
@@ -96,20 +105,34 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 
 	graph := query("/graphs/query", map[string]any{"schema_id": "cartulary.network_flow.graph_query_request.v2", "table_scope": map[string]any{"mode": "active_table", "active_table_id": table.TableID}, "aggregation": map[string]any{"mode": "default_flow_edge_v1"}})
 	selector := graph["vertex_selectors"].([]any)[0].(map[string]any)["selector"]
-	for _, route := range []struct {
+	routes := []struct {
 		name, path, continuation, items string
 		initial                         map[string]any
 	}{
 		{"rows", "/tables/" + table.TableID + "/query", schemaTableQueryContinuationForTest, "rows", map[string]any{"schema_id": schemaTableQueryRequestForTest, "limit": 1}},
 		{"diagnostics", "/tables/" + table.TableID + "/rejected-rows/query", "cartulary.network_flow.rejected_rows_query_continuation.v1", "diagnostics", map[string]any{"schema_id": "cartulary.network_flow.rejected_rows_query_request.v1", "limit": 1}},
 		{"contributors", "/graphs/contributors/query", "cartulary.network_flow.graph_contributor_query_continuation.v1", "contributors", map[string]any{"schema_id": "cartulary.network_flow.graph_contributor_query_request.v2", "graph_query": graph["semantic_query"], "graph_query_digest": graph["graph_query_digest"], "selector": selector, "limit": 1}},
-	} {
+	}
+	for index, route := range routes {
 		t.Run(route.name, func(t *testing.T) {
 			issued := harness.Server.Clock.Now()
 			first := query(route.path, route.initial)
 			firstItems := first[route.items].([]any)
 			token := first["meta"].(map[string]any)["paging"].(map[string]any)["next_cursor_token"].(string)
 			continuation := map[string]any{"schema_id": route.continuation, "cursor_token": token}
+			// Every public continuation route binds the issuing actor and session,
+			// rejects cross-route tokens, and rejects semantic overrides.
+			for _, cookie := range []*http.Cookie{otherSession, login.SessionCookie} {
+				initial := httptestx.DoJSON(t, http.MethodPost, root+route.path, route.initial, httptestx.WithCookies(cookie))
+				httptestx.RequireSuccessEnvelope(t, initial, http.StatusOK)
+				response := httptestx.DoJSON(t, http.MethodPost, root+route.path, continuation, httptestx.WithCookies(cookie))
+				httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "network_flow_cursor_invalid")
+			}
+			otherRoute := routes[(index+1)%len(routes)]
+			crossRoute := httptestx.DoJSON(t, http.MethodPost, root+otherRoute.path, map[string]any{"schema_id": otherRoute.continuation, "cursor_token": token}, httptestx.WithCookies(reader))
+			httptestx.RequireErrorEnvelope(t, crossRoute, http.StatusBadRequest, "network_flow_cursor_invalid")
+			override := httptestx.DoJSON(t, http.MethodPost, root+route.path, map[string]any{"schema_id": route.continuation, "cursor_token": token, "limit": 2}, httptestx.WithCookies(reader))
+			httptestx.RequireErrorEnvelope(t, override, http.StatusBadRequest, "network_flow_cursor_invalid")
 			rename := httptestx.DoJSON(t, http.MethodPatch, root+"/tables/"+table.TableID, map[string]any{
 				"client_txn_id": "pagination-rename-" + route.name, "base_table_version": table.TableVersion, "display_name": "Pages " + route.name,
 			}, httptestx.WithCookies(login.SessionCookie, login.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
@@ -126,7 +149,7 @@ func TestNetworkFlowPaginationRecovery_Integration(t *testing.T) {
 			httptestx.SetClockAfter(t, harness.Server, issued, 899*time.Second)
 			query(route.path, continuation)
 			httptestx.SetClockAfter(t, harness.Server, issued, 900*time.Second)
-			response := httptestx.DoJSON(t, http.MethodPost, root+route.path, continuation, httptestx.WithCookies(login.SessionCookie))
+			response := httptestx.DoJSON(t, http.MethodPost, root+route.path, continuation, httptestx.WithCookies(reader))
 			body := httptestx.RequireErrorEnvelope(t, response, http.StatusBadRequest, "network_flow_cursor_invalid")
 			details := body["error"].(map[string]any)["details"].(map[string]any)
 			if details["reason_code"] != "expired" || details["retry_action"] != "restart_query" {

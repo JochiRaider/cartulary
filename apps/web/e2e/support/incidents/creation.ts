@@ -2,14 +2,6 @@ import { incidentLandingTestId } from "@cartulary/ui-contracts";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { IncidentDirectory } from "../../pages/incidentDirectory";
 
-export function responseBarrier() {
-  let release = () => {};
-  const promise = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return { promise, release };
-}
-
 export async function openCreationPresentation(page: Page) {
   await new IncidentDirectory(page).goto();
   // Keep authorized background fixtures deterministic without replacing the query.

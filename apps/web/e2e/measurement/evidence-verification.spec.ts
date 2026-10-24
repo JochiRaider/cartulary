@@ -8,12 +8,8 @@ import {
   timelineMutationSubstrateReadyTestId,
   timelineScalarEditorTestId,
 } from "@cartulary/ui-contracts";
-import { type Request, request } from "@playwright/test";
-import {
-  loginTrackedUserViaPage,
-  logoutAndVerify,
-  readCurrentSession,
-} from "../support/auth/sessions";
+import type { Request } from "@playwright/test";
+import { readCurrentSession } from "../support/auth/sessions";
 import { authHeadersForStorageState } from "../support/auth/storageState";
 import {
   evidenceInspectorAccount,
@@ -31,21 +27,23 @@ import { expect, test } from "./fixtures";
 import type { JobProgressCompletion } from "./jobProgressPaint";
 
 // The physical preview preflight and File upload must not retain capabilities or bytes.
+test.use({ jobSettlementTimeout: 130_000 });
+
 test.use({ trace: "off", screenshot: "off", video: "off" });
 test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
 test("measures Evidence verification progress and cancel while another Timeline row accepts editing", async ({
-  browser,
+  browserScope,
+  sessionTracker,
 }, info) => {
   expect(info.retry).toBe(0);
-  const context = await browser.newContext({
+  const context = await browserScope.newContext({
     viewport: { width: 1920, height: 1080 },
     deviceScaleFactor: 1,
   });
   context.setDefaultTimeout(10_000);
   context.setDefaultNavigationTimeout(30_000);
   const page = await context.newPage();
-  let authenticated = false,
-    attached = false,
+  let attached = false,
     completion: JobProgressCompletion | undefined;
   let target: Parameters<typeof attachEvidenceVerificationObservation>[1];
   let primary: unknown;
@@ -66,8 +64,11 @@ test("measures Evidence verification progress and cancel while another Timeline 
   };
   try {
     await page.goto(webBase);
-    await loginTrackedUserViaPage(page, evidenceInspectorAccount());
-    authenticated = true;
+    await sessionTracker.loginProvisionedUser(page, {
+      ...evidenceInspectorAccount(),
+      createdBy: "Evidence measurement",
+      purpose: "foreground analyst",
+    });
     const snapshot = await prepareEvidenceInspectorSnapshot(page);
     const session = await readCurrentSession(page);
     expect(session.is_deployment_admin).toBe(false);
@@ -278,24 +279,6 @@ test("measures Evidence verification progress and cancel while another Timeline 
       }
     } catch (error) {
       cleanupErrors.push(error);
-    }
-    try {
-      if (authenticated) {
-        const state = await context.storageState();
-        const auth = await request.newContext({
-          baseURL: apiBase,
-          extraHTTPHeaders: authHeadersForStorageState(state),
-        });
-        try {
-          await logoutAndVerify(auth, state, "Evidence verification analyst");
-        } finally {
-          await auth.dispose();
-        }
-      }
-    } catch (error) {
-      cleanupErrors.push(error);
-    } finally {
-      await context.close();
     }
   }
   if (cleanupErrors.length)

@@ -1485,6 +1485,7 @@ const claimedStatefulChain = compiler.compile({
   kind: "rows",
   row_ids: [
     "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
+    "module.networkflow.browser_stateful.pagination_expiry_bridge",
     "module.networkflow.browser_stateful.pagination_recovery",
     "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
     "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
@@ -1492,9 +1493,12 @@ const claimedStatefulChain = compiler.compile({
 });
 const claimedGroups = claimedStatefulChain.units.filter((unit) => unit.unit_id.startsWith("browser_group:stateful:"));
 assert.equal(claimedGroups.length, 2, "compatible owners share one cohort; declared isolation keeps its own cohort");
-assert.ok(claimedGroups.some((unit) => unit.row_bindings.length === 3));
+assert.ok(claimedGroups.some((unit) => unit.row_bindings.length === 4));
+assert.ok(claimedGroups.some((unit) => unit.row_bindings.length === 1 &&
+  unit.row_bindings[0].row_id === "module.networkflow.browser_stateful.pagination_expiry_bridge"));
 assert.deepEqual(claimedGroups.flatMap((unit) => unit.row_bindings.map((binding) => binding.row_id)).sort(), [
   "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
+  "module.networkflow.browser_stateful.pagination_expiry_bridge",
   "module.networkflow.browser_stateful.pagination_recovery",
   "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
   "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",

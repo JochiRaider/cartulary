@@ -29,7 +29,11 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createTimelineFillers } from "./support/timeline/fixtures";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { retainAutosaveFeedbackCase } from "./support/workbook/autosaveFeedback";
 import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import { createViewRow, waitForViewRow } from "./support/workbook/query";
@@ -53,7 +57,7 @@ test("Timeline failed refresh stays stale beside terminal save recovery", async 
   const patches = await installPatchController(page);
   const queryRoute = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`;
   let failedReads = 0;
-  try {
+  {
     patches.failNextPatch(409, "client_txn_conflict", {
       recordId: row.record_id,
     });
@@ -61,7 +65,7 @@ test("Timeline failed refresh stays stale beside terminal save recovery", async 
       outcome: "queued",
     });
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-    await page.route(queryRoute, async (route) => {
+    await installOwnedRoute(page, queryRoute, async (route) => {
       failedReads++;
       await route.abort("failed");
     });
@@ -82,7 +86,7 @@ test("Timeline failed refresh stays stale beside terminal save recovery", async 
       page.locator('[data-grid-data-state="stale_error"]'),
     ).toBeVisible();
     expect(patches.calls).toHaveLength(1);
-    await page.unroute(queryRoute);
+    await removeOwnedRoute(page, queryRoute);
     await refresh.click();
     await expect(
       page.locator('[data-grid-data-state="stale_error"]'),
@@ -91,8 +95,8 @@ test("Timeline failed refresh stays stale beside terminal save recovery", async 
       [row.record_id]: "Authoritative original",
     });
     expect(patches.calls).toHaveLength(1);
-  } finally {
-    await page.unroute(queryRoute);
+
+    await removeOwnedRoute(page, queryRoute);
     await patches.dispose();
   }
 });

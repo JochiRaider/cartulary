@@ -4,7 +4,12 @@ import { openIncidentControls } from "../pages/deploymentAdministration";
 import { openIncidentFromLanding } from "../pages/incidentDirectory";
 import { rewriteSessionPresentation } from "./auth/sessionPresentation";
 import { createIncident } from "./incidents/fixtures";
+import type { BarrierOutcome } from "./runtime/cleanup";
 import { uniqueIncidentKey } from "./runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./transport/requestInterception";
 
 type Member = ListIncidentMembershipsResponse["data"]["memberships"][number];
 const membershipRegion = "Incident memberships";
@@ -43,7 +48,7 @@ export async function installMembershipManagementPresentation(
     ));
   let access: "admin" | "viewer" | "hidden" | "session" | "unavailable" =
     "admin";
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     if (access === "session" || access === "unavailable") {
       await route.fulfill({
         status: access === "session" ? 401 : 503,
@@ -72,8 +77,8 @@ export async function installMembershipManagementPresentation(
   });
   let body: unknown;
   let status = 200;
-  let readGate: Promise<void> | null = null;
-  let writeGate: Promise<void> | null = null;
+  let readGate: Promise<BarrierOutcome> | null = null;
+  let writeGate: Promise<BarrierOutcome> | null = null;
   let writeStatus = 200;
   let writeBody: unknown;
   const reads: URL[] = [];
@@ -99,7 +104,8 @@ export async function installMembershipManagementPresentation(
     }),
     meta: { request_id: "membership-write" },
   };
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/incidents/${incidentId}/memberships**`,
     async (route) => {
       const method = route.request().method();
@@ -107,10 +113,8 @@ export async function installMembershipManagementPresentation(
         reads.push(new URL(route.request().url()));
         const captured = { body, status, gate: readGate };
         readGate = null;
-        if (captured.gate !== null) await captured.gate;
-        await route
-          .fulfill({ status: captured.status, json: captured.body })
-          .catch(() => {});
+        if (!(await awaitResponseBarrier(route, captured.gate))) return;
+        await route.fulfill({ status: captured.status, json: captured.body });
         return;
       }
       writes.push({ method, body: route.request().postDataJSON() });
@@ -120,14 +124,12 @@ export async function installMembershipManagementPresentation(
         gate: writeGate,
       };
       writeGate = null;
-      if (captured.gate !== null) await captured.gate;
-      await route
-        .fulfill(
-          captured.status === 204
-            ? { status: 204, body: "" }
-            : { status: captured.status, json: captured.body },
-        )
-        .catch(() => {});
+      if (!(await awaitResponseBarrier(route, captured.gate))) return;
+      await route.fulfill(
+        captured.status === 204
+          ? { status: 204, body: "" }
+          : { status: captured.status, json: captured.body },
+      );
     },
   );
   await openIncidentFromLanding(page, incidentId);
@@ -139,10 +141,10 @@ export async function installMembershipManagementPresentation(
     setAccess(value: typeof access) {
       access = value;
     },
-    gateRead(value: Promise<void>) {
+    gateRead(value: Promise<BarrierOutcome>) {
       readGate = value;
     },
-    gateWrite(value: Promise<void>) {
+    gateWrite(value: Promise<BarrierOutcome>) {
       writeGate = value;
     },
     failRead(code = "service_unavailable") {

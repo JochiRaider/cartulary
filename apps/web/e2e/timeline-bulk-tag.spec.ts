@@ -24,12 +24,18 @@ import {
 } from "./support/collaboration/replay";
 import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createTimelineFillers } from "./support/timeline/fixtures";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import { fetchRecordHistoryCount } from "./support/workbook/history";
 import {
@@ -415,19 +421,17 @@ test("Timeline retains draft B when draft A is accepted after shell detachment",
   const { incident, first, second } = await seed(page);
   const path = `/api/v1/incidents/${incident}/views/${timelineViewSchemaId}/bulk-mutations`;
   const attempts: string[] = [];
-  let hit!: () => void;
-  const dispatched = new Promise<void>((resolve) => {
-    hit = resolve;
-  });
-  let release!: () => void;
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(`**${path}`, async (route) => {
+  const dispatchedBarrier = responseBarrier(page);
+  const hit = dispatchedBarrier.release;
+  const dispatched = dispatchedBarrier.promise;
+  const heldBarrier = responseBarrier(page);
+  const release = heldBarrier.release;
+  const held = heldBarrier.promise;
+  await installOwnedRoute(page, `**${path}`, async (route) => {
     attempts.push(route.request().postData() ?? "");
     const response = await route.fetch();
     hit();
-    await held;
+    if (!(await awaitResponseBarrier(route, held))) return;
     await route.fulfill({ response });
   });
   try {
@@ -473,9 +477,12 @@ test("Timeline retains draft B when draft A is accepted after shell detachment",
           )?.cells["timeline.tags"],
         ),
       ).toContain("draft A Ω");
-  } finally {
+
     release();
-    await page.unroute(`**${path}`);
+
+    await removeOwnedRoute(page, `**${path}`);
+  } finally {
+    heldBarrier.cancel();
   }
 });
 
@@ -600,7 +607,7 @@ test("Timeline bulk tag production characterization", async ({
   }
   await page.setViewportSize({ width: 1440, height: 900 });
   const patches = await installPatchController(page);
-  try {
+  {
     const held = patches.holdNextPatch({ recordId: first.record_id });
     await editTimelineSummary(page, first.record_id, "Selected edit held", {
       outcome: "queued",
@@ -620,7 +627,7 @@ test("Timeline bulk tag production characterization", async ({
     });
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
     await snapshot("rejected-save");
-  } finally {
+
     await patches.dispose();
   }
   await testInfo.attach("bulk-tag-observations", {
@@ -639,7 +646,7 @@ test("Timeline selected records survive autosave and explicit tagging waits for 
       requests.push(request.postDataJSON());
   });
   const patches = await installPatchController(page);
-  try {
+  {
     await checkbox(page, first.record_id).check();
     await checkbox(page, second.record_id).check();
     await tagInput(page).fill("  triaged Ω  ");
@@ -747,7 +754,7 @@ test("Timeline selected records survive autosave and explicit tagging waits for 
     await expect(checkbox(page, second.record_id)).toBeChecked();
     await expect(tagInput(page)).toHaveValue("waiting behind failed edit");
     expect(requests).toHaveLength(1);
-  } finally {
+
     await patches.dispose();
   }
 });
@@ -761,7 +768,7 @@ test("Timeline failed selected edits retain authoring and block tag dispatch wit
     if (request.url().endsWith("/bulk-mutations")) batches++;
   });
   const patches = await installPatchController(page);
-  try {
+  {
     await checkbox(page, first.record_id).check();
     await checkbox(page, second.record_id).check();
     const raw = "  long retained tag Ω 東京 ".repeat(20);
@@ -851,7 +858,7 @@ test("Timeline failed selected edits retain authoring and block tag dispatch wit
     await tagInput(page).press("Enter");
     await settle(page);
     expect(batches).toBe(0);
-  } finally {
+
     await patches.dispose();
   }
 });
@@ -867,14 +874,14 @@ test("Timeline bulk selection follows accepted query windows without expansion a
   await checkbox(page, second.record_id).check();
   await tagInput(page).fill("retained across membership");
   const queryPath = `**/api/v1/incidents/${incident}/views/${timelineViewSchemaId}/query`;
-  await page.route(queryPath, (route) => route.abort("failed"));
+  await installOwnedRoute(page, queryPath, (route) => route.abort("failed"));
   await browsing.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(
     page.locator('[data-grid-data-state="stale_error"]'),
   ).toBeVisible();
   await expect(checkbox(page, first.record_id)).toBeChecked();
   await expect(checkbox(page, second.record_id)).toBeChecked();
-  await page.unroute(queryPath);
+  await removeOwnedRoute(page, queryPath);
   await createTimelineFillers(page, incident, "bulk-window", 397, {
     occurredAtStart: "2026-04-02T00:00:00Z",
   });
@@ -1038,7 +1045,7 @@ test("Timeline bulk tag delivery identity and ordinary collection entry remain i
   expect(batches).toHaveLength(2);
   const path = `/api/v1/incidents/${incident}/views/${timelineViewSchemaId}/bulk-mutations`;
   const held = await holdBrowserRequest(page, { method: "POST", path });
-  try {
+  {
     await tagInput(page).fill("partially accepted tag");
     const partialResponse = response();
     await tagInput(page).press("Enter");
@@ -1081,7 +1088,7 @@ test("Timeline bulk tag delivery identity and ordinary collection entry remain i
     await expect(checkbox(page, second.record_id)).toBeChecked();
     await expect(tagInput(page)).toHaveValue("partially accepted tag");
     expect(batches).toHaveLength(3);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -1106,7 +1113,7 @@ test("Timeline tag assignment replays the captured attempt and recovers accepted
     ),
   );
   let failReads = false;
-  await page.route(`**${queryPath}`, async (route) => {
+  await installOwnedRoute(page, `**${queryPath}`, async (route) => {
     if (failReads)
       await route.fulfill({
         status: 503,
@@ -1116,7 +1123,7 @@ test("Timeline tag assignment replays the captured attempt and recovers accepted
       });
     else await route.continue();
   });
-  await page.route(`**${path}`, async (route) => {
+  await installOwnedRoute(page, `**${path}`, async (route) => {
     attempts.push(route.request().postData() ?? "");
     const response = await route.fetch();
     expect(response.status()).toBe(200);
@@ -1181,10 +1188,11 @@ test("Timeline tag assignment replays the captured attempt and recovers accepted
         ),
       ).toContain("captured replay tag");
     }
+
+    await removeOwnedRoute(page, `**${path}`);
+    await removeOwnedRoute(page, `**${queryPath}`);
   } finally {
     failReads = false;
-    await page.unroute(`**${path}`);
-    await page.unroute(`**${queryPath}`);
   }
 });
 

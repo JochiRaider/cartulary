@@ -13,7 +13,7 @@ import {
   type Page,
   request,
 } from "@playwright/test";
-import type { TrackedSessionSnapshot } from "../runtime/cleanup";
+import type { OwnedBrowserScope } from "../runtime/cleanup";
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import {
@@ -105,15 +105,6 @@ type WorkerAdminControlPlane = {
     reason: string,
   ) => Promise<SafeUserResource>;
   revokeAllSessions: (userId: string, reason: string) => Promise<void>;
-};
-
-export type DeploymentAdminMutationClient = {
-  listUsers: () => Promise<SafeUserResource[]>;
-  loadUser: (userId: string) => Promise<SafeUserResource>;
-  patchUser: (
-    userId: string,
-    body: PatchDeploymentUserRequest,
-  ) => Promise<SafeUserResource>;
 };
 
 export async function prepareWorkerAdminSuite(workerCount: number) {
@@ -223,30 +214,47 @@ export async function loginBootstrapControlPlaneContext() {
 
 export async function loginFixtureActorContext<
   T extends FixtureActorCredentials,
->(entry: T) {
-  const anonymousRequests = await request.newContext({ baseURL: apiBase });
-  try {
-    await waitForAPIReady(anonymousRequests);
-    const loginResponse = await loginLocalAPIContext(anonymousRequests, {
-      email: entry.email,
-      password: entry.password,
-    });
-    if (!loginResponse.ok) {
-      throw new Error(
-        `fixture actor login failed with HTTP ${loginResponse.status}`,
+>(entry: T, scope?: OwnedBrowserScope) {
+  const login = async () => {
+    const anonymousRequests = scope
+      ? await scope.ownRequestContext(() =>
+          request.newContext({ baseURL: apiBase }),
+        )
+      : await request.newContext({ baseURL: apiBase });
+    try {
+      await waitForAPIReady(anonymousRequests);
+      const loginResponse = await loginLocalAPIContext(anonymousRequests, {
+        email: entry.email,
+        password: entry.password,
+      });
+      if (!loginResponse.ok) {
+        throw new Error(
+          `fixture actor login failed with HTTP ${loginResponse.status}`,
+        );
+      }
+      const storageState = storageStateFromCookieValues(
+        requireCookie(loginResponse.response, sessionCookieName),
+        requireCookie(loginResponse.response, csrfCookieName),
       );
+      return {
+        ...entry,
+        storageState,
+      } satisfies T & { storageState: StorageState };
+    } finally {
+      if (!scope) await anonymousRequests.dispose();
     }
-    const storageState = storageStateFromCookieValues(
-      requireCookie(loginResponse.response, sessionCookieName),
-      requireCookie(loginResponse.response, csrfCookieName),
-    );
-    return {
-      ...entry,
-      storageState,
-    } satisfies T & { storageState: StorageState };
-  } finally {
-    await anonymousRequests.dispose();
-  }
+  };
+  return scope
+    ? scope.acquireSession(
+        {
+          userId: entry.user_id,
+          email: entry.email,
+          createdBy: "fixture actor login",
+          purpose: "actor authentication",
+        },
+        login,
+      )
+    : login();
 }
 
 export async function loginTrackedUserViaPage(
@@ -391,6 +399,24 @@ async function listUsers(authRequests: JsonRequestContextLike) {
   return response.payload.data.users;
 }
 
+export async function findProvisionedUser(
+  request: JsonRequestContextLike,
+  email: string,
+): Promise<string> {
+  const response = await publicHttpOperation({
+    operationID: "listDeploymentUsers",
+    request,
+    query: { search: email, limit: 100 },
+  });
+  if (!response.ok) throw new Error("Provisioned actor lookup failed");
+  const matches = response.payload.data.users.filter(
+    (user) => user.email === email,
+  );
+  if (matches.length !== 1 || !matches[0])
+    throw new Error("Provisioned actor identity is ambiguous");
+  return matches[0].user_id;
+}
+
 export async function loadUser(
   authRequests: JsonRequestContextLike,
   userId: string,
@@ -423,75 +449,6 @@ export async function patchUser(
   return response.payload.data;
 }
 
-export function deploymentAdminMutationClient(
-  authRequests: JsonRequestContextLike,
-): DeploymentAdminMutationClient {
-  return {
-    listUsers: async () => listUsers(authRequests),
-    loadUser: async (userId) => loadUser(authRequests, userId),
-    patchUser: async (userId, body) => patchUser(authRequests, userId, body),
-  };
-}
-
-export async function withOnlyActiveDeploymentAdmin<T>(
-  client: DeploymentAdminMutationClient,
-  retainedAdminUserId: string,
-  run: () => Promise<T>,
-) {
-  const demotedUserIds: string[] = [];
-  const activeAdmins = (await client.listUsers()).filter(
-    (user) =>
-      user.user_id !== retainedAdminUserId &&
-      user.is_active &&
-      user.is_deployment_admin,
-  );
-
-  let runError: unknown = null;
-  let result: T | undefined;
-  try {
-    for (const user of activeAdmins) {
-      await client.patchUser(user.user_id, {
-        base_user_version: user.user_version,
-        is_deployment_admin: false,
-      });
-      demotedUserIds.push(user.user_id);
-    }
-    result = await run();
-  } catch (error) {
-    runError = error;
-  }
-
-  const restoreFailures: string[] = [];
-  for (const userId of demotedUserIds) {
-    try {
-      const reloaded = await client.loadUser(userId);
-      if (reloaded.is_deployment_admin) {
-        continue;
-      }
-      await client.patchUser(userId, {
-        base_user_version: reloaded.user_version,
-        is_deployment_admin: true,
-      });
-    } catch (error) {
-      restoreFailures.push(`${userId}: ${formatUnknownError(error)}`);
-    }
-  }
-
-  if (restoreFailures.length > 0) {
-    const suffix =
-      runError === null
-        ? ""
-        : `\noriginal guarded block failure: ${formatUnknownError(runError)}`;
-    throw new Error(
-      `failed to restore deployment-admin status after last-admin probe: ${restoreFailures.join("; ")}${suffix}`,
-    );
-  }
-  if (runError !== null) {
-    throw runError;
-  }
-  return result as T;
-}
-
 export async function resetUserTotp(
   authRequests: JsonRequestContextLike,
   userId: string,
@@ -515,23 +472,20 @@ export async function resetUserTotp(
   return response.payload.data;
 }
 
-export async function verifyRevokedSession(snapshot: TrackedSessionSnapshot) {
-  await verifySessionUnauthorized(
-    snapshot.storageState,
-    "owned session revocation",
-  );
-}
-
 export async function verifySessionUnauthorized(
   storageState: StorageState,
   label: string,
+  transport?: APIRequestContext,
 ) {
-  const authRequests = await request.newContext({
-    baseURL: apiBase,
-    extraHTTPHeaders: authHeadersForStorageState(storageState),
-  });
+  const authRequests =
+    transport ?? (await request.newContext({ baseURL: apiBase }));
   try {
-    const sessionResponse = await authRequests.get("/api/v1/auth/session");
+    const sessionResponse = await authRequests.get(
+      `${apiBase}/api/v1/auth/session`,
+      {
+        headers: authHeadersForStorageState(storageState),
+      },
+    );
     if (sessionResponse.status() !== 401) {
       throw new Error(
         `expected 401 after revocation for ${label}, got ${sessionResponse.status()}`,
@@ -546,7 +500,7 @@ export async function verifySessionUnauthorized(
       );
     }
   } finally {
-    await authRequests.dispose();
+    if (!transport) await authRequests.dispose();
   }
 }
 
@@ -563,13 +517,6 @@ export async function logoutAndVerify(
     throw new Error(`logout failed for ${label} with HTTP ${response.status}`);
   }
   await verifySessionUnauthorized(storageState, label);
-}
-
-function formatUnknownError(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
 }
 
 export async function reconcileWorkerAdminManifest(

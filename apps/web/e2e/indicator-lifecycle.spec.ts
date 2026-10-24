@@ -13,7 +13,12 @@ import {
 } from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
 import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   fetchFullRecordHistory,
   openHistoryEventDetails,
@@ -37,7 +42,8 @@ test("Indicator intervals recover a response lost after commit with the original
   const { incidentId, indicator } = await createLifecycleFixture(page);
   const requests: string[] = [],
     receipts: AppendIndicatorStateIntervalResponse["data"][] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/indicators/${indicator.record_id}/state-intervals`,
     async (route) => {
       if (route.request().method() !== "POST") return route.continue();
@@ -80,7 +86,8 @@ test("Indicator intervals recover a response lost after commit with the original
   };
   expect(before.intervals).toHaveLength(1);
   let failRefresh = true;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/views/${indicatorsViewSchemaId}/query`,
     async (route) => {
       if (!failRefresh) return route.continue();
@@ -215,7 +222,8 @@ test("Indicator interval paging recovers failures and backdated appends preserve
       ),
     );
   let failPage = true;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/indicators/${indicator.record_id}/state-intervals?*`,
     async (route) => {
       if (
@@ -269,7 +277,8 @@ test("Indicator interval paging recovers failures and backdated appends preserve
   ).toHaveAttribute("aria-invalid", "true");
   await editor.getByLabel("Confidence (optional)", { exact: true }).fill("0");
   const sent: string[] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/indicators/${indicator.record_id}/state-intervals`,
     async (route) => {
       if (route.request().method() === "POST")
@@ -309,12 +318,13 @@ test("Indicator recovery fences late malformed receipts and replays the original
     "indicator.display_value": "203.0.113.9",
   });
   let release = () => {};
-  const delivery = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const deliveryBarrier = responseBarrier(page);
+  release = deliveryBarrier.release;
+  const delivery = deliveryBarrier.promise;
   const requests: string[] = [];
   let committed: AppendIndicatorStateIntervalResponse["data"] | null = null;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/indicators/${indicator.record_id}/state-intervals`,
     async (route) => {
       if (route.request().method() !== "POST") return route.continue();
@@ -323,7 +333,7 @@ test("Indicator recovery fences late malformed receipts and replays the original
       const payload = await response.json();
       committed = payload.data;
       if (requests.length === 1) {
-        await delivery;
+        if (!(await awaitResponseBarrier(route, delivery))) return;
         return route.fulfill({
           response,
           json: {

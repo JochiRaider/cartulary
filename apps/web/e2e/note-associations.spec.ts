@@ -17,6 +17,7 @@ import {
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueIncidentKey,
@@ -24,6 +25,11 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createViewRow } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
 import { openGenericInspectorForRecord } from "./support/workbook/rowMutations";
@@ -110,7 +116,7 @@ test("Notes manage existing sources evidence and directional references with ret
   const routePath = `**/api/v1/records/${note.record_id}/note-associations*`;
   const bodies: string[] = [];
   let failReads = false;
-  await page.route(routePath, async (route) => {
+  await installOwnedRoute(page, routePath, async (route) => {
     if (route.request().method() === "GET") {
       if (failReads)
         return route.fulfill({
@@ -190,7 +196,7 @@ test("Notes manage existing sources evidence and directional references with ret
     body: await page.screenshot({ animations: "disabled" }),
     contentType: "image/png",
   });
-  await page.unroute(routePath);
+  await removeOwnedRoute(page, routePath);
   await panel
     .getByRole("button", { name: "Remove Associated evidence" })
     .click();
@@ -223,28 +229,32 @@ test("Inspector field rejection retains raw text and caret and cannot invalidate
   const input = page.getByTestId(genericEditValueTestId(evidenceViewSchemaId));
   let release: () => void = () => {};
   let reached = false;
-  let responseGate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(`**/api/v1/records/${row.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    reached = true;
-    await responseGate;
-    await route.fulfill({
-      status: 422,
-      headers: { "X-Request-ID": "field-rejected" },
-      json: {
-        error: {
-          code: "invalid_mutation_payload",
-          status: 422,
-          message: "Field rejected",
-          request_id: "field-rejected",
-          retryable: false,
-          details: { field: "evidence.title", reason_code: "required" },
+  const responseGateBarrier = responseBarrier(page);
+  release = responseGateBarrier.release;
+  let responseGate = responseGateBarrier.promise;
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${row.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      reached = true;
+      if (!(await awaitResponseBarrier(route, responseGate))) return;
+      await route.fulfill({
+        status: 422,
+        headers: { "X-Request-ID": "field-rejected" },
+        json: {
+          error: {
+            code: "invalid_mutation_payload",
+            status: 422,
+            message: "Field rejected",
+            request_id: "field-rejected",
+            retryable: false,
+            details: { field: "evidence.title", reason_code: "required" },
+          },
         },
-      },
-    });
-  });
+      });
+    },
+  );
   await input.fill("  exact draft Ω  ");
   await page.getByTestId(genericEditSubmitTestId(evidenceViewSchemaId)).click();
   await expect.poll(() => reached).toBe(true);
@@ -274,9 +284,7 @@ test("Inspector field rejection retains raw text and caret and cannot invalidate
   await input.fill("next revision");
   await expect(input).not.toHaveAttribute("aria-invalid", "true");
   reached = false;
-  responseGate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  ({ promise: responseGate, release: release } = responseBarrier(page));
   await page.getByTestId(genericEditSubmitTestId(evidenceViewSchemaId)).click();
   await expect.poll(() => reached).toBe(true);
   await input.fill("newer revision while waiting");
@@ -341,22 +349,26 @@ test("Inspector collection and reference rejections retain authored values and s
       await picker.getByRole("button", { name: "Use selection" }).click();
     }
     const authored = await input.inputValue();
-    await page.route(`**/api/v1/records/${record}`, async (route) => {
-      if (route.request().method() !== "PATCH") return route.continue();
-      await route.fulfill({
-        status: 422,
-        json: {
-          error: {
-            code: "invalid_mutation_payload",
-            status: 422,
-            message: "Field rejected",
-            request_id: "collection-rejected",
-            retryable: false,
-            details: { field, reason_code: "invalid_value" },
+    await installOwnedRoute(
+      page,
+      `**/api/v1/records/${record}`,
+      async (route) => {
+        if (route.request().method() !== "PATCH") return route.continue();
+        await route.fulfill({
+          status: 422,
+          json: {
+            error: {
+              code: "invalid_mutation_payload",
+              status: 422,
+              message: "Field rejected",
+              request_id: "collection-rejected",
+              retryable: false,
+              details: { field, reason_code: "invalid_value" },
+            },
           },
-        },
-      });
-    });
+        });
+      },
+    );
     await page.getByTestId(genericEditSubmitTestId(schema)).click();
     await expect(input).toHaveAttribute("aria-invalid", "true");
     await expect(input).toHaveValue(authored);

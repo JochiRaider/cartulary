@@ -113,7 +113,7 @@
         "object_store",
         "postgres"
       ],
-      "browser_state_scope": "isolated",
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {
@@ -1206,7 +1206,7 @@
         "object_store",
         "postgres"
       ],
-      "browser_state_scope": "isolated",
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {
@@ -3129,7 +3129,7 @@
         "object_store",
         "postgres"
       ],
-      "browser_state_scope": "isolated",
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {

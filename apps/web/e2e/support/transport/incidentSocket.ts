@@ -1,5 +1,6 @@
 import { performance } from "node:perf_hooks";
 import type { Page, WebSocket } from "@playwright/test";
+import { browserScopeFor } from "../runtime/cleanup";
 
 export type SocketMessage = {
   payload: Record<string, unknown>;
@@ -31,17 +32,19 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
     timeout: ReturnType<typeof setTimeout>;
   }> = [];
 
-  page.on("websocket", (socket) => {
+  const detach: (() => void)[] = [];
+  let stopped = false;
+  const opened = (socket: WebSocket) => {
     if (!socket.url().includes(`/ws/v1/incidents/${incidentId}`)) {
       return;
     }
     const socketIndex = sockets.length;
     sockets.push(socket);
-    socket.on("framesent", ({ payload }) => {
+    const sent = ({ payload }: { payload: string | Buffer }) => {
       const message = decodeIncidentSocketFrame(payload, socketIndex);
       if (message) sentMessages.push(message);
-    });
-    socket.on("framereceived", ({ payload }) => {
+    };
+    const received = ({ payload }: { payload: string | Buffer }) => {
       const message = decodeIncidentSocketFrame(payload, socketIndex);
       if (!message) return;
       messages.push(message);
@@ -51,8 +54,8 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
         messageWaiters.splice(messageWaiters.indexOf(waiter), 1);
         waiter.resolve(message);
       }
-    });
-    socket.on("close", () => {
+    };
+    const closed = () => {
       closes.push({ closedAtMs: performance.now(), socketIndex });
       for (const waiter of [...closeWaiters]) {
         if (!waiter.matches(socketIndex)) continue;
@@ -60,8 +63,29 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
         closeWaiters.splice(closeWaiters.indexOf(waiter), 1);
         waiter.resolve(socketIndex);
       }
+    };
+    socket.on("framesent", sent);
+    socket.on("framereceived", received);
+    socket.on("close", closed);
+    detach.push(() => {
+      socket.off("framesent", sent);
+      socket.off("framereceived", received);
+      socket.off("close", closed);
     });
-  });
+  };
+  page.on("websocket", opened);
+  browserScopeFor(page).settleBeforeClosing(async () => {
+    stopped = true;
+    page.off("websocket", opened);
+    for (const remove of detach) remove();
+    for (const waiter of [
+      ...messageWaiters.splice(0),
+      ...closeWaiters.splice(0),
+    ]) {
+      clearTimeout(waiter.timeout);
+      waiter.reject(new Error("Owned socket observation cancelled"));
+    }
+  }, page.context());
 
   return {
     messageCount: () => messages.length,
@@ -77,6 +101,7 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
         socketIndex: message.socketIndex,
       })),
     waitForClose: (socketIndex: number, timeoutMs = 10_000) => {
+      if (stopped) throw new Error("Socket observation has stopped");
       if (closes.some((closed) => closed.socketIndex === socketIndex)) {
         return Promise.resolve(socketIndex);
       }
@@ -155,6 +180,7 @@ export function installIncidentSocketMonitor(page: Page, incidentId: string) {
       timeoutMs?: number;
     },
   ) {
+    if (stopped) throw new Error("Socket observation has stopped");
     const startAt = options.startAt ?? 0;
     const existing = messages.slice(startAt).find(options.matches);
     if (existing) return Promise.resolve(existing);

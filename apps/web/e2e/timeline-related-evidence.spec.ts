@@ -21,6 +21,7 @@ import { openIncidentAsTrackedUser } from "./pages/incidentDirectory";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -29,6 +30,11 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import {
   createViewRow,
@@ -152,36 +158,47 @@ test("Timeline Evidence creation survives a real collection conflict and links o
   });
   const creations: CreateViewRowResponse[] = [],
     links: string[] = [];
-  await page.route(`**/views/${evidenceViewSchemaId}/rows`, async (route) => {
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    creations.push(await response.json());
-    await route.fulfill({ response });
-  });
-  await page.route(`**/api/v1/records/${f.source.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    links.push(route.request().postData() ?? "");
-    if (links.length === 1)
-      await patchRecord(page, f.source.record_id, {
-        view_schema_id: timelineViewSchemaId,
-        base_row_version: f.source.row_version,
-        client_txn_id: uniqueTxn("concurrent-link"),
-        changes: [
-          {
-            field_key: "timeline.attached_evidence_ids",
-            action_payload: {
-              kind: "collection_actions_v1",
-              actions: [
-                { op: "add_record_ref", linked_record_id: existing.record_id },
-              ],
+  await installOwnedRoute(
+    page,
+    `**/views/${evidenceViewSchemaId}/rows`,
+    async (route) => {
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      creations.push(await response.json());
+      await route.fulfill({ response });
+    },
+  );
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${f.source.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      links.push(route.request().postData() ?? "");
+      if (links.length === 1)
+        await patchRecord(page, f.source.record_id, {
+          view_schema_id: timelineViewSchemaId,
+          base_row_version: f.source.row_version,
+          client_txn_id: uniqueTxn("concurrent-link"),
+          changes: [
+            {
+              field_key: "timeline.attached_evidence_ids",
+              action_payload: {
+                kind: "collection_actions_v1",
+                actions: [
+                  {
+                    op: "add_record_ref",
+                    linked_record_id: existing.record_id,
+                  },
+                ],
+              },
             },
-          },
-        ],
-      });
-    const response = await route.fetch();
-    expect(response.status()).toBe(links.length === 1 ? 409 : 200);
-    await route.fulfill({ response });
-  });
+          ],
+        });
+      const response = await route.fetch();
+      expect(response.status()).toBe(links.length === 1 ? 409 : 200);
+      await route.fulfill({ response });
+    },
+  );
   await begin(page, f.incident, f.source.record_id);
   const conflictedLink = page.waitForResponse(
     (response) =>
@@ -267,14 +284,18 @@ test("Timeline Evidence lost creation response replays exactly and recovers the 
   const f = await fixture(page),
     bodies: string[] = [],
     receipts: CreateViewRowResponse[] = [];
-  await page.route(`**/views/${evidenceViewSchemaId}/rows`, async (route) => {
-    bodies.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    receipts.push(await response.json());
-    if (bodies.length === 1) await route.abort("failed");
-    else await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${evidenceViewSchemaId}/rows`,
+    async (route) => {
+      bodies.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      receipts.push(await response.json());
+      if (bodies.length === 1) await route.abort("failed");
+      else await route.fulfill({ response });
+    },
+  );
   await begin(page, f.incident, f.source.record_id);
   await submit(page);
   await expect.poll(() => receipts.length).toBe(1);
@@ -318,15 +339,19 @@ test("Timeline Evidence lost link response replays without duplicate relationshi
   const f = await fixture(page),
     bodies: string[] = [],
     receipts: CreateViewRowResponse[] = [];
-  await page.route(`**/api/v1/records/${f.source.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    bodies.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    receipts.push(await response.json());
-    if (bodies.length === 1) await route.abort("failed");
-    else await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${f.source.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      bodies.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      receipts.push(await response.json());
+      if (bodies.length === 1) await route.abort("failed");
+      else await route.fulfill({ response });
+    },
+  );
   await begin(page, f.incident, f.source.record_id);
   await submit(page);
   await expect.poll(() => receipts.length).toBe(1);
@@ -369,9 +394,9 @@ test("Timeline Evidence navigation and source edits between commits require rene
     "timeline.activity_synopsis_text": "Other selected row",
   });
   let release = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
   let committed: ViewRow | undefined;
   let links = 0;
   page.on("request", (request) => {
@@ -381,13 +406,17 @@ test("Timeline Evidence navigation and source edits between commits require rene
     )
       links++;
   });
-  await page.route(`**/views/${evidenceViewSchemaId}/rows`, async (route) => {
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    committed = ((await response.json()) as CreateViewRowResponse).data.row;
-    await gate;
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${evidenceViewSchemaId}/rows`,
+    async (route) => {
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      committed = ((await response.json()) as CreateViewRowResponse).data.row;
+      if (!(await awaitResponseBarrier(route, gate))) return;
+      await route.fulfill({ response });
+    },
+  );
   await begin(page, f.incident, f.source.record_id);
   await submit(page);
   await expect.poll(() => committed?.record_id).toBeTruthy();
@@ -448,9 +477,9 @@ test("Timeline Evidence accepted writes survive failed projections and recover t
     writes = 0,
     linkCommitted = false;
   let releaseAcknowledgement = () => {};
-  const acknowledgement = new Promise<void>((resolve) => {
-    releaseAcknowledgement = resolve;
-  });
+  const acknowledgementBarrier = responseBarrier(page);
+  releaseAcknowledgement = acknowledgementBarrier.release;
+  const acknowledgement = acknowledgementBarrier.promise;
   page.on("request", (request) => {
     if (
       (request.method() === "PATCH" &&
@@ -459,19 +488,23 @@ test("Timeline Evidence accepted writes survive failed projections and recover t
     )
       writes++;
   });
-  await page.route(`**/views/*/query`, async (route) => {
+  await installOwnedRoute(page, `**/views/*/query`, async (route) => {
     if (failedReads) await route.abort("failed");
     else await route.continue();
   });
-  await page.route(`**/api/v1/records/${f.source.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    linkCommitted = true;
-    await acknowledgement;
-    failedReads = true;
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${f.source.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      linkCommitted = true;
+      if (!(await awaitResponseBarrier(route, acknowledgement))) return;
+      failedReads = true;
+      await route.fulfill({ response });
+    },
+  );
   await begin(page, f.incident, f.source.record_id);
   const linkedResponse = page.waitForResponse(
     (response) =>
@@ -491,8 +524,10 @@ test("Timeline Evidence accepted writes survive failed projections and recover t
     expect(writes).toBe(2);
     releaseAcknowledgement();
     expect((await linkedResponse).ok()).toBe(true);
-  } finally {
+
     releaseAcknowledgement();
+  } finally {
+    acknowledgementBarrier.cancel();
   }
   const retained = await recovery(page);
   await expect(retained).toContainText("Projection refresh is incomplete");
@@ -532,15 +567,15 @@ test("Timeline Evidence retains partial success when its source is deleted or su
     let release = () => {},
       committed: ViewRow | undefined,
       links = 0;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const gateBarrier = responseBarrier(page);
+    release = gateBarrier.release;
+    const gate = gateBarrier.promise;
     const path = `**/incidents/${f.incident}/views/${evidenceViewSchemaId}/rows`;
-    await page.route(path, async (route) => {
+    await installOwnedRoute(page, path, async (route) => {
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       committed = ((await response.json()) as CreateViewRowResponse).data.row;
-      await gate;
+      if (!(await awaitResponseBarrier(route, gate))) return;
       await route.fulfill({ response });
     });
     page.on("request", (request) => {
@@ -603,13 +638,13 @@ test("Timeline Evidence retains partial success when its source is deleted or su
           (row) => row.record_id === committed?.record_id,
         ),
       ).toBe(true);
-    await page.unroute(path);
+    await removeOwnedRoute(page, path);
   }
 });
 
 test("Timeline Evidence rechecks a real role loss between commits and preserves the accepted record", async ({
   page,
-  browser,
+  browserScope,
   sessionTracker,
 }) => {
   const f = await fixture(page),
@@ -623,7 +658,7 @@ test("Timeline Evidence rechecks a real role loss between commits and preserves 
     is_deployment_admin: false,
     mfa_required: false,
   });
-  const editor = await openIncidentAsTrackedUser(browser, sessionTracker, {
+  const editor = await openIncidentAsTrackedUser(browserScope, sessionTracker, {
     createdBy: "Timeline Evidence role recovery",
     email,
     password,
@@ -634,16 +669,20 @@ test("Timeline Evidence rechecks a real role loss between commits and preserves 
   let release = () => {},
     committed: ViewRow | undefined,
     links = 0;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await editor.route(`**/views/${evidenceViewSchemaId}/rows`, async (route) => {
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    committed = ((await response.json()) as CreateViewRowResponse).data.row;
-    await gate;
-    await route.fulfill({ response });
-  });
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
+  await installOwnedRoute(
+    editor,
+    `**/views/${evidenceViewSchemaId}/rows`,
+    async (route) => {
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      committed = ((await response.json()) as CreateViewRowResponse).data.row;
+      if (!(await awaitResponseBarrier(route, gate))) return;
+      await route.fulfill({ response });
+    },
+  );
   editor.on("request", (request) => {
     if (request.method() === "PATCH") links++;
   });

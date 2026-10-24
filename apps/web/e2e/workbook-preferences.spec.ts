@@ -28,12 +28,17 @@ import { csrfHeaders } from "./support/auth/browserSession";
 import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   createSavedView,
   openSavedViewActionMenu,
@@ -212,7 +217,7 @@ test("preferences retain uncertain committed writes until explicit observed-valu
   let writes = 0;
   let lose = true;
   let failRead = false;
-  await page.route(`**${routePath(id, "home")}`, async (route) => {
+  await installOwnedRoute(page, `**${routePath(id, "home")}`, async (route) => {
     if (route.request().method() === "PUT") {
       ++writes;
       const response = await route.fetch();
@@ -303,14 +308,17 @@ test("preferences independently publish delayed reads and guard shortcut admissi
     "Independent preference reads",
   );
   await openIncidentFromLanding(page, id);
-  let releaseDefault!: () => void;
-  const defaultGate = new Promise<void>((resolve) => {
-    releaseDefault = resolve;
-  });
-  await page.route(`**${routePath(id, "default")}`, async (route) => {
-    await defaultGate;
-    await route.continue();
-  });
+  const defaultGateBarrier = responseBarrier(page);
+  const releaseDefault = defaultGateBarrier.release;
+  const defaultGate = defaultGateBarrier.promise;
+  await installOwnedRoute(
+    page,
+    `**${routePath(id, "default")}`,
+    async (route) => {
+      if (!(await awaitResponseBarrier(route, defaultGate))) return;
+      await route.continue();
+    },
+  );
   await openIncidentControls(page);
   await expect(
     page.getByTestId(incidentAdministrationTestId("summary-title")),
@@ -325,16 +333,15 @@ test("preferences independently publish delayed reads and guard shortcut admissi
     page.getByRole("textbox", { name: "Reason", exact: true }),
   ).toBeEnabled();
   releaseDefault();
-  let releaseWrite!: () => void;
-  const writeGate = new Promise<void>((resolve) => {
-    releaseWrite = resolve;
-  });
+  const writeGateBarrier = responseBarrier(page);
+  const releaseWrite = writeGateBarrier.release;
+  const writeGate = writeGateBarrier.promise;
   const requests: unknown[] = [];
-  await page.route(`**${routePath(id, "home")}`, async (route) => {
+  await installOwnedRoute(page, `**${routePath(id, "home")}`, async (route) => {
     if (route.request().method() === "PUT") {
       requests.push(route.request().postDataJSON());
       const response = await route.fetch();
-      await writeGate;
+      if (!(await awaitResponseBarrier(route, writeGate))) return;
       await route.fulfill({ response });
     } else await route.continue();
   });
@@ -374,7 +381,7 @@ test("preferences independently publish delayed reads and guard shortcut admissi
 
 test("preferences preserve personal isolation and viewer boundaries on a closed incident", async ({
   testActorPage: page,
-  browser,
+  browserScope,
   sessionTracker,
 }) => {
   const id = await createIncident(
@@ -390,7 +397,7 @@ test("preferences preserve personal isolation and viewer boundaries on a closed 
     mfa_required: false,
     is_deployment_admin: false,
   });
-  const other = await openIncidentAsTrackedUser(browser, sessionTracker, {
+  const other = await openIncidentAsTrackedUser(browserScope, sessionTracker, {
     createdBy: "preference isolation",
     purpose: "viewer preference authority",
     email: viewer.email,
@@ -398,7 +405,7 @@ test("preferences preserve personal isolation and viewer boundaries on a closed 
     incidentId: id,
     userId: viewer.user_id,
   });
-  try {
+  {
     const current = await currentLifecycle(page, id);
     expect(
       (
@@ -428,7 +435,7 @@ test("preferences preserve personal isolation and viewer boundaries on a closed 
     expect(denied.status()).toBe(403);
     await actPreference(other, "home", "clear");
     expect((await read(other, id, "home"))[field("home")]).toBeNull();
-  } finally {
-    await other.context().close();
+
+    await browserScope.closeContext(other.context());
   }
 });

@@ -22,6 +22,7 @@ import type { Page, Route } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueIncidentKey,
@@ -29,6 +30,11 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   fetchFullRecordHistory,
   fetchRecordHistoryPage,
@@ -182,10 +188,11 @@ async function browse(page: Page, surface: Surface) {
   let invalid = false;
   let releaseRetry = () => {};
   let retryHeld = false;
-  const retryGate = new Promise<void>((resolve) => {
-    releaseRetry = resolve;
-  });
-  await page.route(
+  const retryGateBarrier = responseBarrier(page);
+  releaseRetry = retryGateBarrier.release;
+  const retryGate = retryGateBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/api/v1/records/${row.record_id}/history?*`,
     async (route) => {
       observed.push(
@@ -213,7 +220,7 @@ async function browse(page: Page, surface: Surface) {
       } else if (surface === "Timeline" && observed.length === 2) {
         const response = await route.fetch();
         retryHeld = true;
-        await retryGate;
+        if (!(await awaitResponseBarrier(route, retryGate))) return;
         await route.fulfill({ response });
       } else await route.continue();
     },
@@ -241,8 +248,10 @@ async function browse(page: Page, surface: Surface) {
       await expect(retry).not.toBeFocused();
       await page.keyboard.press("Shift+Tab");
       await expect(retry).toBeFocused();
-    } finally {
+
       releaseRetry();
+    } finally {
+      retryGateBarrier.cancel();
     }
   }
   await expect(panel).toContainText("No older entries.");
@@ -285,11 +294,12 @@ async function browse(page: Page, surface: Surface) {
   let failRefresh = true;
   let refreshRetryHeld = false;
   let releaseRefreshRetry = () => {};
-  const refreshRetryGate = new Promise<void>((resolve) => {
-    releaseRefreshRetry = resolve;
-  });
+  const refreshRetryGateBarrier = responseBarrier(page);
+  releaseRefreshRetry = refreshRetryGateBarrier.release;
+  const refreshRetryGate = refreshRetryGateBarrier.promise;
   let refreshReads = 0;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/records/${row.record_id}/history`,
     async (route) => {
       refreshReads += 1;
@@ -299,7 +309,7 @@ async function browse(page: Page, surface: Surface) {
       } else if (refreshReads === 2) {
         const response = await route.fetch();
         refreshRetryHeld = true;
-        await refreshRetryGate;
+        if (!(await awaitResponseBarrier(route, refreshRetryGate))) return;
         await route.fulfill({ response });
       } else await route.continue();
     },
@@ -325,8 +335,10 @@ async function browse(page: Page, surface: Surface) {
     await expect(refreshRetry).toHaveAttribute("aria-disabled", "true");
     await refreshRetry.press("Enter");
     expect(refreshReads).toBe(2);
-  } finally {
+
     releaseRefreshRetry();
+  } finally {
+    refreshRetryGateBarrier.cancel();
   }
   await expect(panel).not.toContainText("History could not be read");
   await expect(
@@ -342,18 +354,18 @@ async function browse(page: Page, surface: Surface) {
   let releaseOlder = () => {};
   let heldOlder = false;
   let releasedOlder = false;
-  const olderGate = new Promise<void>((resolve) => {
-    releaseOlder = resolve;
-  });
+  const olderGateBarrier = responseBarrier(page);
+  releaseOlder = olderGateBarrier.release;
+  const olderGate = olderGateBarrier.promise;
   const continuationPattern = `**/api/v1/records/${row.record_id}/history?*`;
   const holdOlder = async (route: Route) => {
     const response = await route.fetch();
     heldOlder = true;
-    await olderGate;
+    if (!(await awaitResponseBarrier(route, olderGate))) return;
     await route.fulfill({ response });
     releasedOlder = true;
   };
-  await page.route(continuationPattern, holdOlder);
+  await installOwnedRoute(page, continuationPattern, holdOlder);
   try {
     await older.focus();
     await older.press("Enter");
@@ -379,9 +391,12 @@ async function browse(page: Page, surface: Surface) {
       ),
     ).toHaveCount(0);
     await expect(older).toHaveAttribute("aria-disabled", "false");
-  } finally {
+
     releaseOlder();
-    await page.unroute(continuationPattern, holdOlder);
+
+    await removeOwnedRoute(page, continuationPattern, holdOlder);
+  } finally {
+    olderGateBarrier.cancel();
   }
   invalid = true;
   await older.click();
@@ -391,9 +406,9 @@ async function browse(page: Page, surface: Surface) {
   await expect(firstItem).toBeAttached();
   let freshHeld = false;
   let releaseFresh = () => {};
-  const freshGate = new Promise<void>((resolve) => {
-    releaseFresh = resolve;
-  });
+  const freshGateBarrier = responseBarrier(page);
+  releaseFresh = freshGateBarrier.release;
+  const freshGate = freshGateBarrier.promise;
   let freshCursor: string | null = null;
   const holdFresh = async (route: Route) => {
     freshCursor = new URL(route.request().url()).searchParams.get(
@@ -401,11 +416,11 @@ async function browse(page: Page, surface: Surface) {
     );
     const response = await route.fetch();
     freshHeld = true;
-    await freshGate;
+    if (!(await awaitResponseBarrier(route, freshGate))) return;
     await route.fulfill({ response });
   };
   const freshPattern = `**/api/v1/records/${row.record_id}/history`;
-  await page.route(freshPattern, holdFresh);
+  await installOwnedRoute(page, freshPattern, holdFresh);
   const startFresh = panel.getByTestId(
     rowHistoryReadControlTestId("start-fresh"),
   );
@@ -419,11 +434,13 @@ async function browse(page: Page, surface: Surface) {
     await expect(startFresh).toHaveAttribute("aria-busy", "true");
     await expect(startFresh).toHaveAttribute("aria-disabled", "true");
     await expect(firstItem).toBeAttached();
-  } finally {
+
     releaseFresh();
+  } finally {
+    freshGateBarrier.cancel();
   }
   await expect(panel).not.toContainText("History could not be read");
-  await page.unroute(freshPattern, holdFresh);
+  await removeOwnedRoute(page, freshPattern, holdFresh);
   await older.click();
   await expect(panel).toContainText("No older entries.");
   const target = required(
@@ -447,10 +464,11 @@ async function browse(page: Page, surface: Surface) {
 
   const bodies: string[] = [];
   let observeCommit = () => {};
-  const firstCommit = new Promise<void>((resolve) => {
-    observeCommit = resolve;
-  });
-  await page.route(
+  const firstCommitBarrier = responseBarrier(page);
+  observeCommit = firstCommitBarrier.release;
+  const firstCommit = firstCommitBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/api/v1/records/${row.record_id}/rollback`,
     async (route) => {
       bodies.push(route.request().postData() ?? "");
@@ -527,9 +545,9 @@ test("Timeline retains initial History retry focus in a narrow Inspector", async
   let reads = 0;
   let held = false;
   let release = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
   const mutations: string[] = [];
   page.on("request", (request) => {
     if (
@@ -539,7 +557,7 @@ test("Timeline retains initial History retry focus in a narrow Inspector", async
       mutations.push(request.method());
   });
   const initialPattern = `**/api/v1/records/${row.record_id}/history`;
-  await page.route(initialPattern, async (route) => {
+  await installOwnedRoute(page, initialPattern, async (route) => {
     reads += 1;
     if (reads === 1) {
       await route.abort("failed");
@@ -547,7 +565,7 @@ test("Timeline retains initial History retry focus in a narrow Inspector", async
     }
     const response = await route.fetch();
     held = true;
-    await gate;
+    if (!(await awaitResponseBarrier(route, gate))) return;
     await route.fulfill({ response });
   });
   await page.goto(
@@ -582,26 +600,28 @@ test("Timeline retains initial History retry focus in a narrow Inspector", async
     await expect(retry).toBeFocused();
     expect(reads).toBe(2);
     expect(mutations).toEqual([]);
-  } finally {
+
     release();
+  } finally {
+    gateBarrier.cancel();
   }
   await expect(
     panel.getByRole("button", { name: "Refresh history", exact: true }),
   ).toBeFocused();
   await expect(retry).toHaveCount(0);
-  await page.unroute(initialPattern);
+  await removeOwnedRoute(page, initialPattern);
   let refreshHeld = false;
   let releaseRefresh = () => {};
-  const refreshGate = new Promise<void>((resolve) => {
-    releaseRefresh = resolve;
-  });
+  const refreshGateBarrier = responseBarrier(page);
+  releaseRefresh = refreshGateBarrier.release;
+  const refreshGate = refreshGateBarrier.promise;
   const holdRefresh = async (route: Route) => {
     const response = await route.fetch();
     refreshHeld = true;
-    await refreshGate;
+    if (!(await awaitResponseBarrier(route, refreshGate))) return;
     await route.fulfill({ response });
   };
-  await page.route(initialPattern, holdRefresh);
+  await installOwnedRoute(page, initialPattern, holdRefresh);
   const refresh = panel.getByRole("button", {
     name: "Refresh history",
     exact: true,
@@ -637,9 +657,12 @@ test("Timeline retains initial History retry focus in a narrow Inspector", async
     await expect(panel).not.toContainText("Refreshing…");
     await expect(summary).toBeFocused();
     expect(await scrollPosition()).toBe(position);
-  } finally {
+
     releaseRefresh();
-    await page.unroute(initialPattern, holdRefresh);
+
+    await removeOwnedRoute(page, initialPattern, holdRefresh);
+  } finally {
+    refreshGateBarrier.cancel();
   }
   expect(await fetchFullRecordHistory(page, row.record_id)).toEqual(original);
   expect(mutations).toEqual([]);

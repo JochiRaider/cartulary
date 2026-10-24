@@ -8,6 +8,8 @@ authority_boundary: Human implementation tracker and rationale; the Testing Harn
 
 # Testing harness instrumentation
 
+**Bounded cutover supersession, 2026-10-24:** The schema inventory below records its historical source. The `cartulary.test.public_error_fault.v1` schema and its server control are retired under [testing-remediation E-032](testing-remediation.md#e-032--wf-06--s-003-completion-checkpoint). Its earlier KEEP disposition is superseded; historical instrumentation evidence is unchanged.
+
 ## Baseline and authorization
 
 ### Current assurance execution status — E-086

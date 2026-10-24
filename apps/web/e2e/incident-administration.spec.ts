@@ -66,22 +66,25 @@ import {
   openIncidentAsTrackedUser,
   openIncidentFromLanding,
 } from "./pages/incidentDirectory";
-import {
-  accountResponseGate,
-  installAccountEditingFixture,
-} from "./support/auth/accountEditingFixture";
+import { installAccountEditingFixture } from "./support/auth/accountEditingFixture";
 import { csrfHeaders, loginLocalSession } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { openClaimedNetworkAnalysis } from "./support/extensions/network_flow_activity/workspace";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 import {
@@ -1306,7 +1309,7 @@ test("Verify delayed built-in entry cannot steal focus after a newer surface sel
     method: "POST",
     path: `/api/v1/incidents/${incidentId}/views/${evidenceViewSchemaId}/query`,
   });
-  try {
+  {
     await enterDesktopSurfaceSelector(page);
     for (let index = 0; index < 3; index += 1)
       await page.keyboard.press("ArrowRight");
@@ -1336,7 +1339,7 @@ test("Verify delayed built-in entry cannot steal focus after a newer surface sel
     await expect(
       page.getByTestId(gridShellTestId(notesViewSchemaId)),
     ).toBeVisible();
-  } finally {
+
     await held.dispose();
   }
 });
@@ -1630,7 +1633,7 @@ test("shows incident discovery, raw querystring deep-link retrieval, and promote
 });
 
 test("lets incident admins manage memberships and hides those controls from non-admin members on the ordinary shell", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
 }) => {
@@ -1704,14 +1707,18 @@ test("lets incident admins manage memberships and hides those controls from non-
   ).toBeVisible();
   await closeIncidentControlsIfOpen(page);
 
-  const memberPage = await openIncidentAsTrackedUser(browser, sessionTracker, {
-    createdBy: "incident_membership non-admin membership view",
-    email: memberEmail,
-    incidentId,
-    password: memberPassword,
-    purpose: "incident_membership e203 non-admin incident shell",
-    userId: memberUser.user_id,
-  });
+  const memberPage = await openIncidentAsTrackedUser(
+    browserScope,
+    sessionTracker,
+    {
+      createdBy: "incident_membership non-admin membership view",
+      email: memberEmail,
+      incidentId,
+      password: memberPassword,
+      purpose: "incident_membership e203 non-admin incident shell",
+      userId: memberUser.user_id,
+    },
+  );
 
   await openIncidentControls(memberPage, "memberships");
   await expect(
@@ -1745,7 +1752,7 @@ test("lets incident admins manage memberships and hides those controls from non-
       incidentAdministrationTestId("membership-audit-note"),
     ),
   ).toContainText("Only incident admins");
-  await memberPage.context().close();
+  await browserScope.closeContext(memberPage.context());
 
   await openIncidentControls(page, "summary");
   await page
@@ -1810,10 +1817,10 @@ test("account settings retain edits through real version conflicts and exact com
     user_version: number;
   };
   const bodies: Record<string, unknown>[] = [];
-  const committed = accountResponseGate();
-  const release = accountResponseGate();
+  const committed = responseBarrier(page);
+  const release = responseBarrier(page);
   let loseResponse = false;
-  await page.route("**/api/v1/account/profile", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/account/profile", async (route) => {
     if (route.request().method() !== "PATCH") return route.continue();
     bodies.push(route.request().postDataJSON() as Record<string, unknown>);
     if (!loseResponse) return route.continue();
@@ -1821,7 +1828,7 @@ test("account settings retain edits through real version conflicts and exact com
     const response = await route.fetch();
     expect(response.ok()).toBeTruthy();
     committed.release();
-    await release.promise;
+    if (!(await awaitResponseBarrier(route, release.promise))) return;
     await route.abort("failed");
   });
   try {
@@ -1886,9 +1893,13 @@ test("account settings retain edits through real version conflicts and exact com
     ).data;
     expect(current.display_name).toBe("Committed response lost");
     expect(current.user_version).toBe(Number(bodies[2]?.base_user_version) + 1);
-  } finally {
+
     release.release();
-    await page.unroute("**/api/v1/account/profile");
+
+    await removeOwnedRoute(page, "**/api/v1/account/profile");
+  } finally {
+    release.cancel();
+
     const current = (
       await (await page.request.get(`${apiBase}/api/v1/account/profile`)).json()
     ).data;

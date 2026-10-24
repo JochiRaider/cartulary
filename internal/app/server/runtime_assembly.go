@@ -1592,7 +1592,6 @@ func (assembly runtimeAssembly) build(ctx context.Context) (*Runtime, error) {
 		CursorCodec:         cursorCodec,
 		Readiness:           httpapi.NewDependencyReadinessChecker(postgresPool, objectStore, readinessProbes...),
 		Admission:           runtime.lifecycle,
-		PublicErrorFaults:   testRuntimeDeps.PublicErrorFaults,
 		TestResetBootstrap:  settingsProjection.TestResetBootstrap(),
 		ModuleOverrides:     moduleOverrides,
 		ExtensionDiscovery:  publicationProjections,

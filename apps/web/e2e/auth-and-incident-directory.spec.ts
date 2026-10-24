@@ -27,13 +27,11 @@ import { IncidentDirectory } from "./pages/incidentDirectory";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import {
-  deploymentAdminMutationClient,
   loadUser,
   patchUser,
   readCurrentSession,
   resetUserTotp,
   revokeAllSessions,
-  withOnlyActiveDeploymentAdmin,
 } from "./support/auth/sessions";
 import {
   authHeadersForStorageState,
@@ -43,7 +41,7 @@ import {
   enrollTotpViaBootstrap,
   generateTotpCode,
 } from "./support/auth/suiteAdmin";
-import { responseBarrier } from "./support/incidents/creation";
+import { browserScopeFor, responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -52,6 +50,12 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  installPublicErrorResponse,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByRole("button", {
@@ -106,11 +110,11 @@ test("signs in as a local user and inspects the ordinary session surface", async
     path: "/api/v1/incidents",
     status: 200,
   });
-  const releaseLogin = responseBarrier();
+  const releaseLogin = responseBarrier(page);
   let loginWrites = 0;
-  await page.route("**/api/v1/auth/login", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/login", async (route) => {
     ++loginWrites;
-    await releaseLogin.promise;
+    if (!(await awaitResponseBarrier(route, releaseLogin.promise))) return;
     await route.continue();
   });
   await new AuthGateway(page).login(email, password);
@@ -133,8 +137,8 @@ test("signs in as a local user and inspects the ordinary session surface", async
   });
   await page.getByTestId(accountTestId("logout")).click();
   await expect(page.getByTestId(authTestId("login-username"))).toBeVisible();
-  await page.unroute("**/api/v1/auth/login");
-  await page.route("**/api/v1/auth/login", async (route) => {
+  await removeOwnedRoute(page, "**/api/v1/auth/login");
+  await installOwnedRoute(page, "**/api/v1/auth/login", async (route) => {
     ++loginWrites;
     const committed = await route.fetch();
     expect(committed.status()).toBe(200);
@@ -142,7 +146,7 @@ test("signs in as a local user and inspects the ordinary session surface", async
     await route.fulfill({ response: committed, body: "{}" });
   });
   let inspections = 0;
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     ++inspections;
     if (inspections === 1)
       await route.fulfill({
@@ -181,7 +185,7 @@ test("requires MFA on the ordinary login surface, rejects wrong codes, and accep
     mfa_required: true,
     is_deployment_admin: false,
   });
-  const secretBase32 = await enrollTotpViaBootstrap(email, password);
+  const secretBase32 = await enrollTotpViaBootstrap(page, email, password);
 
   await clearBrowserSession(page);
   await new AuthGateway(page).goto();
@@ -373,47 +377,50 @@ test("lets deployment admins create and patch users, rejects stale versions, and
   if (!currentAdminID) {
     throw new Error("missing current admin user id");
   }
-  await withOnlyActiveDeploymentAdmin(
-    deploymentAdminMutationClient(testActorRequest),
-    currentAdminID,
-    async () => {
-      await new DeploymentAdministration(page).loadTargetUser(currentAdminID);
-      await expect(
-        page.getByTestId(deploymentAdminTestId("patch-is-deployment-admin")),
-      ).toBeChecked();
-      await expect(
-        page.getByTestId(deploymentAdminTestId("patch-is-active")),
-      ).toBeChecked();
+  const guard = await installPublicErrorResponse(page, {
+    method: "PATCH",
+    path: `/api/v1/users/${currentAdminID}`,
+    code: "last_deployment_admin",
+    status: 409,
+    times: 2,
+  });
+  await new DeploymentAdministration(page).loadTargetUser(currentAdminID);
+  await expect(
+    page.getByTestId(deploymentAdminTestId("patch-is-deployment-admin")),
+  ).toBeChecked();
+  await expect(
+    page.getByTestId(deploymentAdminTestId("patch-is-active")),
+  ).toBeChecked();
 
-      await new DeploymentAdministration(page).setCheckbox(
-        deploymentAdminTestId("patch-is-deployment-admin"),
-        false,
-      );
-      await new DeploymentAdministration(page).patchTargetUser();
-      await expect(page.getByTestId(publicErrorCodeTestId("admin"))).toHaveText(
-        "last_deployment_admin",
-      );
-
-      await page
-        .getByRole("button", { name: "Discard user edits", exact: true })
-        .click();
-      await new DeploymentAdministration(page).loadTargetUser(currentAdminID);
-      await expect(
-        page.getByTestId(deploymentAdminTestId("patch-is-deployment-admin")),
-      ).toBeChecked();
-      await new DeploymentAdministration(page).setCheckbox(
-        deploymentAdminTestId("patch-is-active"),
-        false,
-      );
-      await new DeploymentAdministration(page).patchTargetUser();
-      await expect(page.getByTestId(publicErrorCodeTestId("admin"))).toHaveText(
-        "last_deployment_admin",
-      );
-      await page
-        .getByRole("button", { name: "Discard user edits", exact: true })
-        .click();
-    },
+  await new DeploymentAdministration(page).setCheckbox(
+    deploymentAdminTestId("patch-is-deployment-admin"),
+    false,
   );
+  await new DeploymentAdministration(page).patchTargetUser();
+  await expect(page.getByTestId(publicErrorCodeTestId("admin"))).toHaveText(
+    "last_deployment_admin",
+  );
+
+  await page
+    .getByRole("button", { name: "Discard user edits", exact: true })
+    .click();
+  await new DeploymentAdministration(page).loadTargetUser(currentAdminID);
+  await expect(
+    page.getByTestId(deploymentAdminTestId("patch-is-deployment-admin")),
+  ).toBeChecked();
+  await new DeploymentAdministration(page).setCheckbox(
+    deploymentAdminTestId("patch-is-active"),
+    false,
+  );
+  await new DeploymentAdministration(page).patchTargetUser();
+  await expect(page.getByTestId(publicErrorCodeTestId("admin"))).toHaveText(
+    "last_deployment_admin",
+  );
+  await page
+    .getByRole("button", { name: "Discard user edits", exact: true })
+    .click();
+  expect(guard.hitCount()).toBe(2);
+  await guard.dispose();
 });
 
 test("follows the bootstrap-token enrollment sequence on the ordinary login shell and proves completion alone issues no session", async ({
@@ -544,7 +551,7 @@ test("requires the current password and current TOTP code, revokes the session i
     mfa_required: true,
     is_deployment_admin: false,
   });
-  const secretBase32 = await enrollTotpViaBootstrap(email, password);
+  const secretBase32 = await enrollTotpViaBootstrap(page, email, password);
 
   await clearBrowserSession(page);
   await new AuthGateway(page).goto();
@@ -641,7 +648,7 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
     mfa_required: true,
     is_deployment_admin: false,
   });
-  await enrollTotpViaBootstrap(targetEmail, targetPassword);
+  await enrollTotpViaBootstrap(page, targetEmail, targetPassword);
 
   const incidentAdminEmail = uniqueEmail("authentication-e108-incident-admin");
   const incidentAdminPassword = "AuthenticationE108Incident!";
@@ -682,43 +689,42 @@ test("keeps deployment-user administration on deployment-admin sessions and hide
   const targetUserVersion = (
     await loadUser(testActorRequest, targetUser.user_id)
   ).user_version;
-  const incidentAdminRequests = await request.newContext({
-    baseURL: apiBase,
-    extraHTTPHeaders: authHeadersForStorageState(
-      await page.context().storageState(),
-    ),
-  });
-  try {
-    await expectUnauthorizedCredentialAction(
-      incidentAdminRequests,
-      `/api/v1/users/${targetUser.user_id}/password/reset`,
-      {
-        base_user_version: targetUserVersion,
-        client_txn_id: uniqueTxn("authentication-e108-incident-password-reset"),
-        new_password: "AuthenticationE108Changed!",
-        reason: "incident admin denial probe",
-      },
-    );
-    await expectUnauthorizedCredentialAction(
-      incidentAdminRequests,
-      `/api/v1/users/${targetUser.user_id}/mfa/totp/reset`,
-      {
-        base_user_version: targetUserVersion,
-        client_txn_id: uniqueTxn("authentication-e108-incident-totp-reset"),
-        reason: "incident admin denial probe",
-      },
-    );
-    await expectUnauthorizedCredentialAction(
-      incidentAdminRequests,
-      `/api/v1/users/${targetUser.user_id}/sessions/revoke-all`,
-      {
-        client_txn_id: uniqueTxn("authentication-e108-incident-revoke-all"),
-        reason: "incident admin denial probe",
-      },
-    );
-  } finally {
-    await incidentAdminRequests.dispose();
-  }
+  const incidentAdminRequests = await browserScopeFor(page).ownRequestContext(
+    async () =>
+      request.newContext({
+        baseURL: apiBase,
+        extraHTTPHeaders: authHeadersForStorageState(
+          await page.context().storageState(),
+        ),
+      }),
+  );
+  await expectUnauthorizedCredentialAction(
+    incidentAdminRequests,
+    `/api/v1/users/${targetUser.user_id}/password/reset`,
+    {
+      base_user_version: targetUserVersion,
+      client_txn_id: uniqueTxn("authentication-e108-incident-password-reset"),
+      new_password: "AuthenticationE108Changed!",
+      reason: "incident admin denial probe",
+    },
+  );
+  await expectUnauthorizedCredentialAction(
+    incidentAdminRequests,
+    `/api/v1/users/${targetUser.user_id}/mfa/totp/reset`,
+    {
+      base_user_version: targetUserVersion,
+      client_txn_id: uniqueTxn("authentication-e108-incident-totp-reset"),
+      reason: "incident admin denial probe",
+    },
+  );
+  await expectUnauthorizedCredentialAction(
+    incidentAdminRequests,
+    `/api/v1/users/${targetUser.user_id}/sessions/revoke-all`,
+    {
+      client_txn_id: uniqueTxn("authentication-e108-incident-revoke-all"),
+      reason: "incident admin denial probe",
+    },
+  );
 
   await restoreTrackedStorageState(page, testActor.storageState);
   await new AuthGateway(page).goto();
@@ -942,11 +948,11 @@ test("creates an incident with native keyboard submission and associated field e
 test("replays a committed incident after transport loss without duplicate dispatch or recreation", async ({
   page,
 }) => {
-  const releaseResponse = responseBarrier();
-  const committed = responseBarrier();
+  const releaseResponse = responseBarrier(page);
+  const committed = responseBarrier(page);
   const bodies: Record<string, unknown>[] = [];
   let originalId = "";
-  await page.route("**/api/v1/incidents", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/incidents", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     bodies.push(route.request().postDataJSON());
     const response = await route.fetch();
@@ -954,7 +960,7 @@ test("replays a committed incident after transport loss without duplicate dispat
       expect(response.status()).toBe(201);
       originalId = (await response.json()).data.incident_id;
       committed.release();
-      await releaseResponse.promise;
+      if (!(await awaitResponseBarrier(route, releaseResponse.promise))) return;
       await route.abort("failed");
     } else {
       expect(response.status()).toBe(200);
@@ -1003,7 +1009,7 @@ test("replays a committed incident after transport loss without duplicate dispat
     form.getByRole("button", { name: "Retry creation" }),
   ).toBeFocused();
   let failMembershipRefresh = true;
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     if (!failMembershipRefresh) return route.continue();
     failMembershipRefresh = false;
     await route.fulfill({
@@ -1029,14 +1035,14 @@ test("replays a committed incident after transport loss without duplicate dispat
 test("retains a confirmed creation when account navigation precedes its delayed response", async ({
   page,
 }) => {
-  const releaseResponse = responseBarrier();
-  const committed = responseBarrier();
-  await page.route("**/api/v1/incidents", async (route) => {
+  const releaseResponse = responseBarrier(page);
+  const committed = responseBarrier(page);
+  await installOwnedRoute(page, "**/api/v1/incidents", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     const response = await route.fetch();
     expect(response.status()).toBe(201);
     committed.release();
-    await releaseResponse.promise;
+    if (!(await awaitResponseBarrier(route, releaseResponse.promise))) return;
     await route.fulfill({ response });
   });
   await new IncidentDirectory(page).goto();

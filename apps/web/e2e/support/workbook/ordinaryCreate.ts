@@ -17,6 +17,7 @@ import {
 import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { uniqueIncidentKey } from "../runtime/fixtureIdentity";
+import { installOwnedRoute } from "../transport/requestInterception";
 import { activateCandidateIdentities } from "./references";
 
 export async function openOrdinaryFixture(
@@ -112,7 +113,8 @@ export async function retainOrdinaryUncertainty(
   malformed = false,
 ) {
   const bodies: string[] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${view}/rows`,
     async (route) => {
       bodies.push(route.request().postData() ?? "");

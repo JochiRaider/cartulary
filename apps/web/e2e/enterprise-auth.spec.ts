@@ -5,7 +5,6 @@ import {
   landingIncidentOpenButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-
 import { expect, test } from "./fixtures";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { rewriteSessionPresentation } from "./support/auth/sessionPresentation";
@@ -18,16 +17,17 @@ import {
   uniqueEmail,
   uniqueIncidentKey,
 } from "./support/runtime/fixtureIdentity";
+import { installOwnedRoute } from "./support/transport/requestInterception";
 
 test("shows enterprise providers and begins provider sign-in from the anonymous shell", async ({
-  browser,
+  browserScope,
 }) => {
-  const context = await browser.newContext();
+  const context = await browserScope.newContext();
   const page = await context.newPage();
   let beginBody: unknown = null;
 
-  try {
-    await page.route("**/api/v1/auth/session", async (route) => {
+  {
+    await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
       await route.fulfill({
         status: 401,
         contentType: "application/json",
@@ -40,7 +40,7 @@ test("shows enterprise providers and begins provider sign-in from the anonymous 
         }),
       });
     });
-    await page.route("**/api/v1/auth/providers", async (route) => {
+    await installOwnedRoute(page, "**/api/v1/auth/providers", async (route) => {
       expect(route.request().method()).toBe("GET");
       await route.fulfill({
         status: 200,
@@ -59,7 +59,8 @@ test("shows enterprise providers and begins provider sign-in from the anonymous 
         }),
       });
     });
-    await page.route(
+    await installOwnedRoute(
+      page,
       "**/api/v1/auth/providers/corp-oidc/begin",
       async (route) => {
         expect(route.request().method()).toBe("POST");
@@ -82,13 +83,17 @@ test("shows enterprise providers and begins provider sign-in from the anonymous 
         });
       },
     );
-    await page.route("**/enterprise-idp/start**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: "<!doctype html><title>Enterprise IdP</title>",
-      });
-    });
+    await installOwnedRoute(
+      page,
+      "**/enterprise-idp/start**",
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "text/html",
+          body: "<!doctype html><title>Enterprise IdP</title>",
+        });
+      },
+    );
 
     await page.goto("/");
     const providerButton = page.getByTestId(
@@ -104,8 +109,8 @@ test("shows enterprise providers and begins provider sign-in from the anonymous 
         return_to: "/",
       });
     await expect(page).toHaveURL(/\/enterprise-idp\/start\?state=e-11-02$/);
-  } finally {
-    await context.close();
+
+    await browserScope.closeContext(context);
   }
 });
 
@@ -176,7 +181,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
     userId: zeroMember.user_id,
   });
 
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     const response = await route.fetch();
     const body = await response.json();
     await route.fulfill({
@@ -233,7 +238,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 
-  await page.route("**/api/v1/auth/session", (route) =>
+  await installOwnedRoute(page, "**/api/v1/auth/session", (route) =>
     rewriteSessionPresentation(route, (session) => ({
       ...session,
       memberships: session.memberships.filter(
@@ -241,7 +246,7 @@ test("handles enterprise session root landing for zero, one, multiple, and disap
       ),
     })),
   );
-  await page.route("**/api/v1/incidents**", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/incidents**", async (route) => {
     const requestURL = new URL(route.request().url());
     if (
       route.request().method().toUpperCase() === "GET" &&

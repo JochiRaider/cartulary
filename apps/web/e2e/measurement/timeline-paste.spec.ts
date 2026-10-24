@@ -21,7 +21,7 @@ test.use({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
 test.describe.configure({ mode: "serial", timeout: 30 * 60 * 1_000 });
 
 test("measures 20 new Timeline rows and 100 visible TSV cells within AC-003", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
   testActor,
@@ -59,7 +59,7 @@ test("measures 20 new Timeline rows and 100 visible TSV cells within AC-003", as
       })),
     ).toEqual({ width: 1920, height: 1080, scale: 1 });
     traffic = await startAc043SnapshotTraffic(
-      browser,
+      browserScope,
       sessionTracker,
       snapshot.incidentId,
       snapshot.timelineRows,

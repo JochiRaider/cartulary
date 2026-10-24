@@ -43,8 +43,11 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { readHttpOperationResponse } from "./support/transport/publicHttpOperationClient";
-import { safelyRemoveRoute as safeUnroute } from "./support/transport/requestInterception";
-import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
+import {
+  installOwnedRoute,
+  installPublicErrorResponse,
+  removeOwnedRoute as safeUnroute,
+} from "./support/transport/requestInterception";
 import {
   createViewRow,
   patchRecord,
@@ -165,18 +168,6 @@ async function postTimelinePastePublic(
   );
 }
 
-async function armPublicErrorFault(page: Page, body: Record<string, unknown>) {
-  const response = await createEnvironmentTestControlClient(page.request, {
-    endpointOrigin: apiBase,
-  }).request({
-    body: { ...body, consume_once: true },
-    method: "POST",
-    path: "/api/v1/test/runtime/public-error-faults",
-  });
-  expect(response.status).toBe(201);
-  return response.body as { data: Record<string, unknown> };
-}
-
 async function dispatchClipboardText(
   page: Page,
   recordId: string,
@@ -295,7 +286,7 @@ async function submitTimelineSummary(
 
 test(
   exactScenarioTitle,
-  async ({ browser, page, sessionTracker, testActorRequest }) => {
+  async ({ browserScope, page, sessionTracker, testActorRequest }) => {
     test.setTimeout(300_000);
 
     const incidentId = await createIncident(
@@ -376,7 +367,7 @@ test(
         }
         await route.fallback();
       };
-      await page.route(createRoute, createRouteHandler);
+      await installOwnedRoute(page, createRoute, createRouteHandler);
       try {
         const draftSynopsisTestId = draftCellTestId(
           "timeline.activity_synopsis_text",
@@ -476,7 +467,7 @@ test(
 
     await test.step("inline edit route covers payload boundaries, save-state, refresh, and conflicts", async () => {
       const patchController = await installPatchController(page);
-      try {
+      {
         const heldPatch = patchController.holdNextPatch({
           recordId: beta.record_id,
         });
@@ -502,6 +493,7 @@ test(
         );
         await betaInlineEditor.press("Enter");
         const heldCall = await heldPatch.waitForHit;
+        if (!heldCall) throw new Error("Patch observation was cancelled");
         expect(heldCall.recordId).toBe(beta.record_id);
         expect(heldCall.body).toMatchObject({
           view_schema_id: timelineViewSchemaId,
@@ -538,6 +530,7 @@ test(
           data: { change_set_id: string; row: ViewRow };
         };
         const completedPatch = await heldPatch.waitForCompletion;
+        if (!completedPatch) throw new Error("Patch observation was cancelled");
         expect(completedPatch.status).toBe(200);
         await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
         await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
@@ -707,7 +700,7 @@ test(
           gridRowVersionAttribute,
           String(patchEnvelope.data.row.row_version),
         );
-      } finally {
+
         await patchController.dispose();
       }
     });
@@ -927,11 +920,11 @@ test(
             "end-to-end.mutation-lifecycle.row-01 stale second base",
         },
       );
-      const staleContext = await browser.newContext({
+      const staleContext = await browserScope.newContext({
         storageState: await page.context().storageState(),
       });
       const stalePage = await staleContext.newPage();
-      try {
+      {
         await disableWorkbookSockets(stalePage);
         await stalePage.goto(`/?incident_id=${staleIncidentId}`);
         await expect(
@@ -1090,8 +1083,8 @@ test(
         await expect(
           stalePage.getByTestId(workbookConflictLocalValueTestId()),
         ).toHaveValue(staleNextText);
-      } finally {
-        await staleContext.close();
+
+        await browserScope.closeContext(staleContext);
       }
     });
 
@@ -1147,9 +1140,9 @@ test(
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     });
 
-    await test.step("unknown public error fallback is induced through a harness-owned public boundary", async () => {
+    await test.step("unknown public error presentation uses an exact local response", async () => {
       const faultPath = `/api/v1/records/${alpha.record_id}`;
-      const armedFault = await armPublicErrorFault(page, {
+      const publicError = await installPublicErrorResponse(page, {
         method: "PATCH",
         path: faultPath,
         status: 418,
@@ -1162,16 +1155,6 @@ test(
           private_path: "/home/cartulary/internal/private.go",
         },
       });
-      expect(armedFault.data).toMatchObject({
-        schema_id: "cartulary.test.public_error_fault.v1",
-        method: "PATCH",
-        path: faultPath,
-        status: 418,
-        code: "future_private_public_error",
-        retryable: false,
-        consume_once: true,
-      });
-
       const unknownPatchResponse = page.waitForResponse(
         (response) =>
           response.request().method() === "PATCH" &&
@@ -1206,6 +1189,8 @@ test(
         { reason_code: "future_private_public_error" },
       );
       expect(unknownEnvelope.error.retryable).toBe(false);
+      expect(publicError.hitCount()).toBe(1);
+      await publicError.dispose();
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
       await openRecoveryItem(page, /^Queued edit recovery ·/);
       const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
@@ -1256,7 +1241,7 @@ test(
   },
 );
 
-test(recoveryScenarioTitle, async ({ browser, page }) => {
+test(recoveryScenarioTitle, async ({ browserScope, page }) => {
   test.setTimeout(180_000);
 
   const incidentId = await createIncident(
@@ -1302,184 +1287,177 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
 
   await openTimelineIncident(page, incidentId);
   const patchController = await installPatchController(page);
-  try {
-    await test.step("new logical edits remain unique across a workbook remount", async () => {
-      await submitTimelineSummary(
-        page,
-        remountRow.record_id,
-        "end-to-end.mutation-lifecycle.row-01 remount first",
-      );
-      await expect.poll(() => patchController.calls.length).toBe(1);
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      const firstClientTxnId = String(
-        patchController.calls[0]?.body.client_txn_id,
-      );
+  await test.step("new logical edits remain unique across a workbook remount", async () => {
+    await submitTimelineSummary(
+      page,
+      remountRow.record_id,
+      "end-to-end.mutation-lifecycle.row-01 remount first",
+    );
+    await expect.poll(() => patchController.calls.length).toBe(1);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    const firstClientTxnId = String(
+      patchController.calls[0]?.body.client_txn_id,
+    );
 
-      await page.reload();
-      await openTimelineIncident(page, incidentId);
-      await submitTimelineSummary(
-        page,
-        remountRow.record_id,
-        "end-to-end.mutation-lifecycle.row-01 remount second",
-      );
-      await expect.poll(() => patchController.calls.length).toBe(2);
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      const secondClientTxnId = String(
-        patchController.calls[1]?.body.client_txn_id,
-      );
+    await page.reload();
+    await openTimelineIncident(page, incidentId);
+    await submitTimelineSummary(
+      page,
+      remountRow.record_id,
+      "end-to-end.mutation-lifecycle.row-01 remount second",
+    );
+    await expect.poll(() => patchController.calls.length).toBe(2);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    const secondClientTxnId = String(
+      patchController.calls[1]?.body.client_txn_id,
+    );
 
-      expect(firstClientTxnId).toMatch(
-        /^timeline-client-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-      );
-      expect(secondClientTxnId).toMatch(
-        /^timeline-client-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-      );
-      expect(secondClientTxnId).not.toBe(firstClientTxnId);
+    expect(firstClientTxnId).toMatch(
+      /^timeline-client-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(secondClientTxnId).toMatch(
+      /^timeline-client-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(secondClientTxnId).not.toBe(firstClientTxnId);
+  });
+
+  await test.step("retry rekeys only the blocker and rematerializes the current row version", async () => {
+    patchController.failNextPatch(409, "client_txn_conflict", {
+      recordId: retryRow.record_id,
     });
+    await submitTimelineSummary(
+      page,
+      retryRow.record_id,
+      "end-to-end.mutation-lifecycle.row-01 retry local",
+    );
+    await expect.poll(() => patchController.calls.length).toBe(3);
+    const blockedCall = patchController.calls[2];
+    expect(blockedCall?.status).toBe(409);
+    const blockedClientTxnId = String(blockedCall?.body.client_txn_id);
 
-    await test.step("retry rekeys only the blocker and rematerializes the current row version", async () => {
-      patchController.failNextPatch(409, "client_txn_conflict", {
-        recordId: retryRow.record_id,
-      });
-      await submitTimelineSummary(
-        page,
-        retryRow.record_id,
-        "end-to-end.mutation-lifecycle.row-01 retry local",
-      );
-      await expect.poll(() => patchController.calls.length).toBe(3);
-      const blockedCall = patchController.calls[2];
-      expect(blockedCall?.status).toBe(409);
-      const blockedClientTxnId = String(blockedCall?.body.client_txn_id);
+    await openRecoveryItem(page, /^Queued edit recovery ·/);
+    const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
+    await expect(recoveryPanel).toBeVisible();
+    expect(await recoveryPanel.getByRole("button").allTextContents()).toEqual([
+      "Retry with a new request ID",
+      "Discard blocked edit",
+    ]);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    await expect(recoveryPanel).not.toContainText(blockedClientTxnId);
 
-      await openRecoveryItem(page, /^Queued edit recovery ·/);
-      const recoveryPanel = page.getByTestId(workbookEditRecoveryTestId());
-      await expect(recoveryPanel).toBeVisible();
-      expect(await recoveryPanel.getByRole("button").allTextContents()).toEqual(
-        ["Retry with a new request ID", "Discard blocked edit"],
-      );
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-      await expect(recoveryPanel).not.toContainText(blockedClientTxnId);
+    const serverAdvanceResponse = await patchTimelinePublic(
+      page,
+      retryRow.record_id,
+      {
+        view_schema_id: timelineViewSchemaId,
+        base_row_version: blockedCall?.body.base_row_version,
+        client_txn_id: uniqueTxn("timeline-public-retry-server-advance"),
+        changes: [
+          {
+            field_key: "timeline.data_source_text",
+            value: "end-to-end.mutation-lifecycle.row-01 server advance",
+          },
+        ],
+      },
+    );
+    expect(serverAdvanceResponse.ok()).toBeTruthy();
+    const serverAdvance = (await serverAdvanceResponse.json()) as {
+      data: { row: ViewRow };
+    };
+    await expect(
+      page.getByTestId(gridRowTestId(timelineViewSchemaId, retryRow.record_id)),
+    ).toHaveAttribute(
+      gridRowVersionAttribute,
+      String(serverAdvance.data.row.row_version),
+    );
 
-      const serverAdvanceResponse = await patchTimelinePublic(
-        page,
-        retryRow.record_id,
-        {
-          view_schema_id: timelineViewSchemaId,
-          base_row_version: blockedCall?.body.base_row_version,
-          client_txn_id: uniqueTxn("timeline-public-retry-server-advance"),
-          changes: [
-            {
-              field_key: "timeline.data_source_text",
-              value: "end-to-end.mutation-lifecycle.row-01 server advance",
-            },
-          ],
-        },
-      );
-      expect(serverAdvanceResponse.ok()).toBeTruthy();
-      const serverAdvance = (await serverAdvanceResponse.json()) as {
-        data: { row: ViewRow };
-      };
-      await expect(
-        page.getByTestId(
-          gridRowTestId(timelineViewSchemaId, retryRow.record_id),
-        ),
-      ).toHaveAttribute(
-        gridRowVersionAttribute,
-        String(serverAdvance.data.row.row_version),
-      );
-
-      await page.getByTestId(saveStateActionButtonTestId()).click();
-      await expectRecoveryFocus(page, "Queued edit recovery");
-      const retryButton = page.getByTestId(
-        workbookEditRecoveryRetryButtonTestId(),
-      );
-      const retryResponse = patchController.holdNextPatch({
-        recordId: retryRow.record_id,
-      });
-      await retryButton.focus();
-      await retryButton.press("Enter");
-      await retryResponse.waitForHit;
-      // The logical editor remains pending until recovery accepts the write.
-      await expect(page.getByTestId(saveStateTestId())).not.toHaveText("Saved");
-      retryResponse.release();
-      await retryResponse.waitForCompletion;
-      await expect.poll(() => patchController.calls.length).toBe(4);
-      const retriedCall = patchController.calls[3];
-      expect(retriedCall?.status).toBe(200);
-      expect(retriedCall?.body.client_txn_id).not.toBe(blockedClientTxnId);
-      expect(retriedCall?.body.base_row_version).toBe(
-        serverAdvance.data.row.row_version,
-      );
-      expect(retriedCall?.body.changes).toEqual(blockedCall?.body.changes);
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(recoveryPanel).toHaveCount(0);
-      await expect(
-        page.getByTestId(
-          timelineScalarEditorTestId({
-            fieldKey: "timeline.activity_synopsis_text",
-            recordId: retryRow.record_id,
-            surface: "grid",
-          }),
-        ),
-      ).toHaveCount(0);
-      await page
-        .getByRole("button", { name: "Close recovery", exact: true })
-        .click();
+    await page.getByTestId(saveStateActionButtonTestId()).click();
+    await expectRecoveryFocus(page, "Queued edit recovery");
+    const retryButton = page.getByTestId(
+      workbookEditRecoveryRetryButtonTestId(),
+    );
+    const retryResponse = patchController.holdNextPatch({
+      recordId: retryRow.record_id,
     });
-
-    await test.step("discard restores committed display without a server mutation", async () => {
-      patchController.failNextPatch(409, "client_txn_conflict", {
-        recordId: discardRow.record_id,
-      });
-      await submitTimelineSummary(
-        page,
-        discardRow.record_id,
-        "end-to-end.mutation-lifecycle.row-01 discard local",
-      );
-      await expect.poll(() => patchController.calls.length).toBe(5);
-      await openRecoveryItem(page, /^Queued edit recovery ·/);
-      await expect(
-        page.getByTestId(workbookEditRecoveryTestId()),
-      ).toBeVisible();
-      const discardButton = page.getByTestId(
-        workbookEditRecoveryDiscardButtonTestId(),
-      );
-      await discardButton.focus();
-      await discardButton.press("Space");
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(page.getByTestId(workbookEditRecoveryTestId())).toHaveCount(
-        0,
-      );
-      const restoredEditor = page.getByTestId(
+    await retryButton.focus();
+    await retryButton.press("Enter");
+    await retryResponse.waitForHit;
+    // The logical editor remains pending until recovery accepts the write.
+    await expect(page.getByTestId(saveStateTestId())).not.toHaveText("Saved");
+    retryResponse.release();
+    await retryResponse.waitForCompletion;
+    await expect.poll(() => patchController.calls.length).toBe(4);
+    const retriedCall = patchController.calls[3];
+    expect(retriedCall?.status).toBe(200);
+    expect(retriedCall?.body.client_txn_id).not.toBe(blockedClientTxnId);
+    expect(retriedCall?.body.base_row_version).toBe(
+      serverAdvance.data.row.row_version,
+    );
+    expect(retriedCall?.body.changes).toEqual(blockedCall?.body.changes);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(recoveryPanel).toHaveCount(0);
+    await expect(
+      page.getByTestId(
         timelineScalarEditorTestId({
           fieldKey: "timeline.activity_synopsis_text",
-          recordId: discardRow.record_id,
+          recordId: retryRow.record_id,
           surface: "grid",
         }),
-      );
-      await expect(restoredEditor).toHaveValue(
-        "end-to-end.mutation-lifecycle.row-01 discard base",
-      );
-      await expectRecoveryFocus(page, "Recovery");
-      expect(patchController.calls).toHaveLength(5);
-      await page
-        .getByRole("button", { name: "Close recovery", exact: true })
-        .click();
+      ),
+    ).toHaveCount(0);
+    await page
+      .getByRole("button", { name: "Close recovery", exact: true })
+      .click();
+  });
+
+  await test.step("discard restores committed display without a server mutation", async () => {
+    patchController.failNextPatch(409, "client_txn_conflict", {
+      recordId: discardRow.record_id,
     });
-  } finally {
-    await patchController.dispose();
-  }
+    await submitTimelineSummary(
+      page,
+      discardRow.record_id,
+      "end-to-end.mutation-lifecycle.row-01 discard local",
+    );
+    await expect.poll(() => patchController.calls.length).toBe(5);
+    await openRecoveryItem(page, /^Queued edit recovery ·/);
+    await expect(page.getByTestId(workbookEditRecoveryTestId())).toBeVisible();
+    const discardButton = page.getByTestId(
+      workbookEditRecoveryDiscardButtonTestId(),
+    );
+    await discardButton.focus();
+    await discardButton.press("Space");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(page.getByTestId(workbookEditRecoveryTestId())).toHaveCount(0);
+    const restoredEditor = page.getByTestId(
+      timelineScalarEditorTestId({
+        fieldKey: "timeline.activity_synopsis_text",
+        recordId: discardRow.record_id,
+        surface: "grid",
+      }),
+    );
+    await expect(restoredEditor).toHaveValue(
+      "end-to-end.mutation-lifecycle.row-01 discard base",
+    );
+    await expectRecoveryFocus(page, "Recovery");
+    expect(patchController.calls).toHaveLength(5);
+    await page
+      .getByRole("button", { name: "Close recovery", exact: true })
+      .click();
+  });
+
+  await patchController.dispose();
 
   await test.step("a genuine same-field conflict after rekey opens the normal resolver", async () => {
-    const staleContext = await browser.newContext({
+    const staleContext = await browserScope.newContext({
       storageState: await page.context().storageState(),
     });
     const stalePage = await staleContext.newPage();
-    try {
+    {
       await disableWorkbookSockets(stalePage);
       await openTimelineIncident(stalePage, incidentId);
       const stalePatchController = await installPatchController(stalePage);
-      try {
+      {
         stalePatchController.failNextPatch(409, "client_txn_conflict", {
           recordId: sameFieldRow.record_id,
         });
@@ -1531,11 +1509,11 @@ test(recoveryScenarioTitle, async ({ browser, page }) => {
         await expect(
           stalePage.getByTestId(workbookEditRecoveryTestId()),
         ).toHaveCount(0);
-      } finally {
+
         await stalePatchController.dispose();
       }
-    } finally {
-      await staleContext.close();
+
+      await browserScope.closeContext(staleContext);
     }
   });
 });

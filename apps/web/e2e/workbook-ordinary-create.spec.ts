@@ -26,6 +26,12 @@ import {
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
 import { expect, test } from "./fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { fetchRecordHistoryCount } from "./support/workbook/history";
 import {
   commitOrdinary,
@@ -268,17 +274,18 @@ test("Ordinary accepted results survive detached completion and recover failed r
   let committed = false,
     count = 0,
     release = () => {};
-  const delay = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(
+  const delayBarrier = responseBarrier(page);
+  release = delayBarrier.release;
+  const delay = delayBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${evidence}/rows`,
     async (route) => {
       count++;
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       committed = true;
-      await delay;
+      if (!(await awaitResponseBarrier(route, delay))) return;
       await route.fulfill({ response });
     },
   );
@@ -296,7 +303,7 @@ test("Ordinary accepted results survive detached completion and recover failed r
     page.getByTestId(gridShellTestId(timelineViewSchemaId)),
   ).toBeVisible();
   const queryPattern = `**/incidents/${incident}/views/${evidence}/query`;
-  await page.route(queryPattern, (route) =>
+  await installOwnedRoute(page, queryPattern, (route) =>
     route.fulfill({
       status: 500,
       contentType: "application/json",
@@ -314,7 +321,7 @@ test("Ordinary accepted results survive detached completion and recover failed r
   await expect(
     page.getByRole("region", { name: "Row creation" }),
   ).toContainText("Row accepted.");
-  await page.unroute(queryPattern);
+  await removeOwnedRoute(page, queryPattern);
   await refresh.focus();
   await refresh.press("Enter");
   await expect(

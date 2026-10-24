@@ -1,5 +1,7 @@
 # Testing Harness Remediation 01 — Structural Efficiency Handoff
 
+**Bounded cutover supersession, 2026-10-24:** The isolation reasons below are historical source observations. The bounded cutover removes the global last-administrator helper and public-error fault control and qualifies owned successors in [testing-remediation E-036](testing-remediation.md#e-036--wf-04--s-004-completion-checkpoint). Use that sole tracker for this cutover; preserve these earlier failures and evidence without inheriting their guidance or acceptance thresholds.
+
 Status: BLOCKED on final acceptance. Reset correction, physical cluster routing,
 scratch cleanup, owner migrations and the recorded follow-on repairs remain
 implemented. C08 generation quarantine and C09 Timeline setup readiness are DONE.

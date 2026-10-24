@@ -726,6 +726,43 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "module.networkflow.browser_stateful.pagination_expiry_bridge",
+      "owner_id": "module.networkflow",
+      "family_id": "module.networkflow.browser_stateful",
+      "collaborator_ids": [
+        "harness.browser",
+        "web.networkflow"
+      ],
+      "verification_ids": [
+        "module.networkflow.verification.behavior_contract"
+      ],
+      "runner": "playwright",
+      "selector": {
+        "file": "apps/web/e2e/network-flow-pagination.spec.ts",
+        "project_id": "chromium",
+        "stage": "stateful",
+        "scenario_ids": [
+          "network_flow_cursor_expiry_bridge"
+        ],
+        "titles": [
+          "Network Analysis restarts real rows pagination at the cursor expiry boundary"
+        ]
+      },
+      "evidence_class": "browser",
+      "runtime_profile_id": "network_flow_claimed",
+      "resource_profile_id": "browser_isolated",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "browser_stack",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "object_store",
+        "postgres"
+      ],
+      "browser_state_scope": "isolated",
+      "postgres_isolation": "exclusive"
+    },
+    {
       "row_id": "module.networkflow.browser_stateful.pagination_recovery",
       "owner_id": "module.networkflow",
       "family_id": "module.networkflow.browser_stateful",
@@ -745,7 +782,7 @@
           "network_flow_pagination_recovery"
         ],
         "titles": [
-          "Network Analysis preserves committed pages and recovers real expired cursors across all exploration surfaces"
+          "Network Analysis preserves committed pages and recovers expired-cursor responses across all exploration surfaces"
         ]
       },
       "evidence_class": "browser",
@@ -759,7 +796,7 @@
         "object_store",
         "postgres"
       ],
-      "browser_state_scope": "isolated",
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {

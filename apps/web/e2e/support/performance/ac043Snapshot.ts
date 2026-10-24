@@ -20,15 +20,14 @@ import {
   identitiesViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Browser, BrowserContext, Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import { csrfHeaders } from "../auth/browserSession";
 import type { FixtureActorCredentials } from "../auth/sessions";
 import {
   loginBootstrapControlPlaneContext,
-  loginTrackedUserViaPage,
   logoutAndVerify,
-  readCurrentSession,
 } from "../auth/sessions";
+import type { OwnedBrowserScope } from "../runtime/cleanup";
 import { apiBase, webBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
@@ -74,17 +73,10 @@ export type Ac043TrafficDriver = {
   stop: () => Promise<void>;
 };
 
-type LoginSessionTracker = {
-  captureCurrentSession: (
-    page: Page,
-    details: {
-      createdBy: string;
-      email: string;
-      purpose: string;
-      userId: string;
-    },
-  ) => Promise<void>;
-};
+type LoginSessionTracker = Pick<
+  import("../../fixtures").SessionTracker,
+  "loginProvisionedUser"
+>;
 
 export function parseAc043RuntimeBundle(
   contents: string,
@@ -155,7 +147,7 @@ export async function prepareAc043Snapshot(
 }
 
 export async function startAc043SnapshotTraffic(
-  browser: Browser,
+  browserScope: OwnedBrowserScope,
   sessionTracker: LoginSessionTracker,
   incidentId: string,
   rows: readonly ViewRow[],
@@ -220,19 +212,31 @@ export async function startAc043SnapshotTraffic(
     }
     rowState.row_version = response.payload.data.row.row_version;
   };
+  const initialBarriers: ReturnType<OwnedBrowserScope["barrier"]>[] = [];
+  let stopping: Promise<void> | undefined;
+  const stop = () => {
+    if (!stopping) {
+      stopped = true;
+      for (const timer of timers) clearTimeout(timer);
+      for (const barrier of initialBarriers) barrier.cancel();
+      stopping = (async () => {
+        await Promise.all([...pendingUpdates]);
+        if (trafficFailure !== null) throw trafficFailure;
+      })();
+    }
+    return stopping;
+  };
+  browserScope.settleBeforeClosing(stop);
   const firstUpdates: Array<Promise<void>> = [];
   try {
     for (const [index, account] of accounts.entries()) {
-      const context = await browser.newContext();
+      const context = await browserScope.newContext();
       contexts.push(context);
       const backgroundPage = await context.newPage();
-      await loginTrackedUserViaPage(backgroundPage, account);
-      const session = await readCurrentSession(backgroundPage);
-      await sessionTracker.captureCurrentSession(backgroundPage, {
+      await sessionTracker.loginProvisionedUser(backgroundPage, {
+        ...account,
         createdBy: predicateId,
-        email: account.email,
         purpose: `AC-043 traffic session ${index + 1}`,
-        userId: session.user_id,
       });
       if (options.workbookObserver && index === 0) {
         await backgroundPage.setViewportSize({ width: 1920, height: 1080 });
@@ -268,19 +272,24 @@ export async function startAc043SnapshotTraffic(
       const initialDelay =
         (fixture.backgroundUpdateIntervalMs / fixture.backgroundSessions) *
         index;
+      const initial = browserScope.barrier(trafficSession.page.context());
+      initialBarriers.push(initial);
       firstUpdates.push(
-        new Promise<void>((resolve, reject) => {
-          timers.push(
-            setTimeout(() => {
-              scheduleUpdate().then(resolve, reject);
-              timers.push(
-                setInterval(() => {
-                  void scheduleUpdate();
-                }, fixture.backgroundUpdateIntervalMs),
-              );
-            }, initialDelay),
-          );
+        initial.promise.then((outcome) => {
+          if (outcome === "cancelled")
+            throw new Error("AC-043 traffic startup cancelled");
+          if (trafficFailure !== null) throw trafficFailure;
         }),
+      );
+      timers.push(
+        setTimeout(() => {
+          void scheduleUpdate().then(initial.release, initial.release);
+          timers.push(
+            setInterval(() => {
+              void scheduleUpdate();
+            }, fixture.backgroundUpdateIntervalMs),
+          );
+        }, initialDelay),
       );
     }
     await Promise.all(firstUpdates);
@@ -297,7 +306,7 @@ export async function startAc043SnapshotTraffic(
   } catch (error) {
     stopped = true;
     for (const timer of timers) clearTimeout(timer);
-    await closeBackgroundContexts(contexts).catch(() => undefined);
+    for (const barrier of initialBarriers) barrier.cancel();
     throw error;
   }
   return {
@@ -305,15 +314,7 @@ export async function startAc043SnapshotTraffic(
     qualifiedBackgroundSessions: firstUpdates.length,
     sessionCount: contexts.length + 1,
     updatesPerSecond: fixture.backgroundUpdatesPerSecond,
-    stop: async () => {
-      stopped = true;
-      for (const timer of timers) clearTimeout(timer);
-      await Promise.allSettled([...pendingUpdates]);
-      await closeBackgroundContexts(contexts);
-      if (trafficFailure !== null) {
-        throw trafficFailure;
-      }
-    },
+    stop,
   };
 }
 
@@ -510,37 +511,6 @@ function requireExactRows(
   ) {
     throw new Error(`AC-043 ${label} snapshot contains an unstable row`);
   }
-}
-
-async function closeBackgroundContexts(contexts: readonly BrowserContext[]) {
-  const closeResults = await Promise.allSettled(
-    contexts.map((context) => withTimeout(context.close(), 5_000)),
-  );
-  const failed = closeResults.filter((result) => result.status === "rejected");
-  if (failed.length > 0) {
-    throw new Error(
-      `AC-043 background cleanup failed for ${failed.length} contexts`,
-    );
-  }
-}
-
-function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timeout = setTimeout(
-      () => reject(new Error("AC-043 background context close timed out")),
-      timeoutMs,
-    );
-    operation.then(
-      (value) => {
-        clearTimeout(timeout);
-        resolve(value);
-      },
-      (error: unknown) => {
-        clearTimeout(timeout);
-        reject(error);
-      },
-    );
-  });
 }
 
 async function establishPresenceClient(

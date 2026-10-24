@@ -39,6 +39,7 @@ import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -47,7 +48,12 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { createTimelineFillers } from "./support/timeline/fixtures";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import {
   fetchFullRecordHistory,
@@ -750,61 +756,57 @@ test("Timeline pointer transitions preserve one edit and wait for acceptance", a
     method: "PATCH",
     path: `/api/v1/records/${id}`,
   });
-  try {
-    await page.getByTestId(rowCellTestId(id, source)).click();
-    await held.waitForHit;
-    await expect(editor(page, id)).toHaveValue(
-      `${required(rows[0]).cells[synopsis]?.value} pointer`,
-    );
-    await expect(editor(page, id, source)).toHaveCount(0);
-    held.release();
-    await expect(editor(page, id, source)).toBeFocused();
-    expect(requests).toHaveLength(1);
-    await page.keyboard.press("Escape");
-    await expect(cell(page, id, source)).toBeFocused();
-    await waitForViewRowByCell(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      synopsis,
-      `${required(rows[0]).cells[synopsis]?.value} pointer`,
-    );
-    await page
-      .getByTestId(gridRowTestId(timelineViewSchemaId, id))
-      .getByRole("checkbox")
-      .click();
-    await expect(editor(page, id)).toHaveCount(0);
-    expect(requests).toHaveLength(1);
-  } finally {
-    await held.dispose();
-  }
+  await page.getByTestId(rowCellTestId(id, source)).click();
+  await held.waitForHit;
+  await expect(editor(page, id)).toHaveValue(
+    `${required(rows[0]).cells[synopsis]?.value} pointer`,
+  );
+  await expect(editor(page, id, source)).toHaveCount(0);
+  held.release();
+  await expect(editor(page, id, source)).toBeFocused();
+  expect(requests).toHaveLength(1);
+  await page.keyboard.press("Escape");
+  await expect(cell(page, id, source)).toBeFocused();
+  await waitForViewRowByCell(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    synopsis,
+    `${required(rows[0]).cells[synopsis]?.value} pointer`,
+  );
+  await page
+    .getByTestId(gridRowTestId(timelineViewSchemaId, id))
+    .getByRole("checkbox")
+    .click();
+  await expect(editor(page, id)).toHaveCount(0);
+  expect(requests).toHaveLength(1);
+
+  await held.dispose();
   await selectCell(page, id);
   await page.keyboard.type("Accepted after Escape");
   const late = await holdBrowserRequest(page, {
     method: "PATCH",
     path: `/api/v1/records/${id}`,
   });
-  try {
-    await page.keyboard.press("Tab");
-    await late.waitForHit;
-    await page.keyboard.press("Escape");
-    await expect(cell(page, id)).toBeFocused();
-    await page.keyboard.press("ArrowDown");
-    await expect(cell(page, required(rows[1]).record_id)).toBeFocused();
-    late.release();
-    await waitForViewRowByCell(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      synopsis,
-      "Accepted after Escape",
-    );
-    await expect(cell(page, required(rows[1]).record_id)).toBeFocused();
-    expect(requests).toHaveLength(2);
-    expect(await fetchRecordHistoryCount(page, id)).toBe(3);
-  } finally {
-    await late.dispose();
-  }
+  await page.keyboard.press("Tab");
+  await late.waitForHit;
+  await page.keyboard.press("Escape");
+  await expect(cell(page, id)).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(cell(page, required(rows[1]).record_id)).toBeFocused();
+  late.release();
+  await waitForViewRowByCell(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    synopsis,
+    "Accepted after Escape",
+  );
+  await expect(cell(page, required(rows[1]).record_id)).toBeFocused();
+  expect(requests).toHaveLength(2);
+  expect(await fetchRecordHistoryCount(page, id)).toBe(3);
+
+  await late.dispose();
 });
 
 test("Timeline rectangle paste keyboard fill and pointer fill preserve targets", async ({
@@ -948,52 +950,44 @@ test("Timeline rejected edits keep correction local and preserve rough date text
     method: "PATCH",
     path: `/api/v1/records/${id}`,
   });
-  try {
-    await page.keyboard.press("Tab");
-    await held.waitForHit;
-    await externalPatch(
-      page,
-      incidentId,
-      id,
-      synopsis,
-      "Concurrent saved fact",
-    );
-    held.release();
-    await expect(editor(page, id)).toHaveValue("My conflict draft");
-    await expect(editor(page, id)).toBeFocused();
-    await expect(
-      page.getByTestId(conflictMarkerTestId(id, synopsis)),
-    ).toBeVisible();
-    expect(
-      (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
-        (row) => row.record_id === id,
-      )?.cells[synopsis]?.value,
-    ).toBe("Concurrent saved fact");
-    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
-    await page.getByTestId(conflictMarkerTestId(id, synopsis)).click();
-    await page
-      .getByRole("button", { name: "Close conflict recovery", exact: true })
-      .click();
-    await page.getByTestId(conflictMarkerTestId(id, synopsis)).click();
-    await page
-      .getByRole("button", { name: "Discard local draft", exact: true })
-      .click();
-    await expect(page.getByTestId(rowCellTestId(id, synopsis))).toHaveText(
-      "Concurrent saved fact",
-    );
-    await expect(cell(page, id)).toBeFocused();
-    await page.keyboard.type("Continued after conflict");
-    await page.keyboard.press("Enter");
-    await waitForViewRowByCell(
-      page,
-      incidentId,
-      timelineViewSchemaId,
-      synopsis,
-      "Continued after conflict",
-    );
-  } finally {
-    await held.dispose();
-  }
+  await page.keyboard.press("Tab");
+  await held.waitForHit;
+  await externalPatch(page, incidentId, id, synopsis, "Concurrent saved fact");
+  held.release();
+  await expect(editor(page, id)).toHaveValue("My conflict draft");
+  await expect(editor(page, id)).toBeFocused();
+  await expect(
+    page.getByTestId(conflictMarkerTestId(id, synopsis)),
+  ).toBeVisible();
+  expect(
+    (await queryViewRows(page, incidentId, timelineViewSchemaId)).find(
+      (row) => row.record_id === id,
+    )?.cells[synopsis]?.value,
+  ).toBe("Concurrent saved fact");
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+  await page.getByTestId(conflictMarkerTestId(id, synopsis)).click();
+  await page
+    .getByRole("button", { name: "Close conflict recovery", exact: true })
+    .click();
+  await page.getByTestId(conflictMarkerTestId(id, synopsis)).click();
+  await page
+    .getByRole("button", { name: "Discard local draft", exact: true })
+    .click();
+  await expect(page.getByTestId(rowCellTestId(id, synopsis))).toHaveText(
+    "Concurrent saved fact",
+  );
+  await expect(cell(page, id)).toBeFocused();
+  await page.keyboard.type("Continued after conflict");
+  await page.keyboard.press("Enter");
+  await waitForViewRowByCell(
+    page,
+    incidentId,
+    timelineViewSchemaId,
+    synopsis,
+    "Continued after conflict",
+  );
+
+  await held.dispose();
 });
 
 test("Timeline active drafts survive in-app refresh and stale refresh failure", async ({
@@ -1013,12 +1007,12 @@ test("Timeline active drafts survive in-app refresh and stale refresh failure", 
   const queryPath = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`;
   let releaseRefresh!: () => void;
   let queryCaptured!: () => void;
-  const refreshGate = new Promise<void>((resolve) => {
-    releaseRefresh = resolve;
-  });
-  const captured = new Promise<void>((resolve) => {
-    queryCaptured = resolve;
-  });
+  const refreshGateBarrier = responseBarrier(page);
+  releaseRefresh = refreshGateBarrier.release;
+  const refreshGate = refreshGateBarrier.promise;
+  const capturedBarrier = responseBarrier(page);
+  queryCaptured = capturedBarrier.release;
+  const captured = capturedBarrier.promise;
   const refreshRequests: string[] = [];
   const holdFirstRefresh = async (route: Route) => {
     refreshRequests.push(route.request().postData() ?? "");
@@ -1028,12 +1022,12 @@ test("Timeline active drafts survive in-app refresh and stale refresh failure", 
     }
     const response = await route.fetch();
     queryCaptured();
-    await refreshGate;
+    if (!(await awaitResponseBarrier(route, refreshGate))) return;
     await route.fulfill({ response });
   };
   // Keep interception installed through the stale-snapshot recovery read.
   // A one-use route can retire its interception while that immediate read starts.
-  await page.route(`**${queryPath}`, holdFirstRefresh);
+  await installOwnedRoute(page, `**${queryPath}`, holdFirstRefresh);
   try {
     await createViewRow(page, incidentId, timelineViewSchemaId, {
       client_txn_id: uniqueTxn("live-create"),
@@ -1071,9 +1065,12 @@ test("Timeline active drafts survive in-app refresh and stale refresh failure", 
     await expect(page.getByTestId(rowCellTestId(id, source))).toHaveText(
       "Newer source during refresh",
     );
-  } finally {
+
     releaseRefresh();
-    await page.unroute(`**${queryPath}`, holdFirstRefresh);
+
+    await removeOwnedRoute(page, `**${queryPath}`, holdFirstRefresh);
+  } finally {
+    refreshGateBarrier.cancel();
   }
   await page.keyboard.press("Home");
   await page.keyboard.press("ArrowRight");
@@ -1106,7 +1103,8 @@ test("Timeline active drafts survive in-app refresh and stale refresh failure", 
   expect(required(reordered[0]).cells[synopsis]?.value).toBe(
     required(rows.at(-1)).cells[synopsis]?.value,
   );
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**${queryPath}`,
     async (route) =>
       route.fulfill({
@@ -1307,7 +1305,7 @@ test("Timeline first input creates once and retains typing through acknowledgeme
         payload: request.postDataJSON(),
       });
   });
-  try {
+  {
     const draft = page.getByTestId(draftCellTestId(synopsis));
     await scrollGridTargetIntoView({
       page,
@@ -1370,7 +1368,7 @@ test("Timeline first input creates once and retains typing through acknowledgeme
             path: "/api/v1/records/*",
           })
         : null;
-      try {
+      {
         await expect(page.getByTestId(draftCellTestId(synopsis))).toBeFocused();
         await page.keyboard.type(label);
         if (createGate !== null && patchGate !== null) {
@@ -1410,7 +1408,7 @@ test("Timeline first input creates once and retains typing through acknowledgeme
           source,
           `Source for ${label}`,
         );
-      } finally {
+
         await createGate?.dispose();
         await patchGate?.dispose();
       }
@@ -1423,7 +1421,7 @@ test("Timeline first input creates once and retains typing through acknowledgeme
       method: "POST",
       path,
     });
-    try {
+    {
       await page
         .getByTestId(draftCellTestId(synopsis))
         .fill("Accepted draft navigation");
@@ -1443,11 +1441,11 @@ test("Timeline first input creates once and retains typing through acknowledgeme
       expect(
         await queryViewRows(page, incidentId, timelineViewSchemaId),
       ).toHaveLength(4);
-    } finally {
+
       await navigationGate.dispose();
     }
     await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -1465,17 +1463,16 @@ test("Timeline uncertain creation replays exactly through refresh without losing
   const attempts: string[] = [];
   const changeSets: string[] = [];
   let createdRecordId = "";
-  let releaseReplay!: () => void;
-  const replayGate = new Promise<void>((resolve) => {
-    releaseReplay = resolve;
-  });
-  let reportLoss!: () => void;
-  const responseLost = new Promise<void>((resolve) => {
-    reportLoss = resolve;
-  });
-  await page.route(`**${path}`, async (route) => {
+  const replayGateBarrier = responseBarrier(page);
+  const releaseReplay = replayGateBarrier.release;
+  const replayGate = replayGateBarrier.promise;
+  const responseLostBarrier = responseBarrier(page);
+  const reportLoss = responseLostBarrier.release;
+  const responseLost = responseLostBarrier.promise;
+  await installOwnedRoute(page, `**${path}`, async (route) => {
     attempts.push(required(route.request().postData()));
-    if (attempts.length > 1) await replayGate;
+    if (attempts.length > 1)
+      if (!(await awaitResponseBarrier(route, replayGate))) return;
     const response = await route.fetch();
     expect(response.status()).toBe(attempts.length === 1 ? 201 : 200);
     const body = await response.json();
@@ -1532,9 +1529,11 @@ test("Timeline uncertain creation replays exactly through refresh without losing
     ).toBe("Uncertain fact still typing");
     expect(await fetchRecordHistoryCount(page, createdRecordId)).toBe(2);
     await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
-  } finally {
+
     releaseReplay();
-    if (!page.isClosed()) await page.unroute(`**${path}`);
+  } finally {
+    replayGateBarrier.cancel();
+    if (!page.isClosed()) await removeOwnedRoute(page, `**${path}`);
   }
 });
 
@@ -1550,23 +1549,19 @@ test("Timeline paste retains committed creates through lost response navigation 
   const changes: string[] = [];
   let failReads = false;
   let holdRefresh = false;
-  let releaseRefresh!: () => void;
-  const refreshGate = new Promise<void>((resolve) => {
-    releaseRefresh = resolve;
-  });
-  let reportRefreshHit!: () => void;
-  const refreshHit = new Promise<void>((resolve) => {
-    reportRefreshHit = resolve;
-  });
-  let reportLoss!: () => void;
-  const lost = new Promise<void>((resolve) => {
-    reportLoss = resolve;
-  });
-  let releaseReplay!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    releaseReplay = resolve;
-  });
-  await page.route(`**${queryPath}`, async (route) => {
+  const refreshGateBarrier = responseBarrier(page);
+  const releaseRefresh = refreshGateBarrier.release;
+  const refreshGate = refreshGateBarrier.promise;
+  const refreshHitBarrier = responseBarrier(page);
+  const reportRefreshHit = refreshHitBarrier.release;
+  const refreshHit = refreshHitBarrier.promise;
+  const lostBarrier = responseBarrier(page);
+  const reportLoss = lostBarrier.release;
+  const lost = lostBarrier.promise;
+  const gateBarrier = responseBarrier(page);
+  const releaseReplay = gateBarrier.release;
+  const gate = gateBarrier.promise;
+  await installOwnedRoute(page, `**${queryPath}`, async (route) => {
     if (failReads) {
       await route.fulfill({
         status: 503,
@@ -1579,11 +1574,11 @@ test("Timeline paste retains committed creates through lost response navigation 
     }
     if (holdRefresh) {
       reportRefreshHit();
-      await refreshGate;
+      if (!(await awaitResponseBarrier(route, refreshGate))) return;
     }
     await route.continue();
   });
-  await page.route(`**${path}`, async (route) => {
+  await installOwnedRoute(page, `**${path}`, async (route) => {
     attempts.push(required(route.request().postData()));
     const response = await route.fetch();
     expect(response.status()).toBe(200);
@@ -1593,7 +1588,7 @@ test("Timeline paste retains committed creates through lost response navigation 
       await route.abort("connectionfailed");
       reportLoss();
     } else {
-      await gate;
+      if (!(await awaitResponseBarrier(route, gate))) return;
       failReads = true;
       await route.fulfill({ response });
     }
@@ -1720,12 +1715,15 @@ test("Timeline paste retains committed creates through lost response navigation 
     ).toBe("Intervening source");
     expect(await fetchRecordHistoryCount(page, target)).toBe(before);
     expect(attempts).toHaveLength(2);
-  } finally {
+
     releaseReplay();
     releaseRefresh();
+  } finally {
+    gateBarrier.cancel();
+    refreshGateBarrier.cancel();
     if (!page.isClosed()) {
-      await page.unroute(`**${path}`);
-      await page.unroute(`**${queryPath}`);
+      await removeOwnedRoute(page, `**${path}`);
+      await removeOwnedRoute(page, `**${queryPath}`);
     }
   }
 });
@@ -1745,22 +1743,22 @@ test("Timeline batch recovery honors newer scroll and pointer intent during held
   let reportRefresh!: () => void;
   let releaseReplay!: () => void;
   let releaseRefresh!: () => void;
-  const loss = new Promise<void>((resolve) => {
-    reportLoss = resolve;
-  });
-  const replayHit = new Promise<void>((resolve) => {
-    reportReplay = resolve;
-  });
-  const refreshHit = new Promise<void>((resolve) => {
-    reportRefresh = resolve;
-  });
-  const replayGate = new Promise<void>((resolve) => {
-    releaseReplay = resolve;
-  });
-  const refreshGate = new Promise<void>((resolve) => {
-    releaseRefresh = resolve;
-  });
-  await page.route(`**${queryPath}`, async (route) => {
+  const lossBarrier = responseBarrier(page);
+  reportLoss = lossBarrier.release;
+  const loss = lossBarrier.promise;
+  const replayHitBarrier = responseBarrier(page);
+  reportReplay = replayHitBarrier.release;
+  const replayHit = replayHitBarrier.promise;
+  const refreshHitBarrier = responseBarrier(page);
+  reportRefresh = refreshHitBarrier.release;
+  const refreshHit = refreshHitBarrier.promise;
+  const replayGateBarrier = responseBarrier(page);
+  releaseReplay = replayGateBarrier.release;
+  const replayGate = replayGateBarrier.promise;
+  const refreshGateBarrier = responseBarrier(page);
+  releaseRefresh = refreshGateBarrier.release;
+  const refreshGate = refreshGateBarrier.promise;
+  await installOwnedRoute(page, `**${queryPath}`, async (route) => {
     if (failReads) {
       await route.fulfill({
         status: 503,
@@ -1773,11 +1771,11 @@ test("Timeline batch recovery honors newer scroll and pointer intent during held
     }
     if (holdRefresh) {
       reportRefresh();
-      await refreshGate;
+      if (!(await awaitResponseBarrier(route, refreshGate))) return;
     }
     await route.continue();
   });
-  await page.route(`**${path}`, async (route) => {
+  await installOwnedRoute(page, `**${path}`, async (route) => {
     attempts.push(required(route.request().postData()));
     const response = await route.fetch();
     expect(response.status()).toBe(200);
@@ -1786,7 +1784,7 @@ test("Timeline batch recovery honors newer scroll and pointer intent during held
       reportLoss();
     } else {
       reportReplay();
-      await replayGate;
+      if (!(await awaitResponseBarrier(route, replayGate))) return;
       failReads = true;
       await route.fulfill({ response });
     }
@@ -1849,12 +1847,15 @@ test("Timeline batch recovery honors newer scroll and pointer intent during held
     await expect(panel).toHaveCount(0);
     expect(attempts).toHaveLength(2);
     expect(attempts[1]).toBe(attempts[0]);
-  } finally {
+
     releaseReplay();
     releaseRefresh();
+  } finally {
+    replayGateBarrier.cancel();
+    refreshGateBarrier.cancel();
     if (!page.isClosed()) {
-      await page.unroute(`**${path}`);
-      await page.unroute(`**${queryPath}`);
+      await removeOwnedRoute(page, `**${path}`);
+      await removeOwnedRoute(page, `**${queryPath}`);
     }
   }
 });
@@ -1867,7 +1868,7 @@ test("Timeline paste keeps ordered grouped conflicts and per-cell attributed cor
   const second = required(rows[1]).record_id;
   const path = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`;
   const held = await holdBrowserRequest(page, { method: "POST", path });
-  try {
+  {
     await selectCell(page, first);
     await clipboard(page, "Client first\nClient second\nAccepted create");
     await held.waitForHit;
@@ -1930,7 +1931,7 @@ test("Timeline paste keeps ordered grouped conflicts and per-cell attributed cor
     await expect(
       page.getByRole("button", { name: /for all conflicts/ }),
     ).toHaveCount(0);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -1948,7 +1949,7 @@ test("Timeline conflict completion preserves a newer grouped draft and focus", a
     path: pastePath,
   });
   let resolution: Awaited<ReturnType<typeof holdBrowserRequest>> | null = null;
-  try {
+  {
     await selectCell(page, first);
     await clipboard(page, "Client first\nClient second");
     await paste.waitForHit;
@@ -1998,7 +1999,7 @@ test("Timeline conflict completion preserves a newer grouped draft and focus", a
     expect(
       saved.find((row) => row.record_id === second)?.cells[synopsis]?.value,
     ).toBe("Server second");
-  } finally {
+
     await resolution?.dispose();
     await paste.dispose();
   }
@@ -2016,7 +2017,7 @@ test("Timeline refreshed conflict stays with A while B keeps its grouped draft a
     path: `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`,
   });
   let resolution: Awaited<ReturnType<typeof holdBrowserRequest>> | null = null;
-  try {
+  {
     await selectCell(page, first);
     await clipboard(page, "Client first\nClient second");
     await paste.waitForHit;
@@ -2079,7 +2080,7 @@ test("Timeline refreshed conflict stays with A while B keeps its grouped draft a
     ).toHaveValue("  Exact B merge  ");
     expect(await fetchRecordHistoryCount(page, first)).toBe(3);
     expect(await fetchRecordHistoryCount(page, second)).toBe(2);
-  } finally {
+
     await resolution?.dispose();
     await paste.dispose();
   }
@@ -2174,7 +2175,7 @@ test("Timeline fill and tagging retain conflicts-only receipts and independent l
       (response) =>
         response.url().endsWith(path) && response.request().method() === "POST",
     );
-  try {
+  {
     await selectCell(page, first, source);
     await page.keyboard.press("Shift+ArrowDown");
     const fillResponse = responseForBatch();
@@ -2275,7 +2276,7 @@ test("Timeline fill and tagging retain conflicts-only receipts and independent l
         (row) => row.record_id === fillTarget,
       )?.cells[source]?.value,
     ).toBe("Concurrent fill target");
-  } finally {
+
     await held.dispose();
   }
 });
@@ -2291,10 +2292,10 @@ test("Timeline clear retries exact lost receipts and recovers acknowledged reads
     changes: string[] = [];
   let failReads = false;
   let reportLoss = () => {};
-  const lost = new Promise<void>((resolve) => {
-    reportLoss = resolve;
-  });
-  await page.route(`**${queryPath}`, async (route) => {
+  const lostBarrier = responseBarrier(page);
+  reportLoss = lostBarrier.release;
+  const lost = lostBarrier.promise;
+  await installOwnedRoute(page, `**${queryPath}`, async (route) => {
     if (!failReads) {
       await route.continue();
       return;
@@ -2307,7 +2308,7 @@ test("Timeline clear retries exact lost receipts and recovers acknowledged reads
       }),
     });
   });
-  await page.route(`**${path}`, async (route) => {
+  await installOwnedRoute(page, `**${path}`, async (route) => {
     attempts.push(required(route.request().postData()));
     const response = await route.fetch();
     expect(response.status()).toBe(200);
@@ -2360,8 +2361,8 @@ test("Timeline clear retries exact lost receipts and recovers acknowledged reads
   } finally {
     failReads = false;
     if (!page.isClosed()) {
-      await page.unroute(`**${path}`);
-      await page.unroute(`**${queryPath}`);
+      await removeOwnedRoute(page, `**${path}`);
+      await removeOwnedRoute(page, `**${queryPath}`);
     }
   }
 });
@@ -2374,7 +2375,7 @@ test("Timeline clear retains partial null conflicts and resolves the captured va
     second = required(rows[1]).record_id;
   const path = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/bulk-mutations`;
   const held = await holdBrowserRequest(page, { method: "POST", path });
-  try {
+  {
     await selectCell(page, first);
     await page.keyboard.press("Shift+ArrowDown");
     const response = page.waitForResponse(
@@ -2419,7 +2420,7 @@ test("Timeline clear retains partial null conflicts and resolves the captured va
       .toEqual([null, null]);
     expect(await fetchRecordHistoryCount(page, first)).toBe(3);
     expect(await fetchRecordHistoryCount(page, second)).toBe(2);
-  } finally {
+
     await held.dispose();
   }
 });

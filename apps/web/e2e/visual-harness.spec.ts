@@ -11,7 +11,7 @@ import {
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
-import { expect, test } from "./fixtures";
+import { test as base, expect } from "./fixtures";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
 import { installVisualPreferences } from "./support/auth/visualPreferences";
 import { createIncident } from "./support/incidents/fixtures";
@@ -25,9 +25,10 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { requestTLS12, withTLSProbe } from "./support/runtime/fixtureTLS";
-import { startFrontendPublication } from "./support/runtime/frontendBuild";
+import { OwnedFrontendPublications } from "./support/runtime/frontendBuild";
 import { waitForLoadedVendoredFonts } from "./support/runtime/visualRenderer";
 import { seedVisualTimelineInvestigation } from "./support/timeline/timelineInvestigation";
+import { installOwnedRoute } from "./support/transport/requestInterception";
 import {
   settleVisualGeometry,
   verifyVisualGeometry,
@@ -54,6 +55,19 @@ import {
   activateCommittedGridCell,
   openTimelineInspector,
 } from "./support/workbook/rowMutations";
+
+const test = base.extend<{ frontendPublications: OwnedFrontendPublications }>({
+  frontendPublications: async ({ browserScope }, use) => {
+    const publications = new OwnedFrontendPublications(browserScope);
+    try {
+      await use(publications);
+    } finally {
+      // Fixture teardown runs even when the test body is interrupted. Browser
+      // routes and sessions settle before the independently owned builds stop.
+      await publications.dispose();
+    }
+  },
+});
 
 test("browser fixture trust accepts its authority and rejects foreign authorities and hostnames", async ({
   page,
@@ -83,10 +97,14 @@ test("rich Timeline recipe preserves owner states and source text during capture
   testActor,
 }, testInfo) => {
   let exampleRequests = 0;
-  await page.route(/^https?:\/\/[^/]*\.example\.test(?:[/:]|$)/, (route) => {
-    exampleRequests++;
-    return route.abort();
-  });
+  await installOwnedRoute(
+    page,
+    /^https?:\/\/[^/]*\.example\.test(?:[/:]|$)/,
+    (route) => {
+      exampleRequests++;
+      return route.abort();
+    },
+  );
   await installVisualPreferences(page, testActor.user_id);
   const investigation = registerTimelineVisualFixture(
     await seedVisualTimelineInvestigation(page, {
@@ -434,6 +452,7 @@ test("rich Timeline recipe preserves owner states and source text during capture
 });
 
 test("visual harness retains loaded assets across an independent frontend publication", async ({
+  frontendPublications,
   testActorPage: page,
   testActor,
 }, testInfo) => {
@@ -467,58 +486,35 @@ test("visual harness retains loaded assets across an independent frontend public
       .digest("hex");
   };
   const before = await Promise.all(assetPaths.map(digest));
-  const publications: ReturnType<typeof startFrontendPublication>[] = [];
-  let primaryError: unknown;
-  let cleanupError: AggregateError | undefined;
-  try {
-    publications.push(startFrontendPublication(false));
-    publications.push(startFrontendPublication(true));
-    let completed = false;
-    const build = Promise.all(
-      publications.map((publication) => publication.finished),
-    ).finally(() => {
-      completed = true;
-    });
-    build.catch(() => {});
-    let reloads = 0;
-    do {
-      await reloadVisualApplication(page);
-      expect(await Promise.all(assetPaths.map(digest))).toEqual(before);
-      reloads++;
-    } while (!completed || reloads < 5);
-    const runRoot = await build;
-    expect(failures).toEqual([]);
-    await testInfo.attach("frontend-overlap-proof", {
-      body: JSON.stringify({
-        run_root: runRoot,
-        reloads,
-        asset_digests: before,
-      }),
-      contentType: "application/json",
-    });
-  } catch (error) {
-    primaryError = error;
-  } finally {
-    const settlement = await Promise.allSettled(
-      publications.map((publication) => publication.stop()),
-    );
-    const failures = settlement.flatMap((result) =>
-      result.status === "rejected" ? [result.reason] : [],
-    );
-    if (failures.length)
-      cleanupError = new AggregateError(
-        failures,
-        "Independent frontend publication cleanup failed",
-      );
-  }
-  if (primaryError && cleanupError)
-    throw new AggregateError(
-      [primaryError, cleanupError],
-      "Frontend publication assertion and cleanup failed",
-      { cause: primaryError },
-    );
-  if (primaryError) throw primaryError;
-  if (cleanupError) throw cleanupError;
+  const publications = [
+    frontendPublications.start(false),
+    frontendPublications.start(true),
+  ];
+  let completed = false;
+  const build = Promise.all(
+    publications.map((publication) => publication.finished),
+  ).finally(() => {
+    completed = true;
+  });
+  // Observe early rejection while browser assertions run; the same promise is
+  // awaited below, so build failure remains an assertion failure.
+  void build.catch(() => {});
+  let reloads = 0;
+  do {
+    await reloadVisualApplication(page);
+    expect(await Promise.all(assetPaths.map(digest))).toEqual(before);
+    reloads++;
+  } while (!completed || reloads < 5);
+  const runRoot = await build;
+  expect(failures).toEqual([]);
+  await testInfo.attach("frontend-overlap-proof", {
+    body: JSON.stringify({
+      run_root: runRoot,
+      reloads,
+      asset_digests: before,
+    }),
+    contentType: "application/json",
+  });
 });
 
 test("visual harness preferences remain local across density order and page closure", async ({
@@ -708,7 +704,7 @@ test("visual harness identifies a missing asset before a secondary page closure"
   page,
 }) => {
   installApplicationAssetMonitor(page);
-  await page.route("**/assets/*.js", (route) =>
+  await installOwnedRoute(page, "**/assets/*.js", (route) =>
     route.fulfill({ status: 404, body: "" }),
   );
   await page.goto("/");

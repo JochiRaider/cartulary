@@ -33,11 +33,16 @@ import {
   summaryPatchValue,
 } from "./support/collaboration/replay";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { safelyRemoveRoute } from "./support/transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import {
   expectRecoveryFocus,
@@ -189,13 +194,18 @@ test("Preserve save transitions and exact saved-view conflict scope across workb
           { priority: "polite", message: "Saved" },
         ]);
       expect(inactiveTimelineReads).toBe(0);
-    } finally {
+
       conflicted.release();
+    } finally {
+      conflicted.cancel();
     }
-  } finally {
+
     held.release();
-    await held.waitForCompletion;
+
     await patches.dispose();
+  } finally {
+    held.cancel();
+    await held.waitForCompletion;
   }
 });
 
@@ -205,17 +215,17 @@ test("Keep a global FIFO blocker above concurrent local work and activate its ex
   const { incidentId, row } = await seed(page);
   await observeSaveEvents(page);
   let releaseCreate = () => {};
-  const holdCreate = new Promise<void>((resolve) => {
-    releaseCreate = resolve;
-  });
+  const holdCreateBarrier = responseBarrier(page);
+  releaseCreate = holdCreateBarrier.release;
+  const holdCreate = holdCreateBarrier.promise;
   let createHit = false;
   const pattern = `**/api/v1/incidents/${incidentId}/views/${notesViewSchemaId}/rows`;
   const handler = async (route: Route) => {
     createHit = true;
-    await holdCreate;
+    if (!(await awaitResponseBarrier(route, holdCreate))) return;
     await route.continue();
   };
-  await page.route(pattern, handler);
+  await installOwnedRoute(page, pattern, handler);
   const patches = await installPatchController(page);
   try {
     await selectSurface(page, notesViewSchemaId);
@@ -336,10 +346,13 @@ test("Keep a global FIFO blocker above concurrent local work and activate its ex
     await expectRecoveryFocus(page, "Queued edit recovery");
     await page.getByTestId(workbookEditRecoveryDiscardButtonTestId()).click();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-  } finally {
+
     releaseCreate();
-    await safelyRemoveRoute(page, pattern, handler);
+
+    await removeOwnedRoute(page, pattern, handler);
     await patches.dispose();
+  } finally {
+    holdCreateBarrier.cancel();
   }
 });
 
@@ -362,7 +375,7 @@ test("Keep queue overflow globally accessible after real editor admission reache
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
   await observeSaveEvents(page);
   const patches = await installPatchTransportFailureController(page);
-  try {
+  {
     patches.disconnect();
     for (const [index, target] of rows.entries()) {
       await editTimelineSummary(
@@ -469,8 +482,7 @@ test("Keep queue overflow globally accessible after real editor admission reache
       [refused.record_id]: "Queued edit 64",
     });
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-  } finally {
-    patches.connect();
+
     await patches.dispose();
   }
 });

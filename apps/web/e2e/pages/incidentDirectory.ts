@@ -4,19 +4,19 @@ import {
   landingIncidentOpenButtonTestId,
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
-import type { Browser, Page } from "@playwright/test";
-
+import type { Page } from "@playwright/test";
 import { expect } from "@playwright/test";
+import type { OwnedBrowserScope } from "../support/runtime/cleanup";
 
 export async function openIncidentFromLanding(page: Page, incidentId: string) {
-  await page.goto("/");
+  await new IncidentDirectory(page).goto();
   await page.getByTestId(landingIncidentOpenButtonTestId(incidentId)).click();
   await expect(page).toHaveURL(new RegExp(`incident_id=${incidentId}`));
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
 }
 
 export async function openIncidentAsTrackedUser(
-  browser: Browser,
+  browserScope: OwnedBrowserScope,
   sessionTracker: {
     loginTrackedUser: (
       page: Page,
@@ -38,7 +38,7 @@ export async function openIncidentAsTrackedUser(
     userId: string;
   },
 ) {
-  const context = await browser.newContext();
+  const context = await browserScope.newContext();
   const page = await context.newPage();
   await sessionTracker.loginTrackedUser(page, {
     createdBy: options.createdBy,
@@ -56,9 +56,7 @@ export class IncidentDirectory {
 
   async goto() {
     await this.page.goto("/");
-    await expect(
-      this.page.getByTestId(incidentLandingTestId("shell")),
-    ).toBeVisible();
+    await this.open();
   }
 
   async open() {

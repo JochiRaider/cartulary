@@ -4,6 +4,7 @@ import type {
 } from "@cartulary/protocol-ts/http";
 import type { Page } from "@playwright/test";
 
+import { requestScopeFor } from "../runtime/cleanup";
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
@@ -22,6 +23,17 @@ export type DeploymentUserCreation = Omit<
   >;
 
 export async function createDeploymentUser(
+  authority: JsonRequestContextLike | Page,
+  options: DeploymentUserCreation,
+): Promise<CreateDeploymentUserResponse["data"]> {
+  const scope = requestScopeFor(
+    "fetch" in authority ? authority : authority.request,
+  );
+  const create = () => createDeploymentUserRequest(authority, options);
+  return scope ? scope.acquireActor(create) : create();
+}
+
+async function createDeploymentUserRequest(
   authority: JsonRequestContextLike | Page,
   options: DeploymentUserCreation,
 ): Promise<CreateDeploymentUserResponse["data"]> {

@@ -565,7 +565,7 @@ test("support keeps a pending edit anchored to its record under sort, filter, gr
     path: `/api/v1/records/${alphaRow.record_id}`,
   });
 
-  try {
+  {
     const alphaSummary = page.getByTestId(
       rowCellTestId(alphaRow.record_id, "timeline.activity_synopsis_text"),
     );
@@ -616,7 +616,7 @@ test("support keeps a pending edit anchored to its record under sort, filter, gr
     expect(heldPatch.hitCount()).toBe(1);
     heldPatch.release();
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-  } finally {
+
     await heldPatch.dispose();
   }
   await expect(

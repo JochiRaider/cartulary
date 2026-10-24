@@ -19,10 +19,15 @@ import {
   requireItemByRawText,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createViewRow } from "./support/workbook/query";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 
@@ -63,11 +68,11 @@ test("Timeline invalid continuation restarts without a cursor and keeps stale se
   const cursors: (string | null)[] = [];
   let restartAttempted = false;
   let failRestart = false;
-  let releaseRestart: (() => void) | undefined;
-  const heldRestart = new Promise<void>((resolve) => {
-    releaseRestart = resolve;
-  });
-  await page.route(
+  const heldRestartBarrier = responseBarrier(page);
+  const releaseRestart = heldRestartBarrier.release;
+  const heldRestart = heldRestartBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/incidents/${incidentId}/entity-candidates?*`,
     async (route) => {
       const cursor = new URL(route.request().url()).searchParams.get(
@@ -82,7 +87,7 @@ test("Timeline invalid continuation restarts without a cursor and keeps stale se
       }
       if (failRestart) {
         failRestart = false;
-        await heldRestart;
+        if (!(await awaitResponseBarrier(route, heldRestart))) return;
         await route.abort("failed");
         return;
       }
@@ -136,8 +141,10 @@ test("Timeline invalid continuation restarts without a cursor and keeps stale se
     await expect(restart).toHaveAttribute("aria-disabled", "true");
     await page.keyboard.press("Enter");
     expect(cursors.length).toBe(beforeContinuation + 2);
-  } finally {
+
     releaseRestart?.();
+  } finally {
+    heldRestartBarrier.cancel();
   }
   await expect(restart).toBeFocused();
   await expect(select).toHaveValue("");
@@ -210,15 +217,14 @@ async function runRetryFocus(page: Page, entityType: "host" | "identity") {
   });
   let firstPage: Record<string, unknown> | null = null;
   const requests: (string | null)[] = [];
-  let releaseFirstContinuation: (() => void) | undefined;
-  const firstContinuation = new Promise<void>((resolve) => {
-    releaseFirstContinuation = resolve;
-  });
-  let releaseHeld: (() => void) | undefined;
-  const held = new Promise<void>((resolve) => {
-    releaseHeld = resolve;
-  });
-  await page.route(
+  const firstContinuationBarrier = responseBarrier(page);
+  const releaseFirstContinuation = firstContinuationBarrier.release;
+  const firstContinuation = firstContinuationBarrier.promise;
+  const heldBarrier = responseBarrier(page);
+  const releaseHeld = heldBarrier.release;
+  const held = heldBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/incidents/${incidentId}/entity-candidates?*`,
     async (route) => {
       const cursor = new URL(route.request().url()).searchParams.get(
@@ -244,10 +250,10 @@ async function runRetryFocus(page: Page, entityType: "host" | "identity") {
           },
         });
       } else if (requests.filter((item) => item === cursor).length === 1) {
-        await firstContinuation;
+        if (!(await awaitResponseBarrier(route, firstContinuation))) return;
         await route.abort("failed");
       } else {
-        await held;
+        if (!(await awaitResponseBarrier(route, held))) return;
         const body = firstPage;
         if (!body) throw new Error("First target page was not captured");
         await route.fulfill({
@@ -287,8 +293,10 @@ async function runRetryFocus(page: Page, entityType: "host" | "identity") {
     await expect(loadMore).toHaveAttribute("aria-disabled", "true");
     await page.keyboard.press("Enter");
     expect(requests.filter((cursor) => cursor !== null)).toHaveLength(1);
-  } finally {
+
     releaseFirstContinuation?.();
+  } finally {
+    firstContinuationBarrier.cancel();
   }
   const retry = page.getByRole("button", { name: "Retry target read" });
   await expect(retry).toBeVisible();
@@ -300,8 +308,10 @@ async function runRetryFocus(page: Page, entityType: "host" | "identity") {
       .toBe(2);
     await expect(retry).toBeVisible();
     await expect(retry).toBeFocused();
-  } finally {
+
     releaseHeld?.();
+  } finally {
+    heldBarrier.cancel();
   }
   await expect(select).toBeFocused();
   await expect(select).toHaveValue("");

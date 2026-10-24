@@ -129,7 +129,7 @@ async function expectCurrentIncidentRole(page: Page, roleText: string) {
 }
 
 test("Verify conflict resolver actions submit public mutations and refresh rows without losing focus or pending queue ordering.", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
 }) => {
@@ -170,7 +170,7 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
   const patchController = await installPatchController(page);
 
   let remotePage: Page | null = null;
-  try {
+  {
     await page.goto(`/?incident_id=${incidentId}`);
     await scrollGridCellIntoView({
       cellKey: "timeline.activity_synopsis_text",
@@ -184,7 +184,7 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
       ),
     ).toHaveText("integration.collaboration conflict base");
 
-    remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
+    remotePage = await openIncidentAsTrackedUser(browserScope, sessionTracker, {
       createdBy: "integration.collaboration.row-01",
       email: remote.email,
       incidentId,
@@ -295,7 +295,7 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
 
     const queueTransportController =
       await installPatchTransportFailureController(page);
-    try {
+    {
       queueTransportController.disconnect();
       await editTimelineSummary(
         page,
@@ -334,17 +334,18 @@ test("Verify conflict resolver actions submit public mutations and refresh rows 
         "integration.collaboration queued A local",
         "integration.collaboration queued B local",
       ]);
-    } finally {
+
       await queueTransportController.dispose();
     }
-  } finally {
+
     await patchController.dispose();
-    await remotePage?.context().close();
+
+    if (remotePage) await browserScope.closeContext(remotePage.context());
   }
 });
 
 test("Verify multi-client live row update, presence anchoring, reset/invalidate handling, stale-row requery, and same-field conflict resolver through /ws/v1/ and /api/v1/.", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
   testActorRequest,
@@ -387,7 +388,7 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
   const socketMonitor = installIncidentSocketMonitor(page, incidentId);
 
   let remotePage: Page | null = null;
-  try {
+  {
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForMessage("hello_ack");
     await sortByHeader(
@@ -403,7 +404,7 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
     );
     await changeGrouping(page, timelineViewSchemaId, "timeline.capture_state");
 
-    remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
+    remotePage = await openIncidentAsTrackedUser(browserScope, sessionTracker, {
       createdBy: "end-to-end.collaboration.row-01",
       email: remote.email,
       incidentId,
@@ -601,9 +602,10 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
       "timeline.activity_synopsis_text":
         "end-to-end.collaboration local conflict",
     });
-  } finally {
+
     await patchController.dispose();
-    await remotePage?.context().close();
+
+    if (remotePage) await browserScope.closeContext(remotePage.context());
   }
 
   await exerciseRevokedPendingReplay({
@@ -623,7 +625,7 @@ test("Verify multi-client live row update, presence anchoring, reset/invalidate 
 });
 
 test("shows two analysts each other's workbook presence within the expected interaction window", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
   testActorRequest,
@@ -654,7 +656,7 @@ test("shows two analysts each other's workbook presence within the expected inte
   const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
   let remotePage: Page | null = null;
-  try {
+  {
     await page.goto(`/?incident_id=${incidentId}`);
     await primarySocket.waitForMessage("hello_ack");
     await scrollGridCellIntoView({
@@ -670,7 +672,7 @@ test("shows two analysts each other's workbook presence within the expected inte
     ).toHaveText("collaboration-conflict presence base");
 
     const remoteSession = await openIncidentAsTrackedUserReady(
-      browser,
+      browserScope,
       sessionTracker,
       {
         createdBy: "collaboration-conflict",
@@ -1022,13 +1024,13 @@ test("shows two analysts each other's workbook presence within the expected inte
     await remotePage.reload();
     await expect(remotePage.getByTestId(authTestId("shell"))).toBeVisible();
     await expect(summary).toHaveAccessibleName(/^0 collaborators/);
-  } finally {
-    await remotePage?.context().close();
+
+    if (remotePage) await browserScope.closeContext(remotePage.context());
   }
 });
 
 test("auto-merges different-field concurrent edits and requires explicit same-field resolution", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
 }) => {
@@ -1076,7 +1078,7 @@ test("auto-merges different-field concurrent edits and requires explicit same-fi
   const patchController = await installPatchController(page);
 
   let remotePage: Page | null = null;
-  try {
+  {
     const socketMonitor = installIncidentSocketMonitor(page, incidentId);
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForMessage("hello_ack");
@@ -1092,7 +1094,7 @@ test("auto-merges different-field concurrent edits and requires explicit same-fi
       ),
     ).toHaveText("collaboration-conflict different base");
 
-    remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
+    remotePage = await openIncidentAsTrackedUser(browserScope, sessionTracker, {
       createdBy: "collaboration-conflict",
       email: remote.email,
       incidentId,
@@ -1182,14 +1184,15 @@ test("auto-merges different-field concurrent edits and requires explicit same-fi
       remotePage,
       remoteValue: "collaboration-conflict merged remote",
     });
-  } finally {
+
     await patchController.dispose();
-    await remotePage?.context().close();
+
+    if (remotePage) await browserScope.closeContext(remotePage.context());
   }
 });
 
 test("keeps live updates conflict markers and presence markers anchored to record_id and field_key", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
 }) => {
@@ -1238,7 +1241,7 @@ test("keeps live updates conflict markers and presence markers anchored to recor
   const patchController = await installPatchController(page);
 
   let remotePage: Page | null = null;
-  try {
+  {
     const socketMonitor = installIncidentSocketMonitor(page, incidentId);
     await page.goto(`/?incident_id=${incidentId}`);
     await socketMonitor.waitForMessage("hello_ack");
@@ -1334,6 +1337,7 @@ test("keeps live updates conflict markers and presence markers anchored to recor
         surface: timelineViewSchemaId,
       });
       const call = await heldPatch.waitForHit;
+      if (!call) throw new Error("Patch observation was cancelled");
       assertRecordFieldMutationAnchor({
         actualRecordId: call.recordId,
         body: call.body,
@@ -1366,7 +1370,7 @@ test("keeps live updates conflict markers and presence markers anchored to recor
       "collaboration-conflict Zulu anchor base",
     );
 
-    remotePage = await openIncidentAsTrackedUser(browser, sessionTracker, {
+    remotePage = await openIncidentAsTrackedUser(browserScope, sessionTracker, {
       createdBy: "collaboration-conflict",
       email: remote.email,
       incidentId,
@@ -1456,9 +1460,10 @@ test("keeps live updates conflict markers and presence markers anchored to recor
     await expect(page.getByTestId(retainedEditorId)).toHaveValue(
       "collaboration-conflict Alpha local",
     );
-  } finally {
+
     await patchController.dispose();
-    await remotePage?.context().close();
+
+    if (remotePage) await browserScope.closeContext(remotePage.context());
   }
 });
 
@@ -1497,7 +1502,7 @@ test("replays queued unsent writes after re-authentication without silent reload
     );
     const patchController = await installPatchTransportFailureController(page);
 
-    try {
+    {
       patchController.disconnect();
       await page.goto(`/?incident_id=${incidentId}`);
       await scrollGridCellIntoView({
@@ -1562,7 +1567,7 @@ test("replays queued unsent writes after re-authentication without silent reload
         [secondId]: "collaboration-conflict FIFO B local",
         [thirdId]: "collaboration-conflict FIFO C local",
       });
-    } finally {
+
       await patchController.dispose();
     }
   });
@@ -1678,8 +1683,9 @@ test("replays queued unsent writes after re-authentication without silent reload
         [firstId]: "collaboration-conflict auth A local",
         [secondId]: "collaboration-conflict auth B base",
       });
-    } finally {
+
       await patchController.dispose();
+    } finally {
       await applyStorageState(page, testActor.storageState);
     }
   });
@@ -1716,7 +1722,7 @@ test("replays queued unsent writes after re-authentication without silent reload
     const transportController =
       await installPatchTransportFailureController(page);
 
-    try {
+    {
       transportController.disconnect();
       await page.goto(`/?incident_id=${incidentId}`);
       await scrollGridCellIntoView({
@@ -1760,7 +1766,7 @@ test("replays queued unsent writes after re-authentication without silent reload
       const heldPatch = conflictController.holdNextPatch({ recordId: firstId });
       try {
         await transportController.dispose();
-        expect((await heldPatch.waitForHit).recordId).toBe(firstId);
+        expect((await heldPatch.waitForHit)?.recordId).toBe(firstId);
         expect(successfulPatchCalls(conflictController.calls)).toHaveLength(0);
         await patchTimelineField(
           page,
@@ -1797,10 +1803,12 @@ test("replays queued unsent writes after re-authentication without silent reload
           [secondId]: "collaboration-conflict halt B base",
           [thirdId]: "collaboration-conflict halt C base",
         });
-      } finally {
+
         heldPatch.release();
+      } finally {
+        heldPatch.cancel();
       }
-    } finally {
+
       await transportController.dispose();
       await conflictController.dispose();
     }
@@ -1820,72 +1828,69 @@ test("replays queued unsent writes after re-authentication without silent reload
       ),
     );
     const patchController = await installPatchTransportFailureController(page);
+    patchController.disconnect();
+    await page.goto(`/?incident_id=${incidentId}`);
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId,
+      surface: timelineViewSchemaId,
+    });
+    await expect(
+      page.getByTestId(
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+      ),
+    ).toHaveText("collaboration-conflict reload base");
+    await expectCurrentIncidentRole(page, "Current incident role: admin");
 
-    try {
-      patchController.disconnect();
-      await page.goto(`/?incident_id=${incidentId}`);
-      await scrollGridCellIntoView({
-        cellKey: "timeline.activity_synopsis_text",
-        page,
-        recordId,
-        surface: timelineViewSchemaId,
-      });
-      await expect(
-        page.getByTestId(
-          rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-        ),
-      ).toHaveText("collaboration-conflict reload base");
-      await expectCurrentIncidentRole(page, "Current incident role: admin");
+    await editTimelineSummary(
+      page,
+      recordId,
+      "collaboration-conflict reload local",
+      { outcome: "queued" },
+    );
+    await expect(
+      page.getByTestId(
+        timelineScalarEditorTestId({
+          recordId,
+          fieldKey: "timeline.activity_synopsis_text",
+          surface: "grid",
+        }),
+      ),
+    ).toHaveValue("collaboration-conflict reload local");
+    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+      pendingReplayCountAttribute,
+      "1",
+    );
 
-      await editTimelineSummary(
-        page,
-        recordId,
-        "collaboration-conflict reload local",
-        { outcome: "queued" },
-      );
-      await expect(
-        page.getByTestId(
-          timelineScalarEditorTestId({
-            recordId,
-            fieldKey: "timeline.activity_synopsis_text",
-            surface: "grid",
-          }),
-        ),
-      ).toHaveValue("collaboration-conflict reload local");
-      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
-        pendingReplayCountAttribute,
-        "1",
-      );
+    patchController.connect();
+    page.once("dialog", async (dialog) => {
+      await dialog.accept();
+    });
+    await page.reload();
 
-      patchController.connect();
-      page.once("dialog", async (dialog) => {
-        await dialog.accept();
-      });
-      await page.reload();
+    await scrollGridCellIntoView({
+      cellKey: "timeline.activity_synopsis_text",
+      page,
+      recordId,
+      surface: timelineViewSchemaId,
+    });
+    await expect(
+      page.getByTestId(
+        rowCellTestId(recordId, "timeline.activity_synopsis_text"),
+      ),
+    ).toHaveText("collaboration-conflict reload base");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+      pendingReplayCountAttribute,
+      "0",
+    );
+    expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);
+    await expectServerSummaries(page, incidentId, {
+      [recordId]: "collaboration-conflict reload base",
+    });
 
-      await scrollGridCellIntoView({
-        cellKey: "timeline.activity_synopsis_text",
-        page,
-        recordId,
-        surface: timelineViewSchemaId,
-      });
-      await expect(
-        page.getByTestId(
-          rowCellTestId(recordId, "timeline.activity_synopsis_text"),
-        ),
-      ).toHaveText("collaboration-conflict reload base");
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
-        pendingReplayCountAttribute,
-        "0",
-      );
-      expect(successfulPatchCalls(patchController.calls)).toHaveLength(0);
-      await expectServerSummaries(page, incidentId, {
-        [recordId]: "collaboration-conflict reload base",
-      });
-    } finally {
-      await patchController.dispose();
-    }
+    await patchController.dispose();
   });
 
   await test.step("replays queued writes in FIFO order after real session revocation and re-authentication", async () => {

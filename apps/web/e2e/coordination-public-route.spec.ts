@@ -119,7 +119,7 @@ const coordinationCases: CoordinationCase[] = [
 ];
 
 test("Verify coordination rows can be queried and edited through public view/row mutation contracts with current-role authorization.", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
 }) => {
@@ -156,9 +156,9 @@ test("Verify coordination rows can be queried and edited through public view/row
     seededRows.set(entry.viewSchemaId, row);
   }
 
-  const memberContext = await browser.newContext();
+  const memberContext = await browserScope.newContext();
   const memberPage = await memberContext.newPage();
-  try {
+  {
     await sessionTracker.loginTrackedUser(memberPage, {
       createdBy: "end-to-end.coordination-review.row-01",
       email: member.email,
@@ -294,8 +294,8 @@ test("Verify coordination rows can be queried and edited through public view/row
     expect(unchangedTask.cells[taskCase.patchFieldKey]?.value).toBe(
       taskCase.patchValue,
     );
-  } finally {
-    await memberContext.close();
+
+    await browserScope.closeContext(memberContext);
   }
 });
 

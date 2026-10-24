@@ -20,6 +20,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { installOwnedRoute } from "./support/transport/requestInterception";
 import { queryViewRows } from "./support/workbook/query";
 
 test("Workbook Import Assistant discovers, maps, selects, applies, and navigates from the claimed production surface", async ({
@@ -199,7 +200,7 @@ test("Workbook Import Assistant resumes its known job and recovers only selectio
     if (request.method() === "PUT" && request.url().endsWith("/mapping"))
       mappings++;
   });
-  await page.route("**/api/v1/jobs/*", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/jobs/*", async (route) => {
     if (route.request().method() !== "GET") {
       await route.continue();
       return;
@@ -215,7 +216,8 @@ test("Workbook Import Assistant resumes its known job and recovers only selectio
       });
     } else await route.continue();
   });
-  await page.route(
+  await installOwnedRoute(
+    page,
     "**/api/v1/import-sessions/*/units/*/select",
     async (route) => {
       selections++;
@@ -425,7 +427,7 @@ test("Workbook Import Assistant reviews XLSX partial outcomes and navigates only
 test("Workbook Import Assistant is absent when the Import profile is unclaimed", async ({
   page,
 }) => {
-  await page.route("**/api/v1/extensions", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/extensions", async (route) => {
     const response = await route.fetch();
     const body = (await response.json()) as {
       data: {

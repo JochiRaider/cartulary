@@ -2,7 +2,6 @@ import { incidentLandingTestId } from "@cartulary/ui-contracts";
 import { expect, test } from "./fixtures";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
-import { auditBrowserBarrier } from "./support/administrativeAudit";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
   installMembershipManagementPresentation,
@@ -13,6 +12,7 @@ import {
   openMetadata,
 } from "./support/incidentMetadata";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import { uniqueIncidentKey } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
@@ -110,7 +110,7 @@ test("metadata edits each live field sparsely clears normalizes and reviews a re
     method: "PATCH",
     path: `/api/v1/incidents/${incidentId}`,
   });
-  try {
+  {
     await panel
       .getByRole("button", { name: "Save promoted fields", exact: true })
       .click();
@@ -146,7 +146,7 @@ test("metadata edits each live field sparsely clears normalizes and reviews a re
     await expect(
       review.getByRole("button", { name: "Use this version", exact: true }),
     ).toBeEnabled();
-  } finally {
+
     await localWrite.dispose();
   }
   const count = writes.length;
@@ -186,7 +186,7 @@ test("metadata retains newer input and distinguishes confirmed failed reads from
   const panel = await openMetadata(page);
   const severity = panel.getByLabel("Severity", { exact: true });
   await severity.fill("critical");
-  const gate = auditBrowserBarrier();
+  const gate = responseBarrier(page);
   fixture.gateWrite(gate.promise);
   fixture.mutation(200, { severity: "critical", incident_version: 2 });
   await panel
@@ -370,7 +370,7 @@ test("metadata pending transport survives drawer return and cannot publish after
 }) => {
   const fixture = await installMetadataPresentation(page);
   const panel = await openMetadata(page);
-  const gate = auditBrowserBarrier();
+  const gate = responseBarrier(page);
   fixture.gateWrite(gate.promise);
   fixture.mutation(200, { severity: "critical", incident_version: 2 });
   await panel.getByLabel("Severity", { exact: true }).fill("critical");

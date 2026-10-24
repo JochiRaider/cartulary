@@ -1,5 +1,6 @@
 import type { GetCurrentAccountPreferencesResponse } from "@cartulary/protocol-ts/http";
 import { type Page, type Route, test } from "@playwright/test";
+import { installOwnedRoute } from "../transport/requestInterception";
 
 type Preferences = GetCurrentAccountPreferencesResponse["data"];
 export type VisualDensity = Preferences["density_mode"];
@@ -64,7 +65,7 @@ export async function installVisualPreferences(page: Page, userId: string) {
   const existing = resources.get(page);
   if (existing) return existing;
   const resource = new VisualPreferences(userId);
-  await page.route("**/api/v1/account/preferences", (route) =>
+  await installOwnedRoute(page, "**/api/v1/account/preferences", (route) =>
     resource.route(route),
   );
   resources.set(page, resource);

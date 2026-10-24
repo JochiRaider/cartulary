@@ -287,7 +287,7 @@ test("resolves and creates entities from Timeline mentions in the inspector", as
 
 test("collection chips disclose exact members without edits across keyboard and display profiles", async ({
   page,
-  browser,
+  browserScope,
   sessionTracker,
 }) => {
   test.setTimeout(180000);
@@ -498,7 +498,7 @@ test("collection chips disclose exact members without edits across keyboard and 
       mfa_required: false,
     });
     const viewerSession = await openIncidentAsTrackedUserReady(
-      browser,
+      browserScope,
       sessionTracker,
       {
         createdBy: "collection inspection",
@@ -510,7 +510,7 @@ test("collection chips disclose exact members without edits across keyboard and 
         userId: viewer.user_id,
       },
     );
-    try {
+    {
       const viewerPage = viewerSession.page;
       await viewerPage.setViewportSize({ width: 1440, height: 900 });
       await showTimelineCollectionColumns(viewerPage, [
@@ -555,8 +555,8 @@ test("collection chips disclose exact members without edits across keyboard and 
       await expect(
         viewerPage.getByTestId(mentionCreateEntityButtonTestId("host")),
       ).toBeDisabled();
-    } finally {
-      await viewerSession.page.context().close();
+
+      await browserScope.closeContext(viewerSession.page.context());
     }
     const incident = (
       await (

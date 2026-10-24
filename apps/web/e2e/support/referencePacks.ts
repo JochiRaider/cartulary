@@ -6,6 +6,11 @@ import { referencePackAdminPanelTestId } from "@cartulary/ui-contracts";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { DeploymentAdministration } from "../pages/deploymentAdministration";
 import { rewriteSessionPresentation } from "./auth/sessionPresentation";
+import type { BarrierOutcome } from "./runtime/cleanup";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./transport/requestInterception";
 
 export { referencePackBundle } from "../../../../tools/harness/browser/reference-pack-fixture.mjs";
 
@@ -58,13 +63,7 @@ export function referencePackBrowserPack(
     activated_by_user_id: null,
   };
 }
-export function referencePackBarrier() {
-  let release = () => {};
-  const promise = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return { promise, release };
-}
+
 export async function openReferencePacks(page: Page) {
   await page.goto("/deployment-administration");
   await new DeploymentAdministration(page).selectPanel("reference-packs");
@@ -120,7 +119,7 @@ export async function installReferencePackPresentation(
   actorId: string,
 ) {
   // Shared worker fixtures can change the display name; preserve real identity and authorization.
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     await rewriteSessionPresentation(route, (session) => ({
       ...session,
       display_name: "Reference Pack operator",
@@ -134,7 +133,7 @@ export async function installReferencePackPresentation(
   let failAdmission = false;
   let failReads = false;
   let failCatalog = false;
-  let admissionGate: Promise<void> | null = null;
+  let admissionGate: Promise<BarrierOutcome> | null = null;
   let sequence = 0;
   let current: Job | null = null;
   let family = "reference_packs_refreshed";
@@ -189,83 +188,90 @@ export async function installReferencePackPresentation(
     };
     jobs.set(current.job_id, current);
   };
-  await page.route("**/api/v1/reference-packs**", async (route) => {
-    const url = new URL(route.request().url());
-    if (route.request().method() === "GET") {
-      if (failCatalog) {
+  await installOwnedRoute(
+    page,
+    "**/api/v1/reference-packs**",
+    async (route) => {
+      const url = new URL(route.request().url());
+      if (route.request().method() === "GET") {
+        if (failCatalog) {
+          await route.abort("failed");
+          return;
+        }
+        const suffix = url.pathname
+          .slice("/api/v1/reference-packs".length)
+          .split("/")
+          .filter(Boolean)
+          .map(decodeURIComponent);
+        const found = packs.find(
+          (pack) =>
+            pack.pack_key === suffix[0] && pack.pack_version === suffix[1],
+        );
+        const rows =
+          url.searchParams.get("search") === "process" ? [packs[2]] : packs;
+        await route.fulfill({
+          json: {
+            data: suffix.length ? found : { pack_versions: rows },
+            meta: {
+              request_id: "catalog",
+              ...(suffix.length
+                ? {}
+                : {
+                    paging: { limit: 100, has_more: false, next_cursor: null },
+                  }),
+            },
+          },
+        });
+        return;
+      }
+      admissions.push(route.request().postData() ?? "multipart");
+      if (!(await awaitResponseBarrier(route, admissionGate))) return;
+      if (failAdmission) {
         await route.abort("failed");
         return;
       }
-      const suffix = url.pathname
-        .slice("/api/v1/reference-packs".length)
-        .split("/")
-        .filter(Boolean)
-        .map(decodeURIComponent);
-      const found = packs.find(
-        (pack) =>
-          pack.pack_key === suffix[0] && pack.pack_version === suffix[1],
-      );
-      const rows =
-        url.searchParams.get("search") === "process" ? [packs[2]] : packs;
+      const action = url.pathname.split("/").at(-1);
+      family =
+        action === "import"
+          ? "reference_pack_imported"
+          : action === "activate"
+            ? "reference_pack_activated"
+            : action === "disable"
+              ? "reference_pack_disabled"
+              : action === "reverify"
+                ? "reference_pack_reverified"
+                : "reference_packs_refreshed";
+      const parts = url.pathname.split("/").map(decodeURIComponent);
+      target =
+        packs.find(
+          (pack) =>
+            pack.pack_key === parts[4] && pack.pack_version === parts[5],
+        ) ?? packs[0];
+      const id = `11111111-1111-4111-8111-${String(++sequence).padStart(12, "0")}`;
+      current = {
+        job_id: id,
+        scope: { kind: "deployment" },
+        status_route: `/api/v1/jobs/${id}`,
+        status: "queued",
+        cancelable: true,
+        submitted_by_user_id: actorId,
+        submitted_at: "2026-09-07T12:00:00Z",
+        updated_at: "2026-09-07T12:00:00Z",
+        started_at: null,
+        finished_at: null,
+        retained_until: null,
+        progress: { completed: 0, total: null },
+        result_summary: null,
+        error_summary: null,
+      };
+      jobs.set(id, current);
       await route.fulfill({
-        json: {
-          data: suffix.length ? found : { pack_versions: rows },
-          meta: {
-            request_id: "catalog",
-            ...(suffix.length
-              ? {}
-              : { paging: { limit: 100, has_more: false, next_cursor: null } }),
-          },
-        },
+        status: 202,
+        json: { data: current, meta: { request_id: "admitted" } },
       });
-      return;
-    }
-    admissions.push(route.request().postData() ?? "multipart");
-    if (admissionGate !== null) await admissionGate;
-    if (failAdmission) {
-      await route.abort("failed");
-      return;
-    }
-    const action = url.pathname.split("/").at(-1);
-    family =
-      action === "import"
-        ? "reference_pack_imported"
-        : action === "activate"
-          ? "reference_pack_activated"
-          : action === "disable"
-            ? "reference_pack_disabled"
-            : action === "reverify"
-              ? "reference_pack_reverified"
-              : "reference_packs_refreshed";
-    const parts = url.pathname.split("/").map(decodeURIComponent);
-    target =
-      packs.find(
-        (pack) => pack.pack_key === parts[4] && pack.pack_version === parts[5],
-      ) ?? packs[0];
-    const id = `11111111-1111-4111-8111-${String(++sequence).padStart(12, "0")}`;
-    current = {
-      job_id: id,
-      scope: { kind: "deployment" },
-      status_route: `/api/v1/jobs/${id}`,
-      status: "queued",
-      cancelable: true,
-      submitted_by_user_id: actorId,
-      submitted_at: "2026-09-07T12:00:00Z",
-      updated_at: "2026-09-07T12:00:00Z",
-      started_at: null,
-      finished_at: null,
-      retained_until: null,
-      progress: { completed: 0, total: null },
-      result_summary: null,
-      error_summary: null,
-    };
-    jobs.set(id, current);
-    await route.fulfill({
-      status: 202,
-      json: { data: current, meta: { request_id: "admitted" } },
-    });
-  });
-  await page.route("**/api/v1/jobs/**", async (route) => {
+    },
+  );
+  await installOwnedRoute(page, "**/api/v1/jobs/**", async (route) => {
     const parts = new URL(route.request().url()).pathname.split("/");
     const id = parts[4] ?? "";
     if (route.request().method() === "GET") {
@@ -294,7 +300,7 @@ export async function installReferencePackPresentation(
     failCatalog: (value: boolean) => {
       failCatalog = value;
     },
-    gateAdmission: (value: Promise<void> | null) => {
+    gateAdmission: (value: Promise<BarrierOutcome> | null) => {
       admissionGate = value;
     },
   };

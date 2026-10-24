@@ -91,23 +91,12 @@ func decodeAcceptedRowQueryRequest(reader io.Reader, expectedSchemaID string, co
 	if apiErr != nil {
 		return rowQueryRequest{}, apiErr
 	}
-	schemaID, apiErr := requiredJSONString(raw, "schema_id")
+	schemaID, token, apiErr := decodeQueryVariant(raw, expectedSchemaID, continuationSchemaID)
 	if apiErr != nil {
 		return rowQueryRequest{}, apiErr
 	}
-	switch schemaID {
-	case continuationSchemaID:
-		if apiErr := ensureAllowedMembers(raw, "schema_id", "cursor_token"); apiErr != nil {
-			return rowQueryRequest{}, apiErr
-		}
-		token, apiErr := requiredJSONString(raw, "cursor_token")
-		if apiErr != nil {
-			return rowQueryRequest{}, apiErr
-		}
+	if schemaID == continuationSchemaID {
 		return rowQueryRequest{SchemaID: schemaID, Continuation: true, CursorToken: token}, nil
-	case expectedSchemaID:
-	default:
-		return rowQueryRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	allowed := []string{"schema_id", "filters", "sort", "limit"}
 	if expectedSchemaID == schemaRowsQueryRequest {
@@ -155,22 +144,12 @@ func decodeRejectedRowsQueryRequest(reader io.Reader, limits EffectiveLimits) (r
 	if apiErr != nil {
 		return rejectedRowsQueryRequest{}, apiErr
 	}
-	schemaID, apiErr := requiredJSONString(raw, "schema_id")
+	schemaID, token, apiErr := decodeQueryVariant(raw, schemaRejectedRowsQueryRequest, schemaRejectedRowsQueryContinuation)
 	if apiErr != nil {
 		return rejectedRowsQueryRequest{}, apiErr
 	}
 	if schemaID == schemaRejectedRowsQueryContinuation {
-		if apiErr := ensureAllowedMembers(raw, "schema_id", "cursor_token"); apiErr != nil {
-			return rejectedRowsQueryRequest{}, apiErr
-		}
-		token, apiErr := requiredJSONString(raw, "cursor_token")
-		if apiErr != nil {
-			return rejectedRowsQueryRequest{}, apiErr
-		}
 		return rejectedRowsQueryRequest{SchemaID: schemaID, Continuation: true, CursorToken: token}, nil
-	}
-	if schemaID != schemaRejectedRowsQueryRequest {
-		return rejectedRowsQueryRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	if apiErr := ensureAllowedMembers(raw, "schema_id", "error_codes", "field_keys", "source_row_range", "limit"); apiErr != nil {
 		return rejectedRowsQueryRequest{}, apiErr
@@ -207,6 +186,33 @@ func decodeRejectedRowsQueryRequest(reader io.Reader, limits EffectiveLimits) (r
 		request.Limit = limit
 	}
 	return request, nil
+}
+
+// All paginated routes admit exactly one closed request variant. A caller
+// cannot mix fresh query semantics into a sealed continuation's scope.
+func decodeQueryVariant(raw map[string]json.RawMessage, initialSchemaID, continuationSchemaID string) (string, string, *semanticFailure) {
+	schemaID, failure := requiredJSONString(raw, "schema_id")
+	if failure != nil {
+		return "", "", failure
+	}
+	switch schemaID {
+	case continuationSchemaID:
+		if failure := ensureAllowedMembers(raw, "schema_id", "cursor_token"); failure != nil {
+			return "", "", cursorInvalid("semantic_query_mismatch")
+		}
+		token, failure := requiredJSONString(raw, "cursor_token")
+		if failure != nil {
+			return "", "", cursorInvalid("malformed")
+		}
+		return schemaID, token, nil
+	case initialSchemaID:
+		if _, mixed := raw["cursor_token"]; mixed {
+			return "", "", cursorInvalid("semantic_query_mismatch")
+		}
+		return schemaID, "", nil
+	default:
+		return "", "", invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
+	}
 }
 
 func decodeNetworkFlowObject(reader io.Reader) (map[string]json.RawMessage, *semanticFailure) {

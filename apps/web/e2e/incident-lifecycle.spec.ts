@@ -12,7 +12,6 @@ import {
   openIncidentAsTrackedUser,
   openIncidentFromLanding,
 } from "./pages/incidentDirectory";
-import { auditBrowserBarrier } from "./support/administrativeAudit";
 import { csrfHeaders } from "./support/auth/browserSession";
 import {
   confirmLifecycle,
@@ -24,6 +23,7 @@ import { openMembershipManagement } from "./support/incidentMembershipManagement
 import { openMetadata } from "./support/incidentMetadata";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -32,6 +32,10 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createViewRow } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
 import { ensureTimelineGridTargetVisible } from "./support/workbook/rowMutations";
@@ -39,7 +43,7 @@ import { createSavedView } from "./support/workbook/savedViews";
 
 test("lifecycle recovers a committed lost Close after another actor reopens without publishing its historical receipt", async ({
   testActorPage: page,
-  browser,
+  browserScope,
   sessionTracker,
 }, testInfo) => {
   const incidentId = await createIncident(
@@ -55,7 +59,7 @@ test("lifecycle recovers a committed lost Close after another actor reopens with
     mfa_required: false,
     is_deployment_admin: false,
   });
-  const actorB = await openIncidentAsTrackedUser(browser, sessionTracker, {
+  const actorB = await openIncidentAsTrackedUser(browserScope, sessionTracker, {
     createdBy: "lifecycle replay second actor",
     email: second.email,
     incidentId,
@@ -63,12 +67,13 @@ test("lifecycle recovers a committed lost Close after another actor reopens with
     purpose: "lifecycle current state divergence",
     userId: second.user_id,
   });
-  try {
+  {
     await openIncidentFromLanding(page, incidentId);
     const panel = await openLifecycle(page);
     const requests: CloseIncidentRequest[] = [];
     const responses: unknown[] = [];
-    await page.route(
+    await installOwnedRoute(
+      page,
       `**/api/v1/incidents/${incidentId}/close`,
       async (route) => {
         requests.push(route.request().postDataJSON());
@@ -141,8 +146,8 @@ test("lifecycle recovers a committed lost Close after another actor reopens with
       }),
       contentType: "application/json",
     });
-  } finally {
-    await actorB.context().close();
+
+    await browserScope.closeContext(actorB.context());
   }
 });
 
@@ -156,11 +161,11 @@ test("lifecycle confirms a real action independently of failed reads and preserv
   );
   await openIncidentFromLanding(page, incidentId);
   const panel = await openLifecycle(page);
-  const gate = auditBrowserBarrier();
+  const gate = responseBarrier(page);
   let writes = 0;
   let failRead = false;
   let failAuthorization = false;
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     if (failAuthorization)
       await route.fulfill({
         status: 503,
@@ -171,7 +176,8 @@ test("lifecycle confirms a real action independently of failed reads and preserv
       });
     else await route.continue();
   });
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/incidents/${incidentId}/reopen`,
     async (route) => {
       const response = await route.fetch();
@@ -180,24 +186,32 @@ test("lifecycle confirms a real action independently of failed reads and preserv
       await route.fulfill({ response });
     },
   );
-  await page.route(`**/api/v1/incidents/${incidentId}/close`, async (route) => {
-    ++writes;
-    const response = await route.fetch();
-    expect(response.status()).toBe(200);
-    await gate.promise;
-    await route.fulfill({ response });
-  });
-  await page.route(`**/api/v1/incidents/${incidentId}`, async (route) => {
-    if (failRead && route.request().method() === "GET")
-      await route.fulfill({
-        status: 503,
-        json: {
-          error: { code: "internal_error" },
-          meta: { request_id: "lc-read-failed" },
-        },
-      });
-    else await route.continue();
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/incidents/${incidentId}/close`,
+    async (route) => {
+      ++writes;
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      if (!(await awaitResponseBarrier(route, gate.promise))) return;
+      await route.fulfill({ response });
+    },
+  );
+  await installOwnedRoute(
+    page,
+    `**/api/v1/incidents/${incidentId}`,
+    async (route) => {
+      if (failRead && route.request().method() === "GET")
+        await route.fulfill({
+          status: 503,
+          json: {
+            error: { code: "internal_error" },
+            meta: { request_id: "lc-read-failed" },
+          },
+        });
+      else await route.continue();
+    },
+  );
   await confirmLifecycle(page, "Close", "Close captured reason");
   await expect.poll(() => writes).toBe(1);
   await panel
@@ -405,11 +419,19 @@ test("lifecycle closure retains rejected workbook work and allowed configuration
     rowCellTestId(row.record_id, "timeline.activity_synopsis_text"),
   );
   await expect(cell).toBeVisible();
-  const patchGate = auditBrowserBarrier();
-  await page.route(`**/api/v1/records/${row.record_id}`, async (route) => {
-    if (route.request().method() === "PATCH") await patchGate.promise;
-    await route.continue();
-  });
+  const patchGate = responseBarrier(page);
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${row.record_id}`,
+    async (route) => {
+      if (
+        route.request().method() === "PATCH" &&
+        !(await awaitResponseBarrier(route, patchGate.promise))
+      )
+        return;
+      await route.continue();
+    },
+  );
   const patches: unknown[] = [];
   page.on("request", (request) => {
     if (

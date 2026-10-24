@@ -21,10 +21,15 @@ import {
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import {
   createViewRow,
@@ -104,23 +109,27 @@ test("Reviewed contextual Party creation reuses unchanged exact matches and repo
   });
   const requests: string[] = [],
     receipts: CreateViewRowResponse[] = [];
-  await page.route(`**/views/${partiesViewSchemaId}/rows`, async (route) => {
-    requests.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    if (requests.length === 1) {
-      expect(response.status()).toBe(409);
-      const error = (await response.json()).error;
-      expect(error.code).toBe("party_match_conflict");
-      expect(Object.keys(error.details).sort()).toEqual([
-        "conflicting_field_keys",
-        "reason_code",
-      ]);
-    } else {
-      expect(response.ok()).toBeTruthy();
-      receipts.push(await response.json());
-    }
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${partiesViewSchemaId}/rows`,
+    async (route) => {
+      requests.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      if (requests.length === 1) {
+        expect(response.status()).toBe(409);
+        const error = (await response.json()).error;
+        expect(error.code).toBe("party_match_conflict");
+        expect(Object.keys(error.details).sort()).toEqual([
+          "conflicting_field_keys",
+          "reason_code",
+        ]);
+      } else {
+        expect(response.ok()).toBeTruthy();
+        receipts.push(await response.json());
+      }
+      await route.fulfill({ response });
+    },
+  );
   await page.goto(
     `/?incident_id=${incident}&view_schema_id=${evidenceViewSchemaId}`,
   );
@@ -218,19 +227,23 @@ test("Party picker reaches the next authorized page and retains loaded candidate
   });
   const cursors: string[] = [];
   let failed = false;
-  await page.route(`**/views/${partiesViewSchemaId}/query`, async (route) => {
-    const request = route.request().postDataJSON();
-    if (request.cursor_token) {
-      expect(request.limit).toBe(100);
-      cursors.push(request.cursor_token);
-      if (!failed) {
-        failed = true;
-        await route.abort("failed");
-        return;
+  await installOwnedRoute(
+    page,
+    `**/views/${partiesViewSchemaId}/query`,
+    async (route) => {
+      const request = route.request().postDataJSON();
+      if (request.cursor_token) {
+        expect(request.limit).toBe(100);
+        cursors.push(request.cursor_token);
+        if (!failed) {
+          failed = true;
+          await route.abort("failed");
+          return;
+        }
       }
-    }
-    await route.continue();
-  });
+      await route.continue();
+    },
+  );
   await page.goto(
     `/?incident_id=${incident}&view_schema_id=${taskRequestsViewSchemaId}`,
   );
@@ -348,47 +361,57 @@ async function recovery(
     linkReceipts: PatchRecordResponse[] = [];
   let failRefresh = false,
     releaseCreation: (() => void) | null = null;
-  await page.route(`**/views/${view}/query`, async (route) => {
+  await installOwnedRoute(page, `**/views/${view}/query`, async (route) => {
     if (failRefresh) await route.abort("failed");
     else await route.continue();
   });
-  await page.route(`**/views/${partiesViewSchemaId}/rows`, async (route) => {
-    creates.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    expect(response.ok()).toBeTruthy();
-    createReceipts.push(await response.json());
-    if (mode === "navigation")
-      await new Promise<void>((resolve) => {
-        releaseCreation = resolve;
-      });
-    if (mode === "create_lost" && creates.length === 1)
-      await route.abort("failed");
-    else await route.fulfill({ response });
-  });
-  await page.route(`**/records/${source.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    links.push(route.request().postData() ?? "");
-    if (mode === "rejected" && links.length === 1 && competing) {
-      await patchRecord(page, source.record_id, {
-        base_row_version: source.row_version,
-        view_schema_id: view,
-        client_txn_id: uniqueTxn("competing-source-write"),
-        changes: [{ field_key: refField, value: competing.record_id }],
-      });
-    }
-    const response = await route.fetch();
-    if (mode === "rejected" && links.length === 1)
-      expect(response.status()).toBe(409);
-    else {
-      expect(response.status()).toBe(200);
-      linkReceipts.push(await response.json());
-    }
-    if (mode === "link_lost" && links.length === 1) await route.abort("failed");
-    else {
-      if (mode === "refresh") failRefresh = true;
-      await route.fulfill({ response });
-    }
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${partiesViewSchemaId}/rows`,
+    async (route) => {
+      creates.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      expect(response.ok()).toBeTruthy();
+      createReceipts.push(await response.json());
+      if (mode === "navigation") {
+        const heldResponse = responseBarrier(page);
+        releaseCreation = heldResponse.release;
+        if (!(await awaitResponseBarrier(route, heldResponse.promise))) return;
+      }
+      if (mode === "create_lost" && creates.length === 1)
+        await route.abort("failed");
+      else await route.fulfill({ response });
+    },
+  );
+  await installOwnedRoute(
+    page,
+    `**/records/${source.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      links.push(route.request().postData() ?? "");
+      if (mode === "rejected" && links.length === 1 && competing) {
+        await patchRecord(page, source.record_id, {
+          base_row_version: source.row_version,
+          view_schema_id: view,
+          client_txn_id: uniqueTxn("competing-source-write"),
+          changes: [{ field_key: refField, value: competing.record_id }],
+        });
+      }
+      const response = await route.fetch();
+      if (mode === "rejected" && links.length === 1)
+        expect(response.status()).toBe(409);
+      else {
+        expect(response.status()).toBe(200);
+        linkReceipts.push(await response.json());
+      }
+      if (mode === "link_lost" && links.length === 1)
+        await route.abort("failed");
+      else {
+        if (mode === "refresh") failRefresh = true;
+        await route.fulfill({ response });
+      }
+    },
+  );
   await page.goto(`/?incident_id=${incident}&view_schema_id=${view}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await openGenericInspectorForRecord(page, view, source.record_id);

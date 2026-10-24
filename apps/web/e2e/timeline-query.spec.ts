@@ -19,7 +19,6 @@ import {
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import { gridSavedRows } from "./pages/workbookInspector";
 import { createIncident } from "./support/incidents/fixtures";
@@ -28,6 +27,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { installOwnedRoute } from "./support/transport/requestInterception";
 import { createViewRow, readWorkbookMutation } from "./support/workbook/query";
 import { waitForTimelinePatch } from "./support/workbook/rowMutations";
 
@@ -303,7 +303,8 @@ test(exactScenarioTitle, async ({ page }) => {
     cells: { ...alpha.cells },
   };
   delete invalidRow.cells["timeline.attached_evidence_ids"];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       await route.fulfill({

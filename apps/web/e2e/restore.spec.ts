@@ -32,7 +32,7 @@ const test = base.extend<{
   restoreTarget: RestoreTarget;
 }>({
   restoreProcess: [
-    async ({ page }, use, testInfo) => {
+    async ({ browserScope }, use, testInfo) => {
       const runtimeRoot = process.env.CARTULARY_WEB_E2E_RUNTIME_ROOT;
       if (!runtimeRoot)
         throw new Error("CARTULARY_WEB_E2E_RUNTIME_ROOT is required");
@@ -78,8 +78,10 @@ const test = base.extend<{
         });
       }
       try {
-        if (!page.isClosed())
-          await page.goto("about:blank", { timeout: 5_000 });
+        // Restored sessions belong to the disposable deployment. The common
+        // scope closes their browser transport without registering those actors
+        // against the ordinary deployment's borrowed provisioner.
+        await browserScope.dispose();
       } catch (error) {
         failures.push({
           phase: "cleanup",

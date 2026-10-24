@@ -31,7 +31,11 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createViewRow } from "./support/workbook/query";
 import {
   activateCommittedGridCell,
@@ -314,7 +318,7 @@ test("Delayed record reads preserve Work and cannot supersede newer interaction.
   await surface(page, notesViewSchemaId);
   const writes = observeWrites(page);
   const locatePath = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/locate`;
-  await page.route(locatePath, (route) => route.abort("failed"));
+  await installOwnedRoute(page, locatePath, (route) => route.abort("failed"));
   await openPin(page);
   await page
     .getByRole("button", { name: "Navigation", exact: true })
@@ -331,12 +335,12 @@ test("Delayed record reads preserve Work and cannot supersede newer interaction.
   await expect(
     page.getByTestId(gridShellTestId(notesViewSchemaId)),
   ).toBeVisible();
-  await page.unroute(locatePath);
+  await removeOwnedRoute(page, locatePath);
   const held = await holdBrowserRequest(page, {
     method: "POST",
     path: `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/locate`,
   });
-  try {
+  {
     await page
       .getByRole("button", { name: "Retry navigation", exact: true })
       .press("Enter");
@@ -388,7 +392,7 @@ test("Delayed record reads preserve Work and cannot supersede newer interaction.
       page.getByTestId(genericCreateFieldTestId("note.title")),
     ).not.toBeFocused();
     expect(writes).toEqual([]);
-  } finally {
+
     await held.dispose();
   }
 });

@@ -30,7 +30,11 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 
 const synopsis = "timeline.activity_synopsis_text";
@@ -446,43 +450,42 @@ test("Timeline scalar native paste joins rapid departure and retains rejected dr
             document.activeElement?.getAttribute("data-testid"),
           ),
         });
-      } finally {
+
         held.release();
+
         await patches.dispose();
+      } finally {
+        held.cancel();
       }
     }
     const { recordId } = await seed(page);
     const input = await activate(page, recordId, synopsis, surface);
     const patches = await installPatchController(page);
-    try {
-      patches.failNextPatch(422, "invalid_request", { recordId });
-      await selection(input, 0, originalText.length);
-      await paste(page, "  exact rejected Ω\t\n  ");
-      await input.press(surface === "grid" ? "Tab" : "Control+Enter");
-      if (surface === "grid")
-        await expect(page.getByTestId(saveStateTestId())).toHaveText(
-          "Conflict",
-        );
-      else
-        await expect(
-          page
-            .locator("[data-inspector-editor-field]")
-            .getByRole("alert")
-            .first(),
-        ).toBeVisible();
-      await expect(input).toHaveValue("  exact rejected Ω\t\n  ");
-      await input.focus();
-      await page.keyboard.press(surface === "grid" ? "Enter" : "Tab");
-      expect(patches.calls).toHaveLength(1);
-      await expect(input).toHaveValue("  exact rejected Ω\t\n  ");
-      observations.push({
-        surface,
-        rejected: await state(input),
-        calls: patches.calls,
-      });
-    } finally {
-      await patches.dispose();
-    }
+    patches.failNextPatch(422, "invalid_request", { recordId });
+    await selection(input, 0, originalText.length);
+    await paste(page, "  exact rejected Ω\t\n  ");
+    await input.press(surface === "grid" ? "Tab" : "Control+Enter");
+    if (surface === "grid")
+      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    else
+      await expect(
+        page
+          .locator("[data-inspector-editor-field]")
+          .getByRole("alert")
+          .first(),
+      ).toBeVisible();
+    await expect(input).toHaveValue("  exact rejected Ω\t\n  ");
+    await input.focus();
+    await page.keyboard.press(surface === "grid" ? "Enter" : "Tab");
+    expect(patches.calls).toHaveLength(1);
+    await expect(input).toHaveValue("  exact rejected Ω\t\n  ");
+    observations.push({
+      surface,
+      rejected: await state(input),
+      calls: patches.calls,
+    });
+
+    await patches.dispose();
   }
   await info.attach("scalar-paste-departure", {
     body: JSON.stringify(observations, null, 2),
@@ -539,9 +542,12 @@ test("Timeline scalar older receipts preserve newer equal edits and independent 
         [synopsis]: "same paste Ω newer",
       });
       observations.push({ surface, before, admissions, calls: patches.calls });
-    } finally {
+
       held.release();
+
       await patches.dispose();
+    } finally {
+      held.cancel();
     }
   }
 
@@ -600,9 +606,12 @@ test("Timeline scalar older receipts preserve newer equal edits and independent 
       },
       calls: patches.calls,
     });
-  } finally {
+
     held.release();
+
     await patches.dispose();
+  } finally {
+    held.cancel();
   }
   const detached = await seed(page);
   const detachedInput = await activate(
@@ -639,9 +648,12 @@ test("Timeline scalar older receipts preserve newer equal edits and independent 
       { [synopsis]: "accepted while detached retained newer" },
     );
     observations.push({ detached: true, calls: detachedPatches.calls });
-  } finally {
+
     detachedHold.release();
+
     await detachedPatches.dispose();
+  } finally {
+    detachedHold.cancel();
   }
   await info.attach("scalar-revision-continuity", {
     body: JSON.stringify(observations, null, 2),
@@ -738,9 +750,13 @@ test("Timeline scalar native paste promotes one creation record and preserves cu
           document.activeElement?.getAttribute("data-testid"),
         ),
       });
-    } finally {
+
       held.release();
+
       await held.dispose();
+    } finally {
+      held.cancel();
+
       page.off("request", record);
     }
   }
@@ -856,9 +872,13 @@ test("Timeline scalar paste retains multiline scrolling composition and readable
       ),
       contentType: "application/json",
     });
-  } finally {
+
     held.release();
+
     await patches.dispose();
+  } finally {
+    held.cancel();
+
     await cdp.detach();
   }
 });
@@ -872,7 +892,7 @@ test("Timeline scalar paste replays captured requests and refreshes accepted wri
   const route = `**/api/v1/records/${recordId}`;
   const requests: string[] = [],
     changes: string[] = [];
-  await page.route(route, async (route) => {
+  await installOwnedRoute(page, route, async (route) => {
     if (route.request().method() !== "PATCH") {
       await route.fallback();
       return;
@@ -885,7 +905,7 @@ test("Timeline scalar paste replays captured requests and refreshes accepted wri
     else await route.fulfill({ response });
   });
   const query = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`;
-  try {
+  {
     await selection(input, 6, 10);
     await paste(page, "captured Ω");
     await expect.poll(() => requests.length).toBe(2);
@@ -893,7 +913,7 @@ test("Timeline scalar paste replays captured requests and refreshes accepted wri
     expect(requests[1]).toBe(requests[0]);
     expect(changes[1]).toBe(changes[0]);
     let failedReads = 0;
-    await page.route(query, async (route) => {
+    await installOwnedRoute(page, query, async (route) => {
       failedReads++;
       await route.abort("failed");
     });
@@ -907,7 +927,7 @@ test("Timeline scalar paste replays captured requests and refreshes accepted wri
     expect(failedReads).toBe(1);
     await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
     expect(requests).toHaveLength(2);
-    await page.unroute(query);
+    await removeOwnedRoute(page, query);
     await refresh.click();
     await expect(
       page.locator('[data-grid-data-state="stale_error"]'),
@@ -920,8 +940,8 @@ test("Timeline scalar paste replays captured requests and refreshes accepted wri
       body: JSON.stringify({ requests, changes, failedReads }, null, 2),
       contentType: "application/json",
     });
-  } finally {
-    await page.unroute(query);
-    await page.unroute(route);
+
+    await removeOwnedRoute(page, query);
+    await removeOwnedRoute(page, route);
   }
 });

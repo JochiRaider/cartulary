@@ -12,13 +12,14 @@ import {
   workbookImportAssistantTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
-import type { Browser, Page, TestInfo } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
 import type { FixtureActorCredentials } from "../support/auth/sessions";
 import {
   type Ac043TrafficDriver,
   prepareAc043Snapshot,
   startAc043SnapshotTraffic,
 } from "../support/performance/ac043Snapshot";
+import type { OwnedBrowserScope } from "../support/runtime/cleanup";
 import { expect } from "./fixtures";
 import { importDiscoveryWorkbook } from "./importDiscoveryWorkbook";
 import {
@@ -30,7 +31,7 @@ import {
 
 export async function runImportProgress(
   purpose: "discovery" | "apply",
-  browser: Browser,
+  browserScope: OwnedBrowserScope,
   page: Page,
   testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
@@ -68,7 +69,7 @@ export async function runImportProgress(
       page.getByTestId(timelineMutationSubstrateReadyTestId()),
     ).toBeVisible();
     traffic = await startAc043SnapshotTraffic(
-      browser,
+      browserScope,
       sessionTracker,
       snapshot.incidentId,
       snapshot.timelineRows.filter((row) => !excluded.has(row.record_id)),

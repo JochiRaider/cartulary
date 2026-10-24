@@ -48,6 +48,7 @@ import {
 } from "./support/incidentLifecycle";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -57,6 +58,11 @@ import {
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { fetchRecordHistoryCount } from "./support/workbook/history";
 import { switchOrdinarySheet } from "./support/workbook/ordinaryCreate";
 import {
@@ -68,14 +74,6 @@ import {
   createSavedView,
   selectSavedView,
 } from "./support/workbook/savedViews";
-
-function gate() {
-  let release!: () => void;
-  const promise = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return { promise, release };
-}
 
 async function fixture(page: Page, view: string) {
   const incident = await createIncident(
@@ -214,8 +212,8 @@ test("Committed grid A acknowledgement preserves B authoring and sequences real 
     timelineViewSchemaId,
   ]) {
     const f = await fixture(page, view),
-      a = gate(),
-      b = gate(),
+      a = responseBarrier(page),
+      b = responseBarrier(page),
       bodies: string[] = [];
     if (view === timelineViewSchemaId) {
       // Empty activity timestamps tie on opaque record IDs. Capture an explicit
@@ -225,15 +223,25 @@ test("Committed grid A acknowledgement preserves B authoring and sequences real 
     const receipts: Array<{
       data: { change_set_id: string; row: { row_version: number } };
     }> = [];
-    await page.route(`**/api/v1/records/${f.row.record_id}`, async (route) => {
-      if (route.request().method() !== "PATCH") return route.continue();
-      const index = bodies.push(route.request().postData() ?? "") - 1;
-      const response = await route.fetch();
-      expect(response.ok()).toBe(true);
-      receipts[index] = await response.json();
-      await (index === 0 ? a.promise : b.promise);
-      await route.fulfill({ response });
-    });
+    await installOwnedRoute(
+      page,
+      `**/api/v1/records/${f.row.record_id}`,
+      async (route) => {
+        if (route.request().method() !== "PATCH") return route.continue();
+        const index = bodies.push(route.request().postData() ?? "") - 1;
+        const response = await route.fetch();
+        expect(response.ok()).toBe(true);
+        receipts[index] = await response.json();
+        if (
+          !(await awaitResponseBarrier(
+            route,
+            index === 0 ? a.promise : b.promise,
+          ))
+        )
+          return;
+        await route.fulfill({ response });
+      },
+    );
     try {
       const input = await activate(page, view, f.row.record_id, f.field);
       await input.fill("First accepted value");
@@ -279,10 +287,14 @@ test("Committed grid A acknowledgement preserves B authoring and sequences real 
           .getByTestId(rowCellTestId(f.other.record_id, f.field))
           .locator("xpath=ancestor::*[@role='gridcell'][1]"),
       ).toBeFocused();
-    } finally {
+
       a.release();
       b.release();
-      await page.unroute(`**/api/v1/records/${f.row.record_id}`);
+
+      await removeOwnedRoute(page, `**/api/v1/records/${f.row.record_id}`);
+    } finally {
+      a.cancel();
+      b.cancel();
     }
   }
 });
@@ -296,27 +308,32 @@ test("Committed grid response loss replays exact real commits while retaining de
     [timelineViewSchemaId, false],
   ] as const) {
     const f = await fixture(page, view),
-      replay = gate(),
+      replay = responseBarrier(page),
       bodies: string[] = [],
       changes: string[] = [];
-    await page.route(`**/api/v1/records/${f.row.record_id}`, async (route) => {
-      if (route.request().method() !== "PATCH") return route.continue();
-      const index = bodies.push(route.request().postData() ?? "") - 1;
-      if (index > 0) await replay.promise;
-      const response = await route.fetch();
-      expect(response.ok()).toBe(true);
-      changes.push((await response.json()).data.change_set_id);
-      if (index > 0) await route.fulfill({ response });
-      else if (malformed)
-        await route.fulfill({
-          response,
-          body: JSON.stringify({
-            data: { row: {} },
-            meta: { request_id: "gea-lost" },
-          }),
-        });
-      else await route.abort("failed");
-    });
+    await installOwnedRoute(
+      page,
+      `**/api/v1/records/${f.row.record_id}`,
+      async (route) => {
+        if (route.request().method() !== "PATCH") return route.continue();
+        const index = bodies.push(route.request().postData() ?? "") - 1;
+        if (index > 0)
+          if (!(await awaitResponseBarrier(route, replay.promise))) return;
+        const response = await route.fetch();
+        expect(response.ok()).toBe(true);
+        changes.push((await response.json()).data.change_set_id);
+        if (index > 0) await route.fulfill({ response });
+        else if (malformed)
+          await route.fulfill({
+            response,
+            body: JSON.stringify({
+              data: { row: {} },
+              meta: { request_id: "gea-lost" },
+            }),
+          });
+        else await route.abort("failed");
+      },
+    );
     try {
       const input = await activate(page, view, f.row.record_id, f.field);
       await input.fill("One durable change");
@@ -346,9 +363,12 @@ test("Committed grid response loss replays exact real commits while retaining de
       ).toBe("One durable change");
       await restored.press("Escape");
       expect(bodies).toHaveLength(2);
-    } finally {
+
       replay.release();
-      await page.unroute(`**/api/v1/records/${f.row.record_id}`);
+
+      await removeOwnedRoute(page, `**/api/v1/records/${f.row.record_id}`);
+    } finally {
+      replay.cancel();
     }
   }
 });
@@ -690,13 +710,13 @@ test("Committed grid accepted rows survive failed stale and missing refresh with
     [timelineViewSchemaId, "missing"],
   ] as const) {
     const f = await fixture(page, view),
-      ack = gate();
+      ack = responseBarrier(page);
     let committed = false,
       damageReads = true,
       reads = 0,
       writes = 0;
     let oldRows: unknown[] = [];
-    await page.route(`**/views/${view}/query`, async (route) => {
+    await installOwnedRoute(page, `**/views/${view}/query`, async (route) => {
       reads++;
       if (committed && damageReads && mode === "failed")
         return route.abort("failed");
@@ -720,15 +740,19 @@ test("Committed grid accepted rows survive failed stale and missing refresh with
         .getByRole("columnheader", { name: "Activity Synopsis", exact: true })
         .click();
     }
-    await page.route(`**/api/v1/records/${f.row.record_id}`, async (route) => {
-      if (route.request().method() !== "PATCH") return route.continue();
-      writes++;
-      const response = await route.fetch();
-      expect(response.ok()).toBe(true);
-      committed = true;
-      await ack.promise;
-      await route.fulfill({ response });
-    });
+    await installOwnedRoute(
+      page,
+      `**/api/v1/records/${f.row.record_id}`,
+      async (route) => {
+        if (route.request().method() !== "PATCH") return route.continue();
+        writes++;
+        const response = await route.fetch();
+        expect(response.ok()).toBe(true);
+        committed = true;
+        if (!(await awaitResponseBarrier(route, ack.promise))) return;
+        await route.fulfill({ response });
+      },
+    );
     try {
       const input = await activate(page, view, f.row.record_id, f.field);
       await input.fill("Accepted despite refresh");
@@ -775,10 +799,13 @@ test("Committed grid accepted rows survive failed stale and missing refresh with
       await restored.press("Escape");
       expect(writes).toBe(1);
       expect(await fetchRecordHistoryCount(page, f.row.record_id)).toBe(2);
-    } finally {
+
       ack.release();
-      await page.unroute(`**/views/${view}/query`);
-      await page.unroute(`**/api/v1/records/${f.row.record_id}`);
+
+      await removeOwnedRoute(page, `**/views/${view}/query`);
+      await removeOwnedRoute(page, `**/api/v1/records/${f.row.record_id}`);
+    } finally {
+      ack.cancel();
     }
   }
 });
@@ -981,20 +1008,24 @@ test("Committed grid dependent inspector writes wait for the accepted row versio
   page,
 }) => {
   const f = await fixture(page, hostsViewSchemaId),
-    ack = gate(),
+    ack = responseBarrier(page),
     bodies: string[] = [];
   let committed = false;
-  await page.route(`**/api/v1/records/${f.row.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    const index = bodies.push(route.request().postData() ?? "") - 1;
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    if (index === 0) {
-      committed = true;
-      await ack.promise;
-    }
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${f.row.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      const index = bodies.push(route.request().postData() ?? "") - 1;
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      if (index === 0) {
+        committed = true;
+        if (!(await awaitResponseBarrier(route, ack.promise))) return;
+      }
+      await route.fulfill({ response });
+    },
+  );
   try {
     const input = await activate(page, f.view, f.row.record_id, f.field);
     await input.fill("Grid first");
@@ -1024,9 +1055,12 @@ test("Committed grid dependent inspector writes wait for the accepted row versio
     );
     expect(saved?.cells[f.field]?.value).toBe("Grid first");
     expect(saved?.cells["host.location"]?.value).toBe("Inspector second");
-  } finally {
+
     ack.release();
-    await page.unroute(`**/api/v1/records/${f.row.record_id}`);
+
+    await removeOwnedRoute(page, `**/api/v1/records/${f.row.record_id}`);
+  } finally {
+    ack.cancel();
   }
 });
 
@@ -1436,20 +1470,24 @@ test("Committed grid different-field successors preserve collaboration versions 
   page,
 }) => {
   const f = await fixture(page, hostsViewSchemaId),
-    ack = gate(),
+    ack = responseBarrier(page),
     bodies: string[] = [];
   let committed = false;
-  await page.route(`**/api/v1/records/${f.row.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    const index = bodies.push(route.request().postData() ?? "") - 1,
-      response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    if (index === 0) {
-      committed = true;
-      await ack.promise;
-    }
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${f.row.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      const index = bodies.push(route.request().postData() ?? "") - 1,
+        response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      if (index === 0) {
+        committed = true;
+        if (!(await awaitResponseBarrier(route, ack.promise))) return;
+      }
+      await route.fulfill({ response });
+    },
+  );
   try {
     const a = await activate(page, f.view, f.row.record_id, f.field);
     await a.fill("Grid A");
@@ -1535,9 +1573,12 @@ test("Committed grid different-field successors preserve collaboration versions 
     expect(saved?.row_version).toBe(6);
     expect(saved?.cells["host.os_platform"]?.value).toBe("Remote OS");
     expect(saved?.cells["host.location"]?.value).toBe("Local review value");
-  } finally {
+
     ack.release();
-    await page.unroute(`**/api/v1/records/${f.row.record_id}`);
+
+    await removeOwnedRoute(page, `**/api/v1/records/${f.row.record_id}`);
+  } finally {
+    ack.cancel();
   }
 });
 
@@ -1758,40 +1799,44 @@ test("Committed grid CSRF denial recovers current authorization and replays the 
   page,
 }) => {
   const f = await fixture(page, evidenceViewSchemaId),
-    ack = gate(),
+    ack = responseBarrier(page),
     bodies: string[] = [];
   let denied = false,
     accepted = false;
-  await page.route(`**/api/v1/records/${f.row.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    const index = bodies.push(route.request().postData() ?? "") - 1;
-    const response = await route.fetch(
-      index === 0
-        ? {
-            headers: {
-              ...Object.fromEntries(
-                Object.entries(route.request().headers()).filter(
-                  ([name]) =>
-                    name.toLowerCase() !== csrfHeaderName.toLowerCase(),
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${f.row.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      const index = bodies.push(route.request().postData() ?? "") - 1;
+      const response = await route.fetch(
+        index === 0
+          ? {
+              headers: {
+                ...Object.fromEntries(
+                  Object.entries(route.request().headers()).filter(
+                    ([name]) =>
+                      name.toLowerCase() !== csrfHeaderName.toLowerCase(),
+                  ),
                 ),
-              ),
-            },
-          }
-        : {},
-    );
-    if (index === 0) {
-      expect(response.status()).toBe(403);
-      expect((await response.json()).error.code).toBe(
-        "csrf_verification_failed",
+              },
+            }
+          : {},
       );
-      denied = true;
-      await ack.promise;
-    } else {
-      expect(response.ok()).toBe(true);
-      accepted = true;
-    }
-    await route.fulfill({ response });
-  });
+      if (index === 0) {
+        expect(response.status()).toBe(403);
+        expect((await response.json()).error.code).toBe(
+          "csrf_verification_failed",
+        );
+        denied = true;
+        if (!(await awaitResponseBarrier(route, ack.promise))) return;
+      } else {
+        expect(response.ok()).toBe(true);
+        accepted = true;
+      }
+      await route.fulfill({ response });
+    },
+  );
   try {
     const input = await activate(page, f.view, f.row.record_id, f.field);
     await input.fill("Accepted after CSRF recovery");
@@ -1814,9 +1859,12 @@ test("Committed grid CSRF denial recovers current authorization and replays the 
         (row) => row.record_id === f.row.record_id,
       )?.cells[f.field]?.value,
     ).toBe("Accepted after CSRF recovery");
-  } finally {
+
     ack.release();
-    await page.unroute(`**/api/v1/records/${f.row.record_id}`);
+
+    await removeOwnedRoute(page, `**/api/v1/records/${f.row.record_id}`);
+  } finally {
+    ack.cancel();
   }
 });
 
@@ -1824,20 +1872,24 @@ test("Committed Timeline preparation reconciles collaboration between a real com
   page,
 }) => {
   const f = await fixture(page, timelineViewSchemaId),
-    ack = gate(),
+    ack = responseBarrier(page),
     bodies: string[] = [];
   let committed = false;
-  await page.route(`**/api/v1/records/${f.row.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    const index = bodies.push(route.request().postData() ?? "") - 1;
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    if (index === 0) {
-      committed = true;
-      await ack.promise;
-    }
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${f.row.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      const index = bodies.push(route.request().postData() ?? "") - 1;
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      if (index === 0) {
+        committed = true;
+        if (!(await awaitResponseBarrier(route, ack.promise))) return;
+      }
+      await route.fulfill({ response });
+    },
+  );
   try {
     const input = await activate(page, f.view, f.row.record_id, f.field);
     await input.fill("Committed A");
@@ -1879,9 +1931,12 @@ test("Committed Timeline preparation reconciles collaboration between a real com
       "Collaborator source",
     );
     expect(await fetchRecordHistoryCount(page, f.row.record_id)).toBe(4);
-  } finally {
+
     ack.release();
-    await page.unroute(`**/api/v1/records/${f.row.record_id}`);
+
+    await removeOwnedRoute(page, `**/api/v1/records/${f.row.record_id}`);
+  } finally {
+    ack.cancel();
   }
 });
 
@@ -2019,13 +2074,17 @@ test("Existing reference drafts survive same-account recovery while staged late 
       writes++;
   });
   await input.fill(party.record_id);
-  const delayed = gate();
+  const delayed = responseBarrier(page);
   let lookupStarted = false;
-  await page.route(`**/views/${partiesViewSchemaId}/query`, async (route) => {
-    lookupStarted = true;
-    await delayed.promise;
-    await route.continue().catch(() => {});
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${partiesViewSchemaId}/query`,
+    async (route) => {
+      lookupStarted = true;
+      if (!(await awaitResponseBarrier(route, delayed.promise))) return;
+      await route.continue();
+    },
+  );
   await input
     .locator("..")
     .getByRole("button", { name: "Choose source party", exact: true })

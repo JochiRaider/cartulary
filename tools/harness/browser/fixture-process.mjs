@@ -73,6 +73,9 @@ export function createBrowserFixtureProcess({ command, args, cwd, env = process.
   });
   let resolveReady, rejectReady;
   const ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
+  // Ownership is yielded before readiness is awaited by the dependent fixture.
+  // Observe early rejection without changing the original readiness outcome.
+  ready.catch(() => {});
   const timer = setTimeout(() => rejectReady(new Error("Browser fixture startup deadline exceeded")), startupMs);
   const finished = new Promise((resolve) => {
     child.once("close", (code, receivedSignal) => {

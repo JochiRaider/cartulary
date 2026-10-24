@@ -241,18 +241,32 @@
       "selector": {
         "file": "apps/web/e2e/support/runtime/cleanup.test.ts",
         "titles": [
-          "OwnedSessionTracker aggregates failures without exposing identities, cookies, or dependency errors",
-          "OwnedSessionTracker consumes cleanup after failure so repeated invocation is a no-op",
-          "OwnedSessionTracker creates alias contexts without registering additional sessions",
-          "OwnedSessionTracker deduplicates repeated registration of the same session cookie",
-          "OwnedSessionTracker does not register or revoke borrowed sessions",
-          "OwnedSessionTracker fails cleanup when revocation verification fails",
-          "OwnedSessionTracker revokes each owned user once and verifies every tracked snapshot",
-          "buildWorkerAdminBlueprints creates one distinct admin blueprint per parallel index",
-          "closeOwnedBrowserContext drains every page and context before disposing fetched responses",
-          "closeOwnedBrowserContext preserves all drain and close failures in ownership order",
-          "closeOwnedBrowserContext preserves close failure when no pages remain",
-          "closeOwnedBrowserContext settles other drains and closes after a synchronous drain failure"
+          "cancels an active handler and waits for its abort to settle",
+          "cancels barriers before settling feature work, drains every owner, then closes and revokes",
+          "cancels before a handler reaches its wait without dispatching delayed work",
+          "closes a context acquired during disposal before resolving disposal",
+          "closes and revokes even when page enumeration fails",
+          "closes browser dependencies before settling every independent publication",
+          "continues every cleanup phase after synchronous and asynchronous failures with redacted diagnostics",
+          "creates one distinct admin blueprint per parallel index",
+          "delegates context options to the instrumented browser and owns secondary contexts",
+          "keeps early-close failure visible while still revoking sessions and disposing clients",
+          "matches the exact path and query, releases once, and falls through for other methods",
+          "owned request interception limits public errors to the exact method and path without consuming other requests",
+          "owns a late independent client and actor response without exposing either",
+          "owns actors before login and verifies every distinct acquired session",
+          "owns late admission and settles terminal work before retiring its context",
+          "preserves repeated cleanup failure while attempting every build and redacting private diagnostics",
+          "rejects admission synchronously after disposal begins without invoking factories",
+          "retains acquired publications after later startup failure",
+          "retains acquisition failure while cleaning already acquired actors",
+          "retains fulfillment and removal failure without retaining private errors",
+          "retains uncertain admission and settlement failure without private diagnostics",
+          "returns one completion promise for concurrent and repeated failed disposal",
+          "settles context feature work before early closure and shares it with final disposal",
+          "settles in-flight authentication before revoking and verifies its late snapshot",
+          "uses first-terminal-outcome barriers and never releases cancelled work",
+          "uses the same early-close completion and does not close the context twice"
         ],
         "project_id": "harness-node"
       },
@@ -829,9 +843,7 @@
           "reconcileWorkerAdminManifest rediscovers deterministic worker-admin users when local manifest state is missing",
           "reconcileWorkerAdminManifest resets the canonical password when a reused worker-admin user can no longer log in",
           "reconcileWorkerAdminManifest reuses the same worker-admin accounts across sequential invocations",
-          "reconcileWorkerAdminManifest trusts existing shared-harness manifest passwords without creating probe sessions",
-          "withOnlyActiveDeploymentAdmin restores demoted admins after a guarded block fails",
-          "withOnlyActiveDeploymentAdmin temporarily demotes active deployment admins except the retained admin"
+          "reconcileWorkerAdminManifest trusts existing shared-harness manifest passwords without creating probe sessions"
         ],
         "project_id": "harness-node"
       },
@@ -957,7 +969,7 @@
         "object_store",
         "postgres"
       ],
-      "browser_state_scope": "isolated",
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {
@@ -1290,7 +1302,7 @@
         "object_store",
         "postgres"
       ],
-      "browser_state_scope": "isolated",
+      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     },
     {
@@ -2388,36 +2400,6 @@
       "postgres_isolation": "none"
     },
     {
-      "row_id": "harness.browser.unit.public_error_fault_route_disabled_by_default_0910c3af84",
-      "owner_id": "harness.browser",
-      "family_id": "harness.browser.unit",
-      "collaborator_ids": [],
-      "verification_ids": [
-        "harness.browser.verification.source_contracts"
-      ],
-      "runner": "go",
-      "selector": {
-        "package": "./internal/platform/harnessruntime",
-        "tests": [
-          "TestPublicErrorFaultRegistryClearRemovesArmedFaults",
-          "TestPublicErrorFaultRouteArmsOneShotOrdinaryPublicMutation",
-          "TestPublicErrorFaultRouteDisabledByDefault",
-          "TestPublicErrorFaultRouteRejectsInvalidTargets",
-          "TestPublicErrorFaultRouteRejectsSecondArmWhilePending",
-          "TestPublicErrorFaultRouteRequiresHarnessAuthorization"
-        ]
-      },
-      "evidence_class": "unit",
-      "runtime_profile_id": "none",
-      "resource_profile_id": "standard",
-      "claim_posture": "implementation",
-      "status": "active",
-      "fixture_capability": "none",
-      "aggregate_placement": "standard",
-      "service_dependencies": [],
-      "postgres_isolation": "none"
-    },
-    {
       "row_id": "harness.browser.unit.recovery_fixture_server_lifecycle",
       "owner_id": "harness.browser",
       "family_id": "harness.browser.unit",
@@ -2468,6 +2450,31 @@
       "status": "active",
       "fixture_capability": "none",
       "aggregate_placement": "full",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
+      "row_id": "harness.browser.unit.retired_public_error_control",
+      "owner_id": "harness.browser",
+      "family_id": "harness.browser.unit",
+      "collaborator_ids": [],
+      "verification_ids": [
+        "harness.browser.verification.source_contracts"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/harnessruntime",
+        "tests": [
+          "TestRetiredPublicErrorControlUnavailable"
+        ]
+      },
+      "evidence_class": "unit",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "standard",
       "service_dependencies": [],
       "postgres_isolation": "none"
     },
