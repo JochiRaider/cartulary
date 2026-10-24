@@ -144,6 +144,8 @@ export function assertCatalogTopologyValidation(context) {
     const candidates = [
       { ...context.topology, schema_id: "cartulary.execution_topology.v9" },
       { ...context.topology, schema_id: "cartulary.execution_topology.v10" },
+      { ...context.topology, schema_id: "cartulary.execution_topology.v15" },
+      { ...context.topology, go_targets: { targets: [], family_runtime_binaries: [] } },
       { ...context.topology, go_targets: { ...context.topology.go_targets, raw_go_aggregates: [] } },
       ...[null, "./internal/testutil/configtest", [], ["../foreign"], ["./same", "./same"]].map((value) => ({
         ...context.topology, go_targets: { ...context.topology.go_targets, catalog_packages: value },

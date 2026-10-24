@@ -7,10 +7,16 @@ import path from "node:path";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 
+import { compileRetainedRun } from "../../scheduler/work-graph/index.mjs";
+
 const root = path.resolve(import.meta.dirname, "../../../..");
 function invoke(...args) {
+  // This read-only child inspects a top-level host plan; it executes no graph.
+  // Inherited one-CPU planning is exercised separately with a bounded selection.
+  const { CARTULARY_HOST_ADMISSION_LEASE: _lease, CARTULARY_UNIT_CPU_TOKENS: _budget, ...environment } = process.env;
   const result = spawnSync(process.execPath, ["tools/harness/diagnostics/target-plan-cli.mjs", ...args], {
     cwd: root,
+    env: environment,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });
@@ -19,15 +25,20 @@ function invoke(...args) {
 }
 for (const target of ["test-fast", "check", "ci", "release-check"]) {
   const result = invoke("--json", "--target", target);
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 0, `${target}: ${result.stderr}`);
   const repeated = invoke("--json", "--target", target);
-  assert.equal(repeated.status, 0, repeated.stderr);
+  assert.equal(repeated.status, 0, `${target}: ${repeated.stderr}`);
   // Compare every byte without dumping two complete graphs into failure evidence.
   const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
   assert.equal(digest(repeated.stdout), digest(result.stdout), `${target}: same selection has byte-identical plans`);
   const plan = JSON.parse(result.stdout);
-  assert.equal(plan.schema_id, "cartulary.harness_target_plan.v6");
+  assert.equal(plan.schema_id, "cartulary.harness_target_plan.v7");
   assert.equal(plan.target, target);
+  assert.ok(plan.capability_snapshot.cpu_tokens >= plan.go_worker_budget);
+  assert.ok(plan.go_worker_budget > 0);
+  assert.equal(compileRetainedRun(root, { target, command_id: plan.command_id, declared_inputs: plan.inputs,
+    capability_snapshot: plan.capability_snapshot, go_worker_budget: plan.go_worker_budget }).graph.graph_digest,
+    plan.graph_digest, "public planning reproduces execution from its captured capacity");
   assert.ok(plan.units.length > 0);
   assert.ok(plan.projections[target].length > 0);
   assert.equal(new Set(plan.units.map((unit) => unit.unit_id)).size, plan.units.length);

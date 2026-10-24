@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.harness_target_plan.v6",
+  "$id": "cartulary.harness_target_plan.v7",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,11 +11,13 @@
     "units",
     "command_id",
     "inputs",
-    "rows"
+    "rows",
+    "capability_snapshot",
+    "go_worker_budget"
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.harness_target_plan.v6"
+      "const": "cartulary.harness_target_plan.v7"
     },
     "target": {
       "type": "string",
@@ -185,6 +187,14 @@
           }
         }
       }
+    },
+    "capability_snapshot": {
+      "$ref": "cartulary.harness_capability_snapshot.v1"
+    },
+    "go_worker_budget": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1024
     }
   }
 }

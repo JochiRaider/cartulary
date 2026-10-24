@@ -123,7 +123,6 @@ const topologyTopLevelKeys = new Set([
   "generated_outputs",
   "runtime_binaries",
   "execution_dependencies",
-  "go_targets",
   "task_surface_owner",
   "browser_e2e_batch",
 ]);

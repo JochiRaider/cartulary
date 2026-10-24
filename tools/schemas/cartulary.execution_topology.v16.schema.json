@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.execution_topology.v15",
+  "$id": "cartulary.execution_topology.v16",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,6 @@
     "generated_outputs",
     "runtime_binaries",
     "execution_dependencies",
-    "go_targets",
     "browser_e2e_batch",
     "task_surface_owner",
     "physical_resource_claims",
@@ -20,7 +19,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.execution_topology.v15"
+      "const": "cartulary.execution_topology.v16"
     },
     "runtime_profiles": {
       "type": "array",
@@ -108,29 +107,6 @@
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/record"
-      }
-    },
-    "go_targets": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "targets",
-        "family_runtime_binaries"
-      ],
-      "properties": {
-        "targets": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object"
-          }
-        },
-        "family_runtime_binaries": {
-          "type": "array",
-          "items": {
-            "type": "object"
-          }
-        }
       }
     },
     "browser_e2e_batch": {

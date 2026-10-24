@@ -34,10 +34,9 @@ export function prepareRuntimePlan(argv) {
   compiler.targetInputs[options.target] = replayInputs(entry, inputs);
   const { runID, runRoot } = resolvedRunRoot();
   mark("configuration_catalog");
-  const snapshot = captureCapabilitySnapshot({ root, override: process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE,
+  const snapshot = captureCapabilitySnapshot({ root, override: inputs.CARTULARY_HARNESS_CAPACITY_OVERRIDE,
     services: { browser: true, object_store: true, postgres: true, service_stack: true } });
-  compiler.availableGoLanes = availableGoWorkerBudget(snapshot.cpu_tokens, process.env);
-  compiler.availablePostgresLanes = snapshot.postgres_lanes;
+  compiler.configureCapacity(snapshot, availableGoWorkerBudget(snapshot.cpu_tokens, process.env));
   mark("capability_capture");
   const browserLaneLimit = compiler.resolveBrowserLaneLimit(inputs.BROWSER_LANES);
   const { graph, projections } = selectionFor(options, compiler);

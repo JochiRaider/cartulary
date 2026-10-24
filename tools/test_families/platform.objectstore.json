@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v12",
+  "schema_id": "cartulary.test_family_manifest.v13",
   "owner_id": "platform.objectstore",
   "rows": [
     {
@@ -82,7 +82,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "operator"
+      ]
     },
     {
       "row_id": "platform.objectstore.support_integration.qualified_streaming",

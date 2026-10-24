@@ -14,27 +14,39 @@ import { policyDependencyRowIDs } from "../scheduler/work-graph/policy-rows.mjs"
 import { commandInputContext, selectionFor } from "../scheduler/work-graph/preparation.mjs";
 import { buildWorkGraph, unitSemanticDigest } from "../scheduler/work-graph/model.mjs";
 
-test("invocation overhead is paid once without discounting serialized selected work", () => {
+test("each sized invocation pays its lifecycle once without discounting serialized selected work", () => {
   const compiler = new WorkGraphCompiler(new URL("../../../", import.meta.url).pathname);
   const ids = [
     "module.revisions.store.history_query_repository_mapping_7b4d2e9c11",
     "module.revisions.store.revision_window_utc_ordering_51f2a6b3c5",
   ];
   const runners = () => compiler.compileRows(ids).units.filter((unit) => unit.kind === "runner");
-  const [before] = runners();
-  assert.equal(runners().length, 1);
-  assert.equal(before.row_bindings.length, 2);
-  assert.equal(before.estimated_work_ms, compiler.owner.invocation_policies.go.startup_ms +
-    compiler.owner.invocation_policies.go.cleanup_ms + ids.reduce((total, id) =>
-      total + compiler.owner.evidence_estimates_ms[compiler.catalog.rowByID.get(id).evidence_class], 0));
-  compiler.owner.invocation_policies.go.startup_ms += 317;
-  const [after] = runners();
-  assert.equal(after.estimated_work_ms - before.estimated_work_ms, 317);
-  assert.notEqual(after.semantic_digest, before.semantic_digest);
-  assert.deepEqual(after.row_bindings, before.row_bindings);
-  assert.equal(after.timeout_ms, before.timeout_ms);
-  assert.deepEqual(after.resource_claims, before.resource_claims);
-  assert.deepEqual(compiler.compileRows(ids), compiler.compileRows([...ids].reverse()));
+  for (const lanes of [1, 4]) {
+    compiler.availableGoLanes = lanes;
+    const before = runners();
+    assert.deepEqual(before.flatMap((unit) => unit.row_bindings.map((row) => row.row_id)).sort(), [...ids].sort());
+    if (lanes === 1) assert.equal(before.length, 1);
+    for (const unit of before) {
+      const selected = unit.row_bindings.reduce((total, { row_id }) => {
+        const row = compiler.catalog.rowByID.get(row_id);
+        return total + compiler.owner.evidence_estimates_ms[row.evidence_class];
+      }, 0);
+      assert.equal(unit.estimated_work_ms, compiler.owner.invocation_policies.go.startup_ms +
+        compiler.owner.invocation_policies.go.cleanup_ms + selected);
+    }
+    compiler.owner.invocation_policies.go.startup_ms += 317;
+    const after = runners();
+    assert.equal(after.length, before.length);
+    for (const unit of before) {
+      const changed = after.find((candidate) => JSON.stringify(candidate.row_bindings) === JSON.stringify(unit.row_bindings));
+      assert.ok(changed);
+      assert.equal(changed.estimated_work_ms - unit.estimated_work_ms, 317);
+      assert.notEqual(changed.semantic_digest, unit.semantic_digest);
+      assert.equal(changed.timeout_ms, unit.timeout_ms);
+      assert.deepEqual(changed.resource_claims, unit.resource_claims);
+    }
+    assert.deepEqual(compiler.compileRows(ids), compiler.compileRows([...ids].reverse()));
+  }
 });
 
 test("installed browser lifecycle parents reserve their dedicated footprint without unused outer services", () => {

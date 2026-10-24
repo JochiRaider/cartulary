@@ -247,7 +247,6 @@ function collectRendererSourceInputs(inputs, seen) {
       addFileInput(inputs, seen, "renderer_source", file);
     }
   }
-  addRequiredRepoInput(inputs, seen, "renderer_source", "tools/harness/runtime-binary-registry.mjs");
 }
 
 export function collectRenderInputs(options = {}) {

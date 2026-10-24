@@ -144,14 +144,15 @@ func TestRuntimePreparationParity(t *testing.T) {
 	if p.UnitCount() < 1 || !strings.HasPrefix(p.GraphDigest(), "sha256:") || len(p.facts.SourceInputs) == 0 {
 		t.Fatal("missing validated compiler identity")
 	}
-	selected := false
+	var selected []rowBinding
 	for _, u := range p.facts.Graph.Units {
-		if strings.Contains(u.Command.Environment["CARTULARY_TEST_ROWS"], "local_migration_activities") {
-			selected = true
+		selected = append(selected, u.Rows...)
+		if len(u.Rows) > 0 && u.Command.Environment["CARTULARY_TEST_ROWS"] != "" {
+			t.Fatal("published selection leaked into retired comma-separated transport")
 		}
 	}
-	if !selected {
-		t.Fatal("selected row not preserved")
+	if len(selected) != 1 || selected[0].ID != "harness.evidence_accounting.behavior.local_migration_activities" || selected[0].Runner != "go" {
+		t.Fatalf("published row bindings changed exact selection: %+v", selected)
 	}
 	entries, err := os.ReadDir(results)
 	if err != nil || len(entries) != 0 {

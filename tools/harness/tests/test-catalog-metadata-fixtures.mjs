@@ -153,7 +153,7 @@ test("catalog entry rejects legacy and hybrid topology before selector work", ()
     if (String(file) !== topologyPath) return value;
     const topology = JSON.parse(value);
     if (legacy) topology.schema_id = "cartulary.execution_topology.v9";
-    else topology.go_targets.raw_go_aggregates = [];
+    else topology.go_targets = { family_runtime_binaries: [] };
     return JSON.stringify(topology);
   };
   syncBuiltinESMExports();
@@ -161,6 +161,35 @@ test("catalog entry rejects legacy and hybrid topology before selector work", ()
     assert.throws(() => loadTestCatalog(root), /validation failed/u);
     legacy = false;
     assert.throws(() => loadTestCatalog(root), /validation failed/u);
+  } finally {
+    fs.readFileSync = read;
+    syncBuiltinESMExports();
+  }
+});
+
+
+test("runtime binary declarations are row-owned, registered, sorted and Go-only", () => {
+  const read = fs.readFileSync;
+  const manifestPath = path.join(root, "tools/test_families/module.reporting.json");
+  let ids = ["operator"], runner = "go";
+  fs.readFileSync = (file, ...args) => {
+    const value = read(file, ...args);
+    if (String(file) !== manifestPath) return value;
+    const manifest = JSON.parse(value);
+    const row = manifest.rows.find((entry) => entry.runner === runner);
+    assert.ok(row);
+    row.runtime_binary_ids = ids;
+    return JSON.stringify(manifest);
+  };
+  syncBuiltinESMExports();
+  try {
+    assert.ok(createContractTestContext(root).catalogMetadata.rows.some((row) => row.runtime_binary_ids?.includes("operator")));
+    for (const invalid of [[], ["unknown"], ["operator", "operator"], ["server-harness", "operator"], ["INVALID"]]) {
+      ids = invalid;
+      assert.throws(() => createContractTestContext(root).catalogMetadata, /runtime_binary|runtime binary|ASCII|validation/u);
+    }
+    ids = ["operator"]; runner = "vitest";
+    assert.throws(() => createContractTestContext(root).catalogMetadata, /runtime_binary|validation/u);
   } finally {
     fs.readFileSync = read;
     syncBuiltinESMExports();

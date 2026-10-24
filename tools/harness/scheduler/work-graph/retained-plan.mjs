@@ -12,8 +12,7 @@ export function compileRetainedRun(root, manifest) {
       (recipe.type !== "work_graph" && recipe.graph_entry !== true)) {
     throw new Error("retained command is not a current graph entry");
   }
-  compiler.availableGoLanes = retainedGoWorkerBudget(manifest);
-  compiler.availablePostgresLanes = manifest.capability_snapshot.postgres_lanes;
+  compiler.configureCapacity(manifest.capability_snapshot, retainedGoWorkerBudget(manifest));
   const inputs = replayInputs(entry, manifest.declared_inputs);
   compiler.targetInputs[manifest.target] = inputs;
   return selectionFor({

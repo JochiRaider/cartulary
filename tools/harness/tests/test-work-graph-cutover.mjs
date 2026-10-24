@@ -14,6 +14,7 @@ import { readUnitSelection } from "../execution/runners/unit-selection.mjs";
 import {
   WorkGraphCompiler,
   availableGoWorkerBudget,
+  resourceCapacities,
   compileRetainedRun,
   assertFixtureServiceDependencies,
   assertServiceDependencies,
@@ -71,6 +72,19 @@ function assertCanonicalCurrentRunOutputs(unitValue, rowIDs, label) {
   );
 }
 
+function assertSizedGoPartition(units, rowIDs, fixture) {
+  assert.ok(units.length > 0 && units.length <= rowIDs.length);
+  assert.equal(new Set(units.map((entry) => entry.unit_id.split(":")[1])).size, 1,
+    "compatible rows retain one compatibility partition across independently sized invocations");
+  assert.deepEqual(units.flatMap((entry) => entry.row_bindings.map((row) => row.row_id)).sort(),
+    [...rowIDs].sort(), "sizing executes exactly the selected rows without overlaps");
+  for (const entry of units) {
+    assert.equal(entry.fixture_lease, fixture);
+    assertCanonicalCurrentRunOutputs(entry, entry.row_bindings.map((row) => row.row_id), `${fixture} invocation`);
+    assert.equal(entry.command.environment.GOMAXPROCS, String(entry.resource_claims.cpu));
+  }
+}
+
 function assertGraphCutover() {
   assert.equal(availableGoWorkerBudget(19, {}), 19);
   assert.equal(availableGoWorkerBudget(19, { CARTULARY_UNIT_CPU_TOKENS: "4" }), 19, "unleased ambient values cannot alter planning");
@@ -89,9 +103,13 @@ function assertGraphCutover() {
     target: "test-slice",
     command_id: nested.taskSurface.targets.find((entry) => entry.name === "test-slice").command_id,
     declared_inputs: retainedInputs,
-    capability_snapshot: { cpu_tokens: 19, postgres_lanes: 2 },
+    capability_snapshot: { cpu_tokens: 19, postgres_lanes: 2,
+      memory_bytes: 32 * 1024 ** 3, process_slots: 4096, io_tokens: 32,
+      object_store_lanes: 8, port_lanes: 32, writable_volume: true,
+      services: { browser: true, object_store: true, postgres: true, service_stack: true } },
     go_worker_budget: 4,
   };
+  nested.capacities = Object.fromEntries(resourceCapacities(retainedManifest.capability_snapshot));
   assert.deepEqual(compileRetainedRun(root, retainedManifest), selectionFor({ selection: "command", target: "test-slice" }, nested), "retained owner selection must reconstruct its inherited worker budget, not physical host capacity");
   const savedEnvironment = { lease: process.env.CARTULARY_HOST_ADMISSION_LEASE, budget: process.env.CARTULARY_UNIT_CPU_TOKENS };
   try {
@@ -264,6 +282,8 @@ function assertGraphCutover() {
     assertCanonicalCurrentRunOutputs(subset[0], selected, "App.auth exact owner subset");
     assert.throws(() => compiler.compileOwner(owner, authIDs), /does not belong/u);
   }
+  const originalGoLanes = compiler.availableGoLanes;
+  compiler.availableGoLanes = 1; // Prove compatibility independently of parallel sizing.
   const mixedGoIDs = ["module.reporting.integration.exact_graph_result_lease_lifecycle_8f1c5c43a2", "module.networkflow.integration.graph_result_cleanup"].sort();
   const mixedGo = compiler.compileRows(mixedGoIDs);
   const goConsumers = (graph) => graph.units.filter((unit) => unit.row_bindings.some((row) => mixedGoIDs.includes(row.row_id)));
@@ -271,13 +291,49 @@ function assertGraphCutover() {
   assert.equal(goConsumers(mixedGo)[0].owner_id, "harness.backend");
   assertCanonicalCurrentRunOutputs(goConsumers(mixedGo)[0], mixedGoIDs, "mixed-owner Go package");
   assert.deepEqual(compiler.compileRows([...mixedGoIDs].reverse()), mixedGo);
+  const priorTarget = compiler.rowTargets.get(mixedGoIDs[0]);
+  compiler.rowTargets.set(mixedGoIDs[0], "backend-store");
+  try {
+    const changedReporting = compiler.compileRows(mixedGoIDs);
+    assert.deepEqual(goConsumers(changedReporting), goConsumers(mixedGo), "reporting targets do not change physical identity, costs or selection");
+    const physical = goConsumers(changedReporting)[0];
+    assert.equal(physical.command.environment.CARTULARY_TEST_TARGET, undefined);
+    assert.equal(physical.command.environment.CARTULARY_TEST_ROWS, undefined);
+    assert.deepEqual(physical.command.args.slice(1), ["--unit-rows"]);
+  } finally { compiler.rowTargets.set(mixedGoIDs[0], priorTarget); }
   const goRow = compiler.catalog.rowByID.get(mixedGoIDs[0]);
   for (const mutation of [{ process_isolation: "exclusive" }, { postgres_isolation: "exclusive" },
-    { preparation_operations: ["harness.playwright_install"] }, { resource_profile_id: "harness_contract" }]) {
+    { preparation_operations: ["harness.playwright_install"] }, { resource_profile_id: "harness_contract" },
+    { runtime_binary_ids: ["operator"] }]) {
     compiler.catalog.rowByID.set(goRow.row_id, { ...goRow, ...mutation });
     try { assert.equal(goConsumers(compiler.compileRows(mixedGoIDs)).length, 2, JSON.stringify(mutation)); }
     finally { compiler.catalog.rowByID.set(goRow.row_id, goRow); }
   }
+  const reportingRow = compiler.catalog.rowByID.get(mixedGoIDs[0]);
+  compiler.catalog.rowByID.set(reportingRow.row_id, { ...reportingRow, family_id: "app.operator.process", owner_id: "app.operator" });
+  try {
+    assert.deepEqual(goConsumers(compiler.compileRows(mixedGoIDs)), goConsumers(mixedGo),
+      "reporting families cannot inject runtime binaries or build dependencies");
+  } finally { compiler.catalog.rowByID.set(reportingRow.row_id, reportingRow); }
+  for (const binary of compiler.topology.runtime_binaries) {
+    assert.equal(goConsumers(mixedGo)[0].command.environment[binary.consumer_env], "",
+      "undeclared ambient consumer paths are cleared before Go execution");
+  }
+  const operatorIDs = ["app.operator.process.object_store_init_process_transport_400591b90d",
+    "platform.objectstore.support_integration.object_store_init_durable_effect_578bf55fdf"].sort();
+  for (const ids of [operatorIDs, ...operatorIDs.map((id) => [id])]) {
+    const selected = compiler.compileRows(ids);
+    const consumers = selected.units.filter((unit) => unit.row_bindings.some((row) => ids.includes(row.row_id)));
+    assert.equal(consumers.length, 1, "each exact selection closes its operator prerequisite; compatible targets may share execution");
+    assert.deepEqual(consumers[0].row_bindings.map((row) => row.row_id).sort(), ids);
+    assert.ok(consumers[0].needs.includes("operation:harness.build_operator"));
+    assert.ok(selected.units.some((unit) => unit.unit_id === "operation:harness.build_operator"));
+    const binary = compiler.topology.runtime_binaries.find((entry) => entry.id === "operator");
+    assert.equal(consumers[0].command.environment.CARTULARY_OPERATOR_BIN,
+      path.resolve(root, process.env[binary.output_make_variable] || binary.default_output_path));
+    assert.equal(consumers[0].command.environment.CARTULARY_SERVER_HARNESS_BIN, "");
+  }
+  compiler.availableGoLanes = originalGoLanes;
   process.stdout.write("Cross-owner grouping: App.auth 2 owner invocations -> 1; reporting/networkflow package 2 -> 1; exact row bindings preserved\n");
   const contractRows = frontendRows.filter((row) => row.owner_id === "package.view_contracts" && row.selector.project_id === "node-unit");
   const contractGraph = compiler.compileRows(contractRows.map((row) => row.row_id));
@@ -299,7 +355,7 @@ function assertGraphCutover() {
     assert.throws(() => readUnitSelection(selectionRoot, manifest.run_id, "absent-unit"), /published work unit/u);
     const nonVitestUnit = contractGraph.units.find((value) => !value.row_bindings.some((row) => row.runner === "vitest"));
     assert.ok(nonVitestUnit, "fixture includes a published non-Vitest preparation unit");
-    assert.throws(() => readUnitSelection(selectionRoot, manifest.run_id, nonVitestUnit.unit_id), /exact Vitest/u);
+    assert.throws(() => readUnitSelection(selectionRoot, manifest.run_id, nonVitestUnit.unit_id), /exact Go or Vitest/u);
     context.graph.units.find((value) => value.unit_id === unit.unit_id).row_bindings.pop();
     save("execution-context.json", context);
     assert.throws(() => readUnitSelection(selectionRoot, manifest.run_id, unit.unit_id));
@@ -373,10 +429,7 @@ function assertGraphCutover() {
       entry.current_run_evidence_outputs.includes(`rows/${rowID}.json`),
     ),
   );
-  assert.equal(dedicatedUnits.length, 1, "compatible dedicated rows must share one Go process");
-  assert.equal(dedicatedUnits[0].fixture_lease, "postgres_dedicated");
-  assertCanonicalCurrentRunOutputs(dedicatedUnits[0], dedicatedRows, "dedicated Go batch");
-  assert.equal(dedicatedUnits[0].command.environment.GOMAXPROCS, "1");
+  assertSizedGoPartition(dedicatedUnits, dedicatedRows, "postgres_dedicated");
 
   const migrationRows = [
     "module.database_migrations.integration.production_ddl_v2_recurrence",
@@ -388,9 +441,7 @@ function assertGraphCutover() {
       entry.current_run_evidence_outputs.includes(`rows/${rowID}.json`),
     ),
   );
-  assert.equal(migrationUnits.length, 1, "compatible migration rows must share one Go process");
-  assert.equal(migrationUnits[0].fixture_lease, "postgres_migration");
-  assertCanonicalCurrentRunOutputs(migrationUnits[0], migrationRows, "migration Go batch");
+  assertSizedGoPartition(migrationUnits, migrationRows, "postgres_migration");
 
   const processGlobalRows = [
     "platform.jobs.integration.claim_recovery_and_publication",

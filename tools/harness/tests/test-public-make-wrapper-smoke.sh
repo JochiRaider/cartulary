@@ -47,6 +47,8 @@ run_make_capture() {
   local stderr_file="$2"
   shift 2
 
+  # These children only inspect public plans or validate preflight. Inspect the
+  # top-level host plan rather than borrowing this smoke operation's one CPU.
   set +e
   env \
     -u MAKEFLAGS \
@@ -66,6 +68,8 @@ run_make_capture() {
     -u CARTULARY_TEST_TARGET \
     -u CARTULARY_STEP_ARTIFACT_DIR \
     -u CARTULARY_HARNESS_IDENTITY_PREPARED \
+    -u CARTULARY_HOST_ADMISSION_LEASE \
+    -u CARTULARY_UNIT_CPU_TOKENS \
     CARTULARY_TEST_RESULTS_DIR="${tmp_dir}/child-results" \
     "$@" >"${stdout_file}" 2>"${stderr_file}"
   local status=$?

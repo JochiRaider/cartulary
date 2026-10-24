@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.execution_topology.v15",
+  "schema_id": "cartulary.execution_topology.v16",
   "runtime_profiles": [
     {
       "id": "default",
@@ -365,111 +365,6 @@
       "service_backed": true
     }
   ],
-  "go_targets": {
-    "targets": [
-      {
-        "name": "backend-unit",
-        "service_backed": false,
-        "check_heavy_safe": true,
-        "check_service_backed_safe": false,
-        "check_isolated_safe": false,
-        "canonical_authoritative": true,
-        "sharding": "none",
-        "go_test_parallelism": "none",
-        "execution_dependencies": [
-          "backend_unit"
-        ],
-        "support_targets": [
-          "backend_unit"
-        ]
-      },
-      {
-        "name": "backend-store",
-        "service_backed": true,
-        "check_heavy_safe": false,
-        "check_service_backed_safe": true,
-        "check_isolated_safe": false,
-        "canonical_authoritative": true,
-        "sharding": "go_shards",
-        "go_test_parallelism": "package",
-        "execution_dependencies": [
-          "backend_store"
-        ],
-        "support_targets": []
-      },
-      {
-        "name": "backend-integration",
-        "service_backed": true,
-        "check_heavy_safe": false,
-        "check_service_backed_safe": true,
-        "check_isolated_safe": false,
-        "canonical_authoritative": true,
-        "sharding": "go_shards",
-        "go_test_parallelism": "package",
-        "execution_dependencies": [
-          "backend_integration"
-        ],
-        "support_targets": []
-      },
-      {
-        "name": "backend-integration-support",
-        "service_backed": true,
-        "check_heavy_safe": false,
-        "check_service_backed_safe": true,
-        "check_isolated_safe": false,
-        "canonical_authoritative": false,
-        "sharding": "go_shards",
-        "go_test_parallelism": "package",
-        "execution_dependencies": [],
-        "support_targets": [
-          "backend_integration_support"
-        ]
-      },
-      {
-        "name": "backend-process",
-        "service_backed": true,
-        "check_heavy_safe": false,
-        "check_service_backed_safe": true,
-        "check_isolated_safe": false,
-        "canonical_authoritative": true,
-        "sharding": "go_shards",
-        "go_test_parallelism": "process",
-        "execution_dependencies": [
-          "backend_process"
-        ],
-        "support_targets": [
-          "backend_process"
-        ]
-      }
-    ],
-    "family_runtime_binaries": [
-      {
-        "family_id": "app.operator.process",
-        "runtime_binary_ids": [
-          "operator"
-        ]
-      },
-      {
-        "family_id": "app.server.process",
-        "runtime_binary_ids": [
-          "server-harness"
-        ]
-      },
-      {
-        "family_id": "module.networkflow.process",
-        "runtime_binary_ids": [
-          "server-harness"
-        ]
-      },
-      {
-        "family_id": "module.recovery.process",
-        "runtime_binary_ids": [
-          "operator",
-          "server-harness"
-        ]
-      }
-    ]
-  },
   "browser_e2e_batch": {
     "runtime_profiles": [
       {

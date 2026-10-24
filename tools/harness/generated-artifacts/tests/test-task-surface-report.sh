@@ -201,7 +201,7 @@ assert.match(
   "generated runtime must forward the resolved machine-state configuration after stripping public inputs",
 );
 assert.match(
-  renderedMake,
+  renderedMake.replace(/\\\r?\n[ \t]*/gu, ""),
   /test-slice:[\s\S]*?env \$\(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV\) \$\(TASK_SURFACE_MACHINE_STATE_ENV\)[\s\S]*?\$\(TASK_SURFACE_GRAPH_RUNTIME\) --selection command --target test-slice/,
   "work-graph recipes must restore resolved machine-state paths after stripping public inputs",
 );

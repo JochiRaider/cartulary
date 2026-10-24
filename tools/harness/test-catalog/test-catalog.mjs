@@ -13,6 +13,7 @@ import {
   semanticJSONDigest,
   validateSchemaSync,
 } from "../contract/index.mjs";
+import { normalizeRuntimeBinaryEntries } from "../contract/index.mjs";
 import { loadPerformanceFixtureSnapshotRegistry } from "../performance-fixture/index.mjs";
 import { loadVerificationContracts } from "./verification-contracts.mjs";
 import { assertSortedUnique, createRowSelectorResolver } from "./selector-resolution.mjs";
@@ -20,7 +21,7 @@ import { assertFixtureServiceDependencies } from "./service-dependencies.mjs";
 import { validatePostgresFixturePolicy } from "./postgres-fixture-policy.mjs";
 
 const ownerRegistrySchemaID = "cartulary.test_owner_registry.v1";
-const familyManifestSchemaID = "cartulary.test_family_manifest.v12";
+const familyManifestSchemaID = "cartulary.test_family_manifest.v13";
 const rowMigrationSchemaID = "cartulary.test_catalog_row_migration.v1";
 const runnerRegistrySchemaID = "cartulary.test_runner_registry.v3";
 export const evidenceEpoch = "cartulary.test_evidence.nlspec.v1";
@@ -129,7 +130,7 @@ function assertExactIDs(entries, expected, label) {
 function loadTopologyProfiles(root) {
   const topologyPath = path.join(root, "tools/execution_topology_manifest.json");
   const topology = readStrictJSON(topologyPath);
-  validateSchemaSync("cartulary.execution_topology.v15", topology);
+  validateSchemaSync("cartulary.execution_topology.v16", topology);
   for (const [key, ids] of Object.entries(expectedProfiles)) {
     if (!Array.isArray(topology[key])) {
       throw new Error(`${topologyPath}.${key} must be an array`);
@@ -175,10 +176,13 @@ function loadTopologyProfiles(root) {
       }
     }
   }
+  const runtimeBinaries = normalizeRuntimeBinaryEntries(topology.runtime_binaries);
   return {
+    runtimeBinaryIDs: new Set(runtimeBinaries.map((entry) => entry.id)),
     runtimeIDs: new Set(topology.runtime_profiles.map((entry) => entry.id)),
     resourceIDs: new Set(topology.resource_profiles.map((entry) => entry.id)),
     semantic: {
+      runtime_binaries: topology.runtime_binaries,
       runtime_profiles: topology.runtime_profiles,
       resource_profiles: topology.resource_profiles,
       service_resource_minimums: topology.service_resource_minimums,
@@ -381,6 +385,13 @@ function validateRowSemantics({
   }
   if (row.process_isolation !== undefined && !["go", "vitest"].includes(row.runner)) {
     throw new Error(`${label}.process_isolation is supported only for Go and Vitest rows`);
+  }
+  if (row.runtime_binary_ids !== undefined) {
+    if (row.runner !== "go") throw new Error(`${label}.runtime_binary_ids is supported only for Go rows`);
+    assertSortedUnique(row.runtime_binary_ids, `${label}.runtime_binary_ids`);
+    for (const id of row.runtime_binary_ids) {
+      if (!profiles.runtimeBinaryIDs.has(id)) throw new Error(`${label} references unknown runtime binary ${id}`);
+    }
   }
   if (row.preparation_operations !== undefined) {
     assertSortedUnique(row.preparation_operations, `${label}.preparation_operations`);

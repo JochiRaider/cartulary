@@ -202,3 +202,28 @@ test("installation operations validate all file producers before acquisition", (
   assert.throws(() => buildOperationSequence(owner, "harness.bootstrap_frontend", { ...environment, FRONTEND_INSTALL_STAMP: "retired-wrapper" }), /absolute file targets/u);
   assert.throws(() => buildOperationSequence(owner, "harness.bootstrap_full", { ...environment, GO_TOOLCHAIN: undefined }), /binding|template/u);
 });
+
+
+test("planning capacity comes from declared target inputs, not another command's environment", (t) => {
+  const scratch = mkdtempSync(path.join(tmpdir(), "target-plan-capacity-"));
+  t.after(() => rmSync(scratch, { recursive: true, force: true }));
+  const file = path.join(scratch, "capacity.json");
+  writeFileSync(file, JSON.stringify({ schema_id: "cartulary.harness_capacity_override.v1", cpu_tokens: 1, postgres_lanes: 1 }));
+  const original = process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE;
+  process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE = path.join(scratch, "missing-ambient.json");
+  try {
+    const selection = { OWNER: "harness.command_surface", ROWS: "harness.command_surface.unit.scheduler_smoke" };
+    const ordinary = buildTargetPlan(root, "test-slice", selection);
+    assert.notEqual(ordinary.capability_snapshot.sources.cpu_tokens, "override");
+    const plan = buildTargetPlan(root, "test-slice", { ...selection, CARTULARY_HARNESS_CAPACITY_OVERRIDE: file });
+    validateSchemaSync(plan.schema_id, plan);
+    assert.equal(plan.capability_snapshot.cpu_tokens, 1);
+    assert.equal(plan.capability_snapshot.postgres_lanes, 1);
+    assert.equal(plan.capability_snapshot.sources.cpu_tokens, "override");
+    assert.equal(plan.go_worker_budget, 1);
+    assert.throws(() => buildTargetPlan(root, "test-slice", { ...selection, CARTULARY_HARNESS_CAPACITY_OVERRIDE: process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE }), /capacity override/u);
+  } finally {
+    if (original === undefined) delete process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE;
+    else process.env.CARTULARY_HARNESS_CAPACITY_OVERRIDE = original;
+  }
+});

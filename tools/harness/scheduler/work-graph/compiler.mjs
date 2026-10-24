@@ -4,10 +4,12 @@ import { semanticJSONDigest, resolveCommandInputs } from "../../contract/index.m
 
 import {
   loadTestCatalog,
+  goRunnerBuildContext,
   resolveVitestTitles,
   targetForCatalogRow,
 } from "../../test-catalog/index.mjs";
 import { packInvocationCohorts } from "./cohorts.mjs";
+import { retainedGoWorkerBudget } from "./capability.mjs";
 import { planGoLPTShards } from "../../backend/go-lpt-shards.mjs";
 import { buildWorkGraph, loadWorkGraphOwner } from "./model.mjs";
 import { operationDefinition, operationExecutionDigest } from "./operations.mjs";
@@ -174,61 +176,39 @@ function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
   };
 }
 
-function goShardUnit(
-  shard,
-  rows,
-  target,
-  owner,
-  topology,
-  needs,
-  runtimeEnvironment,
-  availablePostgresLanes,
-) {
+function executionContract(base) {
+  const { CARTULARY_TEST_ROWS: _selection, CARTULARY_TEST_TARGET: _reporting, ...environment } = base.command.environment;
+  const { owner_id: _owner, unit_id: _id, command: _command,
+    current_run_evidence_outputs: _outputs, row_bindings: _rows,
+    estimated_work_ms: _estimate, ...contract } = base;
+  return { ...contract, environment };
+}
+
+function goShardUnit(shard, rows, base, owner, availablePostgresLanes) {
   const rowIDs = shard.item_ids;
-  const first = rows[0];
-  const baseClaims = resourceClaims(first, topology);
-  baseClaims.cpu = shard.cpu_tokens;
+  const contract = executionContract(base);
   const { claims, parallelism } = boundedGoClaims(
-    baseClaims,
+    { ...contract.resource_claims, cpu: shard.cpu_tokens },
     shard.cpu_tokens,
     availablePostgresLanes,
   );
   return {
+    ...base,
     unit_id: shard.shard_id,
     owner_id: "harness.backend",
-    kind: "runner",
     command: {
       executable: "node",
-      args: ["tools/harness/execution/runners/row-runner-cli.mjs", "--row-ids", rowIDs.join(",")],
+      args: ["tools/harness/execution/runners/row-runner-cli.mjs", "--unit-rows"],
       environment: {
-        CARTULARY_TEST_ROWS: rowIDs.join(","),
-        CARTULARY_TEST_TARGET: target,
+        ...contract.environment,
         CARTULARY_UNIT_CPU_TOKENS: String(parallelism),
         GOMAXPROCS: String(parallelism),
-        ...fixtureEnvironment(first.fixture_capability, first.service_dependencies),
-        ...runtimeEnvironment,
       },
     },
-    needs,
     resource_claims: claims,
-    fixture_lease: fixtureCapability(first),
-    postgres_isolation: first.postgres_isolation,
-    service_dependencies: first.service_dependencies,
-    cache_policy: rows.every((row) => rowCachePolicy(row) === "content_addressed")
-      ? "content_addressed"
-      : "none",
-    timeout_ms: owner.default_timeout_ms,
-    current_run_evidence_outputs: rowIDs
-      .map((rowID) => `rows/${rowID}.json`)
-      .sort(compareASCII),
+    current_run_evidence_outputs: rowIDs.map((id) => `rows/${id}.json`).sort(compareASCII),
     row_bindings: rows.map(({ row_id, runner }) => ({ row_id, runner })),
-    failure_policy: {
-      block_descendants: true,
-      continue_independent: true,
-      aggregate_effect: "required",
-    },
     // Package transactions and buckets can serialize even with multiple CPU tokens.
-    // Sum selected work; charge process startup/settlement only once.
     estimated_work_ms: owner.invocation_policies.go.startup_ms + shard.estimated_work_ms +
       owner.invocation_policies.go.cleanup_ms,
   };
@@ -251,14 +231,16 @@ export class WorkGraphCompiler {
     this.runtimeBinaryProducer = new Map(
       this.topology.runtime_binaries.map((binary) => [binary.id, binary.producer_operation]),
     );
-    this.familyRuntimeBinaries = new Map(
-      this.topology.go_targets.family_runtime_binaries.map((family) => [family.family_id, family.runtime_binary_ids]),
-    );
     this.availableGoLanes = 4;
     this.availablePostgresLanes = 4;
     this._catalog = null;
     this._targetRows = null;
     this._rowTargets = null;
+  }
+
+  configureCapacity(snapshot, goWorkerBudget) {
+    this.availableGoLanes = retainedGoWorkerBudget({ capability_snapshot: snapshot, go_worker_budget: goWorkerBudget });
+    this.availablePostgresLanes = snapshot.postgres_lanes;
   }
 
   ensureCatalog() {
@@ -326,9 +308,9 @@ export class WorkGraphCompiler {
         }
       }
       if (row.service_dependencies.length > 0) targets.add("harness.test_service_images");
-      for (const binaryID of this.familyRuntimeBinaries.get(row.family_id) ?? []) {
+      for (const binaryID of row.runtime_binary_ids ?? []) {
         const producer = this.runtimeBinaryProducer.get(binaryID);
-        if (!producer) throw new Error(`${row.family_id} references unknown runtime binary ${binaryID}`);
+        if (!producer) throw new Error(`${row.row_id} references unknown runtime binary ${binaryID}`);
         targets.add(producer);
       }
       return [...targets].sort(compareASCII);
@@ -359,14 +341,13 @@ export class WorkGraphCompiler {
     ]
       .filter((unitID, index, values) => values.indexOf(unitID) === index)
       .sort(compareASCII);
-    const runtimeEnvironmentForRow = (row) => Object.fromEntries(
-      (this.familyRuntimeBinaries.get(row.family_id) ?? [])
-        .map((binaryID) => this.topology.runtime_binaries.find((binary) => binary.id === binaryID))
-        .map((binary) => [
-          binary.consumer_env,
-          path.resolve(this.root, process.env[binary.output_make_variable] || binary.default_output_path),
-        ])
-        .sort(([left], [right]) => compareASCII(left, right)),
+    const runtimeEnvironmentForRow = (row) => row.runner !== "go" ? {} : Object.fromEntries(
+      this.topology.runtime_binaries.map((binary) => [
+        binary.consumer_env,
+        (row.runtime_binary_ids ?? []).includes(binary.id)
+          ? path.resolve(this.root, process.env[binary.output_make_variable] || binary.default_output_path)
+          : "",
+      ]).sort(([left], [right]) => compareASCII(left, right)),
     );
     const goRows = rows.filter((row) => row.runner === "go");
     const explicitContexts = this.owner.row_execution_contexts ?? {};
@@ -415,55 +396,59 @@ export class WorkGraphCompiler {
       });
     });
     const goUnits = [];
+    const goBuildEnvironment = goRunnerBuildContext(this.root).environment;
+    const goBases = new Map(goRows.map((row) => {
+      const context = explicitContexts[row.row_id];
+      if (context && goRowProcessIsolation(row) !== "exclusive") {
+        throw new Error(`${row.row_id} requires exclusive process isolation for a fixed execution context`);
+      }
+      const base = rowUnit(row, undefined, this.owner, this.topology, needsForRow(row), {
+        ...goBuildEnvironment,
+        ...(context?.go_race ? { CGO_ENABLED: "1" } : {}),
+        ...runtimeEnvironmentForRow(row),
+        CARTULARY_GO_RACE: context?.go_race ? "1" : "0",
+        CARTULARY_GO_SHUFFLE_SEED: goShuffleSeed === undefined ? "" : String(goShuffleSeed),
+      });
+      if (context) base.cache_policy = context.cache_policy;
+      const cpu = context?.cpu_tokens ?? Math.min(this.availableGoLanes, base.resource_claims.cpu ?? 1);
+      base.resource_claims = boundedGoClaims({ ...base.resource_claims, cpu }, cpu, this.availablePostgresLanes).claims;
+      return [row.row_id, base];
+    }));
     const goSelections = [goRows.filter((row) => !explicitContexts[row.row_id]),
       ...goRows.filter((row) => explicitContexts[row.row_id]).map((row) => [row])];
     for (const selectedGoRows of goSelections.filter((selection) => selection.length > 0)) {
       const context = explicitContexts[selectedGoRows[0].row_id];
-      if (context && goRowProcessIsolation(selectedGoRows[0]) !== "exclusive") {
-        throw new Error(`${selectedGoRows[0].row_id} requires exclusive process isolation for a fixed execution context`);
-      }
       const plan = planGoLPTShards(
         selectedGoRows.map((row) => ({
           id: row.row_id,
           estimated_work_ms: this.owner.evidence_estimates_ms[row.evidence_class],
           compatibility: {
-            target: this.rowTargets.get(row.row_id),
+            ...executionContract(goBases.get(row.row_id)),
             package_selection: row.selector.package,
-            evidence_class: row.evidence_class,
             runtime_profile_id: row.runtime_profile_id,
-            resource_profile_id: row.resource_profile_id,
-            fixture_capability: row.fixture_capability,
-            postgres_isolation: row.postgres_isolation,
             fixture_profile_id: row.fixture_profile_id ?? null,
             process_isolation: goRowProcessIsolation(row),
-            service_dependencies: row.service_dependencies,
-            preparation_operations: row.preparation_operations ?? [],
-            runtime_binary_ids: this.familyRuntimeBinaries.get(row.family_id) ?? [],
             ...(context ? { execution_context: context } : {}),
           },
-          // Dedicated databases, migration databases, and ordinary object-store
-          // namespaces are owned and eagerly finalized by each testing.T. They
-          // may share a compatible Go process without sharing the resource.
-          // managed_process is different: process lifecycle is the resource
-          // under test, so each selected row retains its own child process.
           isolated: goRowProcessIsolation(row) === "exclusive",
         })),
-        { availableGoLanes: context?.cpu_tokens ?? this.availableGoLanes },
+        { availableGoLanes: context?.cpu_tokens ?? this.availableGoLanes,
+          invocationPolicy: this.owner.invocation_policies.go,
+        },
       );
       for (const shard of plan.shards) {
         const shardRows = shard.item_ids.map((rowID) => this.catalog.rowByID.get(rowID));
-        const unit = goShardUnit(
-          shard,
-          shardRows,
-          this.rowTargets.get(shard.item_ids[0]),
-          this.owner,
-          this.topology,
-          needsForRow(shardRows[0]),
-          { ...runtimeEnvironmentForRow(shardRows[0]), CARTULARY_GO_RACE: context?.go_race ? "1" : "0", CARTULARY_GO_SHUFFLE_SEED: goShuffleSeed === undefined ? "" : String(goShuffleSeed) },
-          this.availablePostgresLanes,
-        );
+        const base = goBases.get(shard.item_ids[0]);
+        // Assert the equality used by construction before projecting a common policy.
+        for (const row of shardRows) {
+          if (semanticJSONDigest(executionContract(goBases.get(row.row_id))) !==
+              semanticJSONDigest(executionContract(base))) {
+            throw new Error(`${shard.shard_id} contains incompatible resolved execution contracts`);
+          }
+        }
+        const unit = goShardUnit(shard, shardRows, base, this.owner, this.availablePostgresLanes);
         if (goShuffleSeed !== undefined) unit.unit_id += `:order-${goShuffleSeed}`;
-        goUnits.push(context ? { ...unit, cache_policy: context.cache_policy } : unit);
+        goUnits.push(unit);
       }
     }
     const browserUnits = selectedBrowserStages.flatMap((stage) => {

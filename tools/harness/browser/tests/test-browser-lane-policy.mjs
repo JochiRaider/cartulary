@@ -172,7 +172,7 @@ test("explicit-only rows stay outside aggregates and broad selections", () => {
   assert.deepEqual(rowIDs(compiler.compileCommand("test-slice", { OWNER: "harness.browser", ROWS: characterization }).graph), [characterization]);
   const legacy = { ...compiler.catalog.rows[0], minimum_tier: "fast" };
   delete legacy.aggregate_placement;
-  assert.throws(() => validateSchemaSync("cartulary.test_family_manifest.v12", { schema_id: "cartulary.test_family_manifest.v12", owner_id: legacy.owner_id, rows: [legacy] }));
+  assert.throws(() => validateSchemaSync("cartulary.test_family_manifest.v13", { schema_id: "cartulary.test_family_manifest.v13", owner_id: legacy.owner_id, rows: [legacy] }));
   for (const target of ["test-fast", "check", "ci", "release-check"]) {
     const selected = rowIDs(compiler.compileAggregate(target));
     assert.ok(excluded.every((row) => !selected.includes(row.row_id)), target);

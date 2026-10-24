@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.postgres_fixture_policy_registry.v5",
+  "$id": "cartulary.postgres_fixture_policy_registry.v6",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -11,10 +11,10 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.postgres_fixture_policy_registry.v5"
+      "const": "cartulary.postgres_fixture_policy_registry.v6"
     },
     "catalog_schema_id": {
-      "const": "cartulary.test_family_manifest.v12"
+      "const": "cartulary.test_family_manifest.v13"
     },
     "capability_policies": {
       "type": "array",

@@ -198,8 +198,11 @@ remain in their ordinary gates. A passing release gate establishes only its
 selected assurance scope; it MUST NOT imply Visual or UI-Review qualification.
 No new CI-provider or automatic qualification gate is required.
 
-The current execution topology input is `cartulary.execution_topology.v15`.
-Raw Go aggregate selectors and `go_targets.catalog_packages` are unsupported.
+The current execution topology input is `cartulary.execution_topology.v16`.
+The reporting-derived `go_targets` object is retired. Its target-level sharding,
+parallelism, safety flags and family-to-binary bindings MUST NOT define execution
+policy. Catalog rows and the normalized execution contract own these requirements.
+Raw Go aggregate selectors and package inventories are unsupported.
 Source completeness MUST be derived from the approved roots in
 `cartulary.test_runner_registry.v3`, independently of selected packages or files.
 The Go roots are `cmd`, `internal`, `tools/contractgen`, `tools/embedwebassets`,
@@ -213,7 +216,8 @@ coverage replaces them. New or removed test functions cannot silently escape
 catalog closure. Every required Go test context, including harness helper tests,
 MUST have an exact owner-catalog selection.
 An additional environment or fixture context requires a named assurance boundary,
-not a duplicate package-wide selector. Current commands MUST reject v9 and v10 topology inputs and the retired `raw_go_aggregates` and `catalog_packages` fields.
+not a duplicate package-wide selector. Current commands MUST reject prior topology versions and the retired `go_targets`,
+`raw_go_aggregates` and `catalog_packages` fields without fallback interpretation.
 
 Frontend completeness covers the browser-unit file patterns declared by the
 current Vitest project (`apps/web/src/**/*.{test,spec}.{ts,tsx}` and
@@ -323,7 +327,7 @@ invocation, never once per row. Fixture acquisition, reset and release are charg
 at their actual lifecycle boundaries; a separate lifecycle unit and its borrower
 MUST NOT both charge the same work. Estimates account for declared child
 parallelism and serialization inside package transactions or reusable buckets.
-The work-graph owner's v7 Go invocation policy charges startup and settlement
+The work-graph owner's Go invocation policy charges startup and settlement
 once around the selected row estimates, without dividing serial row costs by
 `GOMAXPROCS`. Its closed lifecycle estimates own browser resets, target
 finalization, measurement finalization and immutable performance-fixture
@@ -862,23 +866,20 @@ ordinary frontend roots, excluding dedicated harness and report-renderer roots.
 The jsdom project MUST exclude those files. Static discovery, catalog project
 IDs and runner selection MUST agree without a second per-file environment map.
 
-Compatible Go rows share a process only when module, exact package selection,
-runtime-binary set, resource profile, fixture capability and profile, service
-dependencies, owner-required partitions, process-isolation policy, selector,
-environment, and evidence-class keys are exact. Resource isolation supplied by
-`postgres_dedicated`, `postgres_migration`, or `object_store_namespace` is
-per-test ownership and does not by itself require a separate Go process. A
-`managed_process` item remains process-isolated because process lifecycle is the
-subject under test. An exact-symbol Go row MAY additionally declare the typed
-`process_isolation="exclusive"` catalog input only when the assertion installs
-or observes process-global state that cannot coexist with another selected row;
-omission means `shared`; only exact-symbol Go and exact-title Vitest rows may
-declare this input. The fixed eight-symbol and twelve-second limits and
-speculative extra shards are unsupported. Compatibility groups and child CPU
-budgets are formed by TH-HARNESS-REQ-379; each child claims the same number of
-scheduler CPU tokens as its scheduler-owned `GOMAXPROCS`. Rows within one
-compatible group are ordered by descending predicted work with stable row-ID
-tie-breaking. Go JSON remains authoritative for row outcomes.
+Compatible Go rows MAY share a process only when their normalized execution
+contracts agree: module and exact package, build/runtime environment, runtime
+binaries, resolved dependencies, resource claims, fixture capability and profile,
+PostgreSQL scope, timeout, cache/failure policy and process isolation. Resolve
+these properties for every selected row before grouping; the first row cannot
+supply an unproved common contract. Reporting target, owner, family and
+verification attribution MUST NOT partition execution or enter its identity.
+They remain individual row bindings and reporting projections. Each selected
+symbol executes exactly once. Dedicated and migration databases remain per-test;
+their exclusive cluster lifetime belongs to the execution unit. Managed-process
+and explicitly process-exclusive rows remain singleton invocations. Compatibility
+permits sharing; it does not mandate one invocation per partition. REQ-379 and
+the sizing policy below determine execution sizes. Go JSON remains authoritative
+for row outcomes.
 
 For explicit Go-only `test-slice` selections, a declared positive integer
 `GO_SHUFFLE_SEED` MAY vary Go's test execution order reproducibly. It MUST preserve
@@ -888,7 +889,7 @@ Invalid seeds and selections containing non-Go work MUST fail before execution.
 Inherited compiler flags MUST NOT supply this control. Ordering diagnostics do not
 establish completeness independently of authoritative Go JSON outcomes.
 
-Compatible Vitest files MUST share a bounded invocation-local cohort when project,
+Compatible Vitest files MAY share a bounded invocation-local cohort when project,
 runtime environment and setup, dependency set, resource/fixture profile, service
 dependencies, required owner partitions, evidence class, timeout, failure policy
 and isolation policy match. Each cohort starts one fresh coordinator and initially
@@ -905,6 +906,16 @@ their individual owner and verification attribution. A mixed-owner Vitest unit
 uses `harness.command_surface` as its execution owner; Go units retain
 `harness.backend`. These execution owners MUST NOT replace catalog row ownership
 in evidence. Owner-specific selection MUST NOT widen to unselected owners.
+
+Selection, compatibility, sizing, admission and reporting are separate
+responsibilities. Scheduling items remain indivisible: a Go catalog row with its
+exact symbols, a Vitest file with its exact selected titles, and a Playwright row
+with its exact cases. A row MUST NOT span execution units. Go rows use the same
+bounded first-fit packing rule below, within normalized execution contracts.
+There is no speculative shard-count search, wave limit or calibrated cost registry.
+Resource admission remains the existing scheduler and fixture broker's responsibility;
+estimates never grant capacity. Vitest and browser cohorts retain one worker each.
+Browser isolated and measurement rows remain singletons.
 
 Within each compatibility partition, exact file selections are ordered by
 descending predicted selected execution cost with stable project/file identity
@@ -975,7 +986,7 @@ policy registry. `cartulary.vitest_runner_reports.v1` retains unmodified native
 JSON report objects keyed by project/file. `cartulary.vitest_failure_details.v3`
 identifies completed files and whether final invocation settlement occurred;
 interrupted checkpoints cannot masquerade as a complete native report. The
-work-graph owner's v7 invocation policy owns startup/cleanup estimates and
+work-graph owner's invocation policy owns startup/cleanup estimates and
 coordinator resource claims; the file worker retains the selected resource profile.
 All producers and consumers cut over without v2 readers or the former single-file
 runner path. Planning and execution both reject ROWS values beyond the existing
@@ -1851,7 +1862,7 @@ The current owner inputs are `contracts/verification/registry.json`,
 `contracts/verification/owners/*.json`, `tools/test_catalog_owner.json`, and
 `tools/test_families/*.json`. They validate respectively as
 `cartulary.verification_registry.v3`, `cartulary.verification_contract.v3`,
-`cartulary.test_owner_registry.v1`, and `cartulary.test_family_manifest.v12`.
+`cartulary.test_owner_registry.v1`, and `cartulary.test_family_manifest.v13`.
 Every schema uses JSON Schema Draft 2020-12, requires its exact `schema_id`,
 rejects unknown properties, and closes every current enum.
 
@@ -2435,6 +2446,10 @@ Harness implementation packages are owner-local realization details unless a row
 
 Catalog shape, registry semantics, evidence naming, fixture policy, row selection, selector verification, and Go/Vitest/Playwright/shell result adaptation are catalog and evidence-accounting behavior. Task guidance, target explanation, owner explanation, retained-run explanation, target-plan display, and fixture diagnostics are diagnostics behavior. Runner-specific discovery remains behind runner adapters; test-output indexing and target-start statistics belong to test-output helpers; summary topology belongs to execution helpers; task-surface validation and generated Make rendering belong to generated-artifact helpers. Public Make target names, stable `command_id` values, schema IDs, output/failure contracts, and retained artifact paths remain the compatibility surface. A diagnostic surface that combines catalog, runner, task-surface, and scheduler reachability data MUST depend on the owner facades for each source family rather than importing private owner-local helpers.
 
+Pure runtime-binary declaration validation belongs to the shared contract facade.
+Catalog admission and topology generation MUST use the same validator without
+introducing an execution or service dependency into catalog loading.
+
 ### 4.1A Private Helper Ownership, Facades, and Compatibility
 
 **TH-HARNESS-REQ-061**
@@ -2674,6 +2689,16 @@ executable, digest-matched artifact for its declared profile. Go tests MUST NOT 
 or run a command binary through nested `make`, `go build`, or `go run` fallbacks;
 missing injection is a configuration failure that directs the caller to the relevant
 public Make target.
+
+Each Go catalog row MUST declare its required registry identifiers in
+`runtime_binary_ids`; omission means no application runtime binary is required.
+The declaration is sorted, unique and validated against the runtime-binary
+registry. Reporting family names MUST NOT supply these requirements. The compiler
+resolves each selected row's producer dependencies and injected paths before
+compatibility grouping. Undeclared consumer paths MUST be cleared for the row's
+execution, so an ambient or previously built binary cannot conceal a missing
+declaration. Exact row selection must close its own producer dependencies even
+when no other selected row consumes that binary.
 
 | Surface | Owner | Supported caller and final execution surface | Retirement trigger |
 | --- | --- | --- | --- |
@@ -3869,10 +3894,17 @@ For every public target whose output class rejects `machine`, setting `CARTULARY
 Verified by: TH-HARNESS-AC-005
 
 For `target-plan JSON=1`, the current closed contract is one
-`cartulary.harness_target_plan.v6` JSON object followed by LF. It contains the
+`cartulary.harness_target_plan.v7` JSON object followed by LF. It contains the
 selection, graph digest, ordered work units, target projections, and the exact
-catalog rows selected by those units, including fixture capability and minimum
-tier, service dependencies, and topology-resolved resource claims. IDs and
+catalog rows selected by those units, including fixture capability and aggregate
+placement, service dependencies, and topology-resolved resource claims.
+Planning MUST capture and expose the same
+read-only capability snapshot and inherited Go worker budget used by execution.
+An override comes only from the selected command's declared `INPUTS`, not from
+unrelated ambient command inputs. The captured capacities configure Go CPU budgets;
+they do not acquire services or authorize resource admission. Given the same
+selection, policy and capacity snapshot, public planning and execution MUST
+produce the same physical layout. IDs and
 arrays are ASCII-sorted and duplicate-free. The projection MUST
 NOT contain a historical delivery or phase selector, documentation-derived
 activation, unresolved executable, ambient shell, inline port allocation, or
@@ -3971,7 +4003,7 @@ claim publication.
 | `cartulary.harness_test_failure.v4`             | `tools/schemas/cartulary.harness_test_failure.v4.schema.json`             | present           | Go test-support helpers  | Before a setup failure marker is emitted or accepted. |
 | `cartulary.harness_run_summary.v1`              | `tools/schemas/cartulary.harness_run_summary.v1.schema.json`              | present           | Event projection         | Before graph command exit.                |
 | `cartulary.harness_target_summary.v1`           | `tools/schemas/cartulary.harness_target_summary.v1.schema.json`           | present           | Target projection        | Before graph command exit.                |
-| `cartulary.harness_target_plan.v6`              | `tools/schemas/cartulary.harness_target_plan.v6.schema.json`              | present           | Graph diagnostics        | Before machine target-plan output.        |
+| `cartulary.harness_target_plan.v7`              | `tools/schemas/cartulary.harness_target_plan.v7.schema.json`              | present           | Graph diagnostics        | Before machine target-plan output.        |
 | `cartulary.harness_evidence_root_manifest.v1`   | `tools/schemas/cartulary.harness_evidence_root_manifest.v1.schema.json`   | present           | Evidence audit caller    | Before canonical owner-evidence audit.    |
 | `cartulary.harness_owner_evidence_audit.v1` | `tools/schemas/cartulary.harness_owner_evidence_audit.v1.schema.json` | present | Owner-evidence auditor | Before publishing owner-evidence acceptance. |
 | `cartulary.fallow_reachability_owner.v1`        | `tools/schemas/cartulary.fallow_reachability_owner.v1.schema.json`        | present           | Fallow reachability owner | During JSON shape checks and before `frontend-fallow-static` builds its effective config. |
@@ -3986,7 +4018,7 @@ claim publication.
 | `cartulary.verification_registry.v3`            | `tools/schemas/cartulary.verification_registry.v3.schema.json`            | present           | Verification registry    | Before catalog compilation or evidence routing. |
 | `cartulary.verification_contract.v3`            | `tools/schemas/cartulary.verification_contract.v3.schema.json`            | present           | Verification owner       | Before catalog compilation or evidence routing. |
 | `cartulary.test_owner_registry.v1`              | `tools/schemas/cartulary.test_owner_registry.v1.schema.json`              | present           | Test catalog owner       | Before owner manifest loading. |
-| `cartulary.test_family_manifest.v12`             | `tools/schemas/cartulary.test_family_manifest.v12.schema.json`             | present           | Test family owners       | Before selection, topology generation, or audit. |
+| `cartulary.test_family_manifest.v13`             | `tools/schemas/cartulary.test_family_manifest.v13.schema.json`             | present           | Test family owners       | Before selection, topology generation, or audit. |
 | `cartulary.test_runner_registry.v3`             | `tools/schemas/cartulary.test_runner_registry.v3.schema.json`             | present           | Runner registry          | Before selector resolution or adapter invocation. |
 | `cartulary.task_guide_summary.v6`               | `tools/schemas/cartulary.task_guide_summary.v6.schema.json`               | present           | Task guidance            | Before target-local JSON output. |
 | `cartulary.test_catalog_check_summary.v2`       | `tools/schemas/cartulary.test_catalog_check_summary.v2.schema.json`       | present           | Catalog validator        | Before private catalog-check success. |
@@ -4251,8 +4283,8 @@ Verified by: TH-HARNESS-AC-037
 The owner-first schema families are `cartulary.requirement_registry.v1`,
 `cartulary.requirement_catalog.v1`, `cartulary.verification_registry.v3`,
 `cartulary.verification_contract.v3`, `cartulary.test_owner_registry.v1`,
-`cartulary.test_family_manifest.v12`, `cartulary.test_runner_registry.v3`,
-`cartulary.harness_work_graph.v8`, `cartulary.harness_target_plan.v6`,
+`cartulary.test_family_manifest.v13`, `cartulary.test_runner_registry.v3`,
+`cartulary.harness_work_graph.v8`, `cartulary.harness_target_plan.v7`,
 `cartulary.harness_row_result.v6`, `cartulary.harness_test_failure.v4`,
 `cartulary.harness_unit_result.v1`,
 `cartulary.harness_run_manifest.v3`, `cartulary.harness_unit_event.v4`,
@@ -6263,20 +6295,13 @@ time and cached acceleration remain distinct from fresh execution cost.
 Verified by: TH-HARNESS-AC-074, TH-HARNESS-AC-075
 
 **TH-HARNESS-REQ-379**
-Compatible pure backend-unit exact-symbol groups MUST be partitioned directly
-by normalized package selection, sorted runtime-binary set, complete fixture
-profile, fixture policy and budget, isolation policy, and authoritative or
-support evidence class, then execute with
-`min(group_count,clamp(floor(available_parallelism/4),1,8))` workers. Each Go
-child receives scheduler-owned `GOMAXPROCS=max(1,floor(available_parallelism/workers))`.
-This child scheduler partition applies only to backend-unit grouped capture.
-Other backend targets retain the available host parallelism assigned to their
-own scheduler unit; backend finalization MAY reuse the bounded worker-count
-formula without rewriting capture-child `GOMAXPROCS`.
-All exact symbols in one
-compatible package/runtime/fixture/isolation/evidence-class group MAY share one
-Go JSON process, including rows attributed to different catalog owners under
-REQ-805's explicit compatibility contract. Raw package selectors remain separate. Each physical Go report
+All Go execution uses REQ-805's reporting-neutral contracts and bounded packing.
+Each child claims exactly its scheduler-owned `GOMAXPROCS` CPU budget, derived
+from its declared resource profile and captured available parallelism. Explicit
+process contexts retain their declared CPU budget. PostgreSQL claims retain the
+required scope and exclusivity; reporting targets never control CPU budgets.
+Serial selected work MUST NOT be divided by CPU count.
+Each physical Go report
 MUST be parsed once; immutable family-projection requests then execute through
 the same host-derived worker pool. Each worker MUST initialize the output
 runtime once and process multiple requests sequentially; starting one cold
@@ -8286,7 +8311,7 @@ Every work unit MUST carry a positive authored `estimated_work_ms`. Catalog row
 units derive that value from the exact evidence-class estimate in the authored
 work-graph owner; direct units use their exact target policy; browser group
 units sum their selected row estimates; compatible Go units sum their exact
-symbols before capacity-derived LPT distribution. Estimates affect rank and
+rows before bounded first-fit packing. Estimates affect rank and
 packing only. They MUST NOT change selection, timeout, failure, cache, fixture,
 or evidence semantics.
 
@@ -10408,7 +10433,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-056 | Sections 4, 11, 12, 15, 16 | Test-support ownership and explicit policy | Registered shared and owner-local support roots, unknown-root fixtures, in-process server mode fixtures, fixture-policy agreement fixtures, security-profile rendering fixtures, and module control contributions | Support-inventory validator, service-backed guard tests, server-helper tests, PostgreSQL helper tests, static-analysis wrapper tests, backend boundary check, and affected product-control route tests | Success only when support roots are owner-named and registered exactly once, phase-shaped active helpers are absent, route mode and database policy are explicit, manifest and call-site fixture policy agree, every support root is security-scanned, runtime-compiled controls stay in runtime scans, and module contributions preserve guarded behavior | Bounded ownership/policy summary | Bounded configuration, boundary, or security diagnostic | Validated test-support inventory plus ordinary target summaries from the affected checks | Unknown/duplicate support root, zero-value route mode, fixture-policy mismatch, unscanned support root, phase-shaped active helper, or runtime control hidden by support exclusions passes | no cleanup beyond the selected test/service contract |
 | TH-HARNESS-AC-057 | Section 4.1B | Runtime-binary and private-runner closure | Production and harness server profiles, runtime-binary registry fixtures, invalid harness-only environment, missing/nonregular/nonexecutable/digest-mismatched injection, nested-build attempts, legacy runner aliases, and static shell-import fixtures | Server build-profile tests, runtime-binary validator, harness import-boundary checks, and private runner usage tests | Success only when the repository exposes exactly the three deployable identities, the harness server remains a non-deployable build profile, production rejects harness-only inputs, every black-box row receives an exact validated scheduler artifact, and every legacy or contextless runner path fails closed | Bounded build and contract summaries | Bounded configuration, boundary, or usage diagnostic | Runtime-binary registry validation, build summaries, injection provenance, and import-boundary report | A fourth deployable appears, production consumes a harness-only input, a nested build fallback executes, an injected binary lacks identity proof, or a legacy alias succeeds | build outputs and run-local injected binaries follow their target cleanup contracts |
 | TH-HARNESS-AC-058 | Sections 4, 5, 8 | Task-surface ownership and generated Make density | Authored task-surface owner, execution topology, generated task-surface projection, shared Make runtime, thin Make bindings, a graph-entry fixture with its required dispatcher declaration removed, and synthetic-growth fixtures | Task-surface owner/schema validation, public registry and backing-script parity, generation drift, density validation, and public wrapper characterization | Success only when public command metadata has one authored machine owner, topology cannot redefine it, every target-level rendered script is explicitly owner-declared, generated v15 parity holds, unsupported `alias` profiles and per-variable origin transport are rejected, every size/line/growth budget passes, and public target behavior is unchanged | Bounded ownership and density report | Bounded configuration or generated-drift diagnostic | Owner/projection digest relationship plus byte, line-length, repeated-expansion, and synthetic-growth metrics | A generated projection becomes an owner, topology embeds task metadata, a graph-backed target omits its rendered dispatcher from `backing_scripts`, dense global input plumbing returns, budgets regress, or public behavior changes | generated scratch outputs removed |
-| TH-HARNESS-AC-060 | Sections 10, 16 | Pure Go execution-family consolidation | Backend-unit catalog rows plus compatible, incompatible, duplicate-symbol, over-selection, missing-symbol, partial-output, and attribution fixtures | Target-plan validation, Go runner fixtures, `make test-slice SUITE=backend-unit`, exact owner slices, and generated drift | Success only when compatible exact-symbol rows share execution without changing identity/routing and every symbol is proven exactly once | Existing bounded target summary | Bounded row/symbol or artifact diagnostic | Per-row evidence plus before/after execution-family count | A row drops, an unowned test selects, raw/exact selectors merge, incompatible profiles merge, or a shim remains | ordinary target cleanup |
+| TH-HARNESS-AC-060 | Sections 10, 16 | Reporting-neutral Go compatibility and independent sizing | Backend-unit catalog rows plus compatible, incompatible, reporting-only mutations, duplicate-symbol, over-selection, missing-symbol, partial-output, and attribution fixtures | Target-plan validation, Go runner fixtures, `make test-slice SUITE=backend-unit`, exact owner slices, and generated drift | Success only when reporting attribution leaves physical compatibility and sizing unchanged, selected work is complete and nonoverlapping, and every symbol is proven exactly once | Existing bounded target summary | Bounded row/symbol or artifact diagnostic | Per-row evidence plus before/after execution-family count | A row drops, an unowned test selects, raw/exact selectors merge, incompatible profiles merge, or a shim remains | ordinary target cleanup |
 | TH-HARNESS-AC-061 | Sections 10, 16 | Deterministic service Go batching | Service-backed catalog rows and duration owners plus compatible, incompatible, isolated, oversized, partial-output, exact-failure, and growth fixtures | Shard-plan smoke, scheduler matrix, owner slices, Go runners, profile agreement, generated drift, and `make check` timing | Success only when compatible items share deterministic shards without changing row/scenario/owner coverage, profiles, attribution, artifacts, or cleanup | Existing bounded shard and target summaries | Bounded planning, resource, row/symbol, or artifact diagnostic | Shard metadata, process counts, plan digest, profile parity, and current evidence | Packing crosses a boundary, selects unowned work, loses a row, weakens a claim, accepts partial output, or is nondeterministic | ordinary target and service cleanup |
 | TH-HARNESS-AC-062 | Sections 3, 8 | Owner, verification, and identifier closure | Valid registries plus missing, extra, null, duplicate, unordered, unknown, Unicode, overlength, and phase-token fixtures | Catalog schema and reference validator | `0` only for a closed, unique, fully resolved active catalog | Bounded catalog summary | Bounded configuration diagnostic | Catalog and verification semantic digests plus schema summaries | Unknown field, unresolved reference, zero-row owner, recycled ID, or invalid ordering passes | no child work |
 | TH-HARNESS-AC-063 | Sections 3, 10 | Runner selectors and profiles | Exact Go, Vitest, Playwright, and shell selectors plus zero, multiple, overlap, traversal, symlink, glob, regex, and unknown-profile fixtures | `test-catalog-check` selector/profile validation | `0` only when every case resolves exactly once and every profile is compatible | Bounded catalog summary | Bounded selector/profile diagnostic | Selector-resolution and profile-resolution report | Arbitrary executable, ambiguous selector, inline resource override, or symlink escape passes | no child work |

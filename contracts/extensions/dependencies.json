@@ -99,7 +99,7 @@
         "cartulary.harness_run_manifest.v3",
         "cartulary.harness_run_summary.v1",
         "cartulary.harness_target_summary.v1",
-        "cartulary.test_family_manifest.v12",
+        "cartulary.test_family_manifest.v13",
         "cartulary.test_owner_registry.v1",
         "cartulary.test_runner_registry.v3",
         "cartulary.verification_contract.v3",

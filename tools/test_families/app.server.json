@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v12",
+  "schema_id": "cartulary.test_family_manifest.v13",
   "owner_id": "app.server",
   "rows": [
     {
@@ -425,7 +425,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.a_real_process_requiring_bootstrap_becomes_ready_41afb1f3e5",
@@ -453,7 +456,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.a_running_server_exposes_no_public_http_or_web_s_2934cde8e0",
@@ -481,7 +487,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.effective_deployment_configuration_fails_the_rea_c17cbafdfc",
@@ -509,7 +518,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.invalid_config_exits_non_zero_emits_structured_s_6c0922ea28",
@@ -537,7 +549,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.process_smoke_exercises_incident_creation_valida_541e2263d1",
@@ -570,7 +585,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.process_smoke_exercises_login_csrf_session_revoc_c6fd6eb90f",
@@ -605,7 +623,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.required_bootstrap_failures_on_the_real_process_9dbfe1d620",
@@ -633,7 +654,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.stale_or_invalid_manifests_are_ignored_when_an_a_1d42fdeb31",
@@ -661,7 +685,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.the_packaged_standalone_server_serves_its_embedd_9d0f816da3",
@@ -689,7 +716,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.the_standalone_server_keeps_harness_routes_disab_4dc8b1f7d9",
@@ -719,7 +749,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.process.the_standalone_server_process_can_create_evidenc_4ca93ab308",
@@ -747,7 +780,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "app.server.support_unit.incident_create_commit_fault_requires_validated_efdc344831",

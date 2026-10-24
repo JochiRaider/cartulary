@@ -3,14 +3,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { normalizeRuntimeBinaryEntries } from "../runtime-binary-registry.mjs";
+import { normalizeRuntimeBinaryEntries } from "../contract/index.mjs";
 import { loadTestCatalog } from "../test-catalog/index.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
 import { browserBatchManifestSchemaID, browserCompatibility, browserPartitionContract, browserSelectorStage } from "../browser/browser-compatibility.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v15";
+export const executionTopologySchemaID = "cartulary.execution_topology.v16";
 import { projectOperationBindings, readOperationOwner } from "../scheduler/work-graph/operations.mjs";
 export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v4";
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v16";
@@ -91,36 +91,6 @@ function normalizeExecutionDependencies(raw, targets) {
   return dependencies;
 }
 
-function normalizeGoTargets(raw, runtimeBinaries) {
-  const binaryByID = new Map(runtimeBinaries.map((entry) => [entry.id, entry]));
-  const targets = assertArray(raw.go_targets?.targets, "go_targets.targets").map((entry) => ({
-    name: entry.name,
-    serviceBacked: entry.service_backed === true,
-    checkHeavySafe: entry.check_heavy_safe === true,
-    checkServiceBackedSafe: entry.check_service_backed_safe === true,
-    checkIsolatedSafe: entry.check_isolated_safe === true,
-    canonicalAuthoritative: entry.canonical_authoritative === true,
-    sharding: entry.sharding,
-    goTestParallelism: entry.go_test_parallelism,
-    executionDependencies: [...(entry.execution_dependencies ?? [])],
-    supportTargets: [...(entry.support_targets ?? [])],
-  }));
-  const byName = new Map(targets.map((entry) => [entry.name, entry]));
-  if (byName.size !== targets.length) throw new Error("go_targets.targets contains duplicate names");
-  const runtimeBinariesByFamily = new Map();
-  for (const entry of raw.go_targets?.family_runtime_binaries ?? []) {
-    runtimeBinariesByFamily.set(
-      entry.family_id,
-      entry.runtime_binary_ids.map((id) => {
-        const binary = binaryByID.get(id);
-        if (!binary) throw new Error(`unknown runtime binary ${id}`);
-        return binary;
-      }),
-    );
-  }
-  return { targets, byName, runtimeBinariesByFamily };
-}
-
 function validateBrowserOwner(raw, dependencyIDs, targets, runtimeProfileIDs) {
   const profileIDs = uniqueByID(raw.browser_e2e_batch?.runtime_profiles, "browser_e2e_batch.runtime_profiles");
   for (const id of profileIDs.keys()) {
@@ -194,7 +164,6 @@ export function loadExecutionTopology(options = {}) {
     executionDependencies,
     executionDependencyByID,
     runtimeBinaries,
-    goTargets: normalizeGoTargets(raw, runtimeBinaries),
     taskSurface: projectOperationBindings(taskSurface, readOperationOwner(root)),
     taskSurfaceOwnerPath,
     browserBatch: clone(raw.browser_e2e_batch),
@@ -268,7 +237,7 @@ export function renderBrowserBatchManifest(topology) {
           ...(row.fixture_profile_id ? { fixture_profile_id: row.fixture_profile_id } : {}),
         };
         const contract = { ...browserPartitionContract(stage, group, browserRuntime), selectedRowIDs: [row.row_id] };
-        const key = JSON.stringify(browserCompatibility(contract, topology.browserBatch.invocation_policy, row));
+        const key = JSON.stringify(browserCompatibility(contract, row));
         const partition = partitions.get(key) ?? { group, rows: [] };
         partition.rows.push(row);
         partitions.set(key, partition);

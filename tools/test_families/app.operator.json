@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v12",
+  "schema_id": "cartulary.test_family_manifest.v13",
   "owner_id": "app.operator",
   "rows": [
     {
@@ -59,7 +59,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "operator"
+      ]
     },
     {
       "row_id": "app.operator.process.object_store_init_process_transport_400591b90d",
@@ -89,7 +92,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "operator"
+      ]
     },
     {
       "row_id": "app.operator.unit.collaboration_requeue_v2_transport_contract_11562cd85f",

@@ -180,8 +180,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.execution_topology.v15",
-      "path": "tools/schemas/cartulary.execution_topology.v15.schema.json",
+      "schema_id": "cartulary.execution_topology.v16",
+      "path": "tools/schemas/cartulary.execution_topology.v16.schema.json",
       "classification": "owner_input",
       "producer": "execution topology owner",
       "validation": "harness.json_shape_check",
@@ -468,8 +468,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_go_lpt_plan.v2",
-      "path": "tools/schemas/cartulary.harness_go_lpt_plan.v2.schema.json",
+      "schema_id": "cartulary.harness_go_lpt_plan.v3",
+      "path": "tools/schemas/cartulary.harness_go_lpt_plan.v3.schema.json",
       "classification": "public_contract",
       "producer": "backend Go LPT planner",
       "validation": "harness.json_shape_check"
@@ -796,8 +796,8 @@
       "foundation_runtime": true
     },
     {
-      "schema_id": "cartulary.harness_target_plan.v6",
-      "path": "tools/schemas/cartulary.harness_target_plan.v6.schema.json",
+      "schema_id": "cartulary.harness_target_plan.v7",
+      "path": "tools/schemas/cartulary.harness_target_plan.v7.schema.json",
       "classification": "public_contract",
       "producer": "work graph target plan",
       "validation": "harness.json_shape_check"
@@ -1270,8 +1270,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.postgres_fixture_policy_registry.v5",
-      "path": "tools/schemas/cartulary.postgres_fixture_policy_registry.v5.schema.json",
+      "schema_id": "cartulary.postgres_fixture_policy_registry.v6",
+      "path": "tools/schemas/cartulary.postgres_fixture_policy_registry.v6.schema.json",
       "classification": "owner_input",
       "producer": "PostgreSQL fixture policy registry",
       "validation": "harness.json_shape_check"
@@ -1468,8 +1468,8 @@
       "validation": "harness.json_shape_check"
     },
     {
-      "schema_id": "cartulary.test_family_manifest.v12",
-      "path": "tools/schemas/cartulary.test_family_manifest.v12.schema.json",
+      "schema_id": "cartulary.test_family_manifest.v13",
+      "path": "tools/schemas/cartulary.test_family_manifest.v13.schema.json",
       "classification": "owner_input",
       "producer": "test family owner",
       "validation": "harness.json_shape_check"

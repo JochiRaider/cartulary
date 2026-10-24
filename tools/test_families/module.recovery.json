@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.test_family_manifest.v12",
+  "schema_id": "cartulary.test_family_manifest.v13",
   "owner_id": "module.recovery",
   "rows": [
     {
@@ -414,7 +414,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "operator"
+      ]
     },
     {
       "row_id": "module.recovery.process.due_verification_continues_after_a_determinate_f_2af5cf65e1",
@@ -444,7 +447,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "operator"
+      ]
     },
     {
       "row_id": "module.recovery.process.portable_source_loss_restore",
@@ -472,7 +478,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "operator"
+      ]
     },
     {
       "row_id": "module.recovery.process.the_packaged_server_serves_the_coherently_restor_6b1731590e",
@@ -504,7 +513,10 @@
         "object_store",
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "exclusive",
+      "runtime_binary_ids": [
+        "server-harness"
+      ]
     },
     {
       "row_id": "module.recovery.store.durable_backup_set_creation_requires_artifact_ba_d68130215e",

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { parseStrictJSON, resolveCommandInputs } from "../contract/index.mjs";
-import { WorkGraphCompiler, buildWorkGraph, selectionFor } from "../scheduler/work-graph/index.mjs";
+import { WorkGraphCompiler, buildWorkGraph, selectionFor, captureCapabilitySnapshot, availableGoWorkerBudget } from "../scheduler/work-graph/index.mjs";
 import { readLocalFile } from "../runtime/secure-local-files.mjs";
 
 export function readPlanInputs(root, filename) {
@@ -17,6 +17,9 @@ export function buildTargetPlan(root, target, suppliedInputs = {}, compiler = ne
   const entry = compiler.taskSurface.targets.find((candidate) => candidate.name === target && candidate.target_class === "public");
   if (!entry) throw new Error(`unknown public target ${target}`);
   const inputs = resolveCommandInputs(target, suppliedInputs, compiler.taskSurface);
+  const snapshot = captureCapabilitySnapshot({ root, override: inputs.CARTULARY_HARNESS_CAPACITY_OVERRIDE,
+    services: { browser: true, object_store: true, postgres: true, service_stack: true } });
+  compiler.configureCapacity(snapshot, availableGoWorkerBudget(snapshot.cpu_tokens, process.env));
   compiler.targetInputs = { ...compiler.targetInputs, [target]: inputs };
   const recipe = compiler.taskSurface.make_recipes[target];
   let compiled;
@@ -32,10 +35,11 @@ export function buildTargetPlan(root, target, suppliedInputs = {}, compiler = ne
     .filter((output) => output.startsWith("rows/") && output.endsWith(".json"))
     .map((output) => output.slice(5, -5)))].sort();
   return {
-    schema_id: "cartulary.harness_target_plan.v6",
+    schema_id: "cartulary.harness_target_plan.v7",
     target, command_id: entry.command_id,
     inputs: Object.fromEntries(Object.entries(inputs).map(([key, value]) => [key,
       entry.input_contract.inputs.find((input) => input.name === key).summary_emission === "redacted_value" ? "<redacted>" : value])),
+    capability_snapshot: snapshot, go_worker_budget: compiler.availableGoLanes,
     graph_digest: compiled.graph.graph_digest,
     projections: compiled.projections ?? { [target]: compiled.graph.units.map((unit) => unit.unit_id) },
     rows: rowIDs.map((id) => {
@@ -59,7 +63,8 @@ export function renderTargetPlan(plan, detail = "summary") {
     const fixtures = plan.units.filter((unit) => unit.fixture_capability !== "none").length;
     return `target=${plan.target} units=${plan.units.length} cached=${cached} fixtures=${fixtures} digest=${plan.graph_digest}`;
   }
-  const lines = [`target ${plan.target}`, `graph ${plan.graph_digest}`];
+  const lines = [`target ${plan.target}`, `graph ${plan.graph_digest}`,
+    `capacity ${plan.capability_snapshot.snapshot_digest} cpu=${plan.capability_snapshot.cpu_tokens} go_workers=${plan.go_worker_budget} postgres=${plan.capability_snapshot.postgres_lanes}`];
   if (detail === "rows") lines.push(...plan.rows.map((row) => `${row.row_id} owner=${row.owner_id} runner=${row.runner} evidence=${row.evidence_class} placement=${row.aggregate_placement} fixture=${row.fixture_capability}`));
   else if (detail === "artifacts") lines.push(...plan.units.flatMap((unit) => unit.evidence_outputs.map((output) => `${unit.unit_id} ${output}`)));
   else if (detail === "graph") lines.push(...plan.units.map((unit) => `${unit.unit_id} kind=${unit.kind} owner=${unit.owner_id} needs=${unit.needs.join(",") || "-"} fixture=${unit.fixture_capability} services=${unit.service_dependencies.join(",") || "-"} cache=${unit.cache_policy} work_ms=${unit.estimated_work_ms}`));
