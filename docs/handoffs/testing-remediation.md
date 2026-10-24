@@ -2,7 +2,7 @@
 
 Document date: 2026-10-24, America/New_York.
 
-Status: WF-00–WF-04, WF-06 and WF-07 COMPLETE; human owner/interface approval recorded in E-026; WF-05/S-006 is IN PROGRESS after E-036. Execution completion remains open.
+Status: WF-00–WF-04, WF-06 and WF-07 COMPLETE, including corrective requalification at E-038/E-039. WF-05/S-006 resumes IN PROGRESS at E-040. Human owner/interface approval remains recorded in E-026. Execution completion remains open.
 
 Scope: the audited 88 isolated browser rows, their supporting harness, and backend verification needed to preserve their production coverage.
 
@@ -1197,12 +1197,12 @@ Finalize authored/generated consistency, then run final correctness, lifecycle, 
 
 | Slice | Entry gate | Current readiness | Binary completion criterion |
 |---|---|---|---|
-| S-001 | WF-00 characterization and WF-01 owner/interface review | COMPLETE: E-028 | V-002 passes; changed helper consumers use the common lifetime; V-004 and V-007 remain correct. |
+| S-001 | WF-00 characterization and WF-01 owner/interface review | COMPLETE: E-028/E-038 | V-002 passes; changed helper consumers use the common lifetime; V-004 and V-007 remain correct. |
 | S-002 | WF-02 ownership closure and inspected production-obligation mapping | COMPLETE: E-030 | V-001, V-004, V-005, and V-006 pass for every replacement. |
 | S-003 | WF-03 checkpoint and coordinated fault-control retirement review | COMPLETE: E-032 | Successor coverage passes and retired runtime/schema/client paths are absent. |
-| S-004 | WF-07 checkpoint and per-candidate interference evidence | COMPLETE: E-036 | V-003 and V-007 pass; generated selection and remaining-isolation accounting agree. |
+| S-004 | WF-07 checkpoint and per-candidate interference evidence | COMPLETE: E-036/E-039 | V-003 and V-007 pass; generated selection and remaining-isolation accounting agree. |
 | S-005 | WF-06 checkpoint and existing lifecycle characterization | COMPLETE: E-034 | V-002 and V-005 pass without weakened process/resource assertions. |
-| S-006 | WF-04 checkpoint | READY: E-036; final V-001–009 acceptance is required | V-001–009 and the complete final handoff pass. |
+| S-006 | WF-04 checkpoint | IN PROGRESS: E-040; final V-001–009 acceptance required | V-001–009 and the complete final handoff pass. |
 
 The user has authorized all slices; their evidence/readiness gates still apply. Their common rollback is the complete change-set reversion defined by TR-REQ-009; no slice establishes a supported intermediate mode.
 
@@ -1272,7 +1272,7 @@ No Make target was invoked in the handoff-writing session. Inspection of the pub
 | T-002 — Adopt coordinated harness amendments | DONE | WF-01 E-025/E-026: amendment/mapping approved by the user; documentation validation passed. |
 | T-003 — Implement owned browser lifetimes | DONE | WF-02 / E-028; S-001-specific V-002/V-004/V-007 witnesses pass. |
 | T-004 — Replace mixed global/browser scenarios | DONE | WF-03 / V-004–006; E-030 records successor closure. |
-| T-005 — Promote qualified cohorts and remove obsolete paths | DONE | WF-04 / E-036; ownership, order, exact-case, compatibility and regression qualification passed. |
+| T-005 — Promote qualified cohorts and remove obsolete paths | DONE | WF-04 / E-036/E-039; the complete stateful portfolio and reset/admission sequence passed. Final CI remains required. |
 | T-006 — Measure and close final evidence | IN PROGRESS | WF-05 / V-008–009 |
 | T-007 — Save the approved implementation handoff | DONE | This document created; runtime work remains pending. |
 | T-008 — Retire public-error fault control | DONE | WF-06 / S-003; E-032 closes retirement and successor gates. |
@@ -1857,6 +1857,50 @@ The lint repair passed `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s006-frontend-202
 
 The next required full check uses normal compatible-result reuse for correctness; previously passed unchanged units may be reused honestly. It is not a performance observation. Required resource comparisons and their CI comparison runs will disable execution-result reuse.
 
+Corrected candidate revision is `91533c489299375091f876afd659305db5fdfbcf` on `codex/testing-remediation`. `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s006-candidate-check-20261024-02 make check BROWSER_LANES=4 HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=off CARTULARY_HARNESS_CACHE_MODE=normal` is running in native session `34186`. All broad/performance and final audit gates remain pending until compatible terminal evidence is recorded.
+
+Corrected candidate check-02 passed (`34186`, native exit 0, 588224 ms). The normal-mode run reported no cache hits during execution. `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s006-finalize-20261024-03 make agent-finalize RESULTS_DIR=.cartulary/test-results/tr-s006-candidate-check-20261024-02` is now launched with this exact successful full warm root. Its retained-run preflight and maintenance must complete before CI; earlier unset-root skips remain historical and are not relabeled as successful maintenance.
+
+Check-02 terminal reconciliation: 313/313 work units passed, cleanup 522/522. Its source is `sha256:ae8dc7217f854cd01591bb7b5953efe110a9d01f94f894b0a23aa60b998334fc` at `91533c489299375091f876afd659305db5fdfbcf`, graph `sha256:879dc4dc5c07bae1e0b4d81eee172e432e2d4bd7625c7c0a14b83f4aa3ebc4b6`, unchanged E-036 toolchain/system. Finalization with the explicit successful root passed (`19142`, native exit 0, 36614 ms, cleanup 10/10), graph `sha256:12ea589f64ef55010707f0f2168419c3cd4263f0393cffebe61c7b3a98575479`. It made no executable/generated changes; only this documentation checkpoint remains dirty. Retained-run maintenance now has successful evidence; earlier skips remain correctly recorded for their invocations.
+
+`CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-s006-candidate-ci-20261024-01 make ci BROWSER_LANES=4 HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=off CARTULARY_HARNESS_CACHE_MODE=off` is launched from the candidate root. The baseline CI comparison will use the identical inputs after its own consistent warm preparation. CI uses supported default accounting because the accounting-kernel regression cannot be enclosed in an accounted invocation (E-033); no charged-CPU claim is inferred from sampled counters. The required ordinary-browser four-pair protocol still requires complete strict accounting. CI, explicit browser portfolios, harness selections, owner audits and performance acceptance remain pending.
+
+### E-038 — Final CI failure and S-001 consumer requalification
+
+CI-01 completed in native session `15284`, exit 2, graph 2623943 ms, 419/425 work units passed, six failed, zero cancelled/skipped units; all 740 cleanup steps passed. Its source is the clean `91533c489299375091f876afd659305db5fdfbcf` candidate and E-037 source/toolchain/system digests; graph `sha256:44b01100f8c875bcb15f6d34883cf2e3ff0c74f223d9d5c85b0186e11a2471c4`. The terminal receipt records retained-secret scan passed and child exit 2. Native observation continued through the declared measurement pause without structured polling; no competing workloads ran. This failed invocation is neither final acceptance nor a resource comparison sample.
+
+Public `make test-run-status RESULTS_DIR=.cartulary/test-results/tr-s006-candidate-ci-20261024-01 JSON=1` and `make explain-run` with `DETAIL=summary`, `children`, `TARGET=ci DETAIL=logs`, and `DETAIL=performance JSON=1` were used for diagnosis. An attempted `explain-run` with `SUITE=stateful` was rejected because that input is not declared; it produced no product evidence. Declared Playwright reports identify three primary product failures: `module.timeline.browser.conflict_completion_preserves_newer_grouped_draf_caa2cd651a`, `module.timeline.browser.auto_resolution_feedback_characterization`, and `module.timeline.browser.spreadsheet_creation`. Downstream unexecuted cases retain `skipped_dependency`; they are not additional independent failures. One stateful group (`cohort-30b23d3405a08fc59f78060bc4dbb4ea565ba996285ca7170ce6f13af67b62fe`) never launched, leaving its group/target evidence absent; that infrastructure cause is still under investigation.
+
+Static diagnosis found ten `holdBrowserRequest` consumers in `timeline-grid-entry.spec.ts` and `timeline-auto-resolution-feedback.spec.ts` still passing wildcard strings after S-001 made its path matching exact. The unmatched waits resolve only when timeout teardown cancels them, explaining the three reported closed-page failures. S-001 is REOPENED to complete this helper migration: replace those implicit wildcards with explicit bounded path predicates, keep exact string matching for concrete paths, and add matching/release/cancellation regression evidence. No product assertion, timeout, retry, golden, isolation selection or production behavior will be weakened. Earlier narrow ownership evidence remains attributable to its source but did not cover these consumers.
+
+Next entry gate: complete the corrective S-001 tests and all affected consumer rows, record their native results and cleanup, and resolve the separate stateful fixture failure before resuming broad S-006 acceptance. No performance pair has started. Current candidate acceptance is suspended; a repaired executable source requires a newly frozen candidate. All final audits, performance and handoff completion gates remain open.
+
+E-038 corrective implementation: `holdBrowserRequest.path` now accepts an exact string or an explicit path-and-query predicate. Ten variable-segment callers in the two Timeline files use anchored single-segment predicates; conflict resolution also binds the owned record ID. No glob compatibility parser or implicit leading-slash normalization remains. Two ownership-support regressions cover bounded matching, release and cancellation, registered in the authored `harness.browser` family before generation. No rows/cases or production obligations were removed.
+
+Initial E-038 format and owner-guide discovery were rejected because the two new tests were not yet cataloged; these configuration-only failures produced no runtime evidence. After adding the authored selectors, `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-e038-generate-20261024-01 make generate` passed (`39661`, exit 0, 11160 ms). `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-e038-format-20261024-02 make format` passed (`22915`, exit 0, 8041 ms). Both repeated owner guides (`harness.browser`, `module.timeline`, `DETAIL=coverage JSON=1`) passed. Additional unsupported diagnostic combinations (`help TARGET=explain-run`, performance with critical-path filters, progress without TARGET, and selecting a noncritical unit in the critical-path view) were rejected; these reader errors are not test outcomes. Public `explain-run TARGET=ci DETAIL=progress` and declared unit/fixture artifacts confirmed the separate failure as `infra/service_readiness_timeout`, unit exit 3, before Playwright launch. Its preceding reset and backend generation readiness passed; cleanup completed. The precise infrastructure cause remains unresolved and is not attributed to product assertions or claimed repaired.
+
+The repaired source digest is `sha256:35ce8d16947e2176cf6db82e05970243cf17d6d4175f33e8d7a84fa19b5de211` (dirty atop `91533c489299375091f876afd659305db5fdfbcf`). `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-e038-support-20261024-01 make test-slice OWNER=harness.browser ROWS=harness.browser.boundary_support.cleanup_suite_9036a615b1 CARTULARY_HARNESS_CACHE_MODE=off` passed (`87575`, exit 0, 2641 ms, 2/2 units, cleanup 11/11; graph `sha256:aa5500ed0c91dde756b06def033eb06aa4b9a531b8d64f051dbcc64aa8ae18bf`). `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-e038-types-20261024-01 make lint CHECK=types` passed (`21692`, exit 0, 20972 ms, 2/2 units, cleanup 11/11; graph `sha256:3779f6e1c94f21180dee31c0ccd5490c36f0132d8de8480f1e20e586721ca4d4`). Toolchain/system remain E-037's.
+
+`CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-e038-timeline-20261024-01 make test-slice OWNER=module.timeline ROWS=module.timeline.browser.auto_resolution_feedback_characterization,module.timeline.browser.conflict_completion_preserves_newer_grouped_draf_caa2cd651a,module.timeline.browser.refreshed_conflict_preserves_newer_grouped_draft_2db53472fd,module.timeline.browser.spreadsheet_creation BROWSER_LANES=4 HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=required CARTULARY_HARNESS_CACHE_MODE=off` is running in native session `22380`. This includes every migrated variable-path consumer, not just the three cases reached before CI stopped their cohorts. Its result is pending; S-001 remains reopened and S-006 blocked.
+
+**E-038 corrective completion checkpoint:** all four affected rows / 15 selected cases passed exactly once with retry 0 in one cohort (`22380`, native exit 0, 182087 ms, 12/12 units, cleanup 23/23; graph `sha256:ac25a80ebc96b1ee9d6542532ec772b66763c4cbfa432bbdb5629350efec59c8`). Public summary and declared Playwright reports confirm every migrated variable-path consumer executed. The strict-accounting invocation completed successfully and its terminal receipt reports retained-secret scan passed; this correctness run is not a paired performance observation. Source/toolchain/system match the E-038 narrow checks. S-001 corrective qualification is COMPLETE; canonical case identities and obligations remain retained. The next entry gate is E-039's stateful admission investigation; S-006 remains blocked and the failed CI candidate is superseded for acceptance.
+
+### E-039 — Stateful admission requalification
+
+WF-04/S-004 is reopened only for the CI-01 prelaunch readiness failure and its reset/admission boundary. The preceding reset published a successful database/object/browser reset and replacement-backend readiness; the group then failed with `infra/service_readiness_timeout` before launching Playwright, and all cleanup completed. Existing artifacts establish the failure category, but not a specific root cause. No timeout, retry, admission budget, scheduler architecture or isolation policy is changed speculatively. A fresh complete stateful selection is required to exercise the actual preceding expiry/reset sequence and every row whose CI launch was absent. Earlier sharing and order evidence remains historical; this rerun cannot erase the failed observation or alone establish flakiness. Final S-006 acceptance remains blocked until this boundary has compatible successful evidence and any reproducible defect is repaired.
+
+E-039 preparation: `CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-e039-finalize-20261024-01 make agent-finalize` passed (`1047`, native exit 0, 26500 ms). `RESULTS_DIR` was unset because the earlier successful full warm check belongs to superseded executable source; retained-run maintenance was skipped for this invocation. The prior successful maintenance remains historical. A new compatible full warm check is required for final maintenance.
+
+`CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-e039-stateful-20261024-01 make browser-e2e SUITE=stateful BROWSER_LANES=4 HARNESS_DIAGNOSTICS=basic HARNESS_ACCOUNTING=required CARTULARY_HARNESS_CACHE_MODE=off` is the fresh stateful requalification command. It runs the full authored stateful portfolio to preserve the preceding expiry/reset/admission sequence, including the 40-row cohort that never launched in CI-01. This is correctness/diagnostic evidence, not a performance pair; its terminal outcome is pending in native session `81063`.
+
+**E-039 completion checkpoint:** the full stateful suite passed (`81063`, native exit 0, 496784 ms, 21/21 units, cleanup 42/42; graph `sha256:f45690a09e295bf17e0fbb91eea6c8f7cb3fe021a65f7fa7f2311b8fdfd6ccfd`). Declared reports reconcile 57 rows / 64 cases across six cohorts, all passed with retry 0, including every case from the formerly unlaunched 40-row cohort and its preceding reset sequence. Execution is complete; strict accounting and terminal retained-secret scanning passed. Source remains E-038's `sha256:35ce8d16947e2176cf6db82e05970243cf17d6d4175f33e8d7a84fa19b5de211`, with unchanged toolchain/system. No speculative infrastructure, scheduler, deadline, retry or selection changes were made. The original CI readiness timeout did not recur here; its precise cause remains unresolved, and a recurrence in final CI will reopen diagnosis. This pass does not establish flakiness or erase the failed invocation.
+
+`CGO_ENABLED=0 CARTULARY_TEST_RUN_ID=tr-e039-frontend-20261024-01 make lint CHECK=frontend` passed (`67554`, native exit 0, 1849 ms). E-039 finalization passed all ten cleanup steps on the same source; `git diff --check` passed. WF-04/S-004 requalification is COMPLETE. The next entry gate is resumed S-006: freeze the repaired candidate, obtain a compatible successful full warm check and maintenance, then repeat final CI and remaining required portfolios/contracts/audits. No performance pair has started and no required gate is waived.
+
+### E-040 — S-006 resumed on corrected request interception
+
+Resumed only after E-038 and E-039 completion checkpoints. The ten migrated helper callers retain all original production assertions; the two new support cases strengthen matcher/cancellation coverage. The earlier failed CI root remains retained. Candidate `91533c489299375091f876afd659305db5fdfbcf` is superseded for final acceptance. A new freeze and compatible broad evidence are required; baseline remains exact `5e2ed4a9cda0104c7c5755049f49c6713fe2fad1`. Required performance pairs, full-CI comparison, final harness selections, owner evidence audits and handoff completion remain outstanding.
+
 ### Source evidence navigation
 
 | Boundary | Inspected source evidence | Revalidation obligation |
@@ -1877,7 +1921,7 @@ No unresolved product-design choice remains in this plan. WF-00 has closed basel
 | Blocker | Affected work | Resolution | Status |
 |---|---|---|---|
 | RB-001 — Baseline characterization | Entry to owner amendments | Closed by E-024: unchanged-source 88-row / 97-case characterization and coverage dispositions. | DONE |
-| RB-002 — Cohort promotion qualification | Cohort promotion | E-036 closes ownership, independent order/residue witnesses, all 94 selected successor cases and V-007 regression. Final-source acceptance remains in S-006. | DONE |
+| RB-002 — Cohort promotion qualification | Cohort promotion | E-036 and E-039 establish ownership/order and full stateful admission qualification. The historical CI readiness timeout remains a final-CI recurrence risk. | DONE |
 | RB-003 — Fault-control retirement | Cutover closure | Owner/interface review approved in E-026; implementation, projections and successor/retirement evidence closed in E-032. Merge remains the complete cutover. | DONE |
 | RB-006 — Human owner/interface review | WF-01 closure and S-001 entry | User explicitly approved the E-025 owner amendment and mapping; recorded in E-026. | DONE |
 | RB-004 — Performance evidence is absent | Cutover acceptance | Complete V-008 with valid required accounting. | BLOCKED |
@@ -1903,9 +1947,9 @@ Acceptance requires all of the following:
 | Outcome | Current statement |
 |---|---|
 | Planning completeness | COMPLETE for the bounded plan: exact baseline, selected assertion/owner mapping, helper migration boundary, dispositions, sequencing and exit gates are recorded. This does not qualify candidate behavior. |
-| Per-slice readiness | S-001 is COMPLETE at E-028; S-002 is COMPLETE at E-030; S-003 is COMPLETE at E-032; S-005 is COMPLETE at E-034; S-004 is COMPLETE at E-036; S-006 is READY for final qualification. |
+| Per-slice readiness | S-001 is COMPLETE at E-028/E-038; S-002 at E-030; S-003 at E-032; S-005 at E-034; S-004 at E-036/E-039. S-006 is IN PROGRESS at E-040. |
 | Implementation authorization | Explicitly granted by the user's implementation request on 2026-10-24; evidence gates remain mandatory. |
-| Execution completion | NOT COMPLETE. WF-00–WF-04, WF-06 and WF-07 are complete; S-006 and V-001–009 final acceptance remain incomplete. |
+| Execution completion | NOT COMPLETE. Implementation workstreams and corrective checkpoints are complete; S-006 and V-001–009 final acceptance remain open. |
 | Session write boundary | The bounded cutover is authorized. The first execution edit updates this controlling tracker; subsequent edits and validation results are recorded at workstream checkpoints. |
 
 Handoff creation, baseline characterization, owner review, ownership qualification and scenario restructuring are complete. Fault retirement is complete. Specialized lifecycles are complete. Cohort qualification and S-006 final completion remain outstanding.

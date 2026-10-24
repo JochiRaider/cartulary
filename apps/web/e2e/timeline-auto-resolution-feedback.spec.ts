@@ -522,7 +522,8 @@ test("Timeline auto-resolution feedback retry Undo retains keyboard position thr
     await removeOwnedRoute(page, path, failFirst);
     const held = await holdBrowserRequest(page, {
       method: "POST",
-      path: "/api/v1/entity-mentions/*/resolve",
+      path: (path) =>
+        /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
     });
     {
       const retry = notice.getByRole("button", {
@@ -561,7 +562,7 @@ test("Timeline auto-resolution feedback owned Undo restores a visible source des
   const { notice, source } = await prepareUndoContinuity(page);
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
   {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
@@ -603,7 +604,7 @@ test("Timeline auto-resolution feedback owned Undo falls back when its source is
   ).toBeVisible();
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
   {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
@@ -649,7 +650,7 @@ test("Timeline auto-resolution feedback undo late acceptance cannot reclaim newe
     .toBeGreaterThan(2);
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
   {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
@@ -723,7 +724,7 @@ test("Timeline auto-resolution feedback undo late acceptance preserves same-row 
   const { notice, itemRef } = await prepareUndoContinuity(page);
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
   {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
@@ -758,7 +759,7 @@ test("Timeline auto-resolution feedback undo late acceptance preserves native sc
   const { notice, editing } = await prepareUndoContinuity(page, 48);
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
   {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
@@ -852,7 +853,7 @@ test("Timeline auto-resolution feedback undo late acceptance stays detached afte
   const { notice } = await prepareUndoContinuity(page);
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
   {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });

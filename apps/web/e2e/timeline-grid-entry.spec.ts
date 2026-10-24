@@ -1365,7 +1365,7 @@ test("Timeline first input creates once and retains typing through acknowledgeme
       const patchGate = holdDuplicate
         ? await holdBrowserRequest(page, {
             method: "PATCH",
-            path: "/api/v1/records/*",
+            path: (path) => /^\/api\/v1\/records\/[^/?]+$/u.test(path),
           })
         : null;
       {
@@ -1963,7 +1963,9 @@ test("Timeline conflict completion preserves a newer grouped draft and focus", a
     await expect(page.getByText("1 of 2", { exact: true })).toBeVisible();
     resolution = await holdBrowserRequest(page, {
       method: "POST",
-      path: `/api/v1/records/${first}/conflicts/*/resolve`,
+      path: (path) =>
+        path.startsWith(`/api/v1/records/${first}/conflicts/`) &&
+        /^\/api\/v1\/records\/[^/?]+\/conflicts\/[^/?]+\/resolve$/u.test(path),
     });
     await page
       .getByTestId(workbookConflictControlTestId("merged-value"))
@@ -2031,7 +2033,9 @@ test("Timeline refreshed conflict stays with A while B keeps its grouped draft a
     await expect(page.getByText("1 of 2", { exact: true })).toBeVisible();
     resolution = await holdBrowserRequest(page, {
       method: "POST",
-      path: `/api/v1/records/${first}/conflicts/*/resolve`,
+      path: (path) =>
+        path.startsWith(`/api/v1/records/${first}/conflicts/`) &&
+        /^\/api\/v1\/records\/[^/?]+\/conflicts\/[^/?]+\/resolve$/u.test(path),
     });
     await page
       .getByTestId(workbookConflictControlTestId("merged-value"))

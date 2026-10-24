@@ -611,6 +611,48 @@ describe("owned request interception", () => {
     await f.scope.dispose();
   });
 
+  it("holds explicitly matched variable segments without matching adjacent routes or queries", async () => {
+    const f = await routedFixture();
+    const held = await holdBrowserRequest(f.page, {
+      method: "PATCH",
+      path: (path) => /^\/api\/v1\/records\/[^/?]+$/u.test(path),
+    });
+    expect(f.matches("https://example.test/api/v1/records/owned")).toBe(true);
+    expect(f.matches("https://example.test/api/v1/records/other")).toBe(true);
+    for (const path of [
+      "/api/v1/records/",
+      "/api/v1/records/owned/history",
+      "/api/v1/records/owned?mode=one",
+      "/api/v1/users/owned",
+    ]) {
+      expect(f.matches(`https://example.test${path}`)).toBe(false);
+    }
+    const handling = f.invoke();
+    expect(await held.waitForHit).toBe("released");
+    expect(held.hitCount()).toBe(1);
+    expect(f.route.continue).not.toHaveBeenCalled();
+    held.release();
+    await handling;
+    expect(f.route.continue).toHaveBeenCalledOnce();
+    await held.dispose();
+    await f.scope.dispose();
+  });
+
+  it("cancels an explicit path matcher without releasing its request", async () => {
+    const f = await routedFixture();
+    const held = await holdBrowserRequest(f.page, {
+      method: "PATCH",
+      path: (path) => /^\/owned\/[^/?]+$/u.test(path),
+    });
+    const handling = f.invoke();
+    await held.waitForHit;
+    await held.dispose();
+    await handling;
+    expect(f.route.abort).toHaveBeenCalledWith("aborted");
+    expect(f.route.continue).not.toHaveBeenCalled();
+    await f.scope.dispose();
+  });
+
   it("cancels an active handler and waits for its abort to settle", async () => {
     const f = await routedFixture();
     const abort = deferred<void>();

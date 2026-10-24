@@ -242,6 +242,7 @@
         "file": "apps/web/e2e/support/runtime/cleanup.test.ts",
         "titles": [
           "cancels an active handler and waits for its abort to settle",
+          "cancels an explicit path matcher without releasing its request",
           "cancels barriers before settling feature work, drains every owner, then closes and revokes",
           "cancels before a handler reaches its wait without dispatching delayed work",
           "closes a context acquired during disposal before resolving disposal",
@@ -250,6 +251,7 @@
           "continues every cleanup phase after synchronous and asynchronous failures with redacted diagnostics",
           "creates one distinct admin blueprint per parallel index",
           "delegates context options to the instrumented browser and owns secondary contexts",
+          "holds explicitly matched variable segments without matching adjacent routes or queries",
           "keeps early-close failure visible while still revoking sessions and disposing clients",
           "matches the exact path and query, releases once, and falls through for other methods",
           "owned request interception limits public errors to the exact method and path without consuming other requests",

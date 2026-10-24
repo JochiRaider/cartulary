@@ -96,16 +96,23 @@ export async function installOwnedRoute(
 
 export async function holdBrowserRequest(
   page: Page,
-  options: { method: string; path: string; once?: boolean },
+  options: {
+    method: string;
+    path: string | ((pathAndQuery: string) => boolean);
+    once?: boolean;
+  },
 ) {
   const scope = browserScopeFor(page);
   const hold = scope.barrier(page.context());
   const hit = scope.barrier(page.context());
   const expectedMethod = options.method.toUpperCase();
-  const expectedPath = options.path.startsWith("/")
-    ? options.path
-    : `/${options.path}`;
-  const pattern = (url: URL) => `${url.pathname}${url.search}` === expectedPath;
+  // Concrete paths are exact; callers with variable route segments explicitly
+  // bound those segments instead of relying on implicit URL-glob semantics.
+  const matchesPath =
+    typeof options.path === "string"
+      ? (pathAndQuery: string) => pathAndQuery === options.path
+      : options.path;
+  const pattern = (url: URL) => matchesPath(`${url.pathname}${url.search}`);
   let matchingHitCount = 0;
   const route = await installOwnedRoute(
     page,
