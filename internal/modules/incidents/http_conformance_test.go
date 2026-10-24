@@ -211,6 +211,16 @@ func requirePublicRouteInventoryEnvelopes(t *testing.T, routes []routeinventory.
 		route := route
 		t.Run(route.Name, func(t *testing.T) {
 			fixtureCtx := newRouteFixture(t, "incident_membership-public-"+route.Name)
+			if route.RequiresCSRF {
+				fixture := fixtureCtx.routeFixture(route.Name)
+				url := fixtureCtx.harness.Server.HTTP.URL + routeinventory.BuildPath(route.Template, fixture)
+				body := route.Body(fixture)
+				anonymous := httptestx.DoJSON(t, route.Method, url, body)
+				httptestx.RequireErrorEnvelope(t, anonymous, http.StatusUnauthorized, "session_required")
+				missingCSRF := httptestx.DoJSON(t, route.Method, url, body,
+					httptestx.WithCookies(fixtureCtx.adminLogin.SessionCookie, fixtureCtx.adminLogin.CSRFCookie))
+				httptestx.RequireErrorEnvelope(t, missingCSRF, http.StatusForbidden, "csrf_verification_failed")
+			}
 			resp := executeRouteRequest(
 				t,
 				fixtureCtx.harness.Server.HTTP.URL,

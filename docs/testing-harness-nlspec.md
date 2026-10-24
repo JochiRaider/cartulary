@@ -281,8 +281,18 @@ diagnostics, never authored completeness targets.
 Tier selection MUST precede unit construction and readiness dependency expansion.
 An excluded row MUST NOT introduce readiness work; dependencies of selected
 consumers remain required. Direct backend and owner selections are not filtered
-by aggregate tiers. Consolidation MUST retain every required behavior, fixture,
-runner, isolation and evidence context under a named surviving catalog boundary.
+by aggregate tiers. Consolidation and reviewed changes of test layer MUST retain every required
+behavioral assurance under named surviving catalog boundaries. Runner and fixture
+semantics MAY change when they are unnecessary for that assurance. The coverage
+map MUST identify evidence successors and the additional failure modes retained
+at assembled HTTP, browser and rendering layers.
+
+Visual fixture registry validation is one service-free Node operation owned by
+`web.design`, selected in the fast gate and exactly once as a visual-suite
+prerequisite. It validates fixture identity, metadata completeness, design mappings,
+capture declarations and implementation-only fixtures, retaining both metadata
+evidence payloads. Rendering, screenshot, layout and focus assertions remain
+explicit visual work. Registry validation acquires no application or browser stack.
 
 The four aggregate policies are closed:
 
@@ -305,8 +315,9 @@ Policy, packaging, and release units are selected by aggregate policy and MUST
 NOT masquerade as product test rows. An omitted owner slice selects the complete
 active owner inventory. An explicit row slice selects exactly its valid active
 rows and is not tier-filtered. Removing a row requires an owner-backed
-redundancy record naming the surviving row and proving equivalent behavior,
-runner, fixture, and evidence semantics.
+coverage record naming its surviving rows, preserved assertions, evidence payloads
+and applicability limits. Retired identifiers have no runtime aliases. Static
+metadata evidence MUST NOT claim browser execution or rendering.
 Verified by: TH-HARNESS-AC-082
 
 **TH-HARNESS-REQ-801**

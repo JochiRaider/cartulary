@@ -134,6 +134,7 @@ function boundedGoClaims(claims, requestedParallelism, availablePostgresLanes) {
 }
 
 function policyEvidenceOutputs(target) {
+  if (target === "visual-registry-check") return ["visual-registry/visual-fixture-matrix.json", "visual-registry/visual-registry-metadata.json"];
   if (target === "test-evidence-audit") return ["test-evidence-audit/audit.json"];
   if (target === "build-web" || target === "build-web-measurement") {
     return [`${target}/frontend-artifact.json`];
@@ -165,7 +166,8 @@ function rowUnit(row, target, owner, topology, needs, runtimeEnvironment) {
     service_dependencies: row.service_dependencies,
     cache_policy: rowCachePolicy(row),
     timeout_ms: owner.default_timeout_ms,
-    current_run_evidence_outputs: [`rows/${row.row_id}.json`],
+    current_run_evidence_outputs: [`rows/${row.row_id}.json`,
+      ...(row.runner === "shell" ? policyEvidenceOutputs(operationDefinition(owner, row.selector.operation_id).report_key) : [])].sort(compareASCII),
     row_bindings: [{ row_id: row.row_id, runner: row.runner }],
     failure_policy: {
       block_descendants: true,
@@ -453,8 +455,12 @@ export class WorkGraphCompiler {
     }
     const browserUnits = selectedBrowserStages.flatMap((stage) => {
       const graph = compileBrowserStageGraph(this.root, this.owner, stage, { mode: browserMode, catalog: this.catalog, maxLanes: this.browserLaneLimit });
-      const prerequisites = [...new Set(stage.groups.flatMap((group) => group.selectedRowIDs)
-        .flatMap((rowID) => needsForRow(this.catalog.rowByID.get(rowID))))].sort(compareASCII);
+      const registry = "web.design.static.visual_fixture_registry";
+      const prerequisites = [...new Set([
+        ...stage.groups.flatMap((group) => group.selectedRowIDs)
+          .flatMap((rowID) => needsForRow(this.catalog.rowByID.get(rowID))),
+        ...(stage.name === "visual" && rows.some((row) => row.row_id === registry) ? [`row:${registry}`] : []),
+      ])].sort(compareASCII);
       return graph.units.map((unit) => unit.needs.length === 0 ? { ...unit, needs: prerequisites } : unit);
     });
     return this.buildGraph([

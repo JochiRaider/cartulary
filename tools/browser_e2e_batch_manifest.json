@@ -4292,9 +4292,7 @@
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
-            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
-            "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
-            "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
+            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
           ],
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"
@@ -5635,9 +5633,7 @@
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
-            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
-            "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
-            "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
+            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
           ],
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"
@@ -7725,9 +7721,7 @@
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
-            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
-            "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
-            "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878"
+            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
           ],
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"

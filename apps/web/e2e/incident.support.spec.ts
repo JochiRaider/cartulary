@@ -34,25 +34,6 @@ test("supports route-owned incident validation errors through browser-authentica
       headers: await csrfHeaders(page),
       data: {
         client_txn_id: uniqueTxn(
-          "incident_membership-support-invalid-create-memberships",
-        ),
-        incident_key: uniqueIncidentKey("S204INVALID"),
-        title: "Invalid create",
-        initial_memberships: [],
-      },
-    }),
-    "invalid_incident_create",
-    {
-      field: "initial_memberships",
-      reason_code: "collaborator_seeding_not_supported",
-    },
-  );
-
-  await expectAPIError(
-    await page.request.post(`${apiBase}/api/v1/incidents`, {
-      headers: await csrfHeaders(page),
-      data: {
-        client_txn_id: uniqueTxn(
           "incident_membership-support-invalid-create-unknown",
         ),
         incident_key: uniqueIncidentKey("S204UNKNOWN"),
@@ -79,21 +60,6 @@ test("supports route-owned incident validation errors through browser-authentica
     {
       field: "title",
       reason_code: "forbidden_field",
-    },
-  );
-
-  await expectAPIError(
-    await page.request.patch(`${apiBase}/api/v1/incidents/${incidentId}`, {
-      headers: await csrfHeaders(page),
-      data: {
-        base_incident_version: 1,
-        unknown: "field",
-      },
-    }),
-    "invalid_incident_patch",
-    {
-      field: "unknown",
-      reason_code: "unknown_field",
     },
   );
 });

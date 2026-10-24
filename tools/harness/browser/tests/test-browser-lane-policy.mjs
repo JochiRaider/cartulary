@@ -182,11 +182,14 @@ test("explicit-only rows stay outside aggregates and broad selections", () => {
   }
   assert.throws(() => compiler.compileCommand("browser-e2e", { SUITE: "all" }));
   const visual = rowIDs(compiler.compileCommand("browser-e2e", { SUITE: "visual" }).graph);
-  assert.equal(visual.length, 49);
-  assert.equal(new Set(visual).size, 49);
+  const registry = "web.design.static.visual_fixture_registry";
+  assert.equal(visual.length, 48);
+  assert.equal(new Set(visual).size, 48);
+  assert.equal(visual.filter((id) => id === registry).length, 1);
   const snapshots = rowIDs(compiler.compileCommand("browser-e2e-visual-update", {}).graph);
-  assert.equal(snapshots.length, 44);
-  assert.ok(snapshots.every((id) => compiler.catalog.rowByID.get(id).selector.stage === "visual"));
+  assert.equal(snapshots.length, 43);
+  assert.ok(snapshots.every((id) => id === registry || compiler.catalog.rowByID.get(id).selector.stage === "visual"));
+  assert.equal(snapshots.filter((id) => id === registry).length, 1);
   const review = compiler.compileCommand("harness-contract", { SUITE: "ui-review" }).graph;
   assert.equal(rowIDs(review).filter((id) => excluded.some((row) => row.row_id === id)).length, 9);
   const native = review.units.find((unit) => unit.row_bindings?.some((row) => row.row_id === "harness.browser.unit.native_review"));

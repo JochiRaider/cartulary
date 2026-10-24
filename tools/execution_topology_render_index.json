@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:5eb951d9dde7739392a386d8857a45f03e0b670df0ba52bc6c0dc544de9ba546",
+  "input_digest": "sha256:23c298199295a757ab9dd3732e50bd5d764a4206cce3e81aeba3c29b92807ed9",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -397,7 +397,7 @@
     {
       "path": "contracts/verification/owners/web.design.json",
       "role": "verification_owner_contract",
-      "hash": "sha256:ff4a6c063b147a197f80e22e9de7c0fecb5b41d56ff968627a7ddd85e5e57a3b"
+      "hash": "sha256:dd0cccc3f381cfbaedcdedd5b4ad821529ab1d2c3b7a86515e36f514ee894739"
     },
     {
       "path": "contracts/verification/owners/web.networkflow.json",
@@ -768,6 +768,11 @@
       "path": "tools/harness/browser/ui-review/work-policy.mjs",
       "role": "renderer_source",
       "hash": "sha256:befb6d7a4cab237cf5e1ab280dccc7ae8d3cd14c32351f2c4bec962ec67330fc"
+    },
+    {
+      "path": "tools/harness/browser/visual-registry-check.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:5db7ec8f6fba99f0c8c599d177b8bc6d3f70077c57c4a9e913b29acf440aa2d1"
     },
     {
       "path": "tools/harness/browser/visual-renderer-lease.mjs",
@@ -1197,7 +1202,7 @@
     {
       "path": "tools/harness/scheduler/work-graph/compiler.mjs",
       "role": "renderer_source",
-      "hash": "sha256:5d612a010a4341859b86004eb05d927b05b91fc58ca2a8179aef0ea0df1f5d71"
+      "hash": "sha256:008d0737c187f636f635005916ff41517eb8d27c9d0f6149a383944566ad9667"
     },
     {
       "path": "tools/harness/scheduler/work-graph/index.mjs",
@@ -1687,7 +1692,7 @@
     {
       "path": "tools/test_families/web.design.json",
       "role": "test_family_manifest",
-      "hash": "sha256:1dd06f1db12b528f408ba2e52f865d5efeb788781f20eec86b001dc075db39d7"
+      "hash": "sha256:40203133d0a3f869488ecfbadbbabc41636b3cb72b83cfbba281a913250af844"
     },
     {
       "path": "tools/test_families/web.networkflow.json",
@@ -1706,7 +1711,7 @@
     }
   ],
   "outputs": {
-    "tools/browser_e2e_batch_manifest.json": "sha256:0841e3a49b763fd6273bd2dfa7aa5c68f265168d901fc92c254837c90b9c8565",
+    "tools/browser_e2e_batch_manifest.json": "sha256:d9397fb39c2e07d4d06ec64627653a1fb36139ab813c8b8777d8f2bd89fd5b3a",
     "tools/scheduler_manifest.json": "sha256:e0a6b0776d9b0a783d99264afa25a10636cec566aeb8d44f52580b6131eb5e4d",
     "tools/task_surface_manifest.json": "sha256:c9194180a65796fe83356d959bc30975e9a58d276526c54824f3bb8489fa0e26",
     "tools/task_surface.generated.mk": "sha256:d0ca04d29b295a1f5e3270a199fa934a504154cea66055765588514769571dbd",

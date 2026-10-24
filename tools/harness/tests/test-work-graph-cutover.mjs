@@ -368,6 +368,9 @@ function assertGraphCutover() {
   assert.deepEqual(packed.map((cohort) => [cohort.cost, cohort.items.map((item) => item.id)]), [[90, ["a", "c"]], [65, ["b"]]]);
   assert.deepEqual(packInvocationCohorts([{ id: "oversized", cost: 100 }], policy, 90).map((cohort) => cohort.cost), [115]);
   assert.deepEqual(packInvocationCohorts([], policy, 90), []);
+  const metadata = compiler.compileRows(["web.design.static.visual_fixture_registry"]);
+  assert.ok(metadata.units.every((unit) => unit.fixture_lease === "none" && unit.service_dependencies.length === 0));
+  assert.equal(metadata.units.length, 1, "static registry validation starts only its Node operation");
   const topology = JSON.parse(
     readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"),
   );

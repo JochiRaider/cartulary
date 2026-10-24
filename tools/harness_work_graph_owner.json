@@ -169,6 +169,9 @@
       },
       {
         "row_id": "harness.browser.boundary_support.visual_presentation_profiles"
+      },
+      {
+        "row_id": "web.design.static.visual_fixture_registry"
       }
     ],
     "harness.suite_browser_support": [
@@ -519,6 +522,9 @@
             "visual"
           ]
         }
+      },
+      {
+        "row_id": "web.design.static.visual_fixture_registry"
       }
     ]
   },
@@ -5992,6 +5998,20 @@
           "--test",
           "tools/harness/browser/tests/test-browser-lane-policy.mjs"
         ],
+        "test_target": "self"
+      },
+      "kind": "policy"
+    },
+    "harness.visual_registry_check": {
+      "report_key": "visual-registry-check",
+      "execution": {
+        "type": "step_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "node",
+        "script": "tools/harness/browser/visual-registry-check.mjs",
+        "args": [],
         "test_target": "self"
       },
       "kind": "policy"

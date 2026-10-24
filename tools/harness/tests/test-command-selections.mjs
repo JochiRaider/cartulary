@@ -83,15 +83,21 @@ test("owner and suite selection rejects conflicts and preserves support evidence
     (error) => error.exit_code === 2 && error.failure_reason === "usage_error");
 });
 
-test("browser selection requires a suite and directly selects every suite row", () => {
+test("browser selection requires a suite and selects its rows and static prerequisites exactly once", () => {
   const compiler = new WorkGraphCompiler(root);
   const variants = Object.fromEntries(["functional", "stateful", "measurement", "accessibility", "visual", "support"].map((name) => [name, `harness.suite_browser_${name}`]));
   bind(compiler, "browser-e2e", "SUITE", variants, { input: { required: true } });
   assert.throws(() => resolveCommandInputs("browser-e2e", {}, compiler.taskSurface), /required/u);
   for (const suite of Object.keys(variants)) {
-    const selected = rows(compiler.compileCommand("browser-e2e", { SUITE: suite }).graph);
+    const graph = compiler.compileCommand("browser-e2e", { SUITE: suite }).graph;
+    const selected = rows(graph);
     const stage = suite === "functional" ? "webserver_backed" : suite;
     const expected = compiler.catalog.rows.filter((row) => suite === "visual" ? row.aggregate_placement === "explicit_only" && (row.evidence_class === "visual" || row.row_id.includes(".visual_")) : row.runner === "playwright" && row.selector.stage === stage && row.aggregate_placement !== "explicit_only").map((row) => row.row_id).sort();
+    if (suite === "visual") {
+      const registry = "web.design.static.visual_fixture_registry";
+      expected.push(registry); expected.sort();
+      assert.equal(graph.units.filter((unit) => unit.row_bindings.some((row) => row.row_id === registry)).length, 1);
+    }
     assert.deepEqual(selected, expected);
   }
 });

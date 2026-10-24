@@ -774,6 +774,30 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "web.design.static.visual_fixture_registry",
+      "owner_id": "web.design",
+      "family_id": "web.design.static",
+      "collaborator_ids": [
+        "harness.browser"
+      ],
+      "verification_ids": [
+        "web.design.verification.readiness_direction"
+      ],
+      "runner": "shell",
+      "selector": {
+        "operation_id": "harness.visual_registry_check"
+      },
+      "evidence_class": "static",
+      "runtime_profile_id": "none",
+      "resource_profile_id": "standard",
+      "claim_posture": "informative",
+      "status": "active",
+      "fixture_capability": "none",
+      "aggregate_placement": "fast",
+      "service_dependencies": [],
+      "postgres_isolation": "none"
+    },
+    {
       "row_id": "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
       "owner_id": "web.design",
       "family_id": "web.design.visual",
@@ -913,44 +937,6 @@
         ],
         "titles": [
           "Capture exposed dark_graphite token and theme states with deterministic density, color, component, focus, and semantic-state samples."
-        ]
-      },
-      "evidence_class": "visual",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
-      "claim_posture": "informative",
-      "status": "active",
-      "fixture_capability": "browser_stack",
-      "aggregate_placement": "explicit_only",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "browser_state_scope": "test_owned",
-      "postgres_isolation": "exclusive"
-    },
-    {
-      "row_id": "web.design.visual.ensure_the_visual_fixture_matrix_includes_defaul_979c589967",
-      "owner_id": "web.design",
-      "family_id": "web.design.visual",
-      "collaborator_ids": [
-        "harness.browser",
-        "harness.visual",
-        "web.workbook"
-      ],
-      "verification_ids": [
-        "web.design.verification.readiness_direction"
-      ],
-      "runner": "playwright",
-      "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
-        "project_id": "chromium",
-        "stage": "visual",
-        "scenario_ids": [
-          "scenario_5fea7ee59303"
-        ],
-        "titles": [
-          "Ensure the visual fixture matrix maps every design contract exactly once and retains implementation-only workbook, collaboration, evidence, entity, coordination, and grid-adapter fixtures."
         ]
       },
       "evidence_class": "visual",
@@ -1240,44 +1226,6 @@
         "postgres"
       ],
       "browser_state_scope": "isolated",
-      "postgres_isolation": "exclusive"
-    },
-    {
-      "row_id": "web.design.visual.run_the_owned_stack_playwright_visual_suite_with_9b08711878",
-      "owner_id": "web.design",
-      "family_id": "web.design.visual",
-      "collaborator_ids": [
-        "harness.browser",
-        "harness.visual",
-        "web.workbook"
-      ],
-      "verification_ids": [
-        "web.design.verification.readiness_direction"
-      ],
-      "runner": "playwright",
-      "selector": {
-        "file": "apps/web/e2e/workbook.visual.spec.ts",
-        "project_id": "chromium",
-        "stage": "visual",
-        "scenario_ids": [
-          "scenario_1a05ce26b939"
-        ],
-        "titles": [
-          "Run the owned-stack Playwright visual suite with deterministic seed data, viewport, zoom, fixture ordering, dynamic masks, scroll anchors, focus/editor state, inspector state, and post-scroll settle behavior."
-        ]
-      },
-      "evidence_class": "visual",
-      "runtime_profile_id": "default",
-      "resource_profile_id": "browser_isolated",
-      "claim_posture": "informative",
-      "status": "active",
-      "fixture_capability": "browser_stack",
-      "aggregate_placement": "explicit_only",
-      "service_dependencies": [
-        "object_store",
-        "postgres"
-      ],
-      "browser_state_scope": "test_owned",
       "postgres_isolation": "exclusive"
     }
   ]
