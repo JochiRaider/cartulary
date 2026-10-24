@@ -419,6 +419,42 @@ describe("Saved graph recovery boundaries", () => {
     expect(owner.getSnapshot().selectedGraphViewId).toBe(b.graph_view_id);
   });
 
+  it("completes explicit conflict review through a superseding authorized graph or list read", async () => {
+    for (const refresh of ["graph", "list"] as const) {
+      const { owner, transport, a } = await setup();
+      owner.openAction("rename");
+      owner.setDraft("Retained draft");
+      transport.receipt.mockRejectedValueOnce(
+        failure("network_flow_graph_view_version_conflict", 409),
+      );
+      await owner.submit();
+      const stale = deferredSavedGraph<NetworkFlowSavedGraph>();
+      transport.get.mockReturnValueOnce(stale.promise);
+      const reviewing = owner.reviewCurrent();
+      const current = {
+        ...a,
+        display_name: "Remote graph",
+        graph_view_version: 2,
+      };
+      transport.get.mockResolvedValue(current);
+      transport.list.mockResolvedValue([current]);
+      const refreshing =
+        refresh === "graph"
+          ? owner.reconcileGraph(a.graph_view_id)
+          : owner.loadGraphs();
+      stale.resolve(a);
+      await Promise.all([reviewing, refreshing]);
+      expect(owner.getSnapshot().operation?.phase).toBe("preparing");
+      expect(owner.getSnapshot().operation?.intent.target).toMatchObject({
+        graph_view_id: a.graph_view_id,
+        display_name: "Remote graph",
+        graph_view_version: 2,
+      });
+      expect(owner.getSnapshot().operation?.draft).toBe("Retained draft");
+      expect(transport.submit).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it("fences conflict review after retirement without resurrecting a declaration", async () => {
     const { owner, transport, a } = await setup();
     owner.openAction("rename");

@@ -984,19 +984,24 @@ export class SavedGraphController {
     if (op?.phase !== "awaiting_review" || scope === null || transport === null)
       return;
     try {
+      const observed =
+        op.intent.target === null ||
+        (await this.observeGraphForReview(op, scope));
       const graph =
         op.intent.target === null
           ? null
-          : await this.readGraph(op.intent.target.graph_view_id);
+          : (this.state.graphs.find(
+              (value) =>
+                value.graph_view_id === op.intent.target?.graph_view_id,
+            ) ?? null);
       if (
+        !observed ||
         this.state.operation !== op ||
         !this.current(scope) ||
         (op.intent.target !== null &&
           (graph === null ||
             this.retired.has(op.intent.target.graph_view_id) ||
-            this.state.graphs.find(
-              (g) => g.graph_view_id === graph.graph_view_id,
-            ) !== graph))
+            this.invalidatedGraphs.has(op.intent.target.graph_view_id)))
       )
         return;
       const intent = captureSavedGraphIntent(
@@ -1036,6 +1041,61 @@ export class SavedGraphController {
         });
     }
   };
+  private async observeGraphForReview(
+    operation: SavedGraphOperation,
+    scope: SavedGraphAuthority,
+  ): Promise<boolean> {
+    const graphId = operation.intent.target?.graph_view_id;
+    if (graphId === undefined) return false;
+    const previous = this.state.graphs.find(
+      (graph) => graph.graph_view_id === graphId,
+    );
+    let unsubscribe = () => {};
+    try {
+      // Refreshes may supersede the transport read without cancelling the user's
+      // review. Observe an accepted replacement through the same state owner.
+      return await boundedRead(
+        () =>
+          new Promise<boolean>((resolve, reject) => {
+            const changed = () => {
+              if (
+                this.state.operation !== operation ||
+                !this.current(scope) ||
+                this.retired.has(graphId)
+              ) {
+                resolve(false);
+                return;
+              }
+              const graph = this.state.graphs.find(
+                (value) => value.graph_view_id === graphId,
+              );
+              if (
+                graph !== undefined &&
+                graph !== previous &&
+                !this.invalidatedGraphs.has(graphId)
+              )
+                resolve(true);
+            };
+            unsubscribe = this.subscribe(changed);
+            void this.readGraph(graphId).then((graph) => {
+              changed();
+              if (graph !== null) resolve(true);
+              if (
+                graph === null &&
+                !this.graphRequests.has(graphId) &&
+                this.listRequest === null
+              )
+                resolve(false);
+            }, reject);
+          }),
+        new AbortController().signal,
+        30_000,
+        this.options.clock,
+      );
+    } finally {
+      unsubscribe();
+    }
+  }
   private stopObservations(): void {
     for (const stop of this.observations.values()) stop.abort();
     this.observations.clear();

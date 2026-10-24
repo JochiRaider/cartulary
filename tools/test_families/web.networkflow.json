@@ -1410,6 +1410,7 @@
         "file": "apps/web/src/networkFlow/SavedGraphRecovery.node.test.ts",
         "titles": [
           "Saved graph recovery boundaries accepts a late original receipt after replay denial without installing the historical binding",
+          "Saved graph recovery boundaries completes explicit conflict review through a superseding authorized graph or list read",
           "Saved graph recovery boundaries fences conflict review after retirement without resurrecting a declaration",
           "Saved graph recovery boundaries keeps authorized contributor context during transport failure and withdraws only its invalidated binding",
           "Saved graph recovery boundaries preserves typed job read failures without treating missing jobs as lost incident access",

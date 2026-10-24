@@ -3990,6 +3990,11 @@ until resolved; matching display names never prove success. A changed intent
 after definite rejection or reviewed conflict gets a new ID. Drafts survive
 dialog closure. Acknowledged writes remain acknowledged when follow-up reads
 fail. Current-state review is mandatory before retrying a version conflict.
+An explicit current-state review MUST survive a concurrent declaration or list
+refresh that supersedes its read: it may use the next accepted current observation
+of the same captured graph within the existing 30-second read deadline. It MUST
+NOT retarget, survive a changed operation or authority, resurrect a retired graph,
+or dispatch a write. Failure to obtain that observation leaves review required.
 
 **NF-REQ-207**
 
