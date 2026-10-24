@@ -646,15 +646,15 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "io_heavy",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.reference_data.integration.reference_pack_upload_envelope_failures_create_n_710dd1d70f",

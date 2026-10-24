@@ -6,14 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/jackc/pgx/v5"
 )
 
 func TestIncidentBundleStorageReferenceHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.OpenIsolatedDatabaseT(t, "incident-bundle-storage-reference-head", postgres.PurposeRecovery)
+	db := harness.BeginRollbackDBT(t, "incident-bundle-storage-reference-head")
 	ctx := context.Background()
+	if _, err := db.Exec(ctx, `SET LOCAL ROLE cartulary_recovery`); err != nil {
+		t.Fatal(err)
+	}
 
 	for table, columns := range map[string][]string{
 		"incident_bundle_exports":      {"bundle_storage_ref"},
@@ -21,7 +24,7 @@ func TestIncidentBundleStorageReferenceHeadSchemaContract_Integration(t *testing
 	} {
 		for _, column := range columns {
 			var count int
-			if err := db.QueryRowContext(ctx, `
+			if err := db.QueryRow(ctx, `
 SELECT count(*)
   FROM information_schema.columns
  WHERE table_schema = 'public'
@@ -41,7 +44,7 @@ SELECT count(*)
 		"incident_bundle_job_payloads": "bundle_staging_path",
 	} {
 		var count int
-		if err := db.QueryRowContext(ctx, `
+		if err := db.QueryRow(ctx, `
 SELECT count(*)
   FROM information_schema.columns
  WHERE table_schema = 'public'
@@ -55,11 +58,15 @@ SELECT count(*)
 		}
 	}
 
-	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
+	if _, err := db.Exec(ctx, `SET LOCAL session_replication_role = replica`); err != nil {
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 7, 25, 0, 0, 0, 0, time.UTC)
-	_, exportErr := db.ExecContext(ctx, `
+	exportTx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, exportErr := exportTx.Exec(ctx, `
 INSERT INTO incident_bundle_exports (
     bundle_id, incident_id, export_job_id, exported_by_user_id, exported_at,
     manifest_sha256, reference_pack_mode, bundle_sha256, bundle_byte_size,
@@ -72,10 +79,17 @@ INSERT INTO incident_bundle_exports (
     $1, repeat('a', 64), 'refs_only', repeat('b', 64), 0, '/host/absolute.zip', $1
 )
 `, now)
+	if err := exportTx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if exportErr == nil || !strings.Contains(exportErr.Error(), "incident_bundle_exports_storage_ref_ck") {
 		t.Fatalf("absolute export reference must fail lexical check, got %v", exportErr)
 	}
-	_, stagingErr := db.ExecContext(ctx, `
+	stagingTx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, stagingErr := stagingTx.Exec(ctx, `
 INSERT INTO incident_bundle_job_payloads (
     job_id, job_kind, actor_user_id, incident_id, bundle_staging_ref,
     request_json, created_at, updated_at
@@ -88,6 +102,9 @@ INSERT INTO incident_bundle_job_payloads (
     '{}'::jsonb, $1, $1
 )
 `, now)
+	if err := stagingTx.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if stagingErr == nil || !strings.Contains(stagingErr.Error(), "incident_bundle_job_payloads_staging_ref_ck") {
 		t.Fatalf("traversing staging reference must fail lexical check, got %v", stagingErr)
 	}

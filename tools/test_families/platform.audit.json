@@ -35,6 +35,38 @@
       "postgres_isolation": "exclusive"
     },
     {
+      "row_id": "platform.audit.store.immutable_projection_rollback",
+      "owner_id": "platform.audit",
+      "family_id": "platform.audit.store",
+      "collaborator_ids": [
+        "module.auth",
+        "module.incidents",
+        "module.recovery",
+        "platform.postgres"
+      ],
+      "verification_ids": [
+        "platform.audit.verification.transactional_immutable_persistence"
+      ],
+      "runner": "go",
+      "selector": {
+        "package": "./internal/platform/administrativeaudit",
+        "tests": [
+          "TestAdministrativeAuditProjectionStore_Integration"
+        ]
+      },
+      "evidence_class": "integration",
+      "runtime_profile_id": "default",
+      "resource_profile_id": "standard",
+      "claim_posture": "implementation",
+      "status": "active",
+      "fixture_capability": "postgres_transaction",
+      "aggregate_placement": "full",
+      "service_dependencies": [
+        "postgres"
+      ],
+      "postgres_isolation": "shared"
+    },
+    {
       "row_id": "platform.audit.unit.contract_and_safe_projection",
       "owner_id": "platform.audit",
       "family_id": "platform.audit.unit",
@@ -51,6 +83,7 @@
           "TestAdministrativeAuditContractMatchesImplementation",
           "TestAdministrativeAuditHTTPListContractIsScopeCorrectAndNormalized",
           "TestAdministrativeAuditRawProjectionPairMustMatch",
+          "TestAdministrativeAuditRecoveryContribution",
           "TestAdministrativeAuditValidationSortsAndRejectsUnsafeChanges",
           "TestProductionAuditWritesUseAdministrativeAuditBoundary"
         ]

@@ -64,7 +64,7 @@ type ProjectionServicesFactory func(postgres.DB) (restorecontract.ProjectionRebu
 type GraphProjectionRestoreFactory func(postgres.DB) (restorecontract.GraphProjectionParticipant, error)
 type EvidenceRecoveryProviderFactory func(postgres.DB) recovery.EvidenceRecoveryProvider
 type FailureEvidenceProjector func(FailureKind) (code string, reasonCode string)
-type RecoveryStateCoverageValidator func(context.Context, PostgresPool, *recoverystate.Catalog) error
+type RecoveryStateCoverageValidator func(context.Context, postgres.DB, *recoverystate.Catalog) error
 type VNextCaptureFactory func(
 	PostgresPool,
 	objectstore.Store,

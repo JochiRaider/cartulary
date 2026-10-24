@@ -24,6 +24,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	dockercontainer "github.com/moby/moby/api/types/container"
@@ -1609,22 +1610,50 @@ SELECT EXISTS (
 
 func TestBeginRollbackDBTIsolatesRowsPerTransaction(t *testing.T) {
 	harness := Start(t)
+	var originalRole, originalReplicationRole string
 
 	t.Run("insert rows inside rollback fixture", func(t *testing.T) {
 		db := harness.BeginRollbackDBT(t, "rollback-db")
+		if err := db.QueryRow(context.Background(), `SELECT current_user, current_setting('session_replication_role')`).Scan(&originalRole, &originalReplicationRole); err != nil {
+			t.Fatalf("read initial transaction roles: %v", err)
+		}
 		if _, err := db.Exec(context.Background(), `INSERT INTO users (email, display_name, password_hash, mfa_required) VALUES ($1, $2, $3, false)`, "rollback@example.test", "Rollback", "hash"); err != nil {
 			t.Fatalf("seed rollback transaction: %v", err)
+		}
+		// A committed nested transaction is only a released savepoint. Its writes
+		// and transaction-local roles must not survive the outer fixture rollback.
+		nested, err := db.BeginTx(context.Background(), pgx.TxOptions{})
+		if err != nil {
+			t.Fatalf("begin nested transaction: %v", err)
+		}
+		if _, err := nested.Exec(context.Background(), `INSERT INTO users (email, display_name, password_hash, mfa_required) VALUES ($1, $2, $3, false)`, "nested-rollback@example.test", "Nested rollback", "hash"); err != nil {
+			t.Fatalf("seed nested transaction: %v", err)
+		}
+		if err := nested.Commit(context.Background()); err != nil {
+			t.Fatalf("commit nested savepoint: %v", err)
+		}
+		for _, statement := range []string{`SET LOCAL ROLE cartulary_recovery`, `SET LOCAL session_replication_role = replica`} {
+			if _, err := db.Exec(context.Background(), statement); err != nil {
+				t.Fatalf("set transaction-local state: %v", err)
+			}
 		}
 	})
 
 	t.Run("next rollback fixture starts clean", func(t *testing.T) {
 		db := harness.BeginRollbackDBT(t, "rollback-db")
 		var count int
-		if err := db.QueryRow(context.Background(), `SELECT COUNT(*) FROM users WHERE email = $1`, "rollback@example.test").Scan(&count); err != nil {
+		if err := db.QueryRow(context.Background(), `SELECT COUNT(*) FROM users WHERE email IN ($1, $2)`, "rollback@example.test", "nested-rollback@example.test").Scan(&count); err != nil {
 			t.Fatalf("count rollback rows: %v", err)
 		}
 		if count != 0 {
 			t.Fatalf("expected rollback fixture to discard rows, got %d", count)
+		}
+		var role, replicationRole string
+		if err := db.QueryRow(context.Background(), `SELECT current_user, current_setting('session_replication_role')`).Scan(&role, &replicationRole); err != nil {
+			t.Fatalf("read next borrower's transaction roles: %v", err)
+		}
+		if role != originalRole || replicationRole != originalReplicationRole {
+			t.Fatalf("transaction-local state leaked: role=%q replication=%q", role, replicationRole)
 		}
 	})
 

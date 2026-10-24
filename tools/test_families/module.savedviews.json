@@ -575,15 +575,15 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "io_heavy",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.savedviews.integration.timestamp_saved_queries_preserve_precision_and_r_993e5032bf",

@@ -18,6 +18,7 @@ import (
 	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contractaudit"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/JochiRaider/cartulary/internal/platform/recoverystate"
 )
 
 func TestAdministrativeAuditHTTPListContractIsScopeCorrectAndNormalized(t *testing.T) {
@@ -222,4 +223,20 @@ func assertSameStrings(t testing.TB, got []string, want []string, label string) 
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("%s mismatch:\ngot  %v\nwant %v", label, got, want)
 	}
+}
+
+func TestAdministrativeAuditRecoveryContribution(t *testing.T) {
+	contribution := RecoveryStateContribution()
+	for _, table := range contribution.Tables {
+		if table.TableName != "administrative_audit_projections" {
+			continue
+		}
+		if contribution.OwnerID != "module.audit" || table.StateClass != recoverystate.StateAuthoritative ||
+			table.BackupInclusion != recoverystate.InclusionRequired || table.RestoreAction != recoverystate.RestoreState ||
+			table.CodecID == nil || *table.CodecID != recoverystate.PostgresUnitCodecID {
+			t.Fatal("administrative audit projections must be authoritative, required and restored with the current PostgreSQL unit codec")
+		}
+		return
+	}
+	t.Fatal("administrative audit projections are absent from the owner's Recovery contribution")
 }

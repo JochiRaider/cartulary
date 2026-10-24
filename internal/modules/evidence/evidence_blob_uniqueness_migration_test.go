@@ -2,9 +2,10 @@ package evidence_test
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -12,9 +13,12 @@ import (
 
 func TestEvidenceBlobAssociationHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.OpenIsolatedDatabaseT(t, "evidence-blob-association-head", postgres.PurposeRecovery)
+	db := harness.BeginRollbackDBT(t, "evidence-blob-association-head")
 	ctx := context.Background()
-	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
+	if _, err := db.Exec(ctx, `SET LOCAL ROLE cartulary_recovery`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `SET LOCAL session_replication_role = replica`); err != nil {
 		t.Fatal(err)
 	}
 	const (
@@ -24,7 +28,7 @@ func TestEvidenceBlobAssociationHeadSchemaContract_Integration(t *testing.T) {
 		incidentID   = "53000000-0000-4000-8000-000000000021"
 		actorID      = "53000000-0000-4000-8000-000000000031"
 	)
-	if _, err := db.ExecContext(ctx, `
+	if _, err := db.Exec(ctx, `
 INSERT INTO public.object_blobs (
     object_blob_id, incident_id, created_by_user_id, storage_key, upload_state,
     byte_size, observed_size, observed_content_type, observed_sha256_hex,
@@ -36,39 +40,46 @@ INSERT INTO public.object_blobs (
 `, blobID, incidentID, actorID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `
+	if _, err := db.Exec(ctx, `
 INSERT INTO public.evidence (
 	record_id, incident_id, title, lifecycle_state, upload_state, object_blob_id
 ) VALUES ($1, $2, 'first', 'received', 'available', $3)
 `, firstRecord, incidentID, blobID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `SET session_replication_role = origin`); err != nil {
+	if _, err := db.Exec(ctx, `SET LOCAL session_replication_role = origin`); err != nil {
 		t.Fatal(err)
 	}
 
 	requireEvidenceBlobIndexState(t, db, true, false)
-	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
+	if _, err := db.Exec(ctx, `SET LOCAL session_replication_role = replica`); err != nil {
 		t.Fatal(err)
 	}
-	_, err := db.ExecContext(ctx, `
+	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tx.Exec(ctx, `
 INSERT INTO public.evidence (
     record_id, incident_id, title, lifecycle_state, upload_state, object_blob_id
 ) VALUES ($1, $2, 'duplicate rejected', 'received', 'available', $3)
 `, secondRecord, incidentID, blobID)
+	if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+		t.Fatalf("settle uniqueness probe: %v", rollbackErr)
+	}
 	if err == nil || !strings.Contains(err.Error(), "evidence_object_blob_unique_idx") {
 		t.Fatalf("duplicate association error = %v, want evidence_object_blob_unique_idx", err)
 	}
 }
 
-func requireEvidenceBlobIndexState(t testing.TB, db *sql.DB, uniquePresent bool, supersededPresent bool) {
+func requireEvidenceBlobIndexState(t testing.TB, db postgres.DB, uniquePresent bool, supersededPresent bool) {
 	t.Helper()
 	for indexName, want := range map[string]bool{
 		"evidence_object_blob_unique_idx": uniquePresent,
 		"evidence_object_blob_idx":        supersededPresent,
 	} {
 		var present bool
-		if err := db.QueryRowContext(context.Background(), `
+		if err := db.QueryRow(context.Background(), `
 SELECT EXISTS (
     SELECT 1
       FROM pg_indexes

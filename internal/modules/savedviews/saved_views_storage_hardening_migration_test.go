@@ -5,15 +5,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
+	"github.com/jackc/pgx/v5"
 )
 
 func TestSavedViewsStorageHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.OpenIsolatedDatabaseT(t, "saved-views-storage-head", postgres.PurposeRecovery)
+	db := harness.BeginRollbackDBT(t, "saved-views-storage-head")
 	ctx := context.Background()
-	if _, err := db.ExecContext(ctx, `SET session_replication_role = replica`); err != nil {
+	if _, err := db.Exec(ctx, `SET LOCAL ROLE cartulary_recovery`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `SET LOCAL session_replication_role = replica`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -58,7 +61,11 @@ func TestSavedViewsStorageHeadSchemaContract_Integration(t *testing.T) {
 	}
 	for name, testCase := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := db.ExecContext(ctx, `
+			tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = tx.Exec(ctx, `
 INSERT INTO saved_views (
     saved_view_id, incident_id, view_schema_id, scope, display_name,
     query_json, layout_json, owner_user_id, saved_view_version,
@@ -79,6 +86,9 @@ $4, $5, $6, $7
 				testCase.createdAt,
 				testCase.updatedAt,
 			)
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+				t.Fatalf("settle constraint probe: %v", rollbackErr)
+			}
 			if err == nil || !strings.Contains(err.Error(), testCase.constraint) {
 				t.Fatalf("invalid row error = %v; want constraint %s", err, testCase.constraint)
 			}

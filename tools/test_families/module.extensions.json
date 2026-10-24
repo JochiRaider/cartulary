@@ -144,15 +144,15 @@
       },
       "evidence_class": "integration",
       "runtime_profile_id": "default",
-      "resource_profile_id": "io_heavy",
+      "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "standard",
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "module.extensions.integration.extension_coordination_state_and_staged_objects_5a1db013c5",

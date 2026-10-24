@@ -4,15 +4,17 @@ import (
 	"context"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
 func TestExtensionJobHeadSchemaContract_Integration(t *testing.T) {
 	harness := pgtest.Start(t)
-	db := harness.OpenIsolatedDatabaseT(t, "extension-job-head-contract", postgres.PurposeRuntime)
+	db := harness.BeginRollbackDBT(t, "extension-job-head-contract")
+	if _, err := db.Exec(context.Background(), `SET LOCAL ROLE cartulary_runtime`); err != nil {
+		t.Fatal(err)
+	}
 	var metadataColumns int
-	if err := db.QueryRowContext(context.Background(), `
+	if err := db.QueryRow(context.Background(), `
 SELECT count(*)
   FROM information_schema.columns
  WHERE table_schema = 'public'

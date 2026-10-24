@@ -1385,12 +1385,12 @@
       "resource_profile_id": "standard",
       "claim_posture": "implementation",
       "status": "active",
-      "fixture_capability": "postgres_dedicated",
+      "fixture_capability": "postgres_transaction",
       "aggregate_placement": "full",
       "service_dependencies": [
         "postgres"
       ],
-      "postgres_isolation": "exclusive"
+      "postgres_isolation": "shared"
     },
     {
       "row_id": "harness.browser.integration.managed_service_assertions_for_runtime_reset_rec_79940f98ab",
