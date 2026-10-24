@@ -431,6 +431,11 @@ settle the pending request and yield logical ownership within the existing clean
 allowance. Admitted active borrowers retain their exact pins until settlement.
 This is admission waiting, not a product retry.
 
+A prospective service reservation whose acquisition never began is not a running
+allocation. When its final consumer becomes terminal, the owner MUST release its
+pending residency proof without requesting physical drain admission. Attempted or
+uncertain acquisitions retain the normal admission and exact-cleanup requirements.
+
 An unstarted renderer slot is provisional logical ownership, not an established
 physical profile or trust generation. Compatible resident quantities MAY be reused
 when that slot is reassigned before any physical acquisition begins. Reassignment
@@ -8020,6 +8025,16 @@ different stage, a stale or mismatched digest, or an unrecognized path MUST fail
 before browser assertions. Artifact selection MUST come from authored topology,
 not target-name substring inference or a client query parameter. The ordinary
 application MUST NOT expose a debug route as a measurement compatibility path.
+
+Browser probes of independent frontend publication MUST use fresh public build
+invocation and artifact identities. They MUST retain the enclosing work unit's
+host-admission lease and CPU budget, rather than queue child builds against
+capacity already held by their waiting parent. Fresh identity does not require
+independent capacity ownership. Execution-result reuse policy MUST remain
+explicit. Each child process group MUST be registered with the existing native
+runtime owner and settled before fixture teardown; test failure or cancellation
+MUST stop those owned children before awaiting their completion. This does not
+enlarge browser, build, or cleanup deadlines.
 
 The frontend is ready only when the wrapper-started preview process group is still alive, the selected frontend port is owned by a process in that process group when listener process metadata is available, the frontend HTTP probe succeeds, the process group remains alive after the probe, and stack metadata records `frontend_mode="preview"` and `frontend_command_kind="vite-preview"`. A stale or unrelated listener MUST NOT satisfy browser readiness.
 

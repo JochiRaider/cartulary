@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 3,
-  "input_digest": "sha256:dbbcb73d16c534f759c59b26723b42e0c9c12833f1359ba0b3e85a59ffc5dfff",
+  "input_digest": "sha256:6f27d3acfd7901f6b8f1e4ffd642b8311ec2ddbd1535d1d6619ce1f04d667e6a",
   "inputs": [
     {
       "path": "contracts/performance/ac003.v2.json",
@@ -538,6 +538,11 @@
       "path": "tools/harness/browser/frontend-measurement-evidence.mjs",
       "role": "renderer_source",
       "hash": "sha256:2c0875919abba9ea22d77eac99ca59c96f49217ae3f61a60541e661834360c14"
+    },
+    {
+      "path": "tools/harness/browser/frontend-publication.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:1cf5e3bd54e40ce2f4102da8668826384c88def07361262c48cbb7b7f47a5f10"
     },
     {
       "path": "tools/harness/browser/frontend-visual-golden-manifest.mjs",

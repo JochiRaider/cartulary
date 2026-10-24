@@ -254,7 +254,8 @@ for (const death of ["parent", "both"]) test(`${death} supervisor death permits 
   const origin = `http://127.0.0.1:${server.address().port}`;
   const mode = death === "both" ? ["UI_MODE=dev", `UI_ORIGIN=${origin}`] : ["UI_MODE=artifacts"];
   const child = spawn("make", ["--silent", "ui-review", ...mode], { cwd: repoRoot, env: { ...cleanEnvironment(), CARTULARY_TEST_RESULTS_DIR: root, CARTULARY_TEST_RUN_ID: death }, stdio: ["ignore", "pipe", "pipe"] });
-  let output = ""; child.stdout.on("data", (part) => { output += part; }); child.stderr.resume();
+  let output = ""; child.stdout.on("data", (part) => { output += part; });
+  let stderr = ""; child.stderr.on("data", (part) => { stderr = (stderr + part).slice(-8192); });
   const ended = new Promise((resolve) => child.once("exit", resolve));
   const locator = path.join(root, death, "ui-review/session.json"); let record;
   // The loader fails closed if either control path imports an engine, simulating
@@ -262,7 +263,7 @@ for (const death of ["parent", "both"]) test(`${death} supervisor death permits 
   const control = (command) => spawnSync(process.execPath, ["--input-type=module", "--eval", `import {registerHooks} from 'node:module'; registerHooks({resolve(specifier,context,next){if(['sharp','playwright','playwright-core','@axe-core/playwright','axe-core'].some(name=>specifier===name||specifier.startsWith(name+'/')||specifier.includes('/node_modules/'+name+'/')))throw Error('engine unavailable');return next(specifier,context);}});process.argv=[process.execPath,'cli',${JSON.stringify(command)}];await import(${JSON.stringify(new URL("../ui-review/cli.mjs", import.meta.url).href)});`], { cwd: repoRoot, env: { ...cleanEnvironment(), UI_SESSION: locator, CARTULARY_MAKE_INPUT_SOURCES: "UI_SESSION=cli", CARTULARY_OUTPUT_MODE: "machine" }, encoding: "utf8", timeout: 30000 });
   try {
     for (let index = 0; index < 150 && !output.includes("UI review ready"); index++) { if (child.exitCode !== null) break; await pause(100); }
-    assert.ok(output.includes("UI review ready"));
+    assert.ok(output.includes("UI review ready"), `review failed to start: ${stderr}`);
     assert.equal(JSON.parse(control("ui-review-status").stdout).state, "ready");
     const identity = JSON.parse(readFileSync(locator));
     const registry = path.join(os.tmpdir(), `cartulary-ui-review-${process.getuid()}`, `${identity.session_id.slice(9)}.json`);

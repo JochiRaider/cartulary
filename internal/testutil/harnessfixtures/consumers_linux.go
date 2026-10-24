@@ -253,6 +253,11 @@ func (p *Production) retireUnused(ctx context.Context) error {
 		record := p.Options.residency.allocations["object_store:shared"]
 		p.Options.residency.mu.Unlock()
 		if record != nil {
+			// With no remaining consumer, an unstarted service cannot acquire
+			// physical ownership. Its prospective proof needs no drain lease.
+			if !p.Suite.acquisitionAttempted() {
+				return p.Options.residency.close(ctx, "object_store:shared")
+			}
 			return p.Options.residency.drain(ctx, []*residentRecord{record}, p.Suite.Close)
 		}
 	}

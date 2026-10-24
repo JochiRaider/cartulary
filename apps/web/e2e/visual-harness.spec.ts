@@ -25,7 +25,7 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { requestTLS12, withTLSProbe } from "./support/runtime/fixtureTLS";
-import { publishIndependentFrontendBuild } from "./support/runtime/frontendBuild";
+import { startFrontendPublication } from "./support/runtime/frontendBuild";
 import { waitForLoadedVendoredFonts } from "./support/runtime/visualRenderer";
 import { seedVisualTimelineInvestigation } from "./support/timeline/timelineInvestigation";
 import {
@@ -467,15 +467,20 @@ test("visual harness retains loaded assets across an independent frontend public
       .digest("hex");
   };
   const before = await Promise.all(assetPaths.map(digest));
-  let completed = false;
-  const build = Promise.all([
-    publishIndependentFrontendBuild(false),
-    publishIndependentFrontendBuild(true),
-  ]).finally(() => {
-    completed = true;
-  });
-  let reloads = 0;
+  const publications: ReturnType<typeof startFrontendPublication>[] = [];
+  let primaryError: unknown;
+  let cleanupError: AggregateError | undefined;
   try {
+    publications.push(startFrontendPublication(false));
+    publications.push(startFrontendPublication(true));
+    let completed = false;
+    const build = Promise.all(
+      publications.map((publication) => publication.finished),
+    ).finally(() => {
+      completed = true;
+    });
+    build.catch(() => {});
+    let reloads = 0;
     do {
       await reloadVisualApplication(page);
       expect(await Promise.all(assetPaths.map(digest))).toEqual(before);
@@ -491,9 +496,29 @@ test("visual harness retains loaded assets across an independent frontend public
       }),
       contentType: "application/json",
     });
+  } catch (error) {
+    primaryError = error;
   } finally {
-    await build;
+    const settlement = await Promise.allSettled(
+      publications.map((publication) => publication.stop()),
+    );
+    const failures = settlement.flatMap((result) =>
+      result.status === "rejected" ? [result.reason] : [],
+    );
+    if (failures.length)
+      cleanupError = new AggregateError(
+        failures,
+        "Independent frontend publication cleanup failed",
+      );
   }
+  if (primaryError && cleanupError)
+    throw new AggregateError(
+      [primaryError, cleanupError],
+      "Frontend publication assertion and cleanup failed",
+      { cause: primaryError },
+    );
+  if (primaryError) throw primaryError;
+  if (cleanupError) throw cleanupError;
 });
 
 test("visual harness preferences remain local across density order and page closure", async ({

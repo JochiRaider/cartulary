@@ -12,6 +12,54 @@ import (
 )
 
 func testConsumerAccounting(t *testing.T) {
+	t.Run("cancelled_before_service_admission", func(t *testing.T) {
+		runtime, root, run := runtimeFixture(t)
+		p := NewProduction(ProductionOptions{Runtime: runtime, Root: root, RunRoot: run}, Options{})
+		admissionRoot := filepath.Join(root, "admission")
+		capacities := map[string]int64{"cpu": 2, "io": 2, "memory_mb": 2048, "process": 32, "object_store": 4, "port_lane": 8}
+		p.ConfigureAdmission(admissionRoot, nil, capacities)
+		blocker, err := harnessadmission.Acquire(t.Context(), admissionRoot, quantities(map[string]int64{"cpu": 2}), quantities(capacities), nil, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = blocker.Release(context.Background()) })
+		work := WorkRequirement{Request: Request{UnitID: "cancelled", Capability: "object_store_namespace", PostgresIsolation: "none", Services: []string{"object_store"}}, Renderer: "none", Physical: map[string]map[string]int64{"object_store": {"memory_mb": 128, "process": 2, "object_store": 1, "port_lane": 1}}, Active: map[string]int64{"cpu": 1, "memory_mb": 64, "process": 1}}
+		if err := p.RegisterConsumers([]WorkRequirement{work}); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = p.Close(context.Background()) })
+		starts := 0
+		p.Suite.Acquire = func(context.Context) (*Suite, error) {
+			starts++
+			return nil, errors.New("unadmitted service started")
+		}
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		ctx = harnessadmission.WithObservation(ctx, work.Request.UnitID, func() float64 { return 0 }, func(o harnessadmission.Observation) {
+			if o.Decision != nil && !o.Decision.Granted {
+				cancel()
+			}
+		})
+		host, finish, err := p.Admit(ctx, work)
+		if !errors.Is(err, context.Canceled) || host != nil || finish != nil {
+			t.Fatal("pending admission did not cancel", err)
+		}
+		if err := p.ConsumerTerminal(work.Request.UnitID, "cancelled"); err != nil {
+			t.Fatal(err)
+		}
+		// The unrelated active claim remains held. No physical service exists,
+		// so retiring this pending proof must not acquire drain entitlement.
+		if err := p.retireUnused(t.Context()); err != nil {
+			t.Fatal("unstarted service retirement failed", err)
+		}
+		if err := p.Close(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		resources, err := runtime.Resources(32)
+		if err != nil || len(resources) != 0 || starts != 0 {
+			t.Fatal("unstarted service retained resources or started", len(resources), starts, err)
+		}
+	})
 	t.Run("exact_consumer_keys_and_terminal_dispositions", func(t *testing.T) {
 		runtime, root, run := runtimeFixture(t)
 		p := NewProduction(ProductionOptions{Runtime: runtime, Root: root, RunRoot: run}, Options{})

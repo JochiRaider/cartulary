@@ -69,7 +69,7 @@ test("browser manifest admission rejects missing and mistyped execution metadata
   }
 });
 
-test("host-bounded defaults admit six functional lanes plus shared resident services", () => {
+test("host budgets charge each exclusive browser cluster and one shared object store", () => {
   const registry = loadSchedulerResourceRegistry();
   const capacities = (cores) => automaticCapacities({ registry,
     cpuTokens: cpuCapacityWithSafetyMargin(cores, registry.capacity_policies.cpu_tokens),
@@ -88,29 +88,40 @@ test("host-bounded defaults admit six functional lanes plus shared resident serv
     if (!lanes.has(unit.affinity_key)) lanes.set(unit.affinity_key, unit);
   }
   assert.equal(lanes.size, 6);
-  const required = {};
-  const add = (claims) => {
-    for (const [resource, amount] of Object.entries(claims)) required[resource] = (required[resource] ?? 0) + amount;
-  };
-  const services = new Set();
-  for (const unit of lanes.values()) {
-    add(unit.resource_claims);
-    for (const [kind, claims] of Object.entries(unit.physical_allocations)) {
-      if (["postgres", "object_store"].includes(kind)) {
-        if (services.has(kind)) continue;
-        services.add(kind);
+  const requiredFor = (count) => {
+    const required = {}, services = new Set();
+    const add = (claims) => {
+      for (const [resource, amount] of Object.entries(claims)) {
+        required[resource] = resource === "volume"
+          ? Math.max(required[resource] ?? 0, amount)
+          : (required[resource] ?? 0) + amount;
       }
-      add(claims);
+    };
+    for (const unit of [...lanes.values()].slice(0, count)) {
+      add(unit.resource_claims);
+      for (const [kind, claims] of Object.entries(unit.physical_allocations)) {
+        if (kind === "object_store") {
+          if (services.has(kind)) continue;
+          services.add(kind);
+        }
+        add(claims);
+      }
     }
-  }
-  assert.deepEqual([required.memory_mb, required.process, required.port_lane, required.postgres, required.object_store], [9728, 70, 20, 13, 7]);
-  // Include a cleanup operation as well as all six active groups. Native
-  // admission remains responsible for actual occupancy and exclusive waiters.
-  add({ memory_mb: 64, process: 1 });
+    return required;
+  };
+  const four = requiredFor(4), six = requiredFor(6);
+  assert.deepEqual([four.memory_mb, four.process, four.port_lane, four.postgres, four.object_store], [7424, 74, 17, 12, 5]);
+  assert.deepEqual([six.memory_mb, six.process, six.port_lane, six.postgres, six.object_store], [11008, 110, 25, 18, 7]);
   const available = resourceCapacities({ ...large, writable_volume: true, services: {} });
-  for (const [resource, amount] of Object.entries(required)) assert.ok(amount <= available.get(resource), resource);
-  assert.ok(required.postgres > small.postgres_lanes);
-  assert.ok(required.port_lane > small.port_lanes);
+  // Four active allocations plus a cleanup operation fit. Six authored lanes
+  // are logical work queues; admission cannot run all six exclusive clusters.
+  for (const [resource, amount] of Object.entries({ ...four, memory_mb: four.memory_mb + 64, process: four.process + 1 })) {
+    assert.ok(amount <= available.get(resource), resource);
+  }
+  assert.ok(six.process > available.get("process"));
+  assert.ok(six.postgres > available.get("postgres"));
+  assert.ok(four.postgres > small.postgres_lanes);
+  assert.ok(four.port_lane > small.port_lanes);
 });
 
 test("persistent lifecycle borrowing does not reserve the owner's physical capacity twice", () => {

@@ -58,6 +58,11 @@ func (s *SuiteOwner) Ensure(ctx context.Context) (*Suite, error) {
 	}
 	return s.suite, s.err
 }
+func (s *SuiteOwner) acquisitionAttempted() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.attempted
+}
 func (s *SuiteOwner) Close(ctx context.Context) error {
 	s.closeOnce.Do(func() {
 		s.mu.Lock()

@@ -67,8 +67,14 @@ func GenericContainerObserved(ctx context.Context, req testcontainers.GenericCon
 	if !installedOnly && observe == nil {
 		return testcontainers.GenericContainer(ctx, req)
 	}
-	if req.Reuse || req.Image == "" || os.Getenv("TESTCONTAINERS_RYUK_DISABLED") != "true" || (req.ProviderType != testcontainers.ProviderDefault && req.ProviderType != testcontainers.ProviderDocker) {
-		return nil, errors.New("observed or installed-only preparation requires an owned Docker image container with suite-managed cleanup")
+	if req.Reuse || req.Image == "" || (req.ProviderType != testcontainers.ProviderDefault && req.ProviderType != testcontainers.ProviderDocker) {
+		return nil, errors.New("observed or installed-only preparation requires an owned Docker image container")
+	}
+	// Observation preserves ordinary Testcontainers cleanup policy. Only the
+	// installed-only and accounted lifetimes require the suite's exact finalizer
+	// instead of the auxiliary reaper; accounting is checked above.
+	if installedOnly && os.Getenv("TESTCONTAINERS_RYUK_DISABLED") != "true" {
+		return nil, errors.New("installed-only preparation requires suite-managed cleanup")
 	}
 	providerOptions := []testcontainers.DockerProviderOption{}
 	if req.Logger != nil {

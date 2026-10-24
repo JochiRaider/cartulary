@@ -5,6 +5,7 @@ import path from "node:path";
 import { createRuntime } from "../../runtime/session-client.mjs";
 import { publishFrontendOutput, resolveFrontendArtifact, sealFrontendArtifact } from "../../readiness/frontend-artifact.mjs";
 import { buildSourceSnapshot } from "../../test-catalog/index.mjs";
+import { frontendPublicationEnvironment, startFrontendPublication } from "../frontend-publication.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const scratch = mkdtempSync(path.join(os.tmpdir(), "frontend-artifact-test-"));
@@ -32,6 +33,11 @@ function fixture(runID, version) {
   return { directory, environment, runtime, runRoot };
 }
 try {
+  assert.deepEqual(frontendPublicationEnvironment({ PATH: "/tools", CARTULARY_HOST_ADMISSION_LEASE: "parent",
+    CARTULARY_UNIT_CPU_TOKENS: "2", CARTULARY_HARNESS_CACHE_MODE: "off", CARTULARY_TEST_RUN_ID: "old-run",
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: "/private", CARTULARY_WORKSPACE_ADMISSION: "old",
+    MAKEFLAGS: "old", MAKEOVERRIDES: "old", MFLAGS: "old", MAKELEVEL: "2" }),
+  { PATH: "/tools", CARTULARY_HOST_ADMISSION_LEASE: "parent", CARTULARY_UNIT_CPU_TOKENS: "2", CARTULARY_HARNESS_CACHE_MODE: "off" });
   // Publishing another profile may overlap input validation. Neither its
   // staging files nor displaced output may enter the source snapshot.
   const sourceBefore = buildSourceSnapshot(root).digest;
@@ -48,6 +54,19 @@ try {
   }
   const first = fixture("first", "original");
   const second = fixture("second", "replacement");
+  const fakeBin = path.join(scratch, "bin");
+  mkdirSync(fakeBin);
+  writeFileSync(path.join(fakeBin, "make"), `#!${process.execPath}\nsetTimeout(() => process.exit(0), 1000);\n`, { mode: 0o700 });
+  const environment = { ...process.env, ...first.environment, PATH: `${fakeBin}:${process.env.PATH}`,
+    CARTULARY_HARNESS_RESOURCE_DEPENDENCIES: "[]" };
+  const published = startFrontendPublication(false, { environment });
+  const publishedRoot = await published.finished;
+  assert.ok(publishedRoot.startsWith(path.join(first.runRoot, "frontend-publications")));
+  await published.stop();
+  const cancelled = startFrontendPublication(true, { environment });
+  await cancelled.stop();
+  await assert.rejects(cancelled.finished, /Independent frontend Make build failed/u);
+  await cancelled.stop();
   const destination = path.join(scratch, "published");
   const dangling = path.join(scratch, "dangling-publication");
   symlinkSync(path.join(scratch, "missing"), dangling);
