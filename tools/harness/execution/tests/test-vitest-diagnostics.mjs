@@ -10,6 +10,7 @@ import { adaptVitestInvocation, adaptVitestInvocationFile, buildVitestInvocation
 import { atomicLocalFile } from "../../runtime/secure-local-files.mjs";
 import { publishRowResult } from "../runners/row-results.mjs";
 import { createRuntime } from "../../runtime/session-client.mjs";
+import { openExecutionChannel } from "../../test-support/execution-channel-fixture.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../../..");
 const fixture = path.join(root, "tmp", `vitest-diagnostics-${randomUUID()}`);
@@ -47,6 +48,25 @@ function run(name, selection) {
   const details = readVitestJSON(invocation.detailsFile), report = readVitestJSON(path.resolve(root, details.runner_json));
   validateSchemaSync(details.schema_id, details);
   return { invocation, result, details, report, rows: adaptVitestInvocation(invocation, { details, report, status: result.status }) };
+}
+function runObserved(name, selection) {
+  const runtime = createRuntime({ repoRoot: root, runRoot, runID: process.env.CARTULARY_TEST_RUN_ID });
+  const channel = openExecutionChannel(runtime);
+  const before = { ...fixtureEnvironment };
+  Object.assign(fixtureEnvironment, channel.environment, {
+    CARTULARY_HARNESS_SUITE_RUNTIME_ROOT: runtime.root,
+    CARTULARY_HARNESS_SUITE_RUNTIME_LEASE_ID: runtime.leaseID,
+    CARTULARY_HARNESS_SUITE_RUNTIME_RUN_ID: runtime.runID,
+  });
+  try {
+    const result = run(name, selection);
+    channel.close();
+    return { ...result, activities: channel.records().map((entry) => entry.record ?? entry).filter((entry) => entry.kind === "activity") };
+  } finally {
+    for (const key of Object.keys(fixtureEnvironment)) delete fixtureEnvironment[key];
+    Object.assign(fixtureEnvironment, before);
+    runtime.close();
+  }
 }
 async function waitForFile(file, child) {
   const end = Date.now() + 15000;
@@ -240,6 +260,14 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   const passFile = path.join(fixture, "pass.test.mjs"), secondPassFile = path.join(fixture, "second-pass.test.mjs"), loadFile = path.join(fixture, "load.test.mjs"), teardownFile = path.join(fixture, "teardown.test.mjs"), unhandledFile = path.join(fixture, "unhandled.test.mjs");
   writeFileSync(passFile, `import { test } from ${JSON.stringify(api)}; test('ok', () => {});`);
   writeFileSync(secondPassFile, `import { test } from ${JSON.stringify(api)}; test('ok', () => {});`);
+  const timed = runObserved("timed-files", request([[passFile, ["ok"]], [secondPassFile, ["ok"]]]));
+  assert.equal(timed.result.status, 0, timed.result.stderr);
+  for (const [activity, count] of [["runner_startup", 1], ["runner_cleanup", 1], ["file_setup", 2], ["file_execution", 2], ["file_teardown", 2]]) {
+    const records = timed.activities.filter((entry) => entry.activity === activity);
+    assert.equal(records.length, count, activity);
+    assert.ok(records.every((entry) => entry.outcome === "passed" && entry.duration_ms >= 0), activity);
+    assert.ok(records.every((entry) => !JSON.stringify(entry).includes("pass.test")), "diagnostics contain no file paths");
+  }
   writeFileSync(loadFile, "throw new Error('suite collection failed');");
   writeFileSync(teardownFile, `import { test, afterAll } from ${JSON.stringify(api)}; test('ok', () => {}); afterAll(() => { throw new Error('file teardown failed'); });`);
   writeFileSync(unhandledFile, `import { test } from ${JSON.stringify(api)}; test('ok', async () => { void Promise.reject(new Error('unhandled runner error')); await new Promise(resolve => setTimeout(resolve, 25)); });`);
@@ -291,7 +319,7 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   // Loss during global close, after every file settled, preserves row evidence
   // while the enclosing invocation still reports interruption.
   const closeMarker = path.join(fixture, "closing"), hangingClose = path.join(fixture, "hanging-close.mjs");
-  writeFileSync(hangingClose, `import { writeFileSync } from 'node:fs'; export default function() { return async () => { writeFileSync(${JSON.stringify(closeMarker)}, 'closing'); await new Promise(() => {}); }; }`);
+  writeFileSync(hangingClose, `import { writeFileSync } from 'node:fs'; export default function() { return async () => { writeFileSync(${JSON.stringify(closeMarker)}, 'closing'); await new Promise(() => { setInterval(() => {}, 1000); }); }; }`);
   config({ globalSetup: hangingClose });
   const completedFiles = prepare("interrupted-after-files", request([[passFile, ["ok"]], [secondPassFile, ["ok"]]]));
   const closingChild = spawn(process.execPath, completedFiles.args, { cwd: root, env: fixtureEnvironment, stdio: "ignore" });
@@ -301,6 +329,7 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   const closingExecution = await closingDone;
   const settledRows = adaptVitestInvocationFile(completedFiles, closingExecution);
   assert.ok(settledRows.every((row) => row.terminal_state === "passed"));
+  assert.equal(closingExecution.signal, "SIGKILL", JSON.stringify(closingExecution));
   assert.equal(vitestInvocationFailure(closingExecution, settledRows).failure_class, "interrupted");
   assert.equal(vitestInvocationFailure({ status: 11 }, settledRows).failure_reason, "scheduler_accounting_error");
   assert.equal(vitestInvocationFailure({ status: 0 }, settledRows), null);
@@ -312,7 +341,8 @@ describe('right', () => { test('same name', () => expect(2).toBe(2)); });`);
   writeFileSync(environmentFailure, `import { test } from ${JSON.stringify(api)}; test('ok', () => { globalThis.failEnvironmentTeardown = true; });`);
   writeFileSync(environment, "export default { name: 'fixture', viteEnvironment: 'ssr', setup(global) { return { teardown() { if (global.failEnvironmentTeardown) throw new Error('environment teardown failed'); } }; } };");
   config({ environment });
-  const failedEnvironment = run("failed-environment", request([[environmentFailure, ["ok"]], [passFile, ["ok"]]]));
+  const failedEnvironment = runObserved("failed-environment", request([[environmentFailure, ["ok"]], [passFile, ["ok"]]]));
+  assert.deepEqual(failedEnvironment.activities.filter((entry) => entry.activity === "file_teardown").map((entry) => entry.outcome).sort(), ["failed", "passed"]);
   assert.equal(failedEnvironment.rows[0].failure_class, "infra", failedEnvironment.result.stderr);
   assert.equal(failedEnvironment.rows[1].terminal_state, "passed");
   writeFileSync(environment, `import { writeFileSync } from 'node:fs'; export default { name: 'fixture', viteEnvironment: 'ssr', setup() { return { async teardown() { writeFileSync(${JSON.stringify(teardownMarker)}, 'pending'); await new Promise(() => {}); } }; } };`);

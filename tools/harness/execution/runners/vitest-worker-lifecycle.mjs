@@ -1,6 +1,6 @@
 // The pinned public run promise settles before isolated fork teardown. Observe
 // the public PoolWorker boundary; execution and IPC remain Vitest's responsibility.
-export function settledForkPool(ForksPoolWorker) {
+export function settledForkPool(ForksPoolWorker, beginTeardown = () => ({ finish() {} })) {
   let current;
   return {
     beginFile() {
@@ -36,9 +36,13 @@ export function settledForkPool(ForksPoolWorker) {
             } catch (error) { result.terminationError = error; settle(result); throw error; }
           }
           async stop() {
+            const teardown = beginTeardown();
             try { await super.stop(); }
             catch (error) { result.terminationError = error; throw error; }
-            finally { settle(result); }
+            finally {
+              teardown.finish(result.acknowledged && !result.terminationError && !result.teardownError ? "passed" : "failed");
+              settle(result);
+            }
           }
         }(options);
       },

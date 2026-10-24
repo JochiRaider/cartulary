@@ -92,11 +92,16 @@
         "enum": [
           "migration",
           "fixture_reset",
-          "report_parse"
+          "report_parse",
+          "runner_startup",
+          "file_setup",
+          "file_execution",
+          "file_teardown",
+          "runner_cleanup"
         ]
       },
-      "minItems": 3,
-      "maxItems": 3
+      "minItems": 8,
+      "maxItems": 8
     }
   }
 }

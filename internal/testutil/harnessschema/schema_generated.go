@@ -3799,7 +3799,7 @@ return true
 }
 
 func schema377(v any) bool {
-if !(schemaEqual(v, "migration") || schemaEqual(v, "fixture_reset") || schemaEqual(v, "report_parse")) { return false }
+if !(schemaEqual(v, "migration") || schemaEqual(v, "fixture_reset") || schemaEqual(v, "report_parse") || schemaEqual(v, "runner_startup") || schemaEqual(v, "file_setup") || schemaEqual(v, "file_execution") || schemaEqual(v, "file_teardown") || schemaEqual(v, "runner_cleanup")) { return false }
 return true
 }
 

@@ -6778,7 +6778,9 @@ owns physical samples/roster; execution index v2 owns relationships and leases.
 No duplicated mutable relationship registry is retained.
 
 **TH-HARNESS-REQ-843 — Local activities.** The closed authored definitions
-catalog MUST declare `migration`, `fixture_reset`, and `report_parse` activities
+catalog MUST declare `migration`, `fixture_reset`, `report_parse`,
+`runner_startup`, `file_setup`, `file_execution`, `file_teardown`, and
+`runner_cleanup` activities
 separately from canonical phases. Each observation carries an opaque activity
 reference, nullable invocation/allocation/unit linkage, outcome, clock kind,
 opaque clock identity, resolution and nullable duration. Node/Go monotonic
@@ -6795,6 +6797,15 @@ declares its clock/availability. Parsing brackets actual reading and adaptation,
 including missing/malformed reports. One measured fact supplies downstream
 projections; no duplicate timer is introduced solely for diagnostics. Required
 reset evidence retains its existing failure consequences.
+
+Vitest startup brackets coordinator creation and exact specification preparation.
+File setup brackets the supported module-queued/module-collected callbacks;
+execution brackets module-collected/module-end, including suite hooks. File
+teardown brackets the isolated worker's actual stop operation, including settlement
+acknowledgment; cleanup brackets coordinator close. Failed or interrupted stages
+retain their outcome, and missing completion remains incomplete. These local
+observations MUST NOT add test titles or paths to diagnostic records, double-count
+canonical runner time, or drive scheduling without reviewed authored cost inputs.
 
 **TH-HARNESS-REQ-844 — Secure execution projection.**
 `diagnostics/execution-index.json`, schema `cartulary.harness_execution_index.v5`,

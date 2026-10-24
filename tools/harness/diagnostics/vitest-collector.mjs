@@ -12,9 +12,36 @@ function catalogTitle(test) {
 
 // Uses only the supported Reporter/TestCase/TestSuite APIs; it does not modify tasks.
 export default class VitestCollector {
-  constructor(root, invocationID, runID) { this.root = root; this.invocationID = invocationID; this.runID = runID; }
+  constructor(root, invocationID, runID, activity = () => ({ finish() {} })) {
+    this.root = root; this.invocationID = invocationID; this.runID = runID;
+    this.activity = activity;
+    this.modules = new Map();
+  }
+  onTestModuleQueued(module) {
+    this.modules.set(module.id, { setup: this.activity("file_setup") });
+  }
+  onTestModuleCollected(module) {
+    const stages = this.modules.get(module.id);
+    if (!stages) return;
+    stages.setup.finish("passed");
+    stages.execution = this.activity("file_execution");
+  }
+  onTestModuleEnd(module) {
+    const stages = this.modules.get(module.id);
+    if (!stages) return;
+    const outcome = module.state() === "passed" ? "passed" : "failed";
+    stages.setup.finish(outcome);
+    stages.execution?.finish(outcome);
+    this.modules.delete(module.id);
+  }
   onUserConsoleLog(log) { (log.type === "stderr" ? process.stderr : process.stdout).write(log.content); }
   onTestRunEnd(modules, unhandledErrors, reason) {
+    for (const stages of this.modules.values()) {
+      const outcome = reason === "interrupted" ? "cancelled" : "failed";
+      stages.setup.finish(outcome);
+      stages.execution?.finish(outcome);
+    }
+    this.modules.clear();
     const root = this.root;
     const observations = [];
     for (const module of modules) {

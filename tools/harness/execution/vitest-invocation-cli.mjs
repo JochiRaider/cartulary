@@ -13,6 +13,7 @@ import { publishRowResult } from "./runners/row-results.mjs";
 import { settledForkPool } from "./runners/vitest-worker-lifecycle.mjs";
 import { reportCommandFailure } from "../runtime/command-failure.mjs";
 import { borrowRuntime } from "../runtime/session-client.mjs";
+import { beginActivity } from "../runtime/local-activity.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 function regexEscape(value) { return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"); }
@@ -48,8 +49,16 @@ async function main() {
   mkdirSync(privateRoot, { mode: 0o700 });
   const rawReport = path.join(privateRoot, "runner.json");
   const startedAt = new Date().toISOString(), started = Date.now();
-  const collector = new VitestCollector(root, invocationID, runID);
+  const activity = (name) => beginActivity({ repoRoot: root, environment: process.env, activity: name });
+  const collector = new VitestCollector(root, invocationID, runID, activity);
   let evidence, ctx, signal = "", closing = false, closeOutput = "";
+  let cleanup;
+  const close = async () => {
+    if (!ctx) return;
+    cleanup ??= activity("runner_cleanup");
+    try { await ctx.close(); cleanup.finish(closeOutput ? "failed" : "passed"); }
+    catch (error) { cleanup.finish("failed"); throw error; }
+  };
   const publishRows = (results) => {
     if (!request.publish_rows) return;
     for (const result of results) publishRowResult(runRoot, { schema_id: "cartulary.harness_row_result.v6", ...result, runner: "vitest",
@@ -62,11 +71,12 @@ async function main() {
     if (closing) closeOutput = (closeOutput + chunk.toString()).slice(0, 262144);
     process.stderr.write(chunk); done();
   } });
+  const startup = activity("runner_startup");
   try {
     evidence = createVitestEvidence({ root, request, reportFile, detailsFile, runID, invocationID, startedAt });
     const require = createRequire(path.join(root, "apps/web/package.json"));
     const { createVitest, ForksPoolWorker } = await import(pathToFileURL(require.resolve("vitest/node")).href);
-    const workers = settledForkPool(ForksPoolWorker);
+    const workers = settledForkPool(ForksPoolWorker, () => activity("file_teardown"));
     ctx = await createVitest("test", {
       root: request.config ? path.dirname(path.resolve(root, request.config)) : path.join(root, "apps/web"),
       config: request.config ? path.resolve(root, request.config) : path.join(root, "apps/web/vite.config.ts"),
@@ -81,6 +91,7 @@ async function main() {
       if (!ctx.getModuleSpecifications(absolute).some((spec) => spec.project === project)) throw diagnosticFailure("Selected Vitest file is excluded from its registered project", "scheduler_accounting_error");
       return project.createSpecification(absolute, { testNamePattern: new RegExp(`^(?:${file.rows.flatMap((row) => row.selectors).map(regexEscape).join("|")})$`) });
     });
+    startup.finish("passed");
     for (let index = 0; index < specifications.length && !signal; index++) {
       collector.latest = undefined;
       const settleFile = workers.beginFile();
@@ -104,7 +115,7 @@ async function main() {
       publishRows(adaptVitestInvocation(fileInvocation, settled));
     }
     closing = true;
-    await ctx.close();
+    await close();
     if (closeOutput) {
       evidence.recordRunFailures([{ project: "", owner_path: "", title: "(invocation teardown)", test_name: "", scope: "run", status: "failed", duration_ms: 0, timeout_ms: null,
         errors: [{ name: "Error", message: redactString(closeOutput), stack: "" }] }]);
@@ -127,8 +138,9 @@ async function main() {
     publishRows(adaptVitestInvocation(invocation, { commandFailure: failure }));
     throw error;
   } finally {
+    startup.finish(signal ? "cancelled" : "failed");
     closing = true;
-    try { await ctx?.close(); }
+    try { await close(); }
     finally {
       process.removeListener("SIGINT", onInterrupt); process.removeListener("SIGTERM", onTerminate);
       stderr.close();
