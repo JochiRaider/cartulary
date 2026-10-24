@@ -1485,10 +1485,9 @@ test("Note source browsing preserves reviewed identity and text across delayed r
   await f.form
     .getByRole("textbox", { name: "Title", exact: true })
     .fill("Retained Note text");
-  let release = () => {},
-    pending = false;
+  let pending = false;
   const gateBarrier = responseBarrier(page);
-  release = gateBarrier.release;
+  const release = gateBarrier.release;
   const gate = gateBarrier.promise;
   await installOwnedRoute(
     page,
@@ -1542,9 +1541,8 @@ test("Note source browsing preserves reviewed identity and text across delayed r
   ).toHaveValue(hostsViewSchemaId);
   await expect(select.getByRole("radio")).toHaveCount(100);
   await chooseFirst(select);
-  let releaseClosedRead!: () => void;
   const closedReadBarrier = responseBarrier(page);
-  releaseClosedRead = closedReadBarrier.release;
+  const releaseClosedRead = closedReadBarrier.release;
   const closedRead = closedReadBarrier.promise;
   const closedRequestBarrier = responseBarrier(page);
   const requestedClosedRead = closedRequestBarrier.release;
@@ -1670,9 +1668,8 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
     exact: true,
   });
   await expect(candidates.getByRole("checkbox")).toHaveCount(100);
-  let releaseSupport!: () => void;
   const supportGateBarrier = responseBarrier(page);
-  releaseSupport = supportGateBarrier.release;
+  const releaseSupport = supportGateBarrier.release;
   const supportGate = supportGateBarrier.promise;
   const supportRequestedBarrier = responseBarrier(page);
   const requestedSupport = supportRequestedBarrier.release;

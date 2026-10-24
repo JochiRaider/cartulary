@@ -151,11 +151,12 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
               "playwright worker cleanup",
             ),
           );
+          const acquiredActor = actor;
           const verified =
-            actor === undefined ||
+            acquiredActor === undefined ||
             (await attempt("worker.verify", () =>
               verifySessionUnauthorized(
-                actor!.storageState,
+                acquiredActor.storageState,
                 "worker session",
                 control.request,
               ),
