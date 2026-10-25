@@ -164,9 +164,11 @@ async function prepare(page: Page, surface: Surface) {
         .getByTestId(workbookInspectorToggleTestId(viewSchemaId))
         .click();
     }
+    // Keyboard activation remains attached to History while relationship
+    // previews finish loading and move controls within the inspector.
     await page
       .getByRole("button", { name: "Open history", exact: true })
-      .click();
+      .press("Enter");
   }
   await expect(page.getByTestId(rowHistoryDeleteButtonTestId())).toBeVisible();
   return { incidentId, row, viewSchemaId, first, complete };

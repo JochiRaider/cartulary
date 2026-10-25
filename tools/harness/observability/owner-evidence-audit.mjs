@@ -73,7 +73,10 @@ export async function auditOwnerEvidence({ manifest, manifestFile, owner, catalo
           (run.manifest.declared_inputs.SCOPE && run.manifest.declared_inputs.SCOPE !== "all") || run.manifest.declared_inputs.SERVICE_BACKED_ONLY)) throw artifact("full-owner evidence requires an unfiltered owner slice");
       const rowUnits = validateRetainedSelection(runRoot, run, units, projection, catalog.rows);
       const expectedRows = required.get(entry.target);
-      const observedRows = sorted([...rowUnits.keys()].filter((id) => byRow.has(id)));
+      // A shared execution unit can contribute to several logical targets.
+      // Validate the whole unit above, then attribute each row to its catalog target.
+      const observedRows = sorted([...rowUnits.keys()].filter((id) =>
+        byRow.has(id) && (atomic || targetForCatalogRow(byRow.get(id)) === entry.target)));
       if (!same(observedRows, expectedRows)) throw artifact("target owner-row partition is incomplete or contains extra rows");
       report.accepted.push({ target: entry.target, run_root: entry.run_root, run_id: run.manifest.run_id, graph_digest: run.manifest.graph_digest, row_ids: expectedRows });
     } catch (error) {
