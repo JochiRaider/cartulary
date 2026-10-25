@@ -1,6 +1,12 @@
 import { createHmac } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
-import { type APIRequestContext, expect, request } from "@playwright/test";
+import {
+  type APIRequestContext,
+  expect,
+  type Page,
+  request,
+} from "@playwright/test";
+import { browserScopeFor } from "../runtime/cleanup";
 import { apiBase } from "../runtime/configuration";
 import { uniqueTxn } from "../runtime/fixtureIdentity";
 import {
@@ -53,14 +59,16 @@ export async function prepareSuiteAdminState() {
   }
 }
 
-export async function enrollTotpViaBootstrap(email: string, password: string) {
-  const authRequests = await request.newContext({ baseURL: apiBase });
-  try {
-    await waitForAPIReady(authRequests);
-    return await provisionUserTotp(authRequests, email, password);
-  } finally {
-    await authRequests.dispose();
-  }
+export async function enrollTotpViaBootstrap(
+  page: Page,
+  email: string,
+  password: string,
+) {
+  const authRequests = await browserScopeFor(page).ownRequestContext(() =>
+    request.newContext({ baseURL: apiBase }),
+  );
+  await waitForAPIReady(authRequests);
+  return provisionUserTotp(authRequests, email, password);
 }
 
 export function generateTotpCode(secretBase32: string) {

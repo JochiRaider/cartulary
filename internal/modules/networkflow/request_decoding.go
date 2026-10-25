@@ -100,22 +100,12 @@ func decodeGraphContributorQueryRequestValue(reader io.Reader, limits EffectiveL
 	if apiErr != nil {
 		return graphContributorQueryRequest{}, apiErr
 	}
-	schemaID, apiErr := requiredJSONString(raw, "schema_id")
+	schemaID, token, apiErr := decodeQueryVariant(raw, schemaGraphContributorQueryRequest, schemaGraphContributorQueryContinuation)
 	if apiErr != nil {
 		return graphContributorQueryRequest{}, apiErr
 	}
 	if schemaID == schemaGraphContributorQueryContinuation {
-		if apiErr := ensureAllowedMembers(raw, "schema_id", "cursor_token"); apiErr != nil {
-			return graphContributorQueryRequest{}, apiErr
-		}
-		token, apiErr := requiredJSONString(raw, "cursor_token")
-		if apiErr != nil {
-			return graphContributorQueryRequest{}, apiErr
-		}
 		return graphContributorQueryRequest{Continuation: true, CursorToken: token}, nil
-	}
-	if schemaID != schemaGraphContributorQueryRequest {
-		return graphContributorQueryRequest{}, invalidNetworkFlowRequest("schema_id", "invalid_schema_id")
 	}
 	if apiErr := ensureAllowedMembers(raw, "schema_id", "graph_query", "graph_query_digest", "selector", "limit"); apiErr != nil {
 		return graphContributorQueryRequest{}, apiErr

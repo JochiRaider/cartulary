@@ -1,5 +1,6 @@
 import type { Locator } from "@playwright/test";
 import { expect, test } from "./fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { activateCandidateIdentities } from "./support/workbook/references";
 
 test("candidate activation waits for the requested control before choosing its interaction", async ({
@@ -8,10 +9,9 @@ test("candidate activation waits for the requested control before choosing its i
   for (const type of ["radio", "checkbox"] as const) {
     await page.setContent('<div id="candidates"></div>');
     const candidates = page.locator("#candidates");
-    let requested!: () => void;
-    const request = new Promise<void>((resolve) => {
-      requested = resolve;
-    });
+    const requestBarrier = responseBarrier(page);
+    const requested = requestBarrier.release;
+    const request = requestBarrier.promise;
     // Hold publication until the helper requests a candidate. The actual
     // selection uses Playwright and native DOM controls, with no timing sleep.
     const observed = new Proxy(candidates, {

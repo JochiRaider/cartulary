@@ -11,19 +11,13 @@ import {
   workbookInspectorCloseButtonTestId,
   workbookInspectorToggleTestId,
 } from "@cartulary/ui-contracts";
-import { request } from "@playwright/test";
-import {
-  loginTrackedUserViaPage,
-  logoutAndVerify,
-  readCurrentSession,
-} from "../support/auth/sessions";
-import { authHeadersForStorageState } from "../support/auth/storageState";
+import { readCurrentSession } from "../support/auth/sessions";
 import {
   type EvidenceInspectorTarget,
   evidenceInspectorAccount,
   prepareEvidenceInspectorSnapshot,
 } from "../support/performance/evidenceInspectorSnapshot";
-import { apiBase, webBase } from "../support/runtime/configuration";
+import { webBase } from "../support/runtime/configuration";
 import { openTimelineInspector } from "../support/workbook/rowMutations";
 import {
   attachEvidenceInspectorObservation,
@@ -36,22 +30,25 @@ import { expect, test } from "./fixtures";
 test.use({ trace: "off", screenshot: "off", video: "off" });
 test.describe.configure({ mode: "serial", timeout: 5 * 60 * 1000 });
 test("measures the fresh Evidence inspector metadata shell within AC-045", async ({
-  browser,
+  browserScope,
+  sessionTracker,
 }, info) => {
   expect(info.retry).toBe(0);
-  const context = await browser.newContext({
+  const context = await browserScope.newContext({
     viewport: { width: 1920, height: 1080 },
     deviceScaleFactor: 1,
   });
   const page = await context.newPage();
   const samples: EvidenceInspectorSample[] = [];
   let target: EvidenceInspectorTarget | undefined,
-    attached = false,
-    authenticated = false;
+    attached = false;
   try {
     await page.goto(webBase);
-    await loginTrackedUserViaPage(page, evidenceInspectorAccount());
-    authenticated = true;
+    await sessionTracker.loginProvisionedUser(page, {
+      ...evidenceInspectorAccount(),
+      createdBy: "Evidence measurement",
+      purpose: "foreground analyst",
+    });
     const snapshot = await prepareEvidenceInspectorSnapshot(page);
     target = snapshot.target;
     const session = await readCurrentSession(page);
@@ -153,22 +150,5 @@ test("measures the fresh Evidence inspector metadata shell within AC-045", async
         error instanceof Error ? error.message : String(error),
       );
     throw error;
-  } finally {
-    try {
-      if (authenticated) {
-        const state = await context.storageState();
-        const auth = await request.newContext({
-          baseURL: apiBase,
-          extraHTTPHeaders: authHeadersForStorageState(state),
-        });
-        try {
-          await logoutAndVerify(auth, state, "Evidence inspector analyst");
-        } finally {
-          await auth.dispose();
-        }
-      }
-    } finally {
-      await context.close();
-    }
   }
 });

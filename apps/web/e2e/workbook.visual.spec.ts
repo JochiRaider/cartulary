@@ -137,7 +137,6 @@ import { openIncidentControls } from "./pages/deploymentAdministration";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
 import { gridSavedRows } from "./pages/workbookInspector";
 import {
-  auditBrowserBarrier,
   auditBrowserEvent,
   installAuditPresentation,
   openAdministrativeAudit,
@@ -199,7 +198,6 @@ import {
 import {
   expectCreationControlReachable,
   openCreationPresentation,
-  responseBarrier,
 } from "./support/incidents/creation";
 import { createIncident } from "./support/incidents/fixtures";
 import {
@@ -212,12 +210,12 @@ import {
   expectReferencePackControlReachable,
   installReferencePackPresentation,
   openReferencePacks,
-  referencePackBarrier,
 } from "./support/referencePacks";
 import {
   navigateVisualApplication,
   reloadVisualApplication,
 } from "./support/runtime/applicationReadiness";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -231,8 +229,13 @@ import {
 import { createInspectorReadingFixture } from "./support/timeline/inspectorReadingFixture";
 import { seedVisualTimelineInvestigation } from "./support/timeline/timelineInvestigation";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
-import { holdBrowserRequest as holdBrowserApiRequest } from "./support/transport/requestInterception";
-import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest as holdBrowserApiRequest,
+  installOwnedRoute,
+  installPublicErrorResponse,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   settleVisualGeometry,
   type VisualAnchor,
@@ -639,11 +642,11 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
     let pendingLoginResult: AuthVisualLoginMode = "invalid_credentials";
     let releaseLogin: (() => void) | null = null;
 
-    await page.route("**/api/v1/auth/session", async (route) => {
+    await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
       if (sessionPending) {
-        await new Promise<void>((resolve) => {
-          releaseSession = resolve;
-        });
+        const heldResponse = responseBarrier(page);
+        releaseSession = heldResponse.release;
+        if (!(await awaitResponseBarrier(route, heldResponse.promise))) return;
       }
       await fulfillAuthVisualError(route, {
         code: "session_required",
@@ -651,18 +654,18 @@ test.describe("browser.incident-selection auth gateway visual readiness", () => 
         status: 401,
       });
     });
-    await page.route("**/api/v1/auth/providers", async (route) => {
+    await installOwnedRoute(page, "**/api/v1/auth/providers", async (route) => {
       await fulfillAuthVisualJSON(route, {
         meta: { request_id: "auth-visual-providers" },
         data: { providers: [] },
       });
     });
-    await page.route("**/api/v1/auth/login", async (route) => {
+    await installOwnedRoute(page, "**/api/v1/auth/login", async (route) => {
       const mode = loginMode;
       if (mode === "pending") {
-        await new Promise<void>((resolve) => {
-          releaseLogin = resolve;
-        });
+        const heldResponse = responseBarrier(page);
+        releaseLogin = heldResponse.release;
+        if (!(await awaitResponseBarrier(route, heldResponse.promise))) return;
         await fulfillAuthVisualLogin(route, pendingLoginResult);
         return;
       }
@@ -1320,24 +1323,18 @@ test.describe("workbook visual evidence", () => {
       method: "PATCH",
       path: `/api/v1/records/${timelineRow.record_id}`,
     });
+    await summaryEditor.press("Enter");
+    await hold.waitForHit;
+    await expect(saveState).toHaveText("Syncing");
+    await assertStatusStripVisualRegression(
+      page,
+      "timeline-grid-syncing-strip",
+    );
+    await hold.release();
+    await expect(saveState).toHaveText("Saved");
+    await assertStatusStripVisualRegression(page, "timeline-grid-saved-strip");
 
-    try {
-      await summaryEditor.press("Enter");
-      await hold.waitForHit;
-      await expect(saveState).toHaveText("Syncing");
-      await assertStatusStripVisualRegression(
-        page,
-        "timeline-grid-syncing-strip",
-      );
-      await hold.release();
-      await expect(saveState).toHaveText("Saved");
-      await assertStatusStripVisualRegression(
-        page,
-        "timeline-grid-saved-strip",
-      );
-    } finally {
-      await hold.dispose();
-    }
+    await hold.dispose();
 
     const conflictHandler = async (route: Route) => {
       if (route.request().method().toUpperCase() !== "PATCH") {
@@ -1373,8 +1370,8 @@ test.describe("workbook visual evidence", () => {
       });
     };
 
-    await page.route(patchUrl, conflictHandler);
-    try {
+    await installOwnedRoute(page, patchUrl, conflictHandler);
+    {
       const conflictInput = await mountedGridCell(
         page,
         timelineViewSchemaId,
@@ -1397,8 +1394,8 @@ test.describe("workbook visual evidence", () => {
         page,
         "timeline-grid-conflict-strip",
       );
-    } finally {
-      await page.unroute(patchUrl, conflictHandler);
+
+      await removeOwnedRoute(page, patchUrl, conflictHandler);
     }
   });
 
@@ -1585,39 +1582,36 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
     );
 
     const patchController = await installPatchTransportFailureController(page);
-    try {
-      patchController.disconnect();
-      await summaryEditor.press("Enter");
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
-      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
-        pendingReplayCountAttribute,
-        "1",
-      );
-      await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
-        scroll: { top: 0, left: "left" },
-      });
-      await assertVisualRegression(
-        page,
-        "timeline-mutation-pending-replay-status",
-      );
+    patchController.disconnect();
+    await summaryEditor.press("Enter");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Syncing");
+    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+      pendingReplayCountAttribute,
+      "1",
+    );
+    await normalizeWorkbookGridVisualState(page, timelineViewSchemaId, {
+      scroll: { top: 0, left: "left" },
+    });
+    await assertVisualRegression(
+      page,
+      "timeline-mutation-pending-replay-status",
+    );
 
-      patchController.connect();
-      await expect
-        .poll(() => successfulPatchCalls(patchController.calls).length)
-        .toBe(1);
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
-        pendingReplayCountAttribute,
-        "0",
-      );
-    } finally {
-      patchController.connect();
-      await patchController.dispose();
-    }
+    patchController.connect();
+    await expect
+      .poll(() => successfulPatchCalls(patchController.calls).length)
+      .toBe(1);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+      pendingReplayCountAttribute,
+      "0",
+    );
+
+    await patchController.dispose();
 
     const conflictController = await installPatchController(page);
-    try {
+    {
       conflictController.failNextPatch(409, "client_txn_conflict", {
         recordId: timelineRow.record_id,
       });
@@ -1685,7 +1679,7 @@ test.describe("browser.mutation-lifecycle visual readiness", () => {
       await expect(page.getByTestId(workbookEditRecoveryTestId())).toHaveCount(
         0,
       );
-    } finally {
+
       await conflictController.dispose();
     }
 
@@ -2537,9 +2531,12 @@ test.describe("browser.evidence-workflow visual readiness", () => {
       page.getByTestId(evidenceAccessMessageTestId(previewBlocked.record_id)),
     ).toContainText("No preview");
 
-    await armVisualPublicErrorFault(page, {
+    await installPublicErrorResponse(page, {
+      method: "POST",
+      status: 409,
+      code: "evidence_access_unavailable",
       path: `/api/v1/evidence-records/${failedHandle.record_id}/preview-handle`,
-      reasonCode: "blob_failed",
+      details: { reason_code: "blob_failed" },
     });
     await (
       await mountedGridTarget(
@@ -2552,9 +2549,12 @@ test.describe("browser.evidence-workflow visual readiness", () => {
       page.getByTestId(evidenceAccessMessageTestId(failedHandle.record_id)),
     ).toContainText("Upload failed");
 
-    await armVisualPublicErrorFault(page, {
+    await installPublicErrorResponse(page, {
+      method: "POST",
+      status: 409,
+      code: "evidence_access_unavailable",
       path: `/api/v1/evidence-records/${inconsistentHandle.record_id}/preview-handle`,
-      reasonCode: "evidence_inconsistent",
+      details: { reason_code: "evidence_inconsistent" },
     });
     await (
       await mountedGridTarget(
@@ -2642,7 +2642,7 @@ test.describe("browser.evidence-workflow visual readiness", () => {
 
 test.describe("browser.collaboration workbook visual readiness", () => {
   test("Capture deterministic presence at the workbook header, row gutter, and cell with exact overflow counts.", async ({
-    browser,
+    browserScope,
     page,
     sessionTracker,
   }) => {
@@ -2686,13 +2686,13 @@ test.describe("browser.collaboration workbook visual readiness", () => {
     const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
     const remotePages: Page[] = [];
-    try {
+    {
       await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
       await primarySocket.waitForAcceptedSocket();
 
       for (const [index, remoteActor] of remoteActors.entries()) {
         const remoteSession = await openIncidentAsTrackedUserReady(
-          browser,
+          browserScope,
           sessionTracker,
           {
             preparePage: async (visualPage) => {
@@ -2878,9 +2878,11 @@ test.describe("browser.collaboration workbook visual readiness", () => {
           },
         },
       );
-    } finally {
+
       await Promise.all(
-        remotePages.map((remotePage) => remotePage.context().close()),
+        remotePages.map((remotePage) =>
+          browserScope.closeContext(remotePage.context()),
+        ),
       );
     }
   });
@@ -2890,7 +2892,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
       incidentKeyPrefix: "VISUALCOLLABORATIONRESOLVE",
       title: "browser.collaboration visual conflict resolver",
     });
-    try {
+    {
       await scrollGridTargetIntoView({
         page,
         surface: timelineViewSchemaId,
@@ -2921,7 +2923,7 @@ test.describe("browser.collaboration workbook visual readiness", () => {
         "collaboration-conflict-resolver",
         conflictFixture,
       );
-    } finally {
+
       await fixture.patchController.dispose();
     }
   });
@@ -2931,22 +2933,17 @@ test.describe("browser.collaboration workbook visual readiness", () => {
       incidentKeyPrefix: "VISUALCOLLABORATIONCONFLICTSTRIP",
       title: "browser.collaboration visual conflict strip",
     });
-    try {
-      await page.getByTestId(workbookConflictControlTestId("close")).click();
-      await expect(
-        page.getByTestId(workbookConflictResolverTestId()),
-      ).toHaveCount(0);
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
-      await expect(
-        page.getByTestId(workbookShellSlotTestId("status-strip")),
-      ).toContainText("Conflict");
-      await assertStatusStripVisualFixture(
-        page,
-        "collaboration-conflict-strip",
-      );
-    } finally {
-      await fixture.patchController.dispose();
-    }
+    await page.getByTestId(workbookConflictControlTestId("close")).click();
+    await expect(
+      page.getByTestId(workbookConflictResolverTestId()),
+    ).toHaveCount(0);
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
+    await expect(
+      page.getByTestId(workbookShellSlotTestId("status-strip")),
+    ).toContainText("Conflict");
+    await assertStatusStripVisualFixture(page, "collaboration-conflict-strip");
+
+    await fixture.patchController.dispose();
   });
 
   test("Capture recovered saved-state strip.", async ({ page }) => {
@@ -2954,22 +2951,18 @@ test.describe("browser.collaboration workbook visual readiness", () => {
       incidentKeyPrefix: "VISUALCOLLABORATIONRECOVERED",
       title: "browser.collaboration visual recovered strip",
     });
-    try {
-      await page
-        .getByTestId(workbookConflictControlTestId("keep-saved"))
-        .click();
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
-        pendingReplayCountAttribute,
-        "0",
-      );
-      await assertStatusStripVisualFixture(
-        page,
-        "collaboration-recovered-saved-strip",
-      );
-    } finally {
-      await fixture.patchController.dispose();
-    }
+    await page.getByTestId(workbookConflictControlTestId("keep-saved")).click();
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    await expect(page.getByTestId(saveStateTestId())).toHaveAttribute(
+      pendingReplayCountAttribute,
+      "0",
+    );
+    await assertStatusStripVisualFixture(
+      page,
+      "collaboration-recovered-saved-strip",
+    );
+
+    await fixture.patchController.dispose();
   });
 });
 
@@ -3490,7 +3483,7 @@ test.describe("browser.saved-view-query workbook visual readiness", () => {
 
 test.describe("browser.inspector-history workbook visual readiness", () => {
   test("Capture inspector Details, Relationships, Evidence, History, rollback preview, destructive confirmation, and public error fixtures.", async ({
-    browser,
+    browserScope,
     page,
     sessionTracker,
   }) => {
@@ -3591,7 +3584,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     );
 
     const narrowSession = await openIncidentAsTrackedUserReady(
-      browser,
+      browserScope,
       sessionTracker,
       {
         preparePage: async (visualPage) => {
@@ -3606,7 +3599,7 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
         userId: narrowViewer.user_id,
       },
     );
-    try {
+    {
       const narrowPage = narrowSession.page;
       await narrowPage.setViewportSize({ width: 1024, height: 720 });
 
@@ -3642,8 +3635,8 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
         narrowPage,
         "workbook-inspector-narrow-technical-details",
       );
-    } finally {
-      await narrowSession.page.context().close();
+
+      await browserScope.closeContext(narrowSession.page.context());
     }
 
     await page.setViewportSize({ width: 768, height: 640 });
@@ -3784,7 +3777,8 @@ test.describe("browser.inspector-history workbook visual readiness", () => {
     await page
       .getByTestId(visualHistoryActionTestId(rollbackItem, "history_entry"))
       .click();
-    await page.route(
+    await installOwnedRoute(
+      page,
       `**/api/v1/records/${target.record_id}/rollback`,
       (route) =>
         route.fulfill({
@@ -3926,7 +3920,7 @@ async function prepareFeP7ConflictVisual(
 
 test.describe("workbook visual evidence", () => {
   test("regresses collaboration row-gutter and same-cell presence markers", async ({
-    browser,
+    browserScope,
     page,
     sessionTracker,
   }) => {
@@ -3956,7 +3950,7 @@ test.describe("workbook visual evidence", () => {
     const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
     let remotePage: Page | null = null;
-    try {
+    {
       await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
       await primarySocket.waitForAcceptedSocket();
 
@@ -3970,7 +3964,7 @@ test.describe("workbook visual evidence", () => {
       ).toHaveText("Presence visual row");
 
       const remoteSession = await openIncidentAsTrackedUserReady(
-        browser,
+        browserScope,
         sessionTracker,
         {
           preparePage: async (visualPage) => {
@@ -4035,8 +4029,8 @@ test.describe("workbook visual evidence", () => {
         page.getByTestId(gridShellTestId(timelineViewSchemaId)),
         { renderSurface: timelineViewSchemaId },
       );
-    } finally {
-      await remotePage?.context().close();
+
+      if (remotePage) await browserScope.closeContext(remotePage.context());
     }
   });
 
@@ -4062,7 +4056,7 @@ test.describe("workbook visual evidence", () => {
     await navigateVisualApplication(page, `/?incident_id=${incidentId}`);
 
     const patchController = await installPatchController(page);
-    try {
+    {
       const localValue = `Conflict_visual_local_${"L".repeat(96)}`;
       const remoteValue = `Conflict_visual_saved_${"S".repeat(96)}`;
       await driveRealTimelineSummaryConflict({
@@ -4103,7 +4097,7 @@ test.describe("workbook visual evidence", () => {
         page,
         "collaboration-grid-conflict-resolver-compact",
       );
-    } finally {
+
       await patchController.dispose();
     }
   });
@@ -4149,7 +4143,7 @@ test.describe("workbook visual evidence", () => {
     const patchController = await installPatchController(page);
     const hold = patchController.holdNextPatch({ recordId: syncRow.record_id });
 
-    try {
+    {
       await summaryInput.click();
       const summaryEditor = page.getByTestId(
         timelineScalarEditorTestId({
@@ -4207,7 +4201,7 @@ test.describe("workbook visual evidence", () => {
         .getByTestId(workbookConflictControlTestId("keep-saved"))
         .click();
       await expect(saveState).toHaveText("Saved");
-    } finally {
+
       await patchController.dispose();
     }
 
@@ -4548,9 +4542,12 @@ test.describe("browser.design-readiness visual readiness", () => {
         timelineViewSchemaId,
         { scroll: { top: 0, left: "left" } },
       );
-    } finally {
+
       heldInitialQuery.release();
+
       await heldInitialQuery.dispose();
+    } finally {
+      heldInitialQuery.cancel();
     }
 
     const staleIncidentId = await createRichTimelineIncident(
@@ -4576,22 +4573,22 @@ test.describe("browser.design-readiness visual readiness", () => {
     const staleQueryPattern = `**/api/v1/incidents/${staleIncidentId}/views/${timelineViewSchemaId}/query`;
     let resolveStaleQueryHit: () => void = () => undefined;
     let releaseStaleQuery: () => void = () => undefined;
-    const staleQueryHit = new Promise<void>((resolve) => {
-      resolveStaleQueryHit = resolve;
-    });
-    const staleQueryRelease = new Promise<void>((resolve) => {
-      releaseStaleQuery = resolve;
-    });
+    const staleQueryHitBarrier = responseBarrier(page);
+    resolveStaleQueryHit = staleQueryHitBarrier.release;
+    const staleQueryHit = staleQueryHitBarrier.promise;
+    const staleQueryReleaseBarrier = responseBarrier(page);
+    releaseStaleQuery = staleQueryReleaseBarrier.release;
+    const staleQueryRelease = staleQueryReleaseBarrier.promise;
     const staleQueryFailure = async (route: Route) => {
       if (route.request().method().toUpperCase() !== "POST") {
         await route.fallback();
         return;
       }
       resolveStaleQueryHit();
-      await staleQueryRelease;
+      if (!(await awaitResponseBarrier(route, staleQueryRelease))) return;
       await failWorkbookVisualQuery(route);
     };
-    await page.route(staleQueryPattern, staleQueryFailure);
+    await installOwnedRoute(page, staleQueryPattern, staleQueryFailure);
     try {
       await applyFilterChip(
         page,
@@ -4655,9 +4652,12 @@ test.describe("browser.design-readiness visual readiness", () => {
         timelineViewSchemaId,
         { scroll: { top: 0, left: "left" } },
       );
-    } finally {
+
       releaseStaleQuery();
-      await page.unroute(staleQueryPattern, staleQueryFailure);
+
+      await removeOwnedRoute(page, staleQueryPattern, staleQueryFailure);
+    } finally {
+      staleQueryReleaseBarrier.cancel();
     }
     await closeIncidentForVisual(page, staleIncidentId);
     await test.step("reload visual application", () =>
@@ -4691,8 +4691,12 @@ test.describe("browser.design-readiness visual readiness", () => {
       }
       await failWorkbookVisualQuery(route);
     };
-    await page.route(unavailableQueryPattern, unavailableQueryFailure);
-    try {
+    await installOwnedRoute(
+      page,
+      unavailableQueryPattern,
+      unavailableQueryFailure,
+    );
+    {
       await navigateVisualApplication(
         page,
         `/?incident_id=${unavailableIncidentId}`,
@@ -4723,8 +4727,12 @@ test.describe("browser.design-readiness visual readiness", () => {
         timelineViewSchemaId,
         { scroll: { top: 0, left: "left" } },
       );
-    } finally {
-      await page.unroute(unavailableQueryPattern, unavailableQueryFailure);
+
+      await removeOwnedRoute(
+        page,
+        unavailableQueryPattern,
+        unavailableQueryFailure,
+      );
     }
   });
 });
@@ -4802,35 +4810,6 @@ async function expectVisualEvidenceState(
   await expect(
     page.getByTestId(evidenceDownloadButtonTestId(recordId)),
   ).toBeDisabled();
-}
-
-async function armVisualPublicErrorFault(
-  page: Page,
-  options: {
-    path: string;
-    reasonCode: "blob_failed" | "evidence_inconsistent";
-  },
-) {
-  const response = await createEnvironmentTestControlClient(page.request, {
-    endpointOrigin: apiBase,
-  }).request({
-    body: {
-      code: "evidence_access_unavailable",
-      consume_once: true,
-      details: {
-        reason_code: options.reasonCode,
-      },
-      message:
-        "Evidence access failed for browser.evidence-workflow visual fixture.",
-      method: "POST",
-      path: options.path,
-      retryable: false,
-      status: 409,
-    },
-    method: "POST",
-    path: "/api/v1/test/runtime/public-error-faults",
-  });
-  expect(response.status).toBe(201);
 }
 
 // These auxiliary fixtures observe workflow review or reference selection.
@@ -7150,12 +7129,12 @@ test("Capture incident creation form validation pending recovery and confirmed h
     page,
     "incident-create-expanded-details",
   );
-  const release = responseBarrier();
-  const requested = responseBarrier();
-  await page.route("**/api/v1/incidents", async (route) => {
+  const release = responseBarrier(page);
+  const requested = responseBarrier(page);
+  await installOwnedRoute(page, "**/api/v1/incidents", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     requested.release();
-    await release.promise;
+    if (!(await awaitResponseBarrier(route, release.promise))) return;
     await route.abort("failed");
   });
   await form.locator("summary").click();
@@ -7190,8 +7169,8 @@ test("Capture incident creation form validation pending recovery and confirmed h
     "incident-create-recovery-text-spacing",
   );
   await spacing.evaluate((element) => element.parentNode?.removeChild(element));
-  await page.unroute("**/api/v1/incidents");
-  await page.route("**/api/v1/auth/session", async (route) =>
+  await removeOwnedRoute(page, "**/api/v1/incidents");
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) =>
     route.fulfill({
       status: 502,
       contentType: "application/json",
@@ -7463,7 +7442,7 @@ test("Capture Administrative audit loading empty unavailable paging and inspecte
   testActorPage: page,
 }) => {
   const fixture = await installAuditPresentation(page);
-  const loading = auditBrowserBarrier();
+  const loading = responseBarrier(page);
   fixture.gateRead(loading.promise);
   await page.setViewportSize({ width: 1280, height: 900 });
   const panel = await openAdministrativeAudit(page);
@@ -7583,7 +7562,7 @@ test("Capture Reference Pack catalog selection admission recovery and all job st
     mimeType: "application/x-tar",
     buffer: Buffer.from("presentation fixture"),
   });
-  const pending = referencePackBarrier();
+  const pending = responseBarrier(page);
   fixture.gateAdmission(pending.promise);
   fixture.failAdmission(true);
   await panel.getByRole("button", { name: "Import", exact: true }).click();
@@ -7698,7 +7677,7 @@ test("Capture incident import admission observation cancellation and result reco
     mimeType: "application/x-tar",
     buffer: Buffer.from("presentation fixture"),
   });
-  const pending = responseBarrier();
+  const pending = responseBarrier(page);
   fixture.gateAdmission(pending.promise);
   fixture.failAdmission(true);
   await form.getByRole("button", { name: "Start import" }).click();
@@ -7824,7 +7803,7 @@ test("Capture incident import admission observation cancellation and result reco
     ).toBeEnabled();
     await assertViewportVisualRegression(page, `incident-import-${status}`);
   }
-  await page.route("**/api/v1/auth/session", (route) =>
+  await installOwnedRoute(page, "**/api/v1/auth/session", (route) =>
     route.fulfill({
       status: 503,
       json: {
@@ -7842,7 +7821,7 @@ test("Capture incident import admission observation cancellation and result reco
     page,
     "incident-import-handoff-unavailable",
   );
-  const actionRead = responseBarrier();
+  const actionRead = responseBarrier(page);
   fixture.gateReads(actionRead.promise);
   const open = page.getByRole("button", {
     name: "Open imported incident",
@@ -7891,7 +7870,7 @@ test("Capture Membership audit loading inspected stale empty cursor recovery and
     richIncidentId,
   );
 
-  const loading = auditBrowserBarrier();
+  const loading = responseBarrier(page);
   fixture.gateRead(loading.promise);
   await page.setViewportSize({ width: 1280, height: 720 });
   const panel = await openMembershipAudit(page);
@@ -8029,7 +8008,7 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
     richIncidentId,
   );
 
-  const loading = auditBrowserBarrier();
+  const loading = responseBarrier(page);
   fixture.gateRead(loading.promise);
   await page.setViewportSize({ width: 1280, height: 720 });
   const panel = await openMembershipManagement(page);
@@ -8053,7 +8032,7 @@ test("Capture Membership management drafts pending uncertainty confirmed recover
   await assertViewportVisualRegression(page, "membership-management-role", {
     anchor: { locator: panel, align: "start" },
   });
-  const pending = auditBrowserBarrier();
+  const pending = responseBarrier(page);
   fixture.gateWrite(pending.promise);
   fixture.mutation(503);
   await panel.getByRole("button", { name: "Save role", exact: true }).click();
@@ -8190,7 +8169,7 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
   const fixture = await installMetadataPresentation(page, richIncidentId);
 
   await page.setViewportSize({ width: 1280, height: 720 });
-  const gate = auditBrowserBarrier();
+  const gate = responseBarrier(page);
   fixture.gateRead(gate.promise);
   const panel = await openMetadata(page);
   await expect(
@@ -8205,7 +8184,7 @@ test("Capture Metadata editing loading dirty conflict uncertainty confirmation r
   await assertViewportVisualRegression(page, "metadata-dirty", {
     anchor: { locator: panel, align: "start" },
   });
-  const pending = auditBrowserBarrier();
+  const pending = responseBarrier(page);
   fixture.gateWrite(pending.promise);
   fixture.mutation(503);
   await panel
@@ -8406,29 +8385,37 @@ test("Capture Lifecycle review pending exact recovery confirmation responsive an
   await capture("lifecycle-review-spacing", confirm);
   await spacing.evaluate((e) => e.parentNode?.removeChild(e));
   await page.setViewportSize({ width: 1024, height: 720 });
-  const pending = auditBrowserBarrier();
+  const pending = responseBarrier(page);
   let writes = 0;
   let failedReads = false;
-  await page.route(`**/api/v1/incidents/${incidentId}/close`, async (route) => {
-    ++writes;
-    const response = await route.fetch();
-    expect(response.status()).toBe(200);
-    if (writes === 1) {
-      await pending.promise;
-      await route.abort("failed");
-    } else await route.fulfill({ response });
-  });
-  await page.route(`**/api/v1/incidents/${incidentId}`, async (route) => {
-    if (failedReads && route.request().method() === "GET")
-      await route.fulfill({
-        status: 503,
-        json: {
-          error: { code: "internal_error" },
-          meta: { request_id: "lc-visual-read-failure" },
-        },
-      });
-    else await route.continue();
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/incidents/${incidentId}/close`,
+    async (route) => {
+      ++writes;
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      if (writes === 1) {
+        if (!(await awaitResponseBarrier(route, pending.promise))) return;
+        await route.abort("failed");
+      } else await route.fulfill({ response });
+    },
+  );
+  await installOwnedRoute(
+    page,
+    `**/api/v1/incidents/${incidentId}`,
+    async (route) => {
+      if (failedReads && route.request().method() === "GET")
+        await route.fulfill({
+          status: 503,
+          json: {
+            error: { code: "internal_error" },
+            meta: { request_id: "lc-visual-read-failure" },
+          },
+        });
+      else await route.continue();
+    },
+  );
   await confirm.click();
   await expect.poll(() => writes).toBe(1);
   await expect(panel.getByText(/Close request sent/u)).toBeVisible();
@@ -8524,7 +8511,8 @@ test("Capture workbook preferences inspection uncertainty confirmation responsiv
   await page.setViewportSize({ width: 1280, height: 720 });
   await capture("workbook-preferences-unset");
   let failRead = false;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
     async (route) => {
       if (route.request().method() === "PUT") {
@@ -8553,11 +8541,13 @@ test("Capture workbook preferences inspection uncertainty confirmation responsiv
   await keep.scrollIntoViewIfNeeded();
   await captureCurrent("workbook-preferences-uncertain-narrow", keep);
   await keep.click();
-  await page.unroute(
+  await removeOwnedRoute(
+    page,
     `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
   );
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
     async (route) => {
       if (route.request().method() === "PUT") {
@@ -8583,7 +8573,8 @@ test("Capture workbook preferences inspection uncertainty confirmation responsiv
     .getByTestId(workbookPreferenceTestId("home", "outcome"))
     .scrollIntoViewIfNeeded();
   await captureCurrent("workbook-preferences-confirmed-stale");
-  await page.unroute(
+  await removeOwnedRoute(
+    page,
     `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
   );
   for (const density of ["compact", "comfortable"] as const) {
@@ -8861,13 +8852,13 @@ test("Capture contextual Task and Decision authoring references and retained rec
       .click();
     if (target === "decision") {
       let accepted = false;
-      await page.route(`**/views/${view}/rows`, async (route) => {
+      await installOwnedRoute(page, `**/views/${view}/rows`, async (route) => {
         const response = await route.fetch();
         expect(response.ok()).toBeTruthy();
         accepted = true;
         await route.fulfill({ response });
       });
-      await page.route(`**/views/${view}/query`, async (route) => {
+      await installOwnedRoute(page, `**/views/${view}/query`, async (route) => {
         if (accepted) await route.abort("failed");
         else await route.continue();
       });

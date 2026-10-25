@@ -154,10 +154,13 @@ test("Verify extension availability bootstrap, no-store startup, lazy Network An
       });
       throw error;
     }
-  } finally {
+
     held.release();
-    await held.waitForCompletion;
+
     await patchController.dispose();
+  } finally {
+    held.cancel();
+    await held.waitForCompletion;
   }
 });
 

@@ -12,11 +12,13 @@ import {
 import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { createIncidentMemberUser } from "../incidents/memberships";
+import { responseBarrier } from "../runtime/cleanup";
 import {
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "../runtime/fixtureIdentity";
+import { installOwnedRoute } from "../transport/requestInterception";
 import { createViewRow, type SuppliedSourceFixture } from "./query";
 import { openRecoveryItem, recoveryEntry } from "./recovery";
 import {
@@ -132,10 +134,10 @@ export async function retainCoordinationUncertainResult(
 ) {
   const path = `**/incidents/${f.incident}/views/${f.target.viewSchemaId}/rows`;
   let reachedTransport: () => void = () => {};
-  const captured = new Promise<void>((resolve) => {
-    reachedTransport = resolve;
-  });
-  await page.route(path, async (route) => {
+  const capturedBarrier = responseBarrier(page);
+  reachedTransport = capturedBarrier.release;
+  const captured = capturedBarrier.promise;
+  await installOwnedRoute(page, path, async (route) => {
     const response = await route.fetch();
     expect(response.ok()).toBe(true);
     await route.abort("failed");

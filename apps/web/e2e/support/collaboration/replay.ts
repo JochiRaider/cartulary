@@ -23,10 +23,15 @@ import {
   notesViewSchemaId,
   timelineViewSchemaId,
 } from "@cartulary/view-contracts";
-import type { Browser, Page, Route } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 import { expect } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
 import { createIncidentMemberUser } from "../incidents/memberships";
+import {
+  browserScopeFor,
+  type OwnedBarrier,
+  type OwnedBrowserScope,
+} from "../runtime/cleanup";
 import {
   uniqueEmail,
   uniqueIncidentKey,
@@ -36,7 +41,10 @@ import {
   installIncidentSocketMonitor,
   type SocketMessage,
 } from "../transport/incidentSocket";
-import { safelyRemoveRoute as safeUnroute } from "../transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "../transport/requestInterception";
 import {
   createViewRow,
   patchRecord,
@@ -65,15 +73,13 @@ type PatchCall = {
 
 type PatchBehavior =
   | {
-      hold: Promise<void>;
+      hold: OwnedBarrier;
+      hit: OwnedBarrier;
+      completion: OwnedBarrier;
+      call: PatchCall | null;
       recordId?: string;
-      release: () => void;
       replacementConflictToken: { current: string | null };
-      resolveCompletion: (call: PatchCall) => void;
-      resolveHit: (call: PatchCall) => void;
       type: "hold";
-      waitForCompletion: Promise<PatchCall>;
-      waitForHit: Promise<PatchCall>;
     }
   | {
       code: string;
@@ -100,7 +106,7 @@ type SessionTracker = {
 };
 
 export async function openIncidentAsTrackedUserReady(
-  browser: Browser,
+  browserScope: OwnedBrowserScope,
   sessionTracker: SessionTracker,
   options: {
     preparePage?: (page: Page) => Promise<void>;
@@ -113,7 +119,7 @@ export async function openIncidentAsTrackedUserReady(
     userId: string;
   },
 ) {
-  const context = await browser.newContext();
+  const context = await browserScope.newContext();
   const page = await context.newPage();
   await options.preparePage?.(page);
   await sessionTracker.loginTrackedUser(page, {
@@ -443,6 +449,7 @@ export async function driveRealTimelineSummaryConflict({
   }
   heldPrimaryPatch.release();
   const primaryPatch = await heldPrimaryPatch.waitForCompletion;
+  if (!primaryPatch) throw new Error("Patch completion was cancelled");
   expect(primaryPatch.status).toBe(409);
   await expect(page.getByTestId(saveStateTestId())).toHaveText("Conflict");
   if (expectConflictMarker && !expectEditedCellMounted) {
@@ -613,7 +620,7 @@ export async function exerciseRevokedPendingReplay({
   const queuedReplayItems = [firstReplayItem];
   const patchController = await installPatchController(page);
 
-  try {
+  {
     await sessionTracker.loginTrackedUser(page, {
       createdBy,
       email: member.email,
@@ -715,7 +722,7 @@ export async function exerciseRevokedPendingReplay({
         queuedReplayItems.map((item) => [item.recordId, item.value]),
       ),
     );
-  } finally {
+
     await patchController.dispose();
   }
 }
@@ -857,6 +864,9 @@ export async function focusRemoteTimelineCellAndWaitForPresence({
 }
 
 export async function installPatchController(page: Page) {
+  const scope = browserScopeFor(page);
+  const holds = new Set<Extract<PatchBehavior, { type: "hold" }>>();
+  let disposed = false;
   const calls: PatchCall[] = [];
   const behaviors: PatchBehavior[] = [];
   const routePattern = "**/api/v1/records/*";
@@ -871,7 +881,7 @@ export async function installPatchController(page: Page) {
     const [behavior] = behaviors.splice(behaviorIndex, 1);
     return behavior ?? null;
   };
-  const handler = async (route: Route) => {
+  const handle = async (route: Route) => {
     const request = route.request();
     if (request.method().toUpperCase() !== "PATCH") {
       await route.fallback();
@@ -885,8 +895,9 @@ export async function installPatchController(page: Page) {
     };
     const behavior = takeBehavior(call);
     if (behavior?.type === "hold") {
-      behavior.resolveHit(call);
-      await behavior.hold;
+      behavior.call = call;
+      behavior.hit.release();
+      if (!(await awaitResponseBarrier(route, behavior.hold.promise))) return;
     }
     if (behavior?.type === "error") {
       call.status = behavior.status;
@@ -914,17 +925,22 @@ export async function installPatchController(page: Page) {
       await route.fulfill({ response });
     }
     if (behavior?.type === "hold") {
-      behavior.resolveCompletion(call);
+      behavior.completion.release();
     }
   };
 
-  await page.route(routePattern, handler);
+  const ownedRoute = await installOwnedRoute(page, routePattern, handle, () => {
+    disposed = true;
+    for (const behavior of holds) {
+      behavior.hold.cancel();
+      behavior.hit.cancel();
+      behavior.completion.cancel();
+    }
+  });
 
   return {
     calls,
-    dispose: async () => {
-      await safeUnroute(page, routePattern, handler);
-    },
+    dispose: ownedRoute.dispose,
     failNextPatch: (
       status: number,
       code: string,
@@ -940,40 +956,42 @@ export async function installPatchController(page: Page) {
       });
     },
     holdNextPatch: (options: PatchBehaviorOptions = {}) => {
-      let releaseHold!: () => void;
-      let resolveCompletion!: (call: PatchCall) => void;
-      let resolveHit!: (call: PatchCall) => void;
-      const waitForHit = new Promise<PatchCall>((resolve) => {
-        resolveHit = resolve;
-      });
-      const waitForCompletion = new Promise<PatchCall>((resolve) => {
-        resolveCompletion = resolve;
-      });
-      const hold = new Promise<void>((resolve) => {
-        releaseHold = resolve;
-      });
+      if (disposed) throw new Error("Patch controller disposal has begun");
+      const hold = scope.barrier(page.context());
+      const hit = scope.barrier(page.context());
+      const completion = scope.barrier(page.context());
       const replacementConflictToken = { current: null as string | null };
-      const behavior = {
+      const behavior: Extract<PatchBehavior, { type: "hold" }> = {
         hold,
-        release: releaseHold,
+        hit,
+        completion,
+        call: null,
         replacementConflictToken,
-        resolveCompletion,
-        resolveHit,
         type: "hold" as const,
-        waitForCompletion,
-        waitForHit,
         ...(options.recordId === undefined
           ? {}
           : { recordId: options.recordId }),
       };
       behaviors.push(behavior);
+      holds.add(behavior);
+      const waitForHit = hit.promise.then((outcome) =>
+        outcome === "released" ? behavior.call : null,
+      );
+      const waitForCompletion = completion.promise.then((outcome) =>
+        outcome === "released" ? behavior.call : null,
+      );
       return {
-        release: releaseHold,
+        release: hold.release,
+        cancel: () => {
+          hold.cancel();
+          hit.cancel();
+          completion.cancel();
+        },
+        waitForHit,
+        waitForCompletion,
         replaceConflictToken: (token: string) => {
           replacementConflictToken.current = token;
         },
-        waitForCompletion,
-        waitForHit,
       };
     },
   };
@@ -1007,7 +1025,7 @@ export async function installPatchTransportFailureController(page: Page) {
     await route.fulfill({ response });
   };
 
-  await page.route(routePattern, handler);
+  const ownedRoute = await installOwnedRoute(page, routePattern, handler);
 
   return {
     calls,
@@ -1017,9 +1035,7 @@ export async function installPatchTransportFailureController(page: Page) {
     disconnect: () => {
       connected = false;
     },
-    dispose: async () => {
-      await safeUnroute(page, routePattern, handler);
-    },
+    dispose: ownedRoute.dispose,
   };
 }
 

@@ -4,10 +4,15 @@ import { openIncidentControls } from "../pages/deploymentAdministration";
 import { openIncidentFromLanding } from "../pages/incidentDirectory";
 import { rewriteSessionPresentation } from "./auth/sessionPresentation";
 import { createIncident } from "./incidents/fixtures";
+import type { BarrierOutcome } from "./runtime/cleanup";
 import { apiBase } from "./runtime/configuration";
 import { uniqueIncidentKey } from "./runtime/fixtureIdentity";
 import { publicHttpOperation } from "./transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./transport/publicJsonClient";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./transport/requestInterception";
 export async function openMetadata(page: Page) {
   await openIncidentControls(page, "incident-fields");
   return page.getByRole("region", {
@@ -51,8 +56,8 @@ export async function installMetadataPresentation(
     severity: "critical",
     incident_version: 2,
   };
-  let readGate: Promise<void> | null = null;
-  let writeGate: Promise<void> | null = null;
+  let readGate: Promise<BarrierOutcome> | null = null;
+  let writeGate: Promise<BarrierOutcome> | null = null;
   let access:
     | "admin"
     | "reviewer"
@@ -63,7 +68,7 @@ export async function installMetadataPresentation(
     | "unavailable" = "admin";
   const writes: Record<string, unknown>[] = [];
   const reads: string[] = [];
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     if (access === "session" || access === "unavailable") {
       await route.fulfill({
         status: access === "session" ? 401 : 503,
@@ -90,14 +95,16 @@ export async function installMetadataPresentation(
       ),
     }));
   });
-  await page.route(`**/api/v1/incidents/${incidentId}`, async (route) => {
-    if (route.request().method() === "GET") {
-      reads.push(route.request().url());
-      const captured = { resource, status: readStatus, gate: readGate };
-      readGate = null;
-      if (captured.gate !== null) await captured.gate;
-      await route
-        .fulfill({
+  await installOwnedRoute(
+    page,
+    `**/api/v1/incidents/${incidentId}`,
+    async (route) => {
+      if (route.request().method() === "GET") {
+        reads.push(route.request().url());
+        const captured = { resource, status: readStatus, gate: readGate };
+        readGate = null;
+        if (!(await awaitResponseBarrier(route, captured.gate))) return;
+        await route.fulfill({
           status: captured.status,
           json:
             captured.status === 200
@@ -109,25 +116,23 @@ export async function installMetadataPresentation(
                   error: { code: "service_unavailable" },
                   meta: { request_id: "metadata-read-failed" },
                 },
-        })
-        .catch(() => {});
-      return;
-    }
-    if (route.request().method() !== "PATCH") {
-      await route.continue();
-      return;
-    }
-    writes.push(route.request().postDataJSON());
-    const captured = {
-      resource: writeResource,
-      status: writeStatus,
-      code: writeCode,
-      gate: writeGate,
-    };
-    writeGate = null;
-    if (captured.gate !== null) await captured.gate;
-    await route
-      .fulfill({
+        });
+        return;
+      }
+      if (route.request().method() !== "PATCH") {
+        await route.continue();
+        return;
+      }
+      writes.push(route.request().postDataJSON());
+      const captured = {
+        resource: writeResource,
+        status: writeStatus,
+        code: writeCode,
+        gate: writeGate,
+      };
+      writeGate = null;
+      if (!(await awaitResponseBarrier(route, captured.gate))) return;
+      await route.fulfill({
         status: captured.status,
         json:
           captured.status === 200
@@ -142,9 +147,9 @@ export async function installMetadataPresentation(
                 },
                 meta: { request_id: "metadata-rejection" },
               },
-      })
-      .catch(() => {});
-  });
+      });
+    },
+  );
   if (!existingIncidentId) await openIncidentFromLanding(page, incidentId);
   return {
     incidentId,
@@ -167,10 +172,10 @@ export async function installMetadataPresentation(
       writeResource = { ...resource, ...next };
       writeCode = code;
     },
-    gateRead: (gate: Promise<void>) => {
+    gateRead: (gate: Promise<BarrierOutcome>) => {
       readGate = gate;
     },
-    gateWrite: (gate: Promise<void>) => {
+    gateWrite: (gate: Promise<BarrierOutcome>) => {
       writeGate = gate;
     },
     access: (next: typeof access) => {

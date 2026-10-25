@@ -60,6 +60,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { installOwnedRoute } from "./support/transport/requestInterception";
 import {
   fetchRecordHistory,
   openHistoryEventDetails,
@@ -227,7 +228,8 @@ test("Verify history and rollback preview/action use public route contracts, pre
     page.getByTestId(rowHistoryRollbackPreviewTestId(rollbackAnchor)),
   ).toBeVisible();
   // A second peer edit lands after the final admitted read, exercising the authoritative 409.
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/records/${row.record_id}/history`,
     async (route) => {
       const reviewedResponse = await route.fetch();
@@ -280,7 +282,7 @@ test("Verify history and rollback preview/action use public route contracts, pre
 });
 
 test("Verify inspector Details, Relationships, Evidence, History, rollback, and destructive-action authorization through public browser routes.", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
 }) => {
@@ -460,9 +462,9 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     is_deployment_admin: false,
     mfa_required: false,
   });
-  const memberContext = await browser.newContext();
+  const memberContext = await browserScope.newContext();
   const memberPage = await memberContext.newPage();
-  try {
+  {
     await disableWorkbookSockets(memberPage);
     await sessionTracker.loginTrackedUser(memberPage, {
       createdBy: "end-to-end.inspector-history.row-01",
@@ -579,13 +581,13 @@ test("Verify inspector Details, Relationships, Evidence, History, rollback, and 
     await expect(
       rejectedAction.getByRole("button", { name: "Replay exact action" }),
     ).toHaveCount(0);
-  } finally {
-    await memberContext.close();
+
+    await browserScope.closeContext(memberContext);
   }
 });
 
 test("Verify default-closed inspector state, no-row state, surface switch config changes, saved-view switch over the same view_schema_id keeps the same config, closed incident read-only behavior, server-denied action behavior, and Timeline create/edit/paste without opening the inspector.", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
 }) => {
@@ -801,9 +803,9 @@ test("Verify default-closed inspector state, no-row state, surface switch config
     is_deployment_admin: false,
     mfa_required: false,
   });
-  const memberContext = await browser.newContext();
+  const memberContext = await browserScope.newContext();
   const memberPage = await memberContext.newPage();
-  try {
+  {
     await disableWorkbookSockets(memberPage);
     await sessionTracker.loginTrackedUser(memberPage, {
       createdBy: "end-to-end.inspector-history.row-02",
@@ -827,8 +829,8 @@ test("Verify default-closed inspector state, no-row state, surface switch config
       error: { code: string };
     };
     expect(deniedBody.error.code).toBe("authorization_denied");
-  } finally {
-    await memberContext.close();
+
+    await browserScope.closeContext(memberContext);
   }
 });
 

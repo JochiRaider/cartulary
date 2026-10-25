@@ -27,8 +27,14 @@ import {
   prepareAc043Snapshot,
   startAc043SnapshotTraffic,
 } from "../support/performance/ac043Snapshot";
+import { responseBarrier } from "../support/runtime/cleanup";
 import { uniqueTxn } from "../support/runtime/fixtureIdentity";
-import { holdBrowserRequest } from "../support/transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "../support/transport/requestInterception";
 import {
   createViewRow,
   patchRecord,
@@ -51,7 +57,7 @@ test.use({
 test.describe.configure({ mode: "serial", timeout: 10 * 60 * 1000 });
 
 test("traces anchored Timeline edits through large-grid refresh and live updates within AC-047", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
@@ -95,7 +101,7 @@ test("traces anchored Timeline edits through large-grid refresh and live updates
       page.getByTestId(timelineMutationSubstrateReadyTestId()),
     ).toBeVisible();
     traffic = await startAc043SnapshotTraffic(
-      browser,
+      browserScope,
       sessionTracker,
       snapshot.incidentId,
       snapshot.timelineRows.filter((row) => !excluded.has(row.record_id)),
@@ -182,15 +188,15 @@ test("traces anchored Timeline edits through large-grid refresh and live updates
     let releaseQuery = () => {};
     let captureQuery = () => {};
     let finishDelivery = () => {};
-    const queryGate = new Promise<void>((resolve) => {
-      releaseQuery = resolve;
-    });
-    const queryCaptured = new Promise<void>((resolve) => {
-      captureQuery = resolve;
-    });
-    const queryDelivered = new Promise<void>((resolve) => {
-      finishDelivery = resolve;
-    });
+    const queryGateBarrier = responseBarrier(page);
+    releaseQuery = queryGateBarrier.release;
+    const queryGate = queryGateBarrier.promise;
+    const queryCapturedBarrier = responseBarrier(page);
+    captureQuery = queryCapturedBarrier.release;
+    const queryCaptured = queryCapturedBarrier.promise;
+    const queryDeliveredBarrier = responseBarrier(page);
+    finishDelivery = queryDeliveredBarrier.release;
+    const queryDelivered = queryDeliveredBarrier.promise;
     const queryPattern = `**/api/v1/incidents/${snapshot.incidentId}/views/${view}/query`;
     let captured = false;
     const staleQuery = async (route: Route) => {
@@ -210,7 +216,7 @@ test("traces anchored Timeline edits through large-grid refresh and live updates
         contract.draft_value,
       );
       captureQuery();
-      await queryGate;
+      if (!(await awaitResponseBarrier(route, queryGate))) return;
       await route.fulfill({ response });
       finishDelivery();
     };
@@ -285,7 +291,7 @@ test("traces anchored Timeline edits through large-grid refresh and live updates
 
       // Retain a real server response taken before commit, then deliver it after
       // the acknowledged mutation. No response body, auth or storage is mocked.
-      await page.route(queryPattern, staleQuery);
+      await installOwnedRoute(page, queryPattern, staleQuery);
       await createViewRow(page, snapshot.incidentId, view, {
         client_txn_id: uniqueTxn("anchor-invalidation"),
         [contract.field_key]: "AC047 invalidation row",
@@ -328,10 +334,13 @@ test("traces anchored Timeline edits through large-grid refresh and live updates
       await expectTargetValue();
       await anchorCheckpoint(page, "stale_refresh_released");
       expect(held.hitCount()).toBe(1);
-    } finally {
+
       releaseQuery();
+
       await held.dispose();
-      await page.unroute(queryPattern, staleQuery);
+      await removeOwnedRoute(page, queryPattern, staleQuery);
+    } finally {
+      queryGateBarrier.cancel();
     }
     if (committedVersion === null) throw new Error("Anchor commit is missing");
     const updated = await patchRecord(page, id, {

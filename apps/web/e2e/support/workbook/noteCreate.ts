@@ -16,7 +16,9 @@ import {
 } from "@cartulary/view-contracts";
 import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
+import { responseBarrier } from "../runtime/cleanup";
 import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
+import { installOwnedRoute } from "../transport/requestInterception";
 import { createViewRow, type SuppliedSourceFixture } from "./query";
 import { openRecoveryItem, recoveryEntry } from "./recovery";
 import {
@@ -82,15 +84,19 @@ export async function retainNoteUncertainResult(
   view: string,
 ) {
   let reachedTransport: () => void = () => {};
-  const captured = new Promise<void>((resolve) => {
-    reachedTransport = resolve;
-  });
-  await page.route(`**/records/${sourceId}/linked-notes`, async (route) => {
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    await route.abort("failed");
-    reachedTransport();
-  });
+  const capturedBarrier = responseBarrier(page);
+  reachedTransport = capturedBarrier.release;
+  const captured = capturedBarrier.promise;
+  await installOwnedRoute(
+    page,
+    `**/records/${sourceId}/linked-notes`,
+    async (route) => {
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      await route.abort("failed");
+      reachedTransport();
+    },
+  );
   await page.getByTestId(genericCreateSubmitTestId(notesViewSchemaId)).click();
   await captured;
   const summary = recoveryEntry(page);

@@ -16,6 +16,7 @@ import { apiBase } from "./support/runtime/configuration";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import { installOwnedRoute } from "./support/transport/requestInterception";
 import {
   fetchFullRecordHistory,
   openHistoryEventDetails,
@@ -39,7 +40,8 @@ test("Indicator observations replay source capture and every transition after co
     { incidentId, source, oldTarget, newTarget } = fixture;
   const requests: string[] = [],
     receipts: CreateManualIndicatorObservationResponse["data"][] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/records/${source.record_id}/indicator-observations`,
     async (route) => {
       if (route.request().method() !== "POST") return route.continue();
@@ -85,23 +87,27 @@ test("Indicator observations replay source capture and every transition after co
     .getByTestId(workbookInspectorCloseButtonTestId(timelineViewSchemaId))
     .click();
   let failRefresh = true;
-  await page.route(`**/views/${timelineViewSchemaId}/query`, async (route) => {
-    if (!failRefresh) return route.continue();
-    await route.fulfill({
-      status: 503,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: {
-          code: "service_unavailable",
-          details: {},
-          status: 503,
-          retryable: true,
-          message: "Refresh unavailable",
-          request_id: "refresh-failure",
-        },
-      }),
-    });
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      if (!failRefresh) return route.continue();
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "service_unavailable",
+            details: {},
+            status: 503,
+            retryable: true,
+            message: "Refresh unavailable",
+            request_id: "refresh-failure",
+          },
+        }),
+      });
+    },
+  );
   await openRecoveryItem(page, /^Indicator observation ·/);
   const recovery = page.getByTestId(indicatorObservationTestId("recovery"));
   await recovery
@@ -142,7 +148,8 @@ test("Indicator observations replay source capture and every transition after co
     const completedBefore = await completedResults.count();
     const bodies: string[] = [],
       results: CreateManualIndicatorObservationResponse["data"][] = [];
-    await page.route(
+    await installOwnedRoute(
+      page,
       `**/api/v1/indicator-observations/${observationId}/${action}`,
       async (route) => {
         bodies.push(route.request().postData() ?? "");
@@ -338,7 +345,8 @@ test("Indicator observation browsing retains failed pages and independent target
   ).toHaveCount(0);
   const failedBodies: string[] = [];
   let failCandidate = true;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/views/${indicatorsViewSchemaId}/query`,
     async (route) => {
       const body = route.request().postDataJSON();
@@ -444,7 +452,8 @@ test("Indicator observation browsing retains failed pages and independent target
   await expect(editor.getByRole("article")).toHaveCount(100);
   const cursors: string[] = [];
   let failPage = true;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/records/${source.record_id}/indicator-observations?**`,
     async (route) => {
       const cursor = new URL(route.request().url()).searchParams.get(

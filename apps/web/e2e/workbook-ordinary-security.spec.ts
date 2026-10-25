@@ -15,8 +15,13 @@ import {
   openLifecycle,
 } from "./support/incidentLifecycle";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { uniqueEmail, uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   commitOrdinary,
   fillOrdinaryField,
@@ -133,17 +138,21 @@ test("Ordinary role loss retains readable authoring and scoped revocation fences
   );
   let committed = false;
   let release: () => void = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
   const suffix = `/views/${evidence}/rows`;
-  await page.route(`**/incidents/${incident}${suffix}`, async (route) => {
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    committed = true;
-    await gate;
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/incidents/${incident}${suffix}`,
+    async (route) => {
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      committed = true;
+      if (!(await awaitResponseBarrier(route, gate))) return;
+      await route.fulfill({ response });
+    },
+  );
   await commitOrdinary(page, evidence);
   await expect.poll(() => committed).toBe(true);
   await fillOrdinaryField(

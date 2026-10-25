@@ -151,6 +151,32 @@ func AssertJSONAdmissionAndErrorDetails(t *testing.T) {
 		_, apiErr = decodeAcceptedRowQueryRequest(strings.NewReader(body), schemaTableQueryRequest, schemaTableQueryContinuation, limits)
 		requireAPIError(t, apiErr, "network_flow_invalid_request", "")
 	}
+	for _, variant := range []struct{ initial, continuation string }{
+		{schemaTableQueryRequest, schemaTableQueryContinuation},
+		{schemaRowsQueryRequest, schemaRowsQueryContinuation},
+		{schemaRejectedRowsQueryRequest, schemaRejectedRowsQueryContinuation},
+		{schemaGraphContributorQueryRequest, schemaGraphContributorQueryContinuation},
+	} {
+		for _, body := range []struct{ schema, members, reason string }{
+			{variant.initial, `,"cursor_token":"sealed"`, "semantic_query_mismatch"},
+			{variant.continuation, `,"cursor_token":"sealed","limit":2`, "semantic_query_mismatch"},
+			{variant.continuation, `,"cursor_token":null`, "malformed"},
+			{variant.continuation, "", "malformed"},
+		} {
+			input := `{"schema_id":"` + body.schema + `"` + body.members + `}`
+			var failure *semanticFailure
+			switch variant.initial {
+			case schemaRejectedRowsQueryRequest:
+				_, failure = decodeRejectedRowsQueryRequest(strings.NewReader(input), limits)
+			case schemaGraphContributorQueryRequest:
+				_, failure = decodeGraphContributorQueryRequestValue(strings.NewReader(input), limits)
+			default:
+				_, failure = decodeAcceptedRowQueryRequest(strings.NewReader(input), variant.initial, variant.continuation, limits)
+			}
+			requireAPIError(t, failure, "network_flow_cursor_invalid", body.reason)
+		}
+	}
+
 }
 
 func AssertMappingApprovalBoundary(t *testing.T) {

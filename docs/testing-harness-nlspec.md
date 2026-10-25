@@ -1022,8 +1022,71 @@ one stack and setup lifetime only when runtime, renderer/trust, resource, fixtur
 project, stage and declared state scope agree. Each test owns a fresh browser
 context and its mutable data. Actor/session state observed or mutated by an
 assertion MUST be test-owned; a shared setup account is permitted only for proved
-control-plane use. Authentication administration, global clocks/faults and shared
-listings remain isolated unless their owner proves a narrower state boundary.
+control-plane use. Owned-user administration and identity-scoped listings MAY
+share a cohort after that boundary is proved. Actual process-global clock or
+registry enforcement and specialized deployment/publication lifetimes remain
+isolated where their assertions require that resource boundary. Local browser
+presentation faults MUST NOT create a server-global mutation dependency.
+
+Each test MUST have one browser resource owner for its primary and secondary
+contexts, independent request clients, actors and acquired session snapshots.
+An actor MUST be registered before any login attempt, so a failed login or
+snapshot acquisition cannot leave its sessions unowned. Context and independent
+request-client acquisition MUST be registered while in flight, before exposing
+the acquired resource. Disposal MUST stop admission; an acquisition already in
+flight MUST settle under the same owner, including a context that resolves after
+disposal begins. New acquisitions after disposal begins MUST be rejected.
+Context acquisition MUST inherit the effective project/test settings through the
+instrumented browser interface, with explicit scenario overrides preserved.
+
+A scope-owned response barrier has exactly one terminal outcome: `released` or
+`cancelled`. Repeated release or cancellation MUST preserve the first outcome.
+Disposal cancels pending barriers, including barriers not yet reached by a route
+handler. Cancellation MUST NOT approve or dispatch a held mutation. A cancelled
+handler MUST settle without falling through to its ordinary request. Route
+fetch, fulfillment, abort and drain failures MUST remain observable; broad
+exception suppression or matching an error-message string is not cleanup proof.
+
+Disposal MUST return the same completion promise to concurrent and repeated
+callers, preserving its original rejection. Its ordered phases are: stop
+admission and cancel barriers; settle feature-owned work, including in-flight
+job admission and admitted jobs; begin draining every owned page and context
+route before awaiting any drain; await all drains; close owned contexts; revoke
+owned actors' sessions and verify acquired snapshots through the still-live
+provisioner; finally dispose independent request clients. A phase failure MUST
+NOT prevent attempts to settle the remaining owned resources. Existing cleanup
+deadlines still bound nonsettlement; cleanup failure fails and quarantines the
+allocation under the existing cohort policy. The primary test failure MUST
+remain primary, with additional cleanup failures reported separately using
+bounded operation categories that exclude credentials and private values.
+
+Feature fixtures own their records, job admission and terminal-state observation;
+the common browser scope MUST NOT become a feature data or job policy owner.
+The provisioner is borrowed control-plane infrastructure and MUST remain usable
+through test-session cleanup. A test MUST NOT revoke another test's actor or the
+provisioner's sessions. Sessions acquired in a restored disposable deployment
+remain in that deployment's boundary and MUST NOT be revoked through the ordinary
+deployment's provisioner. Before retiring a specialized fixture runtime or a
+resource on which an owned browser context depends, that browser context MUST
+settle and close. Independent publication builds retain their existing process
+owners and evidence; they may finish while the browser verifies its previously
+loaded immutable assets.
+
+Uniquely test-owned durable records MAY remain until the bounded cohort reset.
+Assertions over shared listings MUST select owned identities and MUST NOT depend
+on database cardinality or a predecessor's residue. Deterministic test identities
+MUST execute once per cohort generation. Actor pools, per-test deployment resets,
+outer transactions around HTTP work and production deletion APIs MUST NOT be
+introduced to substitute for ownership. A multi-case row is shareable only when
+every selected case qualifies. Qualification MUST include separate clean forward
+and reverse invocations with unrelated users, incidents, audit events and jobs,
+using existing harness regression mechanisms without a public shuffle interface.
+Local responses establish browser presentation/recovery evidence only; real
+owner-defined authorization, persistence, replay, time and cursor enforcement
+require independent real-boundary witnesses before predecessor assertions are
+removed.
+Verified by: TH-HARNESS-AC-088
+
 The authored catalog declares each browser row's state scope: `test_owned`
 permits sharing after its owner proves test-owned actor/session and mutable data;
 `isolated` requires a singleton; `measurement` requires a dedicated measurement
@@ -4062,7 +4125,6 @@ claim publication.
 | `cartulary.browser_acquisition.v2` | `tools/schemas/cartulary.browser_acquisition.v2.schema.json` | private | Browser acquisition owner | Before launch and every settlement/recovery read. |
 | `cartulary.browser_reset_attempt.v2`            | `tools/schemas/cartulary.browser_reset_attempt.v2.schema.json`            | present           | Browser reset lifecycle  | Before a browser reset unit reaches a terminal state. |
 | `cartulary.test.clock_control.v1`               | `tools/schemas/cartulary.test.clock_control.v1.schema.json`               | present           | Test clock route         | Before a fixed, offset, reset, or state clock-control response is accepted. |
-| `cartulary.test.public_error_fault.v1`          | `tools/schemas/cartulary.test.public_error_fault.v1.schema.json`          | present           | Browser stack            | Before an armed public-error fault is accepted. |
 | `cartulary.test.network_flow_fault_control.v2`  | `tools/schemas/cartulary.test.network_flow_fault_control.v2.schema.json`  | present           | Network Flow fault-control route | Before an armed Network Flow commit or worker fault is accepted. |
 | `cartulary.test.network_flow_randomness_control.v3` | `tools/schemas/cartulary.test.network_flow_randomness_control.v3.schema.json` | present       | Network Flow randomness-control route | Before an armed deterministic Network Flow random stream is accepted. |
 | `cartulary.test.network_flow_auth_transition_control.v2` | `tools/schemas/cartulary.test.network_flow_auth_transition_control.v2.schema.json` | present | Network Flow auth-transition control route | Before an armed Network Flow auth-transition control is accepted. |
@@ -8669,7 +8731,7 @@ Verified by: TH-HARNESS-AC-109, TH-HARNESS-AC-113, TH-HARNESS-AC-129, TH-HARNESS
 ## 12. Test-Only Harness Routes
 
 **TH-HARNESS-REQ-450**
-Test-only harness routes are harness routes. Runtime-control routes include `GET /api/v1/test/runtime/identity`, `POST /api/v1/test/clock/set`, `POST /api/v1/test/clock/reset`, `GET /api/v1/test/clock/state`, `POST /api/v1/test/runtime/public-error-faults`, `POST /api/v1/test/runtime/network-flow-faults`, `POST /api/v1/test/runtime/network-flow-randomness`, `POST /api/v1/test/runtime/network-flow-auth-transitions`, and `POST /api/v1/test/runtime/network-flow-audit-assertions`. Fixture routes include `POST /api/v1/test/incidents/{incident_id}/saved-views/system`. Any future `/api/v1/test/*` or `/ws/v1/test/*` route that observes or mutates harness runtime state or fixture state is also a test-only harness route. These routes MUST be unavailable unless every enablement predicate below is satisfied. They MUST NOT be documented as production API behavior.
+Test-only harness routes are harness routes. Runtime-control routes include `GET /api/v1/test/runtime/identity`, `POST /api/v1/test/clock/set`, `POST /api/v1/test/clock/reset`, `GET /api/v1/test/clock/state`, `POST /api/v1/test/runtime/network-flow-faults`, `POST /api/v1/test/runtime/network-flow-randomness`, `POST /api/v1/test/runtime/network-flow-auth-transitions`, and `POST /api/v1/test/runtime/network-flow-audit-assertions`. Fixture routes include `POST /api/v1/test/incidents/{incident_id}/saved-views/system`. Any future `/api/v1/test/*` or `/ws/v1/test/*` route that observes or mutates harness runtime state or fixture state is also a test-only harness route. These routes MUST be unavailable unless every enablement predicate below is satisfied. They MUST NOT be documented as production API behavior.
 
 Runtime-linked implementations of Section 12 routes that are registered by application binaries are owned by the platform harness runtime adapter boundary. Private implementation package paths are not public route contracts. Non-test runtime code MUST NOT import broad test-helper packages to register or execute Section 12 routes once a platform harness runtime adapter exists for that route family.
 Verified by: TH-HARNESS-AC-008, TH-HARNESS-AC-013
@@ -8751,34 +8813,30 @@ Verified by: TH-HARNESS-AC-051
 
 This fixture route MUST create only saved-view fixture rows through the saved-view store path. It MUST NOT expose arbitrary SQL execution, projection mutation, generic fixture mutation, or caller-supplied saved-view identity, owner, timestamps, version, or scope. The route fixes `scope='system'`, fixes `owner_user_id=null`, derives `incident_id` from the path, and returns the normal saved-view resource in the standard success envelope with HTTP `201`.
 
-### 12.2.4 Public-Error Fault Control
+### 12.2.4 Browser-Local Public-Error Presentation
 
-`POST /api/v1/test/runtime/public-error-faults` is a harness test route with the same enablement, host/origin, and token authorization predicates as the runtime identity route. The route MAY arm a one-shot public error envelope for the next exact ordinary `/api/v1/` request whose method and path match the request body. It MUST NOT be exposed as production API behavior, MUST NOT be listed in production OpenAPI, MUST NOT accept ordinary session, role, CSRF, bearer, bootstrap-token, or `deployment_admin` authorization as a substitute for the test-route token, and MUST fail host/origin or token checks before decoding the body or arming any fault.
+**TH-HARNESS-REQ-481**
+`POST /api/v1/test/runtime/public-error-faults` is retired. It MUST be unavailable
+in both default runtimes and runtimes with harness controls enabled. Its route
+registration, server registry, generic HTTP middleware dependency, client,
+response schema and active schema/catalog bindings MUST be absent. There MUST
+NOT be an alias, dormant implementation or replacement server fault API.
+Negative retirement witnesses and historical migration records MAY name the
+retired route without implementing it.
 
-The armed fault is in-memory harness runtime state. It is consumed at the service boundary before the ordinary route handler runs. Matching is exact on uppercase HTTP method and request path; query strings and fragments are not part of the accepted path. Faults MUST apply only to paths that start with `/api/v1/` and MUST NOT apply to paths that start with `/api/v1/test/`. Test-control routes therefore cannot fault themselves or other test-only harness controls.
+Browser public-error presentation scenarios MUST intercept only the exact HTTP
+method and pathname in the owning browser context. Nonmatching requests MUST
+retain ordinary behavior. Interception and delayed responses obey the scoped
+cancellation and route-settlement contract in REQ-806. They MUST NOT mutate
+runtime-global fault state or replace real Evidence mutation, preview or download
+coverage. Real serializer status, code, details, request correlation and
+private-diagnostic suppression require independent backend witnesses against
+their adopted product owner; an injected browser envelope is not such a witness.
+Verified by: TH-HARNESS-AC-035, TH-HARNESS-AC-088
 
-The request body MUST be a JSON object with exactly the fields below.
-
-| Field          | Required | Behavior                                                                                             |
-| -------------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| `method`       | yes      | Non-empty HTTP method; normalized to uppercase for exact matching.                                   |
-| `path`         | yes      | Exact ordinary public route path beginning `/api/v1/` and not beginning `/api/v1/test/`; no query.   |
-| `status`       | yes      | Public error status from `400` through `599`.                                                        |
-| `code`         | yes      | Non-empty public error code.                                                                         |
-| `message`      | no       | Public error message to place in the public envelope.                                                |
-| `retryable`    | no       | Public retryability flag; omitted values default to `false`.                                         |
-| `details`      | no       | Public error details object. Consumers MUST render only details keys allowlisted by product UI code. |
-| `consume_once` | yes      | Must be `true`; persistent or multi-consume faults are not accepted.                                 |
-
-Unknown members, missing required fields, non-object JSON, invalid JSON, status outside `400..599`, empty `code`, a path outside ordinary `/api/v1/`, a path under `/api/v1/test/`, a path with query or fragment, or `consume_once` other than `true` MUST fail with `400`, `error.code=invalid_public_error_fault_request`.
-
-Successful arming MUST return HTTP `201` with `cartulary.test.public_error_fault.v1` in the standard success envelope. The response MUST include a generated `fault_id`, normalized `method`, exact `path`, `status`, `code`, `retryable`, and `consume_once=true`. The response MUST NOT include the test-route token, configured origins, cookies, product session credentials, database credentials, object-store credentials, or private runtime state.
-
-The next exact ordinary public-route match MUST return a standard public error envelope using the armed `status`, `code`, `message`, `retryable`, and `details`, with the request's public `request_id`. After that response, the fault MUST be consumed and the same request match MUST reach the ordinary route handler unless another fault is armed.
-
-**TH-HARNESS-REQ-454**
-At most one public-error fault may be armed per harness-owned runtime. A request to arm a second fault while one is pending MUST fail before replacing the pending fault with HTTP `409`, `error.code=test_public_error_fault_already_armed`. Browser reset MUST replace the backend process, so no pending fault can survive into the replacement backend. A consumed fault MUST be removed before the fault response is written, so a retry of the same ordinary request reaches the ordinary route handler unless another fault has been armed.
-Verified by: TH-HARNESS-AC-008, TH-HARNESS-AC-035
+TH-HARNESS-REQ-454's single-pending-fault, consumption and fault-specific
+process-replacement obligations are retired with that control. This retirement
+does not change REQ-464's test-clock reset boundary or any Network Flow control.
 
 ### 12.2.5 Network Flow Fault Control
 
@@ -10431,7 +10489,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-032 | Section 9         | Primary failure determinism | Simultaneous failure fixtures covering class, lifecycle, event, target, path, and reason ties | Exit matrix and primary-failure unit tests | Success only when selected primary failure and public exit follow Section 9.1 and TH-HARNESS-REQ-304 exactly | Bounded summary | Bounded diagnostic on mismatch | Failure summary with ordered candidate failures and selected primary | Cleanup overrides earlier non-cleanup failure, or tie order differs across runs | cleanup failure recorded when fixture creates one |
 | TH-HARNESS-AC-033 | Section 11        | Concurrent lifecycle | Service-suite lifecycle fixtures with overlapping child work, duplicate child start, unknown child finish, and interruption | Lifecycle-machine conformance target or unit harness | Success only when active-child counts transition legally and illegal duplicate/unknown events fail closed | Bounded summary or machine object | Empty on happy path; bounded diagnostic for illegal fixtures | Lifecycle stream with `active_child_count`, child keys, legal transitions, and terminal state | Concurrent child start is rejected, unknown finish mutates state, duplicate start passes, or active count becomes negative | normal suite cleanup; unproven resources retained |
 | TH-HARNESS-AC-034 | Sections 10, 12 | Browser reset lifecycle closure | Leading, middle, and incompatible-affinity selections; mutable tables; exact migration/crypto metadata; advancing sequences; immutable relation identities; derived claim residue; bounded rollback/release; bootstrap/idempotency/object/browser state; conflicting table lock; serving/exclusive admission; active request drain; backend-stop, pre/post-commit, object, restart, and cleanup faults; armed in-memory controls | Graph compiler, typed Recovery reset, broker quarantine, backend-replacement lifecycle, schema/redaction/classification tests, Network Flow owner slice, and bounded saturated probe | A first selected group has no reset; a selected predecessor/successor has exactly one derived reset; exclusive admission begins only after proven backend termination; one transaction deletes writable state and rebuilds protected derived state, proves empty-before-bootstrap and exact bootstrap/audit effects; replacement generation is ready with the same fingerprint; every injected failure quarantines and prevents product work | `cartulary.test.database_reset_diagnostic.v2`, `cartulary.browser_reset_attempt.v2`, backend-generation evidence, and fixture lease v5 | Bounded redacted diagnostic; reset and product attempts remain one | Sorted table/count proofs preserve exact protected metadata contents and report transaction settlement; stage and normalized SQLSTATE are exact; failed reset exits `3` as fixture/operational evidence; cleanup outcome is terminal | Leading reset, affinity crossover, mutation before stop, serving/exclusive overlap, blind retry, raw PostgreSQL detail leak, stale in-memory control, old backend generation, missing evidence, product assertion classification, or reusable tainted lease passes | Every failed reset ends quarantined/destroyed; ten saturated cycles have no reset failure, retry, unclassified failure, or leaked lease |
-| TH-HARNESS-AC-035 | Section 12        | Test-route edge closure | Weak token, malformed token, missing/wrong header, pending-fault conflict, consumed-fault retry, and retired reset-route fixture | Test-only route unit/integration tests | Expected HTTP status or startup/config failure for every Section 12 token and fault edge case; the retired reset path is not found | HTTP JSON response where route starts | n/a | Route guard failures use `test_route_forbidden`; duplicate pending faults use `test_public_error_fault_already_armed`; startup configuration failures use `configuration_error` | Weak token starts, product auth bypasses token, second fault replaces pending fault, consumed fault remains armed, or runtime reset route exists | process replacement owns browser reset state |
+| TH-HARNESS-AC-035 | Section 12 | Test-route edge closure and public-error control retirement | Weak/malformed tokens, missing/wrong headers, clock validation, retired reset and public-error paths with controls disabled and enabled | Test-only route unit/integration tests plus authored/generated retirement checks and independent serializer witnesses | Token and clock edges retain owner-defined behavior; retired routes are unavailable; public-error registry, middleware dependency, schema/client/active bindings and aliases are absent; serializer status/code/details/correlation/private suppression remain real-boundary assertions | HTTP JSON response where an active route starts | Bounded guard/retirement diagnostic | Guard failures use `test_route_forbidden`; configuration failures use `configuration_error`; explicit negative retirement and serializer results | Weak/malformed token starts, product auth bypasses token, retired route works with controls enabled, dormant fault machinery survives, or browser interception substitutes for serializer evidence | Owned fixture cleanup; clock reset retains REQ-464 |
 | TH-HARNESS-AC-036 | Sections 13, 15   | Cleanup and redaction closure | Protected-root cleanup fixtures, cleanup-owned child paths, structured secret keys, raw secret text, and structural field names | Cleanup guard and redaction tests | Success only when protected-root attempts fail, cleanup-owned paths succeed or no-op when missing, exact key/raw-text redaction applies, and schema-owned structures are preserved | Bounded summary | Empty on success; bounded diagnostic on mismatch | Cleanup guard report and redacted summary/log fixtures | Protected root deletion passes, missing cleanup-owned path fails, secret leaks, or structural fields are over-redacted | no deletion outside cleanup-owned fixtures |
 | TH-HARNESS-AC-037 | Sections 5, 8, 10 | Operator runtime binary injection | Current topology plus missing, non-executable, digest-mismatch, undeclared-input, and raw-Go fallback fixtures | `make build COMPONENT=operator`; scheduler-selected operator Go work; `make check OPERATOR_BIN=/tmp/x`; `make check CARTULARY_OPERATOR_BIN=/tmp/x` | Producer succeeds with declared output path; consumer fails before product assertions for invalid injection; undeclared public inputs exit `2`; digest mismatch exits `11` | Bounded summary | Empty on success; bounded config/artifact diagnostic on mismatch | `build COMPONENT=operator` tool summary and build-artifact cache artifact; operator aggregate `runtime-binaries.json`; Go runner logs contain no nested `make build COMPONENT=operator` for scheduler-selected operator work | Hidden nested operator builds, arbitrary child forwarding, missing producer dependency, missing runtime-binary provenance, or binary cache hit marked as scheduler `reused` passes | no extra cleanup beyond build output contract |
 | TH-HARNESS-AC-038 | Section 4.1A      | Helper ownership registry | Current helper registry plus allowed facade and forbidden catalog/execution/accounting/scheduler-internal import fixtures | Harness import-boundary contract tests | Success only when every helper family is classified exactly once and no unclassified private catalog, execution, accounting, backend, browser, scheduler, duration, diagnostics, generated-artifact, or finalization helper is imported by non-owner code | Bounded report | Empty on success; bounded import-boundary diagnostic on mismatch | Import-boundary report naming helper family, facade key, source, and target | Non-owner code imports private helpers after a facade exists, or a family is unclassified or duplicated | none |
@@ -10482,7 +10540,7 @@ closure. Every historical failure remains visible in the accumulated ledger.
 | TH-HARNESS-AC-085 | Section 2.1 | Capacity closure | CPU, memory, process, IO, port, service, missing-data, override, resident ownership and dead-owner fixtures | Capability resolver and native admission validation | Resolved capacity is the safe multidimensional minimum; physical allocations remain charged once until proven cleanup; idle residents do not hold activity; drain and exclusive work progress | Bounded capability summary | Configuration diagnostic | Capability snapshot, allocation references and active grants | PID death frees resident capacity, borrowing double-charges, or cleanup bypasses capacity | no unaccounted child work |
 | TH-HARNESS-AC-086 | Section 2.1 | Fixture broker | Transaction, dedicated, migration, object, process, browser, contamination and borrowed-resource fixtures; empty/single/multi-page/multi-batch cleanup, per-object failure, repeated tokens, cancellation, missing bucket, sibling prefix and failed reuse | Broker lifecycle, one-time cluster initialization, clone grants and failure isolation, renderer reuse/context isolation/interruption, scoped trust, object-store admission and affected owner slices | Explicit leases preserve isolation; templates complete WAL-backed publication; ordinary clones perform only database finalization; compatible groups share one renderer generation; owned cleanup never deletes borrowed services; empty-state and mutation proof precede reuse; uncertain cleanup cannot readmit a generation | Bounded lease and safe stage summary | Fixture/cleanup diagnostic, with earlier readiness failure retained as primary | Logical borrow/settlement, shared physical attestations, provisioning identity and terminal cleanup | Implicit fallback, contamination, repeated clone role DDL, premature capacity release, post-readiness replacement or borrowed deletion passes | unhealthy generations retired; unresolved ownership and capacity retained |
 | TH-HARNESS-AC-087 | Section 2.1 | Runner grouping and incremental evidence | Compatible cross-owner/cross-file and incompatible project/setup cohorts; exact owner subsets; repeated titles; excluded, missing, duplicate and skipped tests; suite/global teardown; uncertain worker termination; interruption between durable checkpoint and row publication; foreign/malformed/unsafe checkpoint identities; redaction and evidence-volume scaling | Deterministic Go shard/Vitest cohort planning, explicit compatibility, worker claims, per-file public-API selection and atomic settled-file evidence | Bounded cohorts preserve isolated file lifetimes and exact per-owner attribution; completed files survive interruption; global failures supersede provisional success; incremental processing avoids cumulative rewrites and unchanged rows retain settlement timestamps | Bounded shard summary | Row/shard diagnostic | Plan digest, native reports, row outcomes and immutable file checkpoints | Owner-only fragmentation, incompatible merge, false completion, lost settled evidence, repeated cumulative publication or stale success | ordinary test cleanup |
-| TH-HARNESS-AC-088 | Section 2.1 | Browser group scheduling | Exact, partial, owner-specific, mixed-owner and empty legal selections; tuple separation; unselected-row and enumeration invariance; declared-state cohorts alone/reordered/concurrent; predecessor/reset failure, cancellation, owner loss, measurement, visual/accessibility and snapshot-write fixtures | Browser graph and lifecycle tests | Reporting owners retain attribution without partitioning execution; v15 admission binds one compatibility tuple and exact selected cases; cohorts share only proved control-plane state; contexts and observed actors/sessions are test-owned; page/context route handlers drain before request-client disposal, failures remain visible and existing cleanup deadlines bound nonsettlement; resets follow cohort boundaries; completed outcomes survive failures; conflicting writes never overlap and every lane settles | Bounded browser summary | Lifecycle diagnostic | Group events, leases, and target projections | Owner-dependent identity, v14 admission, unproved state sharing, widened selection, lost completed outcomes, reset drift, or lane leak passes | all lanes cleaned |
+| TH-HARNESS-AC-088 | Sections 2.1, 12.2.4 | Browser cohorts and scoped resource lifetime | Exact, partial, owner-specific, mixed-owner, empty and multi-case selections; tuple separation and unselected-row/enumeration invariance; declared-state cohorts alone/reordered/concurrent; predecessor/reset failure, cancellation, owner loss, measurement, visual/accessibility and snapshot writes; partial/late acquisition, failed login/snapshot/job admission, cancellation before/during interception, concurrent/repeated failed disposal, route failure, forward/reverse clean runs with unrelated residue, real revocation, and restore/publication startup/body/interruption/cleanup failures | Existing browser graph, scope, real-service and lifecycle regression tests | Reporting owners retain attribution without partitioning execution; v15 admission binds one compatibility tuple and exact cases; only proved control-plane state is shared; one test owner settles every acquisition with effective context settings; cancellation never dispatches held writes; all route drains begin before awaiting settlement; contexts close before session revocation and independent clients; feature jobs settle; borrowed provisioner/unrelated sessions survive; primary/cleanup failures remain distinct and redacted; existing deadlines bound nonsettlement; exact cases run once with zero retries; failed allocations quarantine; resets follow cohort boundaries, independently settled outcomes survive, conflicting writes never overlap and every lane settles; specialized browser dependencies close before their runtimes | Bounded browser summary | Redacted lifecycle operation categories | Exact selected-case outcomes, plan/group/lease/target projections, compatibility/ordering proof, real revocation witnesses, process/cleanup evidence and retained scans | Owner-dependent identity, v14 admission, widened selection, unproved sharing, unowned context/session, late acquisition escape, cancelled write dispatch, swallowed fulfillment failure, repeated disposal losing rejection, cardinality dependence, incompatible sharing, lost settled outcomes, reset drift, stale success, missing/duplicate case, leaked job/process/lane or weakened deadline passes | All owned resources settle; borrowed resources remain usable; failures remain observable |
 | TH-HARNESS-AC-089 | Section 2.1 | Aggregate and cache closure | Five aggregate graphs plus hit, miss, cold, off, mutation, corruption, and stale-security fixtures | Aggregate graph/cache validation | No phase barrier or nested scheduler remains; units deduplicate and reuse only closed work | Bounded aggregate/cache summary | Cache or graph diagnostic | Current-run unit and target evidence | Stateful reuse, stale finding, or duplicate unit passes | cache scratch proof-gated |
 | TH-HARNESS-AC-090 | Section 2.1 | Canonical retained artifacts | Direct and aggregate runs plus old, malformed, overlapping, and unattributed fixtures | Schema and event-projection validation | Event unions close material wall time once, changing wait segments close exactly, and all projections agree | Bounded evidence summary | Artifact/accounting diagnostic | V3 run manifest, events, run summary, and target summaries | Old reader, dual write, dispatch timing, or duplicate attribution passes | retained v3 artifacts follow cleanup policy |
 | TH-HARNESS-AC-091 | Section 2.1 | Atomic v3 cutover | Current tree plus old target, variable, schema, reader, writer, alias, and wrapper fixtures | Task-surface, source-reference, schema, generation, focused, aggregate, and release gates | Public names remain, removed internal surfaces are absent, changed IDs version once, and no compatibility path survives | Existing bounded summaries | Exact compatibility diagnostic | V3 owner/projection and validation ledger | Partial cutover, alias, dual reader/writer, or fixed global timing gate passes | generated outputs refreshed through Make |

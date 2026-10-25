@@ -11,7 +11,7 @@ import {
   timelineMutationSubstrateReadyTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
-import type { Browser, Page, TestInfo } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
 import type { FixtureActorCredentials } from "../support/auth/sessions";
 import { readCurrentSession } from "../support/auth/sessions";
 import {
@@ -19,6 +19,7 @@ import {
   prepareAc043Snapshot,
   startAc043SnapshotTraffic,
 } from "../support/performance/ac043Snapshot";
+import type { OwnedBrowserScope } from "../support/runtime/cleanup";
 import { uniqueTxn } from "../support/runtime/fixtureIdentity";
 import {
   fetchFullRecordHistory,
@@ -42,7 +43,7 @@ test.use({
 test.describe.configure({ mode: "serial", timeout: 10 * 60 * 1_000 });
 
 async function runHistoryMeasurement(
-  browser: Browser,
+  browserScope: OwnedBrowserScope,
   page: Page,
   testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
@@ -112,7 +113,7 @@ async function runHistoryMeasurement(
       page.getByTestId(timelineMutationSubstrateReadyTestId()),
     ).toBeVisible();
     traffic = await startAc043SnapshotTraffic(
-      browser,
+      browserScope,
       sessionTracker,
       snapshot.incidentId,
       snapshot.timelineRows.filter((row) => !excluded.has(row.record_id)),
@@ -254,13 +255,13 @@ async function runHistoryMeasurement(
 }
 
 test("measures Timeline single-entry rollback through visible row and history within AC-011", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runHistoryMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -269,13 +270,13 @@ test("measures Timeline single-entry rollback through visible row and history wi
   );
 });
 test("measures Timeline change-set rollback through visible row and history within AC-011", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runHistoryMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -284,13 +285,13 @@ test("measures Timeline change-set rollback through visible row and history with
   );
 });
 test("measures Timeline whole-row restore through visible row and history within AC-011", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runHistoryMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,

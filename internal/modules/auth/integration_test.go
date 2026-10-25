@@ -540,11 +540,37 @@ func TestUserAdminLifecycle_Integration(t *testing.T) {
 	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, bootstrapAdminDemotion, http.StatusOK)
 
-	lastAdminGuard := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+adminID, map[string]any{
-		"base_user_version":   1,
-		"is_deployment_admin": false,
-	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
-	httptestx.RequireErrorEnvelope(t, lastAdminGuard, http.StatusConflict, "last_deployment_admin")
+	// A rejected deactivation must not run its session-revocation side effect.
+	// Witness both existing sessions and an unrelated user's session over HTTP.
+	secondAdminSession, _ := loginLocalUser(t, server, "admin-users@example.test", "AdminUsersPass123!", nil)
+	unrelatedSession, _ := loginLocalUser(t, server, "created-user@example.test", "CreatedPass123!", nil)
+	userState := func() string {
+		var state string
+		if err := db.QueryRowContext(context.Background(), `SELECT to_jsonb(users)::text FROM users WHERE id::text = $1`, adminID).Scan(&state); err != nil {
+			t.Fatalf("read last-admin durable state: %v", err)
+		}
+		return state
+	}
+	beforeGuard := userState()
+	for _, field := range []string{"is_deployment_admin", "is_active"} {
+		t.Run("last admin rejects "+field, func(t *testing.T) {
+			lastAdminGuard := doJSON(t, http.MethodPatch, server.HTTP.URL+"/api/v1/users/"+adminID, map[string]any{
+				"base_user_version": 1,
+				field:               false,
+			}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+			httptestx.RequireErrorEnvelope(t, lastAdminGuard, http.StatusConflict, "last_deployment_admin")
+			if userState() != beforeGuard {
+				t.Fatal("last-admin rejection changed durable user state")
+			}
+			if got := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text = $1 AND revoked_at IS NULL`, adminID); got != 2 {
+				t.Fatalf("last-admin rejection left %d active sessions, want 2", got)
+			}
+			for _, session := range []*http.Cookie{adminSession, secondAdminSession, unrelatedSession} {
+				response := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(session))
+				httptestx.RequireSuccessEnvelope(t, response, http.StatusOK)
+			}
+		})
+	}
 
 	auditCount := queryCount(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE target_user_id::text = $1`, createdUserID)
 	if auditCount < 2 {

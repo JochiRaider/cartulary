@@ -7,6 +7,8 @@ import type {
 import type { Locator, Page } from "@playwright/test";
 
 import { csrfHeaders } from "../auth/browserSession";
+import { authHeadersForStorageState } from "../auth/storageState";
+import { ownedJobsFor } from "../jobs/ownership";
 import { apiBase } from "../runtime/configuration";
 import { publicHttpOperation } from "../transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../transport/publicJsonClient";
@@ -126,13 +128,21 @@ export async function verifyUploadedObjectBlob(
   blobId: string,
   clientTxnId: string,
 ) {
-  const admitted = await publicHttpOperation({
-    operationID: "verifyObjectBlob",
-    pathParameters: { object_blob_id: blobId },
-    body: { client_txn_id: clientTxnId },
-    headers: await csrfHeaders(page),
-    request: atJsonOrigin(page.request, apiBase),
-  });
+  const headers = authHeadersForStorageState(
+    await page.context().storageState(),
+  );
+  const admitted = await ownedJobsFor(page).admit(
+    () =>
+      publicHttpOperation({
+        operationID: "verifyObjectBlob",
+        pathParameters: { object_blob_id: blobId },
+        body: { client_txn_id: clientTxnId },
+        headers,
+        request: atJsonOrigin(page.request, apiBase),
+      }),
+    async (result) =>
+      result.ok ? { jobId: result.payload.data.job_id, headers } : null,
+  );
   if (!admitted.ok)
     throw new Error(`verification admission failed: ${admitted.status}`);
   let job = admitted.payload.data;

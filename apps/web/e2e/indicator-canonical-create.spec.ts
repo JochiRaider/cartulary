@@ -18,10 +18,15 @@ import { csrfHeaders, loginLocalSession } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { createIncidentMembership } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import { uniqueEmail, uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import {
   createCanonicalObservationFixture,
@@ -44,15 +49,20 @@ test("Canonical Indicator creation and resolution replay independently after res
     resolves: string[] = [],
     receipts: CreateViewRowResponse["data"][] = [],
     links: CreateManualIndicatorObservationResponse["data"][] = [];
-  await page.route(`**/views/${indicatorsViewSchemaId}/rows`, async (route) => {
-    creates.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    expect(response.status()).toBe(creates.length === 1 ? 201 : 200);
-    receipts.push((await response.json()).data);
-    if (creates.length === 1) await route.abort("failed");
-    else await route.fulfill({ response });
-  });
-  await page.route(
+  await installOwnedRoute(
+    page,
+    `**/views/${indicatorsViewSchemaId}/rows`,
+    async (route) => {
+      creates.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      expect(response.status()).toBe(creates.length === 1 ? 201 : 200);
+      receipts.push((await response.json()).data);
+      if (creates.length === 1) await route.abort("failed");
+      else await route.fulfill({ response });
+    },
+  );
+  await installOwnedRoute(
+    page,
     `**/indicator-observations/${fixture.observation.observation_id}/resolve`,
     async (route) => {
       resolves.push(route.request().postData() ?? "");
@@ -169,12 +179,16 @@ test("Canonical reuse leaves metadata unchanged and retains its result after rej
   const fixture = await createCanonicalObservationFixture(page),
     before = await observationServiceSnapshot(page, fixture);
   let createCount = 0;
-  await page.route(`**/views/${indicatorsViewSchemaId}/rows`, async (route) => {
-    createCount++;
-    const response = await route.fetch();
-    expect(response.status()).toBe(201);
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${indicatorsViewSchemaId}/rows`,
+    async (route) => {
+      createCount++;
+      const response = await route.fetch();
+      expect(response.status()).toBe(201);
+      await route.fulfill({ response });
+    },
+  );
   await page.goto(`/?incident_id=${fixture.incidentId}`);
   const { form, editor } = await openCanonicalProposal(
     page,
@@ -201,7 +215,8 @@ test("Canonical reuse leaves metadata unchanged and retains its result after rej
   );
   // A real stale child rejection after the owner's fresh read, before dispatch.
   let resolveCount = 0;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/indicator-observations/${fixture.observation.observation_id}/resolve`,
     async (route) => {
       resolveCount++;
@@ -277,29 +292,32 @@ test("Canonical late response preserves retargeted drafts and exact recovery aft
     },
   });
   expect(observation.ok).toBe(true);
-  let release!: () => void;
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const heldBarrier = responseBarrier(page);
+  const release = heldBarrier.release;
+  const held = heldBarrier.promise;
   const bodies: string[] = [];
   let committed = false;
-  await page.route(`**/views/${indicatorsViewSchemaId}/rows`, async (route) => {
-    bodies.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    if (bodies.length === 1) {
-      committed = true;
-      await held;
-      const payload = await response.json();
-      await route.fulfill({
-        response,
-        json: {
-          ...payload,
-          data: { ...payload.data, change_set_id: "invalid-receipt" },
-        },
-      });
-    } else await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${indicatorsViewSchemaId}/rows`,
+    async (route) => {
+      bodies.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      if (bodies.length === 1) {
+        committed = true;
+        if (!(await awaitResponseBarrier(route, held))) return;
+        const payload = await response.json();
+        await route.fulfill({
+          response,
+          json: {
+            ...payload,
+            data: { ...payload.data, change_set_id: "invalid-receipt" },
+          },
+        });
+      } else await route.fulfill({ response });
+    },
+  );
   await page.goto(`/?incident_id=${fixture.incidentId}`);
   const { form } = await openCanonicalProposal(page, fixture.source.record_id);
   await submitCanonicalProposal(form);
@@ -431,7 +449,8 @@ test("Canonical results survive unavailable targets and current editor authority
   const removed = await mutateTarget("deleteRecord", canonical.row_version);
   expect(removed.ok).toBe(true);
   let resolveCount = 0;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/indicator-observations/${fixture.observation.observation_id}/resolve`,
     async (route) => {
       resolveCount++;

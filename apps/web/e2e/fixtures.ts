@@ -1,8 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
   type APIRequestContext,
-  type Browser,
-  type BrowserContext,
   test as base,
   expect,
   type Page,
@@ -11,12 +9,12 @@ import {
 import { applyStorageState } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import {
+  findProvisionedUser,
   loginBootstrapControlPlaneContext,
   loginFixtureActorContext,
   loginTrackedUserViaPage,
   logoutAndVerify,
   revokeAllSessions,
-  verifyRevokedSession,
   verifySessionUnauthorized,
   type WorkerAdmin,
 } from "./support/auth/sessions";
@@ -26,13 +24,20 @@ import {
   loadWorkerAdminManifest,
   markWorkerAdminCleaned,
 } from "./support/auth/workerAdmin";
-import {
-  closeOwnedBrowserContext,
-  OwnedSessionTracker,
-} from "./support/runtime/cleanup";
+import { installOwnedJobs } from "./support/jobs/ownership";
+import { OwnedBrowserScope } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 
-type SessionTracker = {
+export type SessionTracker = {
+  loginProvisionedUser: (
+    page: Page,
+    details: {
+      email: string;
+      password: string;
+      createdBy: string;
+      purpose: string;
+    },
+  ) => Promise<void>;
   captureCurrentSession: (
     page: Page,
     details: {
@@ -63,13 +68,13 @@ type SessionTracker = {
       userId: string;
     },
   ) => Promise<void>;
-  newTrackedContext: (
-    browser: Browser,
-    storageState: StorageState,
-  ) => Promise<BrowserContext>;
+  newContext: OwnedBrowserScope["newContext"];
+  registerActor: OwnedBrowserScope["registerActor"];
 };
 
 type CartularyTestFixtures = {
+  browserScope: OwnedBrowserScope;
+  jobSettlementTimeout: number;
   testActor: Omit<WorkerAdmin, "parallel_index">;
   sessionTracker: SessionTracker;
   testActorPage: Page;
@@ -98,42 +103,123 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
           );
         }
 
-        const testActor = await loginFixtureActorContext(entry);
-        const provisioner = await request.newContext({
-          baseURL: apiBase,
-          extraHTTPHeaders: authHeadersForStorageState(testActor.storageState),
-        });
+        let actor:
+          | Awaited<ReturnType<typeof loginFixtureActorContext>>
+          | undefined;
+        let provisioner: APIRequestContext | undefined;
+        let primary: unknown;
+        let failed = false;
         try {
+          actor = await loginFixtureActorContext(entry);
+          provisioner = await request.newContext({
+            baseURL: apiBase,
+            extraHTTPHeaders: authHeadersForStorageState(actor.storageState),
+          });
           await use(provisioner);
-        } finally {
-          await provisioner.dispose();
+        } catch (error) {
+          failed = true;
+          primary = error;
         }
 
-        const controlPlane = await loginBootstrapControlPlaneContext();
-        try {
-          await revokeAllSessions(
-            controlPlane.request,
-            testActor.user_id,
-            `playwright worker teardown worker=${workerAdminIndex}`,
+        // Worker control-plane ownership is outside every test scope. Attempt
+        // each retirement stage even after setup/use or another stage fails.
+        const failures: string[] = [];
+        const attempt = async (
+          stage: string,
+          action: () => Promise<unknown>,
+        ) => {
+          try {
+            await action();
+            return true;
+          } catch {
+            failures.push(stage);
+            return false;
+          }
+        };
+        let controlPlane:
+          | Awaited<ReturnType<typeof loginBootstrapControlPlaneContext>>
+          | undefined;
+        await attempt("control_plane.acquire", async () => {
+          controlPlane = await loginBootstrapControlPlaneContext();
+        });
+        if (controlPlane) {
+          const control = controlPlane;
+          const revoked = await attempt("worker.revoke", () =>
+            revokeAllSessions(
+              control.request,
+              entry.user_id,
+              "playwright worker cleanup",
+            ),
           );
-          await verifySessionUnauthorized(
-            testActor.storageState,
-            `worker admin cached session worker=${workerAdminIndex}`,
+          const acquiredActor = actor;
+          const verified =
+            acquiredActor === undefined ||
+            (await attempt("worker.verify", () =>
+              verifySessionUnauthorized(
+                acquiredActor.storageState,
+                "worker session",
+                control.request,
+              ),
+            ));
+          if (revoked && verified) markWorkerAdminCleaned(workerAdminIndex);
+          await attempt("control_plane.logout", () =>
+            logoutAndVerify(
+              control.request,
+              control.storageState,
+              "worker control-plane cleanup",
+            ),
           );
-          markWorkerAdminCleaned(workerAdminIndex);
-        } finally {
-          await logoutAndVerify(
-            controlPlane.request,
-            controlPlane.storageState,
-            `bootstrap control-plane worker teardown worker=${workerAdminIndex}`,
+          await attempt("control_plane.dispose", () =>
+            control.request.dispose(),
           );
-          await controlPlane.request.dispose();
         }
+        if (provisioner) {
+          const owned = provisioner;
+          await attempt("provisioner.dispose", () => owned.dispose());
+        }
+        if (failures.length) {
+          const cleanup = new Error(
+            `Worker control-plane cleanup failed: ${failures.join(", ")}`,
+          );
+          if (failed)
+            throw new AggregateError(
+              [primary, cleanup],
+              "Worker setup/use and cleanup failed",
+            );
+          throw cleanup;
+        }
+        if (failed) throw primary;
       },
       { scope: "worker" },
     ],
 
-    testActor: async ({ fixtureProvisioner }, use, testInfo) => {
+    jobSettlementTimeout: [30_000, { option: true }],
+
+    browserScope: [
+      async ({ browser, fixtureProvisioner, jobSettlementTimeout }, use) => {
+        const scope: OwnedBrowserScope = new OwnedBrowserScope({
+          browser,
+          initializeContext: (context) =>
+            installOwnedJobs(context, scope, jobSettlementTimeout),
+          revokeAllSessions: (userId, reason) =>
+            revokeAllSessions(fixtureProvisioner, userId, reason),
+          verifyRevokedSession: (snapshot) =>
+            verifySessionUnauthorized(
+              snapshot.storageState,
+              "owned session revocation",
+              fixtureProvisioner,
+            ),
+        });
+        try {
+          await use(scope);
+        } finally {
+          await scope.dispose();
+        }
+      },
+      { auto: true },
+    ],
+
+    testActor: async ({ fixtureProvisioner, browserScope }, use, testInfo) => {
       // Stable presentation identity, independently persisted for each selected
       // test. Credentials are ephemeral and never enter retained diagnostics.
       const identity = createHash("sha256")
@@ -142,49 +228,31 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
         .slice(0, 24);
       const email = `playwright-test-${identity}@example.test`;
       const password = `Playwright-${randomUUID()}-A1!`;
-      const user = await createDeploymentUser(fixtureProvisioner, {
-        email,
-        initial_password: password,
-        display_name: "Playwright Test Actor",
-        is_deployment_admin: true,
-        mfa_required: false,
-      });
-      let actor: Omit<WorkerAdmin, "parallel_index"> | undefined;
-      try {
-        actor = await loginFixtureActorContext({
+      const user = await browserScope.acquireActor(() =>
+        createDeploymentUser(fixtureProvisioner, {
+          email,
+          initial_password: password,
+          display_name: "Playwright Test Actor",
+          is_deployment_admin: true,
+          mfa_required: false,
+        }),
+      );
+      const actor = await loginFixtureActorContext(
+        {
           user_id: user.user_id,
           email,
           password,
-        });
-        await use(actor);
-      } finally {
-        await revokeAllSessions(
-          fixtureProvisioner,
-          user.user_id,
-          "playwright test actor teardown",
-        );
-        if (actor)
-          await verifySessionUnauthorized(
-            actor.storageState,
-            "test actor cached session",
-          );
-      }
+        },
+        browserScope,
+      );
+      await use(actor);
     },
 
-    context: async (
-      { browser, testActor, viewport, deviceScaleFactor },
-      use,
-    ) => {
-      const context = await browser.newContext({
+    context: async ({ browserScope, testActor }, use) => {
+      const context = await browserScope.newContext({
         storageState: testActor.storageState,
-        viewport,
-        ...(deviceScaleFactor === undefined ? {} : { deviceScaleFactor }),
       });
-      try {
-        await use(context);
-      } finally {
-        await closeOwnedBrowserContext(context);
-      }
+      await use(context);
     },
 
     page: async ({ context }, use) => {
@@ -196,25 +264,25 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
       await use(page);
     },
 
-    testActorRequest: async ({ testActor }, use) => {
-      const authRequests = await request.newContext({
-        baseURL: apiBase,
-        extraHTTPHeaders: authHeadersForStorageState(testActor.storageState),
-      });
+    testActorRequest: async ({ testActor, browserScope }, use) => {
+      const authRequests = await browserScope.ownRequestContext(() =>
+        request.newContext({
+          baseURL: apiBase,
+          extraHTTPHeaders: authHeadersForStorageState(testActor.storageState),
+        }),
+      );
       await use(authRequests);
-      await authRequests.dispose();
     },
 
-    sessionTracker: async ({ fixtureProvisioner }, use, testInfo) => {
-      const tracker = new OwnedSessionTracker({
-        label: `${testInfo.file} :: ${testInfo.title}`,
-        revokeAllSessions: async (userId, reason) => {
-          await revokeAllSessions(fixtureProvisioner, userId, reason);
+    sessionTracker: async ({ browserScope, fixtureProvisioner }, use) => {
+      const sessionTracker: SessionTracker = {
+        loginProvisionedUser: async (page, details) => {
+          const userId = await findProvisionedUser(
+            fixtureProvisioner,
+            details.email,
+          );
+          await sessionTracker.loginTrackedUser(page, { ...details, userId });
         },
-        verifyRevokedSession,
-      });
-
-      const sessionTracker = {
         captureCurrentSession: async (
           page: Page,
           details: {
@@ -225,10 +293,9 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
             userId: string;
           },
         ) => {
-          tracker.registerSession({
-            ...details,
+          await browserScope.acquireSession(details, async () => ({
             storageState: await pageAuthStorageState(page),
-          });
+          }));
         },
 
         captureStorageState: async (
@@ -241,7 +308,7 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
             userId: string;
           },
         ) => {
-          tracker.registerSession({
+          browserScope.registerSession({
             ...details,
             storageState,
           });
@@ -259,33 +326,26 @@ export const test = base.extend<CartularyTestFixtures, CartularyWorkerFixtures>(
             userId: string;
           },
         ) => {
-          await loginTrackedUserViaPage(page, {
-            ...(details.recovery === undefined
-              ? {}
-              : { recovery: details.recovery }),
-            email: details.email,
-            password: details.password,
-            ...(details.secondFactorCode === undefined
-              ? {}
-              : { secondFactorCode: details.secondFactorCode }),
-          });
-          tracker.registerSession({
-            createdBy: details.createdBy,
-            email: details.email,
-            purpose: details.purpose,
-            storageState: await pageAuthStorageState(page),
-            userId: details.userId,
+          await browserScope.acquireSession(details, async () => {
+            await loginTrackedUserViaPage(page, {
+              ...(details.recovery === undefined
+                ? {}
+                : { recovery: details.recovery }),
+              email: details.email,
+              password: details.password,
+              ...(details.secondFactorCode === undefined
+                ? {}
+                : { secondFactorCode: details.secondFactorCode }),
+            });
+            return { storageState: await pageAuthStorageState(page) };
           });
         },
 
-        newTrackedContext: async (
-          browser: Browser,
-          storageState: StorageState,
-        ) => tracker.newTrackedContext(browser, storageState),
+        newContext: (options) => browserScope.newContext(options),
+        registerActor: (userId) => browserScope.registerActor(userId),
       } satisfies SessionTracker;
 
       await use(sessionTracker);
-      await tracker.cleanup();
     },
   },
 );

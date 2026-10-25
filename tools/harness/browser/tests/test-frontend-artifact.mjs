@@ -66,7 +66,16 @@ try {
   const cancelled = startFrontendPublication(true, { environment });
   await cancelled.stop();
   await assert.rejects(cancelled.finished, /Independent frontend Make build failed/u);
+  assert.equal(cancelled.stop(), cancelled.stop(), "concurrent retirement shares one completion");
   await cancelled.stop();
+  writeFileSync(path.join(fakeBin, "make"), `#!${process.execPath}\nprocess.stderr.write('build failed\\n'); process.exitCode = 7;\n`, { mode: 0o700 });
+  const failed = startFrontendPublication(false, { environment });
+  await assert.rejects(failed.finished, /code=7.*\n.*build failed/su);
+  await failed.stop();
+  // A process that never starts is still settled through the acquired owner.
+  const absent = startFrontendPublication(false, { environment: { ...environment, PATH: path.join(scratch, "absent") } });
+  await assert.rejects(absent.finished, /ENOENT/u);
+  await absent.stop();
   const destination = path.join(scratch, "published");
   const dangling = path.join(scratch, "dangling-publication");
   symlinkSync(path.join(scratch, "missing"), dangling);

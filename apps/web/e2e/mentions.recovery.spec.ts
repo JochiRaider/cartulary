@@ -29,6 +29,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { installOwnedRoute } from "./support/transport/requestInterception";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
@@ -75,54 +76,70 @@ async function runRecovery(
   let failRefresh = false;
   let blockedRefreshes = 0;
   let failEntityRefresh = false;
-  await page.route(`**/views/${hostsViewSchemaId}/query`, async (route) => {
-    if (failEntityRefresh) await route.abort("failed");
-    else await route.continue();
-  });
-  await page.route(`**/views/${timelineViewSchemaId}/query`, async (route) => {
-    if (failRefresh) {
-      blockedRefreshes += 1;
-      await route.abort("failed");
-    } else await route.continue();
-  });
-  await page.route(`**/views/${hostsViewSchemaId}/rows`, async (route) => {
-    creates.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    expect(response.ok()).toBeTruthy();
-    created = await response.json();
-    failEntityRefresh = outcome === "uncertain";
-    await route.fulfill({ response });
-  });
-  await page.route(`**/entity-mentions/${mentionId}/resolve`, async (route) => {
-    resolves.push(route.request().postData() ?? "");
-    if (outcome === "rejected" && resolves.length === 1) {
-      const original = route.request().postDataJSON();
-      const remote = await page.request.post(route.request().url(), {
-        headers: await csrfHeaders(page),
-        data: {
-          ...original,
-          client_txn_id: uniqueTxn("remote-resolution"),
-        },
-      });
-      expect(remote.status()).toBe(200);
-    }
-    const response = await route.fetch();
-    if (outcome === "rejected" && resolves.length === 1)
-      expect(response.status()).toBe(409);
-    else {
-      expect(response.status()).toBe(200);
-      receipts.push(await response.json());
-    }
-    if (outcome === "uncertain" && resolves.length === 1)
-      await route.abort("failed");
-    else {
-      // Acknowledgement and presentation acceptance are separate obligations.
-      // Exercise read-only recovery in both branches instead of depending on
-      // automatic refresh winning against collaboration-triggered queries.
-      if (response.ok()) failRefresh = true;
+  await installOwnedRoute(
+    page,
+    `**/views/${hostsViewSchemaId}/query`,
+    async (route) => {
+      if (failEntityRefresh) await route.abort("failed");
+      else await route.continue();
+    },
+  );
+  await installOwnedRoute(
+    page,
+    `**/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      if (failRefresh) {
+        blockedRefreshes += 1;
+        await route.abort("failed");
+      } else await route.continue();
+    },
+  );
+  await installOwnedRoute(
+    page,
+    `**/views/${hostsViewSchemaId}/rows`,
+    async (route) => {
+      creates.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      expect(response.ok()).toBeTruthy();
+      created = await response.json();
+      failEntityRefresh = outcome === "uncertain";
       await route.fulfill({ response });
-    }
-  });
+    },
+  );
+  await installOwnedRoute(
+    page,
+    `**/entity-mentions/${mentionId}/resolve`,
+    async (route) => {
+      resolves.push(route.request().postData() ?? "");
+      if (outcome === "rejected" && resolves.length === 1) {
+        const original = route.request().postDataJSON();
+        const remote = await page.request.post(route.request().url(), {
+          headers: await csrfHeaders(page),
+          data: {
+            ...original,
+            client_txn_id: uniqueTxn("remote-resolution"),
+          },
+        });
+        expect(remote.status()).toBe(200);
+      }
+      const response = await route.fetch();
+      if (outcome === "rejected" && resolves.length === 1)
+        expect(response.status()).toBe(409);
+      else {
+        expect(response.status()).toBe(200);
+        receipts.push(await response.json());
+      }
+      if (outcome === "uncertain" && resolves.length === 1)
+        await route.abort("failed");
+      else {
+        // Acknowledgement and presentation acceptance are separate obligations.
+        // Exercise read-only recovery in both branches instead of depending on
+        // automatic refresh winning against collaboration-triggered queries.
+        if (response.ok()) failRefresh = true;
+        await route.fulfill({ response });
+      }
+    },
+  );
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
   await openTimelineInspector(page, source.record_id);

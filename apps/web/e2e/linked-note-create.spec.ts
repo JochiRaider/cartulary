@@ -20,8 +20,13 @@ import {
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { uniqueEmail, uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import {
   noteSourceFields,
@@ -70,16 +75,17 @@ test("Incident revocation conceals retained Note authoring and late atomic accep
     .fill("Protected unfinished Note");
   let committed = false;
   let release: () => void = () => {};
-  const delayed = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(
+  const delayedBarrier = responseBarrier(page);
+  release = delayedBarrier.release;
+  const delayed = delayedBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/records/${f.source.record_id}/linked-notes`,
     async (route) => {
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       committed = true;
-      await delayed;
+      if (!(await awaitResponseBarrier(route, delayed))) return;
       await route.fulfill({ response });
     },
   );
@@ -301,11 +307,16 @@ test("Note response loss after commit replays exact bytes after navigation and a
     receipts: CreateViewRowResponse[] = [];
   let failReads = false;
   let committedResponseLost = false;
-  await page.route(`**/views/${notesViewSchemaId}/query`, async (route) => {
-    if (failReads) await route.abort("failed");
-    else await route.continue();
-  });
-  await page.route(
+  await installOwnedRoute(
+    page,
+    `**/views/${notesViewSchemaId}/query`,
+    async (route) => {
+      if (failReads) await route.abort("failed");
+      else await route.continue();
+    },
+  );
+  await installOwnedRoute(
+    page,
     `**/records/${f.source.record_id}/linked-notes`,
     async (route) => {
       requests.push(route.request().postData() ?? "");

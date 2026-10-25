@@ -5,7 +5,12 @@ import { openIncidentFromLanding } from "../pages/incidentDirectory";
 import { auditBrowserEvent } from "./administrativeAudit";
 import { rewriteSessionPresentation } from "./auth/sessionPresentation";
 import { createIncident } from "./incidents/fixtures";
+import type { BarrierOutcome } from "./runtime/cleanup";
 import { uniqueIncidentKey } from "./runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./transport/requestInterception";
 
 const membershipAuditRegion = "Incident membership audit browser";
 type Event =
@@ -41,7 +46,7 @@ export async function installMembershipAuditPresentation(
   let access: "admin" | "viewer" | "hidden" | "session" | "unavailable" =
     "admin";
   let accessReads = 0;
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     ++accessReads;
     if (access === "session" || access === "unavailable") {
       await route.fulfill({
@@ -78,7 +83,7 @@ export async function installMembershipAuditPresentation(
   });
   let body: unknown;
   let status = 200;
-  let gate: Promise<void> | null = null;
+  let gate: Promise<BarrierOutcome> | null = null;
   const requests: URL[] = [];
   const setPage = (rows: Event[], cursor: string | null = null) => {
     status = 200;
@@ -94,16 +99,15 @@ export async function installMembershipAuditPresentation(
     } satisfies ListIncidentMembershipAuditEventsResponse;
   };
   setPage([membershipBrowserEvent(incidentId)]);
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/incidents/${incidentId}/membership-audit-events*`,
     async (route) => {
       requests.push(new URL(route.request().url()));
       const captured = { body, status, gate };
       gate = null;
-      if (captured.gate) await captured.gate;
-      await route
-        .fulfill({ status: captured.status, json: captured.body })
-        .catch(() => {});
+      if (!(await awaitResponseBarrier(route, captured.gate))) return;
+      await route.fulfill({ status: captured.status, json: captured.body });
     },
   );
   await openIncidentFromLanding(page, incidentId);
@@ -117,7 +121,7 @@ export async function installMembershipAuditPresentation(
     setAccess(value: typeof access) {
       access = value;
     },
-    gateRead(value: Promise<void>) {
+    gateRead(value: Promise<BarrierOutcome>) {
       gate = value;
     },
     malformed(value: unknown) {

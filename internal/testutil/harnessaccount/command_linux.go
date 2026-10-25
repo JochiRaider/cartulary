@@ -100,11 +100,14 @@ func scoped(args []string, stdout, stderr io.Writer) int {
 	settled = counterErr == nil && final.Peak >= g.initialPeak && !final.Populated && final.OOMKills == 0 && g.release() == nil
 	binary, executableErr := os.Executable()
 	currentExecutable := executableErr == nil && sameExecutable("/proc/self/exe", binary)
+	terminalStage := "completion"
 	completeErr := harnessdiag.CompleteInvocation(invocation, code, interrupted)
 	if completeErr == nil {
+		terminalStage = "receipts"
 		completeErr = harnessdiag.PublishTerminalReceipts(invocation)
 	}
 	if settled && currentExecutable && completeErr == nil {
+		terminalStage = "accounting"
 		completeErr = harnessdiag.PublishInvocationAccounting(invocation, map[string]any{
 			"duration_ms":  float64(elapsed.Nanoseconds()) / 1e6,
 			"cpu_usage_us": float64(final.CPU), "memory_peak_bytes": float64(final.Peak),
@@ -116,7 +119,9 @@ func scoped(args []string, stdout, stderr io.Writer) int {
 		})
 	}
 	if !settled || !currentExecutable || completeErr != nil {
-		fmt.Fprintln(stderr, "invocation accounting: incomplete; no complete resource claim")
+		// Report only closed stage/boolean facts; dependency errors may contain
+		// private paths or values and must not enter retained diagnostics.
+		fmt.Fprintf(stderr, "invocation accounting: incomplete; scope_settled=%t controller_current=%t terminal_stage=%s terminal_failed=%t; no complete resource claim\n", settled, currentExecutable, terminalStage, completeErr != nil)
 		if code == 0 {
 			code = 1
 		}

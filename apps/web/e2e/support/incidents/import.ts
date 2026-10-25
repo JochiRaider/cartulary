@@ -3,6 +3,11 @@ import { incidentImportTestId } from "@cartulary/ui-contracts";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { DeploymentAdministration } from "../../pages/deploymentAdministration";
 import { rewriteSessionPresentation } from "../auth/sessionPresentation";
+import type { BarrierOutcome } from "../runtime/cleanup";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "../transport/requestInterception";
 
 export { incidentBundleFixture as importBundleFixture } from "../../../../../tools/harness/fixtures/incident-bundle.mjs";
 
@@ -57,7 +62,7 @@ export async function installImportObservationFixture(
 ) {
   // Other administrative fixtures may edit the shared worker's display name.
   // Keep this presentation label stable; current identity and authority stay real.
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     await rewriteSessionPresentation(route, (session) => ({
       ...session,
       display_name: "Import operator",
@@ -120,22 +125,26 @@ export async function installImportObservationFixture(
   let readStatus = 200;
   let readCount = 0;
   let admissionFailure = false;
-  let admissionGate: Promise<void> | null = null;
-  let readGate: Promise<void> | null = null;
+  let admissionGate: Promise<BarrierOutcome> | null = null;
+  let readGate: Promise<BarrierOutcome> | null = null;
   let cancellation: "requested" | "rejected" | "lost" | "succeeded" =
     "requested";
   let admissionCount = 0;
   const cancellationBodies: string[] = [];
-  await page.route("**/api/v1/incident-bundles/import", async (route) => {
-    admissionCount += 1;
-    if (admissionGate !== null) await admissionGate;
-    if (admissionFailure) return route.abort("failed");
-    return route.fulfill({ status: 202, json: jobEnvelope(importJob()) });
-  });
-  await page.route("**/api/v1/jobs/*", async (route) => {
+  await installOwnedRoute(
+    page,
+    "**/api/v1/incident-bundles/import",
+    async (route) => {
+      admissionCount += 1;
+      if (!(await awaitResponseBarrier(route, admissionGate))) return;
+      if (admissionFailure) return route.abort("failed");
+      return route.fulfill({ status: 202, json: jobEnvelope(importJob()) });
+    },
+  );
+  await installOwnedRoute(page, "**/api/v1/jobs/*", async (route) => {
     ++readCount;
     const captured = job;
-    if (readGate !== null) await readGate;
+    if (!(await awaitResponseBarrier(route, readGate))) return;
     if (readFailure) return route.abort("failed");
     return route.fulfill({
       status: readStatus,
@@ -153,7 +162,7 @@ export async function installImportObservationFixture(
             },
     });
   });
-  await page.route("**/api/v1/jobs/*/cancel", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/jobs/*/cancel", async (route) => {
     cancellationBodies.push(route.request().postData() ?? "");
     if (cancellation === "lost") return route.abort("failed");
     if (cancellation === "rejected")
@@ -189,10 +198,10 @@ export async function installImportObservationFixture(
     failAdmission: (value: boolean) => {
       admissionFailure = value;
     },
-    gateAdmission: (value: Promise<void> | null) => {
+    gateAdmission: (value: Promise<BarrierOutcome> | null) => {
       admissionGate = value;
     },
-    gateReads: (value: Promise<void> | null) => {
+    gateReads: (value: Promise<BarrierOutcome> | null) => {
       readGate = value;
     },
     cancellation: (value: typeof cancellation) => {

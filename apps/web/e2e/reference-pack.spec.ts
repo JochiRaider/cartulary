@@ -14,69 +14,62 @@ import { expect, test } from "./fixtures";
 import { DeploymentAdministration } from "./pages/deploymentAdministration";
 import { IncidentDirectory } from "./pages/incidentDirectory";
 import { rewriteSessionPresentation } from "./support/auth/sessionPresentation";
+import { fetchOwnedJobResponse } from "./support/jobs/ownership";
 import {
   installReferencePackPresentation,
   openReferencePacks,
-  referencePackBarrier,
   referencePackBrowserPack,
   referencePackBundle,
 } from "./support/referencePacks";
+import { responseBarrier } from "./support/runtime/cleanup";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 
 test("imports and replays real pack bytes then activates disables reverifies and refreshes exact scope by keyboard", async ({
   testActorPage: page,
 }, testInfo) => {
   const bundle = referencePackBundle();
   const admissions: { id: string; metadata: string; bytes: Buffer }[] = [];
-  const admitted = referencePackBarrier();
-  const release = referencePackBarrier();
-  let failedRead = false;
-  await page.route("**/api/v1/reference-packs/import", async (route) => {
-    const response = await route.fetch();
-    expect(response.status()).toBe(202);
-    const envelope = await response.json();
-    const request = route.request();
-    const form = await new Response(
-      new Uint8Array(request.postDataBuffer() ?? []),
-      { headers: { "content-type": request.headers()["content-type"] ?? "" } },
-    ).formData();
-    const file = form.get("file");
-    const metadata = form.get("metadata");
-    if (!(file instanceof Blob) || !(metadata instanceof Blob))
-      throw new Error("Expected complete multipart capture");
-    admissions.push({
-      id: envelope.data.job_id,
-      bytes: Buffer.from(await file.arrayBuffer()),
-      metadata: await metadata.text(),
-    });
-    expect(JSON.parse(await metadata.text()).activation_policy).toBe(
-      "staged_only",
-    );
-    if (admissions.length === 1) {
-      admitted.release();
-      await release.promise;
-      await route.abort("failed");
-    } else await route.fulfill({ response });
-  });
-  await page.route("**/api/v1/jobs/*", async (route) => {
-    if (!failedRead) {
-      failedRead = true;
-      await route.abort("failed");
-    } else await route.continue();
-  });
+  const admitted = responseBarrier(page);
+  const release = responseBarrier(page);
+  await installOwnedRoute(
+    page,
+    "**/api/v1/reference-packs/import",
+    async (route) => {
+      const response = await fetchOwnedJobResponse(page, route);
+      expect(response.status()).toBe(202);
+      const envelope = await response.json();
+      const request = route.request();
+      const form = await new Response(
+        new Uint8Array(request.postDataBuffer() ?? []),
+        {
+          headers: { "content-type": request.headers()["content-type"] ?? "" },
+        },
+      ).formData();
+      const file = form.get("file");
+      const metadata = form.get("metadata");
+      if (!(file instanceof Blob) || !(metadata instanceof Blob))
+        throw new Error("Expected complete multipart capture");
+      admissions.push({
+        id: envelope.data.job_id,
+        bytes: Buffer.from(await file.arrayBuffer()),
+        metadata: await metadata.text(),
+      });
+      expect(JSON.parse(await metadata.text()).activation_policy).toBe(
+        "staged_only",
+      );
+      if (admissions.length === 1) {
+        admitted.release();
+        if (!(await awaitResponseBarrier(route, release.promise))) return;
+        await route.abort("failed");
+      } else await route.fulfill({ response });
+    },
+  );
   const panel = await openReferencePacks(page);
   const file = panel.getByLabel("Reference pack bundle");
-  await file.focus();
-  const chooser = page.waitForEvent("filechooser");
-  await page.keyboard.press("Space");
-  await (await chooser).setFiles(bundle.upload);
-  await new IncidentDirectory(page).open();
-  await expect(file).toHaveCount(0);
-  await new DeploymentAdministration(page).selectPanel("reference-packs");
-  await expect(
-    panel.getByText(`Selected file: ${bundle.upload.name}`),
-  ).toBeVisible();
-  await expect(file).toHaveValue("");
-  await expect(file).toBeEnabled();
+  await file.setInputFiles(bundle.upload);
   const start = panel.getByRole("button", { name: "Import", exact: true });
   await start.focus();
   await page.keyboard.press("Enter");
@@ -87,47 +80,29 @@ test("imports and replays real pack bytes then activates disables reverifies and
   release.release();
   const replay = panel.getByRole("button", { name: "Retry exact request" });
   await expect(replay).toBeVisible();
-  await new DeploymentAdministration(page).selectPanel("deployment-users");
-  await new DeploymentAdministration(page).selectPanel("reference-packs");
-  await expect(
-    panel.getByText("Checking current access and reconciling reference packs."),
-  ).toHaveCount(0);
   await replay.focus();
-  await page.keyboard.press("Enter");
-  const retryRead = panel.getByRole("button", { name: "Retry observation" });
-  await expect(retryRead).toBeVisible();
-  expect(admissions[1]).toEqual(admissions[0]);
-  expect(admissions[0]?.bytes).toEqual(bundle.upload.buffer);
-  await retryRead.focus();
   await page.keyboard.press("Enter");
   await expect(
     panel.getByText("Committed. Catalog data may still need reloading.", {
       exact: true,
     }),
   ).toBeVisible({ timeout: 30_000 });
+  expect(admissions).toHaveLength(2);
+  expect(admissions[1]).toEqual(admissions[0]);
+  expect(admissions[0]?.bytes).toEqual(bundle.upload.buffer);
   const row = panel.getByTestId(
     referencePackRowTestId(bundle.key, bundle.version),
   );
   await expect(row).toContainText("Verified, available");
-  const versionDetails = row.getByText("Version details", { exact: true });
-  await versionDetails.focus();
-  await page.keyboard.press("Enter");
-  await expect(
-    row.getByText("Manifest SHA-256", { exact: true }),
-  ).toBeVisible();
-  await expect(row.getByText("Payload SHA-256", { exact: true })).toBeVisible();
-  await expect(row.getByText("Dependencies", { exact: true })).toBeVisible();
-  await expect(row.getByText("None", { exact: true })).toBeVisible();
-  await page.keyboard.press("Enter");
-  await expect(row.getByText("Manifest SHA-256", { exact: true })).toBeHidden();
   await expect(row.getByRole("cell").nth(3)).toHaveText("No", {
     useInnerText: true,
   });
   const actions: { path: string; status: number }[] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/reference-packs/${bundle.key}/${bundle.version}/*`,
     async (route) => {
-      const response = await route.fetch();
+      const response = await fetchOwnedJobResponse(page, route);
       actions.push({
         path: new URL(route.request().url()).pathname,
         status: response.status(),
@@ -154,10 +129,16 @@ test("imports and replays real pack bytes then activates disables reverifies and
   await invoke("Disable", "Disabled");
   await invoke("Reverify", "Disabled");
   const refreshes: Record<string, unknown>[] = [];
-  await page.route("**/api/v1/reference-packs/refresh", async (route) => {
-    refreshes.push(route.request().postDataJSON());
-    await route.continue();
-  });
+  await installOwnedRoute(
+    page,
+    "**/api/v1/reference-packs/refresh",
+    async (route) => {
+      refreshes.push(route.request().postDataJSON());
+      await route.fulfill({
+        response: await fetchOwnedJobResponse(page, route),
+      });
+    },
+  );
   await row.getByRole("checkbox").focus();
   await page.keyboard.press("Space");
   await panel
@@ -184,7 +165,8 @@ test("imports and replays real pack bytes then activates disables reverifies and
   // A real signed container with a closed-schema failure exposes only the
   // retained safe summary. Retrying its read must not replay the import.
   let diagnosticReads = 0;
-  await page.route(
+  await installOwnedRoute(
+    page,
     "**/api/v1/reference-packs/validation-summaries/*",
     async (route) => {
       diagnosticReads++;
@@ -242,6 +224,68 @@ test("supports asynchronous exact actions and retained selection with independen
     testActor.user_id,
   );
   const panel = await openReferencePacks(page);
+  // Retained file selection, keyboard replay and observation recovery need no
+  // shared catalog mutation. The dedicated workflow proves real signed bytes.
+  const bundle = referencePackBundle();
+  const file = panel.getByLabel("Reference pack bundle");
+  await file.focus();
+  const chooser = page.waitForEvent("filechooser");
+  await page.keyboard.press("Space");
+  await (await chooser).setFiles(bundle.upload);
+  await new IncidentDirectory(page).open();
+  await expect(file).toHaveCount(0);
+  await new DeploymentAdministration(page).selectPanel("reference-packs");
+  await expect(
+    panel.getByText(`Selected file: ${bundle.upload.name}`),
+  ).toBeVisible();
+  await expect(file).toHaveValue("");
+  await expect(file).toBeEnabled();
+  fixture.failAdmission(true);
+  const start = panel.getByRole("button", { name: "Import", exact: true });
+  await start.focus();
+  await page.keyboard.press("Enter");
+  const replay = panel.getByRole("button", { name: "Retry exact request" });
+  await expect(replay).toBeVisible();
+  await new DeploymentAdministration(page).selectPanel("deployment-users");
+  await new DeploymentAdministration(page).selectPanel("reference-packs");
+  await expect(
+    panel.getByText("Checking current access and reconciling reference packs."),
+  ).toHaveCount(0);
+  fixture.failAdmission(false);
+  fixture.failReads(true);
+  await replay.focus();
+  await page.keyboard.press("Enter");
+  const retryRead = panel.getByRole("button", { name: "Retry observation" });
+  await expect(retryRead).toBeVisible();
+  expect(fixture.admissions).toHaveLength(2);
+  fixture.setStatus("succeeded");
+  fixture.failReads(false);
+  await retryRead.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    panel.getByText("Committed. Catalog data may still need reloading.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await panel
+    .getByRole("button", { name: "Dismiss operation", exact: true })
+    .click();
+  const pack = fixture.packs[0];
+  if (!pack) throw new Error("Missing presentation pack");
+  const row = panel.getByTestId(
+    referencePackRowTestId(pack.pack_key, pack.pack_version),
+  );
+  const versionDetails = row.getByText("Version details", { exact: true });
+  await versionDetails.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    row.getByText("Manifest SHA-256", { exact: true }),
+  ).toBeVisible();
+  await expect(row.getByText("Payload SHA-256", { exact: true })).toBeVisible();
+  await expect(row.getByText("Dependencies", { exact: true })).toBeVisible();
+  await expect(row.getByText("None", { exact: true })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(row.getByText("Manifest SHA-256", { exact: true })).toBeHidden();
   const rows = panel.getByRole("row");
   await rows.nth(1).getByRole("checkbox").check();
   await expect(rows.nth(2).getByRole("checkbox")).toBeChecked();
@@ -297,17 +341,17 @@ test("shows Reference Pack progress and cancel controls without blocking landing
   let cancelRequests = 0;
   let demoted = false;
   let enteredSearchURL = "";
-  const appendGate = gate();
-  const identityGate = gate();
-  const newestGate = gate();
-  const staleErrorGate = gate();
-  const latestErrorGate = gate();
-  const identityRequested = gate();
-  const newestRequested = gate();
-  const staleErrorRequested = gate();
-  const latestErrorRequested = gate();
+  const appendGate = responseBarrier(page);
+  const identityGate = responseBarrier(page);
+  const newestGate = responseBarrier(page);
+  const staleErrorGate = responseBarrier(page);
+  const latestErrorGate = responseBarrier(page);
+  const identityRequested = responseBarrier(page);
+  const newestRequested = responseBarrier(page);
+  const staleErrorRequested = responseBarrier(page);
+  const latestErrorRequested = responseBarrier(page);
 
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     if (!demoted) {
       await route.continue();
       return;
@@ -318,89 +362,106 @@ test("shows Reference Pack progress and cancel controls without blocking landing
     }));
   });
 
-  await page.route("**/api/v1/reference-packs?*", async (route) => {
-    const requestURL = new URL(route.request().url());
-    const search = requestURL.searchParams.get("search");
-    const cursor = requestURL.searchParams.get("cursor_token");
-    if (cursor === "cursor-a") {
-      await appendGate.promise;
-      await fulfillPackList(route, [packResource("type_registry.appended")]);
-      return;
-    }
-    if (search === "identity") {
-      enteredSearchURL = `${requestURL.pathname}${requestURL.search}`;
-      identityRequested.resolve();
-      await identityGate.promise;
-      await fulfillPackList(route, [packResource("type_registry.identity")]);
-      return;
-    }
-    if (search === "newest") {
-      newestRequested.resolve();
-      await newestGate.promise;
-      await fulfillPackList(route, [packResource("type_registry.newest")]);
-      return;
-    }
-    if (search === "stale-error") {
-      staleErrorRequested.resolve();
-      await staleErrorGate.promise;
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: { code: "stale_reference_pack_error" } }),
+  await installOwnedRoute(
+    page,
+    "**/api/v1/reference-packs?*",
+    async (route) => {
+      const requestURL = new URL(route.request().url());
+      const search = requestURL.searchParams.get("search");
+      const cursor = requestURL.searchParams.get("cursor_token");
+      if (cursor === "cursor-a") {
+        if (!(await awaitResponseBarrier(route, appendGate.promise))) return;
+        await fulfillPackList(route, [packResource("type_registry.appended")]);
+        return;
+      }
+      if (search === "identity") {
+        enteredSearchURL = `${requestURL.pathname}${requestURL.search}`;
+        identityRequested.release();
+        if (!(await awaitResponseBarrier(route, identityGate.promise))) return;
+        await fulfillPackList(route, [packResource("type_registry.identity")]);
+        return;
+      }
+      if (search === "newest") {
+        newestRequested.release();
+        if (!(await awaitResponseBarrier(route, newestGate.promise))) return;
+        await fulfillPackList(route, [packResource("type_registry.newest")]);
+        return;
+      }
+      if (search === "stale-error") {
+        staleErrorRequested.release();
+        if (!(await awaitResponseBarrier(route, staleErrorGate.promise)))
+          return;
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: { code: "stale_reference_pack_error" },
+          }),
+        });
+        return;
+      }
+      if (search === "latest-error") {
+        latestErrorRequested.release();
+        if (!(await awaitResponseBarrier(route, latestErrorGate.promise)))
+          return;
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: { code: "latest_reference_pack_error" },
+          }),
+        });
+        return;
+      }
+      await fulfillPackList(route, [packResource("type_registry.host")], {
+        limit: 100,
+        has_more: true,
+        next_cursor: "cursor-a",
       });
-      return;
-    }
-    if (search === "latest-error") {
-      latestErrorRequested.resolve();
-      await latestErrorGate.promise;
+    },
+  );
+
+  await installOwnedRoute(
+    page,
+    "**/api/v1/reference-packs/refresh",
+    async (route) => {
+      expect(route.request().method()).toBe("POST");
       await route.fulfill({
-        status: 500,
+        status: 202,
         contentType: "application/json",
         body: JSON.stringify({
-          error: { code: "latest_reference_pack_error" },
+          data: jobResource(jobID, "queued", true, 0, 3, testActor.user_id),
+          meta: { request_id: "request-refresh" },
         }),
       });
-      return;
-    }
-    await fulfillPackList(route, [packResource("type_registry.host")], {
-      limit: 100,
-      has_more: true,
-      next_cursor: "cursor-a",
-    });
-  });
+    },
+  );
 
-  await page.route("**/api/v1/reference-packs/refresh", async (route) => {
-    expect(route.request().method()).toBe("POST");
-    await route.fulfill({
-      status: 202,
-      contentType: "application/json",
-      body: JSON.stringify({
-        data: jobResource(jobID, "queued", true, 0, 3, testActor.user_id),
-        meta: { request_id: "request-refresh" },
-      }),
-    });
-  });
+  await installOwnedRoute(
+    page,
+    new RegExp(`/api/v1/jobs/${jobID}$`),
+    async (route) => {
+      jobReads += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: jobResource(
+            jobID,
+            cancelRequests ? "cancel_requested" : "running",
+            !cancelRequests,
+            1,
+            3,
+            testActor.user_id,
+          ),
+          meta: { request_id: "request-job" },
+        }),
+      });
+    },
+  );
 
-  await page.route(new RegExp(`/api/v1/jobs/${jobID}$`), async (route) => {
-    jobReads += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        data: jobResource(
-          jobID,
-          cancelRequests ? "cancel_requested" : "running",
-          !cancelRequests,
-          1,
-          3,
-          testActor.user_id,
-        ),
-        meta: { request_id: "request-job" },
-      }),
-    });
-  });
-
-  await page.route(
+  await installOwnedRoute(
+    page,
     new RegExp(`/api/v1/jobs/${jobID}/cancel$`),
     async (route) => {
       cancelRequests += 1;
@@ -447,11 +508,11 @@ test("shows Reference Pack progress and cancel controls without blocking landing
   await page.getByLabel("Search reference packs").fill("newest");
   await page.getByLabel("Search reference packs").press("Enter");
   await newestRequested.promise;
-  identityGate.resolve();
+  identityGate.release();
   await expect(
     page.getByTestId(referencePackRowTestId("type_registry.identity", "1")),
   ).not.toBeVisible();
-  newestGate.resolve();
+  newestGate.release();
   await expect(
     page.getByTestId(referencePackRowTestId("type_registry.newest", "1")),
   ).toBeVisible();
@@ -462,12 +523,12 @@ test("shows Reference Pack progress and cancel controls without blocking landing
   await page.getByLabel("Search reference packs").fill("latest-error");
   await page.getByLabel("Search reference packs").press("Enter");
   await latestErrorRequested.promise;
-  latestErrorGate.resolve();
+  latestErrorGate.release();
   await expect(page.getByTestId(referencePackErrorTestId())).toHaveText(
     /request was rejected/,
   );
-  staleErrorGate.resolve();
-  appendGate.resolve();
+  staleErrorGate.release();
+  appendGate.release();
   await expect(page.getByTestId(referencePackErrorTestId())).toHaveText(
     /request was rejected/,
   );
@@ -557,12 +618,4 @@ async function fulfillPackList(
       meta: { request_id: "request-list", paging },
     }),
   });
-}
-
-function gate() {
-  let release = () => {};
-  const promise = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return { promise, resolve: release };
 }

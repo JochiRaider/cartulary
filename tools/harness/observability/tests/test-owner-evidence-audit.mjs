@@ -76,6 +76,50 @@ test("owner audit accepts a complete owner or explicit target partition without 
   assert.equal((await auditOwnerEvidence(leaf.options)).selection, "target_partitions");
 });
 
+test("owner audit attributes shared Go execution to each logical target and preserves row validation", async (t) => {
+  const f = fixture(t, "backend-unit");
+  Object.assign(f.rows[1], { family_id: `${owner}.integration`, evidence_class: "integration", runtime_profile_id: "default" });
+  const unit = f.units[0];
+  unit.row_bindings.push(...f.units[1].row_bindings);
+  unit.current_run_evidence_outputs.push(`rows/${f.rows[1].row_id}.json`);
+  f.units.splice(1, 1);
+  f.run.registrations = new Map([[unit.unit_id, { ...unit, row_ids: f.rows.map((row) => row.row_id) }]]);
+  f.run.started = new Map([[unit.unit_id, 0]]);
+  f.run.terminal = new Map([[unit.unit_id, { status: "passed" }]]);
+  f.cleanup.results.splice(1, 1);
+  f.save("cleanup-results.json", f.cleanup);
+  f.save(`unit-results/${unit.unit_id}.json`, f.unitResult(unit));
+  f.projection.unit_ids = [unit.unit_id];
+  f.projection.evidence_refs = unit.current_run_evidence_outputs;
+  f.plan.projections["backend-unit"] = [unit.unit_id];
+  const integration = { ...f.projection, target: "backend-integration", command_id: "cartulary.harness.command.backend_integration.v1" };
+  f.run.targetSummaries.set(integration.target, integration);
+  f.plan.projections[integration.target] = [unit.unit_id];
+  f.run.manifest.target = "ci";
+  f.options.surface.targets.push(
+    { name: "ci", command_id: "cartulary.harness.command.ci.v1", target_class: "public" },
+    { name: integration.target, command_id: integration.command_id, target_class: "public" },
+  );
+  f.options.manifest.entries = [integration.target, "backend-unit"].map((target) => ({ target, run_root: "run" }));
+
+  const report = await auditOwnerEvidence(f.options);
+  assert.deepEqual(report.accepted.map(({ target, row_ids }) => ({ target, row_ids })), [
+    { target: "backend-integration", row_ids: [f.rows[1].row_id] },
+    { target: "backend-unit", row_ids: [f.rows[0].row_id] },
+  ]);
+
+  f.rows.push({ ...f.rows[0], row_id: `${owner}.unit.unexecuted` });
+  await assert.rejects(auditOwnerEvidence(f.options), /target owner-row partition is incomplete/u);
+  f.rows.pop();
+  f.save(`rows/${f.rows[0].row_id}.json`, { ...f.rowResult(f.rows[0]), terminal_state: "failed", exit_code: 1,
+    failure_class: "product", failure_reason: "test_assertion_failure" });
+  await assert.rejects(auditOwnerEvidence(f.options), (error) => {
+    assert.equal(error.auditReport.accepted.length, 0);
+    assert.equal(error.auditReport.rejected[0].target, "backend-integration");
+    return /required row has no compatible successful terminal result/u.test(error.message);
+  });
+});
+
 test("owner audit admits required support projections from a public provider", async (t) => {
   for (const target of ["backend-integration-support", "browser-e2e-support"]) {
     const f = fixture(t, target);

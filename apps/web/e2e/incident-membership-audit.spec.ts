@@ -9,10 +9,7 @@ import {
   openIncidentAsTrackedUser,
   openIncidentFromLanding,
 } from "./pages/incidentDirectory";
-import {
-  auditBrowserBarrier,
-  auditBrowserEventId,
-} from "./support/administrativeAudit";
+import { auditBrowserEventId } from "./support/administrativeAudit";
 import {
   installMembershipAuditPresentation,
   membershipBrowserEvent,
@@ -20,6 +17,7 @@ import {
 } from "./support/incidentMembershipAudit";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueEmail,
   uniqueIncidentKey,
@@ -30,7 +28,7 @@ test("membership audit browses 105 real exact role changes with accepted query p
   testActorPage: page,
   testActor,
   testActorRequest,
-  browser,
+  browserScope,
   sessionTracker,
 }, testInfo) => {
   test.setTimeout(120_000);
@@ -165,20 +163,24 @@ test("membership audit browses 105 real exact role changes with accepted query p
   await expect(
     page.getByLabel("Account and application navigation"),
   ).toBeFocused();
-  const memberPage = await openIncidentAsTrackedUser(browser, sessionTracker, {
-    createdBy: "membership audit",
-    purpose: "non-admin audit denial",
-    email: member.email,
-    password: member.initial_password,
-    userId: member.user_id,
-    incidentId,
-  });
+  const memberPage = await openIncidentAsTrackedUser(
+    browserScope,
+    sessionTracker,
+    {
+      createdBy: "membership audit",
+      purpose: "non-admin audit denial",
+      email: member.email,
+      password: member.initial_password,
+      userId: member.user_id,
+      incidentId,
+    },
+  );
   const denied = await openMembershipAudit(memberPage);
   await expect(denied.getByText(/Only incident admins/)).toBeVisible();
   await expect(denied.getByRole("button", { name: /^Inspect / })).toHaveCount(
     0,
   );
-  await memberPage.context().close();
+  await browserScope.closeContext(memberPage.context());
   await testInfo.attach("real-membership-audit-pagination", {
     body: JSON.stringify({
       generated_matching_events: 105,
@@ -209,7 +211,7 @@ test("membership audit fences delayed reads across query drawer section and visi
   await expect(
     panel.getByTestId(incidentMembershipAuditDetailTestId(auditBrowserEventId)),
   ).toContainText("Redacted");
-  const pending = auditBrowserBarrier();
+  const pending = responseBarrier(page);
   fixture.fail();
   fixture.gateRead(pending.promise);
   const count = fixture.requests.length;
@@ -255,7 +257,7 @@ test("membership audit fences delayed reads across query drawer section and visi
     .click();
   await expect(panel.getByRole("status")).toContainText("Page 1: 1 event.");
   for (const boundary of ["close", "section", "visibility"] as const) {
-    const gate = auditBrowserBarrier();
+    const gate = responseBarrier(page);
     fixture.setPage([
       membershipBrowserEvent(fixture.incidentId, {
         action_code: "late_action",

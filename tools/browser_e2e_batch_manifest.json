@@ -55,1070 +55,6 @@
           ]
         },
         {
-          "name": "functional-support-default-91ccc649378b73c536350dca001b74b6683fbd34caeb96b1a093e51ae0ad17c0",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "harness.browser.boundary_support.timeline_investigation_capture"
-          ],
-          "specs": [
-            "apps/web/e2e/visual-harness.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-a00c39cb9d7c65b93aa135aa1f75be1b873c47ef033da66a32375dcc0020d6c8",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "harness.browser.boundary_support.visual_preference_lifetime"
-          ],
-          "specs": [
-            "apps/web/e2e/visual-harness.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-f5a8ef430d171638b232f5af02e1111465094c9fcc75b17c7af81a66a8034392",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.auth.browser.a_reviewer_visible_incident_edit_control_fails_w_b6248bf4c8"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-88c78a7fdbb03d4fb4262d2b0853ef1489d5ed9b95ddfbe8bd14c1ee65bbee6a",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.auth.browser.administrative_audit_read_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/administrative-audit.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-fb45ecedfbc36ac6e9ba61e70371373a173b85636b24967ef2a9643e61331324",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.auth.browser.administrative_audit_real_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/administrative-audit.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-43e54bed7d14204af2b20a175b133b165f996a2f28f0e84d9ce50047392d94c5",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.auth.browser.deployment_admin_revoke_all_invalidates_a_target_a09ed5d06f"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-7560ec48545fde37ee199a572cb87b07f7f881823000c297eb3ab10c6a3cae21",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.auth.browser.the_ordinary_shell_keeps_deployment_user_adminis_8a57567508"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-c7827075b4052204d79b1fe9a03af078d5b9c79e7f07780694431aef57181937",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.auth.browser.verify_ordinary_login_incident_directory_entry_o_d66ea23dc1"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-f046eac27dd2ac3b0b731798483c2b0f16c38716c0aeaa44767cf4e01f33e7db",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab"
-          ],
-          "specs": [
-            "apps/web/e2e/collaboration.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-11d9d4f9fe30df615c0d226237812bfe47c981fb8ce90a576d5ef78eca7ac9ad",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.collaboration.browser.live_updates_never_retarget_pending_local_edits_11699e9b2d"
-          ],
-          "specs": [
-            "apps/web/e2e/collaboration.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-0725f617c74cffcfae1cd75e77cd979f13fd17e6ab3d8ae39ce93e70b5655f1c",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.collaboration.browser.verify_conflict_resolver_actions_submit_public_m_0c77fae932"
-          ],
-          "specs": [
-            "apps/web/e2e/collaboration.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-3a6ff3cbb422ba599f401007a7262d368b8fd159e4429461d9b9ca0f71f09dd9",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.evidence.browser.timeline_related_role_loss"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-related-evidence.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-6d6ac0ee67465c44105a41fd4d0d83afe7c3334553360778ca97c727d316a306",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.a_selected_incident_whose_membership_is_removed_21054ae899"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-2bb1966513a85ead941d5724bc203e230540b8a09d50edde136f009a59a323c5",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.incident_admins_manage_memberships_on_the_ordina_f26145a162"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-administration.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-b567f93e53bf336e077a9b0aeadee23a13dce76baabbdfb463b03ee92c549530",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.incident_creation_native_keyboard_payload_and_fi_b6b4631f5f"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-c2478327ad237c28520c15c4dec64666360dc2ad61c493f40603b44bd1cb3c21",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.incident_creation_preserves_chosen_navigation_af_24cb9bd4de"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-1234949fbd8c3ebc60bd3bc037480a3f81f77ab74db6c6b5e6efa6c7843418a2",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.incident_creation_uncertain_replay_and_committed_985931d51a"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-d9f7a97ff6fb580f1143bec21384226bb0045c7cd8a06b70f9b9fa131a5593b9",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.lifecycle_acknowledgement"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-lifecycle.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-7a9ba94e0b0c229062b66a2f0e0a09ff5048e257c28a97abad175bbd54e51b67",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.lifecycle_boundaries"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-lifecycle.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-7d966a64ab63eeea638bffa42f4073d8dba56f3eec1b8035a9b9a4cc7f3f3d71",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.lifecycle_departure"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-lifecycle.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-9e915da6e2adcf19bf5420604052edf2d7e38a434e54aa7b9354b2be3b487985",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.lifecycle_replay"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-lifecycle.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-0d502e653fbb437b6286caa0ef8d2feae6744364e60e4cf4f0523dd3c7d2b551",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.lifecycle_workbook"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-lifecycle.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-2ef29e2ea58f6d1034043704db7d6459abdec1a80bc6b687c6274eb3ff47413c",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.membership_audit_access_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-membership-audit.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-3646ecce0cd5fb703997b125c6b70779ba1170a7b0348e1415cb133d4636e642",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.membership_audit_read_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-membership-audit.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-12a55bf6dc8934fb54b6edc4579ba6195bc1bb9c191db45fdba037f223ada3cd",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.membership_audit_real_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-membership-audit.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-eaa58693865e5cf851f7f04a9d051d8b56c3c8569d3eb2a8286edf0886667835",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.membership_audit_response_inspection"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-membership-audit.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-e3da451f861b3f4276956fb3ece466d040b5712446b27cc3bac8c8db4f05f347",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.membership_management_departure"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-membership-management.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-f66594a8ba3b60ea08c3c8127ab5aec84b14b1dbbffb29e49a3d83816d879cb6",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.membership_management_live_pages"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-membership-management.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-e166d906623b964e7ca4cd4c0e2701b901541c223cbe096aac396fd31f8bddc0",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.membership_management_mutation_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-membership-management.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-c65b6dedd5f6a56edbd07a3bf2cd39fba5ec9d58f6d578283bc36c32b90974d3",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.membership_management_self_actions"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-membership-management.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-c320eb2ebaefc5df6d044c2e2da631865a3108f7c750f07a6bf0fd8b0a7f606d",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.metadata_authority"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-metadata-editing.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-08427645312654bc1ff17c7fb4210b09f00fff03ce6f9c4a1508931f524749ac",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.metadata_departure"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-metadata-editing.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-930c0b89e646437982624c65bc53f130c96ccc5ac414da0b53c51fd620e12639",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.metadata_live"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-metadata-editing.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-9a7400b4b023dae6f56e46662d69c44ad61fdaa06b81a696523d5c5481859ec2",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.metadata_pending_departure"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-metadata-editing.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-845a88c6205d0666f12715ad6b5519139d925a57b3de46ed075cac9ebe97029a",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.metadata_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-metadata-editing.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-bca52a97e5bd698836cd4a92d2f3a2c8ad9efea71ce55a9059f3ae6aae551bd4",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.the_ordinary_authenticated_landing_screen_create_fa80fbfef5"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-808dd77afd3c60200eba362b2abd0b23c2ba83afb3591ebc793c3979c1ebbfe0",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-administration.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-740d0fafd160814b42e471fa0877e0d8db86fdacb69ccc98c24a4743a7975e6f",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.incidents.browser.workbook_home_and_incident_default_preferences_c_6591154e0f"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-administration.spec.ts"
-          ]
-        },
-        {
           "name": "functional-support-default-871c21bd7627d6737f091ca180ba2f5a189e690d8b366596a8e09685df2241d0",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1144,34 +80,6 @@
           ],
           "specs": [
             "apps/web/e2e/restore.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-522df5ce061f045c96ee667c474577249c9bd69f7e4633ded9ab5c200babeb0f",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.reference_data.browser.administration_async_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/reference-pack.spec.ts"
           ]
         },
         {
@@ -1203,426 +111,6 @@
           ]
         },
         {
-          "name": "functional-support-default-6d307f2286c2f4ef4b1669cca08c3a20fbde27ed3b283e9f838304113730a554",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.reference_data.browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c"
-          ],
-          "specs": [
-            "apps/web/e2e/reference-pack.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-bf37d2f239d268894a2c7aaacffa079a19ef43a0feb8b9a431c1e8702f3d9bbe",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-workbook.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-451fae221f0d119e0c0be2343b10d44ae3b5d7b9062c096022f27315559166fd",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.timeline.browser.draft_create_controls"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-workbook.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-8d32067b3456f04bba8f9c0dae47781225454b33d3eeed5243336c72422a887e",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.workbook.browser.grid_autosave_closure"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-grid-autosave.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-fcbbf4e26a1a359178a0979ca75400977363c00da6e1e257dfe3e93a7f689d6a",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.workbook.browser.ordinary_create_closure"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-ordinary-security.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-000bf59ac94e298132b3c9ec78ef79a0cc47ce90fa18b0cdad01c1bc30ec989b",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.workbook.browser.preferences_1"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-preferences.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-9b0cded3ab7dd49aec59ee76c708ec6d1721890e3050cd2623647f1d4402a47a",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.workbook.browser.preferences_2"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-preferences.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-90b47f9a7dd8b14c19f1cbb8c12d38e8a84e2eaae53b891f58b76a5471ad80bd",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.workbook.browser.preferences_3"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-preferences.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-c01c2eaf9d0a4ace0934f818e11ca369eaf9dc6e006987366c5674be25d98674",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.workbook.browser.preferences_4"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-preferences.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-6b7a002aa89cf5bcd97ed29dad2eed73c5d6bb802ba9e32bbc6b3263442b11bd",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.workbook.browser.reference_admission_lifecycle"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-grid-autosave.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-6ba90e47a12c1a7302f715c9b98b26ce188decf6cde5b08d9cb3ce0337c53397",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-administration.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-1a9a1fe65db7c2bdbc17005fe862af12d62dfd8079d921a41129abbb64b4a328",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-administration.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-20682e4bbc9d506af848152d046cdb7874d4a156407d5d813f66a28be91beb2d",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "web.design.browser.incident_import_action_access_hardening"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-import.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-f2fa54dfa7b5abc1ae1dbfbbc4e69b746434d3cd1c8a9bca12e2c23ece9c78d0",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "web.design.browser.incident_import_observation_recovery"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-import.spec.ts"
-          ]
-        },
-        {
-          "name": "functional-support-default-26f8924dadfa658c7dfceafb7fee91d8d43efa7a3d55818ac55c9998b155f17c",
-          "target": "browser-e2e-webserver-backed",
-          "kind": "duration_balanced_specs",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_functional",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_functional",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-webserver-backed-default",
-          "selected_row_ids": [
-            "web.design.browser.incident_import_real_workflow"
-          ],
-          "specs": [
-            "apps/web/e2e/incident-import.spec.ts"
-          ]
-        },
-        {
           "name": "functional-support-default-5ba90b6c6072ffb220487105f1f3297034bf5477bc96a5f000f0a53c6cfb6fbb",
           "target": "browser-e2e-webserver-backed",
           "kind": "duration_balanced_specs",
@@ -1650,21 +138,32 @@
             "harness.browser.boundary_support.browser_fixture_state_remains_test_owned_for_b_b_ab488bf040",
             "harness.browser.boundary_support.https_trust",
             "harness.browser.boundary_support.reference_candidate_readiness",
+            "harness.browser.boundary_support.timeline_investigation_capture",
             "harness.browser.boundary_support.visual_anchor_geometry",
             "harness.browser.boundary_support.visual_asset_failure",
+            "harness.browser.boundary_support.visual_preference_lifetime",
             "module.assessments.browser.append_recovery",
             "module.assessments.browser.contextual_decision_refresh",
             "module.assessments.browser.the_browser_appends_a_subject_only_assessment_fo_2a82260393",
             "module.assessments.browser.the_browser_workbook_assessment_workflow_appends_aefa86174b",
             "module.assessments.browser.the_browser_workbook_drives_the_assessments_surf_4f277414a9",
+            "module.auth.browser.a_reviewer_visible_incident_edit_control_fails_w_b6248bf4c8",
+            "module.auth.browser.administrative_audit_read_recovery",
+            "module.auth.browser.administrative_audit_real_browsing",
             "module.auth.browser.an_enterprise_authenticated_browser_landing_on_s_fed22b45ad",
             "module.auth.browser.browser_sign_in_exposes_the_ordinary_session_sur_2ec8df6229",
+            "module.auth.browser.deployment_admin_revoke_all_invalidates_a_target_a09ed5d06f",
             "module.auth.browser.invalid_credentials_leave_no_session_cookie_and_47a0f6a4d2",
             "module.auth.browser.the_browser_anonymous_shell_renders_discovered_e_9c637d5924",
             "module.auth.browser.the_ordinary_account_security_ui_requires_exact_642c3c4437",
             "module.auth.browser.the_ordinary_login_ui_proves_first_time_bootstra_4c727c12c3",
             "module.auth.browser.the_ordinary_login_ui_rejects_missing_and_wrong_f6009192d8",
+            "module.auth.browser.the_ordinary_shell_keeps_deployment_user_adminis_8a57567508",
+            "module.auth.browser.verify_ordinary_login_incident_directory_entry_o_d66ea23dc1",
+            "module.collaboration.browser.concurrent_edits_to_different_fields_on_the_same_7ee5cad0ab",
+            "module.collaboration.browser.live_updates_never_retarget_pending_local_edits_11699e9b2d",
             "module.collaboration.browser.two_analysts_on_the_same_incident_see_each_other_d099712cac",
+            "module.collaboration.browser.verify_conflict_resolver_actions_submit_public_m_0c77fae932",
             "module.collaboration.browser.within_one_browser_runtime_queued_unsent_writes_3efbd48054",
             "module.entities.browser.contextual_task_replay",
             "module.entities.browser.entity_merge_exact_recovery",
@@ -1704,13 +203,42 @@
             "module.evidence.browser.timeline_linked_text_review_3f18dc6414",
             "module.evidence.browser.timeline_related_creation_replay",
             "module.evidence.browser.timeline_related_partial_creation",
+            "module.evidence.browser.timeline_related_role_loss",
             "module.evidence.browser.verification_cancellation_race",
             "module.evidence.browser.verify_attach_flow_uses_generated_protocol_types_7a778c9178",
             "module.imports.browser.base_workbook_omits_unclaimed_import_assistant_6f271c8b42",
+            "module.incidents.browser.a_selected_incident_whose_membership_is_removed_21054ae899",
+            "module.incidents.browser.incident_admins_manage_memberships_on_the_ordina_f26145a162",
+            "module.incidents.browser.incident_creation_native_keyboard_payload_and_fi_b6b4631f5f",
+            "module.incidents.browser.incident_creation_preserves_chosen_navigation_af_24cb9bd4de",
+            "module.incidents.browser.incident_creation_uncertain_replay_and_committed_985931d51a",
+            "module.incidents.browser.lifecycle_acknowledgement",
+            "module.incidents.browser.lifecycle_boundaries",
+            "module.incidents.browser.lifecycle_departure",
+            "module.incidents.browser.lifecycle_replay",
+            "module.incidents.browser.lifecycle_workbook",
+            "module.incidents.browser.membership_audit_access_recovery",
+            "module.incidents.browser.membership_audit_read_recovery",
+            "module.incidents.browser.membership_audit_real_browsing",
+            "module.incidents.browser.membership_audit_response_inspection",
+            "module.incidents.browser.membership_management_departure",
+            "module.incidents.browser.membership_management_live_pages",
+            "module.incidents.browser.membership_management_mutation_recovery",
+            "module.incidents.browser.membership_management_self_actions",
+            "module.incidents.browser.metadata_authority",
+            "module.incidents.browser.metadata_departure",
+            "module.incidents.browser.metadata_live",
+            "module.incidents.browser.metadata_pending_departure",
+            "module.incidents.browser.metadata_recovery",
+            "module.incidents.browser.the_ordinary_authenticated_landing_screen_create_fa80fbfef5",
+            "module.incidents.browser.the_ordinary_shell_exposes_incident_discovery_ra_59c190a9b5",
+            "module.incidents.browser.workbook_home_and_incident_default_preferences_c_6591154e0f",
             "module.links.browser.the_notes_tab_supports_browser_visible_creation_ae6bdcc2da",
             "module.networkflow.browser.network_flow_selector_covers_when_the_extension_c90fca78ee",
             "module.parties.browser.source_link_recovery",
             "module.parties.browser.the_browser_workbook_surface_keeps_ordinary_evid_687c58e86e",
+            "module.reference_data.browser.administration_async_recovery",
+            "module.reference_data.browser.deployment_admin_browser_sessions_expose_referen_8c10ae0a9c",
             "module.revisions.browser.history_browsing_3bb5a426ad51",
             "module.revisions.browser.history_browsing_4173a20e4a50",
             "module.revisions.browser.history_browsing_6bf6f16ba2f4",
@@ -1740,6 +268,7 @@
             "module.tasksdecisions.browser.decision_supersession_exact_recovery",
             "module.tasksdecisions.browser.task_lifecycle_patch_recovery",
             "module.tasksdecisions.browser.the_browser_workbook_opens_task_requests_and_dec_8048a75ceb",
+            "module.timeline.browser.a_reviewer_session_browser_flow_visibly_performs_c3aaf62d89",
             "module.timeline.browser.a_user_creates_a_timeline_row_on_the_real_workbo_62ae8a3a07",
             "module.timeline.browser.auto_resolution_feedback_characterization",
             "module.timeline.browser.autosave_feedback_characterization",
@@ -1776,6 +305,7 @@
             "module.timeline.browser.draft_create_activation",
             "module.timeline.browser.draft_create_cancellation",
             "module.timeline.browser.draft_create_continuity",
+            "module.timeline.browser.draft_create_controls",
             "module.timeline.browser.draft_create_rejection",
             "module.timeline.browser.draft_create_uncertainty",
             "module.timeline.browser.explicit_blank_create",
@@ -1885,6 +415,7 @@
             "module.workbook.browser.frozen_region_paint_01360d5734",
             "module.workbook.browser.generic_unsaved_cells_preserve_keyboard_and_exte_f0e6722da1",
             "module.workbook.browser.grid_autosave_availability",
+            "module.workbook.browser.grid_autosave_closure",
             "module.workbook.browser.grid_autosave_collaboration",
             "module.workbook.browser.grid_autosave_csrf",
             "module.workbook.browser.grid_autosave_editor_families",
@@ -1921,6 +452,7 @@
             "module.workbook.browser.note_create_revocation",
             "module.workbook.browser.note_create_source_edit",
             "module.workbook.browser.note_create_sources",
+            "module.workbook.browser.ordinary_create_closure",
             "module.workbook.browser.ordinary_create_continuity",
             "module.workbook.browser.ordinary_create_detached_refresh",
             "module.workbook.browser.ordinary_create_matrix",
@@ -1928,7 +460,12 @@
             "module.workbook.browser.ordinary_create_uncertain_timeline",
             "module.workbook.browser.ordinary_reference_boolean_filtering_preserves_t_b9997d12f7",
             "module.workbook.browser.party_timestamp_candidate_filters_stage_explicit_45110487e8",
+            "module.workbook.browser.preferences_1",
+            "module.workbook.browser.preferences_2",
+            "module.workbook.browser.preferences_3",
+            "module.workbook.browser.preferences_4",
             "module.workbook.browser.public_registry_discovery_exposes_exactly_the_fo_e62f2b8ba8",
+            "module.workbook.browser.reference_admission_lifecycle",
             "module.workbook.browser.reference_grid_commit",
             "module.workbook.browser.reference_selection_recovery",
             "module.workbook.browser.reference_session_recovery",
@@ -1942,6 +479,7 @@
             "module.workbook.browser.the_browser_workbook_opens_communications_log_ha_e14517982d",
             "module.workbook.browser.the_explicitly_visited_shared_grid_keyboard_anch_2b5da548a2",
             "module.workbook.browser.verify_browser_command_helpers_for_sort_filter_g_8f8dc4efe2",
+            "module.workbook.browser.verify_continuous_workbook_shell_composition_top_96ea2f5084",
             "module.workbook.browser.verify_system_views_switcher_keyboard_entry_rovi_90a2f62956",
             "module.workbook.browser.verify_task_requests_decisions_parties_communica_ea39a44f80",
             "module.workbook.browser.verify_timeline_query_response_rows_render_full_bffd82f340",
@@ -1951,11 +489,16 @@
             "module.workbook.browser.work_pin_viewer_removal_9f4c8a0b9c",
             "platform.viewquery.browser.browser_exact_token_full_text_and_strict_prefix_55beeb13a5",
             "platform.viewquery.browser.browser_timeline_sort_filter_and_group_reaches_a_165ffa9afd",
+            "web.design.browser.account_application_menu_keyboard_navigation_and_8cba739220",
             "web.design.browser.account_settings_keyboard_responsive_781bd74a33",
             "web.design.browser.account_settings_real_conflict_replay_46b2ec9831",
+            "web.design.browser.incident_import_action_access_hardening",
+            "web.design.browser.incident_import_observation_recovery",
+            "web.design.browser.incident_import_real_workflow",
             "web.design.browser.workbook_responsive_frame_geometry_e78e1d1ac3"
           ],
           "specs": [
+            "apps/web/e2e/administrative-audit.spec.ts",
             "apps/web/e2e/assessments.recovery.spec.ts",
             "apps/web/e2e/auth-and-incident-directory.spec.ts",
             "apps/web/e2e/authoring-candidates.spec.ts",
@@ -1976,6 +519,11 @@
             "apps/web/e2e/history.spec.ts",
             "apps/web/e2e/import-assistant.spec.ts",
             "apps/web/e2e/incident-administration.spec.ts",
+            "apps/web/e2e/incident-import.spec.ts",
+            "apps/web/e2e/incident-lifecycle.spec.ts",
+            "apps/web/e2e/incident-membership-audit.spec.ts",
+            "apps/web/e2e/incident-membership-management.spec.ts",
+            "apps/web/e2e/incident-metadata-editing.spec.ts",
             "apps/web/e2e/indicator-canonical-create.spec.ts",
             "apps/web/e2e/indicator-lifecycle.spec.ts",
             "apps/web/e2e/indicator-observations.spec.ts",
@@ -1993,6 +541,7 @@
             "apps/web/e2e/parties.recovery.spec.ts",
             "apps/web/e2e/reference-candidate-support.spec.ts",
             "apps/web/e2e/reference-multiple.spec.ts",
+            "apps/web/e2e/reference-pack.spec.ts",
             "apps/web/e2e/sentinel.spec.ts",
             "apps/web/e2e/timeline-attachment-feedback.spec.ts",
             "apps/web/e2e/timeline-auto-resolution-feedback.spec.ts",
@@ -2014,6 +563,7 @@
             "apps/web/e2e/workbook-inspector-edit.spec.ts",
             "apps/web/e2e/workbook-ordinary-create.spec.ts",
             "apps/web/e2e/workbook-ordinary-security.spec.ts",
+            "apps/web/e2e/workbook-preferences.spec.ts",
             "apps/web/e2e/workbook-saved-view-discovery.spec.ts",
             "apps/web/e2e/workbook.assessments.spec.ts",
             "apps/web/e2e/workbook.generic.spec.ts",
@@ -2080,35 +630,6 @@
       ],
       "groups": [
         {
-          "name": "support-1f80abf55de181b622e756820f8a2faceca2422235f862d3a7e107c8105de818",
-          "target": "browser-e2e-support",
-          "kind": "support",
-          "coverage": "supplemental",
-          "execution_dependency": "browser_support",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-support-default",
-          "browser_session_isolation_reason": "release support evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957"
-          ],
-          "specs": [
-            "apps/web/e2e/auth.support.spec.ts"
-          ]
-        },
-        {
           "name": "support-7c22c7cd2e2ee6945ab0efa694cddee0ef6a41ceb4ffcbff1f4674db46cf7d29",
           "target": "browser-e2e-support",
           "kind": "support",
@@ -2132,6 +653,7 @@
           "preparation_operations": [],
           "selected_row_ids": [
             "app.server.browser_support.supports_zero_membership_extension_discovery_and_2d096f2dcd",
+            "module.auth.browser_support.supplemental_browser_verifies_ordinary_shell_sel_f8a9da1957",
             "module.incidents.browser_support.supports_reserved_family_dispatch_precedence_pro_d831d613fa",
             "module.incidents.browser_support.supports_route_owned_incident_validation_errors_c277ce45ee",
             "module.timeline.browser_support.clipboard_paste_helper_contract",
@@ -2150,6 +672,7 @@
             "module.workbook.browser_support.verify_browser_command_helpers_for_sort_filter_g_cfa68b33e4"
           ],
           "specs": [
+            "apps/web/e2e/auth.support.spec.ts",
             "apps/web/e2e/incident.support.spec.ts",
             "apps/web/e2e/keyboard.spec.ts",
             "apps/web/e2e/timeline.support.spec.ts",
@@ -2167,34 +690,6 @@
         "service_backed_check"
       ],
       "groups": [
-        {
-          "name": "stateful-default-6548f41036d6211c34f8c6e4a7e5bcae3c257d1c917f24300d5b459f42a8d207",
-          "target": "browser-e2e-stateful",
-          "kind": "stateful_partition",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_stateful",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-stateful-default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
         {
           "name": "stateful-default-39213b58c278ca64811eca7001370431b3d9f1ba29de44459d15aad3ce9f5ca8",
           "target": "browser-e2e-stateful",
@@ -2252,90 +747,6 @@
           ]
         },
         {
-          "name": "stateful-default-384f3006b4f4391bbdde2de5b42140fa98167ed79fdbf169aef91135e138ae5c",
-          "target": "browser-e2e-stateful",
-          "kind": "stateful_partition",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_stateful",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-stateful-default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1"
-          ],
-          "specs": [
-            "apps/web/e2e/collaboration.spec.ts"
-          ]
-        },
-        {
-          "name": "stateful-default-2c11f40cf107994e1108b60344322cbdba28c47ee2c0f26ed07d67b7bfde7959",
-          "target": "browser-e2e-stateful",
-          "kind": "stateful_partition",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_stateful",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-stateful-default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.workbook.browser_stateful.query_continuation_session"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-query-browsing.spec.ts"
-          ]
-        },
-        {
-          "name": "stateful-default-3d590119aba0d28c75b4b567872998b90abc79aae62ec288365b9ed9361cb21d",
-          "target": "browser-e2e-stateful",
-          "kind": "stateful_partition",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_stateful",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-stateful-default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-public-route.spec.ts"
-          ]
-        },
-        {
           "name": "stateful-default-0465f494ae64b608b85777fcd9db87a9c1287924f19f8c4805ad7725994a4be0",
           "target": "browser-e2e-stateful",
           "kind": "stateful_partition",
@@ -2357,6 +768,10 @@
           "postgres_isolation": "exclusive",
           "preparation_operations": [],
           "selected_row_ids": [
+            "module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86",
+            "module.collaboration.browser_stateful.session_recovery_logout",
+            "module.collaboration.browser_stateful.session_recovery_revoke_all",
+            "module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1",
             "module.entities.browser_stateful.verify_manual_mention_resolution_dismissal_auto_dfa355e592",
             "module.evidence.browser_stateful.incident_access_revocation",
             "module.evidence.browser_stateful.verify_evidence_attach_preview_download_blocked_b2c37d6c7b",
@@ -2388,6 +803,7 @@
             "module.workbook.browser_stateful.query_continuation_live_recovery",
             "module.workbook.browser_stateful.query_continuation_notes",
             "module.workbook.browser_stateful.query_continuation_parties",
+            "module.workbook.browser_stateful.query_continuation_session",
             "module.workbook.browser_stateful.query_continuation_status_review",
             "module.workbook.browser_stateful.query_continuation_task_requests",
             "module.workbook.browser_stateful.query_continuation_timeline",
@@ -2395,22 +811,27 @@
             "module.workbook.browser_stateful.verify_coordination_rows_can_be_queried_and_edit_77783541c2",
             "module.workbook.browser_stateful.verify_default_closed_inspector_state_no_row_sta_897d604d9e",
             "module.workbook.browser_stateful.verify_timeline_inspector_workflow_create_relate_7fc4833af4",
+            "module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5",
             "module.workbook.browser_stateful.workbook_save_status_preserves_authoritative_tra_0fa8b0b16c",
             "platform.viewquery.browser.timestamp_drafts_correct_locally_and_fractional_349e7ec0a3"
           ],
           "specs": [
+            "apps/web/e2e/auth-and-incident-directory.spec.ts",
+            "apps/web/e2e/collaboration.spec.ts",
             "apps/web/e2e/coordination-public-route.spec.ts",
             "apps/web/e2e/evidence-integration.spec.ts",
             "apps/web/e2e/inspector-actions.spec.ts",
             "apps/web/e2e/mention-lifecycle.spec.ts",
             "apps/web/e2e/sentinel.spec.ts",
+            "apps/web/e2e/session-recovery.spec.ts",
+            "apps/web/e2e/timeline-public-route.spec.ts",
             "apps/web/e2e/workbook-query-browsing.spec.ts",
             "apps/web/e2e/workbook-save-status.spec.ts",
             "apps/web/e2e/workbook.spec.ts"
           ]
         },
         {
-          "name": "stateful-network-flow-claimed-eab25e1ac0490be6814ed79a0549a430196812a3fa0b1df028bdd34fe090b611",
+          "name": "stateful-network-flow-claimed-0731f42c077cc5e1ddeede01967b084525c3782885cbab00ad6bf18ae98b5304",
           "target": "browser-e2e-stateful",
           "kind": "stateful_partition",
           "coverage": "authoritative",
@@ -2432,39 +853,10 @@
           "postgres_isolation": "exclusive",
           "preparation_operations": [],
           "selected_row_ids": [
-            "module.networkflow.browser_stateful.pagination_recovery"
+            "module.networkflow.browser_stateful.pagination_expiry_bridge"
           ],
           "specs": [
             "apps/web/e2e/network-flow-pagination.spec.ts"
-          ]
-        },
-        {
-          "name": "stateful-network-flow-claimed-7ea2f879fccc869452fc0b021613f22b4de42c361db22bf25bebf7159d087cae",
-          "target": "browser-e2e-stateful",
-          "kind": "stateful_partition",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_stateful",
-          "workers": "1",
-          "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-stateful-network-flow-claimed",
-          "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.workbook.browser_stateful.preferences_extension"
-          ],
-          "specs": [
-            "apps/web/e2e/extensions.stateful.spec.ts"
           ]
         },
         {
@@ -2492,14 +884,17 @@
           "selected_row_ids": [
             "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
             "module.networkflow.browser_stateful.exploration_navigation",
+            "module.networkflow.browser_stateful.pagination_recovery",
             "module.networkflow.browser_stateful.saved_graph_deferred_navigation",
             "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
             "module.networkflow.browser_stateful.saved_graph_read_recovery",
-            "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf"
+            "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
+            "module.workbook.browser_stateful.preferences_extension"
           ],
           "specs": [
             "apps/web/e2e/extensions.stateful.spec.ts",
             "apps/web/e2e/network-flow-navigation.spec.ts",
+            "apps/web/e2e/network-flow-pagination.spec.ts",
             "apps/web/e2e/network-flow.spec.ts"
           ]
         }
@@ -3488,354 +1883,6 @@
       ],
       "groups": [
         {
-          "name": "a11y-7c9b65e71d5c496ea5bc3390bd76166b26d6d80bb75803c662e32c2b9d9abfeb",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-92f73055d9e760d3270b422959164d6563d2ff4f5f7c73687f8aefc93a2a0279",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-3eddf9ab0be4808c2d6bb9658c0d918b314b8b0de84201fbcac8613b922fe6e2",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.workbook.accessibility.preferences"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-a4bbfad5f68ad85a6e00dc5176cdafbfdcbde8cd92fae788c0727725902d1f23",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.accessibility.administrative_audit_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-3ee3401d009ccb8b5490aa7597a28cb05babb185947c7056a4ac68be511aca00",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-80703cbf675825783694572f414a85fc89df61580459c5f26dff856883e1596a",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-68e53205aaa065edcf2e14581236db8768e7e1bd9648e617033a0789ff88bc16",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.accessibility.incident_import_workflow"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-22ecfd9fe2941a0f3926790681489080f9ec675f4aed2219480b88e9db4a49aa",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.accessibility.lifecycle"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-fdd0834dac5600eb191fe5b46d648b51df4f25c6d28e0f891725e397914dd49f",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.accessibility.membership_audit_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-df3e4b355d63bbfed76cb5a746de3df4792a264673d8943e7702c32efdea9f10",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.accessibility.membership_management_accessibility"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-5e8f300f6825a759c40a7250b910d1146fedb6eb2ee913b8e329f3a7cf5de2d7",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.accessibility.metadata_editing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-7ae6b5bb53269cb944db1549f83e6a90a48a6d2ea65d6db67a81177e455af1ac",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-a11y-default",
-          "browser_session_isolation_reason": "accessibility evidence owns an isolated fixture session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.accessibility.reference_pack_administration"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
           "name": "a11y-b6f21f75cb5468c4a9464d2e02b0bc79ac451357c12bc902bdbdf44b6c0695ae",
           "target": "browser-e2e-a11y",
           "kind": "a11y",
@@ -3858,11 +1905,13 @@
           "postgres_isolation": "exclusive",
           "preparation_operations": [],
           "selected_row_ids": [
+            "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
             "module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd",
             "module.entities.accessibility.mention_arrow_navigation_reveals_focused_inspect_524ff6af49",
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.file_recovery",
             "module.evidence.accessibility.verification_progress",
+            "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.independent_discovery_continuity",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.batch_recovery",
@@ -3881,6 +1930,7 @@
             "module.workbook.accessibility.inspector_timeline_ordinary_edit_reveal_f4bd40fdfb",
             "module.workbook.accessibility.note_create_authoring_recovery",
             "module.workbook.accessibility.ordinary_create_authoring_recovery",
+            "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.reference_picker",
             "module.workbook.accessibility.source_workbook_inspector_edit_spec_ts_34633fc46b",
             "module.workbook.accessibility.timeline_capture_actions",
@@ -3896,7 +1946,16 @@
             "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
             "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
             "web.design.accessibility.account_settings_forms_radios_recovery_71b288da44",
+            "web.design.accessibility.administrative_audit_browsing",
             "web.design.accessibility.assessment_authoring",
+            "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802",
+            "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
+            "web.design.accessibility.incident_import_workflow",
+            "web.design.accessibility.lifecycle",
+            "web.design.accessibility.membership_audit_browsing",
+            "web.design.accessibility.membership_management_accessibility",
+            "web.design.accessibility.metadata_editing",
+            "web.design.accessibility.reference_pack_administration",
             "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
           ],
           "specs": [
@@ -3950,296 +2009,6 @@
       ],
       "groups": [
         {
-          "name": "visual-ff041e42a419a4c25f7190ce371984ffa3e252c618dd70f8bf8115499e9fe926",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-visual-default",
-          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-ec9894ace1f7e170c456bb23877f77e471d2ffcb79db44bbcfaffc8674a331f4",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-visual-default",
-          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.workbook.visual.preferences"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-9596229b31113fc61e55ae99c5254d3a2fff1f32593467fe206f6d69b5917b68",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-visual-default",
-          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.visual.administrative_audit_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-ea398f20ef4e0e347bbbef1b9416443990baab1251445792213491ec023ac89d",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-visual-default",
-          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-6c1563c8fd673ed98d3a9e54f7388089fae9cfe75fb53f02c8ec15ef947ef727",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-visual-default",
-          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.visual.incident_import_workflow"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-6c1eba940e169565d9f352741712f0342b0455b02baa164cebc3c89ffeddbe97",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-visual-default",
-          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.visual.lifecycle"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-ee05eb2dd53c0e7d31a94332f286a94aa4229057bfb798acf3dbecb000bf8cde",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-visual-default",
-          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.visual.membership_audit_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-8c28e23ad9040418125bca61428ff91874761c8fc805f171c9d6b34265b8ac45",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-visual-default",
-          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.visual.membership_management_visual"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-47b1e1dd99f1b14973663877e2e5df6a998f60fc011fc84021c87ac1f7a97e04",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-visual-default",
-          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.visual.metadata_editing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-a4af2a85f1f6dfae39033611e915178a9155a43ee32f4fa299f97155d56c8687",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "browser_session_group": "browser-e2e-visual-default",
-          "browser_session_isolation_reason": "visual evidence owns an isolated fixture and snapshot session",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "web.design.visual.reference_pack_administration"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
           "name": "visual-0fd75b8070c0e56bf8a3538fea4dc8dbf2a320457fc74305d67a3944f3a6bf6f",
           "target": "browser-e2e-visual",
           "kind": "visual",
@@ -4269,6 +2038,7 @@
             "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
             "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7",
             "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7",
+            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4",
             "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830",
             "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc",
             "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af",
@@ -4287,12 +2057,21 @@
             "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.note_create_authoring_recovery",
             "module.workbook.visual.ordinary_create_authoring_recovery",
+            "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "module.workbook.visual.timeline_related_evidence",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
-            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
+            "web.design.visual.administrative_audit_browsing",
+            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
+            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
+            "web.design.visual.incident_import_workflow",
+            "web.design.visual.lifecycle",
+            "web.design.visual.membership_audit_browsing",
+            "web.design.visual.membership_management_visual",
+            "web.design.visual.metadata_editing",
+            "web.design.visual.reference_pack_administration"
           ],
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"
@@ -5302,286 +3081,6 @@
           ]
         },
         {
-          "name": "visual-fbb9796f9a7141b6dbe719709288205204e1c60b7b1b3803c927d0728449a2a4",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-resettable-default",
-          "selected_row_ids": [
-            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-450b9c4c3fb282aec2c0205d722450e3e4dfe7e278c5639358b757bd01eac4f6",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-resettable-default",
-          "selected_row_ids": [
-            "module.workbook.visual.preferences"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-17f3485328e0e9fc5f466d20cba26ebe5a3e2f5f9bed544f45d279eabcafc5e3",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-resettable-default",
-          "selected_row_ids": [
-            "web.design.visual.administrative_audit_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-0e9e2538615d20b1d36dbc1f15e483e97d1f8c4f19357874b469c49832ed498b",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-resettable-default",
-          "selected_row_ids": [
-            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-a6e5786cffda415aec5b3801212a9bd2851ecb7c4e48c653645499915f77cd10",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-resettable-default",
-          "selected_row_ids": [
-            "web.design.visual.incident_import_workflow"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-5595396b704b9b4207b12fc14b86b79da0673be9a08234222ffafcbc9c4ff288",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-resettable-default",
-          "selected_row_ids": [
-            "web.design.visual.lifecycle"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-f6eb49fae9976ab14935759297a7082a614e9a82b4ea7a07c154ea06d075e84d",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-resettable-default",
-          "selected_row_ids": [
-            "web.design.visual.membership_audit_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-2d4af2e510b0a1a71ccfee891af15c621c27be0417700becb9d0d6b9b88b62dd",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-resettable-default",
-          "selected_row_ids": [
-            "web.design.visual.membership_management_visual"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-4292c37e68ddcc7469003b0252bae4145cc2da94c5b43467592f0042cda37e01",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-resettable-default",
-          "selected_row_ids": [
-            "web.design.visual.metadata_editing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-19df10308c3c28d7894a7f03e408356b4dcdcc53b7e2e7ae6d2c721da706d1f9",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-resettable-default",
-          "selected_row_ids": [
-            "web.design.visual.reference_pack_administration"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
           "name": "visual-414bb9a1ca8bc0634c35ded78a4da415ca37c7fb0fa41111f306178a4377b06a",
           "target": "browser-e2e-visual",
           "kind": "visual",
@@ -5610,6 +3109,7 @@
             "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
             "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7",
             "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7",
+            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4",
             "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830",
             "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc",
             "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af",
@@ -5628,12 +3128,21 @@
             "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.note_create_authoring_recovery",
             "module.workbook.visual.ordinary_create_authoring_recovery",
+            "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "module.workbook.visual.timeline_related_evidence",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
-            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
+            "web.design.visual.administrative_audit_browsing",
+            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
+            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
+            "web.design.visual.incident_import_workflow",
+            "web.design.visual.lifecycle",
+            "web.design.visual.membership_audit_browsing",
+            "web.design.visual.membership_management_visual",
+            "web.design.visual.metadata_editing",
+            "web.design.visual.reference_pack_administration"
           ],
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"
@@ -5652,34 +3161,6 @@
         "browser-e2e-visual"
       ],
       "groups": [
-        {
-          "name": "stateful-default-41bd96caf7c70bc8668617a4ce13c1fca1daddfb1b0fbf34ab22aa71094b0502",
-          "target": "browser-e2e-stateful",
-          "kind": "stateful_partition",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_stateful",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-stateful-default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86"
-          ],
-          "specs": [
-            "apps/web/e2e/auth-and-incident-directory.spec.ts"
-          ]
-        },
         {
           "name": "stateful-default-7f465da3bd343048fc6cd18e9e7675cde2889531e6e6c9c2c4b5c269ca845c99",
           "target": "browser-e2e-stateful",
@@ -5737,90 +3218,6 @@
           ]
         },
         {
-          "name": "stateful-default-f2767c9e7ccc3b42310230ebd1a8930f5de1b1ab0e0e9363fdc14d178809689f",
-          "target": "browser-e2e-stateful",
-          "kind": "stateful_partition",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_stateful",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-stateful-default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1"
-          ],
-          "specs": [
-            "apps/web/e2e/collaboration.spec.ts"
-          ]
-        },
-        {
-          "name": "stateful-default-6d815ed7602e3fadfaeb592426d69410d9becffe152b67563c2d7f8a7f53ab8f",
-          "target": "browser-e2e-stateful",
-          "kind": "stateful_partition",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_stateful",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-stateful-default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.workbook.browser_stateful.query_continuation_session"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook-query-browsing.spec.ts"
-          ]
-        },
-        {
-          "name": "stateful-default-db364c5c89df0df3c139019420b2df623b8fdd5a12bf186ba90d7d14a393c358",
-          "target": "browser-e2e-stateful",
-          "kind": "stateful_partition",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_stateful",
-          "workers": "1",
-          "runtime_profile_id": "default",
-          "browser_session_group": "browser-stateful-default",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5"
-          ],
-          "specs": [
-            "apps/web/e2e/timeline-public-route.spec.ts"
-          ]
-        },
-        {
           "name": "stateful-default-b8ae63dd10dccbe8f21d86107852d2f6ca4665a18162357c8500437a956992a4",
           "target": "browser-e2e-stateful",
           "kind": "stateful_partition",
@@ -5842,6 +3239,10 @@
           "postgres_isolation": "exclusive",
           "preparation_operations": [],
           "selected_row_ids": [
+            "module.auth.browser_stateful.browser_deployment_user_administration_works_on_d6d7ff0b86",
+            "module.collaboration.browser_stateful.session_recovery_logout",
+            "module.collaboration.browser_stateful.session_recovery_revoke_all",
+            "module.collaboration.browser_stateful.verify_multi_client_live_row_update_presence_anc_4c65a275c1",
             "module.entities.browser_stateful.verify_manual_mention_resolution_dismissal_auto_dfa355e592",
             "module.evidence.browser_stateful.incident_access_revocation",
             "module.evidence.browser_stateful.verify_evidence_attach_preview_download_blocked_b2c37d6c7b",
@@ -5873,6 +3274,7 @@
             "module.workbook.browser_stateful.query_continuation_live_recovery",
             "module.workbook.browser_stateful.query_continuation_notes",
             "module.workbook.browser_stateful.query_continuation_parties",
+            "module.workbook.browser_stateful.query_continuation_session",
             "module.workbook.browser_stateful.query_continuation_status_review",
             "module.workbook.browser_stateful.query_continuation_task_requests",
             "module.workbook.browser_stateful.query_continuation_timeline",
@@ -5880,22 +3282,27 @@
             "module.workbook.browser_stateful.verify_coordination_rows_can_be_queried_and_edit_77783541c2",
             "module.workbook.browser_stateful.verify_default_closed_inspector_state_no_row_sta_897d604d9e",
             "module.workbook.browser_stateful.verify_timeline_inspector_workflow_create_relate_7fc4833af4",
+            "module.workbook.browser_stateful.verify_timeline_public_mutations_remount_safe_tr_84f645d6c5",
             "module.workbook.browser_stateful.workbook_save_status_preserves_authoritative_tra_0fa8b0b16c",
             "platform.viewquery.browser.timestamp_drafts_correct_locally_and_fractional_349e7ec0a3"
           ],
           "specs": [
+            "apps/web/e2e/auth-and-incident-directory.spec.ts",
+            "apps/web/e2e/collaboration.spec.ts",
             "apps/web/e2e/coordination-public-route.spec.ts",
             "apps/web/e2e/evidence-integration.spec.ts",
             "apps/web/e2e/inspector-actions.spec.ts",
             "apps/web/e2e/mention-lifecycle.spec.ts",
             "apps/web/e2e/sentinel.spec.ts",
+            "apps/web/e2e/session-recovery.spec.ts",
+            "apps/web/e2e/timeline-public-route.spec.ts",
             "apps/web/e2e/workbook-query-browsing.spec.ts",
             "apps/web/e2e/workbook-save-status.spec.ts",
             "apps/web/e2e/workbook.spec.ts"
           ]
         },
         {
-          "name": "stateful-network-flow-claimed-111fe990be7c913d80ba7505df0fd2d3c913097a5be66282f258e37ff2451644",
+          "name": "stateful-network-flow-claimed-fe3c432af81ead480a4dd614358edb3801ee66502dabe1d68c19ab15c21e91f6",
           "target": "browser-e2e-stateful",
           "kind": "stateful_partition",
           "coverage": "authoritative",
@@ -5917,39 +3324,10 @@
           "postgres_isolation": "exclusive",
           "preparation_operations": [],
           "selected_row_ids": [
-            "module.networkflow.browser_stateful.pagination_recovery"
+            "module.networkflow.browser_stateful.pagination_expiry_bridge"
           ],
           "specs": [
             "apps/web/e2e/network-flow-pagination.spec.ts"
-          ]
-        },
-        {
-          "name": "stateful-network-flow-claimed-016aa615edc2f1fe1d2c6a2156b26b033adce4ab768d08fbeeae5ea4cbf17eaa",
-          "target": "browser-e2e-stateful",
-          "kind": "stateful_partition",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_stateful",
-          "workers": "1",
-          "runtime_profile_id": "network_flow_claimed",
-          "browser_session_group": "browser-stateful-network-flow-claimed",
-          "browser_session_isolation_reason": "claimed Network Flow stateful evidence requires immutable startup-only extension configuration",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "selected_row_ids": [
-            "module.workbook.browser_stateful.preferences_extension"
-          ],
-          "specs": [
-            "apps/web/e2e/extensions.stateful.spec.ts"
           ]
         },
         {
@@ -5977,14 +3355,17 @@
           "selected_row_ids": [
             "module.extensions.browser_stateful.bc015_availability_continuity_d538000c38",
             "module.networkflow.browser_stateful.exploration_navigation",
+            "module.networkflow.browser_stateful.pagination_recovery",
             "module.networkflow.browser_stateful.saved_graph_deferred_navigation",
             "module.networkflow.browser_stateful.saved_graph_exact_result_lifecycle",
             "module.networkflow.browser_stateful.saved_graph_read_recovery",
-            "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf"
+            "module.networkflow.browser_stateful.verify_protected_network_analysis_state_is_disca_21a5de1ebf",
+            "module.workbook.browser_stateful.preferences_extension"
           ],
           "specs": [
             "apps/web/e2e/extensions.stateful.spec.ts",
             "apps/web/e2e/network-flow-navigation.spec.ts",
+            "apps/web/e2e/network-flow-pagination.spec.ts",
             "apps/web/e2e/network-flow.spec.ts"
           ]
         },
@@ -6952,342 +4333,6 @@
           ]
         },
         {
-          "name": "a11y-0122d4bf8e2adb26a7cc10a5606d4939f91f19d0684b9094381958f29e67223e",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-ca8b46ce71cee4247235228048d8402f0bdf3d0f67e047cc2e476fa691ffa55c",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-70c456ce75b77037559e3f6b54d80f86d7666d27165b4ba66e324d5882b350d0",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "module.workbook.accessibility.preferences"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-6c1a8cbf447984e3848bb3a3e73e87d44f42e2d3aa4ede2ebee3e6d17e2ac0ed",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.accessibility.administrative_audit_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-280273174b6fabdd5a5fb1561934fb2417329fe96f86b1a4a5e6ea4248f9b25e",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-ad4d787114314b82fa71f3398e9ca6be5baa0998470107cf0a0e4431a8308c03",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-d50583c9eab9ae88f84e5345c2d1692068002564940af4ce5cf7a2c9c0c8d4ac",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.accessibility.incident_import_workflow"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-7bb7698476a7b679755fa56f887339ad40add6328f11d6f473312e3d61e33dd1",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.accessibility.lifecycle"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-d8c8a64ff39c76c27af1277e49cc7c8ecc72c63076459e8b120e891197eba372",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.accessibility.membership_audit_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-6e4214fc58dabc93678ea7850ef1162d3a91bdc415e93707da5174655de595b3",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.accessibility.membership_management_accessibility"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-b370a9af87a5647d6d2c9c68c7d7df9f7aacab22b0ea38f012c7c14ef0ea08fb",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.accessibility.metadata_editing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
-          "name": "a11y-c406f40ddcfed4b755b363d1269682633ecdac5e624065b5b4abefde3fbac959",
-          "target": "browser-e2e-a11y",
-          "kind": "a11y",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_a11y",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.accessibility.reference_pack_administration"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.a11y.spec.ts"
-          ]
-        },
-        {
           "name": "a11y-886c8354eef773b8ccb8effd8e90951afdd906df9ada4ddaa0c6c6220406aef5",
           "target": "browser-e2e-a11y",
           "kind": "a11y",
@@ -7309,11 +4354,13 @@
           "preparation_operations": [],
           "browser_session_group": "browser-e2e-default",
           "selected_row_ids": [
+            "module.auth.accessibility.verify_session_mfa_incident_forbidden_loading_an_e8f5d5f3a9",
             "module.collaboration.accessibility.verify_conflict_state_resolver_controls_presence_2ec686e8dd",
             "module.entities.accessibility.mention_arrow_navigation_reveals_focused_inspect_524ff6af49",
             "module.entities.accessibility.verify_mention_chip_states_and_manual_resolution_e5964739d3",
             "module.evidence.accessibility.file_recovery",
             "module.evidence.accessibility.verification_progress",
+            "module.evidence.accessibility.verify_evidence_icon_buttons_blocked_states_erro_0ec80f90e2",
             "module.savedviews.accessibility.independent_discovery_continuity",
             "module.savedviews.accessibility.verify_sort_filter_group_saved_view_menu_active_8b502b579d",
             "module.workbook.accessibility.batch_recovery",
@@ -7332,6 +4379,7 @@
             "module.workbook.accessibility.inspector_timeline_ordinary_edit_reveal_f4bd40fdfb",
             "module.workbook.accessibility.note_create_authoring_recovery",
             "module.workbook.accessibility.ordinary_create_authoring_recovery",
+            "module.workbook.accessibility.preferences",
             "module.workbook.accessibility.reference_picker",
             "module.workbook.accessibility.source_workbook_inspector_edit_spec_ts_34633fc46b",
             "module.workbook.accessibility.timeline_capture_actions",
@@ -7347,7 +4395,16 @@
             "package.grid_adapter.accessibility.verify_grid_cells_editors_group_rows_active_cell_3156bd379d",
             "web.design.accessibility.account_menu_accessible_keyboard_and_focus_state_3c31f28451",
             "web.design.accessibility.account_settings_forms_radios_recovery_71b288da44",
+            "web.design.accessibility.administrative_audit_browsing",
             "web.design.accessibility.assessment_authoring",
+            "web.design.accessibility.deployment_user_draft_credential_dialogs_ac3e5d7802",
+            "web.design.accessibility.incident_creation_accessible_keyboard_feedback_a_f2a19fbfdb",
+            "web.design.accessibility.incident_import_workflow",
+            "web.design.accessibility.lifecycle",
+            "web.design.accessibility.membership_audit_browsing",
+            "web.design.accessibility.membership_management_accessibility",
+            "web.design.accessibility.metadata_editing",
+            "web.design.accessibility.reference_pack_administration",
             "web.design.accessibility.verify_global_accessibility_matrix_for_keyboard_90088a3666"
           ],
           "specs": [
@@ -7390,286 +4447,6 @@
           ]
         },
         {
-          "name": "visual-44cb4f5c0eea0cfd2bf4a12af9456863300c41c9d0a354a11e18f4c3efe3aee2",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-3e5e6de7b83bb4d86e4abd61ef86388f69bab7756414d517e8a3725fd9c9564b",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "module.workbook.visual.preferences"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-d5191d5e2bd36f972daaca9a4c84e81efb08e763c2d3c3a1b3a43ccd43f653c9",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.visual.administrative_audit_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-45e8b7b21b0311fcc1e62bdc9f1cd055b57c421de2149a2dd6446b7f2a98a992",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-1bf774cfee1c5b4c5bfd8adc4761a7a82eb0c188382318da5eec30dce5a3abc6",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.visual.incident_import_workflow"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-367d8abf55994cad2cea39c6129198e8db5735660e195f04786c5f765b52f574",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.visual.lifecycle"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-6e804b77baa115538b8f146fccb0405905e2d5296220bd6052ba8ecb44f44657",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.visual.membership_audit_browsing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-28f9fad71459f428ed4d4288fb14094d2cc087b851e3d25f0d011e80cdf09956",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.visual.membership_management_visual"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-4014626ac30734e997674e9ea13deb922be05564262ebbeb5ed1b83c7436962f",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.visual.metadata_editing"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
-          "name": "visual-67f22ea964bc33a38b2642bf8909c7d8dcd76d906a945fdfe8f37ca7e3754930",
-          "target": "browser-e2e-visual",
-          "kind": "visual",
-          "coverage": "authoritative",
-          "execution_dependency": "browser_visual",
-          "workers": "1",
-          "state_scope": "isolated",
-          "project": "chromium",
-          "config": "playwright.config.ts",
-          "runtime_profile_id": "default",
-          "resource_profile_id": "browser_isolated",
-          "fixture_capability": "browser_stack",
-          "service_requirement": "test-services",
-          "service_dependencies": [
-            "object_store",
-            "postgres"
-          ],
-          "postgres_isolation": "exclusive",
-          "preparation_operations": [],
-          "browser_session_group": "browser-e2e-default",
-          "selected_row_ids": [
-            "web.design.visual.reference_pack_administration"
-          ],
-          "specs": [
-            "apps/web/e2e/workbook.visual.spec.ts"
-          ]
-        },
-        {
           "name": "visual-fd3cc0d01c66b5e63e3c9e817d679a95a43d423d3f0351ee5a16d633b94019ea",
           "target": "browser-e2e-visual",
           "kind": "visual",
@@ -7698,6 +4475,7 @@
             "module.collaboration.visual.the_visual_harness_asserts_syncing_same_field_co_df11cd99bc",
             "module.entities.visual.capture_unresolved_token_resolved_chip_auto_reso_d3b74bd9d7",
             "module.entities.visual.the_visual_harness_captures_unresolved_mention_a_4b882068c7",
+            "module.evidence.visual.capture_evidence_count_affordance_available_requ_cfada809e4",
             "module.evidence.visual.the_visual_harness_captures_blocked_evidence_acc_779473e830",
             "module.evidence.visual.the_visual_harness_captures_evidence_surface_acc_8c22a3c9bc",
             "module.evidence.visual.the_visual_harness_captures_requested_evidence_a_1eb50235af",
@@ -7716,12 +4494,21 @@
             "module.workbook.visual.indicator_observations_authoring",
             "module.workbook.visual.note_create_authoring_recovery",
             "module.workbook.visual.ordinary_create_authoring_recovery",
+            "module.workbook.visual.preferences",
             "module.workbook.visual.timeline_capture_actions",
             "module.workbook.visual.timeline_related_evidence",
             "package.grid_adapter.visual.capture_test_only_grid_adapter_support_specimens_9c222633ba",
             "web.design.visual.account_menu_root_and_nested_viewport_states_cef60727cc",
             "web.design.visual.account_settings_editing_states_5af731dc29",
-            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c"
+            "web.design.visual.administrative_audit_browsing",
+            "web.design.visual.capture_test_only_exposed_dark_graphite_token_an_7cc73db04c",
+            "web.design.visual.incident_creation_form_errors_pending_recovery_a_0d7c2a3cde",
+            "web.design.visual.incident_import_workflow",
+            "web.design.visual.lifecycle",
+            "web.design.visual.membership_audit_browsing",
+            "web.design.visual.membership_management_visual",
+            "web.design.visual.metadata_editing",
+            "web.design.visual.reference_pack_administration"
           ],
           "specs": [
             "apps/web/e2e/workbook.visual.spec.ts"

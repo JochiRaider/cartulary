@@ -39,7 +39,10 @@ import {
 import { createTimelineRangeRows } from "./support/timeline/fixtures";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  holdBrowserRequest,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { patchRecord, queryViewRows } from "./support/workbook/query";
 import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 
@@ -337,25 +340,23 @@ test("Timeline range departures retain pending drafts and supersede obsolete des
     method: "PATCH",
     path: `/api/v1/records/${first}`,
   });
-  try {
-    await drag(page, cell(page, second), cell(page, third, source));
-    await held.waitForHit;
-    await expect(editor(page, first)).toBeFocused();
-    await expect(editor(page, first)).toHaveValue("pending range draft");
-    await expect(selected(page)).toHaveCount(0);
-    await expect(preview(page).first()).toBeVisible();
-    // A later range uses the same commit and becomes the only destination.
-    await cell(page, third).click({ modifiers: ["Shift"] });
-    expect(held.hitCount()).toBe(1);
-    held.release();
-    await dimensions(page, 3, 1);
-    await expect(cell(page, third)).toBeFocused();
-    await expect(editor(page, first)).toHaveCount(0);
-    await expect(preview(page)).toHaveCount(0);
-    expect(held.hitCount()).toBe(1);
-  } finally {
-    await held.dispose();
-  }
+  await drag(page, cell(page, second), cell(page, third, source));
+  await held.waitForHit;
+  await expect(editor(page, first)).toBeFocused();
+  await expect(editor(page, first)).toHaveValue("pending range draft");
+  await expect(selected(page)).toHaveCount(0);
+  await expect(preview(page).first()).toBeVisible();
+  // A later range uses the same commit and becomes the only destination.
+  await cell(page, third).click({ modifiers: ["Shift"] });
+  expect(held.hitCount()).toBe(1);
+  held.release();
+  await dimensions(page, 3, 1);
+  await expect(cell(page, third)).toBeFocused();
+  await expect(editor(page, first)).toHaveCount(0);
+  await expect(preview(page)).toHaveCount(0);
+  expect(held.hitCount()).toBe(1);
+
+  await held.dispose();
   // Acceptance before release keeps the live gesture and admits its final endpoint.
   await cell(page, first).click();
   await editor(page, first).fill("accepted during drag");
@@ -363,7 +364,7 @@ test("Timeline range departures retain pending drafts and supersede obsolete des
     method: "PATCH",
     path: `/api/v1/records/${first}`,
   });
-  try {
+  {
     await drag(page, cell(page, second), cell(page, third), false);
     await early.waitForHit;
     early.release();
@@ -374,7 +375,7 @@ test("Timeline range departures retain pending drafts and supersede obsolete des
     await page.mouse.up();
     await dimensions(page, 3, 1);
     await expect(cell(page, required(f.ids[3]))).toBeFocused();
-  } finally {
+
     await early.dispose();
   }
   // Native editor selection remains owned by the textarea/input.
@@ -852,7 +853,7 @@ test("Timeline range rejection and accepted query replacement preserve authorita
     third = required(f.ids[2]);
   await reveal(page, first);
   const patches = await installPatchController(page);
-  try {
+  {
     // Escape cancels the tentative destination without discarding the active draft.
     await cell(page, first).click();
     await editor(page, first).fill("accepted after range cancellation");
@@ -868,7 +869,7 @@ test("Timeline range rejection and accepted query replacement preserve authorita
     await held.waitForCompletion;
     await expect(preview(page)).toHaveCount(0);
     await expect(selected(page)).toHaveCount(0);
-  } finally {
+
     await patches.dispose();
   }
   await reveal(page, first);
@@ -878,30 +879,26 @@ test("Timeline range rejection and accepted query replacement preserve authorita
     method: "POST",
     path: `/api/v1/incidents/${f.incident}/views/${timelineViewSchemaId}/query`,
   });
-  try {
-    await sortByHeader(page, timelineViewSchemaId, synopsis);
-    await pending.waitForHit;
-    await dimensions(page, 3, 1);
-    pending.release();
-    await expect(selected(page)).toHaveCount(0);
-  } finally {
-    await pending.dispose();
-  }
+  await sortByHeader(page, timelineViewSchemaId, synopsis);
+  await pending.waitForHit;
+  await dimensions(page, 3, 1);
+  pending.release();
+  await expect(selected(page)).toHaveCount(0);
+
+  await pending.dispose();
   const rejected = await installPatchController(page);
-  try {
-    await reveal(page, first);
-    await cell(page, first).click();
-    await editor(page, first).fill("  exact rejected Ω draft  ");
-    rejected.failNextPatch(422, "invalid_request", { recordId: first });
-    await drag(page, cell(page, second), cell(page, third), true, false);
-    await expect(editor(page, first)).toBeFocused();
-    await expect(editor(page, first)).toHaveValue("  exact rejected Ω draft  ");
-    await expect(preview(page)).toHaveCount(0);
-    await expect(selected(page)).toHaveCount(0);
-    expect(rejected.calls).toHaveLength(1);
-  } finally {
-    await rejected.dispose();
-  }
+  await reveal(page, first);
+  await cell(page, first).click();
+  await editor(page, first).fill("  exact rejected Ω draft  ");
+  rejected.failNextPatch(422, "invalid_request", { recordId: first });
+  await drag(page, cell(page, second), cell(page, third), true, false);
+  await expect(editor(page, first)).toBeFocused();
+  await expect(editor(page, first)).toHaveValue("  exact rejected Ω draft  ");
+  await expect(preview(page)).toHaveCount(0);
+  await expect(selected(page)).toHaveCount(0);
+  expect(rejected.calls).toHaveLength(1);
+
+  await rejected.dispose();
 });
 
 test("Timeline range feedback retains focus noncolor cues zoom and text spacing", async ({
@@ -1023,7 +1020,9 @@ test("Timeline completed ranges retain value refreshes and invalidate deleted me
     .getByRole("group", { name: "Workbook browsing" })
     .getByRole("button", { name: "Refresh", exact: true });
   const query = `**/api/v1/incidents/${f.incident}/views/${timelineViewSchemaId}/query`;
-  await page.route(query, (route) => route.abort("failed"), { times: 1 });
+  await installOwnedRoute(page, query, (route) => route.abort("failed"), {
+    times: 1,
+  });
   await refresh.click();
   await expect(
     page.getByRole("group", { name: "Workbook browsing" }),
@@ -1184,31 +1183,29 @@ test("Timeline retained range editing gates rejection latest keys and newer focu
     if (request.method() === "PATCH" && request.url().endsWith(`/records/${a}`))
       submitted.push(request.postDataJSON());
   });
-  try {
-    await page.keyboard.press("Enter");
-    await held.waitForHit;
-    await page.keyboard.press("Tab");
-    await page.keyboard.press("Tab");
-    await expect(editor(page, a)).toBeFocused();
-    expect(held.hitCount()).toBe(1);
-    held.release();
-    await expect(cell(page, a, source)).toBeFocused();
-    await dimensions(page, 2, 2);
-    expect(held.hitCount()).toBe(1);
-    expect(submitted).toEqual([
-      expect.objectContaining({
-        changes: [
-          expect.objectContaining({
-            field_key: synopsis,
-            value: "replacement Ω",
-          }),
-        ],
-      }),
-    ]);
-    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
-  } finally {
-    await held.dispose();
-  }
+  await page.keyboard.press("Enter");
+  await held.waitForHit;
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await expect(editor(page, a)).toBeFocused();
+  expect(held.hitCount()).toBe(1);
+  held.release();
+  await expect(cell(page, a, source)).toBeFocused();
+  await dimensions(page, 2, 2);
+  expect(held.hitCount()).toBe(1);
+  expect(submitted).toEqual([
+    expect.objectContaining({
+      changes: [
+        expect.objectContaining({
+          field_key: synopsis,
+          value: "replacement Ω",
+        }),
+      ],
+    }),
+  ]);
+  await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+
+  await held.dispose();
   // A later external control owns focus even if the pending write succeeds.
   await page.keyboard.press("F2");
   await editor(page, a, source).fill("accepted without late focus");
@@ -1216,7 +1213,7 @@ test("Timeline retained range editing gates rejection latest keys and newer focu
     method: "PATCH",
     path: `/api/v1/records/${a}`,
   });
-  try {
+  {
     await page.keyboard.press("Tab");
     await later.waitForHit;
     const toggle = page.getByTestId(
@@ -1232,7 +1229,7 @@ test("Timeline retained range editing gates rejection latest keys and newer focu
     ).toBeVisible();
     await expect(cell(page, b)).not.toBeFocused();
     expect(later.hitCount()).toBe(1);
-  } finally {
+
     await later.dispose();
   }
   await page
@@ -1245,16 +1242,14 @@ test("Timeline retained range editing gates rejection latest keys and newer focu
   await page.keyboard.press("F2");
   await editor(page, a).fill(" rejected exact Ω ");
   const patches = await installPatchController(page);
-  try {
-    patches.failNextPatch(422, "invalid_request", { recordId: a });
-    await page.keyboard.press("Tab");
-    await expect(editor(page, a)).toBeFocused();
-    await expect(editor(page, a)).toHaveValue(" rejected exact Ω ");
-    await expect.poll(() => patches.calls.length).toBe(1);
-    await dimensions(page, 2, 2);
-  } finally {
-    await patches.dispose();
-  }
+  patches.failNextPatch(422, "invalid_request", { recordId: a });
+  await page.keyboard.press("Tab");
+  await expect(editor(page, a)).toBeFocused();
+  await expect(editor(page, a)).toHaveValue(" rejected exact Ω ");
+  await expect.poll(() => patches.calls.length).toBe(1);
+  await dimensions(page, 2, 2);
+
+  await patches.dispose();
 });
 
 test("Timeline range entry preserves multiline composition Find restoration and single cell clear", async ({
@@ -1329,71 +1324,69 @@ test("Timeline pending range entry retains conflicts and cancels deleted destina
       method: "PATCH",
       path: `/api/v1/records/${a}`,
     });
-    try {
-      await page.keyboard.press("Enter");
-      await held.waitForHit;
+    await page.keyboard.press("Enter");
+    await held.waitForHit;
+    await expect(editor(page, a)).toBeFocused();
+    await dimensions(page, 2, 1);
+    if (transition === "conflict") {
+      await patchRecord(page, a, {
+        view_schema_id: timelineViewSchemaId,
+        base_row_version: required(f.rows[0]).row_version,
+        client_txn_id: uniqueTxn("range-entry-conflict"),
+        changes: [{ field_key: synopsis, value: "Peer accepted value" }],
+      });
+    } else if (transition === "deletion") {
+      const removed = await publicHttpOperation({
+        operationID: "deleteRecord",
+        request: atJsonOrigin(page.request, apiBase),
+        headers: await csrfHeaders(page),
+        pathParameters: { record_id: b },
+        body: {
+          base_row_version: required(f.rows[1]).row_version,
+          client_txn_id: uniqueTxn("range-entry-delete"),
+          reason: "Pending semantic destination regression",
+        },
+      });
+      expect(removed.ok).toBe(true);
+      await expect(cell(page, b)).toHaveCount(0);
+      await expect(selected(page)).toHaveCount(0);
+    } else {
+      const before = await currentLifecycle(page, f.incident);
+      expect(
+        (
+          await lifecycleAction(page, f.incident, "closeIncident", {
+            client_txn_id: uniqueTxn("range-entry-close"),
+            base_incident_version: before.incident_version,
+            reason: "Pending range authority regression",
+          })
+        ).ok,
+      ).toBe(true);
+      await expect(grid(page)).toHaveAttribute("aria-readonly", "true");
+      await expect(editor(page, a)).toHaveCount(0);
+      await expect(selected(page)).toHaveCount(0);
+    }
+    held.release();
+    if (transition === "conflict") {
+      await expect(editor(page, a)).toHaveValue(" exact conflict draft ");
       await expect(editor(page, a)).toBeFocused();
       await dimensions(page, 2, 1);
-      if (transition === "conflict") {
-        await patchRecord(page, a, {
-          view_schema_id: timelineViewSchemaId,
-          base_row_version: required(f.rows[0]).row_version,
-          client_txn_id: uniqueTxn("range-entry-conflict"),
-          changes: [{ field_key: synopsis, value: "Peer accepted value" }],
-        });
-      } else if (transition === "deletion") {
-        const removed = await publicHttpOperation({
-          operationID: "deleteRecord",
-          request: atJsonOrigin(page.request, apiBase),
-          headers: await csrfHeaders(page),
-          pathParameters: { record_id: b },
-          body: {
-            base_row_version: required(f.rows[1]).row_version,
-            client_txn_id: uniqueTxn("range-entry-delete"),
-            reason: "Pending semantic destination regression",
-          },
-        });
-        expect(removed.ok).toBe(true);
-        await expect(cell(page, b)).toHaveCount(0);
-        await expect(selected(page)).toHaveCount(0);
-      } else {
-        const before = await currentLifecycle(page, f.incident);
-        expect(
-          (
-            await lifecycleAction(page, f.incident, "closeIncident", {
-              client_txn_id: uniqueTxn("range-entry-close"),
-              base_incident_version: before.incident_version,
-              reason: "Pending range authority regression",
-            })
-          ).ok,
-        ).toBe(true);
-        await expect(grid(page)).toHaveAttribute("aria-readonly", "true");
-        await expect(editor(page, a)).toHaveCount(0);
-        await expect(selected(page)).toHaveCount(0);
-      }
-      held.release();
-      if (transition === "conflict") {
-        await expect(editor(page, a)).toHaveValue(" exact conflict draft ");
-        await expect(editor(page, a)).toBeFocused();
-        await dimensions(page, 2, 1);
-        await expect(
-          page.getByTestId(conflictMarkerTestId(a, synopsis)),
-        ).toBeVisible();
-      } else if (transition === "deletion") {
-        await expect(cell(page, a)).toContainText("exact deletion draft");
-        await expect(editor(page, a)).toHaveCount(0);
-        await expect(cell(page, required(f.ids[2]))).not.toBeFocused();
-        await expect(selected(page)).toHaveCount(0);
-      } else {
-        await expect(grid(page)).toHaveAttribute("aria-readonly", "true");
-        await expect(editor(page, a)).toHaveCount(0);
-        await expect(cell(page, b)).not.toBeFocused();
-      }
-      expect(held.hitCount()).toBe(1);
-      await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
-    } finally {
-      await held.dispose();
+      await expect(
+        page.getByTestId(conflictMarkerTestId(a, synopsis)),
+      ).toBeVisible();
+    } else if (transition === "deletion") {
+      await expect(cell(page, a)).toContainText("exact deletion draft");
+      await expect(editor(page, a)).toHaveCount(0);
+      await expect(cell(page, required(f.ids[2]))).not.toBeFocused();
+      await expect(selected(page)).toHaveCount(0);
+    } else {
+      await expect(grid(page)).toHaveAttribute("aria-readonly", "true");
+      await expect(editor(page, a)).toHaveCount(0);
+      await expect(cell(page, b)).not.toBeFocused();
     }
+    expect(held.hitCount()).toBe(1);
+    await expect(page.getByTestId(timelineInspectorTestId())).toHaveCount(0);
+
+    await held.dispose();
   }
 });
 
@@ -1612,7 +1605,7 @@ test("Timeline clear captures offscreen loaded membership and orders later overl
     if (request.url().endsWith(path) || request.method() === "PATCH")
       writes.push({ path: request.url(), body: request.postDataJSON() });
   });
-  try {
+  {
     await page.keyboard.press("Delete");
     await held.waitForHit;
     expect(
@@ -1648,35 +1641,33 @@ test("Timeline clear captures offscreen loaded membership and orders later overl
     await cell(page, last).click();
     await page.keyboard.press("Escape");
     const next = await holdBrowserRequest(page, { method: "POST", path });
-    try {
-      await page.keyboard.press("Delete");
-      await next.waitForHit;
-      await page.keyboard.type("Still authoring");
-      await expect(editor(page, last)).toHaveValue("Still authoring");
-      next.release();
-      await expect
-        .poll(
-          async () =>
-            (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
-              (row) => row.record_id === last,
-            )?.cells[synopsis]?.value,
-        )
-        .toBeNull();
-      await expect(editor(page, last)).toHaveValue("Still authoring");
-      await expect(editor(page, last)).toBeFocused();
-      await page.keyboard.press("Tab");
-      await expect
-        .poll(
-          async () =>
-            (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
-              (row) => row.record_id === last,
-            )?.cells[synopsis]?.value,
-        )
-        .toBe("Still authoring");
-    } finally {
-      await next.dispose();
-    }
-  } finally {
+    await page.keyboard.press("Delete");
+    await next.waitForHit;
+    await page.keyboard.type("Still authoring");
+    await expect(editor(page, last)).toHaveValue("Still authoring");
+    next.release();
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
+            (row) => row.record_id === last,
+          )?.cells[synopsis]?.value,
+      )
+      .toBeNull();
+    await expect(editor(page, last)).toHaveValue("Still authoring");
+    await expect(editor(page, last)).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect
+      .poll(
+        async () =>
+          (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
+            (row) => row.record_id === last,
+          )?.cells[synopsis]?.value,
+      )
+      .toBe("Still authoring");
+
+    await next.dispose();
+
     await held.dispose();
   }
 });
@@ -1743,33 +1734,31 @@ test("Timeline clear waits for captured autosave predecessors", async ({
     )
       writes.push({ method: request.method(), body: request.postDataJSON() });
   });
-  try {
-    await cell(page, first).click();
-    await editor(page, first).fill("Prior autosave");
-    await page.keyboard.press("Tab");
-    await held.waitForHit;
-    await page
-      .getByRole("button", { name: "Clear contents", exact: true })
-      .click();
-    expect(writes).toHaveLength(1);
-    held.release();
-    await expect.poll(() => writes.length).toBe(2);
-    expect(writes[1]).toMatchObject({
-      method: "POST",
-      body: {
-        kind: "clear_cells_v1",
-        targets: [{ record_id: first, base_row_version: 2 }],
-      },
-    });
-    await expect
-      .poll(
-        async () =>
-          (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
-            (row) => row.record_id === first,
-          )?.cells[synopsis]?.value,
-      )
-      .toBeNull();
-  } finally {
-    await held.dispose();
-  }
+  await cell(page, first).click();
+  await editor(page, first).fill("Prior autosave");
+  await page.keyboard.press("Tab");
+  await held.waitForHit;
+  await page
+    .getByRole("button", { name: "Clear contents", exact: true })
+    .click();
+  expect(writes).toHaveLength(1);
+  held.release();
+  await expect.poll(() => writes.length).toBe(2);
+  expect(writes[1]).toMatchObject({
+    method: "POST",
+    body: {
+      kind: "clear_cells_v1",
+      targets: [{ record_id: first, base_row_version: 2 }],
+    },
+  });
+  await expect
+    .poll(
+      async () =>
+        (await queryViewRows(page, f.incident, timelineViewSchemaId)).find(
+          (row) => row.record_id === first,
+        )?.cells[synopsis]?.value,
+    )
+    .toBeNull();
+
+  await held.dispose();
 });

@@ -58,6 +58,8 @@ import {
 } from "./support/evidence/uploads";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { fetchOwnedJobResponse } from "./support/jobs/ownership";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase, webBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -69,6 +71,11 @@ import {
   readHttpOperationResponse,
 } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import {
   createViewRow,
@@ -405,7 +412,7 @@ test("pages real linked Evidence metadata without issuing access handles", async
 
 test("reopens fresh bounded metadata for a filtered Timeline row with 100 available Evidence links", async ({
   page: setupPage,
-  browser,
+  browserScope,
   sessionTracker,
 }) => {
   let page = setupPage;
@@ -445,11 +452,11 @@ test("reopens fresh bounded metadata for a filtered Timeline row with 100 availa
     is_deployment_admin: false,
     mfa_required: false,
   });
-  const context = await browser.newContext({
+  const context = await browserScope.newContext({
     viewport: { width: 1920, height: 1080 },
     deviceScaleFactor: 1,
   });
-  try {
+  {
     page = await context.newPage();
     await page.goto(webBase);
     await sessionTracker.loginTrackedUser(page, {
@@ -587,8 +594,8 @@ test("reopens fresh bounded metadata for a filtered Timeline row with 100 availa
     } finally {
       page.off("request", observe);
     }
-  } finally {
-    await context.close();
+
+    await browserScope.closeContext(context);
   }
 });
 
@@ -1012,7 +1019,7 @@ test("recovers linked Preview after transient storage failure without submitting
     )
       writes++;
   });
-  await page.route(path, async (route) => {
+  await installOwnedRoute(page, path, async (route) => {
     bodies.push(route.request().postData() ?? "");
     if (attempts++ === 0)
       await route.fulfill({
@@ -1115,21 +1122,21 @@ test("bounds mixed-link Space discovery and leaves explicit linked actions usabl
   ]);
   await page.clock.install();
   let release = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
   let observeHeld = () => {};
-  const heldObserved = new Promise<void>((resolve) => {
-    observeHeld = resolve;
-  });
+  const heldObservedBarrier = responseBarrier(page);
+  observeHeld = heldObservedBarrier.release;
+  const heldObserved = heldObservedBarrier.promise;
   let settleHeld = () => {};
-  const heldSettled = new Promise<void>((resolve) => {
-    settleHeld = resolve;
-  });
+  const heldSettledBarrier = responseBarrier(page);
+  settleHeld = heldSettledBarrier.release;
+  const heldSettled = heldSettledBarrier.promise;
   const heldPath = `**/evidence-records/${other.record_id}/preview-handle`;
-  await page.route(heldPath, async (route) => {
+  await installOwnedRoute(page, heldPath, async (route) => {
     observeHeld();
-    await gate;
+    if (!(await awaitResponseBarrier(route, gate))) return;
     try {
       await route.continue();
     } catch {
@@ -1182,9 +1189,12 @@ test("bounds mixed-link Space discovery and leaves explicit linked actions usabl
     await heldSettled;
     await page.clock.fastForward(1);
     await expect(page.getByTestId(evidencePreviewPanelTestId())).toHaveCount(0);
-  } finally {
+
     release();
-    await page.unroute(heldPath);
+
+    await removeOwnedRoute(page, heldPath);
+  } finally {
+    gateBarrier.cancel();
   }
 });
 
@@ -1205,7 +1215,8 @@ test("recovers Evidence sheet Preview and Download with fresh handle requests", 
   const bodies: string[] = [];
   const attempts = { preview: 0, download: 0 };
   for (const kind of ["preview", "download"] as const) {
-    await page.route(
+    await installOwnedRoute(
+      page,
       `**/evidence-records/${evidence.record_id}/${kind}-handle`,
       async (route) => {
         bodies.push(route.request().postData() ?? "");
@@ -1270,25 +1281,25 @@ test("fences a pending linked Download when newer Preview loses current authoriz
     evidence.record_id,
   ]);
   let release = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
   let observeHeld = () => {};
-  const heldObserved = new Promise<void>((resolve) => {
-    observeHeld = resolve;
-  });
+  const heldObservedBarrier = responseBarrier(page);
+  observeHeld = heldObservedBarrier.release;
+  const heldObserved = heldObservedBarrier.promise;
   let settleHeld = () => {};
-  const heldSettled = new Promise<void>((resolve) => {
-    settleHeld = resolve;
-  });
+  const heldSettledBarrier = responseBarrier(page);
+  settleHeld = heldSettledBarrier.release;
+  const heldSettled = heldSettledBarrier.promise;
   let downloads = 0;
   page.on("download", () => {
     downloads++;
   });
   const heldPath = `**/evidence-records/${evidence.record_id}/download-handle`;
-  await page.route(heldPath, async (route) => {
+  await installOwnedRoute(page, heldPath, async (route) => {
     observeHeld();
-    await gate;
+    if (!(await awaitResponseBarrier(route, gate))) return;
     try {
       await route.continue();
     } catch {
@@ -1297,7 +1308,8 @@ test("fences a pending linked Download when newer Preview loses current authoriz
       settleHeld();
     }
   });
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/evidence-records/${evidence.record_id}/preview-handle`,
     async (route) => {
       await route.fulfill({
@@ -1337,9 +1349,12 @@ test("fences a pending linked Download when newer Preview loses current authoriz
     await heldSettled;
     await expect(page.getByTestId(evidencePreviewPanelTestId())).toHaveCount(0);
     expect(downloads).toBe(0);
-  } finally {
+
     release();
-    await page.unroute(heldPath);
+
+    await removeOwnedRoute(page, heldPath);
+  } finally {
+    gateBarrier.cancel();
   }
 });
 
@@ -1553,7 +1568,7 @@ test("tracks requested evidence before a blob exists and later advances it", asy
 });
 
 test("refreshes a second live workbook from the real evidence attach stream", async ({
-  browser,
+  browserScope,
   page,
 }) => {
   const incidentId = await createIncident(
@@ -1571,12 +1586,12 @@ test("refreshes a second live workbook from the real evidence attach stream", as
     },
   );
 
-  const listenerContext = await browser.newContext({
+  const listenerContext = await browserScope.newContext({
     storageState: await page.context().storageState(),
   });
   const listener = await listenerContext.newPage();
   failOnUnexpectedPageError(listener);
-  try {
+  {
     const socketMonitor = installIncidentSocketMonitor(listener, incidentId);
     await openTimelineSurface(listener, incidentId);
     await socketMonitor.waitForMessage("hello_ack");
@@ -1614,8 +1629,8 @@ test("refreshes a second live workbook from the real evidence attach stream", as
       })
       .toEqual([1, true]);
     expect(listener.url()).toBe(listenerURL);
-  } finally {
-    await listenerContext.close();
+
+    await browserScope.closeContext(listenerContext);
   }
 });
 
@@ -1954,38 +1969,46 @@ test("recovers each uncertain file stage with exact requests after remount and r
   let transfers = 0,
     failedReads = 0,
     failRefresh = false;
-  await page.route("**/api/v1/object-blobs", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/object-blobs", async (route) => {
     slotBodies.push(route.request().postData() ?? "");
-    const response = await route.fetch();
+    const response = await fetchOwnedJobResponse(page, route);
     expect(response.ok()).toBeTruthy();
     if (slotBodies.length === 1) await route.abort("failed");
     else await route.fulfill({ response });
   });
-  await page.route("**/api/v1/object-uploads/*", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/object-uploads/*", async (route) => {
     transfers++;
-    const response = await route.fetch();
+    const response = await fetchOwnedJobResponse(page, route);
     expect(response.status()).toBe(204);
     await route.abort("failed");
   });
-  await page.route(`**/views/${evidenceViewSchemaId}/rows`, async (route) => {
-    createBodies.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    expect(response.ok()).toBeTruthy();
-    if (createBodies.length === 1) await route.abort("failed");
-    else await route.fulfill({ response });
-  });
-  await page.route(`**/records/${source.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    linkBodies.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    expect(response.ok()).toBeTruthy();
-    if (linkBodies.length === 1) await route.abort("failed");
-    else {
-      failRefresh = true;
-      await route.fulfill({ response });
-    }
-  });
-  await page.route("**/views/*/query", async (route) => {
+  await installOwnedRoute(
+    page,
+    `**/views/${evidenceViewSchemaId}/rows`,
+    async (route) => {
+      createBodies.push(route.request().postData() ?? "");
+      const response = await fetchOwnedJobResponse(page, route);
+      expect(response.ok()).toBeTruthy();
+      if (createBodies.length === 1) await route.abort("failed");
+      else await route.fulfill({ response });
+    },
+  );
+  await installOwnedRoute(
+    page,
+    `**/records/${source.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      linkBodies.push(route.request().postData() ?? "");
+      const response = await fetchOwnedJobResponse(page, route);
+      expect(response.ok()).toBeTruthy();
+      if (linkBodies.length === 1) await route.abort("failed");
+      else {
+        failRefresh = true;
+        await route.fulfill({ response });
+      }
+    },
+  );
+  await installOwnedRoute(page, "**/views/*/query", async (route) => {
     if (failRefresh) {
       failedReads++;
       await route.abort("failed");
@@ -2115,11 +2138,12 @@ test("retains an existing Evidence attachment receipt after lost acknowledgement
     if (request.method() === "PUT") transfers++;
     if (request.method() === "PATCH") patches++;
   });
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/evidence-records/${source.record_id}/attach-blob`,
     async (route) => {
       bodies.push(route.request().postData() ?? "");
-      const response = await route.fetch();
+      const response = await fetchOwnedJobResponse(page, route);
       expect(response.ok()).toBeTruthy();
       if (bodies.length === 1) await route.abort("failed");
       else await route.fulfill({ response });
@@ -2169,18 +2193,17 @@ test("keeps ordinary draft typing available during file transfer and shares both
       uniqueIncidentKey("EUR-DRAFT-ORDER"),
       "Shared draft creation",
     );
-    let release: (() => void) | undefined;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const gateBarrier = responseBarrier(page);
+    const release = gateBarrier.release;
+    const gate = gateBarrier.promise;
     const createBodies: string[] = [];
     let slots = 0,
       transfers = 0;
     const heldPath = ordinaryFirst
       ? "**/api/v1/object-uploads/*"
       : `**/views/${timelineViewSchemaId}/rows`;
-    await page.route(heldPath, async (route) => {
-      await gate;
+    await installOwnedRoute(page, heldPath, async (route) => {
+      if (!(await awaitResponseBarrier(route, gate))) return;
       await route.continue();
     });
     const watch = (request: import("@playwright/test").Request) => {
@@ -2310,7 +2333,7 @@ test("keeps ordinary draft typing available during file transfer and shares both
         : "typing-during-screenshot-create",
       { body: await page.screenshot(), contentType: "image/png" },
     );
-    await page.unroute(heldPath);
+    await removeOwnedRoute(page, heldPath);
     page.off("request", watch);
   }
 });
@@ -2339,42 +2362,46 @@ test("reviews the original source after a rejected file link while preserving un
       creates++;
     if (request.method() === "PUT") transfers++;
   });
-  await page.route(`**/records/${source.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    bodies.push(route.request().postData() ?? "");
-    if (bodies.length === 1)
-      await patchRecord(page, source.record_id, {
-        view_schema_id: timelineViewSchemaId,
-        base_row_version: source.row_version,
-        client_txn_id: uniqueTxn("other-editor"),
-        changes: [
-          {
-            field_key: "timeline.activity_synopsis_text",
-            value: "Reviewed concurrent source edit",
-          },
-        ],
-      });
-    if (bodies.length === 1) {
-      await route.fulfill({
-        status: 409,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: {
-            code: "row_version_conflict",
-            status: 409,
-            message: "Source changed",
-            retryable: false,
-            request_id: "source-conflict",
-            details: {},
-          },
-        }),
-      });
-    } else {
-      const response = await route.fetch();
-      expect(response.status()).toBe(200);
-      await route.fulfill({ response });
-    }
-  });
+  await installOwnedRoute(
+    page,
+    `**/records/${source.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      bodies.push(route.request().postData() ?? "");
+      if (bodies.length === 1)
+        await patchRecord(page, source.record_id, {
+          view_schema_id: timelineViewSchemaId,
+          base_row_version: source.row_version,
+          client_txn_id: uniqueTxn("other-editor"),
+          changes: [
+            {
+              field_key: "timeline.activity_synopsis_text",
+              value: "Reviewed concurrent source edit",
+            },
+          ],
+        });
+      if (bodies.length === 1) {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: {
+              code: "row_version_conflict",
+              status: 409,
+              message: "Source changed",
+              retryable: false,
+              request_id: "source-conflict",
+              details: {},
+            },
+          }),
+        });
+      } else {
+        const response = await fetchOwnedJobResponse(page, route);
+        expect(response.status()).toBe(200);
+        await route.fulfill({ response });
+      }
+    },
+  );
   await openTimelineSurface(page, incident);
   await openTimelineInspector(page, source.record_id);
   await page
@@ -2878,12 +2905,12 @@ test("Timeline file paste preserves native scalar and collection editing during 
     const before = await input.evaluate(state);
     const observed = observeFileWrites(page);
     let release = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const gateBarrier = responseBarrier(page);
+    release = gateBarrier.release;
+    const gate = gateBarrier.promise;
     const path = "**/api/v1/object-uploads/**";
-    await page.route(path, async (route) => {
-      await gate;
+    await installOwnedRoute(page, path, async (route) => {
+      if (!(await awaitResponseBarrier(route, gate))) return;
       await route.continue();
     });
     try {
@@ -2959,11 +2986,14 @@ test("Timeline file paste preserves native scalar and collection editing during 
         body: JSON.stringify({ before, writes: observed.writes }),
         contentType: "application/json",
       });
-    } finally {
+
       release();
+
+      await removeOwnedRoute(page, path);
+    } finally {
+      gateBarrier.cancel();
       observed.stop();
       await cdp.detach();
-      await page.unroute(path);
     }
   }
 });
@@ -2975,12 +3005,12 @@ test("Timeline admitted file work keeps its source through selection filtering a
   const f = await fileTargetFixture(page, 60);
   const observed = observeFileWrites(page);
   let release = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
   const path = "**/api/v1/object-uploads/**";
-  await page.route(path, async (route) => {
-    await gate;
+  await installOwnedRoute(page, path, async (route) => {
+    if (!(await awaitResponseBarrier(route, gate))) return;
     await route.continue();
   });
   try {
@@ -3083,10 +3113,13 @@ test("Timeline admitted file work keeps its source through selection filtering a
       }),
       contentType: "application/json",
     });
-  } finally {
+
     release();
+
+    await removeOwnedRoute(page, path);
+  } finally {
+    gateBarrier.cancel();
     observed.stop();
-    await page.unroute(path);
   }
 });
 
@@ -3244,13 +3277,13 @@ test("keeps verification cancel visible and honors cancellation when completion 
   // Preserve real admission, worker execution and responses. Only observation
   // delivery is delayed to exercise the completed-worker/cancel-intent race.
   let releaseObservation = () => {};
-  const observationGate = new Promise<void>((resolve) => {
-    releaseObservation = resolve;
-  });
-  await page.route("**/api/v1/jobs/*", async (route) => {
+  const observationGateBarrier = responseBarrier(page);
+  releaseObservation = observationGateBarrier.release;
+  const observationGate = observationGateBarrier.promise;
+  await installOwnedRoute(page, "**/api/v1/jobs/*", async (route) => {
     if (route.request().method() !== "GET") return route.continue();
-    const response = await route.fetch();
-    await observationGate;
+    const response = await fetchOwnedJobResponse(page, route);
+    if (!(await awaitResponseBarrier(route, observationGate))) return;
     await route.fulfill({ response });
   });
   try {
@@ -3342,8 +3375,9 @@ test("keeps verification cancel visible and honors cancellation when completion 
         "timeline.evidence_count"
       ]?.value,
     ).toBe(0);
-  } finally {
+
     releaseObservation();
-    await page.unrouteAll({ behavior: "wait" });
+  } finally {
+    observationGateBarrier.cancel();
   }
 });

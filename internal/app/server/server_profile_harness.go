@@ -32,16 +32,14 @@ func (harnessServerProfile) runtimeOptions(lookup func(string) (string, bool)) O
 	}
 
 	testClock := httpapi.NewTestClock()
-	harnessControls := harnessruntime.NewControls()
 	networkFlowControls := networkflowharnesscontrol.NewControls()
 	networkFlowControls.Crash = func() { os.Exit(86) }
 	return Options{
 		NetworkFlowComposition: networkFlowControls,
 		Now:                    testClock.Now,
 		HTTP: httpapi.Options{
-			Dependencies: httpapi.DependencySet{PublicErrorFaults: harnessControls.PublicErrorFaults},
 			AdditionalRoutes: append(
-				harnessruntime.RegisterRoutes(harnessControls, testClock, networkFlowControls.Contribution()),
+				harnessruntime.RegisterRoutes(testClock, networkFlowControls.Contribution()),
 				auth.RegisterTestRoutes(),
 				savedviews.RegisterTestRoutes(),
 			),

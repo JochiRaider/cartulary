@@ -52,6 +52,14 @@
       "reason": "The mixed selection is split into exact service-free and managed-service assertions; every original symbol and assurance tier remains selected without acquiring unused infrastructure."
     },
     {
+      "retired_row_id": "harness.browser.unit.public_error_fault_route_disabled_by_default_0910c3af84",
+      "replacement_row_ids": [
+        "app.server.unit.internal_error_boundary",
+        "harness.browser.unit.retired_public_error_control"
+      ],
+      "reason": "Retire the runtime-global public-error fault control and its six implementation-only witnesses. Exact local browser presentation preserves product coverage; negative route admission and real HTTP serializer witnesses replace the control contract without an executable alias."
+    },
+    {
       "retired_row_id": "module.artifacts.source_mutations.artifact_source_create_and_patch_preserve_all_ei_c8d63cf5cd",
       "replacement_row_ids": [
         "module.artifacts.source_mutations.managed_service_assertions_for_artifact_source_c_a67a87fbf9",

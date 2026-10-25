@@ -34,6 +34,7 @@ import { revokeAllSessions } from "./support/auth/sessions";
 import { installPatchController } from "./support/collaboration/replay";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -44,8 +45,9 @@ import { installIncidentSocketMonitor } from "./support/transport/incidentSocket
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
 import {
+  awaitResponseBarrier,
   holdBrowserRequest,
-  safelyRemoveRoute,
+  installOwnedRoute,
 } from "./support/transport/requestInterception";
 import { switchOrdinarySheet } from "./support/workbook/ordinaryCreate";
 import {
@@ -263,14 +265,12 @@ async function findDepartureGeometry(page: Page) {
 async function holdRejectedPatch(page: Page, recordId: string) {
   const pattern = `**/api/v1/records/${recordId}`;
   let hitCount = 0;
-  let signalHit!: () => void;
-  let release!: () => void;
-  const waitForHit = new Promise<void>((resolve) => {
-    signalHit = resolve;
-  });
-  const hold = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const waitForHitBarrier = responseBarrier(page);
+  const signalHit = waitForHitBarrier.release;
+  const waitForHit = waitForHitBarrier.promise;
+  const holdBarrier = responseBarrier(page);
+  const release = holdBarrier.release;
+  const hold = holdBarrier.promise;
   const handler = async (route: Route) => {
     if (route.request().method() !== "PATCH") {
       await route.fallback();
@@ -278,7 +278,7 @@ async function holdRejectedPatch(page: Page, recordId: string) {
     }
     hitCount += 1;
     signalHit();
-    await hold;
+    if (!(await awaitResponseBarrier(route, hold))) return;
     await route.fulfill({
       status: 422,
       contentType: "application/json",
@@ -294,15 +294,15 @@ async function holdRejectedPatch(page: Page, recordId: string) {
       }),
     });
   };
-  await page.route(pattern, handler);
+  const ownedRoute = await installOwnedRoute(page, pattern, handler, () => {
+    holdBarrier.cancel();
+    waitForHitBarrier.cancel();
+  });
   return {
     waitForHit,
     release,
     hitCount: () => hitCount,
-    dispose: async () => {
-      release();
-      await safelyRemoveRoute(page, pattern, handler);
-    },
+    dispose: ownedRoute.dispose,
   };
 }
 
@@ -453,43 +453,39 @@ test("Timeline Find opening preserves exact scalar drafts and explicit navigatio
     method: "PATCH",
     path: `/api/v1/records/${f.first}`,
   });
-  try {
-    await find(page, "0002 needle", 1);
-    expect(hold.hitCount()).toBe(0);
-    await expect(editor(page, f.first)).toHaveValue("Exact unfinished draft");
-    await input(page).press("Enter");
-    await hold.waitForHit;
-    await expect(status(page)).toContainText("Waiting for the edit to save");
-    await expect(editor(page, f.first)).toHaveValue("Exact unfinished draft");
-    await page.getByRole("button", { name: "Close Find" }).click();
-    await expect(editor(page, f.first)).toBeFocused();
-    hold.release();
-    // Request arrival precedes acknowledgement. Reopen only after the committed
-    // edit has settled, so its completion cannot supersede the next Find intent.
-    await expect(editor(page, f.first)).toHaveCount(0);
-    await expect(cell(page, f.first)).toHaveText("Exact unfinished draft");
-    expect(hold.hitCount()).toBe(1);
-    await find(page, "0002 needle", 1);
-    await navigate(page);
-    await expect(cell(page, f.last)).toBeFocused();
-  } finally {
-    await hold.dispose();
-  }
+  await find(page, "0002 needle", 1);
+  expect(hold.hitCount()).toBe(0);
+  await expect(editor(page, f.first)).toHaveValue("Exact unfinished draft");
+  await input(page).press("Enter");
+  await hold.waitForHit;
+  await expect(status(page)).toContainText("Waiting for the edit to save");
+  await expect(editor(page, f.first)).toHaveValue("Exact unfinished draft");
+  await page.getByRole("button", { name: "Close Find" }).click();
+  await expect(editor(page, f.first)).toBeFocused();
+  hold.release();
+  // Request arrival precedes acknowledgement. Reopen only after the committed
+  // edit has settled, so its completion cannot supersede the next Find intent.
+  await expect(editor(page, f.first)).toHaveCount(0);
+  await expect(cell(page, f.first)).toHaveText("Exact unfinished draft");
+  expect(hold.hitCount()).toBe(1);
+  await find(page, "0002 needle", 1);
+  await navigate(page);
+  await expect(cell(page, f.last)).toBeFocused();
+
+  await hold.dispose();
   await find(page, "Exact unfinished draft", 1);
   await navigate(page);
   await cell(page, f.first).click();
   await editor(page, f.first).fill("rejected exact draft");
   const rejected = await installPatchController(page);
-  try {
-    rejected.failNextPatch(422, "invalid_request", { recordId: f.first });
-    await find(page, "0002 needle", 1);
-    await input(page).press("Enter");
-    await expect(editor(page, f.first)).toHaveValue("rejected exact draft");
-    await expect(editor(page, f.first)).toBeFocused();
-    await expect(status(page)).toContainText("Correct the original edit");
-  } finally {
-    await rejected.dispose();
-  }
+  rejected.failNextPatch(422, "invalid_request", { recordId: f.first });
+  await find(page, "0002 needle", 1);
+  await input(page).press("Enter");
+  await expect(editor(page, f.first)).toHaveValue("rejected exact draft");
+  await expect(editor(page, f.first)).toBeFocused();
+  await expect(status(page)).toContainText("Correct the original edit");
+
+  await rejected.dispose();
 });
 
 test("Timeline Find follows column group saved-view and live membership while retaining only eligible current matches", async ({
@@ -641,7 +637,9 @@ test("Timeline Find remains responsive across the full retained window append ev
   await input(page).fill("needle");
   await expect(status(page)).toContainText("300 matching cells");
   const route = `**/api/v1/incidents/${f.incident}/views/${timelineViewSchemaId}/query`;
-  await page.route(route, (request) => request.abort("failed"), { times: 1 });
+  await installOwnedRoute(page, route, (request) => request.abort("failed"), {
+    times: 1,
+  });
   await browsing.getByRole("button", { name: "Refresh", exact: true }).click();
   await expect(browsing).toContainText("Retry");
   await entry(page).click();
@@ -768,22 +766,20 @@ test("Timeline Find borrows collection and inspector editors without writes and 
     method: "PATCH",
     path: `/api/v1/records/${f.first}`,
   });
-  try {
-    await find(page, "Find borrowed tag", 0);
-    expect(gate.hitCount()).toBe(0);
-    await expect(tagInput).toHaveValue("Find borrowed tag");
-    await input(page).fill("0084 needle");
-    await expect(status(page)).toContainText("1 matching cell");
-    await input(page).press("Enter");
-    await gate.waitForHit;
-    expect(gate.hitCount()).toBe(1);
-    gate.release();
-    await expect(input(page)).toHaveCount(0);
-    await expect(cell(page, f.last)).toBeFocused();
-    await expect(cell(page, f.last)).toBeInViewport({ ratio: 1 });
-  } finally {
-    await gate.dispose();
-  }
+  await find(page, "Find borrowed tag", 0);
+  expect(gate.hitCount()).toBe(0);
+  await expect(tagInput).toHaveValue("Find borrowed tag");
+  await input(page).fill("0084 needle");
+  await expect(status(page)).toContainText("1 matching cell");
+  await input(page).press("Enter");
+  await gate.waitForHit;
+  expect(gate.hitCount()).toBe(1);
+  gate.release();
+  await expect(input(page)).toHaveCount(0);
+  await expect(cell(page, f.last)).toBeFocused();
+  await expect(cell(page, f.last)).toBeInViewport({ ratio: 1 });
+
+  await gate.dispose();
   await scrollGridTargetIntoView({
     page,
     surface: timelineViewSchemaId,
@@ -795,7 +791,7 @@ test("Timeline Find borrows collection and inspector editors without writes and 
     method: "PATCH",
     path: `/api/v1/records/${f.first}`,
   });
-  try {
+  {
     await find(page, "0084 needle", 1);
     await input(page).press("Enter");
     await delayed.waitForHit;
@@ -811,7 +807,7 @@ test("Timeline Find borrows collection and inspector editors without writes and 
     ).toBe(true);
     expect(await findDepartureGeometry(page)).toEqual(before);
     await expect(cell(page, f.last)).not.toBeFocused();
-  } finally {
+
     await delayed.dispose();
   }
   await openTimelineInspector(page, f.first);
@@ -828,20 +824,18 @@ test("Timeline Find borrows collection and inspector editors without writes and 
     method: "PATCH",
     path: `/api/v1/records/${f.first}`,
   });
-  try {
-    await find(page, "0084 needle", 1);
-    expect(inspectorGate.hitCount()).toBe(0);
-    await expect(inspectorInput).toHaveValue("Exact inspector draft");
-    await input(page).press("Enter");
-    await expect(input(page)).toHaveCount(0);
-    await expect(cell(page, f.last)).toBeFocused();
-    await expect(cell(page, f.last)).toBeInViewport({ ratio: 1 });
-    await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
-    await expect(inspectorInput).toHaveValue("Exact inspector draft");
-    expect(inspectorGate.hitCount()).toBe(0);
-  } finally {
-    await inspectorGate.dispose();
-  }
+  await find(page, "0084 needle", 1);
+  expect(inspectorGate.hitCount()).toBe(0);
+  await expect(inspectorInput).toHaveValue("Exact inspector draft");
+  await input(page).press("Enter");
+  await expect(input(page)).toHaveCount(0);
+  await expect(cell(page, f.last)).toBeFocused();
+  await expect(cell(page, f.last)).toBeInViewport({ ratio: 1 });
+  await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
+  await expect(inspectorInput).toHaveValue("Exact inspector draft");
+  expect(inspectorGate.hitCount()).toBe(0);
+
+  await inspectorGate.dispose();
   await scrollGridTargetIntoView({
     page,
     surface: timelineViewSchemaId,
@@ -850,7 +844,7 @@ test("Timeline Find borrows collection and inspector editors without writes and 
   await tags.getByRole("button", { name: "Add tags token" }).click();
   await tagInput.fill("Find delayed rejected tag");
   const rejectedGate = await holdRejectedPatch(page, f.first);
-  try {
+  {
     await find(page, "0084 needle", 1);
     await input(page).press("Enter");
     await rejectedGate.waitForHit;
@@ -869,7 +863,7 @@ test("Timeline Find borrows collection and inspector editors without writes and 
     expect(await findDepartureGeometry(page)).toEqual(before);
     await expect(cell(page, f.last)).not.toBeFocused();
     await expect(inspectorInput).toHaveValue("Exact inspector draft");
-  } finally {
+
     await rejectedGate.dispose();
   }
 });

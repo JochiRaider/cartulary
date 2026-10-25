@@ -86,6 +86,7 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import { installOwnedRoute } from "./support/transport/requestInterception";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import {
   createViewRow,
@@ -1592,7 +1593,8 @@ async function exerciseDecisionRecovery(
   );
   const requests: string[] = [],
     receipts: unknown[] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/records/${target.record_id}/supersede`,
     async (route) => {
       const body = route.request().postData();
@@ -1673,23 +1675,27 @@ async function exerciseDecisionRecovery(
     ),
   };
   let failRefresh = true;
-  await page.route(`**/views/${decisionsViewSchemaId}/query`, async (route) => {
-    if (!failRefresh) return route.continue();
-    failRefresh = false;
-    await route.fulfill({
-      status: 503,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: {
-          code: "service_unavailable",
-          status: 503,
-          retryable: true,
-          message: "Refresh unavailable",
-          request_id: "refresh-failure",
-        },
-      }),
-    });
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${decisionsViewSchemaId}/query`,
+    async (route) => {
+      if (!failRefresh) return route.continue();
+      failRefresh = false;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            code: "service_unavailable",
+            status: 503,
+            retryable: true,
+            message: "Refresh unavailable",
+            request_id: "refresh-failure",
+          },
+        }),
+      });
+    },
+  );
   await openRecoveryItem(page, /^Decision supersession ·/);
   const recovery = page.getByTestId(decisionSupersessionTestId("recovery"));
   await recovery
@@ -2007,29 +2013,37 @@ async function exerciseTaskPatchRecovery(
   const requests: string[] = [],
     receipts: unknown[] = [];
   let failRefresh = false;
-  await page.route(`**/api/v1/records/${target.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    const body = route.request().postData();
-    if (!body) throw new Error("Missing patch body");
-    requests.push(body);
-    if (requests.length === 1 && loss === "before")
-      return route.abort("failed");
-    const response = await route.fetch();
-    expect(response.status()).toBe(200);
-    const envelope = await response.json();
-    receipts.push(envelope.data);
-    if (requests.length === 1) {
-      if (loss === "malformed")
-        return route.fulfill({
-          response,
-          json: { ...envelope, data: { ...envelope.data, change_set_id: "" } },
-        });
-      return route.abort("failed");
-    }
-    failRefresh = true;
-    return route.fulfill({ response });
-  });
-  await page.route(
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${target.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      const body = route.request().postData();
+      if (!body) throw new Error("Missing patch body");
+      requests.push(body);
+      if (requests.length === 1 && loss === "before")
+        return route.abort("failed");
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      const envelope = await response.json();
+      receipts.push(envelope.data);
+      if (requests.length === 1) {
+        if (loss === "malformed")
+          return route.fulfill({
+            response,
+            json: {
+              ...envelope,
+              data: { ...envelope.data, change_set_id: "" },
+            },
+          });
+        return route.abort("failed");
+      }
+      failRefresh = true;
+      return route.fulfill({ response });
+    },
+  );
+  await installOwnedRoute(
+    page,
     `**/views/${taskRequestsViewSchemaId}/query`,
     async (route) => {
       if (!failRefresh) return route.continue();
@@ -2140,17 +2154,22 @@ test("Task lifecycle compound conflicts keep saved without losing the atomic dra
     page.getByTestId(rowCellTestId(target.record_id, "task.title")),
   );
   let first = true;
-  await page.route(`**/api/v1/records/${target.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH" || !first) return route.continue();
-    first = false;
-    await patchRecord(page, target.record_id, {
-      base_row_version: target.row_version,
-      view_schema_id: taskRequestsViewSchemaId,
-      client_txn_id: uniqueTxn("concurrent-task"),
-      changes: [{ field_key: "task.status", value: "in_progress" }],
-    });
-    return route.fulfill({ response: await route.fetch() });
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${target.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH" || !first)
+        return route.continue();
+      first = false;
+      await patchRecord(page, target.record_id, {
+        base_row_version: target.row_version,
+        view_schema_id: taskRequestsViewSchemaId,
+        client_txn_id: uniqueTxn("concurrent-task"),
+        changes: [{ field_key: "task.status", value: "in_progress" }],
+      });
+      return route.fulfill({ response: await route.fetch() });
+    },
+  );
   await page.getByLabel("Task lifecycle status").selectOption("blocked");
   await page
     .getByLabel("Blocked reason", { exact: true })

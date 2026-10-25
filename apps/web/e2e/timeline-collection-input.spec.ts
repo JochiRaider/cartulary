@@ -36,6 +36,7 @@ import {
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -44,7 +45,12 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { createTimelineFillers } from "./support/timeline/fixtures";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import {
   createViewRow,
@@ -479,14 +485,14 @@ test("Timeline saved tag removal replays uncertainty and refreshes an acknowledg
   let failedRefreshes = 0;
   const patchPath = `**/api/v1/records/${row.record_id}`;
   const queryPath = `**/views/${timelineViewSchemaId}/query`;
-  await page.route(queryPath, async (route) => {
+  await installOwnedRoute(page, queryPath, async (route) => {
     if (failRefresh && failedRefreshes++ === 0) {
       await route.fulfill({ status: 503, body: "unavailable" });
       return;
     }
     await route.continue();
   });
-  await page.route(patchPath, async (route) => {
+  await installOwnedRoute(page, patchPath, async (route) => {
     if (route.request().method() !== "PATCH") return route.continue();
     bodies.push(route.request().postData() ?? "");
     if (bodies.length === 1) {
@@ -513,7 +519,7 @@ test("Timeline saved tag removal replays uncertainty and refreshes an acknowledg
     body: await page.screenshot(),
     contentType: "image/png",
   });
-  await page.unroute(queryPath);
+  await removeOwnedRoute(page, queryPath);
   await page.getByRole("button", { name: "Refresh saved change" }).click();
   await expect(
     page.getByRole("button", { name: "Refresh saved change" }),
@@ -527,7 +533,7 @@ test("Timeline saved tag removal replays uncertainty and refreshes an acknowledg
   expect(
     collectionItems(saved, "timeline.tags").map((item) => item.display_text),
   ).toEqual(["retain"]);
-  await page.unroute(patchPath);
+  await removeOwnedRoute(page, patchPath);
 });
 
 test("Timeline unsaved cells keep keyboard focus through draft discard", async ({
@@ -725,22 +731,22 @@ test("Timeline collection identical native replacement survives older settlement
     );
     const originalVersion = await gridRow.getAttribute(gridRowVersionAttribute);
     let release = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const gateBarrier = responseBarrier(page);
+    release = gateBarrier.release;
+    const gate = gateBarrier.promise;
     let reachedResponse = () => {};
-    const responseHeld = new Promise<void>((resolve) => {
-      reachedResponse = resolve;
-    });
+    const responseHeldBarrier = responseBarrier(page);
+    reachedResponse = responseHeldBarrier.release;
+    const responseHeld = responseHeldBarrier.promise;
     let patches = 0;
     const path = `**/api/v1/records/${row.record_id}`;
-    await page.route(path, async (route) => {
+    await installOwnedRoute(page, path, async (route) => {
       if (route.request().method() !== "PATCH") return route.continue();
       patches++;
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       reachedResponse();
-      await gate;
+      if (!(await awaitResponseBarrier(route, gate))) return;
       await route.fulfill({ response });
     });
     try {
@@ -811,9 +817,12 @@ test("Timeline collection identical native replacement survives older settlement
       }
       await input.press("Escape");
       await expect(input).toHaveCount(0);
-    } finally {
+
       release();
-      await page.unroute(path);
+
+      await removeOwnedRoute(page, path);
+    } finally {
+      gateBarrier.cancel();
     }
   }
 });
@@ -853,17 +862,17 @@ test("Timeline collection newer native authoring fences an older rejection", asy
     relationshipOverflowButtonTestId(row.record_id, field),
   );
   let release = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
   let reachedResponse = () => {};
-  const responseHeld = new Promise<void>((resolve) => {
-    reachedResponse = resolve;
-  });
+  const responseHeldBarrier = responseBarrier(page);
+  reachedResponse = responseHeldBarrier.release;
+  const responseHeld = responseHeldBarrier.promise;
   let patches = 0;
   let receipts = 0;
   const path = `**/api/v1/records/${row.record_id}`;
-  await page.route(path, async (route) => {
+  await installOwnedRoute(page, path, async (route) => {
     if (route.request().method() !== "PATCH") return route.continue();
     patches++;
     const response = await route.fetch();
@@ -872,7 +881,7 @@ test("Timeline collection newer native authoring fences an older rejection", asy
       "no_effective_change",
     );
     reachedResponse();
-    await gate;
+    if (!(await awaitResponseBarrier(route, gate))) return;
     await route.fulfill({ response });
     receipts++;
   });
@@ -906,9 +915,12 @@ test("Timeline collection newer native authoring fences an older rejection", asy
       ]),
     ).toEqual([1, 3, "backward"]);
     expect(patches).toBe(1);
-  } finally {
+
     release();
-    await page.unroute(path);
+
+    await removeOwnedRoute(page, path);
+  } finally {
+    gateBarrier.cancel();
   }
 });
 
@@ -983,8 +995,9 @@ test("Timeline collection recordless equal edit survives create promotion", asyn
     expect(held.hitCount()).toBe(1);
     expect(patches).toBe(0);
     await expect(draft).toHaveValue("");
-  } finally {
+
     await held.dispose();
+  } finally {
     page.off("request", count);
   }
 });
@@ -1435,15 +1448,15 @@ test("Timeline collection authoring isolates surfaces and settles native departu
     );
     const path = `**/api/v1/records/${row.record_id}`;
     let release = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const gateBarrier = responseBarrier(page);
+    release = gateBarrier.release;
+    const gate = gateBarrier.promise;
     let patches = 0;
     let receipts = 0;
-    await page.route(path, async (route) => {
+    await installOwnedRoute(page, path, async (route) => {
       if (route.request().method() !== "PATCH") return route.continue();
       patches++;
-      if (patches === 1) await gate;
+      if (patches === 1) if (!(await awaitResponseBarrier(route, gate))) return;
       const response = await route.fetch();
       if (field === "timeline.tags" && patches === 3) {
         expect(response.status()).toBe(400);
@@ -1568,8 +1581,12 @@ test("Timeline collection authoring isolates surfaces and settles native departu
       await expect(grid).toHaveCount(0);
       await expect(inspector).toHaveValue("");
       expect(patches).toBe(3);
-    } finally {
+
       release();
+
+      await removeOwnedRoute(page, path);
+    } finally {
+      gateBarrier.cancel();
       await test.info().attach("collection-focus", {
         body: JSON.stringify(
           await page.evaluate(
@@ -1578,7 +1595,6 @@ test("Timeline collection authoring isolates surfaces and settles native departu
         ),
         contentType: "application/json",
       });
-      await page.unroute(path);
     }
   }
   const incidentResponse = await page.request.get(
@@ -1735,8 +1751,9 @@ test("Timeline collection authoring follows first-input record promotion without
       expect(collectionItems(created, field)).toHaveLength(1);
       expect(held.hitCount()).toBe(2);
       expect(patches).toBe(0);
-    } finally {
+
       await held.dispose();
+    } finally {
       page.off("request", count);
     }
   }
@@ -1938,7 +1955,8 @@ test("Timeline collection drafts survive detachment and retire with authority", 
   }
   expect(patches).toBe(0);
   const queryPath = "**/views/" + timelineViewSchemaId + "/query";
-  await page.route(
+  await installOwnedRoute(
+    page,
     queryPath,
     (route) =>
       route.fulfill({
@@ -1967,18 +1985,17 @@ test("Timeline collection drafts survive detachment and retire with authority", 
   await refresh.click();
   expect(patches).toBe(0);
   // Let one real write commit, then lose authority before its acknowledgement.
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const gateBarrier = responseBarrier(page);
+  const release = gateBarrier.release;
+  const gate = gateBarrier.promise;
   let committed = false;
   const path = "**/api/v1/records/" + row.record_id;
-  await page.route(path, async (route) => {
+  await installOwnedRoute(page, path, async (route) => {
     if (route.request().method() !== "PATCH") return route.continue();
     const response = await route.fetch();
     expect(response.status()).toBe(200);
     committed = true;
-    await gate;
+    if (!(await awaitResponseBarrier(route, gate))) return;
     await route.fulfill({ response });
   });
   try {
@@ -2025,7 +2042,7 @@ test("Timeline collection drafts survive detachment and retire with authority", 
     ).toEqual(["accepted before suspension?"]);
     expect(collectionItems(saved, "timeline.identity_refs")).toHaveLength(0);
     expect(collectionItems(saved, "timeline.tags")).toHaveLength(0);
-    await page.unroute(path);
+    await removeOwnedRoute(page, path);
     // The new account's authorized draft is retained across read-only state,
     // then concealed entirely when incident membership is removed.
     const tag = await activate("timeline.tags", "tags");
@@ -2096,8 +2113,11 @@ test("Timeline collection drafts survive detachment and retire with authority", 
       0,
     );
     expect(patches).toBe(2);
-  } finally {
+
     release();
-    await page.unroute(path);
+
+    await removeOwnedRoute(page, path);
+  } finally {
+    gateBarrier.cancel();
   }
 });

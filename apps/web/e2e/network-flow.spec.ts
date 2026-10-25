@@ -17,9 +17,16 @@ import {
   openNetworkFlowIncident,
 } from "./support/extensions/network_flow_activity/workspace";
 import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
+import { fetchOwnedJobResponse } from "./support/jobs/ownership";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import { uniqueTxn } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
 
 function nextSavedGraphResult(page: Page) {
@@ -369,17 +376,21 @@ test("Network Analysis links compatible targets and recovers exact committed req
   const requests: string[] = [];
   let loseReceipt = true;
   let committedBinding = "";
-  await page.route("**/network-flow/indicator-links", async (route) => {
-    requests.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    if (loseReceipt) {
-      loseReceipt = false;
-      expect(response.status()).toBe(201);
-      committedBinding = (await response.json()).data.binding
-        .network_flow_indicator_binding_id;
-      await route.abort("failed");
-    } else await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    "**/network-flow/indicator-links",
+    async (route) => {
+      requests.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      if (loseReceipt) {
+        loseReceipt = false;
+        expect(response.status()).toBe(201);
+        committedBinding = (await response.json()).data.binding
+          .network_flow_indicator_binding_id;
+        await route.abort("failed");
+      } else await route.fulfill({ response });
+    },
+  );
   await submit.press("Enter");
   await expect(dialog.getByRole("alert")).toContainText("may have committed");
   await page.keyboard.press("Escape");
@@ -557,14 +568,16 @@ test("Network Analysis recovers discovery selection exact apply and published ta
     if (request.method() === "PUT" && request.url().endsWith("/mapping"))
       approvals++;
   });
-  await page.route(
+  await installOwnedRoute(
+    page,
     "**/api/v1/import-sessions/*/units/*/preview",
     async (route) => {
       if (sourceFailures++ === 0) await route.abort("failed");
       else await route.continue();
     },
   );
-  await page.route(
+  await installOwnedRoute(
+    page,
     "**/api/v1/import-sessions/*/units/*/select",
     async (route) => {
       selections.push(route.request().postDataJSON());
@@ -584,17 +597,24 @@ test("Network Analysis recovers discovery selection exact apply and published ta
       else await route.continue();
     },
   );
-  await page.route("**/api/v1/import-sessions/*/apply", async (route) => {
-    applies.push(route.request().postDataJSON());
-    if (applies.length === 1) {
-      const response = await route.fetch();
-      expect(response.status()).toBe(202);
-      applyJobId = (await response.json()).data.job_id;
-      blockTables = true;
-      await route.abort("failed");
-    } else await route.continue();
-  });
-  await page.route("**/api/v1/jobs/*", async (route) => {
+  await installOwnedRoute(
+    page,
+    "**/api/v1/import-sessions/*/apply",
+    async (route) => {
+      applies.push(route.request().postDataJSON());
+      if (applies.length === 1) {
+        const response = await fetchOwnedJobResponse(page, route);
+        expect(response.status()).toBe(202);
+        applyJobId = (await response.json()).data.job_id;
+        blockTables = true;
+        await route.abort("failed");
+      } else
+        await route.fulfill({
+          response: await fetchOwnedJobResponse(page, route),
+        });
+    },
+  );
+  await installOwnedRoute(page, "**/api/v1/jobs/*", async (route) => {
     if (
       applyJobId &&
       route.request().url().endsWith(applyJobId) &&
@@ -603,7 +623,7 @@ test("Network Analysis recovers discovery selection exact apply and published ta
       await route.abort("failed");
     else await route.continue();
   });
-  await page.route("**/network-flow/tables", async (route) => {
+  await installOwnedRoute(page, "**/network-flow/tables", async (route) => {
     if (blockTables) await route.abort("failed");
     else await route.continue();
   });
@@ -937,20 +957,19 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
     panel.getByTestId(networkAnalysisTestId("saved-graph-heading")),
   ).toHaveText("Renamed evidence graph");
 
-  let releaseRefreshObservation!: () => void;
-  const refreshObservation = new Promise<void>((resolve) => {
-    releaseRefreshObservation = resolve;
-  });
+  const refreshObservationBarrier = responseBarrier(page);
+  const releaseRefreshObservation = refreshObservationBarrier.release;
+  const refreshObservation = refreshObservationBarrier.promise;
   let refreshReadRequested = false;
   const observationRoute = "**/api/v1/jobs/*";
   const holdObservation = async (route: Route) => {
     if (route.request().method() === "GET") {
       refreshReadRequested = true;
-      await refreshObservation;
+      if (!(await awaitResponseBarrier(route, refreshObservation))) return;
     }
     await route.continue();
   };
-  await page.route(observationRoute, holdObservation);
+  await installOwnedRoute(page, observationRoute, holdObservation);
   try {
     await panel.getByRole("button", { name: "Refresh" }).click();
     await page.getByRole("button", { name: "Refresh graph" }).click();
@@ -963,8 +982,10 @@ test("Network Analysis saved graphs complete exact-result lifecycle through the 
     await expect(
       page.getByTestId(/^network-flow-saved-graph-vertex-/u).first(),
     ).toBeVisible();
-  } finally {
+
     releaseRefreshObservation();
+  } finally {
+    refreshObservationBarrier.cancel();
   }
   await expect(
     panel.getByText("Materialization succeeded.", { exact: true }),
@@ -993,60 +1014,68 @@ test("Network Analysis saved graphs recover denied replay and withdrawn read aut
   const writes: string[] = [];
   let denyList = false;
   let failOperationReads = false;
-  await page.route("**/api/v1/jobs/*", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/jobs/*", async (route) => {
     if (failOperationReads && route.request().method() === "GET")
       await route.abort("failed");
     else await route.continue();
   });
-  await page.route("**/network-flow/graph-views/*", async (route) => {
-    if (failOperationReads && route.request().method() === "GET")
-      await route.abort("failed");
-    else await route.continue();
-  });
-  await page.route("**/network-flow/graph-views", async (route) => {
-    if (route.request().method() === "GET") {
-      if (failOperationReads) await route.abort("failed");
-      else if (denyList)
+  await installOwnedRoute(
+    page,
+    "**/network-flow/graph-views/*",
+    async (route) => {
+      if (failOperationReads && route.request().method() === "GET")
+        await route.abort("failed");
+      else await route.continue();
+    },
+  );
+  await installOwnedRoute(
+    page,
+    "**/network-flow/graph-views",
+    async (route) => {
+      if (route.request().method() === "GET") {
+        if (failOperationReads) await route.abort("failed");
+        else if (denyList)
+          await route.fulfill({
+            status: 403,
+            json: {
+              error: {
+                code: "authorization_denied",
+                status: 403,
+                message: "Current read access was withdrawn.",
+                request_id: "req-saved-read-denial",
+                retryable: false,
+                details: {},
+              },
+            },
+          });
+        else await route.continue();
+        return;
+      }
+      writes.push(route.request().postData() ?? "");
+      if (writes.length === 1) {
+        const response = await route.fetch();
+        expect(response.status()).toBe(202);
+        await route.abort("failed");
+      } else if (writes.length === 2) {
         await route.fulfill({
           status: 403,
           json: {
             error: {
               code: "authorization_denied",
               status: 403,
-              message: "Current read access was withdrawn.",
-              request_id: "req-saved-read-denial",
+              message: "Replay recovery request denied.",
+              request_id: "req-saved-replay-denial",
               retryable: false,
               details: {},
             },
           },
         });
-      else await route.continue();
-      return;
-    }
-    writes.push(route.request().postData() ?? "");
-    if (writes.length === 1) {
-      const response = await route.fetch();
-      expect(response.status()).toBe(202);
-      await route.abort("failed");
-    } else if (writes.length === 2) {
-      await route.fulfill({
-        status: 403,
-        json: {
-          error: {
-            code: "authorization_denied",
-            status: 403,
-            message: "Replay recovery request denied.",
-            request_id: "req-saved-replay-denial",
-            retryable: false,
-            details: {},
-          },
-        },
-      });
-    } else {
-      failOperationReads = true;
-      await route.continue();
-    }
-  });
+      } else {
+        failOperationReads = true;
+        await route.continue();
+      }
+    },
+  );
   await panel.getByRole("button", { name: "Save current graph" }).click();
   const dialog = page.getByRole("dialog", { name: "Save current graph" });
   await dialog
@@ -1089,7 +1118,8 @@ test("Network Analysis saved graphs recover denied replay and withdrawn read aut
     .first()
     .getByRole("button");
   let staleContributors = true;
-  await page.route(
+  await installOwnedRoute(
+    page,
     "**/network-flow/graph-views/*/contributors/query",
     async (route) => {
       if (staleContributors) {
@@ -1232,18 +1262,18 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
     await other.close();
   }
   let releaseResult = () => {};
-  const resultGate = new Promise<void>((resolve) => {
-    releaseResult = resolve;
-  });
+  const resultGateBarrier = responseBarrier(page);
+  releaseResult = resultGateBarrier.release;
+  const resultGate = resultGateBarrier.promise;
   let resultStarted = () => {};
-  const resultWaiting = new Promise<void>((resolve) => {
-    resultStarted = resolve;
-  });
+  const resultWaitingBarrier = responseBarrier(page);
+  resultStarted = resultWaitingBarrier.release;
+  const resultWaiting = resultWaitingBarrier.promise;
   const resultRoute = `**/network-flow/graph-views/${ids[0]}/result`;
-  await page.route(resultRoute, async (route) => {
+  await installOwnedRoute(page, resultRoute, async (route) => {
     const response = await route.fetch();
     resultStarted();
-    await resultGate;
+    if (!(await awaitResponseBarrier(route, resultGate))) return;
     await route.fulfill({ response });
   });
   try {
@@ -1259,9 +1289,12 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
     await expect(
       panel.getByTestId(networkAnalysisTestId("saved-graph-result")),
     ).toBeVisible();
-  } finally {
+
     releaseResult();
-    await page.unroute(resultRoute);
+
+    await removeOwnedRoute(page, resultRoute);
+  } finally {
+    resultGateBarrier.cancel();
   }
   await graphA.click();
   await expectSavedGraphResult(panel, firstResult);
@@ -1274,18 +1307,18 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
     .getByRole("button");
   await expect(vertex).toBeVisible();
   let releaseContributors = () => {};
-  const contributorGate = new Promise<void>((resolve) => {
-    releaseContributors = resolve;
-  });
+  const contributorGateBarrier = responseBarrier(page);
+  releaseContributors = contributorGateBarrier.release;
+  const contributorGate = contributorGateBarrier.promise;
   let contributorsStarted = () => {};
-  const contributorsWaiting = new Promise<void>((resolve) => {
-    contributorsStarted = resolve;
-  });
+  const contributorsWaitingBarrier = responseBarrier(page);
+  contributorsStarted = contributorsWaitingBarrier.release;
+  const contributorsWaiting = contributorsWaitingBarrier.promise;
   const contributorRoute = `**/network-flow/graph-views/${ids[0]}/contributors/query`;
-  await page.route(contributorRoute, async (route) => {
+  await installOwnedRoute(page, contributorRoute, async (route) => {
     const response = await route.fetch();
     contributorsStarted();
-    await contributorGate;
+    if (!(await awaitResponseBarrier(route, contributorGate))) return;
     await route.fulfill({ response });
   });
   try {
@@ -1304,9 +1337,12 @@ test("Network Analysis saved graphs fence deferred results and contributors acro
       page.getByRole("complementary", { name: "Saved graph contributors" }),
     ).toHaveCount(0);
     await expect(graphB).toHaveAttribute("aria-current", "true");
-  } finally {
+
     releaseContributors();
-    await page.unroute(contributorRoute);
+
+    await removeOwnedRoute(page, contributorRoute);
+  } finally {
+    contributorGateBarrier.cancel();
   }
   await page
     .getByTestId(/^network-flow-saved-graph-vertex-/u)
@@ -1600,19 +1636,23 @@ test("Network Analysis table dialogs review peer changes preserve graph context 
 
   const requests: string[] = [];
   let lose = true;
-  await page.route(`**/network-flow/tables/${tableId}`, async (route) => {
-    if (route.request().method() !== "PATCH") {
-      await route.continue();
-      return;
-    }
-    requests.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    expect(response.status()).toBe(200);
-    if (lose) {
-      lose = false;
-      await route.abort("failed");
-    } else await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/network-flow/tables/${tableId}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") {
+        await route.continue();
+        return;
+      }
+      requests.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      if (lose) {
+        lose = false;
+        await route.abort("failed");
+      } else await route.fulfill({ response });
+    },
+  );
   await trigger.click();
   await input.fill("Recovered table");
   await input.press("Enter");

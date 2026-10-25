@@ -120,7 +120,7 @@ function assertObservation(
 }
 
 test("measures paint-qualified Timeline summary ArrowDown selection within AC-043", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
   testActor,
@@ -138,7 +138,7 @@ test("measures paint-qualified Timeline summary ArrowDown selection within AC-04
     traffic =
       await test.step("establish and qualify 25-session background traffic", () =>
         startAc043SnapshotTraffic(
-          browser,
+          browserScope,
           sessionTracker,
           prepared.incidentId,
           prepared.snapshot.timelineRows.filter(
@@ -205,7 +205,7 @@ test("measures paint-qualified Timeline summary ArrowDown selection within AC-04
 });
 
 test("measures paint-qualified Timeline summary pointer focus within AC-043", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
   testActor,
@@ -223,7 +223,7 @@ test("measures paint-qualified Timeline summary pointer focus within AC-043", as
     traffic =
       await test.step("establish and qualify 25-session background traffic", () =>
         startAc043SnapshotTraffic(
-          browser,
+          browserScope,
           sessionTracker,
           prepared.incidentId,
           prepared.snapshot.timelineRows.filter(
@@ -282,7 +282,7 @@ test("measures paint-qualified Timeline summary pointer focus within AC-043", as
 });
 
 test("measures paint-qualified committed Timeline summary typing acknowledgment within AC-043", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
   testActor,
@@ -300,7 +300,7 @@ test("measures paint-qualified committed Timeline summary typing acknowledgment 
     traffic =
       await test.step("establish and qualify 25-session background traffic", () =>
         startAc043SnapshotTraffic(
-          browser,
+          browserScope,
           sessionTracker,
           prepared.incidentId,
           prepared.snapshot.timelineRows.filter(
@@ -352,7 +352,7 @@ test("measures paint-qualified committed Timeline summary typing acknowledgment 
 });
 
 test("measures paint-qualified Timeline blank-row creation within AC-043", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
   testActor,
@@ -369,7 +369,7 @@ test("measures paint-qualified Timeline blank-row creation within AC-043", async
     traffic =
       await test.step("establish and qualify 25-session background traffic", () =>
         startAc043SnapshotTraffic(
-          browser,
+          browserScope,
           sessionTracker,
           prepared.incidentId,
           prepared.snapshot.timelineRows.filter(

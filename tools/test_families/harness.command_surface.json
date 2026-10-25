@@ -190,7 +190,6 @@
           "TestRuntimeProducerInterop",
           "TestRuntimePublicationRollback",
           "TestRuntimeRequiredPublication",
-          "TestRuntimeSelectedGraphExecution",
           "TestRuntimeUnitInputEnvironment"
         ]
       },

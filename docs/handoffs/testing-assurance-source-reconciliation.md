@@ -1,5 +1,7 @@
 # Source selection reconciliation
 
+**Bounded cutover supersession, 2026-10-24:** The public-error fault-control row and source inventory below describe the frozen baseline. They were retired by the bounded cutover recorded in [testing-remediation E-032](testing-remediation.md#e-032--wf-06--s-003-completion-checkpoint); the replacement route-absence and serializer witnesses are authoritative for current selection. Historical results retain their original source applicability.
+
 Baseline: `00d24aa5354284dfcf6533b8f650e9eb0291ad44`. This human inventory records authored selections and reviewed fixture requirements. Rows below distinguish retained fresh execution from enrollment-only work. Enrollment is not demonstrated coverage, and a pass establishes only its recorded source and actual assertions. It is not consumed by the harness.
 
 ## Borrowed fixture executable lifetime

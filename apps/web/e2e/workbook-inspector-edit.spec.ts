@@ -35,6 +35,7 @@ import { collectionItems } from "./support/entities/mentions";
 import { createUploadedEvidenceFixture } from "./support/evidence/fixtures";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -44,6 +45,10 @@ import {
 import { createInspectorReadingFixture } from "./support/timeline/inspectorReadingFixture";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { fetchRecordHistoryCount } from "./support/workbook/history";
 import { switchOrdinarySheet } from "./support/workbook/ordinaryCreate";
 import {
@@ -718,7 +723,7 @@ test("a11y.generic reference summaries keep Party and Evidence shortcuts semanti
 });
 
 test("a11y.generic reference summary viewer actions remain disabled", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
 }) => {
@@ -740,8 +745,8 @@ test("a11y.generic reference summary viewer actions remain disabled", async ({
     is_deployment_admin: false,
     mfa_required: false,
   });
-  const context = await browser.newContext();
-  try {
+  const context = await browserScope.newContext();
+  {
     const viewerPage = await context.newPage();
     await sessionTracker.loginTrackedUser(viewerPage, {
       createdBy: "a11y.generic-reference-summary",
@@ -779,8 +784,8 @@ test("a11y.generic reference summary viewer actions remain disabled", async ({
     await expect(
       viewerPage.getByTestId(genericEditValueTestId(evidenceViewSchemaId)),
     ).toHaveCount(0);
-  } finally {
-    await context.close();
+
+    await browserScope.closeContext(context);
   }
 });
 
@@ -1127,7 +1132,8 @@ test("Inspector uncertain recovery replays exact requests without consuming newe
     const f = await fixture(page, view),
       input = await editField(page, view, f.field),
       bodies: string[] = [];
-    await page.route(
+    await installOwnedRoute(
+      page,
       `**/api/v1/records/${f.first.record_id}`,
       async (route) => {
         if (route.request().method() !== "PATCH") {
@@ -1198,21 +1204,25 @@ test("Inspector acknowledged refresh recovery preserves newer grid focus and nev
     committed = false,
     failRefresh = true,
     count = 0;
-  await page.route(`**/api/v1/records/${f.first.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") {
-      await route.continue();
-      return;
-    }
-    count++;
-    const response = await route.fetch();
-    expect(response.ok()).toBeTruthy();
-    committed = true;
-    await new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    await route.fulfill({ response });
-  });
-  await page.route(`**/views/${f.view}/query`, async (route) => {
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${f.first.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") {
+        await route.continue();
+        return;
+      }
+      count++;
+      const response = await route.fetch();
+      expect(response.ok()).toBeTruthy();
+      committed = true;
+      const heldResponse = responseBarrier(page);
+      release = heldResponse.release;
+      if (!(await awaitResponseBarrier(route, heldResponse.promise))) return;
+      await route.fulfill({ response });
+    },
+  );
+  await installOwnedRoute(page, `**/views/${f.view}/query`, async (route) => {
     if (committed && failRefresh) await route.abort("failed");
     else await route.continue();
   });
@@ -1356,17 +1366,25 @@ test("Existing Task reference queries stage typed Timeline filters and ordering 
   const reads: Record<string, unknown>[] = [],
     canonical: Record<string, unknown>[] = [],
     writes: unknown[] = [];
-  await page.route(`**/views/${timelineViewSchemaId}/query`, async (route) => {
-    reads.push(route.request().postDataJSON());
-    const response = await route.fetch();
-    canonical.push((await response.json()).meta.query);
-    await route.fulfill({ response });
-  });
-  await page.route(`**/records/${task.record_id}`, async (route) => {
-    if (route.request().method() === "PATCH")
-      writes.push(route.request().postDataJSON());
-    await route.continue();
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${timelineViewSchemaId}/query`,
+    async (route) => {
+      reads.push(route.request().postDataJSON());
+      const response = await route.fetch();
+      canonical.push((await response.json()).meta.query);
+      await route.fulfill({ response });
+    },
+  );
+  await installOwnedRoute(
+    page,
+    `**/records/${task.record_id}`,
+    async (route) => {
+      if (route.request().method() === "PATCH")
+        writes.push(route.request().postDataJSON());
+      await route.continue();
+    },
+  );
   await page.goto(
     `/?incident_id=${incident}&view_schema_id=${taskRequestsViewSchemaId}`,
   );
@@ -1545,7 +1563,7 @@ test("Reference selection reaches later real targets and retains staged choices 
     refreshFailure = false;
   const reads: Record<string, unknown>[] = [],
     writes: Record<string, unknown>[] = [];
-  await page.route(`**/views/${noteView}/query`, async (route) => {
+  await installOwnedRoute(page, `**/views/${noteView}/query`, async (route) => {
     const body = route.request().postDataJSON();
     reads.push(body);
     if (!body.cursor_token && initialFailure) {
@@ -1558,17 +1576,21 @@ test("Reference selection reaches later real targets and retains staged choices 
     }
     await route.continue();
   });
-  await page.route(`**/views/${taskView}/query`, (route) =>
+  await installOwnedRoute(page, `**/views/${taskView}/query`, (route) =>
     refreshFailure ? route.abort("failed") : route.continue(),
   );
-  await page.route(`**/api/v1/records/${task.record_id}`, async (route) => {
-    if (route.request().method() !== "PATCH") return route.continue();
-    writes.push(route.request().postDataJSON());
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    refreshFailure = true;
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${task.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "PATCH") return route.continue();
+      writes.push(route.request().postDataJSON());
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      refreshFailure = true;
+      await route.fulfill({ response });
+    },
+  );
   await page.goto(`/?incident_id=${incident}&view_schema_id=${taskView}`);
   await openGenericInspectorForRecord(page, taskView, task.record_id);
   const input = await editField(page, taskView, "task.linked_record_ids");
@@ -1829,11 +1851,15 @@ test("Ordinary reference picker restores focus after keyboard removal of its sol
     "party.party_kind": "person",
   });
   const writes: Record<string, unknown>[] = [];
-  await page.route(`**/api/v1/records/${evidence.record_id}`, (route) => {
-    if (route.request().method() === "PATCH")
-      writes.push(route.request().postDataJSON());
-    return route.continue();
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${evidence.record_id}`,
+    (route) => {
+      if (route.request().method() === "PATCH")
+        writes.push(route.request().postDataJSON());
+      return route.continue();
+    },
+  );
   for (const [width, key] of [
     [1440, "Enter"],
     [1024, "Space"],

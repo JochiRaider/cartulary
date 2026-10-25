@@ -36,6 +36,7 @@ import {
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueEmail,
   uniqueIncidentKey,
@@ -45,7 +46,12 @@ import {
   createTimelineFillers,
   timelineFixtureOccurredAt,
 } from "./support/timeline/fixtures";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import { createViewRow } from "./support/workbook/query";
 import { openRecoveryItem } from "./support/workbook/recovery";
@@ -135,7 +141,7 @@ test("Timeline Review read cannot interrupt newer scalar editing", async ({
     )
       reviewWrites++;
   });
-  try {
+  {
     const review = notices
       .first()
       .getByRole("button", { name: "Review", exact: true });
@@ -201,7 +207,7 @@ test("Timeline Review read cannot interrupt newer scalar editing", async ({
       page.getByTestId(gridRowTestId(timelineViewSchemaId, editing.record_id)),
     ).toBeVisible();
     expect(reviewWrites).toBe(0);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -279,7 +285,7 @@ test("Timeline Review read preserves narrow collection editing", async ({
     )
       reviewWrites++;
   });
-  try {
+  {
     await notices
       .first()
       .getByRole("button", { name: "Review", exact: true })
@@ -335,7 +341,7 @@ test("Timeline Review read preserves narrow collection editing", async ({
     });
     await expect(notices).toHaveCount(1);
     expect(reviewWrites).toBe(0);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -405,13 +411,13 @@ test("Timeline Review read failure retries at the original source mention", asyn
       reviewWrites++;
   });
   const queryPath = `**/api/v1/incidents/${incident}/views/${timelineViewSchemaId}/query`;
-  await page.route(queryPath, async (route) => {
+  await installOwnedRoute(page, queryPath, async (route) => {
     if (route.request().method() !== "POST") return route.fallback();
     readCount++;
     if (readCount === 1) return route.abort("failed");
     return route.continue();
   });
-  try {
+  {
     const review = notices
       .first()
       .getByRole("button", { name: "Review", exact: true });
@@ -426,8 +432,8 @@ test("Timeline Review read failure retries at the original source mention", asyn
     await expect(notices).toHaveCount(1);
     expect(readCount).toBe(2);
     expect(reviewWrites).toBe(0);
-  } finally {
-    await page.unroute(queryPath);
+
+    await removeOwnedRoute(page, queryPath);
   }
 });
 
@@ -505,20 +511,21 @@ test("Timeline auto-resolution feedback retry Undo retains keyboard position thr
   const failFirst = async (route: Route) => {
     await route.abort("failed");
   };
-  await page.route(path, failFirst);
+  await installOwnedRoute(page, path, failFirst);
   const undo = notice.getByRole("button", { name: "Undo", exact: true });
-  try {
+  {
     await undo.focus();
     await undo.press("Enter");
     await expect(
       notice.getByRole("button", { name: "Retry Undo", exact: true }),
     ).toBeVisible();
-    await page.unroute(path, failFirst);
+    await removeOwnedRoute(page, path, failFirst);
     const held = await holdBrowserRequest(page, {
       method: "POST",
-      path: "/api/v1/entity-mentions/*/resolve",
+      path: (path) =>
+        /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
     });
-    try {
+    {
       const retry = notice.getByRole("button", {
         name: "Retry Undo",
         exact: true,
@@ -540,11 +547,11 @@ test("Timeline auto-resolution feedback retry Undo retains keyboard position thr
       await expect(notice).toHaveCount(0);
       expect(bodies).toHaveLength(2);
       expect(bodies[1]).toBe(bodies[0]);
-    } finally {
+
       await held.dispose();
     }
-  } finally {
-    await page.unroute(path, failFirst);
+
+    await removeOwnedRoute(page, path, failFirst);
   }
 });
 
@@ -555,9 +562,9 @@ test("Timeline auto-resolution feedback owned Undo restores a visible source des
   const { notice, source } = await prepareUndoContinuity(page);
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
-  try {
+  {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
     await undo.focus();
     await undo.press("Enter");
@@ -573,7 +580,7 @@ test("Timeline auto-resolution feedback owned Undo restores a visible source des
     await expect(sourceCell).toBeFocused();
     await expect(sourceCell).toBeInViewport();
     expect(held.hitCount()).toBe(1);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -597,9 +604,9 @@ test("Timeline auto-resolution feedback owned Undo falls back when its source is
   ).toBeVisible();
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
-  try {
+  {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
     await undo.focus();
     await undo.press("Enter");
@@ -616,7 +623,7 @@ test("Timeline auto-resolution feedback owned Undo falls back when its source is
       )
       .toBe(true);
     expect(held.hitCount()).toBe(1);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -643,9 +650,9 @@ test("Timeline auto-resolution feedback undo late acceptance cannot reclaim newe
     .toBeGreaterThan(2);
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
-  try {
+  {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
     await undo.focus();
     await undo.press("Enter");
@@ -705,7 +712,7 @@ test("Timeline auto-resolution feedback undo late acceptance cannot reclaim newe
       "BODY",
     );
     expect(held.hitCount()).toBe(1);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -717,9 +724,9 @@ test("Timeline auto-resolution feedback undo late acceptance preserves same-row 
   const { notice, itemRef } = await prepareUndoContinuity(page);
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
-  try {
+  {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
     await undo.focus();
     await undo.press("Enter");
@@ -740,7 +747,7 @@ test("Timeline auto-resolution feedback undo late acceptance preserves same-row 
       Math.min(newerScroll, settledScroll.maximum),
     );
     expect(held.hitCount()).toBe(1);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -752,9 +759,9 @@ test("Timeline auto-resolution feedback undo late acceptance preserves native sc
   const { notice, editing } = await prepareUndoContinuity(page, 48);
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
-  try {
+  {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
     await undo.focus();
     await undo.press("Enter");
@@ -834,7 +841,7 @@ test("Timeline auto-resolution feedback undo late acceptance preserves native sc
       direction: "backward",
     });
     expect(held.hitCount()).toBe(1);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -846,9 +853,9 @@ test("Timeline auto-resolution feedback undo late acceptance stays detached afte
   const { notice } = await prepareUndoContinuity(page);
   const held = await holdBrowserRequest(page, {
     method: "POST",
-    path: "/api/v1/entity-mentions/*/resolve",
+    path: (path) => /^\/api\/v1\/entity-mentions\/[^/?]+\/resolve$/u.test(path),
   });
-  try {
+  {
     const undo = notice.getByRole("button", { name: "Undo", exact: true });
     await undo.focus();
     await undo.press("Enter");
@@ -861,7 +868,7 @@ test("Timeline auto-resolution feedback undo late acceptance stays detached afte
     await page.getByTestId(surfaceTabTestId(timelineViewSchemaId)).click();
     await expect(notice).toHaveCount(0);
     expect(held.hitCount()).toBe(1);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -1285,10 +1292,10 @@ async function characterize(
   const queryPath = `**/views/${timelineViewSchemaId}/query`;
   const mentionPath = "**/entity-mentions/*/resolve";
   if (density === "default") {
-    await page.route(queryPath, (route) =>
+    await installOwnedRoute(page, queryPath, (route) =>
       failRefresh ? route.abort("failed") : route.continue(),
     );
-    await page.route(mentionPath, async (route) => {
+    await installOwnedRoute(page, mentionPath, async (route) => {
       mentionBodies.push(route.request().postData() ?? "");
       if (mentionBodies.length === 1) return route.abort("failed");
       const response = await route.fetch();
@@ -1327,8 +1334,8 @@ async function characterize(
     expect(mentionBodies).toHaveLength(2);
     expect(mentionBodies[1]).toBe(mentionBodies[0]);
     await recovery.press("Escape");
-    await page.unroute(queryPath);
-    await page.unroute(mentionPath);
+    await removeOwnedRoute(page, queryPath);
+    await removeOwnedRoute(page, mentionPath);
   }
   expect(
     await notices
@@ -1386,15 +1393,15 @@ test("Timeline disclosure arrival preserves scalar collection and native composi
     await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
     await showTimelineCollectionColumns(page, ["Hosts", "Tags"]);
     let release = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const gateBarrier = responseBarrier(page);
+    release = gateBarrier.release;
+    const gate = gateBarrier.promise;
     let writes = 0;
     const path = `**/api/v1/records/${source.record_id}`;
-    await page.route(path, async (route) => {
+    await installOwnedRoute(page, path, async (route) => {
       if (route.request().method() !== "PATCH") return route.continue();
       writes++;
-      await gate;
+      if (!(await awaitResponseBarrier(route, gate))) return;
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       await route.fulfill({ response });
@@ -1530,9 +1537,12 @@ test("Timeline disclosure arrival preserves scalar collection and native composi
       }
       await cdp.detach();
       expect(writes).toBe(2);
-    } finally {
+
       release();
-      await page.unroute(path);
+
+      await removeOwnedRoute(page, path);
+    } finally {
+      gateBarrier.cancel();
     }
   }
 });

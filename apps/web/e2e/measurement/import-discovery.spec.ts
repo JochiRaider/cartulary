@@ -10,14 +10,14 @@ test.use({
 test.describe.configure({ mode: "serial", timeout: 10 * 60 * 1_000 });
 
 test("measures CSV discovery progress and cancel while Timeline accepts editing", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runImportProgress(
     "discovery",
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -27,14 +27,14 @@ test("measures CSV discovery progress and cancel while Timeline accepts editing"
 });
 
 test("measures XLSX discovery progress and cancel while Timeline accepts editing", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runImportProgress(
     "discovery",
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,

@@ -16,13 +16,14 @@ import {
   workbookPresenceSummaryTestId,
   workbookSortMenuTriggerTestId,
 } from "@cartulary/ui-contracts";
-import type { Browser, Page, TestInfo } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
 import type { FixtureActorCredentials } from "../support/auth/sessions";
 import {
   type Ac043TrafficDriver,
   prepareAc043Snapshot,
   startAc043SnapshotTraffic,
 } from "../support/performance/ac043Snapshot";
+import type { OwnedBrowserScope } from "../support/runtime/cleanup";
 import { activateCommittedGridCell } from "../support/workbook/rowMutations";
 import { expect, test } from "./fixtures";
 import {
@@ -148,7 +149,7 @@ async function restoreDefaultQuery(
 }
 
 async function runMeasurement(
-  browser: Browser,
+  browserScope: OwnedBrowserScope,
   page: Page,
   testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
@@ -193,7 +194,7 @@ async function runMeasurement(
       [...defaultRows, ...destination].map((row) => row.record_id),
     );
     traffic = await startAc043SnapshotTraffic(
-      browser,
+      browserScope,
       sessionTracker,
       snapshot.incidentId,
       snapshot.timelineRows.filter((row) => !excluded.has(row.record_id)),
@@ -320,13 +321,13 @@ async function runMeasurement(
 }
 
 test("measures Timeline sort first useful viewport within AC-044", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -335,13 +336,13 @@ test("measures Timeline sort first useful viewport within AC-044", async ({
   );
 });
 test("measures Timeline sort stable viewport within AC-044", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -350,13 +351,13 @@ test("measures Timeline sort stable viewport within AC-044", async ({
   );
 });
 test("measures Timeline filter first useful viewport within AC-044", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -365,13 +366,13 @@ test("measures Timeline filter first useful viewport within AC-044", async ({
   );
 });
 test("measures Timeline filter stable viewport within AC-044", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -380,13 +381,13 @@ test("measures Timeline filter stable viewport within AC-044", async ({
   );
 });
 test("measures Timeline group first useful viewport within AC-044", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -395,13 +396,13 @@ test("measures Timeline group first useful viewport within AC-044", async ({
   );
 });
 test("measures Timeline group stable viewport within AC-044", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,

@@ -1,5 +1,7 @@
 # Testing Harness Remediation 03 — Coordinated Execution Efficiency
 
+**Bounded cutover supersession, 2026-10-24:** The former browser cleanup helper and ownership/isolation guidance below are superseded for the bounded cutover by the adopted Testing Harness owner and [testing-remediation E-028/E-036](testing-remediation.md#e-036--wf-04--s-004-completion-checkpoint). `OwnedBrowserScope` now owns the complete lifetime, including cancellation, sessions and feature settlement. Earlier measurements, failures and completion claims retain their recorded source and scope; they do not qualify this candidate.
+
 This is the controlling execution tracker for the user-approved Remediation 03
 plan. The implementation request supersedes the earlier planning-only action
 boundary; historical receipts E-001–E-017 retain their original scope.

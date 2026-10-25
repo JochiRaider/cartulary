@@ -10,7 +10,7 @@ import {
   timelineScalarEditorTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
-import type { Browser, Page, Request, TestInfo } from "@playwright/test";
+import type { Page, Request, TestInfo } from "@playwright/test";
 import type { FixtureActorCredentials } from "../support/auth/sessions";
 import { readCurrentSession } from "../support/auth/sessions";
 import { authHeadersForStorageState } from "../support/auth/storageState";
@@ -23,6 +23,7 @@ import {
   openReferencePacks,
   referencePackBundle,
 } from "../support/referencePacks";
+import type { OwnedBrowserScope } from "../support/runtime/cleanup";
 import { apiBase } from "../support/runtime/configuration";
 import { publicHttpOperation } from "../support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "../support/transport/publicJsonClient";
@@ -33,6 +34,8 @@ import {
   measureReferencePackProgress,
   type ReferencePackProgressPurpose,
 } from "./referencePackProgressTimingSupport";
+
+test.use({ jobSettlementTimeout: 120_000 });
 
 test.use({
   viewport: { width: 1920, height: 1080 },
@@ -67,7 +70,7 @@ async function requireAvailableReferencePack(page: Page) {
 
 async function runReferencePackProgress(
   purpose: ReferencePackProgressPurpose,
-  browser: Browser,
+  browserScope: OwnedBrowserScope,
   page: Page,
   testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
@@ -119,7 +122,7 @@ async function runReferencePackProgress(
     ).toBeVisible();
     const excluded = new Set(firstPage.map((row) => row.record_id));
     traffic = await startAc043SnapshotTraffic(
-      browser,
+      browserScope,
       sessionTracker,
       snapshot.incidentId,
       snapshot.timelineRows.filter((row) => !excluded.has(row.record_id)),
@@ -366,14 +369,14 @@ async function runReferencePackProgress(
 }
 
 test("measures Reference Pack import progress and cancel while Timeline accepts editing", async ({
-  browser,
+  browserScope,
   testActorPage,
   testActor,
   sessionTracker,
 }, info) => {
   await runReferencePackProgress(
     "import",
-    browser,
+    browserScope,
     testActorPage,
     testActor,
     sessionTracker,
@@ -381,14 +384,14 @@ test("measures Reference Pack import progress and cancel while Timeline accepts 
   );
 });
 test("measures Reference Pack reverify progress and cancel while Timeline accepts editing", async ({
-  browser,
+  browserScope,
   testActorPage,
   testActor,
   sessionTracker,
 }, info) => {
   await runReferencePackProgress(
     "reverify",
-    browser,
+    browserScope,
     testActorPage,
     testActor,
     sessionTracker,
@@ -396,14 +399,14 @@ test("measures Reference Pack reverify progress and cancel while Timeline accept
   );
 });
 test("measures Reference Pack refresh progress and cancel while Timeline accepts editing", async ({
-  browser,
+  browserScope,
   testActorPage,
   testActor,
   sessionTracker,
 }, info) => {
   await runReferencePackProgress(
     "refresh",
-    browser,
+    browserScope,
     testActorPage,
     testActor,
     sessionTracker,

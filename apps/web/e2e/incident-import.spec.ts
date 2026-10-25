@@ -9,12 +9,18 @@ import {
   DeploymentAdministration,
   openIncidentControls,
 } from "./pages/deploymentAdministration";
-import { responseBarrier } from "./support/incidents/creation";
 import {
   importBundleFixture,
   installImportObservationFixture,
   openImportPresentation,
 } from "./support/incidents/import";
+import { fetchOwnedJobResponse } from "./support/jobs/ownership";
+import { responseBarrier } from "./support/runtime/cleanup";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 
 test("imports real active and closed bundles with exact recovery and explicit workbook launch", async ({
   testActorPage: page,
@@ -23,39 +29,45 @@ test("imports real active and closed bundles with exact recovery and explicit wo
     const bundle = importBundleFixture(lifecycle);
     const form = await openImportPresentation(page);
     const admissions: { id: string; metadata: string; file: Buffer }[] = [];
-    const admitted = responseBarrier();
-    const release = responseBarrier();
+    const admitted = responseBarrier(page);
+    const release = responseBarrier(page);
     let failedRead = false;
     let jobReads = 0;
-    await page.route("**/api/v1/incident-bundles/import", async (route) => {
-      const response = await route.fetch();
-      expect(response.status()).toBe(202);
-      const envelope: GetJobResponse = await response.json();
-      if (admissions.length === 0)
-        expect(["queued", "running"]).toContain(envelope.data.status);
-      const request = route.request();
-      const multipart = await new Response(
-        new Uint8Array(request.postDataBuffer() ?? []),
-        {
-          headers: { "content-type": request.headers()["content-type"] ?? "" },
-        },
-      ).formData();
-      const file = multipart.get("file");
-      const metadata = multipart.get("metadata");
-      if (!(file instanceof Blob) || !(metadata instanceof Blob))
-        throw new Error("Expected multipart file and JSON metadata");
-      admissions.push({
-        id: envelope.data.job_id,
-        metadata: await metadata.text(),
-        file: Buffer.from(await file.arrayBuffer()),
-      });
-      if (admissions.length === 1) {
-        admitted.release();
-        await release.promise;
-        await route.abort("failed");
-      } else await route.fulfill({ response });
-    });
-    await page.route("**/api/v1/jobs/*", async (route) => {
+    await installOwnedRoute(
+      page,
+      "**/api/v1/incident-bundles/import",
+      async (route) => {
+        const response = await fetchOwnedJobResponse(page, route);
+        expect(response.status()).toBe(202);
+        const envelope: GetJobResponse = await response.json();
+        if (admissions.length === 0)
+          expect(["queued", "running"]).toContain(envelope.data.status);
+        const request = route.request();
+        const multipart = await new Response(
+          new Uint8Array(request.postDataBuffer() ?? []),
+          {
+            headers: {
+              "content-type": request.headers()["content-type"] ?? "",
+            },
+          },
+        ).formData();
+        const file = multipart.get("file");
+        const metadata = multipart.get("metadata");
+        if (!(file instanceof Blob) || !(metadata instanceof Blob))
+          throw new Error("Expected multipart file and JSON metadata");
+        admissions.push({
+          id: envelope.data.job_id,
+          metadata: await metadata.text(),
+          file: Buffer.from(await file.arrayBuffer()),
+        });
+        if (admissions.length === 1) {
+          admitted.release();
+          if (!(await awaitResponseBarrier(route, release.promise))) return;
+          await route.abort("failed");
+        } else await route.fulfill({ response });
+      },
+    );
+    await installOwnedRoute(page, "**/api/v1/jobs/*", async (route) => {
       if (route.request().method() === "GET") ++jobReads;
       if (route.request().method() === "GET" && !failedRead) {
         failedRead = true;
@@ -130,8 +142,8 @@ test("imports real active and closed bundles with exact recovery and explicit wo
       ).toHaveText("Closed, read-only");
     }
     expect(admissions).toHaveLength(2);
-    await page.unroute("**/api/v1/incident-bundles/import");
-    await page.unroute("**/api/v1/jobs/*");
+    await removeOwnedRoute(page, "**/api/v1/incident-bundles/import");
+    await removeOwnedRoute(page, "**/api/v1/jobs/*");
     await testInfo.attach(`real-import-replay-evidence-${lifecycle}`, {
       body: JSON.stringify({
         lifecycle,
@@ -253,7 +265,7 @@ test("checks import actions and recovers access explicitly before accepting curr
   });
   await expect(cancel).toBeEnabled();
   await page.getByRole("button", { name: "Pause updates" }).click();
-  const readGate = responseBarrier();
+  const readGate = responseBarrier(page);
   fixture.gateReads(readGate.promise);
   const before = fixture.readCount();
   await cancel.focus();
@@ -280,7 +292,7 @@ test("checks import actions and recovers access explicitly before accepting curr
   fixture.failReads(false);
 
   let sessionUnavailable = true;
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     if (sessionUnavailable) await route.abort("failed");
     else await route.fallback();
   });
@@ -300,7 +312,7 @@ test("checks import actions and recovers access explicitly before accepting curr
   await expect(form.getByLabel("Incident bundle file")).toBeFocused();
   await expect(form.getByLabel("Incident bundle file")).toBeEnabled();
 
-  await page.route("**/api/v1/extensions", (route) =>
+  await installOwnedRoute(page, "**/api/v1/extensions", (route) =>
     route.fulfill({
       status: 200,
       json: { data: { extensions: [] }, meta: { request_id: "profile-loss" } },

@@ -12,7 +12,12 @@ import {
 } from "@cartulary/view-contracts";
 import { expect, type Page } from "@playwright/test";
 import { createIncident } from "../incidents/fixtures";
+import { responseBarrier } from "../runtime/cleanup";
 import { uniqueIncidentKey, uniqueTxn } from "../runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "../transport/requestInterception";
 import { createViewRow, type SuppliedSourceFixture } from "./query";
 import { openRecoveryItem, recoveryEntry } from "./recovery";
 import { openTimelineInspector } from "./rowMutations";
@@ -71,16 +76,20 @@ export async function openTimelineEvidenceFixture(
 export async function retainTimelineEvidencePartialResult(page: Page) {
   let release = () => {},
     committed = false;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(`**/views/${evidenceViewSchemaId}/rows`, async (route) => {
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    committed = true;
-    await gate;
-    await route.fulfill({ response });
-  });
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
+  await installOwnedRoute(
+    page,
+    `**/views/${evidenceViewSchemaId}/rows`,
+    async (route) => {
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      committed = true;
+      if (!(await awaitResponseBarrier(route, gate))) return;
+      await route.fulfill({ response });
+    },
+  );
   await page
     .getByTestId(genericCreateSubmitTestId(evidenceViewSchemaId))
     .click();

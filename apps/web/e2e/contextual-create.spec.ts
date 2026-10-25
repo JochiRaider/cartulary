@@ -26,10 +26,15 @@ import {
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
@@ -68,14 +73,14 @@ test("Entity contextual Task creation retains editable references and replays a 
   const requests: string[] = [],
     receipts: CreateViewRowResponse[] = [],
     patches: string[] = [];
-  let releaseReplay: (() => void) | undefined;
-  const replayGate = new Promise<void>((resolve) => {
-    releaseReplay = resolve;
-  });
+  const replayGateBarrier = responseBarrier(page);
+  const releaseReplay = replayGateBarrier.release;
+  const replayGate = replayGateBarrier.promise;
   page.on("request", (request) => {
     if (request.method() === "PATCH") patches.push(request.url());
   });
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/views/${taskRequestsViewSchemaId}/rows`,
     async (route) => {
       requests.push(route.request().postData() ?? "");
@@ -84,7 +89,7 @@ test("Entity contextual Task creation retains editable references and replays a 
       receipts.push(await response.json());
       if (requests.length === 1) await route.abort("failed");
       else {
-        await replayGate;
+        if (!(await awaitResponseBarrier(route, replayGate))) return;
         await route.fulfill({ response });
       }
     },
@@ -236,18 +241,26 @@ test("Assessment contextual Decision draft survives inspector closure and accept
   const requests: string[] = [],
     receipts: CreateViewRowResponse[] = [];
   let failedReads = false;
-  await page.route(`**/views/${decisionsViewSchemaId}/query`, async (route) => {
-    if (failedReads) await route.abort("failed");
-    else await route.continue();
-  });
-  await page.route(`**/views/${decisionsViewSchemaId}/rows`, async (route) => {
-    requests.push(route.request().postData() ?? "");
-    const response = await route.fetch();
-    expect(response.ok()).toBeTruthy();
-    receipts.push(await response.json());
-    failedReads = true;
-    await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${decisionsViewSchemaId}/query`,
+    async (route) => {
+      if (failedReads) await route.abort("failed");
+      else await route.continue();
+    },
+  );
+  await installOwnedRoute(
+    page,
+    `**/views/${decisionsViewSchemaId}/rows`,
+    async (route) => {
+      requests.push(route.request().postData() ?? "");
+      const response = await route.fetch();
+      expect(response.ok()).toBeTruthy();
+      receipts.push(await response.json());
+      failedReads = true;
+      await route.fulfill({ response });
+    },
+  );
   await openSource(page, incident, assessmentsViewSchemaId, source.record_id);
   await begin(page, assessmentsViewSchemaId, "create_related.decision");
   await fillDecision(page, "Retained decision");

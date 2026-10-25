@@ -6,7 +6,6 @@ import {
 import { expect, test } from "./fixtures";
 import { DeploymentAdministration } from "./pages/deploymentAdministration";
 import {
-  auditBrowserBarrier,
   auditBrowserEvent,
   auditBrowserEventId,
   auditBrowserPath,
@@ -15,6 +14,7 @@ import {
 } from "./support/administrativeAudit";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import { patchUser } from "./support/auth/sessions";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 
 test("administrative audit browses more than one hundred real exact matching events and timestamp boundaries", async ({
@@ -190,7 +190,7 @@ test("administrative audit fences delayed pages and errors with keyboard filter 
   await expect(
     panel.getByTestId(administrativeAuditDetailTestId(auditBrowserEventId)),
   ).toContainText("Redacted");
-  const pending = auditBrowserBarrier();
+  const pending = responseBarrier(page);
   fixture.gateRead(pending.promise);
   fixture.setPage([
     auditBrowserEvent({
@@ -225,7 +225,7 @@ test("administrative audit fences delayed pages and errors with keyboard filter 
     .click();
   await expect(panel.getByRole("status")).toContainText("Page 1: 1 event");
   await panel.getByRole("button", { name: /^Inspect / }).click();
-  const replacing = auditBrowserBarrier();
+  const replacing = responseBarrier(page);
   fixture.setPage([]);
   fixture.gateRead(replacing.promise);
   await panel.getByRole("button", { name: "Refresh", exact: true }).click();
@@ -234,7 +234,7 @@ test("administrative audit fences delayed pages and errors with keyboard filter 
   await expect(
     panel.getByRole("button", { name: "Refresh", exact: true }),
   ).toBeFocused();
-  const staleError = auditBrowserBarrier();
+  const staleError = responseBarrier(page);
   fixture.fail();
   fixture.gateRead(staleError.promise);
   await panel.getByRole("button", { name: "Refresh", exact: true }).click();

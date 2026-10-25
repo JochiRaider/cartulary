@@ -34,6 +34,7 @@ import { installVisualPreferences } from "./support/auth/visualPreferences";
 import { installPatchController } from "./support/collaboration/replay";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -43,7 +44,12 @@ import {
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   commitOrdinary,
   ordinaryField,
@@ -440,33 +446,31 @@ test("Entity Find borrows exact grid work and gates rejected accepted and supers
       method: "PATCH",
       path: `/api/v1/records/${f.first}`,
     });
-    try {
-      await find(page, "Exact unfinished draft", 0);
-      await input(page).fill("0002 needle");
-      await expect(status(page)).toContainText("1 matching cell");
-      expect(hold.hitCount()).toBe(0);
-      await expect(raw).toHaveValue("  Exact unfinished draft  ");
-      await input(page).press("Escape");
-      await expect(raw).toBeFocused();
-      expect(hold.hitCount()).toBe(0);
-      await find(page, "0002 needle", 1);
-      await input(page).press("Enter");
-      await hold.waitForHit;
-      await expect(raw).toHaveValue("  Exact unfinished draft  ");
-      await expect(status(page)).toContainText("Waiting for the edit to save");
-      await page.getByRole("button", { name: "Close Find" }).click();
-      await expect(raw).toBeFocused();
-      hold.release();
-      await expect(cell(page, f.first, field)).toHaveText(
-        "Exact unfinished draft",
-      );
-      await find(page, "0002 needle", 1);
-      await navigate(page);
-      await expect(focusCell(page, f.last, field)).toBeFocused();
-      expect(hold.hitCount()).toBe(1);
-    } finally {
-      await hold.dispose();
-    }
+    await find(page, "Exact unfinished draft", 0);
+    await input(page).fill("0002 needle");
+    await expect(status(page)).toContainText("1 matching cell");
+    expect(hold.hitCount()).toBe(0);
+    await expect(raw).toHaveValue("  Exact unfinished draft  ");
+    await input(page).press("Escape");
+    await expect(raw).toBeFocused();
+    expect(hold.hitCount()).toBe(0);
+    await find(page, "0002 needle", 1);
+    await input(page).press("Enter");
+    await hold.waitForHit;
+    await expect(raw).toHaveValue("  Exact unfinished draft  ");
+    await expect(status(page)).toContainText("Waiting for the edit to save");
+    await page.getByRole("button", { name: "Close Find" }).click();
+    await expect(raw).toBeFocused();
+    hold.release();
+    await expect(cell(page, f.first, field)).toHaveText(
+      "Exact unfinished draft",
+    );
+    await find(page, "0002 needle", 1);
+    await navigate(page);
+    await expect(focusCell(page, f.last, field)).toBeFocused();
+    expect(hold.hitCount()).toBe(1);
+
+    await hold.dispose();
     await cell(page, f.first, field).click();
     await raw.fill("Accepted without cancellation");
     await find(page, "0002 needle", 1);
@@ -480,7 +484,7 @@ test("Entity Find borrows exact grid work and gates rejected accepted and supers
       method: "PATCH",
       path: `/api/v1/records/${f.first}`,
     });
-    try {
+    {
       await find(page, "0002 needle", 1);
       await input(page).press("Enter");
       await replacement.waitForHit;
@@ -496,23 +500,21 @@ test("Entity Find borrows exact grid work and gates rejected accepted and supers
       const middle = f.rows[1];
       if (!middle) throw new Error("Missing middle entity fixture");
       await expect(focusCell(page, middle.record_id, field)).toBeFocused();
-    } finally {
+
       await replacement.dispose();
     }
     await cell(page, f.first, field).click();
     await raw.fill("  rejected raw work  ");
     const rejected = await installPatchController(page);
-    try {
-      rejected.failNextPatch(422, "invalid_request", { recordId: f.first });
-      await find(page, "0002 needle", 1);
-      await input(page).press("Enter");
-      await expect(raw).toHaveValue("  rejected raw work  ");
-      await expect(raw).toBeFocused();
-      await expect(status(page)).toContainText("Correct the original edit");
-      await raw.press("Escape");
-    } finally {
-      await rejected.dispose();
-    }
+    rejected.failNextPatch(422, "invalid_request", { recordId: f.first });
+    await find(page, "0002 needle", 1);
+    await input(page).press("Enter");
+    await expect(raw).toHaveValue("  rejected raw work  ");
+    await expect(raw).toBeFocused();
+    await expect(status(page)).toContainText("Correct the original edit");
+    await raw.press("Escape");
+
+    await rejected.dispose();
   }
 });
 
@@ -690,7 +692,9 @@ test("Entity Find searches accepted bounded windows through continuation evictio
     await input(page).fill("needle");
     await expect(status(page)).toContainText("300 matching cells");
     const route = `**/api/v1/incidents/${f.incident}/views/${f.view}/query`;
-    await page.route(route, (request) => request.abort("failed"), { times: 1 });
+    await installOwnedRoute(page, route, (request) => request.abort("failed"), {
+      times: 1,
+    });
     await browsing
       .getByRole("button", { name: "Refresh", exact: true })
       .click();
@@ -766,23 +770,23 @@ test("Entity Find accepted edits retain newer work through failed refresh and re
       writes = 0,
       reads = 0;
     let release = () => {};
-    const ack = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const ackBarrier = responseBarrier(page);
+    release = ackBarrier.release;
+    const ack = ackBarrier.promise;
     const queryRoute = `**/api/v1/incidents/${f.incident}/views/${f.view}/query`;
     const patchRoute = `**/api/v1/records/${f.first}`;
-    await page.route(queryRoute, async (route) => {
+    await installOwnedRoute(page, queryRoute, async (route) => {
       reads++;
       if (writes > 0 && damage) return route.abort("failed");
       await route.continue();
     });
-    await page.route(patchRoute, async (route) => {
+    await installOwnedRoute(page, patchRoute, async (route) => {
       if (route.request().method() !== "PATCH") return route.continue();
       writes++;
       const response = await route.fetch();
       expect(response.ok()).toBe(true);
       committed = true;
-      await ack;
+      if (!(await awaitResponseBarrier(route, ack))) return;
       await route.fulfill({ response });
     });
     try {
@@ -819,10 +823,13 @@ test("Entity Find accepted edits retain newer work through failed refresh and re
       await navigate(page);
       await expect(focusCell(page, f.last, field)).toBeFocused();
       expect(writes).toBe(1);
-    } finally {
+
       release();
-      await page.unroute(queryRoute);
-      await page.unroute(patchRoute);
+
+      await removeOwnedRoute(page, queryRoute);
+      await removeOwnedRoute(page, patchRoute);
+    } finally {
+      ackBarrier.cancel();
     }
   }
 });

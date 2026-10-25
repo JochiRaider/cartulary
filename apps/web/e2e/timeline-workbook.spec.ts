@@ -40,13 +40,22 @@ import { collectionItems } from "./support/entities/mentions";
 import { currentLifecycle, lifecycleAction } from "./support/incidentLifecycle";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import {
+  type BarrierOutcome,
+  responseBarrier,
+} from "./support/runtime/cleanup";
 import { apiBase, webBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { showTimelineCollectionColumns } from "./support/workbook/collections";
 import {
   fetchFullRecordHistory,
@@ -115,44 +124,42 @@ test("Timeline Create uses native click Enter Space and click-only activation on
       method: "POST",
       path: f.createPath,
     });
-    try {
-      if (activation === "pointer") {
-        await create.hover();
-        await page.mouse.down();
-        expect(f.creates).toHaveLength(before);
-        await page.mouse.up();
-      } else if (activation === "click-only") {
-        // One browser task also exercises admission before disabled is painted.
-        await create.evaluate((button: HTMLButtonElement) => {
-          button.click();
-          button.click();
-        });
-      } else {
-        await create.focus();
-        await expect(create).toBeFocused();
-        await page.keyboard.down(activation);
-        if (activation === "Space") expect(f.creates).toHaveLength(before);
-        await page.keyboard.up(activation);
-      }
-      await held.waitForHit;
-      await expect(create).toBeDisabled();
-      await create.evaluate((button: HTMLButtonElement) => button.click());
-      expect(f.creates).toHaveLength(before + 1);
-      expect(JSON.parse(f.creates[before] ?? "null")).toEqual({
-        client_txn_id: expect.any(String),
+    if (activation === "pointer") {
+      await create.hover();
+      await page.mouse.down();
+      expect(f.creates).toHaveLength(before);
+      await page.mouse.up();
+    } else if (activation === "click-only") {
+      // One browser task also exercises admission before disabled is painted.
+      await create.evaluate((button: HTMLButtonElement) => {
+        button.click();
+        button.click();
       });
-      held.release();
-      await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(
-        before + 1,
-      );
-      await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
-      await expect(draft).toBeFocused();
-      await expect(draft).toHaveValue("");
-      await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-      expect(f.creates).toHaveLength(before + 1);
-    } finally {
-      await held.dispose();
+    } else {
+      await create.focus();
+      await expect(create).toBeFocused();
+      await page.keyboard.down(activation);
+      if (activation === "Space") expect(f.creates).toHaveLength(before);
+      await page.keyboard.up(activation);
     }
+    await held.waitForHit;
+    await expect(create).toBeDisabled();
+    await create.evaluate((button: HTMLButtonElement) => button.click());
+    expect(f.creates).toHaveLength(before + 1);
+    expect(JSON.parse(f.creates[before] ?? "null")).toEqual({
+      client_txn_id: expect.any(String),
+    });
+    held.release();
+    await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(
+      before + 1,
+    );
+    await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
+    await expect(draft).toBeFocused();
+    await expect(draft).toHaveValue("");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+    expect(f.creates).toHaveLength(before + 1);
+
+    await held.dispose();
   }
   expect(
     new Set(f.creates.map((body) => JSON.parse(body).client_txn_id)).size,
@@ -271,40 +278,38 @@ test("Timeline Create preserves pending fast capture and yields fresh draft focu
     method: "POST",
     path: f.createPath,
   });
-  try {
-    await draft.fill("Incomplete fact Ω");
-    await heldCapture.waitForHit;
-    await expect(create).toBeDisabled();
-    await draft.fill("Incomplete fact Ω with newer text");
-    await expect(draft).toHaveValue("Incomplete fact Ω with newer text");
-    await create.evaluate((button: HTMLButtonElement) => button.click());
-    await create.hover();
-    await page.mouse.down();
-    await page.mouse.up();
-    expect(f.creates).toHaveLength(1);
-    // Native hover may scroll the frozen row action into view and virtualize
-    // the synopsis column. Re-reveal it to assert that pending text survives.
-    await scrollGridTargetIntoView({
-      page,
-      surface: timelineViewSchemaId,
-      targetTestId: draftCellTestId(synopsis),
-    });
-    await expect(draft).toHaveValue("Incomplete fact Ω with newer text");
-    heldCapture.release();
-    await expect
-      .poll(async () =>
-        (await queryViewRows(page, f.incidentId, timelineViewSchemaId)).map(
-          (row) => row.cells[synopsis]?.value,
-        ),
-      )
-      .toEqual(["Incomplete fact Ω with newer text"]);
-    await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
-    await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
-    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-    expect(f.creates).toHaveLength(1);
-  } finally {
-    await heldCapture.dispose();
-  }
+  await draft.fill("Incomplete fact Ω");
+  await heldCapture.waitForHit;
+  await expect(create).toBeDisabled();
+  await draft.fill("Incomplete fact Ω with newer text");
+  await expect(draft).toHaveValue("Incomplete fact Ω with newer text");
+  await create.evaluate((button: HTMLButtonElement) => button.click());
+  await create.hover();
+  await page.mouse.down();
+  await page.mouse.up();
+  expect(f.creates).toHaveLength(1);
+  // Native hover may scroll the frozen row action into view and virtualize
+  // the synopsis column. Re-reveal it to assert that pending text survives.
+  await scrollGridTargetIntoView({
+    page,
+    surface: timelineViewSchemaId,
+    targetTestId: draftCellTestId(synopsis),
+  });
+  await expect(draft).toHaveValue("Incomplete fact Ω with newer text");
+  heldCapture.release();
+  await expect
+    .poll(async () =>
+      (await queryViewRows(page, f.incidentId, timelineViewSchemaId)).map(
+        (row) => row.cells[synopsis]?.value,
+      ),
+    )
+    .toEqual(["Incomplete fact Ω with newer text"]);
+  await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
+  await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  expect(f.creates).toHaveLength(1);
+
+  await heldCapture.dispose();
 
   const heldExplicit = await holdBrowserRequest(page, {
     method: "POST",
@@ -314,19 +319,17 @@ test("Timeline Create preserves pending fast capture and yields fresh draft focu
     name: "Account and application navigation",
     exact: true,
   });
-  try {
-    await create.click();
-    await heldExplicit.waitForHit;
-    await destination.focus();
-    heldExplicit.release();
-    await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(2);
-    await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
-    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
-    await expect(destination).toBeFocused();
-    expect(f.creates).toHaveLength(2);
-  } finally {
-    await heldExplicit.dispose();
-  }
+  await create.click();
+  await heldExplicit.waitForHit;
+  await destination.focus();
+  heldExplicit.release();
+  await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(2);
+  await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
+  await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+  await expect(destination).toBeFocused();
+  expect(f.creates).toHaveLength(2);
+
+  await heldExplicit.dispose();
 });
 
 test("Timeline Create rejection retains raw authoring and existing discard recovery", async ({
@@ -364,13 +367,13 @@ test("Timeline Create uncertain acceptance replays captured bytes without anothe
   const f = await openTimelineCreateFixture(page, "CREATE-UNCERTAIN");
   const receipts: { recordId: string; changeSetId: string }[] = [];
   let releaseReplay = () => {};
-  const replayGate = new Promise<void>((resolve) => {
-    releaseReplay = resolve;
-  });
+  const replayGateBarrier = responseBarrier(page);
+  releaseReplay = replayGateBarrier.release;
+  const replayGate = replayGateBarrier.promise;
   let attempts = 0;
-  await page.route(`**${f.createPath}`, async (route) => {
+  await installOwnedRoute(page, `**${f.createPath}`, async (route) => {
     const first = ++attempts === 1;
-    if (!first) await replayGate;
+    if (!first) if (!(await awaitResponseBarrier(route, replayGate))) return;
     const response = await route.fetch();
     expect(response.status()).toBe(first ? 201 : 200);
     const body = await response.json();
@@ -401,14 +404,17 @@ test("Timeline Create uncertain acceptance replays captured bytes without anothe
       await queryViewRows(page, f.incidentId, timelineViewSchemaId),
     ).toHaveLength(1);
     await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
-  } finally {
+
     releaseReplay();
-    await page.unroute(`**${f.createPath}`);
+
+    await removeOwnedRoute(page, `**${f.createPath}`);
+  } finally {
+    replayGateBarrier.cancel();
   }
 });
 
 test("Timeline Add row and Evidence stay independent of Create and closed or viewer admission", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
 }) => {
@@ -445,34 +451,36 @@ test("Timeline Add row and Evidence stay independent of Create and closed or vie
     is_deployment_admin: false,
     mfa_required: false,
   });
-  const viewerPage = await openIncidentAsTrackedUser(browser, sessionTracker, {
-    createdBy: "Timeline Create admission",
-    email,
-    incidentId: f.incidentId,
-    password,
-    purpose: "Verify viewer create admission",
-    userId: viewer.user_id,
-  });
-  try {
-    await expect(viewerPage.getByRole("grid")).toHaveAttribute(
-      "aria-readonly",
-      "true",
-    );
-    await expect(
-      viewerPage.getByRole("button", {
-        name: "Create timeline row",
-        exact: true,
-      }),
-    ).toHaveCount(0);
-    await expect(
-      viewerPage.getByRole("button", {
-        name: "Attach evidence to draft timeline row",
-        exact: true,
-      }),
-    ).toHaveCount(0);
-  } finally {
-    await viewerPage.context().close();
-  }
+  const viewerPage = await openIncidentAsTrackedUser(
+    browserScope,
+    sessionTracker,
+    {
+      createdBy: "Timeline Create admission",
+      email,
+      incidentId: f.incidentId,
+      password,
+      purpose: "Verify viewer create admission",
+      userId: viewer.user_id,
+    },
+  );
+  await expect(viewerPage.getByRole("grid")).toHaveAttribute(
+    "aria-readonly",
+    "true",
+  );
+  await expect(
+    viewerPage.getByRole("button", {
+      name: "Create timeline row",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    viewerPage.getByRole("button", {
+      name: "Attach evidence to draft timeline row",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+
+  await browserScope.closeContext(viewerPage.context());
   const lifecycle = await currentLifecycle(page, f.incidentId);
   expect(
     (
@@ -555,7 +563,7 @@ test("supports explicit blank Timeline row creation with only client_txn_id", as
     );
     await route.fallback();
   };
-  await page.route(createRoute, routeHandler);
+  await installOwnedRoute(page, createRoute, routeHandler);
 
   await page.goto(`/?incident_id=${incidentId}`);
   await expect(
@@ -587,11 +595,11 @@ test("supports explicit blank Timeline row creation with only client_txn_id", as
   expect(Object.keys(createBodies[0] ?? {})).toEqual(["client_txn_id"]);
   expect(typeof createBodies[0]?.client_txn_id).toBe("string");
 
-  await page.unroute(createRoute, routeHandler);
+  await removeOwnedRoute(page, createRoute, routeHandler);
 });
 
 test("drives review, demotion, and supersede through the visible workbook surface", async ({
-  browser,
+  browserScope,
   page,
   sessionTracker,
 }) => {
@@ -632,7 +640,7 @@ test("drives review, demotion, and supersede through the visible workbook surfac
   const replacementId = replacementRow.record_id as string;
 
   const reviewerPage = await openIncidentAsTrackedUser(
-    browser,
+    browserScope,
     sessionTracker,
     {
       createdBy: "timeline_mutation reviewer lifecycle flow",
@@ -712,7 +720,7 @@ test("drives review, demotion, and supersede through the visible workbook surfac
   await expect(
     reviewerPage.getByTestId(timelineRowMarkReviewedButtonTestId(recordId)),
   ).toBeDisabled();
-  await reviewerPage.context().close();
+  await browserScope.closeContext(reviewerPage.context());
 });
 
 test("Timeline supersession Review stays reachable and late preparation respects Inspector navigation", async ({
@@ -763,12 +771,15 @@ test("Timeline supersession Review stays reachable and late preparation respects
   const queryPath = `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`;
   let held = 0;
   let failNext = false;
-  let gate: Promise<void> | null = null;
+  let gate: Promise<BarrierOutcome> | null = null;
   let release = () => {};
+  let cancel = () => {};
   const holdNextRead = () => {
-    gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    ({
+      promise: gate,
+      release: release,
+      cancel: cancel,
+    } = responseBarrier(page));
   };
   const mutations: string[] = [];
   page.on("request", (request) => {
@@ -791,10 +802,10 @@ test("Timeline supersession Review stays reachable and late preparation respects
       return;
     }
     held++;
-    await activeGate;
+    if (!(await awaitResponseBarrier(route, activeGate))) return;
     await route.fulfill({ response });
   };
-  await page.route(`**${queryPath}`, holdValidation);
+  await installOwnedRoute(page, `**${queryPath}`, holdValidation);
   holdNextRead();
   await review.focus();
   await review.press("Enter");
@@ -849,7 +860,7 @@ test("Timeline supersession Review stays reachable and late preparation respects
     expect(mutations).toEqual([]);
   } finally {
     gate = null;
-    release();
+    cancel();
   }
 
   failNext = true;
@@ -885,7 +896,7 @@ test("Timeline supersession Review stays reachable and late preparation respects
     expect(mutations).toEqual([]);
   } finally {
     gate = null;
-    release();
+    cancel();
   }
   await confirm.press("Enter");
   await expect.poll(() => mutations.length).toBe(1);
@@ -902,9 +913,8 @@ test("Timeline supersession Review stays reachable and late preparation respects
 });
 
 test("uses public history and visible state to prove replay avoids duplicate mutation effects", async ({
-  browser,
+  browserScope,
   page,
-  sessionTracker,
 }) => {
   const incidentId = await createIncident(
     page,
@@ -917,10 +927,9 @@ test("uses public history and visible state to prove replay avoids duplicate mut
   });
   const recordId = row.record_id as string;
 
-  const observerContext = await sessionTracker.newTrackedContext(
-    browser,
-    await page.context().storageState(),
-  );
+  const observerContext = await browserScope.newContext({
+    storageState: await page.context().storageState(),
+  });
   const observer = await observerContext.newPage();
   let observerQueryCount = 0;
   observer.on("requestfinished", (request) => {
@@ -1024,7 +1033,7 @@ test("uses public history and visible state to prove replay avoids duplicate mut
   await expect(
     observer.getByTestId(gridRowTestId(timelineViewSchemaId, recordId)),
   ).toHaveAttribute(gridRowVersionAttribute, "2");
-  await observerContext.close();
+  await browserScope.closeContext(observerContext);
 });
 
 test("Timeline exact action recovery preserves committed transitions change sets and replacement links", async ({
@@ -1077,7 +1086,7 @@ test("Timeline exact action recovery preserves committed transitions change sets
     const requests: { url: string; method: string; body: string | null }[] = [];
     const receipts: Record<string, unknown>[] = [];
     let firstLossObserved = false;
-    await page.route(endpoint, async (route) => {
+    await installOwnedRoute(page, endpoint, async (route) => {
       requests.push({
         url: route.request().url(),
         method: route.request().method(),
@@ -1250,7 +1259,7 @@ test("Timeline exact action recovery preserves committed transitions change sets
         ),
       ).toHaveCount(0);
     }
-    await page.unroute(endpoint);
+    await removeOwnedRoute(page, endpoint);
     if (scenario.action === "supersede") {
       const rollbackItem = transition.find((item) =>
         item.available_rollback_actions.includes("change_set"),
@@ -1320,7 +1329,7 @@ test("Timeline pending capture retains native replacement paste and clear revisi
     method: "POST",
     path: f.createPath,
   });
-  try {
+  {
     await draft.fill("A");
     await held.waitForHit;
     // fill delivers native replacement input without a preceding keydown.
@@ -1349,7 +1358,7 @@ test("Timeline pending capture retains native replacement paste and clear revisi
     expect(rows[0]?.cells[synopsis]?.value).toBe("");
     await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
     expect(f.creates).toHaveLength(1);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -1369,7 +1378,7 @@ test("Timeline acknowledgement preserves an active composition until its final i
     method: "POST",
     path: f.createPath,
   });
-  try {
+  {
     await draft.fill("A");
     await held.waitForHit;
     const element = await draft.elementHandle();
@@ -1400,7 +1409,7 @@ test("Timeline acknowledgement preserves an active composition until its final i
     await expect(gridSavedRows(page, timelineViewSchemaId)).toHaveCount(1);
     await expect(gridDraftRows(page, timelineViewSchemaId)).toHaveCount(1);
     expect(f.creates).toHaveLength(1);
-  } finally {
+
     await held.dispose();
   }
 });
@@ -1421,7 +1430,7 @@ test("Timeline capture acknowledgement while detached retains authoring on the o
     method: "POST",
     path: f.createPath,
   });
-  try {
+  {
     await draft.fill("A");
     await held.waitForHit;
     await draft.fill("B after admission Ω");
@@ -1459,7 +1468,7 @@ test("Timeline capture acknowledgement while detached retains authoring on the o
     ).toHaveValue("B after admission Ω");
     await expect(draft).not.toHaveAttribute("id", originalId ?? "");
     expect(f.creates).toHaveLength(1);
-  } finally {
+
     await held.dispose();
   }
 });

@@ -36,7 +36,6 @@ type DependencySet struct {
 	ExtensionWorkspaces ExtensionWorkspaceProvider
 	Readiness           ReadinessChecker
 	Admission           AdmissionGate
-	PublicErrorFaults   PublicErrorFaultStore
 	PublicRoutes        *RouteRegistry
 	TestResetBootstrap  func(context.Context, pgx.Tx) error
 	ModuleOverrides     map[string]any
@@ -93,18 +92,6 @@ type ErrorPayload struct {
 	Message   string         `json:"message,omitempty"`
 	Details   map[string]any `json:"details"`
 	Conflict  any            `json:"conflict,omitempty"`
-}
-
-type PublicErrorFault struct {
-	Status    int
-	Code      string
-	Message   string
-	Retryable bool
-	Details   map[string]any
-}
-
-type PublicErrorFaultStore interface {
-	ConsumePublicErrorFault(method string, path string) (PublicErrorFault, bool)
 }
 
 type AdmissionGate interface {
@@ -191,9 +178,6 @@ func NewHandler(options ...Options) (http.Handler, error) {
 
 	handler := http.Handler(mux)
 	handler = withUnclaimedReservedExtensionFamilies(handler, extensionRoutesFromDependencies(option.Dependencies))
-	if option.Dependencies.PublicErrorFaults != nil {
-		handler = withPublicErrorFaults(handler, option.Dependencies.PublicErrorFaults)
-	}
 	if option.Dependencies.Telemetry.Enabled {
 		handler = telemetry.HTTPMiddleware(handler, option.Dependencies.Telemetry.ServiceVersion)
 	}
@@ -346,27 +330,6 @@ func WriteErrorWithOptions(w http.ResponseWriter, r *http.Request, status int, c
 			Conflict:  options.Conflict,
 		},
 	})
-}
-
-func withPublicErrorFaults(next http.Handler, faults PublicErrorFaultStore) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !isOrdinaryPublicAPIRoute(r.URL.Path) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		fault, ok := faults.ConsumePublicErrorFault(r.Method, r.URL.Path)
-		if !ok {
-			next.ServeHTTP(w, r)
-			return
-		}
-		_ = WriteErrorWithOptions(w, r, fault.Status, fault.Code, fault.Message, fault.Details, ErrorOptions{
-			Retryable: fault.Retryable,
-		})
-	})
-}
-
-func isOrdinaryPublicAPIRoute(path string) bool {
-	return strings.HasPrefix(path, "/api/v1/") && !strings.HasPrefix(path, "/api/v1/test/")
 }
 
 func withRequestID(next http.Handler, generator func() string) http.Handler {

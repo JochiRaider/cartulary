@@ -1,65 +1,61 @@
 import { expect, test } from "./fixtures";
-import { applyStorageState, csrfHeaders } from "./support/auth/browserSession";
+import { csrfHeaders } from "./support/auth/browserSession";
 import { readCurrentSession, revokeAllSessions } from "./support/auth/sessions";
 import { exerciseRevokedPendingReplay } from "./support/collaboration/replay";
 import { apiBase } from "./support/runtime/configuration";
 import { TestClock } from "./support/runtime/testClock";
 
-test.beforeEach(async ({ page }) => {
-  await new TestClock(page).reset();
-});
-
-test.afterEach(async ({ page }) => {
-  await new TestClock(page).reset();
-});
-
-test("preserves unsaved local work after socket revocation and re-authentication", async ({
+test("preserves and replays local work after owned-user revoke-all", async ({
   page,
   sessionTracker,
-  testActor,
   testActorRequest,
 }) => {
-  await test.step("deployment-admin revoke-all preserves and replays local work", async () => {
-    await exerciseRevokedPendingReplay({
-      createdBy: "collaboration-recovery",
-      incidentKeyPrefix: "E603REVOKE",
-      page,
-      scenario: "revoke-all",
-      sessionTracker,
-      triggerRevocation: async ({ member }) => {
-        await revokeAllSessions(
-          testActorRequest,
-          member.user_id,
-          "Collaboration collaboration-recovery browser revoke-all",
-        );
-      },
-    });
-    await applyStorageState(page, testActor.storageState);
+  await exerciseRevokedPendingReplay({
+    createdBy: "collaboration-recovery",
+    incidentKeyPrefix: "E603REVOKE",
+    page,
+    scenario: "revoke-all",
+    sessionTracker,
+    triggerRevocation: async ({ member }) => {
+      await revokeAllSessions(
+        testActorRequest,
+        member.user_id,
+        "Collaboration recovery owned-user revoke-all",
+      );
+    },
   });
+});
 
-  await test.step("current-session logout preserves and replays local work", async () => {
-    await exerciseRevokedPendingReplay({
-      createdBy: "collaboration-recovery",
-      incidentKeyPrefix: "E603LOGOUT",
-      page,
-      scenario: "logout",
-      sessionTracker,
-      triggerRevocation: async () => {
-        const response = await page.request.post(
-          `${apiBase}/api/v1/auth/logout`,
-          {
-            headers: await csrfHeaders(page),
-            data: {},
-          },
-        );
-        expect(response.ok()).toBeTruthy();
-      },
-    });
-    await applyStorageState(page, testActor.storageState);
+test("preserves and replays local work after current-session logout", async ({
+  page,
+  sessionTracker,
+}) => {
+  await exerciseRevokedPendingReplay({
+    createdBy: "collaboration-recovery",
+    incidentKeyPrefix: "E603LOGOUT",
+    page,
+    scenario: "logout",
+    sessionTracker,
+    triggerRevocation: async () => {
+      const response = await page.request.post(
+        `${apiBase}/api/v1/auth/logout`,
+        {
+          headers: await csrfHeaders(page),
+          data: {},
+        },
+      );
+      expect(response.ok()).toBeTruthy();
+    },
   });
+});
 
-  await test.step("idle expiry preserves and replays local work after re-authentication", async () => {
-    const testClock = new TestClock(page);
+test("preserves unsaved local work after socket idle expiry and re-authentication", async ({
+  page,
+  sessionTracker,
+}) => {
+  const clock = new TestClock(page);
+  await clock.reset();
+  try {
     await exerciseRevokedPendingReplay({
       createdBy: "collaboration-recovery",
       incidentKeyPrefix: "E603IDLE",
@@ -67,10 +63,11 @@ test("preserves unsaved local work after socket revocation and re-authentication
       scenario: "idle-expiry",
       sessionTracker,
       triggerRevocation: async () => {
-        const currentSession = await readCurrentSession(page);
-        await testClock.setAfter(currentSession.session_expires_at);
+        const session = await readCurrentSession(page);
+        await clock.setAfter(session.session_expires_at);
       },
     });
-    await applyStorageState(page, testActor.storageState);
-  });
+  } finally {
+    await clock.reset();
+  }
 });

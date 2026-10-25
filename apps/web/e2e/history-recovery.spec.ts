@@ -22,6 +22,7 @@ import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueIncidentKey,
@@ -29,6 +30,7 @@ import {
 } from "./support/runtime/fixtureIdentity";
 import { publicHttpOperation } from "./support/transport/publicHttpOperationClient";
 import { atJsonOrigin } from "./support/transport/publicJsonClient";
+import { installOwnedRoute } from "./support/transport/requestInterception";
 import { fetchFullRecordHistory } from "./support/workbook/history";
 import { createViewRow, patchRecord } from "./support/workbook/query";
 import { openRecoveryItem, recoveryEntry } from "./support/workbook/recovery";
@@ -133,31 +135,35 @@ async function recoverDelete(
   const before = await fetchFullRecordHistory(page, row.record_id);
   const bodies: string[] = [];
   let finishObserved = () => {};
-  const observed = new Promise<void>((resolve) => {
-    finishObserved = resolve;
-  });
-  await page.route(`**/api/v1/records/${row.record_id}`, async (route) => {
-    if (route.request().method() !== "DELETE") {
-      await route.continue();
-      return;
-    }
-    bodies.push(route.request().postData() ?? "");
-    if (bodies.length > 1) {
-      await route.continue();
-      return;
-    }
-    if (mode === "before_commit") {
-      await route.abort("failed");
+  const observedBarrier = responseBarrier(page);
+  finishObserved = observedBarrier.release;
+  const observed = observedBarrier.promise;
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${row.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "DELETE") {
+        await route.continue();
+        return;
+      }
+      bodies.push(route.request().postData() ?? "");
+      if (bodies.length > 1) {
+        await route.continue();
+        return;
+      }
+      if (mode === "before_commit") {
+        await route.abort("failed");
+        finishObserved();
+        return;
+      }
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      if (mode === "malformed")
+        await route.fulfill({ response, body: JSON.stringify({ data: {} }) });
+      else await route.abort("failed");
       finishObserved();
-      return;
-    }
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    if (mode === "malformed")
-      await route.fulfill({ response, body: JSON.stringify({ data: {} }) });
-    else await route.abort("failed");
-    finishObserved();
-  });
+    },
+  );
   await page.getByTestId(rowHistoryDeleteButtonTestId()).click();
   await page
     .getByTestId(
@@ -319,18 +325,23 @@ test("Timeline acknowledged delete survives a failed history refresh", async ({
   let acknowledged = false;
   let failRefresh = true;
   let mutations = 0;
-  await page.route(`**/api/v1/records/${row.record_id}`, async (route) => {
-    if (route.request().method() !== "DELETE") {
-      await route.continue();
-      return;
-    }
-    mutations++;
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true);
-    acknowledged = true;
-    await route.fulfill({ response });
-  });
-  await page.route(
+  await installOwnedRoute(
+    page,
+    `**/api/v1/records/${row.record_id}`,
+    async (route) => {
+      if (route.request().method() !== "DELETE") {
+        await route.continue();
+        return;
+      }
+      mutations++;
+      const response = await route.fetch();
+      expect(response.ok()).toBe(true);
+      acknowledged = true;
+      await route.fulfill({ response });
+    },
+  );
+  await installOwnedRoute(
+    page,
     `**/api/v1/records/${row.record_id}/history`,
     async (route) => {
       if (acknowledged && failRefresh) {

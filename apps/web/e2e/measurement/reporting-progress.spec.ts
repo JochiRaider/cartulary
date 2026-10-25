@@ -10,13 +10,14 @@ import {
   timelineScalarEditorTestId,
   workbookPresenceSummaryTestId,
 } from "@cartulary/ui-contracts";
-import type { Browser, Page, Request, TestInfo } from "@playwright/test";
+import type { Page, Request, TestInfo } from "@playwright/test";
 import type { FixtureActorCredentials } from "../support/auth/sessions";
 import {
   type Ac043TrafficDriver,
   prepareAc043Snapshot,
   startAc043SnapshotTraffic,
 } from "../support/performance/ac043Snapshot";
+import type { OwnedBrowserScope } from "../support/runtime/cleanup";
 import { expect, test } from "./fixtures";
 import type { JobProgressCompletion } from "./jobProgressPaint";
 import {
@@ -24,6 +25,8 @@ import {
   measureReportingProgress,
   type ReportingProgressPurpose,
 } from "./reportingProgressTimingSupport";
+
+test.use({ jobSettlementTimeout: 120_000 });
 
 test.use({
   viewport: { width: 1920, height: 1080 },
@@ -35,7 +38,7 @@ test.describe.configure({ mode: "serial", timeout: 10 * 60 * 1_000 });
 
 async function runReportingProgress(
   purpose: ReportingProgressPurpose,
-  browser: Browser,
+  browserScope: OwnedBrowserScope,
   page: Page,
   testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
@@ -106,7 +109,7 @@ async function runReportingProgress(
       expect(snapshotId).toMatch(/^[a-f0-9-]{36}$/);
     }
     traffic = await startAc043SnapshotTraffic(
-      browser,
+      browserScope,
       sessionTracker,
       snapshot.incidentId,
       snapshot.timelineRows.filter((row) => !excluded.has(row.record_id)),
@@ -285,14 +288,14 @@ async function runReportingProgress(
 }
 
 test("measures snapshot job progress and cancel while Timeline accepts editing", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runReportingProgress(
     "snapshot",
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -300,14 +303,14 @@ test("measures snapshot job progress and cancel while Timeline accepts editing",
   );
 });
 test("measures report job progress and cancel while Timeline accepts editing", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runReportingProgress(
     "report",
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,

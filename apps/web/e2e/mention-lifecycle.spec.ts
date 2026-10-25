@@ -36,6 +36,10 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createViewRow, queryViewRows } from "./support/workbook/query";
 import { openTimelineInspector } from "./support/workbook/rowMutations";
 
@@ -469,9 +473,9 @@ async function routeFailedMentionActionOnce(
       }),
     });
   };
-  await page.route(routePattern, routeHandler);
+  await installOwnedRoute(page, routePattern, routeHandler);
   return async () => {
-    await page.unroute(routePattern, routeHandler);
+    await removeOwnedRoute(page, routePattern, routeHandler);
   };
 }
 

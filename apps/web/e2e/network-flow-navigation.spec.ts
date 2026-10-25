@@ -13,6 +13,11 @@ import {
   importNetworkFlowCSV,
   openClaimedNetworkAnalysis,
 } from "./support/extensions/network_flow_activity/workspace";
+import { responseBarrier } from "./support/runtime/cleanup";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./support/transport/requestInterception";
 
 const graphRoute = /\/network-flow\/graphs\/query$/;
 const contributorRoute = /\/network-flow\/graphs\/contributors\/query$/;
@@ -157,21 +162,22 @@ test("Network Analysis navigates exact temporal contributors and rejects superse
   await expect(vertexControl).toBeFocused();
 
   let release = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
   let fetched = () => {};
-  const ready = new Promise<void>((resolve) => {
-    fetched = resolve;
-  });
-  await page.route(
+  const readyBarrier = responseBarrier(page);
+  fetched = readyBarrier.release;
+  const ready = readyBarrier.promise;
+  await installOwnedRoute(
+    page,
     contributorRoute,
     async (route) => {
       const response = await route.fetch();
       expect(response.status()).toBe(200);
       fetched();
-      await gate;
-      await route.fulfill({ response }).catch(() => {});
+      if (!(await awaitResponseBarrier(route, gate))) return;
+      await route.fulfill({ response });
     },
     { times: 1 },
   );

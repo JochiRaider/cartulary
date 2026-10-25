@@ -2,6 +2,11 @@ import type { ListAdministrativeAuditEventsResponse } from "@cartulary/protocol-
 import { expect, type Locator, type Page } from "@playwright/test";
 import { DeploymentAdministration } from "../pages/deploymentAdministration";
 import { rewriteSessionPresentation } from "./auth/sessionPresentation";
+import type { BarrierOutcome } from "./runtime/cleanup";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+} from "./transport/requestInterception";
 
 export const auditBrowserPath = "/api/v1/administrative-audit-events";
 export const auditBrowserEventId = "00000000-0000-4000-8000-000000002001";
@@ -67,13 +72,7 @@ function auditBrowserEnvelope(
     },
   };
 }
-export function auditBrowserBarrier() {
-  let release = () => {};
-  const promise = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  return { promise, release };
-}
+
 export async function openAdministrativeAudit(page: Page) {
   await page.goto("/deployment-administration");
   await new DeploymentAdministration(page).selectPanel("administrative-audit");
@@ -86,7 +85,7 @@ export async function openAdministrativeAudit(page: Page) {
 /** Deterministic published HTTP projections for presentation and read races. */
 export async function installAuditPresentation(page: Page) {
   let accessReads = 0;
-  await page.route("**/api/v1/auth/session", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/auth/session", async (route) => {
     ++accessReads;
     await rewriteSessionPresentation(route, (session) => ({
       ...session,
@@ -95,19 +94,17 @@ export async function installAuditPresentation(page: Page) {
   });
   let body = auditBrowserEnvelope();
   let status = 200;
-  let gate: Promise<void> | null = null;
+  let gate: Promise<BarrierOutcome> | null = null;
   let error: unknown = null;
   const requests: URL[] = [];
-  await page.route(`**${auditBrowserPath}*`, async (route) => {
+  await installOwnedRoute(page, `**${auditBrowserPath}*`, async (route) => {
     requests.push(new URL(route.request().url()));
     const acceptedBody = error ?? body;
     const acceptedStatus = status;
     const acceptedGate = gate;
     gate = null;
-    if (acceptedGate !== null) await acceptedGate;
-    await route
-      .fulfill({ status: acceptedStatus, json: acceptedBody })
-      .catch(() => {});
+    if (!(await awaitResponseBarrier(route, acceptedGate))) return;
+    await route.fulfill({ status: acceptedStatus, json: acceptedBody });
   });
   return {
     get accessReads() {
@@ -119,7 +116,7 @@ export async function installAuditPresentation(page: Page) {
       status = 200;
       error = null;
     },
-    gateRead(promise: Promise<void>) {
+    gateRead(promise: Promise<BarrierOutcome>) {
       gate = promise;
     },
     fail(code = "service_unavailable", reason?: string) {

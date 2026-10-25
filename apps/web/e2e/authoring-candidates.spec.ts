@@ -20,9 +20,18 @@ import { expect, test } from "./fixtures";
 import { readCurrentSession } from "./support/auth/sessions";
 import { createIncident } from "./support/incidents/fixtures";
 import {
+  type BarrierOutcome,
+  responseBarrier,
+} from "./support/runtime/cleanup";
+import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { openContextualCreationFixture } from "./support/workbook/contextualCreate";
 import {
   authorLiteralMembers,
@@ -79,7 +88,8 @@ test("Literal candidate filters stage exact members and retain contextual select
   const requests: unknown[] = [],
     memberships: string[][] = [];
   let failNext = false;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${f.incident}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       requests.push(route.request().postDataJSON());
@@ -157,7 +167,8 @@ test("Literal Assessment support filters stage exact members and retain selected
   await activateCandidateIdentities(candidates, selected.record_id);
   const requests: unknown[] = [],
     memberships: string[][] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${f.incident}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       requests.push(route.request().postDataJSON());
@@ -310,7 +321,8 @@ test("Party timestamp candidate filters stage explicitly and preserve selected i
   ).toBeAttached();
   await activateCandidateIdentities(select, party.record_id);
   const queries: { filters?: unknown }[] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${f.incident}/views/${partiesViewSchemaId}/query`,
     async (route) => {
       queries.push(route.request().postDataJSON());
@@ -375,7 +387,8 @@ test("Boolean support filters stage typed queries and retain selected identities
     "timeline.activity_synopsis_text",
   );
   let submissions = 0;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${assessmentsViewSchemaId}/rows`,
     async (route) => {
       submissions++;
@@ -415,7 +428,8 @@ test("Boolean support filters stage typed queries and retain selected identities
   const queries: { filters?: unknown }[] = [];
   const accepted: unknown[] = [];
   let failNext = false;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       queries.push(route.request().postDataJSON());
@@ -537,14 +551,16 @@ test("Ordinary reference boolean filtering preserves the selected source until e
   const queries: { filters?: unknown }[] = [];
   const canonical: unknown[] = [];
   let writes = 0;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/records/${f.source.record_id}/linked-notes`,
     async (route) => {
       writes++;
       await route.continue();
     },
   );
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${f.incident}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       queries.push(route.request().postDataJSON());
@@ -611,7 +627,8 @@ test("Assessment Timeline support enum filtering preserves staged selection", as
   let submissions = 0;
   const queries: { filters?: unknown }[] = [];
   let failNext = false;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${assessmentsViewSchemaId}/rows`,
     async (route) => {
       submissions++;
@@ -644,7 +661,8 @@ test("Assessment Timeline support enum filtering preserves staged selection", as
   const second = await chooseFirst(candidates, true);
   expect(second).not.toBe(first);
   await page.setViewportSize({ width: 768, height: 640 });
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       queries.push(route.request().postDataJSON());
@@ -769,7 +787,8 @@ test("Timeline retained Owner reconciles accepted membership labels only on Appl
 }) => {
   const actor = await readCurrentSession(page);
   let writes = 0;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/views/${taskRequestsViewSchemaId}/rows`,
     async (route) => {
       writes++;
@@ -963,7 +982,8 @@ test("Authoring Party pages retain ordinary contextual and related Evidence sele
   );
   const reads: { cursor_token?: string }[] = [];
   let failed = false;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${f.incident}/views/${partiesViewSchemaId}/query`,
     async (route) => {
       const request = route.request().postDataJSON() as {
@@ -1156,14 +1176,15 @@ test("Timeline contextual Party candidate reads keep keyboard focus through pend
   await expect(candidates.getByRole("radio")).toHaveCount(100);
 
   type Gate = {
-    readonly wait: Promise<void>;
+    readonly wait: Promise<BarrierOutcome>;
     readonly requested: () => void;
     readonly fail: boolean;
     readonly release: () => void;
   };
   let queued: Gate | null = null;
   let reads = 0;
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/incidents/${f.incident}/views/${partiesViewSchemaId}/query`,
     async (route) => {
       reads++;
@@ -1171,21 +1192,19 @@ test("Timeline contextual Party candidate reads keep keyboard focus through pend
       queued = null;
       if (gate) {
         gate.requested();
-        await gate.wait;
+        if (!(await awaitResponseBarrier(route, gate.wait))) return;
         if (gate.fail) await route.abort("failed");
         else await route.continue();
       } else await route.continue();
     },
   );
   function hold(fail = false) {
-    let release!: () => void;
-    let requested!: () => void;
-    const wait = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const entered = new Promise<void>((resolve) => {
-      requested = resolve;
-    });
+    const waitBarrier = responseBarrier(page);
+    const release = waitBarrier.release;
+    const wait = waitBarrier.promise;
+    const enteredBarrier = responseBarrier(page);
+    const requested = enteredBarrier.release;
+    const entered = enteredBarrier.promise;
     queued = { wait, requested, fail, release };
     return { entered, release };
   }
@@ -1466,17 +1485,17 @@ test("Note source browsing preserves reviewed identity and text across delayed r
   await f.form
     .getByRole("textbox", { name: "Title", exact: true })
     .fill("Retained Note text");
-  let release = () => {},
-    pending = false;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(
+  let pending = false;
+  const gateBarrier = responseBarrier(page);
+  const release = gateBarrier.release;
+  const gate = gateBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/incidents/${f.incident}/views/${hostsViewSchemaId}/query`,
     async (route) => {
       if (route.request().postDataJSON().cursor_token) {
         pending = true;
-        await gate;
+        if (!(await awaitResponseBarrier(route, gate))) return;
         await route.abort("failed");
       } else await route.continue();
     },
@@ -1522,20 +1541,19 @@ test("Note source browsing preserves reviewed identity and text across delayed r
   ).toHaveValue(hostsViewSchemaId);
   await expect(select.getByRole("radio")).toHaveCount(100);
   await chooseFirst(select);
-  let releaseClosedRead!: () => void;
-  let requestedClosedRead!: () => void;
-  const closedRead = new Promise<void>((resolve) => {
-    releaseClosedRead = resolve;
-  });
-  const closedRequest = new Promise<void>((resolve) => {
-    requestedClosedRead = resolve;
-  });
-  await page.route(
+  const closedReadBarrier = responseBarrier(page);
+  const releaseClosedRead = closedReadBarrier.release;
+  const closedRead = closedReadBarrier.promise;
+  const closedRequestBarrier = responseBarrier(page);
+  const requestedClosedRead = closedRequestBarrier.release;
+  const closedRequest = closedRequestBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/incidents/${f.incident}/views/${hostsViewSchemaId}/query`,
     async (route) => {
       requestedClosedRead();
-      await closedRead;
-      await route.continue().catch(() => {});
+      if (!(await awaitResponseBarrier(route, closedRead))) return;
+      await route.continue();
     },
   );
   const closedRefresh = button(picker, "Refresh candidates");
@@ -1650,19 +1668,18 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
     exact: true,
   });
   await expect(candidates.getByRole("checkbox")).toHaveCount(100);
-  let releaseSupport!: () => void;
-  let requestedSupport!: () => void;
-  const supportGate = new Promise<void>((resolve) => {
-    releaseSupport = resolve;
-  });
-  const supportRequested = new Promise<void>((resolve) => {
-    requestedSupport = resolve;
-  });
-  await page.route(
+  const supportGateBarrier = responseBarrier(page);
+  const releaseSupport = supportGateBarrier.release;
+  const supportGate = supportGateBarrier.promise;
+  const supportRequestedBarrier = responseBarrier(page);
+  const requestedSupport = supportRequestedBarrier.release;
+  const supportRequested = supportRequestedBarrier.promise;
+  await installOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
     async (route) => {
       requestedSupport();
-      await supportGate;
+      if (!(await awaitResponseBarrier(route, supportGate))) return;
       await route.continue();
     },
   );
@@ -1676,7 +1693,8 @@ test("Assessment subjects and Timeline support retain deliberate identities thro
   releaseSupport();
   await expect(supportRefresh).toBeFocused();
   await expect(supportRefresh).toHaveAttribute("aria-busy", "false");
-  await page.unroute(
+  await removeOwnedRoute(
+    page,
     `**/incidents/${incident}/views/${timelineViewSchemaId}/query`,
   );
   const first = await chooseFirst(candidates, true);

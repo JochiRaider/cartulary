@@ -36,6 +36,7 @@ import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import { installOwnedRoute } from "./support/transport/requestInterception";
 import {
   fetchFullRecordHistory,
   openHistoryEventDetails,
@@ -132,7 +133,8 @@ async function exerciseRecovery(
   const before = await fetchFullRecordHistory(page, survivor.record_id);
   const requests: string[] = [];
   const receipts: MergeEntityRecordResponse["data"][] = [];
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/records/${survivor.record_id}/merge`,
     async (route) => {
       const body = route.request().postData();
@@ -234,23 +236,27 @@ async function exerciseRecovery(
   );
   let failRefresh = true;
   let failedRefreshReads = 0;
-  await page.route(`**/views/${viewSchemaId}/query`, async (route) => {
-    if (!failRefresh) return route.continue();
-    failedRefreshReads += 1;
-    await route.fulfill({
-      status: 500,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: {
-          status: 500,
-          code: "internal_error",
-          message: "Deliberate projection refresh loss",
-          request_id: "merge-refresh-loss",
-          retryable: true,
-        },
-      }),
-    });
-  });
+  await installOwnedRoute(
+    page,
+    `**/views/${viewSchemaId}/query`,
+    async (route) => {
+      if (!failRefresh) return route.continue();
+      failedRefreshReads += 1;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: {
+            status: 500,
+            code: "internal_error",
+            message: "Deliberate projection refresh loss",
+            request_id: "merge-refresh-loss",
+            retryable: true,
+          },
+        }),
+      });
+    },
+  );
   await recoveryTrigger.focus();
   await openRecoveryItem(page, /^Entity merge ·/);
   const recovery = page.getByRole("region", {

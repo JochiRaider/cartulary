@@ -11,7 +11,7 @@ import {
   workbookShellReadyTestId,
 } from "@cartulary/ui-contracts";
 import { hostsViewSchemaId } from "@cartulary/view-contracts";
-import type { Browser, Page, TestInfo } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
 import type { FixtureActorCredentials } from "../support/auth/sessions";
 import { readCurrentSession } from "../support/auth/sessions";
 import {
@@ -19,6 +19,7 @@ import {
   prepareAc043Snapshot,
   startAc043SnapshotTraffic,
 } from "../support/performance/ac043Snapshot";
+import type { OwnedBrowserScope } from "../support/runtime/cleanup";
 import { activateCommittedGridCell } from "../support/workbook/rowMutations";
 import { expect, test } from "./fixtures";
 import {
@@ -37,7 +38,7 @@ test.use({
 test.describe.configure({ mode: "serial", timeout: 10 * 60 * 1_000 });
 
 async function runPresenceMeasurement(
-  browser: Browser,
+  browserScope: OwnedBrowserScope,
   page: Page,
   testActor: FixtureActorCredentials,
   sessionTracker: Parameters<typeof startAc043SnapshotTraffic>[1],
@@ -78,7 +79,7 @@ async function runPresenceMeasurement(
       ).toHaveAttribute("data-active-view-schema-id", hostsViewSchemaId);
     }
     traffic = await startAc043SnapshotTraffic(
-      browser,
+      browserScope,
       sessionTracker,
       snapshot.incidentId,
       snapshot.timelineRows.filter((row) => !excluded.has(row.record_id)),
@@ -212,13 +213,13 @@ async function runPresenceMeasurement(
 }
 
 test("measures Timeline surface presence acceptance to remote paint within AC-008", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runPresenceMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -227,13 +228,13 @@ test("measures Timeline surface presence acceptance to remote paint within AC-00
   );
 });
 test("measures Timeline row presence acceptance to remote paint within AC-008", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runPresenceMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,
@@ -242,13 +243,13 @@ test("measures Timeline row presence acceptance to remote paint within AC-008", 
   );
 });
 test("measures Timeline cell presence acceptance to remote paint within AC-008", async ({
-  browser,
+  browserScope,
   page,
   testActor,
   sessionTracker,
 }, info) => {
   await runPresenceMeasurement(
-    browser,
+    browserScope,
     page,
     testActor,
     sessionTracker,

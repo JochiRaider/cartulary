@@ -66,13 +66,18 @@ import {
   hostRefsFieldKey,
 } from "./support/entities/mentions";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { createTimelineFillers } from "./support/timeline/fixtures";
-import { holdBrowserRequest } from "./support/transport/requestInterception";
+import {
+  holdBrowserRequest,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   createViewRow,
   queryViewRows,
@@ -1479,7 +1484,7 @@ test("Timeline modified departure keys leave production editors and capture in p
       method: "POST",
       path: `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/rows`,
     });
-    try {
+    {
       await draft.fill("  exact capture draft  ");
       await held.waitForHit;
       await expect(draft).toBeFocused();
@@ -1497,7 +1502,7 @@ test("Timeline modified departure keys leave production editors and capture in p
       held.release();
       await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
       expect(writes).toHaveLength(baselineWrites);
-    } finally {
+
       await held.dispose();
     }
   } finally {
@@ -2365,11 +2370,10 @@ async function verifyEntityPasteRecovery(
   const path = `/api/v1/incidents/${incidentId}/views/${viewSchemaId}/clipboard-paste`;
   const attempts: string[] = [];
   const changes: string[] = [];
-  let reportLoss!: () => void;
-  const lost = new Promise<void>((resolve) => {
-    reportLoss = resolve;
-  });
-  await page.route(`**${path}`, async (route) => {
+  const lostBarrier = responseBarrier(page);
+  const reportLoss = lostBarrier.release;
+  const lost = lostBarrier.promise;
+  await installOwnedRoute(page, `**${path}`, async (route) => {
     attempts.push(route.request().postData() ?? "");
     const response = await route.fetch();
     expect(response.status()).toBe(200);
@@ -2380,7 +2384,7 @@ async function verifyEntityPasteRecovery(
       reportLoss();
     } else await route.fulfill({ response });
   });
-  try {
+  {
     await target.evaluate((element, value) => {
       const data = new DataTransfer();
       data.setData("text/plain", value);
@@ -2419,8 +2423,8 @@ async function verifyEntityPasteRecovery(
     expect(rows[0]?.row_version).toBe(2);
     expect(attempts).toEqual([attempts[0], attempts[0]]);
     expect(changes).toEqual([changes[0], changes[0]]);
-  } finally {
-    await page.unroute(`**${path}`);
+
+    await removeOwnedRoute(page, `**${path}`);
   }
 }
 

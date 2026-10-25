@@ -25,13 +25,18 @@ import {
 } from "@cartulary/ui-contracts";
 import { timelineViewSchemaId } from "@cartulary/view-contracts";
 import type { Page } from "@playwright/test";
-
 import { expect, test } from "./fixtures";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { createViewRow } from "./support/workbook/query";
 import { clickTimelineRowAction } from "./support/workbook/rowMutations";
 import {
@@ -404,18 +409,16 @@ test("Pending saved-view navigation preserves a Columns click and rejects late a
       navBounds.x,
     );
     expect(navBounds.x + navBounds.width).toBeLessThanOrEqual(saveBounds.x);
-    let release!: () => void;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const heldBarrier = responseBarrier(page);
+    const release = heldBarrier.release;
+    const held = heldBarrier.promise;
     const route = `**/api/v1/incidents/${incidentId}/saved-views/${view.saved_view_id}`;
-    let delivered!: () => void;
-    const delivery = new Promise<void>((resolve) => {
-      delivered = resolve;
-    });
-    await page.route(route, async (request) => {
-      await held;
-      await request.continue().catch(() => {});
+    const deliveryBarrier = responseBarrier(page);
+    const delivered = deliveryBarrier.release;
+    const delivery = deliveryBarrier.promise;
+    await installOwnedRoute(page, route, async (request) => {
+      if (!(await awaitResponseBarrier(request, held))) return;
+      await request.continue();
       delivered();
     });
     try {
@@ -499,9 +502,12 @@ test("Pending saved-view navigation preserves a Columns click and rejects late a
             document.documentElement.scrollWidth <= window.innerWidth,
         ),
       ).toBe(true);
-    } finally {
+
       release();
-      await page.unroute(route);
+
+      await removeOwnedRoute(page, route);
+    } finally {
+      heldBarrier.cancel();
     }
   }
 });

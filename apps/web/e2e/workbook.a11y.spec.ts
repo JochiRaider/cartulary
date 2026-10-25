@@ -178,7 +178,6 @@ import {
   openIncidentFromLanding,
 } from "./pages/incidentDirectory";
 import {
-  auditBrowserBarrier,
   auditBrowserEvent,
   expectAuditControlReachable,
   installAuditPresentation,
@@ -249,7 +248,6 @@ import {
 import {
   expectCreationControlReachable,
   openCreationPresentation,
-  responseBarrier,
 } from "./support/incidents/creation";
 import { createIncident } from "./support/incidents/fixtures";
 import {
@@ -265,8 +263,8 @@ import {
   expectReferencePackControlReachable,
   installReferencePackPresentation,
   openReferencePacks,
-  referencePackBarrier,
 } from "./support/referencePacks";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -274,8 +272,13 @@ import {
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
 import { installIncidentSocketMonitor } from "./support/transport/incidentSocket";
-import { safelyRemoveRoute as safeUnroute } from "./support/transport/requestInterception";
-import { createEnvironmentTestControlClient } from "./support/transport/testControlEnvironment";
+import {
+  awaitResponseBarrier,
+  holdBrowserRequest,
+  installOwnedRoute,
+  installPublicErrorResponse,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import {
   expectCollectionControlPainted,
   showTimelineCollectionColumns,
@@ -2158,35 +2161,6 @@ async function expectEvidenceControlsPainted(page: Page, recordId: string) {
   ).toEqual([]);
 }
 
-async function armA11yPublicErrorFault(
-  page: Page,
-  options: {
-    path: string;
-    reasonCode: "blob_failed" | "evidence_inconsistent" | "unsupported_preview";
-  },
-) {
-  const response = await createEnvironmentTestControlClient(page.request, {
-    endpointOrigin: apiBase,
-  }).request({
-    body: {
-      code: "evidence_access_unavailable",
-      consume_once: true,
-      details: {
-        reason_code: options.reasonCode,
-      },
-      message:
-        "Evidence access failed for browser.evidence-workflow accessibility fixture.",
-      method: "POST",
-      path: options.path,
-      retryable: false,
-      status: 409,
-    },
-    method: "POST",
-    path: "/api/v1/test/runtime/public-error-faults",
-  });
-  expect(response.status).toBe(201);
-}
-
 async function holdSinglePublicAPIResponse(
   page: Page,
   options: {
@@ -2194,41 +2168,7 @@ async function holdSinglePublicAPIResponse(
     path: string;
   },
 ) {
-  const routePattern = `**${options.path}`;
-  const expectedMethod = options.method.toUpperCase();
-  let releaseHold: (() => void) | null = null;
-  let resolveHit: (() => void) | null = null;
-  const waitForHit = new Promise<void>((resolve) => {
-    resolveHit = resolve;
-  });
-  const hold = new Promise<void>((resolve) => {
-    releaseHold = resolve;
-  });
-  let released = false;
-
-  const routeHandler = async (route: Route) => {
-    if (route.request().method().toUpperCase() !== expectedMethod || released) {
-      await route.fallback();
-      return;
-    }
-    released = true;
-    resolveHit?.();
-    await hold;
-    const response = await route.fetch();
-    await route.fulfill({ response });
-  };
-
-  await page.route(routePattern, routeHandler);
-  return {
-    dispose: async () => {
-      releaseHold?.();
-      await safeUnroute(page, routePattern, routeHandler);
-    },
-    release: () => {
-      releaseHold?.();
-    },
-    waitForHit,
-  };
+  return holdBrowserRequest(page, { ...options, once: true });
 }
 
 async function fulfillPublicError(
@@ -2906,7 +2846,7 @@ test("a11y.network-analysis.row-01 Verify claimed Network Analysis incident head
 test.describe("browser.grid-interaction accessibility readiness", () => {
   test(
     gridInteractionAccessibilityScenarioTitles[0],
-    async ({ browser, page, sessionTracker }, testInfo) => {
+    async ({ browserScope, page, sessionTracker }, testInfo) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       const incidentId = await createIncident(
         page,
@@ -3303,7 +3243,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
       ]);
 
       const viewerSession = await openIncidentAsTrackedUserReady(
-        browser,
+        browserScope,
         sessionTracker,
         {
           createdBy: "a11y.grid-interaction.row-01",
@@ -3315,7 +3255,7 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
           userId: viewer.user_id,
         },
       );
-      try {
+      {
         const viewerPage = viewerSession.page;
         await viewerPage
           .getByTestId(gridGroupingSelectTestId(timelineViewSchemaId))
@@ -3390,8 +3330,8 @@ test.describe("browser.grid-interaction accessibility readiness", () => {
           ),
           contentType: "application/json",
         });
-      } finally {
-        await viewerSession.page.context().close();
+
+        await browserScope.closeContext(viewerSession.page.context());
       }
     },
   );
@@ -3507,7 +3447,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
     ).toHaveText("browser.mutation-lifecycle accessibility pasted summary");
 
     const patchController = await installPatchTransportFailureController(page);
-    try {
+    {
       patchController.disconnect();
       const pendingSummary = await activateTimelineGridEditor(
         page,
@@ -3551,8 +3491,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
         pendingReplayCountAttribute,
         "0",
       );
-    } finally {
-      patchController.connect();
+
       await patchController.dispose();
     }
 
@@ -3607,7 +3546,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
     ).toHaveText("not-a-timestamp");
 
     const recoveryController = await installPatchController(page);
-    try {
+    {
       const closeInspector = page.getByTestId(
         workbookInspectorCloseButtonTestId(timelineViewSchemaId),
       );
@@ -3782,7 +3721,7 @@ test.describe("browser.mutation-lifecycle accessibility readiness", () => {
           .locator(":scope > h2"),
       ).toBeFocused();
       expect(recoveryController.calls).toHaveLength(1);
-    } finally {
+
       await recoveryController.dispose();
     }
   });
@@ -4421,9 +4360,12 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
     await expect(previewBlockedMessage).toContainText("No preview");
     await expectNoPrivateDiagnostics(previewBlockedMessage);
 
-    await armA11yPublicErrorFault(page, {
+    await installPublicErrorResponse(page, {
+      method: "POST",
+      status: 409,
+      code: "evidence_access_unavailable",
       path: `/api/v1/evidence-records/${failedHandle.record_id}/preview-handle`,
-      reasonCode: "blob_failed",
+      details: { reason_code: "blob_failed" },
     });
     await (
       await mountedGridTarget(
@@ -4442,9 +4384,12 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
     await expect(failedMessage).toContainText("Upload failed");
     await expectNoPrivateDiagnostics(failedMessage);
 
-    await armA11yPublicErrorFault(page, {
+    await installPublicErrorResponse(page, {
+      method: "POST",
+      status: 409,
+      code: "evidence_access_unavailable",
       path: `/api/v1/evidence-records/${inconsistentHandle.record_id}/preview-handle`,
-      reasonCode: "evidence_inconsistent",
+      details: { reason_code: "evidence_inconsistent" },
     });
     await (
       await mountedGridTarget(
@@ -4526,9 +4471,12 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
         await expect(panel).toHaveCount(0);
         await expect(inspectorPreview).toBeFocused();
         if (width === 768) {
-          await armA11yPublicErrorFault(page, {
+          await installPublicErrorResponse(page, {
+            method: "POST",
+            status: 409,
+            code: "evidence_access_unavailable",
             path: `/api/v1/evidence-records/${availablePreview.record_id}/preview-handle`,
-            reasonCode: "unsupported_preview",
+            details: { reason_code: "unsupported_preview" },
           });
           await inspectorPreview.press("Enter");
           await expect(
@@ -4571,18 +4519,16 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
       await (await chooserPromise).setFiles([]);
 
       // Hold a real issuance response while the user dismisses the pending panel.
-      let release!: () => void;
-      let finished!: () => void;
-      const held = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      const completed = new Promise<void>((resolve) => {
-        finished = resolve;
-      });
+      const heldBarrier = responseBarrier(page);
+      const release = heldBarrier.release;
+      const held = heldBarrier.promise;
+      const completedBarrier = responseBarrier(page);
+      const finished = completedBarrier.release;
+      const completed = completedBarrier.promise;
       const previewPath = `**/api/v1/evidence-records/${availablePreview.record_id}/preview-handle`;
-      await page.route(previewPath, async (route) => {
+      await installOwnedRoute(page, previewPath, async (route) => {
         const response = await route.fetch();
-        await held;
+        if (!(await awaitResponseBarrier(route, held))) return;
         await route.fulfill({ response });
         finished();
       });
@@ -4598,7 +4544,7 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
       await completed;
       await expect(pendingPanel).toHaveCount(0);
       await expect(preview).toBeFocused();
-      await page.unroute(previewPath);
+      await removeOwnedRoute(page, previewPath);
 
       const incidentResponse = await page.request.get(
         `${apiBase}/api/v1/incidents/${incidentId}`,
@@ -4680,7 +4626,7 @@ test.describe("browser.evidence-workflow accessibility readiness", () => {
 test.describe("browser.collaboration accessibility readiness", () => {
   test(
     collaborationAccessibilityScenarioTitles[0],
-    async ({ browser, page, sessionTracker }) => {
+    async ({ browserScope, page, sessionTracker }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       const incidentId = await createIncident(
         page,
@@ -4704,7 +4650,7 @@ test.describe("browser.collaboration accessibility readiness", () => {
       const primarySocket = installIncidentSocketMonitor(page, incidentId);
 
       let remotePage: Page | null = null;
-      try {
+      {
         await page.goto(`/?incident_id=${incidentId}`);
         await expect(
           page.getByTestId(workbookShellReadyTestId()),
@@ -4713,7 +4659,7 @@ test.describe("browser.collaboration accessibility readiness", () => {
         await observeSaveEvents(page);
 
         const remoteSession = await openIncidentAsTrackedUserReady(
-          browser,
+          browserScope,
           sessionTracker,
           {
             createdBy: "a11y.collaboration.row-01",
@@ -5024,9 +4970,10 @@ test.describe("browser.collaboration accessibility readiness", () => {
             name: "Conflict on Activity Synopsis",
           }),
         ).toBeVisible();
-      } finally {
+
         await patchController.dispose();
-        await remotePage?.context().close();
+
+        if (remotePage) await browserScope.closeContext(remotePage.context());
       }
     },
   );
@@ -5405,7 +5352,8 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
       savedViewSetDefaultButtonTestId(timelineViewSchemaId),
       savedViewStatusTestId(timelineViewSchemaId),
     ]);
-    await page.route(
+    await installOwnedRoute(
+      page,
       `**/api/v1/incidents/${incidentId}/saved-views`,
       async (route) => {
         if (route.request().method() !== "POST") {
@@ -5471,7 +5419,7 @@ test.describe("browser.saved-view-query accessibility readiness", () => {
 test.describe("browser.inspector-history accessibility readiness", () => {
   test(
     inspectorConfigurationAccessibilityScenarioTitles[0],
-    async ({ browser, page, sessionTracker }) => {
+    async ({ browserScope, page, sessionTracker }) => {
       await page.setViewportSize({ width: 1440, height: 900 });
       const incidentId = await createIncident(
         page,
@@ -5589,7 +5537,7 @@ test.describe("browser.inspector-history accessibility readiness", () => {
       await expect(deleteButton).toBeFocused();
 
       const viewerSession = await openIncidentAsTrackedUserReady(
-        browser,
+        browserScope,
         sessionTracker,
         {
           createdBy: "a11y.inspector-history.row-02",
@@ -5601,7 +5549,7 @@ test.describe("browser.inspector-history accessibility readiness", () => {
           userId: viewer.user_id,
         },
       );
-      try {
+      {
         const viewerPage = viewerSession.page;
         await viewerPage.setViewportSize({ width: 1024, height: 720 });
         await openTimelineInspector(viewerPage, row.record_id);
@@ -5667,8 +5615,8 @@ test.describe("browser.inspector-history accessibility readiness", () => {
         await viewerPage.evaluate(() => {
           document.documentElement.style.zoom = "100%";
         });
-      } finally {
-        await viewerSession.page.context().close();
+
+        await browserScope.closeContext(viewerSession.page.context());
       }
     },
   );
@@ -5798,23 +5746,26 @@ test.describe("browser.inspector-history accessibility readiness", () => {
     await expectVisibleFocus(rollbackCancel);
     await expectVisibleFocus(rollbackConfirm);
 
-    await page.route(`**/api/v1/records/${row.record_id}/rollback`, (route) =>
-      route.fulfill({
-        contentType: "application/json",
-        status: 409,
-        body: JSON.stringify({
-          error: {
-            status: 409,
-            code: "row_version_conflict",
-            message: "row_version_conflict",
-            request_id: "a11y-inspector-history-conflict",
-            retryable: false,
-            details: {
-              reason_code: "stale_row_version",
+    await installOwnedRoute(
+      page,
+      `**/api/v1/records/${row.record_id}/rollback`,
+      (route) =>
+        route.fulfill({
+          contentType: "application/json",
+          status: 409,
+          body: JSON.stringify({
+            error: {
+              status: 409,
+              code: "row_version_conflict",
+              message: "row_version_conflict",
+              request_id: "a11y-inspector-history-conflict",
+              retryable: false,
+              details: {
+                reason_code: "stale_row_version",
+              },
             },
-          },
+          }),
         }),
-      }),
     );
     await rollbackConfirm.press("Enter");
     const historyMessage = page.getByTestId(rowHistoryMessageTestId());
@@ -6440,15 +6391,13 @@ test.describe("browser.incident-selection accessibility readiness", () => {
     });
 
     await expect(page.getByTestId(authTestId("login-submit"))).toBeDisabled();
-    try {
-      heldSession.release();
-      await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
-        "data-bootstrap-state",
-        "anonymous",
-      );
-    } finally {
-      await heldSession.dispose();
-    }
+    heldSession.release();
+    await expect(page.getByTestId(authTestId("shell"))).toHaveAttribute(
+      "data-bootstrap-state",
+      "anonymous",
+    );
+
+    await heldSession.dispose();
   });
 
   test(
@@ -6517,7 +6466,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
         mfa_required: true,
         is_deployment_admin: false,
       });
-      const secretBase32 = await enrollTotpViaBootstrap(email, password);
+      const secretBase32 = await enrollTotpViaBootstrap(page, email, password);
 
       await clearBrowserSession(page);
       await new AuthGateway(page).goto();
@@ -6807,7 +6756,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       });
     };
 
-    await page.route(routePattern, routeHandler);
+    await installOwnedRoute(page, routePattern, routeHandler);
     await page.goto("/");
     await expect(
       page.getByTestId(incidentLandingTestId("shell")),
@@ -6831,7 +6780,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       tabStops: [incidentLandingTestId("refresh")],
     });
 
-    await safeUnroute(page, routePattern, routeHandler);
+    await removeOwnedRoute(page, routePattern, routeHandler);
     await page.getByTestId(incidentLandingTestId("refresh")).click();
     await expect(page.getByTestId(publicErrorCodeTestId("landing"))).toHaveText(
       "",
@@ -6923,7 +6872,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       });
     };
 
-    await page.route(routePattern, routeHandler);
+    await installOwnedRoute(page, routePattern, routeHandler);
     await page.goto("/");
     await new AccountSettings(page).openSecurity();
     await page.getByTestId(accountTestId("refresh-state")).focus();
@@ -6960,7 +6909,7 @@ test.describe("browser.incident-selection accessibility readiness", () => {
       tabStops: [accountTestId("refresh-state"), accountTestId("logout")],
     });
 
-    await safeUnroute(page, routePattern, routeHandler);
+    await removeOwnedRoute(page, routePattern, routeHandler);
     await page.getByTestId(accountTestId("refresh-state")).click();
     await expect(page.getByTestId(accountTestId("status"))).toHaveText(
       "Refreshed account security.",
@@ -7002,12 +6951,12 @@ test("a11y.incident-creation keyboard feedback and constrained recovery remain r
   await expect(severity).toHaveAccessibleDescription(/shorter|Shorten/);
   await expect(title).toBeFocused();
   await severity.fill("high");
-  const release = responseBarrier();
-  const requested = responseBarrier();
-  await page.route("**/api/v1/incidents", async (route) => {
+  const release = responseBarrier(page);
+  const requested = responseBarrier(page);
+  await installOwnedRoute(page, "**/api/v1/incidents", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     requested.release();
-    await release.promise;
+    if (!(await awaitResponseBarrier(route, release.promise))) return;
     await route.abort("failed");
   });
   await title.press("Enter");
@@ -7464,7 +7413,7 @@ test("a11y.administrative-audit exact filters paging inspection and recovery sta
   await page.setViewportSize({ width: 768, height: 640 });
   await expectAuditControlReachable(page, hide);
   await expectAllInteractiveControlsNamed(page);
-  const gate = auditBrowserBarrier();
+  const gate = responseBarrier(page);
   fixture.fail();
   fixture.gateRead(gate.promise);
   await panel.getByRole("button", { name: "Refresh", exact: true }).click();
@@ -7515,7 +7464,7 @@ test("a11y.reference-packs keyboard selection upload observation and cancellatio
   await page.keyboard.press("Tab");
   const start = panel.getByRole("button", { name: "Import", exact: true });
   await expect(start).toBeFocused();
-  const pending = referencePackBarrier();
+  const pending = responseBarrier(page);
   fixture.gateAdmission(pending.promise);
   fixture.failAdmission(true);
   await page.keyboard.press("Enter");
@@ -7549,7 +7498,7 @@ test("a11y.reference-packs keyboard selection upload observation and cancellatio
   await page.setViewportSize({ width: 768, height: 640 });
   await expectReferencePackControlReachable(page, retry);
   await expectAllInteractiveControlsNamed(page);
-  const failedRetry = referencePackBarrier();
+  const failedRetry = responseBarrier(page);
   fixture.gateAdmission(failedRetry.promise);
   const admissionsBeforeRetry = fixture.admissions.length;
   await page.keyboard.press("Enter");
@@ -7644,7 +7593,7 @@ test("a11y.incident-import upload recovery progress and cancellation remain keyb
     buffer: Buffer.from("presentation fixture"),
   });
   fixture.failAdmission(true);
-  const pending = responseBarrier();
+  const pending = responseBarrier(page);
   fixture.gateAdmission(pending.promise);
   await start.focus();
   await page.keyboard.press("Enter");
@@ -7712,7 +7661,7 @@ test("a11y.incident-import upload recovery progress and cancellation remain keyb
   await expect(cancel).toBeEnabled();
   await expectImportControlReachable(page, cancel);
   await expectVisibleFocus(cancel);
-  const checking = responseBarrier();
+  const checking = responseBarrier(page);
   fixture.gateReads(checking.promise);
   await page.keyboard.press("Enter");
   await expect(cancel).toHaveAttribute("aria-busy", "true");
@@ -8099,13 +8048,17 @@ test("a11y.lifecycle multiline reason inline review exact recovery and departure
   await expectLifecycleControlReachable(page, confirm);
   await spacing.evaluate((e) => e.parentNode?.removeChild(e));
   let requests = 0;
-  await page.route(`**/api/v1/incidents/${incidentId}/close`, async (route) => {
-    ++requests;
-    const response = await route.fetch();
-    expect(response.status()).toBe(200);
-    if (requests === 1) await route.abort("failed");
-    else await route.fulfill({ response });
-  });
+  await installOwnedRoute(
+    page,
+    `**/api/v1/incidents/${incidentId}/close`,
+    async (route) => {
+      ++requests;
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      if (requests === 1) await route.abort("failed");
+      else await route.fulfill({ response });
+    },
+  );
   await confirm.focus();
   await page.keyboard.press("Enter");
   await expect(panel.getByText(/Close result is uncertain/u)).toBeVisible();
@@ -8184,7 +8137,8 @@ test("a11y.preferences independent clear and recovery controls preserve keyboard
     page.getByTestId(workbookPreferenceTestId("home", "outcome")),
   ).toHaveText("Home clear confirmed.");
   await expect(home).toBeFocused();
-  await page.route(
+  await installOwnedRoute(
+    page,
     `**/api/v1/incidents/${incidentId}/workbook-preferences/me`,
     async (route) => {
       if (route.request().method() === "PUT") {
@@ -9757,7 +9711,7 @@ test("a11y.coordination all target fields source review and uncertain recovery s
   };
   await checkRecoveryControls();
   const refreshPath = `**/incidents/${f.incident}/views/${f.target.viewSchemaId}/query`;
-  await page.route(refreshPath, (route) => route.abort("failed"));
+  await installOwnedRoute(page, refreshPath, (route) => route.abort("failed"));
   let creations = 0;
   page.on("request", (request) => {
     if (
@@ -9785,7 +9739,7 @@ test("a11y.coordination all target fields source review and uncertain recovery s
       .locator(":scope > h2"),
   ).toBeFocused();
   await checkRecoveryControls();
-  await page.unroute(refreshPath);
+  await removeOwnedRoute(page, refreshPath);
   await retryRefresh.click();
   await expect(retained).not.toBeVisible();
   expect(creations).toBe(1);
@@ -9834,16 +9788,15 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
   const path = `**/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/clipboard-paste`;
   let fail = true;
   const attempts: string[] = [];
-  let releaseReplay!: () => void;
-  const replayGate = new Promise<void>((resolve) => {
-    releaseReplay = resolve;
-  });
-  await page.route(path, async (route) => {
+  const replayGateBarrier = responseBarrier(page);
+  const releaseReplay = replayGateBarrier.release;
+  const replayGate = replayGateBarrier.promise;
+  await installOwnedRoute(page, path, async (route) => {
     attempts.push(route.request().postData() ?? "");
     const response = await route.fetch();
     if (fail) await route.abort("connectionfailed");
     else {
-      await replayGate;
+      if (!(await awaitResponseBarrier(route, replayGate))) return;
       await route.fulfill({ response });
     }
   });
@@ -9972,8 +9925,10 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
           element.parentNode?.removeChild(element),
         );
     }
-  } finally {
+
     releaseReplay();
+  } finally {
+    replayGateBarrier.cancel();
     await page.evaluate(() => {
       document.documentElement.style.zoom = "";
     });
@@ -10069,7 +10024,7 @@ test("a11y.workbook-batch retained paste retry remains reachable across narrow l
     .getByRole("button", { name: "Close recovery", exact: true })
     .press("Escape");
   await expect(trigger).toBeFocused();
-  await page.unroute(path);
+  await removeOwnedRoute(page, path);
 });
 
 test("a11y.evidence-file-recovery keeps stage recovery local reachable and keyboard operable", async ({
@@ -10086,7 +10041,7 @@ test("a11y.evidence-file-recovery keeps stage recovery local reachable and keybo
     "timeline.activity_synopsis_text": "Original recovery source",
   });
   let slots = 0;
-  await page.route("**/api/v1/object-blobs", async (route) => {
+  await installOwnedRoute(page, "**/api/v1/object-blobs", async (route) => {
     slots++;
     const response = await route.fetch();
     expect(response.ok()).toBeTruthy();
@@ -10863,13 +10818,13 @@ test("a11y.evidence-verification exposes compact progress and keyboard cancellat
     "timeline.activity_synopsis_text": "Verification source",
   });
   let release = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route("**/api/v1/jobs/*", async (route) => {
+  const gateBarrier = responseBarrier(page);
+  release = gateBarrier.release;
+  const gate = gateBarrier.promise;
+  await installOwnedRoute(page, "**/api/v1/jobs/*", async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     const response = await route.fetch();
-    await gate;
+    if (!(await awaitResponseBarrier(route, gate))) return;
     await route.fulfill({ response });
   });
   try {
@@ -10950,8 +10905,9 @@ test("a11y.evidence-verification exposes compact progress and keyboard cancellat
     await response;
     release();
     await expect(cancel).toHaveCount(0);
-  } finally {
+
     release();
-    await page.unrouteAll({ behavior: "wait" });
+  } finally {
+    gateBarrier.cancel();
   }
 });

@@ -59,14 +59,21 @@ export function startFrontendPublication(measurement, { environment = process.en
     }
   })();
   const finished = (async () => {
+    let primary;
     try {
       if (registrationError) throw registrationError;
       const outcome = await closed;
       if (outcome.code !== 0 || outcome.signal || outputTruncated) {
         throw new Error(`Independent frontend Make build failed: code=${outcome.code} signal=${outcome.signal ?? "none"} output_truncated=${outputTruncated}\n${redactString(output).slice(-8192)}`);
       }
-      return path.join(results, runID);
-    } finally { await stop(); }
+    } catch (error) { primary = error; }
+    try { await stop(); }
+    catch (cleanup) {
+      if (primary) throw new AggregateError([primary, cleanup], "Independent frontend publication and cleanup failed", { cause: primary });
+      throw cleanup;
+    }
+    if (primary) throw primary;
+    return path.join(results, runID);
   })();
   finished.catch(() => {});
   return { finished, stop };

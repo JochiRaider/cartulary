@@ -2,7 +2,6 @@ import { incidentLandingTestId } from "@cartulary/ui-contracts";
 import { expect, test } from "./fixtures";
 import { openIncidentControls } from "./pages/deploymentAdministration";
 import { openIncidentFromLanding } from "./pages/incidentDirectory";
-import { auditBrowserBarrier } from "./support/administrativeAudit";
 import { csrfHeaders } from "./support/auth/browserSession";
 import { createDeploymentUser } from "./support/auth/deploymentUsers";
 import {
@@ -12,6 +11,7 @@ import {
 } from "./support/incidentMembershipManagement";
 import { createIncident } from "./support/incidents/fixtures";
 import { createIncidentMemberUser } from "./support/incidents/memberships";
+import { responseBarrier } from "./support/runtime/cleanup";
 import { apiBase } from "./support/runtime/configuration";
 import {
   uniqueEmail,
@@ -163,7 +163,7 @@ test("membership management separates confirmed refresh failure exact create rep
       .fill("existing@example.test");
   };
   await add();
-  const pending = auditBrowserBarrier();
+  const pending = responseBarrier(page);
   fixture.gateWrite(pending.promise);
   fixture.mutation(201, membershipBrowserMember(fixture.incidentId));
   await panel
@@ -270,7 +270,7 @@ test("membership management retains pending work on close and requires deliberat
       name: /^Remove incident access for Response analyst/u,
     })
     .click();
-  const pending = auditBrowserBarrier();
+  const pending = responseBarrier(page);
   fixture.gateWrite(pending.promise);
   fixture.mutation(204);
   await panel

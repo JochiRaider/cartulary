@@ -313,6 +313,9 @@ test("browser fixture startup failure and absent terminal evidence fail with red
     args: ["-e", `process.stderr.write(process.env.FIXTURE_PASSWORD + ': startup failed\\n'); process.exitCode = 1;`, "--"],
     env: { ...process.env, FIXTURE_PASSWORD: "startup-private-value" },
   });
+  // Readiness may reject before a dependent browser fixture starts awaiting it.
+  // The original rejection must remain observable without an unhandled promise.
+  await new Promise((resolve) => setTimeout(resolve, 100));
   await assert.rejects(startup.ready, (error) => {
     assert.match(error.message, /startup failed/);
     assert.doesNotMatch(error.message, /startup-private-value/);

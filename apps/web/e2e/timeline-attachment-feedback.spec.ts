@@ -7,10 +7,16 @@ import { expect, test } from "./fixtures";
 import { installVisualPreferences } from "./support/auth/visualPreferences";
 import { openTimelineAttachmentFeedback } from "./support/evidence/uploads";
 import { createIncident } from "./support/incidents/fixtures";
+import { responseBarrier } from "./support/runtime/cleanup";
 import {
   uniqueIncidentKey,
   uniqueTxn,
 } from "./support/runtime/fixtureIdentity";
+import {
+  awaitResponseBarrier,
+  installOwnedRoute,
+  removeOwnedRoute,
+} from "./support/transport/requestInterception";
 import { expectDecisionControlReachable } from "./support/workbook/decisionSupersession";
 import { createViewRow } from "./support/workbook/query";
 
@@ -235,13 +241,13 @@ test("Timeline attachment feedback keeps completed history bounded and presentat
     if (!source) throw new Error("Missing upload source");
     let release = () => {};
     let transfers = 0;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const heldBarrier = responseBarrier(page);
+    release = heldBarrier.release;
+    const held = heldBarrier.promise;
     const path = "**/api/v1/object-uploads/*";
-    await page.route(path, async (route) => {
+    await installOwnedRoute(page, path, async (route) => {
       transfers++;
-      await held;
+      if (!(await awaitResponseBarrier(route, held))) return;
       await route.continue();
     });
     let beforeAcceptance: Observation | null = null;
@@ -378,14 +384,16 @@ test("Timeline attachment feedback keeps completed history bounded and presentat
       beforeAcceptance = (
         await capture(page, info, `${density}-before-acceptance`)
       ).observations;
-    } finally {
+
       release();
+    } finally {
+      heldBarrier.cancel();
     }
     await expect(trigger).toHaveText(
       "Attachments: 0 need attention, 0 in progress, 4 completed",
     );
     await expect(trigger).toBeFocused();
-    await page.unroute(path);
+    await removeOwnedRoute(page, path);
     const accepted = await capture(page, info, `${density}-all-completed`);
     if (!beforeAcceptance) throw new Error("Missing held-write observation");
     expect(accepted.observations.presentations).toBeGreaterThan(
@@ -398,11 +406,11 @@ test("Timeline attachment feedback keeps completed history bounded and presentat
     if (!row) throw new Error("Missing repeated source");
     // A new attachment on the same source has fresh identity and visible progress.
     let finish = () => {};
-    const repeated = new Promise<void>((resolve) => {
-      finish = resolve;
-    });
-    await page.route(path, async (route) => {
-      await repeated;
+    const repeatedBarrier = responseBarrier(page);
+    finish = repeatedBarrier.release;
+    const repeated = repeatedBarrier.promise;
+    await installOwnedRoute(page, path, async (route) => {
+      if (!(await awaitResponseBarrier(route, repeated))) return;
       await route.continue();
     });
     try {
@@ -424,6 +432,6 @@ test("Timeline attachment feedback keeps completed history bounded and presentat
     await expect(trigger).toHaveText(
       "Attachments: 0 need attention, 0 in progress, 4 completed",
     );
-    await page.unroute(path);
+    await removeOwnedRoute(page, path);
   }
 });

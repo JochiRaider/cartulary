@@ -32,11 +32,34 @@ type CreateObserver func(client.ContainerCreateOptions)
 
 type observedClient struct {
 	client.APIClient
-	observe CreateObserver
+	observe        CreateObserver
+	awaitingTarget bool
+	targetBound    bool
+	targetConfig   *dockercontainer.Config
 }
 
-func (c observedClient) ContainerCreate(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
-	c.observe(options)
+func (c *observedClient) beginObservation(context.Context, testcontainers.ContainerRequest) error {
+	c.awaitingTarget = true
+	return nil
+}
+
+func (c *observedClient) endObservation() {
+	c.awaitingTarget, c.targetBound = false, false
+	c.targetConfig, c.observe = nil, nil
+}
+
+func (c *observedClient) ContainerCreate(ctx context.Context, options client.ContainerCreateOptions) (client.ContainerCreateResult, error) {
+	// The request's final pre-create hook arms this boundary after provider
+	// normalization and any auxiliary setup. Keep identity after the first call
+	// so a repeated target create remains visible, while reaper/sidecar requests
+	// on the same provider cannot overwrite this allocation's observation.
+	if c.awaitingTarget {
+		c.awaitingTarget, c.targetBound = false, true
+		c.targetConfig = options.Config
+	}
+	if c.targetBound && options.Config == c.targetConfig {
+		c.observe(options)
+	}
 	return c.APIClient.ContainerCreate(ctx, options)
 }
 
@@ -90,7 +113,12 @@ func GenericContainerObserved(ctx context.Context, req testcontainers.GenericCon
 		api = installedClient{api}
 	}
 	if observe != nil {
-		api = observedClient{api, observe}
+		observed := &observedClient{APIClient: api, observe: observe}
+		req.LifecycleHooks = append(req.LifecycleHooks, testcontainers.ContainerLifecycleHooks{
+			PreCreates: []testcontainers.ContainerRequestHook{observed.beginObservation},
+		})
+		defer observed.endObservation()
+		api = observed
 	}
 	provider.SetClient(api)
 	container, err := provider.CreateContainer(ctx, req.ContainerRequest)
