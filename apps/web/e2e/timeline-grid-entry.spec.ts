@@ -433,6 +433,11 @@ test("Timeline row actions preserve native authoring and dismiss to the semantic
   ).toBe(true);
   // Role downgrades are observed through the existing action authorization
   // revalidation; no menu-specific polling or authority source is introduced.
+  const authorityRefresh = await holdBrowserRequest(page, {
+    method: "POST",
+    path: `/api/v1/incidents/${incidentId}/views/${timelineViewSchemaId}/query`,
+    once: true,
+  });
   const denied = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
@@ -442,9 +447,19 @@ test("Timeline row actions preserve native authoring and dismiss to the semantic
   expect((await denied).status()).toBe(403);
   await expect(otherMenu).toHaveCount(0);
   await expect(page.getByTestId(timelineInspectorTestId())).toBeVisible();
-  // The denial starts an asynchronous authority refresh. Reopen only after
-  // the viewer state is presented; that scope change dismisses an older menu.
+  // Read-only presentation precedes acceptance of the replacement query.
+  // Its canonical scope retires an older menu, so settle both before reopening.
+  expect(await authorityRefresh.waitForHit).toBe("released");
   await expect(cell(page, otherId)).toHaveAttribute("aria-readonly", "true");
+  const browsingStatus = page
+    .getByRole("group", { name: "Workbook browsing", exact: true })
+    .getByRole("status");
+  await expect(browsingStatus).toHaveText("Loading records…");
+  authorityRefresh.release();
+  await expect(browsingStatus).toHaveText(
+    /^\d+ records loaded; end of current results\.$/,
+  );
+  await authorityRefresh.dispose();
   await cell(page, otherId).focus();
   await expect(cell(page, otherId)).toBeFocused();
   await page.keyboard.press("Shift+F10");
